@@ -154,6 +154,21 @@ class PatientPortalStaffContextUnitTest {
         }
 
         @Test
+        @DisplayName("should count characters as the portal does, not UTF-16 units")
+        void shouldAcceptName_whenSupplementaryCharactersStayWithinTheLimit() {
+            // U+20B9F takes two UTF-16 units but is one character to the portal (Python len).
+            String name = "\uD842\uDF9F".repeat(PatientPortalStaffContext.MAX_ACTOR_LENGTH);
+
+            PatientPortalStaffContext staff = new PatientPortalStaffContext(PROVIDER_ID, name, ONE_PERMISSION);
+
+            assertThat(staff.providerName().codePointCount(0, staff.providerName().length()))
+                    .isEqualTo(PatientPortalStaffContext.MAX_ACTOR_LENGTH);
+            assertThatThrownBy(() -> new PatientPortalStaffContext(PROVIDER_ID, name + "x", ONE_PERMISSION))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("exceeds");
+        }
+
+        @Test
         @DisplayName("should trim surrounding whitespace from the identity")
         void shouldTrimIdentity_whenValuesArePadded() {
             PatientPortalStaffContext staff =

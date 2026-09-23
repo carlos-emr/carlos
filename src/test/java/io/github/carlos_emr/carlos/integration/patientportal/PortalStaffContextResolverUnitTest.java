@@ -61,10 +61,12 @@ class PortalStaffContextResolverUnitTest {
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        Provider provider = mock(Provider.class);
+        // A real Provider, so the name comes from getFormattedName() as it does in production.
+        Provider provider = new Provider(PROVIDER_NO);
+        provider.setLastName("Example");
+        provider.setFirstName("Dana");
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         when(loggedInInfo.getLoggedInProvider()).thenReturn(provider);
-        when(provider.getFormattedName()).thenReturn("Dr Example");
         resolver = new PortalStaffContextResolver(securityInfoManager);
     }
 
@@ -179,13 +181,25 @@ class PortalStaffContextResolverUnitTest {
         PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
         assertThat(staff.providerId()).isEqualTo(PROVIDER_NO);
-        assertThat(staff.providerName()).isEqualTo("Dr Example");
+        assertThat(staff.providerName()).isEqualTo("Example, Dana");
     }
 
     @Test
     @DisplayName("should fall back to the provider number when no name is on the session")
     void shouldFallBackToProviderNumber_whenNoDisplayNameIsAvailable() {
         when(loggedInInfo.getLoggedInProvider()).thenReturn(null);
+        grant(PortalStaffContextResolver.OBJECT_INVITE);
+
+        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
+
+        assertThat(staff.providerName()).isEqualTo(PROVIDER_NO);
+    }
+
+    @Test
+    @DisplayName("should fall back to the provider number when the provider record lacks a name")
+    void shouldFallBackToProviderNumber_whenTheNameIsIncomplete() {
+        // getFormattedName() would render this as "null, Dana" in the portal's audit record.
+        loggedInInfo.getLoggedInProvider().setLastName(null);
         grant(PortalStaffContextResolver.OBJECT_INVITE);
 
         PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
@@ -237,19 +251,34 @@ class PortalStaffContextResolverUnitTest {
                 .hasMessageContaining("unsupported security object");
     }
 
+    /**
+     * The patient-scoped answer is authoritative. {@code SecurityInfoManager} already falls back to the
+     * general grant when no rule names this patient, so the resolver must never OR the general answer
+     * back in: that would override a rule that denies this patient specifically.
+     */
     @Test
+    @DisplayName("should honour a rule denying this patient even when the object is granted in general")
     void shouldNotInheritGlobalGrant_overScopedDenial() {
         grant(PortalStaffContextResolver.OBJECT_INVITE);
+        // A patient-specific rule denies it: the manager's scoped answer is false.
+        when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(false);
+
         assertThatThrownBy(() -> resolver.resolveForPatient(loggedInInfo,
                 Set.of(PortalStaffContextResolver.OBJECT_INVITE), 123))
                 .isInstanceOf(SecurityException.class);
     }
 
     @Test
+    @DisplayName("should grant what the manager allows for this patient, including a general grant it falls back to")
     void shouldUseOnlyPermissions_grantedForThatPatient() {
-        grant(PortalStaffContextResolver.OBJECT_SECRET);
+        // The manager falls back to the general grant for invite (no rule names this patient), while a
+        // patient-specific rule denies secret: only invite reaches the portal.
+        grant(PortalStaffContextResolver.OBJECT_INVITE, PortalStaffContextResolver.OBJECT_SECRET);
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), eq("123"))).thenReturn(false);
         when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
                 eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
+
         assertThat(resolver.resolveForPatient(loggedInInfo, ALL_OBJECTS, 123).permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
     }

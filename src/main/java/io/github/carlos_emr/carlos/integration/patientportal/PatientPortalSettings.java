@@ -92,9 +92,15 @@ public record PatientPortalSettings(
     private static final String REQUIRED_SCHEME_PREFIX = "https://";
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000L;
     private static final long DEFAULT_READ_TIMEOUT_MS = 15000L;
-    /** Matches {@code MAX_CLINIC_ID_LENGTH} in the portal's configuration and database models. */
-    private static final int MAX_CLINIC_ID_LENGTH = 64;
+    /**
+     * Matches {@code MAX_CONFIG_CLINIC_ID_LENGTH} in the portal's {@code config.py}. Every call must
+     * carry exactly the portal's configured clinic id, and the portal accepts only 1 to 20 characters
+     * there; its database column is wider (64), but no configured id can use the extra room. Checking
+     * 20 here makes a mistyped id fail when CARLOS reads its settings instead of on every call.
+     */
+    private static final int MAX_CLINIC_ID_LENGTH = 20;
     private static final int MIN_SERVICE_TOKEN_LENGTH = 32;
+    static final Duration MAX_REQUEST_TIMEOUT = PortalStaffAssertionSigner.LIFETIME.minusSeconds(1);
 
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
@@ -109,7 +115,7 @@ public record PatientPortalSettings(
     private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
     private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
     private static final String CLINIC_ID_MESSAGE =
-            "%s must contain 1 to 64 ASCII letters, digits, dots, underscores, or hyphens";
+            "%s must contain 1 to 20 ASCII letters, digits, dots, underscores, or hyphens";
     private static final String SERVICE_TOKEN_MESSAGE =
             "%s must contain at least 32 visible ASCII characters";
     private static final String DESCRIPTION =
@@ -219,10 +225,12 @@ public record PatientPortalSettings(
         requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
         requirePositive(readTimeout, READ_TIMEOUT_KEY);
         requirePositive(requestTimeout, REQUEST_TIMEOUT_KEY);
-        // Keep the complete exchange inside the assertion's validity window.
-        if (requestTimeout.compareTo(PortalStaffAssertionSigner.LIFETIME) >= 0) {
-            throw new PatientPortalConfigurationException(
-                    REQUEST_TIMEOUT_KEY + " must be less than 60000 milliseconds");
+        // Keep the complete exchange inside the assertion's validity window. The assertion's times are
+        // whole seconds, rounded down, so it can expire up to a second earlier than LIFETIME after the
+        // request starts; the deadline keeps that second in hand.
+        if (requestTimeout.compareTo(MAX_REQUEST_TIMEOUT) > 0) {
+            throw new PatientPortalConfigurationException(REQUEST_TIMEOUT_KEY + " must be at most "
+                    + MAX_REQUEST_TIMEOUT.toMillis() + " milliseconds");
         }
         if (certificatePins == null || certificatePins.isEmpty()) {
             throw new PatientPortalConfigurationException(

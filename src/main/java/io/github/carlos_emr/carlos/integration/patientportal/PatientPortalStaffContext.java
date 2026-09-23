@@ -104,22 +104,23 @@ public record PatientPortalStaffContext(
      */
     public PatientPortalStaffContext {
         if (providerId == null || providerId.isBlank()) {
-            throw new IllegalArgumentException(BLANK_PROVIDER_ID);
+            throw new PortalRequestPreparationException(BLANK_PROVIDER_ID);
         }
         if (providerName == null || providerName.isBlank()) {
-            throw new IllegalArgumentException(BLANK_PROVIDER_NAME);
+            throw new PortalRequestPreparationException(BLANK_PROVIDER_NAME);
         }
         if (permissions == null || permissions.isEmpty()) {
-            throw new IllegalArgumentException(NO_PERMISSIONS);
+            throw new PortalRequestPreparationException(NO_PERMISSIONS);
         }
         if (permissions.size() > MAX_PERMISSION_COUNT) {
-            throw new IllegalArgumentException(
+            throw new PortalRequestPreparationException(
                     String.format(Locale.ROOT, TOO_MANY_PERMISSIONS, MAX_PERMISSION_COUNT));
         }
         providerId = providerId.strip();
         providerName = providerName.strip();
-        if (providerId.length() > MAX_ACTOR_LENGTH || providerName.length() > MAX_ACTOR_LENGTH) {
-            throw new IllegalArgumentException(
+        // The portal counts characters (Python len), not UTF-16 units, so count code points too.
+        if (codePoints(providerId) > MAX_ACTOR_LENGTH || codePoints(providerName) > MAX_ACTOR_LENGTH) {
+            throw new PortalRequestPreparationException(
                     String.format(Locale.ROOT, ACTOR_TOO_LONG, MAX_ACTOR_LENGTH));
         }
         // The portal rejects controls after verifying the assertion. Refuse them before signing so
@@ -129,24 +130,24 @@ public record PatientPortalStaffContext(
         Set<String> normalized = new LinkedHashSet<>();
         for (String permission : permissions) {
             if (permission == null || permission.isBlank()) {
-                throw new IllegalArgumentException(NO_PERMISSIONS);
+                throw new PortalRequestPreparationException(NO_PERMISSIONS);
             }
             String stripped = permission.strip();
             if (stripped.length() > MAX_PERMISSION_LENGTH) {
-                throw new IllegalArgumentException(
+                throw new PortalRequestPreparationException(
                         String.format(Locale.ROOT, PERMISSION_TOO_LONG, MAX_PERMISSION_LENGTH));
             }
             // Keep a specific diagnostic for the most likely separator mistake; the portal's
             // signed-assertion permission validator rejects commas as well.
             if (stripped.indexOf(',') >= 0) {
-                throw new IllegalArgumentException(PERMISSION_HAS_COMMA);
+                throw new PortalRequestPreparationException(PERMISSION_HAS_COMMA);
             }
             rejectControlCharacters(stripped);
             if (!isPortalPermission(stripped)) {
-                throw new IllegalArgumentException(INVALID_PERMISSION);
+                throw new PortalRequestPreparationException(INVALID_PERMISSION);
             }
             if (!SUPPORTED_PERMISSIONS.contains(stripped)) {
-                throw new IllegalArgumentException(UNSUPPORTED_PERMISSION);
+                throw new PortalRequestPreparationException(UNSUPPORTED_PERMISSION);
             }
             normalized.add(stripped);
         }
@@ -167,10 +168,14 @@ public record PatientPortalStaffContext(
         return true;
     }
 
+    private static int codePoints(String value) {
+        return value.codePointCount(0, value.length());
+    }
+
     private static void rejectControlCharacters(String value) {
         for (int index = 0; index < value.length(); index++) {
             if (Character.isISOControl(value.charAt(index))) {
-                throw new IllegalArgumentException(CONTROL_CHARACTER);
+                throw new PortalRequestPreparationException(CONTROL_CHARACTER);
             }
         }
     }

@@ -21,34 +21,24 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+
 import java.io.Serial;
 
 /**
- * The portal answered with a body that does not match the contract CARLOS was built against.
+ * CARLOS refused to build a portal request from its own data, so nothing was sent: a provider
+ * name the portal cannot accept, a permission set outside the contract, a malformed identifier.
  *
- * <p>Package-private by intent: {@link PatientPortalService} catches this and re-raises it as a
- * {@link PatientPortalException} with {@link PatientPortalException.Kind#MALFORMED_RESPONSE}, so
- * callers branch on one exception type. Letting a raw parse failure escape — which an earlier
- * revision did for a malformed timestamp — bypasses the {@code Kind} contract the package is built
- * around and surfaces as a generic CARLOS error page.
+ * <p>A dedicated type lets the web boundary answer these as a 400 without also swallowing an
+ * unrelated {@link IllegalArgumentException}, which is a programming error and must stay a 500.
+ * Messages are fixed text naming the rule, never the rejected value.
  *
- * <p>Messages name the offending field only, never its value, because portal payloads carry patient
- * contact details.
- *
- * @since 2026-08-19
+ * @since 2026-09-23
  */
-class PortalContractException extends RuntimeException {
-
+public final class PortalRequestPreparationException extends IllegalArgumentException {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    PortalContractException(String message) {
+    public PortalRequestPreparationException(String message) {
         super(message);
     }
-
-    /** Keeps the transport failure that detected the violation; its message names no portal data. */
-    PortalContractException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
 }

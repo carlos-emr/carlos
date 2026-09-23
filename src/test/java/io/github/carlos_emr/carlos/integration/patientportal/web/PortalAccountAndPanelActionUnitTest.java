@@ -233,6 +233,22 @@ class PortalAccountAndPanelActionUnitTest {
         }
 
         @Test
+        @DisplayName("should refuse a reason longer than the portal accepts, and say why")
+        void shouldRefuseDisable_whenTheReasonIsTooLong() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "r".repeat(PortalAccount2Action.MAX_REASON_LENGTH + 1));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("at most 64 characters");
+            verify(patientPortalService, never())
+                    .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
+                            anyString(), any());
+        }
+
+        @Test
         @DisplayName("should disable with the supplied reason")
         void shouldDisableAccount_whenReasonIsGiven() throws Exception {
             request.setParameter("method", "access");
@@ -372,13 +388,19 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should refuse a provider holding neither portal object")
         void shouldRefuseInJson_whenProviderMayReadNeitherSection() throws Exception {
             request.setMethod("GET");
-            when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
-                    .thenReturn(false);
+            // The patient record stays readable, so only the neither-section gate can refuse.
+            when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
+                    anyString(), eq(String.valueOf(DEMOGRAPHIC_NO)))).thenReturn(false);
+            when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                    anyString(), eq(String.valueOf(DEMOGRAPHIC_NO)))).thenReturn(false);
 
             panelAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(response.getContentAsString()).contains("not_permitted");
+            verify(securityInfoManager).hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                    eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO)));
+            verifyNoInteractions(patientPortalService);
         }
 
         @Test
