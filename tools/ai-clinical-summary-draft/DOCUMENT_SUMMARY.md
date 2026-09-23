@@ -128,7 +128,9 @@ The balanced workflow passed the Python suite (162 tests) and the isolated brows
 points in 11.07 seconds). On ten synthetic patients, all drafts passed structural/provenance,
 protected-passage and model-review checks, with a median point length of 72% of source words and
 15.76-second median generation time. This is a reading-volume proxy, not clinical validation or
-measured reading time. See [the full results](DOCUMENT_BALANCED.md).
+measured reading time. See [the full results](DOCUMENT_BALANCED.md). A subsequent
+[overview-and-facts experiment](DOCUMENT_FACTS.md) adds a local table preview and comparison mode;
+it is not adopted by the gateway. The expanded Python suite has 171 passing tests.
 
 ### Historical exploratory live results, 2026-09-23
 

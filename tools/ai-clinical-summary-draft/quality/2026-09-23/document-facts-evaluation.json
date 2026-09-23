@@ -1,0 +1,500 @@
+{
+  "date": "2026-09-23",
+  "candidate": "facts",
+  "adopted": false,
+  "gateway_default": "balanced-reviewed",
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "started_at": "2026-09-23T19:30:14.812321+00:00",
+  "finished_at": "2026-09-23T19:39:10.254693+00:00",
+  "source_selection": "Longest note for each NHSSYN004\u2013013, reused development cases; one completed attempt per mode/case, alternating order except the separately resumed NHSSYN009 baseline.",
+  "caveats": [
+    "Model approval and mechanical validation are not clinical accuracy or completeness. Manually observed errors remain in accepted drafts.",
+    "Point words include synopsis and category labels; exclude closed evidence and shared UI. Not measured reading time.",
+    "Mode length statistics include only accepted outputs. Use paired_accepted_summary for comparisons on the same cases.",
+    "Time medians include completed failures. One interrupted balanced attempt has unknown duration/usage and is separately recorded, not counted as a completed success.",
+    "Rate limiting, changing provider latency, one repeat per case and the interruption limit speed conclusions.",
+    "Hosted cost is reported usage for completed responses; failed/interrupted costs may not be included.",
+    "Initial development pilot and final comparison are separate runs; pilot findings are not silently attributed to the final paired output."
+  ],
+  "summary": {
+    "balanced": {
+      "accepted": 10,
+      "runs": 10,
+      "mean_words": 279.4,
+      "median_words": 240.5,
+      "median_word_ratio": 0.7575000000000001,
+      "median_seconds": 10.8915,
+      "completion_tokens": 3562,
+      "cost_usd": 0.0085159
+    },
+    "facts": {
+      "accepted": 7,
+      "runs": 10,
+      "mean_words": 248.85714285714286,
+      "median_words": 232,
+      "median_word_ratio": 0.6656,
+      "median_seconds": 15.511,
+      "completion_tokens": 6311,
+      "cost_usd": 0.0127562
+    }
+  },
+  "paired_accepted_summary": {
+    "paired_accepted_cases": 7,
+    "mean_balanced_words": 299,
+    "mean_facts_words": 248.85714285714286,
+    "median_paired_word_reduction": 0.10697674418604652,
+    "median_paired_balanced_seconds": 11.584,
+    "median_paired_facts_seconds": 15.206
+  },
+  "paired_cases": [
+    {
+      "case": "NHSSYN005",
+      "balanced_words": 441,
+      "facts_words": 330,
+      "word_reduction": 0.2517006802721088,
+      "balanced_seconds": 11.584,
+      "facts_seconds": 26.221
+    },
+    {
+      "case": "NHSSYN006",
+      "balanced_words": 229,
+      "facts_words": 207,
+      "word_reduction": 0.09606986899563319,
+      "balanced_seconds": 10.199,
+      "facts_seconds": 15.413
+    },
+    {
+      "case": "NHSSYN008",
+      "balanced_words": 317,
+      "facts_words": 268,
+      "word_reduction": 0.1545741324921136,
+      "balanced_seconds": 9.649,
+      "facts_seconds": 15.206
+    },
+    {
+      "case": "NHSSYN009",
+      "balanced_words": 252,
+      "facts_words": 232,
+      "word_reduction": 0.07936507936507942,
+      "balanced_seconds": 3.221,
+      "facts_seconds": 14.907
+    },
+    {
+      "case": "NHSSYN011",
+      "balanced_words": 415,
+      "facts_words": 310,
+      "word_reduction": 0.2530120481927711,
+      "balanced_seconds": 35.846,
+      "facts_seconds": 15.609
+    },
+    {
+      "case": "NHSSYN012",
+      "balanced_words": 224,
+      "facts_words": 203,
+      "word_reduction": 0.09375,
+      "balanced_seconds": 13.419,
+      "facts_seconds": 14.445
+    },
+    {
+      "case": "NHSSYN013",
+      "balanced_words": 215,
+      "facts_words": 192,
+      "word_reduction": 0.10697674418604652,
+      "balanced_seconds": 13.06,
+      "facts_seconds": 10.927
+    }
+  ],
+  "runs": [
+    {
+      "case": "NHSSYN004",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 308,
+      "point_words": 222,
+      "word_ratio": 0.7208,
+      "seconds": 54.454,
+      "note_index": 4,
+      "source_sha256": "4053b1b27744bd5290e15835d206f64435fc4606620803f835551b3a731324ac",
+      "successful_api_calls": 4,
+      "completion_tokens": 825,
+      "reported_cost_usd": 0.00168405,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN004",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": false,
+      "error": "Document facts review did not pass; no draft accepted",
+      "seconds": 53.778,
+      "note_index": 4,
+      "source_sha256": "4053b1b27744bd5290e15835d206f64435fc4606620803f835551b3a731324ac",
+      "successful_api_calls": 4,
+      "completion_tokens": 1007,
+      "reported_cost_usd": 0.0020588
+    },
+    {
+      "case": "NHSSYN005",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 561,
+      "point_words": 330,
+      "word_ratio": 0.5882,
+      "seconds": 26.221,
+      "note_index": 5,
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "successful_api_calls": 2,
+      "completion_tokens": 454,
+      "reported_cost_usd": 0.00103345,
+      "exact_evidence_and_public_validation": true,
+      "fixed_rows_verified": 9,
+      "synopsis_words": 28
+    },
+    {
+      "case": "NHSSYN005",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 561,
+      "point_words": 441,
+      "word_ratio": 0.7861,
+      "seconds": 11.584,
+      "note_index": 5,
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "successful_api_calls": 2,
+      "completion_tokens": 309,
+      "reported_cost_usd": 0.0007962,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN006",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 273,
+      "point_words": 229,
+      "word_ratio": 0.8388,
+      "seconds": 10.199,
+      "note_index": 0,
+      "source_sha256": "be9cc2190a3cca52275d9843083dbdfc38735302362a033d5f754bac4b5e1f80",
+      "successful_api_calls": 2,
+      "completion_tokens": 272,
+      "reported_cost_usd": 0.00062135,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN006",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 273,
+      "point_words": 207,
+      "word_ratio": 0.7582,
+      "seconds": 15.413,
+      "note_index": 0,
+      "source_sha256": "be9cc2190a3cca52275d9843083dbdfc38735302362a033d5f754bac4b5e1f80",
+      "successful_api_calls": 2,
+      "completion_tokens": 329,
+      "reported_cost_usd": 0.00074585,
+      "exact_evidence_and_public_validation": true,
+      "fixed_rows_verified": 8,
+      "synopsis_words": 28
+    },
+    {
+      "case": "NHSSYN007",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": false,
+      "error": "Document facts review did not pass; no draft accepted",
+      "seconds": 49.193,
+      "note_index": 5,
+      "source_sha256": "aedd42099db8e9d20541b5c291563e3956c02410047797777e0f86ee21be4641",
+      "successful_api_calls": 4,
+      "completion_tokens": 1153,
+      "reported_cost_usd": 0.00225145
+    },
+    {
+      "case": "NHSSYN007",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 392,
+      "point_words": 306,
+      "word_ratio": 0.7806,
+      "seconds": 9.402,
+      "note_index": 5,
+      "source_sha256": "aedd42099db8e9d20541b5c291563e3956c02410047797777e0f86ee21be4641",
+      "successful_api_calls": 2,
+      "completion_tokens": 232,
+      "reported_cost_usd": 0.000637,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN008",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 380,
+      "point_words": 317,
+      "word_ratio": 0.8342,
+      "seconds": 9.649,
+      "note_index": 5,
+      "source_sha256": "52adf060b8b0caf84fa0a3d1f6b8b9bb2391ce2eda8b28abe740b5ef55494beb",
+      "successful_api_calls": 2,
+      "completion_tokens": 211,
+      "reported_cost_usd": 0.0006100000000000001,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN008",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 380,
+      "point_words": 268,
+      "word_ratio": 0.7053,
+      "seconds": 15.206,
+      "note_index": 5,
+      "source_sha256": "52adf060b8b0caf84fa0a3d1f6b8b9bb2391ce2eda8b28abe740b5ef55494beb",
+      "successful_api_calls": 2,
+      "completion_tokens": 307,
+      "reported_cost_usd": 0.0007994499999999999,
+      "exact_evidence_and_public_validation": true,
+      "fixed_rows_verified": 8,
+      "synopsis_words": 32
+    },
+    {
+      "case": "NHSSYN009",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 344,
+      "point_words": 232,
+      "word_ratio": 0.6744,
+      "seconds": 14.907,
+      "note_index": 0,
+      "source_sha256": "9cae8e39a672d0cb119ca8d4ed6b7517ab3cd6b649fd1dfb0f406ba0d88d884b",
+      "successful_api_calls": 2,
+      "completion_tokens": 312,
+      "reported_cost_usd": 0.0007635,
+      "exact_evidence_and_public_validation": true,
+      "fixed_rows_verified": 9,
+      "synopsis_words": 40
+    },
+    {
+      "case": "NHSSYN009",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 344,
+      "point_words": 252,
+      "word_ratio": 0.7326,
+      "seconds": 3.221,
+      "note_index": 0,
+      "source_sha256": "9cae8e39a672d0cb119ca8d4ed6b7517ab3cd6b649fd1dfb0f406ba0d88d884b",
+      "successful_api_calls": 2,
+      "completion_tokens": 210,
+      "reported_cost_usd": 0.00057705,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN010",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 385,
+      "point_words": 173,
+      "word_ratio": 0.4494,
+      "seconds": 3.327,
+      "note_index": 2,
+      "source_sha256": "e3f0f93933aced32eb95c74d2270d281f5806659475937bdb4c2ec4722d1460e",
+      "successful_api_calls": 2,
+      "completion_tokens": 246,
+      "reported_cost_usd": 0.00061185,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN010",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": false,
+      "error": "Document facts review did not pass; no draft accepted",
+      "seconds": 55.933,
+      "note_index": 2,
+      "source_sha256": "e3f0f93933aced32eb95c74d2270d281f5806659475937bdb4c2ec4722d1460e",
+      "successful_api_calls": 4,
+      "completion_tokens": 1666,
+      "reported_cost_usd": 0.00261955
+    },
+    {
+      "case": "NHSSYN011",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 523,
+      "point_words": 310,
+      "word_ratio": 0.5927,
+      "seconds": 15.609,
+      "note_index": 5,
+      "source_sha256": "bf2b14abd63d70a362f9d91a387a98ddfc12e08ca9c8852273c5e35ccf0cdb35",
+      "successful_api_calls": 2,
+      "completion_tokens": 437,
+      "reported_cost_usd": 0.0009893,
+      "exact_evidence_and_public_validation": true,
+      "fixed_rows_verified": 8,
+      "synopsis_words": 34
+    },
+    {
+      "case": "NHSSYN011",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 523,
+      "point_words": 415,
+      "word_ratio": 0.7935,
+      "seconds": 35.846,
+      "note_index": 5,
+      "source_sha256": "bf2b14abd63d70a362f9d91a387a98ddfc12e08ca9c8852273c5e35ccf0cdb35",
+      "successful_api_calls": 4,
+      "completion_tokens": 779,
+      "reported_cost_usd": 0.0017876,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN012",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 305,
+      "point_words": 224,
+      "word_ratio": 0.7344,
+      "seconds": 13.419,
+      "note_index": 0,
+      "source_sha256": "9c3aa96ae9bb1c0068e480ce52c92dc7c3985cea34a4c2ef7870228b5138046a",
+      "successful_api_calls": 2,
+      "completion_tokens": 265,
+      "reported_cost_usd": 0.00062545,
+      "exact_evidence_and_public_validation": true
+    },
+    {
+      "case": "NHSSYN012",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 305,
+      "point_words": 203,
+      "word_ratio": 0.6656,
+      "seconds": 14.445,
+      "note_index": 0,
+      "source_sha256": "9c3aa96ae9bb1c0068e480ce52c92dc7c3985cea34a4c2ef7870228b5138046a",
+      "successful_api_calls": 2,
+      "completion_tokens": 330,
+      "reported_cost_usd": 0.00075735,
+      "exact_evidence_and_public_validation": true,
+      "fixed_rows_verified": 9,
+      "synopsis_words": 32
+    },
+    {
+      "case": "NHSSYN013",
+      "mode": "facts",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 335,
+      "point_words": 192,
+      "word_ratio": 0.5731,
+      "seconds": 10.927,
+      "note_index": 0,
+      "source_sha256": "4052e347b59a44911c4ed9bc7063330385eb08fe5541934712f0a615e96f86a6",
+      "successful_api_calls": 2,
+      "completion_tokens": 316,
+      "reported_cost_usd": 0.0007375,
+      "exact_evidence_and_public_validation": true,
+      "fixed_rows_verified": 8,
+      "synopsis_words": 30
+    },
+    {
+      "case": "NHSSYN013",
+      "mode": "balanced",
+      "repeat": 1,
+      "accepted": true,
+      "source_words": 335,
+      "point_words": 215,
+      "word_ratio": 0.6418,
+      "seconds": 13.06,
+      "note_index": 0,
+      "source_sha256": "4052e347b59a44911c4ed9bc7063330385eb08fe5541934712f0a615e96f86a6",
+      "successful_api_calls": 2,
+      "completion_tokens": 213,
+      "reported_cost_usd": 0.00056535,
+      "exact_evidence_and_public_validation": true
+    }
+  ],
+  "interrupted_attempts": [
+    {
+      "case": "NHSSYN009",
+      "mode": "balanced",
+      "accepted": false,
+      "error": "Comparison process ended with SIGTERM before the row was saved; no output accepted. Duration and usage unavailable. This case was rerun separately."
+    }
+  ],
+  "manual_source_review": {
+    "NHSSYN004": [
+      "Experimental draft rejected after revision: unsupported numeric/citation content and broadened negative findings remained. No draft released."
+    ],
+    "NHSSYN005": [
+      "Model review approved the draft, but \u201cno obvious signs of head trauma or external injuries\u201d became \u201cno head trauma,\u201d losing the source qualifier.",
+      "The synopsis changes acute progressive confusion into \u201cprogressive cognitive decline,\u201d and adds an administrative Treatment row containing staff names."
+    ],
+    "NHSSYN006": [
+      "Model review approved the draft, but the approximately two-year symptom duration is missing."
+    ],
+    "NHSSYN007": [
+      "Experimental draft rejected after revision. Initial draft added a fever denial absent from the source; the final review also demanded facts already present in the synopsis. Rejection does not establish that every reviewer objection was correct."
+    ],
+    "NHSSYN008": [
+      "Model review approved the draft, but \u201cno significant weight gain\u201d became \u201cwithout weight gain\u201d; \u201coxygen-dependent\u201d is an interpretation of recorded oxygen use."
+    ],
+    "NHSSYN009": [
+      "The synopsis and Findings row repeat the shoulder examination, limiting the benefit of the table."
+    ],
+    "NHSSYN010": [
+      "Experimental draft rejected after revision; the coverage/meaning review did not pass."
+    ],
+    "NHSSYN011": [
+      "The paired draft includes reduced urinary output, but again changes the scoped examination statement about no obvious infection signs such as rashes into \u201cno infection signs\u201d in the synopsis. Model review approved it."
+    ],
+    "NHSSYN012": [
+      "The approved draft omits the stated 4/10 pain at rest, retaining only the 7/10 value in the synopsis."
+    ],
+    "NHSSYN013": [
+      "The approved synopsis presents 8/10 pain without the source\u2019s \u201con a bad day\u201d qualifier and omits 5/10 on a good day.",
+      "\u201cNo obvious deformity\u201d becomes \u201cno deformity,\u201d another lost qualifier."
+    ]
+  },
+  "prompt_sha256": {
+    "facts": "37da5bb8f45ff13843d85ed2324235560bc0e720af26e780f6121a1e5d5cc594",
+    "review_base": "e89911c15fcd27492c40131abea27fb50355e012093272833f55ba8f285279f3"
+  },
+  "implementation_sha256": "725b60a70d1a4300ac9c5776028c1cd626dee354b29e4b2948778eea18e2c267",
+  "verification": {
+    "python_tests_passed": 171,
+    "corpus_notes_checked": 1602,
+    "fixed_evidence_exact": true,
+    "initial_request_budgets_passed": true,
+    "max_initial_request_bytes": 5564,
+    "preview_browser": {
+      "passed": true,
+      "checks": [
+        "synopsis",
+        "facts table",
+        "expandable evidence",
+        "390px mobile without horizontal overflow",
+        "no external requests",
+        "no page errors"
+      ]
+    }
+  }
+}
