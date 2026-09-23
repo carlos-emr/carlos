@@ -101,7 +101,7 @@ public class PortalStaffContextResolver {
 
     public PortalStaffContextResolver(SecurityInfoManager securityInfoManager) {
         if (securityInfoManager == null) {
-            throw new IllegalArgumentException(MISSING_SECURITY_MANAGER);
+            throw new PortalRequestPreparationException(MISSING_SECURITY_MANAGER);
         }
         this.securityInfoManager = securityInfoManager;
     }
@@ -133,7 +133,7 @@ public class PortalStaffContextResolver {
     public PatientPortalStaffContext resolveForPatient(
             LoggedInInfo loggedInInfo, Set<String> objects, int demographicNo) {
         if (demographicNo <= 0) {
-            throw new IllegalArgumentException("a patient must be selected");
+            throw new PortalRequestPreparationException("a patient must be selected");
         }
         return resolve(loggedInInfo, objects, String.valueOf(demographicNo));
     }
@@ -141,7 +141,7 @@ public class PortalStaffContextResolver {
     private PatientPortalStaffContext resolve(
             LoggedInInfo loggedInInfo, Set<String> objects, String demographicNo) {
         if (loggedInInfo == null) {
-            throw new IllegalArgumentException("an authenticated session is required");
+            throw new PortalRequestPreparationException("an authenticated session is required");
         }
         validateScope(objects);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -161,11 +161,11 @@ public class PortalStaffContextResolver {
     /** A typo must fail locally rather than silently narrowing the signed assertion. */
     private static void validateScope(Set<String> objects) {
         if (objects == null || objects.isEmpty()) {
-            throw new IllegalArgumentException(NO_SCOPE);
+            throw new PortalRequestPreparationException(NO_SCOPE);
         }
         for (String object : objects) {
             if (object == null || !PERMISSION_BY_OBJECT.containsKey(object)) {
-                throw new IllegalArgumentException(UNSUPPORTED_OBJECT);
+                throw new PortalRequestPreparationException(UNSUPPORTED_OBJECT);
             }
         }
     }

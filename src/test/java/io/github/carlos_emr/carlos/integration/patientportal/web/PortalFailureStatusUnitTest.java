@@ -151,7 +151,8 @@ class PortalFailureStatusUnitTest {
 
             @Override
             protected String handleRequest() {
-                throw new IllegalArgumentException("provider name contains a control character");
+                throw new io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPreparationException(
+                        "provider name contains a control character");
             }
         };
         try (var servlet = org.mockito.Mockito.mockStatic(org.apache.struts2.ServletActionContext.class)) {
@@ -163,6 +164,24 @@ class PortalFailureStatusUnitTest {
         assertThat(response.getContentType()).startsWith("application/json");
         assertThat(response.getContentAsString()).contains("request_not_prepared")
                 .doesNotContain("control character");
+    }
+
+    @Test
+    @DisplayName("should let an unrelated IllegalArgumentException surface as a server error")
+    void shouldPropagate_whenAnUnrelatedIllegalArgumentExceptionEscapes() {
+        PortalJsonAction action = new PortalJsonAction() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected String handleRequest() {
+                throw new IllegalArgumentException("a programming error, not bad portal input");
+            }
+        };
+        try (var servlet = org.mockito.Mockito.mockStatic(org.apache.struts2.ServletActionContext.class)) {
+            servlet.when(org.apache.struts2.ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isExactlyInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Test

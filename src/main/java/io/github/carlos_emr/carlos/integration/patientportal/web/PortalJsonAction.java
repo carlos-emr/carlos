@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPreparationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
@@ -89,13 +90,14 @@ public abstract class PortalJsonAction extends ActionSupport {
                 throw exception;
             }
             return configurationFailure(ServletActionContext.getResponse());
-        } catch (IllegalArgumentException exception) {
-            // For example a provider name the portal cannot accept, or a malformed identifier. These
-            // are JSON endpoints, so answer in JSON rather than letting Struts render an HTML 500.
-            // The message may name the rejected value's field, never its content, but is still kept
-            // out of the log and the response.
-            logger.warn("patient portal request could not be prepared: {}",
-                    exception.getClass().getSimpleName());
+        } catch (PortalRequestPreparationException exception) {
+            // CARLOS refused to build the request from its own data, e.g. a provider name the portal
+            // cannot accept. Only this type is caught: any other IllegalArgumentException is a
+            // programming error and still propagates as a 500 with its stack trace. The message is
+            // kept out of the response; the refusing frame is logged so it can be traced.
+            StackTraceElement origin = exception.getStackTrace().length == 0 ? null : exception.getStackTrace()[0];
+            logger.warn("patient portal request could not be prepared: refused by {}",
+                    origin == null ? "unknown" : origin.getClassName() + "." + origin.getMethodName());
             return failure(ServletActionContext.getResponse(), HttpServletResponse.SC_BAD_REQUEST,
                     "request_not_prepared", NOT_PREPARED);
         }
@@ -161,7 +163,8 @@ public abstract class PortalJsonAction extends ActionSupport {
             administrator should check this provider's name and number.""";
     private static final String CREDENTIALS_REJECTED_LOG =
             "patient portal rejected CARLOS itself (service token, staff assertion or clinic id), or its "
-                    + "internal API is disabled; check the portal connection settings: kind={}, "
+                    + "internal API is disabled, or this portal version lacks the endpoint; check the "
+                    + "portal connection settings: kind={}, "
                     + "answered {} to the browser";
     private static final String VALIDATION_REJECTED =
             """
@@ -353,7 +356,8 @@ public abstract class PortalJsonAction extends ActionSupport {
         }
         if (exception.isRequestNotSent()) {
             // A local capacity limit, not a gateway fault: the portal saw nothing, so it is safe to retry.
-            logger.warn("patient portal request not sent: the CARLOS transport is busy or closed");
+            logger.warn("patient portal request not sent: the CARLOS transport is busy or closed ({})",
+                    exception.getMessage());
             return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "portal_busy", NOT_SENT);
         }
         String message =

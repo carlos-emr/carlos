@@ -95,7 +95,7 @@ final class PortalStaffAssertionSigner {
             Supplier<UUID> assertionIds,
             ObjectMapper objectMapper) {
         if (privateKey == null || clock == null || assertionIds == null || objectMapper == null) {
-            throw new IllegalArgumentException("portal assertion signer dependencies are required");
+            throw new PortalRequestPreparationException("portal assertion signer dependencies are required");
         }
         this.privateKey = privateKey;
         this.clock = clock;
@@ -106,7 +106,7 @@ final class PortalStaffAssertionSigner {
     String sign(PatientPortalStaffContext staff, String clinicId, String keyId,
             String method, URI uri, byte[] body) {
         if (staff == null) {
-            throw new IllegalArgumentException("portal staff context is required");
+            throw new PortalRequestPreparationException("portal staff context is required");
         }
         long issuedAt = clock.instant().getEpochSecond();
         ObjectNode payload = objectMapper.createObjectNode();
