@@ -1,8 +1,8 @@
 # Single-document summary prototype
 
 Document Manager's **Summarize** button opens a preview of one authorized file. A separate
-**Generate unverified draft** POST produces a short overview and key points, each with expandable
-verbatim excerpts. The original stays open in its existing window. No summary is saved to the
+**Generate unverified draft** POST produces key points with expandable verbatim excerpts.
+An optional, initially collapsed overview avoids repeating the same text in the default view. The original stays open in its existing window. No summary is saved to the
 chart. Extraction warnings remain visible alongside the draft.
 
 This is an experimental feature stacked on the patient-overview infrastructure in #3630.
@@ -40,12 +40,15 @@ synthetic corpus.** A synthetic label is insufficient. Arbitrary files, PDF page
 partial notes, additional metadata, and changed prompts/schemas are rejected before network access.
 Use a plain-text file containing exactly one corpus note to test the Document Manager workflow.
 The gateway validates the incoming prompt/schema against the Java resources. Its current mode is
-**extractive**: the model selects passage IDs, and the gateway supplies all displayed wording from
-the original text. It retains recognized medication/allergy/result/referral/plan sections and explicit
-pending-result wording even when the model omits them. Selected paragraph continuations stay together.
-The overview reuses a diagnostic/problem passage and a plan passage; there is no separate generated
-clinical prose. Java still independently validates every excerpt. See the
-[fidelity change and measurements](DOCUMENT_FIDELITY.md), including the tradeoff in brevity.
+**extractive-brief**: the model selects source paragraphs or bullets, and the gateway supplies
+all displayed clinical wording. Source headings, nested bullets and continuations remain attached.
+The host retains recognized medications, allergies, plans, disposition, pending/follow-up wording,
+observations, recorded treatment patterns and simple negation contrasts. Routine result sections
+are no longer forced into the output solely by heading. Adjacent selected bullets share a heading
+and keep separate exact evidence. Java independently validates the unchanged public output schema.
+See [reading-volume results and limitations](DOCUMENT_READTIME.md) and the
+[earlier fidelity design](DOCUMENT_FIDELITY.md).
+
 
 ## Reuse in another CARLOS workflow
 
@@ -86,7 +89,7 @@ and `points` (see `src/main/resources/clinical/summary/document-summary-schema.j
   broader than a hand-selected quotation and may include identifying text already in the source.
   They do not establish that the model's claim follows from the cited passage.
 - In extractive mode, point text is the selected original passage with display line endings
-  normalized, and the evidence preserves the original substring. Source errors, contradictions,
+  normalized; selected bullets may share a heading, and evidence preserves the separate original substrings. Source errors, contradictions,
   typos and embedded identifiers remain. Recognized sections are retained by lexical rules; this
   is not a comprehensive clinical parser. Other relevant content can still be omitted. The mode
   is less concise than a fluent paraphrase; it does not verify the source's clinical correctness.

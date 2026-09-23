@@ -1,5 +1,8 @@
 # Improving document fidelity with source-selected summaries
 
+This records the earlier paragraph-based extractive version. The current gateway uses
+[shorter source selections and a non-repeating default view](DOCUMENT_READTIME.md).
+
 The Parasail/Qwen3.5-35B-A3B gateway now returns an **extractive summary**. The model chooses
 passage IDs; it cannot supply clinical prose. The gateway builds the points and overview from
 original source wording and returns the unchanged Java `overview`/`points`/`evidence` contract.
@@ -98,7 +101,8 @@ python3 tools/ai-clinical-summary-draft/compare_document_parasail.py \
 python3 -m unittest discover -s tools/ai-clinical-summary-draft/tests -p 'test_*.py'
 ```
 
-`references` reproduces the former paraphraser; `fidelity` selects the current extractive mode.
+`references` reproduces the former paraphraser; `fidelity` reproduces this historical paragraph selector.
+Use `brief` for the current gateway mode.
 The command incurs API charges using the existing private credential file. Restart the bundled
 gateway and deploy the updated JSP/CSS to use the change elsewhere. The local development instance
 already runs the update; model/provider settings and committed feature-flag defaults are unchanged.

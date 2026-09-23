@@ -698,7 +698,7 @@ def handler_for(gateway):
             self.respond(200 if self.path == "/health" else 404,
                          {"service": "carlos-openrouter-synthetic", "model": gateway.config["model"],
                           "provider": gateway.config["provider"],
-                          "document_mode": "extractive",
+                          "document_mode": "extractive-brief",
                           "temperature": gateway.config["temperature"],
                           "request_bytes": gateway.config["request_bytes"],
                           "reasoning_tokens": gateway.config["reasoning_tokens"],

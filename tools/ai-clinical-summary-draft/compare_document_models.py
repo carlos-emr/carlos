@@ -45,7 +45,7 @@ def main():
     report = {'started_at': datetime.now(timezone.utc).isoformat(),
               'prompt_sha256': hashlib.sha256(document.PROMPT.encode()).hexdigest(),
               'transport_prompt_sha256': hashlib.sha256(fidelity.PROMPT.encode()).hexdigest(),
-              'evidence_mode': 'extractive-source-passages',
+              'evidence_mode': 'extractive-brief',
               'schema_sha256': hashlib.sha256(json.dumps(document.SCHEMA, sort_keys=True).encode()).hexdigest(),
               'settings': {'temperature': 0, 'max_tokens': 4096, 'timeout_seconds': 90,
                            'reasoning': False, 'output_cache': False, 'provider_fallbacks': False,
