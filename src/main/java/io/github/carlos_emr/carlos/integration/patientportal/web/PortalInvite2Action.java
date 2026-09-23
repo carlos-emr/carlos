@@ -57,8 +57,11 @@ import org.apache.struts2.ServletActionContext;
  * staff {@code decision} to the attempt named by {@code deliveryId}. {@code method=revoke} withdraws an
  * invitation.
  *
- * <p>Every route needs {@code _portal.invite} write for the patient; sending also needs {@code _email}
- * write, which the email layer enforces for every patient email.
+ * <p>Every route needs {@code _portal.invite} write for the patient. Sending and resolving an unfinished
+ * delivery also need {@code _email} write, because each writes to the email outbox; sending also needs
+ * {@code _edoc} write, because every sent email is archived as a patient document. Both extra rights
+ * are checked here, before the portal is asked for anything, and {@link PortalManage2Action} uses the
+ * same rules to decide which controls the page shows.
  */
 public class PortalInvite2Action extends PortalJsonAction {
     private static final long serialVersionUID = 1L;
@@ -67,6 +70,8 @@ public class PortalInvite2Action extends PortalJsonAction {
     static final String METHOD_RECOVER = "recover";
     static final String METHOD_REVOKE = "revoke";
     private static final int MAX_OVERRIDE_REASON_LENGTH = 255;
+    static final String EMAIL_OBJECT = "_email";
+    static final String DOCUMENT_OBJECT = "_edoc";
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient PortalStaffContextResolver staffContextResolver;
@@ -142,12 +147,17 @@ public class PortalInvite2Action extends PortalJsonAction {
 
     private String deliver(HttpServletRequest request, HttpServletResponse response, LoggedInInfo session,
             int patient, String method) throws IOException {
+        boolean sends = !METHOD_RECOVER.equals(method);
         // Every route here writes to the email outbox: sending creates a row, and resolving an
         // unfinished delivery closes one, which is the privilege ManageEmails requires to do the same.
-        if (!securityInfoManager.hasPrivilege(session, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_email)");
+        if (!mayResolve(securityInfoManager, session)) {
+            throw new SecurityException("missing required sec object (" + EMAIL_OBJECT + ")");
         }
-        boolean sends = !METHOD_RECOVER.equals(method);
+        // Checked before the portal prepares anything: the archive would otherwise refuse the send
+        // after a code had already been prepared for it.
+        if (sends && !maySend(securityInfoManager, session)) {
+            throw new SecurityException("missing required sec object (" + DOCUMENT_OBJECT + ")");
+        }
         long inviteId = 0;
         if (METHOD_RESEND.equals(method)) {
             inviteId = positiveLong(request.getParameter("inviteId"));
@@ -200,6 +210,17 @@ public class PortalInvite2Action extends PortalJsonAction {
         } catch (PatientPortalException exception) {
             return portalFailure(response, exception);
         }
+    }
+
+    /** @return whether the user may resolve an unfinished delivery, beyond {@code _portal.invite} write */
+    static boolean mayResolve(SecurityInfoManager security, LoggedInInfo session) {
+        return security.hasPrivilege(session, EMAIL_OBJECT, SecurityInfoManager.WRITE, null);
+    }
+
+    /** @return whether the user may send an invitation, beyond {@code _portal.invite} write */
+    static boolean maySend(SecurityInfoManager security, LoggedInInfo session) {
+        return mayResolve(security, session)
+                && security.hasPrivilege(session, DOCUMENT_OBJECT, SecurityInfoManager.WRITE, null);
     }
 
     /** Parses {@code channel}; absent means email. */

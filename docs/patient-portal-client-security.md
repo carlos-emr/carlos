@@ -67,13 +67,16 @@ check current state before retrying.
 
 Staff invite a patient from the **Patient portal** link on the demographic record. The link appears
 only when the portal is configured and the user holds `_portal.invite` or `_portal.account` read for
-the patient. Sending, and resolving an unfinished delivery, also need `_portal.invite` and `_email`
-write, the same email privilege the rest of CARLOS requires to create or close an outbox row.
+the patient. Resolving an unfinished delivery needs `_portal.invite` and `_email` write, the same
+email privilege the rest of CARLOS requires to create or close an outbox row. Sending also needs
+`_edoc` write, because every sent email is archived as a patient document. Both are checked before the
+portal is asked for anything, and the page shows only the controls the user's rights allow.
 
 `V1.0.31` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
 only non-admin role the baseline grants `_email`. Unlocking a portal account stays with `admin`, where
 `V1.0.30` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
-in Administration > Security lets them revoke and resolve invitations without being able to send one.
+in Administration > Security lets them see and revoke invitations, but not send one or resolve an
+unfinished delivery.
 
 Two settings are required, and invitations are refused until both are set:
 
@@ -89,16 +92,22 @@ records each step in `patient_portal_invite_delivery` before the next network ca
    retried once with the same operation id, which the portal answers with the same code.
 2. **Store.** The email carrying the code is written to `emailLog` as `PENDING`. This is the durable
    job the portal requires before it activates anything.
-3. **Commit.** Inside `EmailManager.DispatchGate`, after the email row exists and before any transport
-   work, CARLOS calls `commit-delivery` with `delivery_reference=emaillog:<id>`. The portal activates the
-   code and starts its seven-day lifetime. If the commit fails for any reason, nothing is sent.
+3. **Commit.** Inside `EmailManager.DispatchGate`, once the email row exists and the message is built and
+   archived, immediately before the transport sends it, CARLOS calls `commit-delivery` with
+   `delivery_reference=emaillog:<id>`. Every local step that could still fail has already succeeded, so a
+   commit is followed by nothing but the send. A lost answer is retried once; the portal treats a repeat
+   with the same operation id and reference as the same commit. The portal activates the code and starts
+   its seven-day lifetime. If the commit fails for any reason, nothing is sent.
 4. **Send.** The normal email stack sends the message, and the attempt records `SENT`, `SEND_FAILED`
    or `SEND_UNCERTAIN`.
 
 An attempt stopped before the commit is `ABANDONED`, and CARLOS revokes the prepared code on the
 portal: a live preparation otherwise blocks every new invitation for the patient until it expires.
 After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
-issues a new code and keeps the old one valid until the replacement is committed.
+issues a new code and keeps the old one valid until the replacement is committed. The one uncertain
+case before the send is a commit whose answer is lost twice: CARLOS withdraws the new code, and since
+the portal may already have retired the old one while activating the new, the page tells staff that a
+replaced invitation may no longer work and a new one should be sent.
 
 Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
 with a separate `revoke_failed` flag when an unused code could not be withdrawn and will expire on its
@@ -109,8 +118,17 @@ placed in a URL, a log, or a browser-visible message.
 
 The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
 It lives in the outbox row only between the store and the send, which is the window the portal's
-contract requires; once the send resolves either way, the stored body is replaced with a note saying the
-code is not kept. Reopening a portal invitation in the email compose window is refused outright, so the
+contract requires; once the send resolves either way, or staff resolve an unfinished delivery, the
+stored body is replaced with a note saying the code is not kept. One exception: when the send fails
+before the portal activates the code (an archive or permission refusal, say), the code is withdrawn on
+the portal but can stay in that failed outbox row; it can no longer activate anything. The outbound
+email archive, a
+permanent patient document, never holds it: the service names the code in
+`EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
+`[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or
+`API_PAYLOAD_REDACTED`), so the copy is never mistaken for the
+exact bytes sent. If the code cannot be found verbatim in the prepared message, the send is refused
+before the portal activates anything. Reopening a portal invitation in the email compose window is refused outright, so the
 message history cannot hand the credential to a reader who holds email access but no portal rights. A
 patient who never received their email gets a resend, which issues a new code; CARLOS never re-sends the
 stored one. The email passes through the same consent gate as every patient email: `OPT_IN`, or

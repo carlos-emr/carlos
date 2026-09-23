@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteExcepti
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.regex.Pattern;
 
 /**
  * Composes the invitation email: the outbox request, the body that carries the code, and the text
@@ -60,6 +61,12 @@ class PortalInviteEmailComposer {
      */
     static final String CODE_FORGOTTEN =
             "This invitation's code is not kept by CARLOS. Resend the invitation to issue a new code.";
+
+    /**
+     * The portal's codes are {@code secrets.token_urlsafe(32)}: 43 URL-safe base64 characters. The range
+     * leaves room for a longer token without accepting anything that could carry text or a link.
+     */
+    private static final Pattern CODE_FORMAT = Pattern.compile("[A-Za-z0-9_-]{20,128}");
 
     private final PortalInviteSettings settings;
     private final EmailConfigDao emailConfigs;
@@ -126,6 +133,11 @@ class PortalInviteEmailComposer {
         }
         return note.append("\nThe invitation code is not recorded in CARLOS. If the patient loses the email, ")
                 .append("resend the invitation from the Patient portal page.").toString();
+    }
+
+    /** @return whether {@code code} has the portal's token format, so it is safe to put in an email */
+    static boolean isPlausibleCode(String code) {
+        return code != null && CODE_FORMAT.matcher(code).matches();
     }
 
     /** @return the plain-text body carrying {@code inviteCode}; the code is text, never part of a URL */

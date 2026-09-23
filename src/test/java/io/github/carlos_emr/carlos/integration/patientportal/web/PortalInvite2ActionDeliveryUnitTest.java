@@ -96,6 +96,7 @@ class PortalInvite2ActionDeliveryUnitTest {
         login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(true);
         when(security.hasPrivilege(any(), eq("_email"), anyString(), isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(), eq("_edoc"), anyString(), isNull())).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
         when(resolver.resolveForPatient(any(), any(), eq(123))).thenReturn(staff);
         when(demographics.getDemographic(session, 123)).thenReturn(patient);
@@ -226,6 +227,34 @@ class PortalInvite2ActionDeliveryUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(invites);
+    }
+
+    @Test
+    @DisplayName("should require document write to send, before the portal prepares anything")
+    void shouldRefuseSending_withoutDocumentWrite() throws Exception {
+        // Every sent email is archived as a patient document; the archive would refuse the send only
+        // after a code had been prepared for it.
+        when(security.hasPrivilege(any(), eq("_edoc"), anyString(), isNull())).thenReturn(false);
+        request.setParameter("method", "create");
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(invites);
+    }
+
+    @Test
+    @DisplayName("should let a delivery be resolved without document write, which only sending needs")
+    void shouldAllowRecovery_withoutDocumentWrite() throws Exception {
+        when(security.hasPrivilege(any(), eq("_edoc"), anyString(), isNull())).thenReturn(false);
+        request.setParameter("method", "recover");
+        request.setParameter("deliveryId", "9");
+        request.setParameter("decision", "abandon");
+        when(invites.recover(any(), any(), eq(9L), eq(Decision.ABANDON), any())).thenReturn(delivery(State.ABANDONED));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     @Test

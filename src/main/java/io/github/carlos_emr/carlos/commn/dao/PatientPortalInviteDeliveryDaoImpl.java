@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Outcome;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State;
 import jakarta.persistence.LockModeType;
+import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 import org.springframework.stereotype.Repository;
@@ -79,6 +81,21 @@ public class PatientPortalInviteDeliveryDaoImpl extends AbstractDaoImpl<PatientP
                 .setParameter("demographicNo", demographicNo)
                 .setMaxResults(limit)
                 .getResultList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean release(Long id, State claimed, State previous, Outcome outcome, Date updatedAt) {
+        return entityManager
+                .createQuery("UPDATE PatientPortalInviteDelivery d SET d.state = :previous, d.outcome = :outcome, "
+                        + "d.updatedAt = :updatedAt, d.version = d.version + 1 "
+                        + "WHERE d.id = :id AND d.state = :claimed")
+                .setParameter("previous", previous)
+                .setParameter("outcome", outcome)
+                .setParameter("updatedAt", updatedAt)
+                .setParameter("id", id)
+                .setParameter("claimed", claimed)
+                .executeUpdate() == 1;
     }
 
     @Override

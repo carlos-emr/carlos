@@ -54,6 +54,9 @@ import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import java.nio.charset.StandardCharsets;
+import org.mockito.ArgumentCaptor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -65,7 +68,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
 /**
- * The dispatch gate lets a caller act between the durable outbox write and any transport work.
+ * The dispatch gate lets a caller act once the outbox row is durable and the message is built and archived,
+ * immediately before the transport sends it.
  *
  * <p>The patient portal invite workflow commits the invitation on the portal inside this gate: the
  * email must already be durable when the portal activates the token, and nothing may be sent if
@@ -82,6 +86,9 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
     private EmailConsentResolver consentResolver;
     private LoggedInInfo loggedInInfo;
     private final List<String> events = new ArrayList<>();
+    private OutboundEmailArchiveService archiveService;
+    /** What the sender's prepared message holds; the archive is asked to keep these bytes. */
+    private String preparedMessage = "Subject: Subject\r\n\r\nBody";
 
     @BeforeEach
     void setUp() {
@@ -96,9 +103,18 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
         Provider provider = new Provider("999998");
 
         consentResolver = mock(EmailConsentResolver.class);
+        archiveService = mock(OutboundEmailArchiveService.class);
+        try {
+            when(archiveService.archive(any(), any())).thenAnswer(invocation -> {
+                events.add("archive");
+                return null;
+            });
+        } catch (java.io.IOException impossible) {
+            throw new AssertionError(impossible);
+        }
         consentIs(EmailConsentStatus.OPT_IN);
         emailManager = new EmailManager(consentResolver, new EmailSenderFactory(), securityInfoManager,
-                mock(OutboundEmailArchiveService.class));
+                archiveService);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "oscarLogDao", mock(OscarLogDao.class));
@@ -127,8 +143,44 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
             });
         }
 
-        assertThat(events).containsExactly("gate:PENDING", "send");
+        // Last before the transport: every local step that could fail (building and archiving the
+        // message) has already succeeded, so a commit in the gate is followed only by the send.
+        assertThat(events).containsExactly("archive", "gate:PENDING", "send");
         assertThat(result.isTransportAccepted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should archive the message without a value the sender asked it not to keep")
+    void shouldRedactTheArchivedCopy_andSendTheMessageUnchanged() throws Exception {
+        preparedMessage = "Subject: Subject\r\n\r\nEnter this invitation code: Xy7kQ2mN9pR4tV8w\r\n";
+        EmailData email = emailData();
+        email.setArchiveRedactions(List.of("Xy7kQ2mN9pR4tV8w"));
+        EmailSendResult result;
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            result = emailManager.sendEmailWithResult(loggedInInfo, email, emailLog -> events.add("gate"));
+        }
+
+        ArgumentCaptor<OutboundEmailArchiveDto> archived = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
+        verify(archiveService).archive(any(), archived.capture());
+        String kept = new String(archived.getValue().getArtifactBytes(), StandardCharsets.ISO_8859_1);
+        assertThat(kept).doesNotContain("Xy7kQ2mN9pR4tV8w").contains("invitation code: [redacted]");
+        assertThat(archived.getValue().getArtifactType()).isEqualTo("SMTP_RFC822_REDACTED");
+        assertThat(result.isTransportAccepted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should refuse the send, before the gate, when a value to redact is not in the message")
+    void shouldRefuseTheSend_whenTheRedactionCannotBeApplied() throws Exception {
+        EmailData email = emailData();
+        email.setArchiveRedactions(List.of("not-in-the-message"));
+        EmailSendResult result;
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            result = emailManager.sendEmailWithResult(loggedInInfo, email, emailLog -> events.add("gate"));
+        }
+
+        assertThat(events).doesNotContain("archive", "gate", "send");
+        assertThat(result.isTransportAccepted()).isFalse();
+        assertThat(result.isDeliveryUnconfirmed()).isFalse();
     }
 
     @Test
@@ -188,6 +240,12 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
 
     private MockedConstruction<EmailSender> recordingSenders() {
         return mockConstruction(EmailSender.class, (sender, context) -> {
+            when(sender.prepareOutboundArchive(any())).thenAnswer(invocation -> {
+                OutboundEmailArchiveDto request = new OutboundEmailArchiveDto();
+                request.setEmailLog(invocation.getArgument(0));
+                request.setArtifactBytes(preparedMessage.getBytes(StandardCharsets.ISO_8859_1));
+                return request;
+            });
             org.mockito.Mockito.doAnswer(invocation -> {
                 events.add("send");
                 return null;

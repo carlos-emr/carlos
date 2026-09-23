@@ -134,7 +134,10 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         COMMIT_REFUSED,
         /** The portal did not confirm activating the code, so the email was never sent. */
         COMMIT_UNCONFIRMED,
-        /** Consent or the email setup stopped the send before the portal was asked to activate the code. */
+        /**
+         * The send stopped before the portal was asked to activate the code: consent blocked it, or
+         * building, archiving or redacting the email failed.
+         */
         SEND_BLOCKED,
         /** The mail server refused the email after the code went live. */
         SEND_REFUSED,

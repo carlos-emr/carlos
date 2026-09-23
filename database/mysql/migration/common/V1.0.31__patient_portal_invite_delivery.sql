@@ -56,8 +56,9 @@ CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
 -- and nothing in the invitation workflow needs it.
 --
 -- Front-desk roles (receptionist, secretary, nurse and the rest) are a deployment decision: they hold
--- `_demographic` but not `_email`, so they could revoke and resolve invitations without being able to
--- send one. Grant them in Administration > Security where a clinic wants that.
+-- `_demographic` but not `_email`, so `_portal.invite` would let them see and revoke invitations, but
+-- not send one or resolve an unfinished delivery, both of which write to the email outbox. Grant it in
+-- Administration > Security where a clinic wants that.
 INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES
     ('doctor', '_portal.invite', 'x', 0, '999998'),
     ('doctor', '_portal.account', 'r', 0, '999998');

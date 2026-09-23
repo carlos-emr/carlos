@@ -71,11 +71,14 @@ public final class PortalManage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_portal.invite)");
         }
         request.setAttribute(DEMOGRAPHIC_ATTRIBUTE, demographicNo);
+        boolean managesInvites =
+                allowed(session, PortalStaffContextResolver.OBJECT_INVITE, SecurityInfoManager.WRITE, demographicNo);
+        // The same rules PortalInvite2Action applies, so a button is shown only where it will work.
         request.setAttribute("portalCanInvite",
-                allowed(session, PortalStaffContextResolver.OBJECT_INVITE, SecurityInfoManager.WRITE, demographicNo)
-                        && securityInfoManager.hasPrivilege(session, "_email", SecurityInfoManager.WRITE, null));
-        request.setAttribute("portalCanRevoke",
-                allowed(session, PortalStaffContextResolver.OBJECT_INVITE, SecurityInfoManager.WRITE, demographicNo));
+                managesInvites && PortalInvite2Action.maySend(securityInfoManager, session));
+        request.setAttribute("portalCanRecover",
+                managesInvites && PortalInvite2Action.mayResolve(securityInfoManager, session));
+        request.setAttribute("portalCanRevoke", managesInvites);
         request.setAttribute("portalCanSetAccess",
                 allowed(session, PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.WRITE, demographicNo));
         request.setAttribute("portalCanUnlock", allowed(session, PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK,

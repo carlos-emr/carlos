@@ -91,16 +91,24 @@ class PortalManage2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should offer inviting only to a caller who may also send patient email")
-    void shouldOfferInvite_onlyWithEmailWrite() {
+    @DisplayName("should offer each control only where the server will allow it")
+    void shouldOfferControls_onlyWhereTheServerAllowsThem() {
         grant("_portal.invite", SecurityInfoManager.READ);
         grant("_portal.invite", SecurityInfoManager.WRITE);
 
         assertThat(new PortalManage2Action(security).execute()).isEqualTo(ActionSupport.SUCCESS);
+        // Invitation rights alone: revoke only, the front-desk case.
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(false);
+        assertThat(request.getAttribute("portalCanRecover")).isEqualTo(false);
         assertThat(request.getAttribute("portalCanRevoke")).isEqualTo(true);
 
+        // Email write: resolving a delivery works, sending still needs document write for the archive.
         when(security.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
+        new PortalManage2Action(security).execute();
+        assertThat(request.getAttribute("portalCanRecover")).isEqualTo(true);
+        assertThat(request.getAttribute("portalCanInvite")).isEqualTo(false);
+
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
         new PortalManage2Action(security).execute();
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(true);
         assertThat(request.getAttribute(PortalManage2Action.DEMOGRAPHIC_ATTRIBUTE)).isEqualTo(123);

@@ -51,6 +51,8 @@ public class PortalInviteException extends RuntimeException {
                         + "invitation."),
         PENDING_INVITE_EXISTS("pending_invite_exists",
                 "This patient already has a pending invitation. Resend it, or confirm that it should be replaced."),
+        INVITE_ALREADY_USED("invite_already_used",
+                "The patient already used this invitation, so the email did arrive. Choose that it arrived."),
         INVITE_NOT_PENDING("invite_not_pending",
                 "Only a pending invitation can be resent. Refresh the panel."),
         NOT_CONFIGURED("invite_not_configured",
