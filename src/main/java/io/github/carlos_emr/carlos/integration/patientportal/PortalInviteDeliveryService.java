@@ -775,6 +775,10 @@ public class PortalInviteDeliveryService {
             portal.revokeInvite(demographicNo, inviteId, staff);
             return true;
         } catch (PatientPortalException exception) {
+            // The attempt records only that the withdrawal failed; the log says why. The kind and the
+            // transport's fixed category name no patient data.
+            logger.warn("patient portal invitation could not be withdrawn: kind={}, cause={}", exception.kind(),
+                    exception.getCause() == null ? "none" : exception.getCause().getMessage());
             return false;
         }
     }
