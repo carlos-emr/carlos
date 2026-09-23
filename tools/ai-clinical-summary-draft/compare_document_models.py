@@ -43,6 +43,8 @@ def main():
                       'text': body})
     report = {'started_at': datetime.now(timezone.utc).isoformat(),
               'prompt_sha256': hashlib.sha256(document.PROMPT.encode()).hexdigest(),
+              'transport_prompt_sha256': hashlib.sha256(document.REFERENCE_PROMPT.encode()).hexdigest(),
+              'evidence_mode': 'host-resolved-passage-ids',
               'schema_sha256': hashlib.sha256(json.dumps(document.SCHEMA, sort_keys=True).encode()).hexdigest(),
               'settings': {'temperature': 0, 'max_tokens': 4096, 'timeout_seconds': 90,
                            'reasoning': False, 'output_cache': False, 'provider_fallbacks': False,
@@ -98,7 +100,12 @@ def main():
                     row.update(accepted=False, error=str(failure))
                 row['seconds'] = round(time.monotonic() - started, 3)
                 if raw_output:
-                    row['output'] = raw_output[-1]
+                    row['raw_output'] = raw_output[-1]
+                    try:
+                        row['output'] = document.resolve_references(
+                            raw_output[-1], document.source_passages(case['text']))
+                    except ValueError:
+                        row['output'] = {}
                     points = row['output'].get('points', []) if isinstance(row['output'], dict) else []
                     excerpts = [e for p in points if isinstance(p, dict) for e in p.get('evidence', [])
                                 if isinstance(e, str)]
@@ -107,7 +114,7 @@ def main():
                     row['nonverbatim_excerpts'] = sum(e not in case['text'] for e in excerpts)
                 report['runs'].append(row)
                 agent.private_write(args.output, json.dumps(report, indent=2) + '\n')
-                print(json.dumps({k: v for k, v in row.items() if k not in ('calls', 'output')}), flush=True)
+                print(json.dumps({k: v for k, v in row.items() if k not in ('calls', 'output', 'raw_output')}), flush=True)
     report['finished_at'] = datetime.now(timezone.utc).isoformat()
     report['summary'] = {}
     for label, _model, _provider in STACKS:
