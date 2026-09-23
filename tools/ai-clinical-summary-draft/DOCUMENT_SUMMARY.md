@@ -119,6 +119,10 @@ Explicit instructions to preserve line breaks and encoding did not reliably prev
 This remains an open quality limitation; the host does not silently accept altered quotations.
 These are small exploratory measurements, not a clinical accuracy evaluation or latency guarantee.
 
+A subsequent [three-model comparison](DOCUMENT_MODEL_COMPARISON.md) tests the current model
+against Qwen3-30B-A3B-Instruct and Nemotron-3-Nano-30B-A3B on six synthetic documents, twice each,
+including manual review of uncertainty, medication plans, and identifying text.
+
 The isolated browser check also passed with the 759-character synthetic note: 5 points in 4.7 seconds
 (including the form round trip). It verified POST-only generation, invalid-ID rejection, CSRF rejection,
 no-store responses, loaded styling, expandable evidence, retained extraction notices and no page errors.
