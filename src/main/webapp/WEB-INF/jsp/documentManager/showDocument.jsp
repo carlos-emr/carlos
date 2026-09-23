@@ -257,6 +257,9 @@
     // button was live for a read-only user and the click ended on the security error page.
     boolean canAnnotate = docIsPdf
         && securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null);
+    boolean aiDocumentSummaryEnabled = "true".equals(CarlosProperties.getInstance()
+        .getProperty("clinical.ai_document_summary.enabled", "false"))
+        && "true".equals(CarlosProperties.getInstance().getProperty("clinical.ai_summary_generation.enabled", "false"));
 
     Set<Integer> docFiledQueues = new HashSet<>();
 
@@ -503,6 +506,10 @@
                onClick="window.close()">
         <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
                onClick="popup(700,960,'<%=url2%>','file download')">
+        <%if (aiDocumentSummaryEnabled) {%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="summarizeBtn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" value="<fmt:message key="documentSummary.summarize"/>"
+               onClick="popup(760,960,'${pageContext.servletContext.contextPath}/documentManager/AiDocumentSummary?documentId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','document summary')">
+        <%}%>
         <%if (faxEnabled) {%>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="faxBtn_<%=docId%>"
                value=" <fmt:message key="showDocument.btnFax"/> "
