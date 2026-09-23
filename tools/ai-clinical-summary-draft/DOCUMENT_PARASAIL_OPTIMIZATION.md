@@ -29,6 +29,9 @@ latency vary even at temperature zero. The small sample does not establish a rel
 [Recorded metrics and prompt snapshots](quality/2026-09-23/parasail-document-optimization.json)
 include each attempt, source hashes, and hashes of the private raw reports.
 
+A [subsequent test on ten new patients](DOCUMENT_TEN_PATIENT_EVALUATION.md) passed all 20
+provenance checks, but exposed additional errors in treatment status and pending-result coverage.
+
 ## Implementation and boundaries
 
 - Paragraphs retain nearby headings, exact spelling, encoding, and internal whitespace. This keeps

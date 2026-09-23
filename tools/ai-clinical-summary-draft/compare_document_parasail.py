@@ -23,8 +23,12 @@ HOLDOUT = [("NHSSYN001", 7, "holdout-1"), ("NHSSYN001", 12, "holdout-2"),
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--holdout', action='store_true')
-    parser.add_argument('--case', choices=[c[2] for c in CASES + HOLDOUT])
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--holdout', action='store_true')
+    selection.add_argument('--new-patients', action='store_true',
+                           help='Longest complete note from each of NHSSYN004–NHSSYN013')
+    parser.add_argument('--case', choices=[c[2] for c in CASES + HOLDOUT]
+                        + [f'NHSSYN{n:03d}' for n in range(4, 14)])
     parser.add_argument('--modes', nargs='+', choices=('baseline', 'references'), default=['baseline', 'references'])
     parser.add_argument('--reasoning-tokens', type=int, choices=(0, 512, 1024), default=0)
     parser.add_argument('--repeats', type=int, choices=(1, 2, 3), default=2)
@@ -39,14 +43,24 @@ def main():
               'settings': {k: config[k] for k in ('temperature', 'max_tokens', 'timeout_seconds', 'cache_seconds')},
               'prompts': {'baseline': document.PROMPT, 'references': document.REFERENCE_PROMPT},
               'cases': [], 'runs': []}
-    for fixture, index, label in HOLDOUT if args.holdout else CASES:
+    selected = HOLDOUT if args.holdout else CASES
+    if args.new_patients:
+        selected = []
+        for n in range(4, 14):
+            fixture = f'NHSSYN{n:03d}'
+            bodies = [b for f, _, b in notes if f == fixture]
+            index = max(range(len(bodies)), key=lambda i: len(bodies[i]))
+            selected.append((fixture, index, fixture))
+    report['selection'] = ('longest-note-from-each-of-ten-new-patients' if args.new_patients
+                           else 'holdout' if args.holdout else 'development')
+    for fixture, index, label in selected:
         if args.case and label != args.case:
             continue
         body = [b for f, _, b in notes if f == fixture][index]
         report['cases'].append({'case': label, 'fixture': fixture, 'note_index': index,
                                 'sha256': hashlib.sha256(body.encode()).hexdigest(), 'text': body})
     if not report["cases"]:
-        parser.error("--case must belong to the selected development or --holdout set")
+        parser.error("--case must belong to the selected patient/note set")
     for repeat in range(args.repeats):
         for i, case in enumerate(report['cases']):
             modes = ('baseline', 'references') if (i + repeat) % 2 == 0 else ('references', 'baseline')
