@@ -1813,6 +1813,17 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     /**
+     * Compatibility entry point for callers compiled against earlier releases.
+     *
+     * @deprecated Pass the negotiated browser locale to
+     * {@link #getStandardIdentificationHtml(String, Locale)}. Legacy callers use English.
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
+    public String getStandardIdentificationHTML(String contextPath) {
+        return getStandardIdentificationHtml(contextPath, Locale.ENGLISH);
+    }
+
+    /**
      * Renders the patient identity block shown at the top of the chart.
      *
      * <p>The locale is a required argument, not something this method looks up, because CARLOS
@@ -2007,11 +2018,23 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         return this.getDemographicNo();
     }
     /**
+     * Compatibility bean property for callers without a request locale.
+     *
+     * @deprecated Use {@link #getRosterStatusDisplay(Locale)} for browser-localized text.
+     * Legacy callers use English.
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
+    @jakarta.persistence.Transient
+    public String getRosterStatusDisplay() {
+        return getRosterStatusDisplay(Locale.ENGLISH);
+    }
+
+    /**
      * Roster status as a clinician-readable label.
      *
      * <p>Takes the locale rather than reading one, for the reason given on
-     * {@link #getStandardIdentificationHtml(String, Locale)}. It is no longer a JavaBean getter,
-     * so the {@code @Transient} that used to keep JPA away from it is not needed.</p>
+     * {@link #getStandardIdentificationHtml(String, Locale)}. This locale-aware overload is not a JavaBean getter;
+     * the deprecated no-argument compatibility property remains {@code @Transient}.</p>
      *
      * @param locale browser-preferred locale for this request; {@code null} falls back to English
      */

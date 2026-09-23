@@ -39,6 +39,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DemographicStandardIdentificationHtmlUnitTest {
 
     @Test
+    @SuppressWarnings("deprecation")
+    void shouldPreserveLegacySignatures_withEnglishFallback() {
+        Demographic demographic = demographicWithHostileDisplayFields();
+        demographic.setRosterStatus("RO");
+        assertThat(demographic.getStandardIdentificationHTML("/carlos"))
+                .isEqualTo(demographic.getStandardIdentificationHtml("/carlos", Locale.ENGLISH));
+        assertThat(demographic.getRosterStatusDisplay()).isEqualTo("Rostered");
+    }
+
+    @Test
     void shouldEscapePatientLabelFields_whenRenderingStandardIdentificationHtml() {
         Demographic demographic = demographicWithHostileDisplayFields();
 
