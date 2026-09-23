@@ -13,6 +13,24 @@ public final class ClinicalSummaryAgents {
 
     public static ClinicalSummaryAgent configured() { return configured(CarlosProperties.getInstance()); }
 
+    /** Uses the same configured model and transport, with a document-specific HTTP operation. */
+    public static ClinicalSummaryAgent configuredDocument() {
+        return configuredDocument(CarlosProperties.getInstance());
+    }
+
+    static ClinicalSummaryAgent configuredDocument(Properties properties) {
+        if (!"http".equals(properties.getProperty(PREFIX + "agent", "ollama"))) {
+            return configured(properties);
+        }
+        return new HttpClinicalSummaryAgent(
+                Integer.parseInt(properties.getProperty(PREFIX + "http.port", "11435")),
+                properties.getProperty("clinical.ai_document_summary.http.path", "/v1/document-summary"),
+                properties.getProperty(PREFIX + "http.name", "Configured agent"),
+                timeoutMillis(properties.getProperty(PREFIX + "http.timeoutSeconds", "600")),
+                Integer.parseInt(properties.getProperty(PREFIX + "http.requestBytes",
+                        String.valueOf(ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES))));
+    }
+
     static ClinicalSummaryAgent configured(Properties properties) {
         return switch (properties.getProperty(PREFIX + "agent", "ollama")) {
             case "ollama" -> new OllamaClinicalSummaryAgent(
