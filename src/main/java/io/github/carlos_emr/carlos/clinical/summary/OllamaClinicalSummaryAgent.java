@@ -69,17 +69,20 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
                 .put("prompt", JSON.writeValueAsString(bundle)).put("stream", false).put("think", false)
                 .put("keep_alive", "5m");
         ObjectNode schema = request.get("output_schema").deepCopy();
-        ObjectNode coverage = (ObjectNode) schema.path("properties").path("coverage");
-        // The model reviews only the sources it did not cite; the host records the cited ones.
-        coverage.put("minItems", 0).put("maxItems", request.get("sources").size());
-        var coverageIds = ((ObjectNode) coverage.path("items").path("properties").path("source_id")).putArray("enum");
-        ObjectNode citations = (ObjectNode) schema.path("properties").path("claims").path("items").path("properties").path("source_ids");
-        citations.put("maxItems", request.get("sources").size());
-        var citationIds = ((ObjectNode) citations.path("items")).putArray("enum");
-        request.get("sources").forEach(source -> {
-            coverageIds.add(source.get("id").asText());
-            citationIds.add(source.get("id").asText());
-        });
+        JsonNode properties = schema.path("properties");
+        if (properties.has("coverage") && properties.has("claims")) {
+            ObjectNode coverage = (ObjectNode) properties.path("coverage");
+            // The clinical model reviews only sources it did not cite; the host records cited ones.
+            coverage.put("minItems", 0).put("maxItems", request.get("sources").size());
+            var coverageIds = ((ObjectNode) coverage.path("items").path("properties").path("source_id")).putArray("enum");
+            ObjectNode citations = (ObjectNode) properties.path("claims").path("items").path("properties").path("source_ids");
+            citations.put("maxItems", request.get("sources").size());
+            var citationIds = ((ObjectNode) citations.path("items")).putArray("enum");
+            request.get("sources").forEach(source -> {
+                coverageIds.add(source.get("id").asText());
+                citationIds.add(source.get("id").asText());
+            });
+        }
         payload.set("format", schema);
         payload.putObject("options").put("temperature", 0).put("num_ctx", 16384).put("num_predict", 4096);
         byte[] body = JSON.writeValueAsBytes(payload);
