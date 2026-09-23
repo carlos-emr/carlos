@@ -184,6 +184,37 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
+    @DisplayName("send releases its claim and rethrows when the rate limiter fails")
+    void shouldReleaseClaim_whenRateLimiterThrows() {
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
+        IllegalStateException limiterFailure = new IllegalStateException("rate-limit row lock timed out");
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                recorder,
+                providerType -> {
+                    events.add("tryAcquire");
+                    throw limiterFailure;
+                },
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")))
+                .isSameAs(limiterFailure);
+
+        // Nothing was sent, so the row must not be left SENDING for stale recovery to misjudge.
+        assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
+        assertThat(recorder.transactions()).singleElement()
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getAttemptCount()).isZero();
+                });
+    }
+
+    @Test
     @DisplayName("send does not create a transaction for validation failures")
     void shouldSkipTransactionRecord_whenValidationFails() {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
