@@ -85,6 +85,9 @@ class PortalEncodingBoundaryUnitTest {
             assertThat(failure.kind()).isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE);
             assertThat(failure.statusCode()).isEqualTo(201);
             assertThat(failure.getCause()).hasMessage("portal response is not valid UTF-8");
+            // The transport failure that detected it is kept, and the rendered trace below still
+            // holds no part of the response.
+            assertThat(failure.getCause().getCause()).isInstanceOf(PortalResponseDecodingException.class);
             StringWriter rendered = new StringWriter();
             failure.printStackTrace(new PrintWriter(rendered));
             assertThat(rendered.toString()).doesNotContain(SYNTHETIC_SECRET);
@@ -101,12 +104,10 @@ class PortalEncodingBoundaryUnitTest {
         server.createContext("/valid", request -> {
             byte[] bytes = expected.getBytes(StandardCharsets.UTF_8);
             request.sendResponseHeaders(200, bytes.length);
+            // Server-side write boundaries are invisible to the client's decoder, so one write is
+            // enough: what matters is multi-byte text and a literal U+FFFD surviving decoding.
             try (var output = request.getResponseBody()) {
-                // Send byte by byte, covering multi-byte sequences across writes as well as ASCII.
-                for (byte value : bytes) {
-                    output.write(value);
-                    output.flush();
-                }
+                output.write(bytes);
             }
         });
         server.start();
