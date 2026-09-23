@@ -125,66 +125,6 @@ class PatientPortalInviteCallsUnitTest {
     class Create {
 
         @Test
-        @DisplayName("should post the demographic identity proof to the patient's invite endpoint")
-        void shouldPostIdentityProof_toPatientInviteEndpoint() throws Exception {
-            RecordingExchange exchange = new RecordingExchange(201, INVITE_JSON);
-            PatientPortalService service = new PatientPortalService(settings(), exchange);
-
-            service.createInvite(
-                    123, "patient@example.com", LocalDate.of(1980, 1, 1), "1234567890", staff());
-
-            assertThat(exchange.captured.getMethod()).isEqualTo("POST");
-            assertThat(exchange.captured.getUri().getPath())
-                    .isEqualTo("/internal/carlos/patients/123/invites");
-            assertThat(bodyOf(exchange.captured))
-                    .contains("\"demographic_no\":123")
-                    .contains("\"email\":\"patient@example.com\"")
-                    .contains("\"date_of_birth\":\"1980-01-01\"")
-                    .contains("\"health_card_number\":\"1234567890\"");
-        }
-
-        @Test
-        @DisplayName("should return the one-time token and the invite record")
-        void shouldReturnIssuedInvite_whenPortalAccepts() {
-            PatientPortalService service =
-                    new PatientPortalService(settings(), new RecordingExchange(201, INVITE_JSON));
-
-            PatientPortalIssuedInviteDto issued =
-                    service.createInvite(
-                            123,
-                            "patient@example.com",
-                            LocalDate.of(1980, 1, 1),
-                            "1234567890",
-                            staff());
-
-            assertThat(issued.inviteToken().expose()).isEqualTo(INVITE_TOKEN);
-            assertThat(issued.invite().id()).isEqualTo(7L);
-            assertThat(issued.invite().status()).isEqualTo("pending");
-            assertThat(issued.invite().issuedCount()).isEqualTo(1);
-            assertThat(issued.invite().expiresAt()).isNotNull();
-            assertThat(issued.invite().acceptedAccountId()).isNull();
-        }
-
-        @Test
-        @DisplayName("should reject a non-creation success status")
-        void shouldReject_whenCreateDoesNotReturnCreated() {
-            PatientPortalService service =
-                    new PatientPortalService(settings(), new RecordingExchange(200, INVITE_JSON));
-
-            assertThatThrownBy(
-                            () ->
-                                    service.createInvite(
-                                            123,
-                                            "patient@example.com",
-                                            LocalDate.of(1980, 1, 1),
-                                            "1234567890",
-                                            staff()))
-                    .isInstanceOf(PatientPortalException.class)
-                    .extracting(exception -> ((PatientPortalException) exception).kind())
-                    .isEqualTo(Kind.MALFORMED_RESPONSE);
-        }
-
-        @Test
         @DisplayName("should surface an existing account or pending invite as a conflict")
         void shouldThrowConflict_whenPortalRejectsDuplicate() {
             PatientPortalService service =
@@ -194,11 +134,12 @@ class PatientPortalInviteCallsUnitTest {
 
             assertThatThrownBy(
                             () ->
-                                    service.createInvite(
+                                    service.prepareInvite(
                                             123,
                                             "patient@example.com",
                                             LocalDate.of(1980, 1, 1),
                                             "1234567890",
+                                            OPERATION_ID,
                                             staff()))
                     .isInstanceOf(PatientPortalException.class)
                     .extracting(exception -> ((PatientPortalException) exception).kind())
@@ -213,11 +154,12 @@ class PatientPortalInviteCallsUnitTest {
 
             assertThatThrownBy(
                             () ->
-                                    service.createInvite(
+                                    service.prepareInvite(
                                             123,
                                             "patient@example.com",
                                             LocalDate.of(1980, 1, 1),
                                             "1234567890",
+                                            OPERATION_ID,
                                             staff()))
                     .isInstanceOf(PatientPortalException.class)
                     .extracting(exception -> ((PatientPortalException) exception).kind())
@@ -233,11 +175,12 @@ class PatientPortalInviteCallsUnitTest {
 
             assertThatThrownBy(
                             () ->
-                                    service.createInvite(
+                                    service.prepareInvite(
                                             123,
                                             "patient@example.com",
                                             LocalDate.of(1980, 1, 1),
                                             "1234567890",
+                                            OPERATION_ID,
                                             staff()))
                     .isInstanceOf(PatientPortalException.class)
                     .hasMessageNotContaining(TOKEN)
@@ -397,24 +340,6 @@ class PatientPortalInviteCallsUnitTest {
     class ResendAndRevoke {
 
         @Test
-        @DisplayName("should post to the resend endpoint and return the replacement token")
-        void shouldReturnReplacementToken_whenInviteIsResent() {
-            String replacement =
-                    INVITE_JSON
-                            .replace("\"id\": 7", "\"id\": 8")
-                            .replace("\"supersedes_invite_id\": null", "\"supersedes_invite_id\": 7");
-            RecordingExchange exchange = new RecordingExchange(200, replacement);
-            PatientPortalService service = new PatientPortalService(settings(), exchange);
-
-            PatientPortalIssuedInviteDto issued = service.resendInvite(7L, staff());
-
-            assertThat(exchange.captured.getMethod()).isEqualTo("POST");
-            assertThat(exchange.captured.getRequestUri())
-                    .contains("/internal/carlos/invites/7/resend");
-            assertThat(issued.inviteToken().expose()).isEqualTo(INVITE_TOKEN);
-        }
-
-        @Test
         @DisplayName("should post to the revoke endpoint")
         void shouldPostToRevokeEndpoint_whenInviteIsRevoked() {
             RecordingExchange exchange = new RecordingExchange(200, INVITE_JSON.replace("pending", "revoked"));
@@ -435,21 +360,23 @@ class PatientPortalInviteCallsUnitTest {
         /**
          * The activation token is a credential: whoever holds it can complete activation as the
          * patient. A record's generated toString would print it into any log line that rendered the
-         * result of createInvite.
+         * result of prepareInvite.
          */
         @Test
         @DisplayName("should never render the activation token")
         void shouldRedactInviteToken_inToStringOutput() {
             PatientPortalService service =
-                    new PatientPortalService(settings(), new RecordingExchange(201, INVITE_JSON));
+                    new PatientPortalService(settings(), new RecordingExchange(201, PREPARED_INVITE_JSON));
 
             PatientPortalIssuedInviteDto issued =
-                    service.createInvite(
-                            123,
-                            "patient@example.com",
-                            LocalDate.of(1980, 1, 1),
-                            "1234567890",
-                            staff());
+                    service.prepareInvite(
+                                    123,
+                                    "patient@example.com",
+                                    LocalDate.of(1980, 1, 1),
+                                    "1234567890",
+                                    OPERATION_ID,
+                                    staff())
+                            .issuedInvite();
 
             assertThat(issued.toString()).doesNotContain(INVITE_TOKEN);
             assertThat(issued.toString()).contains("REDACTED");

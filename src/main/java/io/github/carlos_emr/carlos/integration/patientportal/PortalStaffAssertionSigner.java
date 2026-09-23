@@ -37,6 +37,7 @@ import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -169,14 +170,17 @@ final class PortalStaffAssertionSigner {
         } catch (IllegalArgumentException exception) {
             throw invalidKey(exception);
         }
-        if (!ENCODER.encodeToString(decoded).equals(encoded)) {
-            throw invalidKey(null);
-        }
         try {
+            if (!ENCODER.encodeToString(decoded).equals(encoded)) {
+                throw invalidKey(null);
+            }
             return KeyFactory.getInstance(ALGORITHM)
                     .generatePrivate(new PKCS8EncodedKeySpec(decoded));
         } catch (GeneralSecurityException exception) {
             throw invalidKey(exception);
+        } finally {
+            // PKCS8EncodedKeySpec keeps its own copy, so the raw key bytes need not outlive this call.
+            Arrays.fill(decoded, (byte) 0);
         }
     }
 
