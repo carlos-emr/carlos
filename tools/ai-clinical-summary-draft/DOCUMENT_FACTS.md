@@ -111,3 +111,9 @@ The self-contained preview passed browser checks for the synopsis, table, expand
 390-pixel mobile layout without horizontal overflow, no external requests and no page errors.
 
 ![Experimental comparison with manual-review findings](screenshots/document-facts-comparison.png)
+
+## Subsequent constrained hybrid
+
+The [source-derived hybrid](DOCUMENT_HYBRID.md) replaces clinical paraphrasing with deterministic
+extraction and AI selection of opening facts. It is much faster in the paired trial but longer,
+and remains experimental.
