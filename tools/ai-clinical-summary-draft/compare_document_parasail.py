@@ -12,6 +12,7 @@ import uuid
 
 import document_summary as document
 import document_fidelity as fidelity
+import document_distill as distill
 import openrouter_agent as agent
 from compare_document_models import CASES
 
@@ -32,12 +33,16 @@ def main():
                            help='Longest complete note from each of NHSSYN014–NHSSYN023')
     selection.add_argument('--new-patients', action='store_true',
                            help='Longest complete note from each of NHSSYN004–NHSSYN013')
+    parser.add_argument('--note-rank', type=int, choices=(1, 2), default=1,
+                        help='Use the longest or second-longest note per patient in a range')
     parser.add_argument('--case', choices=[c[2] for c in CASES + HOLDOUT]
                         + [f'NHSSYN{n:03d}' for n in range(1, 51)])
-    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references', 'fidelity', 'brief'), default=['baseline', 'references'])
+    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references', 'fidelity', 'brief', 'distill', 'balanced'), default=['baseline', 'references'])
     parser.add_argument('--reasoning-tokens', type=int, choices=(0, 512, 1024), default=0)
     parser.add_argument('--repeats', type=int, choices=(1, 2, 3), default=2)
     args = parser.parse_args()
+    if args.reasoning_tokens and any(mode in ('distill', 'balanced') for mode in args.modes):
+        parser.error('--reasoning-tokens is only supported by the historical single-pass modes')
     if args.patient_range and not 1 <= args.patient_range[0] <= args.patient_range[1] <= 50:
         parser.error('--patient-range must be ordered within 1–50')
     config = dict(agent.read_config(agent.runtime_directory() / 'openrouter/config.json'),
@@ -47,9 +52,10 @@ def main():
     report = {'started_at': datetime.now(timezone.utc).isoformat(),
               'model': config['model'], 'provider': config['provider'],
               'reference_reasoning_tokens': args.reasoning_tokens,
+              'note_rank': args.note_rank,
               'settings': {k: config[k] for k in ('temperature', 'max_tokens', 'timeout_seconds', 'cache_seconds')},
               'prompts': {'baseline': document.PROMPT, 'references': document.REFERENCE_PROMPT,
-                          'fidelity': fidelity.EXTRACTIVE_PROMPT, 'brief': fidelity.PROMPT},
+                          'fidelity': fidelity.EXTRACTIVE_PROMPT, 'brief': fidelity.PROMPT, 'distill': distill.PROMPT, 'distill_review': distill.REVIEW_PROMPT, 'balanced': distill.CONTEXT_PROMPT},
               'cases': [], 'runs': []}
     selected = HOLDOUT if args.holdout else CASES
     if args.new_patients or args.next_patients or args.patient_range:
@@ -58,7 +64,7 @@ def main():
         for n in range(first, last + 1):
             fixture = f'NHSSYN{n:03d}'
             bodies = [b for f, _, b in notes if f == fixture]
-            index = max(range(len(bodies)), key=lambda i: len(bodies[i]))
+            index = sorted(range(len(bodies)), key=lambda i: len(bodies[i]), reverse=True)[args.note_rank - 1]
             selected.append((fixture, index, fixture))
     report['selection'] = (f'longest-note-per-patient-{args.patient_range}' if args.patient_range else
                            'longest-note-from-each-of-ten-new-patients' if args.new_patients
@@ -88,7 +94,8 @@ def main():
                 # Same disclosure boundary as run_document, before any request construction or network access.
                 document.validate_request(request, notes, config['request_bytes'])
                 refs = mode != 'baseline'
-                payload, passages = (fidelity.completion_payload(config, body, compact=mode == 'brief') if mode in ('fidelity', 'brief')
+                payload, passages = ((None, None) if mode in ('distill', 'balanced') else
+                                     fidelity.completion_payload(config, body, compact=mode == 'brief') if mode in ('fidelity', 'brief')
                                      else document.completion_payload(config, body, references=refs))
                 if refs and args.reasoning_tokens:
                     payload['reasoning'] = {'enabled': True, 'exclude': True,
@@ -107,10 +114,14 @@ def main():
                 row = {'mode': mode, 'case': case['case'], 'repeat': repeat + 1, 'calls': calls}
                 started = time.monotonic()
                 try:
-                    raw = gateway.complete(payload)
-                    row['raw_output'] = raw
-                    output = (fidelity.resolve(raw, passages) if mode in ('fidelity', 'brief')
-                              else document.resolve_references(raw, passages) if refs else raw)
+                    if mode in ('distill', 'balanced'):
+                        row['review_trace'] = []
+                        output = distill.run(config, body, gateway.complete, row['review_trace'], protect=mode == 'balanced')
+                    else:
+                        raw = gateway.complete(payload)
+                        row['raw_output'] = raw
+                        output = (fidelity.resolve(raw, passages) if mode in ('fidelity', 'brief')
+                                  else document.resolve_references(raw, passages) if refs else raw)
                     row['output'] = output
                     document.validate_output(output, body)
                     row['accepted'] = True
@@ -125,7 +136,7 @@ def main():
                 row['seconds'] = round(time.monotonic() - started, 3)
                 report['runs'].append(row)
                 agent.private_write(args.output, json.dumps(report, indent=2) + '\n')
-                print(json.dumps({k: v for k, v in row.items() if k not in ('calls', 'output', 'raw_output')}), flush=True)
+                print(json.dumps({k: v for k, v in row.items() if k not in ('calls', 'output', 'raw_output', 'review_trace')}), flush=True)
     report['finished_at'] = datetime.now(timezone.utc).isoformat()
     report['summary'] = {}
     for mode in dict.fromkeys(args.modes):

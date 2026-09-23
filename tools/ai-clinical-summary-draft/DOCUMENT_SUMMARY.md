@@ -34,20 +34,20 @@ The adapter uses the existing `clinical.ai_summary_generation.*` server configur
 
 The bundled OpenRouter gateway now exposes `/v1/document-summary`. Restart it from this branch
 before using the new operation. It keeps the configured model/provider and routing restrictions,
-uses one completion with at most 4,096 output tokens, and does not cache document outputs.
+uses bounded completions with at most 4,096 output tokens each, and does not cache document outputs.
 **This test gateway accepts only text exactly equal to a complete note in the committed NHS
 synthetic corpus.** A synthetic label is insufficient. Arbitrary files, PDF page prefixes,
 partial notes, additional metadata, and changed prompts/schemas are rejected before network access.
 Use a plain-text file containing exactly one corpus note to test the Document Manager workflow.
 The gateway validates the incoming prompt/schema against the Java resources. Its current mode is
-**extractive-brief**: the model selects source paragraphs or bullets, and the gateway supplies
-all displayed clinical wording. Source headings, nested bullets and continuations remain attached.
-The host retains recognized medications, allergies, plans, disposition, pending/follow-up wording,
-observations, recorded treatment patterns and simple negation contrasts. Routine result sections
-are no longer forced into the output solely by heading. Adjacent selected bullets share a heading
-and keep separate exact evidence. Java independently validates the unchanged public output schema.
-See [reading-volume results and limitations](DOCUMENT_READTIME.md) and the
-[earlier fidelity design](DOCUMENT_FIDELITY.md).
+**balanced-reviewed**: the host retains recognized clinical sections verbatim and the model condenses
+the remaining context. A separate call reviews the full source and combined draft, with at most one
+revision and re-review. Normally this uses two calls, or four with revision; documents consisting
+entirely of protected passages need none. Recognized medications, allergies, results, observations,
+history, systems review, impression, treatment, disposition, plans and qualified negation are protected
+by bounded lexical rules. Java independently validates the unchanged public output schema.
+See [current coverage/readability results and limitations](DOCUMENT_BALANCED.md), the
+[previous selection-only stage](DOCUMENT_READTIME.md), and the [earlier fidelity design](DOCUMENT_FIDELITY.md).
 
 
 ## Reuse in another CARLOS workflow
@@ -84,15 +84,16 @@ and `points` (see `src/main/resources/clinical/summary/document-summary-schema.j
   entailment or completeness. The overview is checked for lexical overlap, but has no separate
   evidence array. Always review the original.
 - The bundled gateway's numbered passages keep headings with values and split long paragraphs
-  into excerpts of at most 800 UTF-16 units. It rejects unknown/repeated IDs, malformed reference
+  into excerpts of at most 800 UTF-16 units. It rejects unknown IDs and malformed reference
   output, and provider requests exceeding the configured byte budget. Passage citations may be
   broader than a hand-selected quotation and may include identifying text already in the source.
-  They do not establish that the model's claim follows from the cited passage.
-- In extractive mode, point text is the selected original passage with display line endings
-  normalized; selected bullets may share a heading, and evidence preserves the separate original substrings. Source errors, contradictions,
-  typos and embedded identifiers remain. Recognized sections are retained by lexical rules; this
-  is not a comprehensive clinical parser. Other relevant content can still be omitted. The mode
-  is less concise than a fluent paraphrase; it does not verify the source's clinical correctness.
+  Repeated identical IDs within a generated point are deduplicated before final validation.
+  Citations do not establish that the model's claim follows from the cited passage.
+- Protected points reproduce source text with display line endings normalized. Source errors,
+  contradictions, typos and embedded identifiers remain. Other context is paraphrased and can still
+  omit or misrepresent relevant facts despite numerical/lexical checks and full-source model review.
+  These are not comprehensive clinical checks. Completeness takes priority over a word target;
+  dense notes may remain nearly intact. Model approval does not verify clinical correctness.
 - Generated text is request-scoped. Audit entries identify the operation/document, not extracted
   text or generated prose. The shared extractor retains a bounded in-memory text cache as before.
 - The built-in gateway is a synthetic-data test bench, not a route for real documents to OpenRouter.
@@ -121,7 +122,15 @@ DOCUMENT_SUMMARY_OUTPUT_DIR=<private-output-directory> \
 node tools/ai-clinical-summary-draft/tests/document-summary-browser-checks.cjs
 ```
 
-### Exploratory live results, 2026-09-23
+### Current verification, 2026-09-23
+
+The balanced workflow passed the Python suite (162 tests) and the isolated browser check (seven
+points in 11.07 seconds). On ten synthetic patients, all drafts passed structural/provenance,
+protected-passage and model-review checks, with a median point length of 72% of source words and
+15.76-second median generation time. This is a reading-volume proxy, not clinical validation or
+measured reading time. See [the full results](DOCUMENT_BALANCED.md).
+
+### Historical exploratory live results, 2026-09-23
 
 Using the existing local gateway configuration (`qwen/qwen3.5-35b-a3b`, Parasail via OpenRouter),
 three complete synthetic notes from NHSSYN001 were sent individually, without output caching:

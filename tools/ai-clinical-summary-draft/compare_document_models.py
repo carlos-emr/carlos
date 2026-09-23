@@ -16,7 +16,7 @@ import time
 import uuid
 
 import document_summary as document
-import document_fidelity as fidelity
+import document_distill as distill
 import openrouter_agent as agent
 
 # Note numbers are zero-based positions within each committed fixture. Selection is fixed before
@@ -44,15 +44,15 @@ def main():
                       'text': body})
     report = {'started_at': datetime.now(timezone.utc).isoformat(),
               'prompt_sha256': hashlib.sha256(document.PROMPT.encode()).hexdigest(),
-              'transport_prompt_sha256': hashlib.sha256(fidelity.PROMPT.encode()).hexdigest(),
-              'evidence_mode': 'extractive-brief',
+              'transport_prompt_sha256': hashlib.sha256(distill.CONTEXT_PROMPT.encode()).hexdigest(),
+              'evidence_mode': 'balanced-reviewed',
               'schema_sha256': hashlib.sha256(json.dumps(document.SCHEMA, sort_keys=True).encode()).hexdigest(),
               'settings': {'temperature': 0, 'max_tokens': 4096, 'timeout_seconds': 90,
                            'reasoning': False, 'output_cache': False, 'provider_fallbacks': False,
                            'data_collection': 'deny', 'zdr': True},
               'caveats': ['Different providers/quantizations/hardware; this is a hosted-stack comparison.',
                           'Qwen3 Instruct is non-reasoning: omit unsupported reasoning parameter.',
-                          'Validation is not clinical accuracy; no automatic repair or prompt tuning.',
+                          'Balanced drafts use full-source review and at most one repair; validation is not clinical accuracy.',
                           'Upstream input-prefix caching may occur; reported cached tokens are retained.'],
               'cases': cases, 'runs': []}
     for repeat in range(args.repeats):
@@ -95,24 +95,20 @@ def main():
                 row = {'stack': label, 'case': case['case'], 'repeat': repeat + 1, 'calls': calls}
                 started = time.monotonic()
                 try:
-                    gateway.run_document(request)
+                    row['output'] = gateway.run_document(request)['output']
                     row['accepted'] = True
                 except (ValueError, OSError, agent.UpstreamError) as failure:
                     row.update(accepted=False, error=str(failure))
                 row['seconds'] = round(time.monotonic() - started, 3)
                 if raw_output:
                     row['raw_output'] = raw_output[-1]
-                    try:
-                        row['output'] = fidelity.resolve(
-                            raw_output[-1], fidelity.prepare(case['text']))
-                    except ValueError:
-                        row['output'] = {}
-                    points = row['output'].get('points', []) if isinstance(row['output'], dict) else []
-                    excerpts = [e for p in points if isinstance(p, dict) for e in p.get('evidence', [])
-                                if isinstance(e, str)]
-                    row['points'] = len(points)
-                    row['excerpts'] = len(excerpts)
-                    row['nonverbatim_excerpts'] = sum(e not in case['text'] for e in excerpts)
+                row.setdefault('output', {})
+                points = row['output'].get('points', []) if isinstance(row['output'], dict) else []
+                excerpts = [e for p in points if isinstance(p, dict) for e in p.get('evidence', [])
+                            if isinstance(e, str)]
+                row['points'] = len(points)
+                row['excerpts'] = len(excerpts)
+                row['nonverbatim_excerpts'] = sum(e not in case['text'] for e in excerpts)
                 report['runs'].append(row)
                 agent.private_write(args.output, json.dumps(report, indent=2) + '\n')
                 print(json.dumps({k: v for k, v in row.items() if k not in ('calls', 'output', 'raw_output')}), flush=True)

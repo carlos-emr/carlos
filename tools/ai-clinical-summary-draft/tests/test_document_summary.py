@@ -13,6 +13,7 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import document_summary as document
 import document_fidelity as fidelity
+import document_distill as distill
 import openrouter_agent as agent
 
 
@@ -21,12 +22,17 @@ class DocumentSummaryTest(unittest.TestCase):
         self.calls = []
         self.config = dict(agent.DEFAULTS, api_key="test-key-never-a-real-secret")
         self.gateway = agent.Gateway(self.config, transport=self.transport)
-        self.body = min((row for row in self.gateway.allowed.notes if len(row[2]) > 200), key=lambda row: len(row[2]))[2]
+        self.body = next(body for fixture, _, body in self.gateway.allowed.notes
+                         if fixture == 'NHSSYN001' and 'Presenting Complaint\n' in body and 'Impression\n' in body)
         self.passages = document.source_passages(self.body)
-        excerpt = self.passages["1"]
-        self.output = {"overview": excerpt.strip(), "points": [
-            {"text": excerpt.strip(), "evidence": [excerpt]}]}
-        self.raw_output = {"selected_ids": ["1"]}
+        protected = distill.protected_ids(fidelity.prepare(self.body, compact=False))
+        self.context_passages = {ref: text for ref, text in self.passages.items() if ref not in protected}
+        self.selected = next(ref for ref, text in self.context_passages.items() if text.startswith('Presenting Complaint'))
+        excerpt = self.passages[self.selected]
+        points = [{'text': text.replace('\r\n', '\n').replace('\r', '\n').strip(), 'evidence': [text]}
+                  for ref, text in self.passages.items() if ref in protected or ref == self.selected]
+        self.output = {'overview': points[0]['text'], 'points': points}
+        self.raw_output = {'points': [{'text': excerpt.strip(), 'evidence_ids': [self.selected]}]}
         self.reference_output = {"overview": excerpt[:200], "points": [
             {"text": excerpt[:200], "evidence_ids": ["1"]}]}
         self.request = {"contract_version": 1, "request_id": str(uuid4()),
@@ -39,7 +45,9 @@ class DocumentSummaryTest(unittest.TestCase):
     def transport(self, config, endpoint, payload):
         self.calls.append(copy.deepcopy(payload))
         return {"model": self.model, "choices": [{"finish_reason": self.finish,
-                                                  "message": {"content": json.dumps(self.raw_output)}}]}
+                                                  "message": {"content": json.dumps(
+                                                      {"issues": []} if payload["response_format"]["json_schema"]["schema"]["required"] == ["issues"]
+                                                      else self.raw_output)}}]}
 
     def test_single_document_uses_same_provider_with_bounded_uncached_completion(self):
         result = self.gateway.run_document(self.request)
@@ -53,12 +61,12 @@ class DocumentSummaryTest(unittest.TestCase):
         self.assertEqual("deny", payload["provider"]["data_collection"])
         self.assertEqual(4096, payload["max_tokens"])
         self.assertEqual({"enabled": False}, payload["reasoning"])
-        self.assertEqual(fidelity.PROMPT, payload["messages"][0]["content"])
-        self.assertEqual(self.passages, json.loads(payload["messages"][1]["content"])["passages"])
+        self.assertEqual(distill.CONTEXT_PROMPT, payload["messages"][0]["content"])
+        self.assertEqual(self.context_passages, json.loads(payload["messages"][1]["content"])["passages"])
         for excerpt in self.passages.values():
             self.assertIn(excerpt, self.body)
         self.gateway.run_document(self.request)
-        self.assertEqual(2, len(self.calls))
+        self.assertEqual(4, len(self.calls))
 
     def test_cloud_rejects_unknown_text_and_short_substrings_before_transport(self):
         for body in ("Real patient content", self.body[:20], self.body + " extra private text"):
@@ -94,12 +102,12 @@ class DocumentSummaryTest(unittest.TestCase):
             fidelity.completion_payload(self.config, self.body)
         self.assertFalse(self.calls)
 
-    def test_invalid_selections_and_model_authored_claims_are_rejected(self):
+    def test_invalid_reference_fields_are_rejected(self):
         valid = copy.deepcopy(self.raw_output)
-        mutations = [lambda r: r.update(selected_ids=["Invented reference"]),
-                     lambda r: r["selected_ids"].append(r["selected_ids"][0]),
-                     lambda r: r.update(points=[{"text": "Antibiotics already started"}]),
-                     lambda r: r.update(overview="Unrelated xylophone")]
+        mutations = [lambda r: r['points'][0].update(evidence_ids=['Invented reference']),
+                     lambda r: r['points'][0].update(evidence_ids=[True]),
+                     lambda r: r['points'][0].update(text='Unrelated xylophone'),
+                     lambda r: r.update(overview='Invented overview')]
         for change in mutations:
             self.raw_output = copy.deepcopy(valid)
             change(self.raw_output)
@@ -180,7 +188,7 @@ class DocumentSummaryTest(unittest.TestCase):
             with self.assertRaises(HTTPError) as error:
                 opener.open(Request(url, json.dumps(self.request).encode()), timeout=5)
             self.assertEqual(400, error.exception.code)
-            self.assertEqual(1, len(self.calls))
+            self.assertEqual(2, len(self.calls))
         finally:
             server.shutdown()
             thread.join()

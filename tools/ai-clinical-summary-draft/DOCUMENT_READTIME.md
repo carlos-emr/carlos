@@ -1,6 +1,9 @@
 # Reducing document-summary reading volume
 
-The bundled Parasail gateway now uses `extractive-brief`: select fewer source passages, with
+This records the previous selection-only stage. The gateway now uses
+[balanced-reviewed](DOCUMENT_BALANCED.md) to improve relevant-detail coverage and readability.
+
+The previous `extractive-brief` mode selects fewer source passages, with
 individual bullets available for selection in recognized lists. The page shows key points once;
 the repeated overview is available in a closed disclosure. Evidence remains expandable beside
 each point. This reduces reading volume without letting the model rewrite clinical statements.
@@ -100,6 +103,6 @@ python3 tools/ai-clinical-summary-draft/compare_document_parasail.py \
 python3 -m unittest discover -s tools/ai-clinical-summary-draft/tests -p 'test_*.py'
 ```
 
-`fidelity` preserves the earlier paragraph-selector behavior; `brief` uses the current gateway
-behavior. API comparisons incur charges with the existing private credentials. Restart the
-bundled gateway and deploy the updated JSP to use the change elsewhere.
+`fidelity` preserves the earlier paragraph-selector behavior; `brief` reproduces this historical
+selection-only stage. `balanced` uses the current gateway behavior. API comparisons incur charges
+with the existing private credentials.

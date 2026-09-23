@@ -33,7 +33,7 @@
             <summary id="overview-heading"><fmt:message key="documentSummary.overview"/></summary>
             <p class="document-summary-text"><carlos:encode value="${documentSummaryOverview}"/></p>
         </details>
-        <section aria-labelledby="points-heading">
+        <section class="document-summary-points" aria-labelledby="points-heading">
             <h2 id="points-heading" class="h4"><fmt:message key="documentSummary.points"/></h2>
             <c:forEach items="${documentSummaryPoints}" var="point">
                 <article class="card mb-3"><div class="card-body">
