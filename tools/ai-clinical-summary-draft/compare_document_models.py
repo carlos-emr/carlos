@@ -16,6 +16,7 @@ import time
 import uuid
 
 import document_summary as document
+import document_fidelity as fidelity
 import openrouter_agent as agent
 
 # Note numbers are zero-based positions within each committed fixture. Selection is fixed before
@@ -43,8 +44,8 @@ def main():
                       'text': body})
     report = {'started_at': datetime.now(timezone.utc).isoformat(),
               'prompt_sha256': hashlib.sha256(document.PROMPT.encode()).hexdigest(),
-              'transport_prompt_sha256': hashlib.sha256(document.REFERENCE_PROMPT.encode()).hexdigest(),
-              'evidence_mode': 'host-resolved-passage-ids',
+              'transport_prompt_sha256': hashlib.sha256(fidelity.PROMPT.encode()).hexdigest(),
+              'evidence_mode': 'extractive-source-passages',
               'schema_sha256': hashlib.sha256(json.dumps(document.SCHEMA, sort_keys=True).encode()).hexdigest(),
               'settings': {'temperature': 0, 'max_tokens': 4096, 'timeout_seconds': 90,
                            'reasoning': False, 'output_cache': False, 'provider_fallbacks': False,
@@ -102,8 +103,8 @@ def main():
                 if raw_output:
                     row['raw_output'] = raw_output[-1]
                     try:
-                        row['output'] = document.resolve_references(
-                            raw_output[-1], document.source_passages(case['text']))
+                        row['output'] = fidelity.resolve(
+                            raw_output[-1], fidelity.prepare(case['text']))
                     except ValueError:
                         row['output'] = {}
                     points = row['output'].get('points', []) if isinstance(row['output'], dict) else []

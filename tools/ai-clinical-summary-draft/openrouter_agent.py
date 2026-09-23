@@ -27,6 +27,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from example_agent import MAX_REQUEST_BYTES, PATH, unique_object, validate_request
+import document_fidelity
 import document_summary
 import host_checks
 import pipeline
@@ -500,13 +501,13 @@ class Gateway:
         """Single-document operation; only a complete committed synthetic note may leave the host."""
         self.deadline = self.clock() + 540
         document_summary.validate_request(request, self.allowed.notes, self.config["request_bytes"])
-        payload, passages = document_summary.completion_payload(
+        payload, passages = document_fidelity.completion_payload(
             self.config, request["sources"][0]["text"])
         try:
             output = self.complete(payload)
         except pipeline.OutputLimitError:
             raise UpstreamError("Document completion exceeded its output limit; no draft accepted") from None
-        output = document_summary.resolve_references(output, passages)
+        output = document_fidelity.resolve(output, passages)
         document_summary.validate_output(output, request["sources"][0]["text"])
         return {"contract_version": 1, "request_id": request["request_id"],
                 "status": "completed", "output": output}
@@ -697,6 +698,7 @@ def handler_for(gateway):
             self.respond(200 if self.path == "/health" else 404,
                          {"service": "carlos-openrouter-synthetic", "model": gateway.config["model"],
                           "provider": gateway.config["provider"],
+                          "document_mode": "extractive",
                           "temperature": gateway.config["temperature"],
                           "request_bytes": gateway.config["request_bytes"],
                           "reasoning_tokens": gateway.config["reasoning_tokens"],

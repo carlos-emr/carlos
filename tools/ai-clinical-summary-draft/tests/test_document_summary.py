@@ -12,6 +12,7 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import document_summary as document
+import document_fidelity as fidelity
 import openrouter_agent as agent
 
 
@@ -23,9 +24,10 @@ class DocumentSummaryTest(unittest.TestCase):
         self.body = min((row for row in self.gateway.allowed.notes if len(row[2]) > 200), key=lambda row: len(row[2]))[2]
         self.passages = document.source_passages(self.body)
         excerpt = self.passages["1"]
-        self.output = {"overview": excerpt[:200], "points": [
-            {"text": excerpt[:200], "evidence": [excerpt]}]}
-        self.raw_output = {"overview": excerpt[:200], "points": [
+        self.output = {"overview": excerpt.strip(), "points": [
+            {"text": excerpt.strip(), "evidence": [excerpt]}]}
+        self.raw_output = {"selected_ids": ["1"]}
+        self.reference_output = {"overview": excerpt[:200], "points": [
             {"text": excerpt[:200], "evidence_ids": ["1"]}]}
         self.request = {"contract_version": 1, "request_id": str(uuid4()),
                         "workflow": "single-document-summary", "data_classification": "clinical-document",
@@ -51,7 +53,7 @@ class DocumentSummaryTest(unittest.TestCase):
         self.assertEqual("deny", payload["provider"]["data_collection"])
         self.assertEqual(4096, payload["max_tokens"])
         self.assertEqual({"enabled": False}, payload["reasoning"])
-        self.assertEqual(document.REFERENCE_PROMPT, payload["messages"][0]["content"])
+        self.assertEqual(fidelity.PROMPT, payload["messages"][0]["content"])
         self.assertEqual(self.passages, json.loads(payload["messages"][1]["content"])["passages"])
         for excerpt in self.passages.values():
             self.assertIn(excerpt, self.body)
@@ -86,20 +88,17 @@ class DocumentSummaryTest(unittest.TestCase):
             self.gateway.run_document(self.request)
         self.assertFalse(self.calls)
 
-    def test_expanded_provider_payload_is_bounded_before_transport(self):
-        original_size = len(json.dumps(self.request, ensure_ascii=False,
-                                       separators=(",", ":")).encode("utf-8"))
-        self.gateway.config["request_bytes"] = original_size
+    def test_provider_payload_has_its_own_byte_budget(self):
+        self.config["request_bytes"] = 50
         with self.assertRaisesRegex(ValueError, "completion request exceeds"):
-            self.gateway.run_document(self.request)
+            fidelity.completion_payload(self.config, self.body)
         self.assertFalse(self.calls)
 
-    def test_bad_evidence_duplicate_points_and_unrelated_text_are_rejected(self):
+    def test_invalid_selections_and_model_authored_claims_are_rejected(self):
         valid = copy.deepcopy(self.raw_output)
-        mutations = [lambda r: r["points"][0].update(evidence_ids=["Invented reference"]),
-                     lambda r: r["points"].append(copy.deepcopy(r["points"][0])),
-                     lambda r: r["points"][0].update(text="Unrelated xylophone"),
-                     lambda r: r["points"][0]["evidence_ids"].append(r["points"][0]["evidence_ids"][0]),
+        mutations = [lambda r: r.update(selected_ids=["Invented reference"]),
+                     lambda r: r["selected_ids"].append(r["selected_ids"][0]),
+                     lambda r: r.update(points=[{"text": "Antibiotics already started"}]),
                      lambda r: r.update(overview="Unrelated xylophone")]
         for change in mutations:
             self.raw_output = copy.deepcopy(valid)
@@ -142,12 +141,12 @@ class DocumentSummaryTest(unittest.TestCase):
     def test_reference_resolution_rejects_forged_malformed_or_duplicate_ids(self):
         for refs in (["999999"], [1], [True], [None], [{}], [], "1", ["1"] * 6, ["1", "1"]):
             with self.subTest(refs=refs):
-                output = copy.deepcopy(self.raw_output)
+                output = copy.deepcopy(self.reference_output)
                 output["points"][0]["evidence_ids"] = refs
                 with self.assertRaises(ValueError):
                     document.resolve_references(output, self.passages)
         for extra in ({"evidence": ["fabricated quote"]}, {"source_text": "replacement"}):
-            output = copy.deepcopy(self.raw_output)
+            output = copy.deepcopy(self.reference_output)
             output["points"][0].update(extra)
             with self.assertRaises(ValueError):
                 document.resolve_references(output, self.passages)

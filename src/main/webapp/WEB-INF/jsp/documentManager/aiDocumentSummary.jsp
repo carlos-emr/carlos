@@ -15,6 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><fmt:message key="documentSummary.title"/> | CARLOS EMR</title>
     <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/ai-document-summary.css">
 </head>
 <body class="container py-3">
 <header class="mb-3">
@@ -30,15 +31,15 @@
     <c:when test="${documentSummaryGenerated}">
         <section aria-labelledby="overview-heading">
             <h2 id="overview-heading" class="h4"><fmt:message key="documentSummary.overview"/></h2>
-            <p><carlos:encode value="${documentSummaryOverview}"/></p>
+            <p class="document-summary-text"><carlos:encode value="${documentSummaryOverview}"/></p>
         </section>
         <section aria-labelledby="points-heading">
             <h2 id="points-heading" class="h4"><fmt:message key="documentSummary.points"/></h2>
             <c:forEach items="${documentSummaryPoints}" var="point">
                 <article class="card mb-3"><div class="card-body">
-                    <p class="card-text"><carlos:encode value="${point.text}"/></p>
+                    <p class="card-text document-summary-text"><carlos:encode value="${point.text}"/></p>
                     <details><summary><fmt:message key="documentSummary.evidence"/></summary>
-                        <c:forEach items="${point.evidence}" var="evidence"><blockquote class="border-start ps-3 mt-2"><carlos:encode value="${evidence}"/></blockquote></c:forEach>
+                        <c:forEach items="${point.evidence}" var="evidence"><blockquote class="border-start ps-3 mt-2 document-summary-text"><carlos:encode value="${evidence}"/></blockquote></c:forEach>
                     </details>
                 </div></article>
             </c:forEach>

@@ -59,6 +59,9 @@ const path = require('node:path');
         assert(await page.locator('.alert-info').isVisible(), 'Extraction limits remain visible');
         await page.locator('details summary').first().click();
         assert(await page.locator('blockquote').first().isVisible());
+        assert(await page.locator('.document-summary-text').evaluateAll(elements =>
+            elements.length > 0 && elements.every(element => getComputedStyle(element).whiteSpace === 'pre-wrap')),
+            'Source headings, line breaks and dosage lists must remain readable');
         assert.deepEqual(errors, []);
         await page.screenshot({ path: path.join(output, 'after.png'), fullPage: true });
         const result = { passed: true, points, milliseconds: Date.now() - start,

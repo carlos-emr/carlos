@@ -39,10 +39,13 @@ uses one completion with at most 4,096 output tokens, and does not cache documen
 synthetic corpus.** A synthetic label is insufficient. Arbitrary files, PDF page prefixes,
 partial notes, additional metadata, and changed prompts/schemas are rejected before network access.
 Use a plain-text file containing exactly one corpus note to test the Document Manager workflow.
-The gateway validates the incoming prompt/schema against the Java resources. Internally, it
-indexes unchanged source paragraphs and asks the model for passage IDs, then resolves those IDs
-to original text before returning the existing excerpt-based contract. The host still independently
-validates every excerpt. See [Parasail optimization results](DOCUMENT_PARASAIL_OPTIMIZATION.md).
+The gateway validates the incoming prompt/schema against the Java resources. Its current mode is
+**extractive**: the model selects passage IDs, and the gateway supplies all displayed wording from
+the original text. It retains recognized medication/allergy/result/referral/plan sections and explicit
+pending-result wording even when the model omits them. Selected paragraph continuations stay together.
+The overview reuses a diagnostic/problem passage and a plan passage; there is no separate generated
+clinical prose. Java still independently validates every excerpt. See the
+[fidelity change and measurements](DOCUMENT_FIDELITY.md), including the tradeoff in brevity.
 
 ## Reuse in another CARLOS workflow
 
@@ -82,6 +85,11 @@ and `points` (see `src/main/resources/clinical/summary/document-summary-schema.j
   output, and provider requests exceeding the configured byte budget. Passage citations may be
   broader than a hand-selected quotation and may include identifying text already in the source.
   They do not establish that the model's claim follows from the cited passage.
+- In extractive mode, point text is the selected original passage with display line endings
+  normalized, and the evidence preserves the original substring. Source errors, contradictions,
+  typos and embedded identifiers remain. Recognized sections are retained by lexical rules; this
+  is not a comprehensive clinical parser. Other relevant content can still be omitted. The mode
+  is less concise than a fluent paraphrase; it does not verify the source's clinical correctness.
 - Generated text is request-scoped. Audit entries identify the operation/document, not extracted
   text or generated prose. The shared extractor retains a bounded in-memory text cache as before.
 - The built-in gateway is a synthetic-data test bench, not a route for real documents to OpenRouter.

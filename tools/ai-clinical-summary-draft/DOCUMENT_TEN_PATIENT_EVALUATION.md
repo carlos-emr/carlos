@@ -1,5 +1,8 @@
 # Document summarizer: ten new NHS synthetic patients
 
+This evaluation motivated the subsequent [extractive fidelity change](DOCUMENT_FIDELITY.md).
+The results below describe the former paraphrasing version, retained for comparison.
+
 On 2026-09-23, the optimized Parasail/Qwen3.5-35B-A3B document summarizer was tested on
 NHSSYN004–NHSSYN013, excluding the three patients used during optimization. Each patient's
 longest complete note was selected before any outputs were observed and summarized twice.

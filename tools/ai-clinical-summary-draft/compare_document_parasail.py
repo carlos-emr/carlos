@@ -11,6 +11,7 @@ import time
 import uuid
 
 import document_summary as document
+import document_fidelity as fidelity
 import openrouter_agent as agent
 from compare_document_models import CASES
 
@@ -25,14 +26,20 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument('--holdout', action='store_true')
+    selection.add_argument('--patient-range', nargs=2, type=int, metavar=('FIRST', 'LAST'),
+                           help='Longest note per synthetic patient in inclusive range 1–50')
+    selection.add_argument('--next-patients', action='store_true',
+                           help='Longest complete note from each of NHSSYN014–NHSSYN023')
     selection.add_argument('--new-patients', action='store_true',
                            help='Longest complete note from each of NHSSYN004–NHSSYN013')
     parser.add_argument('--case', choices=[c[2] for c in CASES + HOLDOUT]
-                        + [f'NHSSYN{n:03d}' for n in range(4, 14)])
-    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references'), default=['baseline', 'references'])
+                        + [f'NHSSYN{n:03d}' for n in range(1, 51)])
+    parser.add_argument('--modes', nargs='+', choices=('baseline', 'references', 'fidelity'), default=['baseline', 'references'])
     parser.add_argument('--reasoning-tokens', type=int, choices=(0, 512, 1024), default=0)
     parser.add_argument('--repeats', type=int, choices=(1, 2, 3), default=2)
     args = parser.parse_args()
+    if args.patient_range and not 1 <= args.patient_range[0] <= args.patient_range[1] <= 50:
+        parser.error('--patient-range must be ordered within 1–50')
     config = dict(agent.read_config(agent.runtime_directory() / 'openrouter/config.json'),
                   model='qwen/qwen3.5-35b-a3b', provider='parasail', cache_seconds=0,
                   timeout_seconds=90, temperature=0, max_tokens=4096)
@@ -41,17 +48,21 @@ def main():
               'model': config['model'], 'provider': config['provider'],
               'reference_reasoning_tokens': args.reasoning_tokens,
               'settings': {k: config[k] for k in ('temperature', 'max_tokens', 'timeout_seconds', 'cache_seconds')},
-              'prompts': {'baseline': document.PROMPT, 'references': document.REFERENCE_PROMPT},
+              'prompts': {'baseline': document.PROMPT, 'references': document.REFERENCE_PROMPT,
+                          'fidelity': fidelity.PROMPT},
               'cases': [], 'runs': []}
     selected = HOLDOUT if args.holdout else CASES
-    if args.new_patients:
+    if args.new_patients or args.next_patients or args.patient_range:
         selected = []
-        for n in range(4, 14):
+        first, last = args.patient_range or ((14, 23) if args.next_patients else (4, 13))
+        for n in range(first, last + 1):
             fixture = f'NHSSYN{n:03d}'
             bodies = [b for f, _, b in notes if f == fixture]
             index = max(range(len(bodies)), key=lambda i: len(bodies[i]))
             selected.append((fixture, index, fixture))
-    report['selection'] = ('longest-note-from-each-of-ten-new-patients' if args.new_patients
+    report['selection'] = (f'longest-note-per-patient-{args.patient_range}' if args.patient_range else
+                           'longest-note-from-each-of-ten-new-patients' if args.new_patients
+                           else 'longest-note-from-each-of-next-ten-patients' if args.next_patients
                            else 'holdout' if args.holdout else 'development')
     for fixture, index, label in selected:
         if args.case and label != args.case:
@@ -63,7 +74,9 @@ def main():
         parser.error("--case must belong to the selected patient/note set")
     for repeat in range(args.repeats):
         for i, case in enumerate(report['cases']):
-            modes = ('baseline', 'references') if (i + repeat) % 2 == 0 else ('references', 'baseline')
+            modes = list(dict.fromkeys(args.modes))
+            if (i + repeat) % 2:
+                modes.reverse()
             for mode in modes:
                 if mode not in args.modes:
                     continue
@@ -74,8 +87,9 @@ def main():
                            'sources': [{'id': 'document', 'title': 'Document', 'text': body}]}
                 # Same disclosure boundary as run_document, before any request construction or network access.
                 document.validate_request(request, notes, config['request_bytes'])
-                refs = mode == 'references'
-                payload, passages = document.completion_payload(config, body, references=refs)
+                refs = mode != 'baseline'
+                payload, passages = (fidelity.completion_payload(config, body) if mode == 'fidelity'
+                                     else document.completion_payload(config, body, references=refs))
                 if refs and args.reasoning_tokens:
                     payload['reasoning'] = {'enabled': True, 'exclude': True,
                                             'max_tokens': args.reasoning_tokens}
@@ -95,7 +109,8 @@ def main():
                 try:
                     raw = gateway.complete(payload)
                     row['raw_output'] = raw
-                    output = document.resolve_references(raw, passages) if refs else raw
+                    output = (fidelity.resolve(raw, passages) if mode == 'fidelity'
+                              else document.resolve_references(raw, passages) if refs else raw)
                     row['output'] = output
                     document.validate_output(output, body)
                     row['accepted'] = True
