@@ -98,7 +98,11 @@ public class PatientPortalException extends RuntimeException {
          * <p>A mutating call that fails this way may already have taken effect.
          */
         MALFORMED_RESPONSE,
-        /** No complete response: connection failure, timeout, TLS failure, or interrupted body. */
+        /**
+         * No complete response: connection failure, timeout, TLS failure, or interrupted body. A
+         * mutation may have taken effect, unless {@link #isRequestNotSent()} says the request never
+         * left CARLOS.
+         */
         TRANSPORT_FAILURE
     }
 
@@ -145,7 +149,10 @@ public class PatientPortalException extends RuntimeException {
         return new PatientPortalException(message, kind, statusCode, detail);
     }
 
-    /** The transport did not complete; a mutation may already have taken effect. */
+    /**
+     * The transport did not complete; a mutation may already have taken effect, unless the cause
+     * shows the request never left CARLOS ({@link #isRequestNotSent()}).
+     */
     public static PatientPortalException ofTransportFailure(String endpointTemplate, Throwable cause) {
         return new PatientPortalException(
                 String.format(Locale.ROOT, TRANSPORT_MESSAGE, endpointTemplate),
@@ -169,6 +176,10 @@ public class PatientPortalException extends RuntimeException {
     }
 
     private static String transportCategory(Throwable cause) {
+        // Subclasses first: httpclient5's connect and pool-lease timeouts extend the JDK types below.
+        if (cause instanceof org.apache.hc.client5.http.ConnectTimeoutException) return "connect timeout";
+        if (cause instanceof org.apache.hc.client5.http.impl.classic.RequestFailedException) return "request cancelled";
+        if (cause instanceof org.apache.hc.core5.util.DeadlineTimeoutException) return "connection pool lease timeout";
         if (cause instanceof java.net.SocketTimeoutException) {
             return PatientPortalHttpClientExchange.DEADLINE_EXCEEDED.equals(cause.getMessage())
                     ? "request deadline exceeded" : "read timeout";

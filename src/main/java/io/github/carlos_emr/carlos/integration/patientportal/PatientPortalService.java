@@ -607,7 +607,7 @@ public class PatientPortalService implements Closeable {
                         .anyMatch(
                                 character ->
                                         !isDeliveryIdentifierCharacter(character, allowSlash))) {
-            throw new IllegalArgumentException(label + " is invalid");
+            throw new PortalRequestPreparationException(label + " is invalid");
         }
         return value;
     }
