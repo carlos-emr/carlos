@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPreparationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
@@ -99,6 +100,16 @@ public abstract class PortalJsonAction extends ActionSupport {
                 throw exception;
             }
             return configurationFailure(ServletActionContext.getResponse());
+        } catch (PortalRequestPreparationException exception) {
+            // CARLOS refused to build the request from its own data, e.g. a provider name the portal
+            // cannot accept. Only this type is caught: any other IllegalArgumentException is a
+            // programming error and still propagates as a 500 with its stack trace. The message is
+            // kept out of the response; the refusing frame is logged so it can be traced.
+            StackTraceElement origin = exception.getStackTrace().length == 0 ? null : exception.getStackTrace()[0];
+            logger.warn("patient portal request could not be prepared: refused by {}",
+                    origin == null ? "unknown" : origin.getClassName() + "." + origin.getMethodName());
+            return failure(ServletActionContext.getResponse(), HttpServletResponse.SC_BAD_REQUEST,
+                    "request_not_prepared", NOT_PREPARED);
         }
     }
 
@@ -154,6 +165,17 @@ public abstract class PortalJsonAction extends ActionSupport {
             The portal replied in a form CARLOS could not read. The change may or may not have been \
             applied; check before retrying.""";
     private static final String REJECTED = "The portal rejected this request.";
+    private static final String NOT_SENT =
+            "The patient portal connection is busy on this CARLOS server. Nothing was sent; try again.";
+    private static final String NOT_PREPARED =
+            """
+            CARLOS could not prepare this portal request, so nothing was sent. If it keeps happening, an \
+            administrator should check this provider's name and number.""";
+    private static final String CREDENTIALS_REJECTED_LOG =
+            "patient portal rejected CARLOS itself (service token, staff assertion or clinic id), or its "
+                    + "internal API is disabled, or this portal version lacks the endpoint; check the "
+                    + "portal connection settings: kind={}, "
+                    + "answered {} to the browser";
     private static final String VALIDATION_REJECTED =
             """
             The portal rejected the details CARLOS sent. Check the patient record and try again; \
@@ -356,6 +378,12 @@ public abstract class PortalJsonAction extends ActionSupport {
             // activated yet.
             return notFound(response, "no_portal_account", NO_PORTAL_ACCOUNT);
         }
+        if (exception.isRequestNotSent()) {
+            // A local capacity limit, not a gateway fault: the portal saw nothing, so it is safe to retry.
+            logger.warn("patient portal request not sent: the CARLOS transport is busy or closed ({})",
+                    exception.getMessage());
+            return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "portal_busy", NOT_SENT);
+        }
         String message =
                 switch (exception.kind()) {
                     case CONFLICT -> exception.detail() == null
@@ -383,7 +411,7 @@ public abstract class PortalJsonAction extends ActionSupport {
                 };
         logger.log(
                 failureLogLevel(exception),
-                FAILURE_LOG,
+                rejectsCarlosItself(exception) ? CREDENTIALS_REJECTED_LOG : FAILURE_LOG,
                 exception.kind(),
                 status,
                 exception);
@@ -391,12 +419,23 @@ public abstract class PortalJsonAction extends ActionSupport {
                 response, status, exception.kind().name().toLowerCase(Locale.ROOT), message);
     }
 
+    /**
+     * True when a 404 carries none of the specific details a real record miss has. The portal
+     * answers a bad token, signature, key id, clinic id, replayed assertion or disabled internal
+     * API this way, so every call fails the same way until the connection is fixed.
+     */
+    static boolean rejectsCarlosItself(PatientPortalException exception) {
+        return exception.kind() == PatientPortalException.Kind.NOT_FOUND_OR_UNAUTHENTICATED
+                && (exception.detail() == null || "not found".equals(exception.detail()));
+    }
+
     /** Keeps expected portal rejections visible without making them indistinguishable from outages. */
     static Level failureLogLevel(PatientPortalException exception) {
         return switch (exception.kind()) {
+            // A 404 with no specific detail means every call fails until the connection is fixed.
+            case NOT_FOUND_OR_UNAUTHENTICATED -> rejectsCarlosItself(exception) ? Level.ERROR : Level.WARN;
             case BAD_REQUEST,
                     PERMISSION_DENIED,
-                    NOT_FOUND_OR_UNAUTHENTICATED,
                     CONFLICT,
                     VALIDATION_FAILED,
                     THROTTLED -> Level.WARN;

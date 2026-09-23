@@ -235,6 +235,22 @@ class PortalAccountAndPanelActionUnitTest {
         }
 
         @Test
+        @DisplayName("should refuse a reason longer than the portal accepts, and say why")
+        void shouldRefuseDisable_whenTheReasonIsTooLong() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "r".repeat(PortalAccount2Action.MAX_REASON_LENGTH + 1));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("at most 64 characters");
+            verify(patientPortalService, never())
+                    .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
+                            anyString(), any());
+        }
+
+        @Test
         @DisplayName("should disable with the supplied reason")
         void shouldDisableAccount_whenReasonIsGiven() throws Exception {
             request.setParameter("method", "access");
