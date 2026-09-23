@@ -28,6 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.Collections;
 import java.util.Arrays;
@@ -49,6 +50,8 @@ import static org.mockito.Mockito.when;
  *
  * @since 2026-09-20
  */
+// Mutates process-wide Locale defaults; never overlap another test in this JVM.
+@Isolated
 @DisplayName("LocaleUtils browser locale resolution")
 @Tag("unit")
 @Tag("i18n")

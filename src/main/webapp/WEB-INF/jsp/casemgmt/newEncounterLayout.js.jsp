@@ -530,6 +530,7 @@
             var searchInput = document.createElement('input');
             searchInput.type = 'text';
             searchInput.placeholder = '${carlos:forJavaScript(templateSearchPlaceholder)}';
+            searchInput.setAttribute('aria-label', searchInput.placeholder);
             searchInput.style.cssText = 'padding:10px 14px;border:none;border-bottom:1px solid #dee2e6;font-size:14px;outline:none;border-radius:8px 8px 0 0;width:100%;box-sizing:border-box;';
 
             var listEl = document.createElement('div');

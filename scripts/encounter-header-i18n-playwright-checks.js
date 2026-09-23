@@ -189,6 +189,13 @@ async function readHeader(chartPage, timeout) {
   assert(await templateInput.count() > 0,
     'The chart rendered no note-template search box, so its label and placeholder cannot be checked');
   const placeholder = (await templateInput.getAttribute('placeholder') || '').trim();
+  assert(await chartPage.getByRole('textbox', { name: placeholder, exact: true }).count() === 1,
+    'The template-search input must have an accessible name');
+  assert(await templateInput.evaluate((input) => {
+    const save = document.getElementById('saveImg');
+    return save && input.tabIndex === 0 && save.tabIndex === 0
+      && Boolean(input.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }), 'Template search must precede Save in natural keyboard order');
 
   // The legend is read through the input's own <fieldset> rather than by
   // position, so an added fieldset elsewhere on the chart cannot silently make
@@ -258,6 +265,15 @@ async function walkInLanguage(browser, config, language, options) {
     });
     const chartPage = await openChart(context, masterPage, recorder, timeout);
     const header = await readHeader(chartPage, timeout);
+    const noteId = await chartPage.evaluate(() => globalThis.caseNote);
+    assert(noteId, 'The chart must expose its active note editor');
+    const activeNote = chartPage.locator('textarea[id="' + noteId + '"]');
+    await activeNote.press('Backslash');
+    const overlayInput = chartPage.locator('#templateShortcutOverlay input');
+    await overlayInput.waitFor({ state: 'visible', timeout });
+    assert(await overlayInput.getAttribute('aria-label') === await overlayInput.getAttribute('placeholder'),
+      'The dynamic template search must retain its localized accessible name');
+    await overlayInput.press('Escape');
 
     // The one control must actually work, not merely be the only one present.
     const popup = await clickOpensPopup(chartPage, chartPage.locator(CALCULATOR_LINKS).first(), {

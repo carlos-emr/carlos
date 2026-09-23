@@ -25,11 +25,14 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+// Mutates process-wide Locale defaults; never overlap another test in this JVM.
+@Isolated
 @DisplayName("Demographic standard identification HTML")
 @Tag("unit")
 @Tag("demographic")
