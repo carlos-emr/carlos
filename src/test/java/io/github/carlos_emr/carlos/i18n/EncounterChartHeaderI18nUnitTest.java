@@ -180,7 +180,8 @@ class EncounterChartHeaderI18nUnitTest {
     @DisplayName("should set the negotiated JSTL locale before loading each translated fragment's bundle")
     void shouldShareLocale_betweenJavaAndJstl() throws IOException {
         for (Path jsp : List.of(HEADER_JSP, CHART_NOTES_JSP, LAYOUT_JS_JSP,
-                MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"))) {
+                MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"),
+                MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/encounter/includes/encounter-header-bar.jspf"))) {
             String source = stripComments(read(jsp));
             int locale = source.indexOf("<fmt:setLocale value=\"<%= LocaleUtils.resolveBundleLocale(request) %>\"/>");
             int bundle = source.indexOf("<fmt:setBundle");
