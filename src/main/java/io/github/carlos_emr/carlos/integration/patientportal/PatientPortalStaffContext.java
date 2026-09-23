@@ -118,7 +118,8 @@ public record PatientPortalStaffContext(
         }
         providerId = providerId.strip();
         providerName = providerName.strip();
-        if (providerId.length() > MAX_ACTOR_LENGTH || providerName.length() > MAX_ACTOR_LENGTH) {
+        // The portal counts characters (Python len), not UTF-16 units, so count code points too.
+        if (codePoints(providerId) > MAX_ACTOR_LENGTH || codePoints(providerName) > MAX_ACTOR_LENGTH) {
             throw new IllegalArgumentException(
                     String.format(Locale.ROOT, ACTOR_TOO_LONG, MAX_ACTOR_LENGTH));
         }
@@ -165,6 +166,10 @@ public record PatientPortalStaffContext(
             }
         }
         return true;
+    }
+
+    private static int codePoints(String value) {
+        return value.codePointCount(0, value.length());
     }
 
     private static void rejectControlCharacters(String value) {

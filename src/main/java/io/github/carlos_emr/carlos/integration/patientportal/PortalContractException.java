@@ -46,4 +46,9 @@ class PortalContractException extends RuntimeException {
         super(message);
     }
 
+    /** Keeps the transport failure that detected the violation; its message names no portal data. */
+    PortalContractException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
 }

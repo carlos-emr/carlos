@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.LinkedHashSet;
@@ -180,9 +181,15 @@ public class PortalStaffContextResolver {
         if (loggedInInfo.getLoggedInProvider() == null) {
             return loggedInInfo.getLoggedInProviderNo();
         }
-        String formatted = loggedInInfo.getLoggedInProvider().getFormattedName();
-        return formatted == null || formatted.isBlank()
-                ? loggedInInfo.getLoggedInProviderNo()
-                : formatted;
+        // getFormattedName() prints missing names as "null", so check the parts, not its result.
+        Provider provider = loggedInInfo.getLoggedInProvider();
+        if (isBlank(provider.getLastName()) || isBlank(provider.getFirstName())) {
+            return loggedInInfo.getLoggedInProviderNo();
+        }
+        return provider.getFormattedName();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

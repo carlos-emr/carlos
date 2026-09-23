@@ -783,11 +783,11 @@ public class PatientPortalService implements Closeable {
         try {
             response = exchange.send(buildRequest(method, path, jsonBody, staff));
         } catch (PortalResponseTooLargeException exception) {
-            throw PatientPortalException.ofMalformedResponse(
-                    exception.statusCode(), template, new PortalContractException("portal response exceeds size limit"));
+            throw PatientPortalException.ofMalformedResponse(exception.statusCode(), template,
+                    new PortalContractException("portal response exceeds size limit", exception));
         } catch (PortalResponseDecodingException exception) {
-            throw PatientPortalException.ofMalformedResponse(
-                    exception.statusCode(), template, new PortalContractException("portal response is not valid UTF-8"));
+            throw PatientPortalException.ofMalformedResponse(exception.statusCode(), template,
+                    new PortalContractException("portal response is not valid UTF-8", exception));
         } catch (IOException exception) {
             throw PatientPortalException.ofTransportFailure(template, exception);
         }

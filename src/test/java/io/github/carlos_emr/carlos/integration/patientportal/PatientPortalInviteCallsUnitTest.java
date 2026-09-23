@@ -52,14 +52,16 @@ class PatientPortalInviteCallsUnitTest {
     private static final String TOKEN = "portal-service-token-value-000001";
     private static final String INVITE_TOKEN = "one-time-activation-token-abc123";
 
+    // The token is spliced in from INVITE_TOKEN, so the redaction assertions always look for the
+    // exact value the fixture carries.
     private static final String INVITE_JSON =
             """
             {"id": 7, "clinic_id": "maplecreek", "demographic_no": 123, "status": "pending",
              "created_by_id": "999998", "created_by": "Dr Example", "issued_count": 1,
              "last_issued_at": "2026-08-19T12:00:00+00:00", "last_issued_by": "Dr Example",
              "expires_at": "2026-08-26T12:00:00+00:00", "accepted_account_id": null,
-             "supersedes_invite_id": null, "invite_token": "one-time-activation-token-abc123"}
-            """;
+             "supersedes_invite_id": null, "invite_token": "%s"}
+            """.formatted(INVITE_TOKEN);
     private static final String OPERATION_ID = "invite-email:operation-1";
     private static final String DELIVERY_REFERENCE = "email-outbox:clinic/42";
     private static final String PREPARED_INVITE_JSON = INVITE_JSON

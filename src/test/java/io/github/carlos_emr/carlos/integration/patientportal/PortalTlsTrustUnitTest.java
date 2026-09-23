@@ -324,9 +324,15 @@ class PortalTlsTrustUnitTest {
                     new Thread(
                             () -> {
                                 try (java.net.Socket accepted = listener.accept()) {
-                                    byte[] buffer = new byte[4096];
-                                    int read = accepted.getInputStream().read(buffer);
-                                    captured[0] = java.util.Arrays.copyOf(buffer, Math.max(read, 0));
+                                    // One read() may return part of the record, so read the 5-byte
+                                    // TLS record header, then exactly the length it declares.
+                                    var in = new java.io.DataInputStream(accepted.getInputStream());
+                                    byte[] record = new byte[5];
+                                    in.readFully(record);
+                                    int length = ((record[3] & 0xff) << 8) | (record[4] & 0xff);
+                                    record = java.util.Arrays.copyOf(record, 5 + length);
+                                    in.readFully(record, 5, length);
+                                    captured[0] = record;
                                 } catch (IOException ignored) {
                                     // The client tears the connection down once we never reply.
                                 }
