@@ -110,3 +110,9 @@ retains the fully rewritten experiment for comparison and is not selectable thro
 API comparisons incur charges using the private runtime credentials. Restart the bundled gateway
 and deploy the updated JSP/CSS to enable this version elsewhere. Ollama/custom gateways retain
 their own generation behavior and share the more compact page layout.
+
+## Subsequent layout experiment
+
+An [overview-and-facts trial](DOCUMENT_FACTS.md) evaluates additional compression and a side-by-side
+table preview. It remains comparison-only because manual source checks found lost details and altered
+meaning even in model-approved drafts. It does not change this gateway mode.
