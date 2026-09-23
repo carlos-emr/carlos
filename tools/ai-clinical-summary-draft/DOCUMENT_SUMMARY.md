@@ -39,7 +39,10 @@ uses one completion with at most 4,096 output tokens, and does not cache documen
 synthetic corpus.** A synthetic label is insufficient. Arbitrary files, PDF page prefixes,
 partial notes, additional metadata, and changed prompts/schemas are rejected before network access.
 Use a plain-text file containing exactly one corpus note to test the Document Manager workflow.
-The gateway uses the Java prompt/schema resources directly so they cannot drift.
+The gateway validates the incoming prompt/schema against the Java resources. Internally, it
+indexes unchanged source paragraphs and asks the model for passage IDs, then resolves those IDs
+to original text before returning the existing excerpt-based contract. The host still independently
+validates every excerpt. See [Parasail optimization results](DOCUMENT_PARASAIL_OPTIMIZATION.md).
 
 ## Reuse in another CARLOS workflow
 
@@ -74,6 +77,11 @@ and `points` (see `src/main/resources/clinical/summary/document-summary-schema.j
   proof of clinical correctness**: overlapping words cannot establish negation, dose accuracy,
   entailment or completeness. The overview is checked for lexical overlap, but has no separate
   evidence array. Always review the original.
+- The bundled gateway's numbered passages keep headings with values and split long paragraphs
+  into excerpts of at most 800 UTF-16 units. It rejects unknown/repeated IDs, malformed reference
+  output, and provider requests exceeding the configured byte budget. Passage citations may be
+  broader than a hand-selected quotation and may include identifying text already in the source.
+  They do not establish that the model's claim follows from the cited passage.
 - Generated text is request-scoped. Audit entries identify the operation/document, not extracted
   text or generated prose. The shared extractor retains a bounded in-memory text cache as before.
 - The built-in gateway is a synthetic-data test bench, not a route for real documents to OpenRouter.

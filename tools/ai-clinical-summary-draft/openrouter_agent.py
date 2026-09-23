@@ -500,21 +500,13 @@ class Gateway:
         """Single-document operation; only a complete committed synthetic note may leave the host."""
         self.deadline = self.clock() + 540
         document_summary.validate_request(request, self.allowed.notes, self.config["request_bytes"])
-        payload = {"model": self.config["model"], "stream": False,
-                   "temperature": self.config["temperature"],
-                   "max_tokens": min(4096, self.config["max_tokens"]),
-                   "reasoning": {"enabled": False},
-                   "provider": {"only": [self.config["provider"]], "allow_fallbacks": False,
-                                "require_parameters": True, "data_collection": "deny", "zdr": True},
-                   "messages": [{"role": "system", "content": document_summary.PROMPT},
-                                {"role": "user", "content": json.dumps({"sources": request["sources"]})}],
-                   "response_format": {"type": "json_schema", "json_schema": {
-                       "name": "document_summary", "strict": True,
-                       "schema": document_summary.provider_schema()}}}
+        payload, passages = document_summary.completion_payload(
+            self.config, request["sources"][0]["text"])
         try:
             output = self.complete(payload)
         except pipeline.OutputLimitError:
             raise UpstreamError("Document completion exceeded its output limit; no draft accepted") from None
+        output = document_summary.resolve_references(output, passages)
         document_summary.validate_output(output, request["sources"][0]["text"])
         return {"contract_version": 1, "request_id": request["request_id"],
                 "status": "completed", "output": output}

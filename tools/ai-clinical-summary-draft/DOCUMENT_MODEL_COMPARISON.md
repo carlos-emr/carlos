@@ -4,6 +4,10 @@ Exploratory CARLOS EMR comparison of the current Qwen3.5-35B-A3B/Parasail stack 
 Qwen3-30B-A3B-Instruct-2507/SiliconFlow and Nemotron-3-Nano-30B-A3B/Crusoe, through
 OpenRouter. The running gateway configuration was not changed.
 
+These results precede the [Parasail passage-reference optimization](DOCUMENT_PARASAIL_OPTIMIZATION.md).
+The comparison script now measures the current gateway; use the Parasail comparison runner's
+baseline mode to evaluate the former copied-quotation approach.
+
 ## Results
 
 | Model / provider | Accepted drafts | Median latency, all attempts | Latency range | Cost for 12 attempts |
