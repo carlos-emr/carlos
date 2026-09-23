@@ -363,7 +363,8 @@ class JpaSmsTransactionServiceUnitTest {
         when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
                 .thenReturn(Optional.of(sent));
 
-        SmsTransaction transaction = recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+        SmsTransaction transaction = recorder.recordDeliveryEvent(
+                failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
 
         assertThat(transaction.getStatus()).isEqualTo(SmsStatus.FAILED);
         ArgumentCaptor<SmsSendFailedEvent> captor = ArgumentCaptor.forClass(SmsSendFailedEvent.class);
@@ -406,6 +407,24 @@ class JpaSmsTransactionServiceUnitTest {
     }
 
     @Test
+    @DisplayName("recordDeliveryEvent publishes nothing when a failed callback arrives after delivery")
+    void shouldNotPublishFailedEvent_whenFailedCallbackArrivesAfterDelivery() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sent = acceptedOutboundRow();
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(sent));
+        recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.DELIVERED,
+                Instant.parse("2026-09-22T10:00:00Z"), null, null, null));
+
+        // DELIVERED is final, so the entity ignores the late receipt and the row never becomes FAILED.
+        recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:05:00Z")));
+
+        assertThat(sent.getStatus()).isEqualTo(SmsStatus.DELIVERED);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
     @DisplayName("recordDeliveryEvent publishes nothing for a failed callback that matches no stored message")
     void shouldNotPublishFailedEvent_whenFailedCallbackMatchesNoStoredMessage() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
@@ -432,7 +451,7 @@ class JpaSmsTransactionServiceUnitTest {
     private static SmsDeliveryWebhookDto failedDelivery(Instant eventAt) {
         return new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB, "provider-1", SmsStatus.FAILED, eventAt,
-                "CARRIER_REJECTED", "Handset unreachable", null);
+                "CARRIER_REJECTED", "Carrier rejected the message", null);
     }
 
     @Test
