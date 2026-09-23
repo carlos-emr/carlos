@@ -168,8 +168,10 @@ class PatientPortalHttpClientExchangeUnitTest {
 
             assertThatThrownBy(() -> transport.send(request)).isInstanceOf(IOException.class);
 
+            // A small multiple of the 750 ms connect timeout: a regression to the multi-minute
+            // default fails here, and fails quickly.
             Duration elapsed = Duration.ofNanos(System.nanoTime() - startedAt);
-            assertThat(elapsed).isLessThan(Duration.ofSeconds(20));
+            assertThat(elapsed).isLessThan(Duration.ofSeconds(5));
         }
     }
 
@@ -180,7 +182,9 @@ class PatientPortalHttpClientExchangeUnitTest {
                 "/slow",
                 httpExchange -> {
                     try {
-                        Thread.sleep(Duration.ofSeconds(10).toMillis());
+                        // Well past the 750 ms read timeout, but short enough that this handler
+                        // thread, which server.stop(0) does not cancel, is gone soon after.
+                        Thread.sleep(Duration.ofSeconds(3).toMillis());
                     } catch (InterruptedException interrupted) {
                         Thread.currentThread().interrupt();
                     }
@@ -193,8 +197,9 @@ class PatientPortalHttpClientExchangeUnitTest {
 
             assertThatThrownBy(() -> transport.send(get("/slow"))).isInstanceOf(IOException.class);
 
+            // Under the handler's 3 s sleep, so only the read timeout can have ended the call.
             assertThat(Duration.ofNanos(System.nanoTime() - startedAt))
-                    .isLessThan(Duration.ofSeconds(8));
+                    .isLessThan(Duration.ofMillis(2500));
         }
     }
 
@@ -270,6 +275,67 @@ class PatientPortalHttpClientExchangeUnitTest {
             assertThat(ports).hasSize(1);
         }
     }
+    /**
+     * The portal (uvicorn, or a proxy in front of it) closes a kept-alive connection once it has
+     * been idle briefly. Retries are disabled on purpose, so reusing that closed connection would
+     * fail the next call outright: one email or invite refused for a reason nobody can act on.
+     */
+    @Test
+    @DisplayName("should not reuse a kept-alive connection the portal has since closed")
+    void shouldSucceed_whenThePortalClosedTheIdleConnection() throws Exception {
+        AtomicInteger connections = new AtomicInteger();
+        try (java.net.ServerSocket idleClosing = new java.net.ServerSocket(0, 50, InetAddress.getLoopbackAddress())) {
+            Thread acceptor = new Thread(() -> {
+                while (!idleClosing.isClosed()) {
+                    try {
+                        java.net.Socket socket = idleClosing.accept();
+                        connections.incrementAndGet();
+                        new Thread(() -> answerOnceThenCloseWhenIdle(socket)).start();
+                    } catch (IOException closed) {
+                        return;
+                    }
+                }
+            });
+            acceptor.setDaemon(true);
+            acceptor.start();
+            String idleOrigin = "http://127.0.0.1:" + idleClosing.getLocalPort();
+
+            try (PatientPortalHttpClientExchange transport = exchange()) {
+                assertThat(transport.send(get(idleOrigin, "/first")).statusCode()).isEqualTo(200);
+                Thread.sleep(400); // the server has closed the pooled connection by now
+                assertThat(transport.send(get(idleOrigin, "/second")).statusCode()).isEqualTo(200);
+            }
+        }
+        assertThat(connections.get()).isEqualTo(2);
+    }
+
+    /** Answers one request with a kept-alive response, then closes the socket after 100 ms idle. */
+    private static void answerOnceThenCloseWhenIdle(java.net.Socket socket) {
+        try (socket) {
+            java.io.InputStream in = socket.getInputStream();
+            int matched = 0;
+            byte[] end = {'\r', '\n', '\r', '\n'};
+            while (matched < end.length) {
+                int next = in.read();
+                if (next < 0) return;
+                matched = next == end[matched] ? matched + 1 : (next == end[0] ? 1 : 0);
+            }
+            OutputStream out = socket.getOutputStream();
+            out.write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}"
+                    .getBytes(StandardCharsets.US_ASCII));
+            out.flush();
+            Thread.sleep(100);
+        } catch (IOException | InterruptedException ignored) {
+            // The socket closes either way, which is the behaviour under test.
+        }
+    }
+
+    private static ClassicHttpRequest get(String base, String path) {
+        return ClassicRequestBuilder.get(base + path)
+                .setHeader("Authorization", "Bearer test-token-value")
+                .build();
+    }
+
     @Test
     void shouldAcceptResponse_whenExactlyAtLimit() throws Exception {
         String body = "x".repeat(PatientPortalHttpClientExchange.MAX_RESPONSE_CHARS);
