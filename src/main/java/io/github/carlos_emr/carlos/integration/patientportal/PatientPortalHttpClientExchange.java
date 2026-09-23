@@ -60,6 +60,7 @@ import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ssl.TLS;
 import org.apache.hc.core5.io.CloseMode;
 import org.apache.hc.core5.io.ModalCloseable;
+import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 
@@ -90,6 +91,14 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
 
     private static final int READ_BUFFER_CHARS = 8192;
     static final int MAX_CONCURRENT_REQUESTS = 4;
+    /**
+     * A pooled connection idle longer than this is checked before reuse. The portal (uvicorn, or
+     * a proxy in front of it) closes idle keep-alive connections, and automatic retries are off,
+     * so reusing a closed one would fail the call outright.
+     */
+    static final TimeValue VALIDATE_AFTER_INACTIVITY = TimeValue.ofMilliseconds(250);
+    /** Retire idle connections before the portal does; uvicorn's default keep-alive is 5 s. */
+    static final TimeValue MAX_IDLE = TimeValue.ofSeconds(2);
 
     private final CloseableHttpClient client;
     private final Duration requestTimeout;
@@ -124,6 +133,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         ConnectionConfig connectionConfig =
                 ConnectionConfig.custom()
                         .setConnectTimeout(Timeout.ofMilliseconds(connectTimeout.toMillis()))
+                        .setValidateAfterInactivity(VALIDATE_AFTER_INACTIVITY)
                         .build();
         PoolingHttpClientConnectionManagerBuilder connectionManagerBuilder =
                 PoolingHttpClientConnectionManagerBuilder.create()
@@ -152,7 +162,11 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                         // per-request flag are independent paths to the same guarantee, and a
                         // redirect must never replay the bearer token at another host.
                         .disableRedirectHandling()
+                        // Retries stay off: a POST must never be repeated behind the caller's
+                        // back. Stale pooled connections are handled by the validation and idle
+                        // eviction configured here instead.
                         .disableAutomaticRetries()
+                        .evictIdleConnections(MAX_IDLE)
                         // The singleton transport serves unrelated staff and patients. The internal
                         // API authenticates every call with explicit bearer/assertion headers, so a
                         // response cookie is both unnecessary and unsafe shared request state.
