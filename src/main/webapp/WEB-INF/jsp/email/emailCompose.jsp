@@ -86,6 +86,7 @@
     <fmt:message key="email.compose.btn.close" var="emailComposeClose"/>
     <fmt:message key="email.compose.msg.subjectRequired" var="emailComposeSubjectRequired"/>
     <fmt:message key="email.compose.msg.messageRequired" var="emailComposeMessageRequired"/>
+    <fmt:message key="email.compose.portal.misconfigured" var="emailComposePortalMisconfigured"/>
     <fmt:message key="email.compose.msg.passwordRequired" var="emailComposePasswordRequired"/>
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
@@ -885,6 +886,7 @@
 
     const emailComposeSubjectRequiredMsg = "<carlos:encode value='${emailComposeSubjectRequired}' context="javaScript"/>";
     const emailComposeMessageRequiredMsg = "<carlos:encode value='${emailComposeMessageRequired}' context="javaScript"/>";
+    const emailComposePortalMisconfiguredMsg = "<carlos:encode value='${emailComposePortalMisconfigured}' context="javaScript"/>";
     const emailComposePasswordRequiredMsg = "<carlos:encode value='${emailComposePasswordRequired}' context="javaScript"/>";
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
@@ -934,6 +936,13 @@
         } else {
             clearError('emailPDFPasswordError');
             clearError('emailPDFPasswordClueError');
+        }
+        // A malformed portal setting refuses encrypted email on the server. Stop it here instead, so
+        // staff stay on this draft and can turn encryption off rather than land on a bare error page.
+        const portalEmailMisconfigured = ${portalEmailMisconfigured};
+        if (portalEmailMisconfigured && (isEncrypted || (hasAttachments && isAttachmentEncrypted))) {
+            errors.portalEmailMisconfigured = emailComposePortalMisconfiguredMsg;
+            displayError('messageError', emailComposePortalMisconfiguredMsg, message);
         }
         if (consentOverride && consentOverride.checked) {
             validateField(consentOverrideReason, emailComposeConsentOverrideReasonRequiredMsg, errors, 'consentOverrideReasonError');

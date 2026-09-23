@@ -105,7 +105,34 @@ test('Portal mode validates an encrypted email without requiring the password fi
       validateField: (field, _message, errors, key) => { if (!field.value) errors[key] = true; },
       clearError() {},
     });
-    vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', String(portalEnabled)), context);
+    vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', String(portalEnabled))
+      .replace('${portalEmailMisconfigured}', 'false'), context);
     assert.equal(context.validateForm(), portalEnabled);
+  }
+});
+
+test('a malformed Portal setting stops an encrypted send on the page, but not an unencrypted one', () => {
+  for (const encrypted of [true, false]) {
+    const shown = [];
+    const fields = {
+      subjectEmail: { value: 'Test subject' }, message: { value: 'Test message' },
+      encryptionSwitch: { checked: encrypted }, encryptAttachmentSwitch: { checked: encrypted },
+      emailPDFPassword: { value: '' }, emailPDFPasswordClue: { value: '' },
+      totalSenderEmails: { value: 1 }, totalRecipintEmails: { value: 1 },
+    };
+    const context = vm.createContext({
+      document: { getElementById: id => fields[id] || null, querySelectorAll: () => [] },
+      emailComposeSubjectRequiredMsg: '', emailComposeMessageRequiredMsg: '',
+      emailComposePasswordRequiredMsg: '', emailComposeClueRequiredMsg: '',
+      emailComposePortalMisconfiguredMsg: 'setting not valid',
+      validateField: (field, _message, errors, key) => { if (!field.value) errors[key] = true; },
+      displayError: (_id, message) => shown.push(message),
+      clearError() {},
+    });
+    // A malformed setting renders portalEmailEnabled as true, so no manual password is asked for.
+    vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', 'true')
+      .replace('${portalEmailMisconfigured}', 'true'), context);
+    assert.equal(context.validateForm(), !encrypted);
+    assert.deepEqual(shown, encrypted ? ['setting not valid'] : []);
   }
 });
