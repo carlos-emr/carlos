@@ -53,11 +53,13 @@ class PatientPortalAccountAndSecretCallsUnitTest {
     private static final String PASSPHRASE = "correct-horse-battery-staple";
     private static final String PATIENT_EMAIL = "patient@example.com";
 
-    /** Replays canned portal replies in order and records every request sent. */
+    /**
+     * Replays canned portal replies in order and records every request sent. A request beyond the
+     * script fails the test, so an unexpected extra call cannot pass by reusing the last reply.
+     */
     private static final class ScriptedExchange implements PatientPortalHttpExchange {
         private final List<PatientPortalHttpResponse> replies = new ArrayList<>();
         private final List<ClassicHttpRequest> sent = new ArrayList<>();
-        private int index;
 
         ScriptedExchange reply(int statusCode, String body) {
             replies.add(new PatientPortalHttpResponse(statusCode, body));
@@ -66,8 +68,19 @@ class PatientPortalAccountAndSecretCallsUnitTest {
 
         @Override
         public PatientPortalHttpResponse send(ClassicHttpRequest request) {
+            if (sent.size() >= replies.size()) {
+                throw new AssertionError("unscripted portal request: " + request.getMethod() + " "
+                        + request.getRequestUri());
+            }
             sent.add(request);
-            return replies.get(Math.min(index++, replies.size() - 1));
+            return replies.get(sent.size() - 1);
+        }
+
+        /** @return the one request the call sent, after checking it used {@code method} */
+        ClassicHttpRequest onlyRequest(String method) {
+            assertThat(sent).hasSize(1);
+            assertThat(sent.get(0).getMethod()).isEqualTo(method);
+            return sent.get(0);
         }
     }
 
@@ -117,7 +130,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
 
             assertThat(account.forcePasswordReset()).isTrue();
             assertThat(account.lockedAt()).isNull();
-            assertThat(exchange.sent.get(0).getRequestUri())
+            assertThat(exchange.onlyRequest("POST").getRequestUri())
                     .contains("/internal/carlos/patients/123/unlock");
         }
 
@@ -161,7 +174,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                             "left_practice",
                             staff(PatientPortalStaffContext.PERMISSION_ACCOUNT_MANAGE));
 
-            assertThat(bodyOf(exchange.sent.get(0)))
+            assertThat(bodyOf(exchange.onlyRequest("POST")))
                     .contains("\"enabled\":false")
                     .contains("\"reason\":\"left_practice\"");
         }
@@ -193,7 +206,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
             assertThat(secret.status()).isEqualTo("pending");
             assertThat(secret.created()).isTrue();
             assertThat(secret.secret().expose()).isEqualTo(PASSPHRASE);
-            assertThat(bodyOf(exchange.sent.get(0)))
+            assertThat(bodyOf(exchange.onlyRequest("POST")))
                     .contains("\"source_reference\":\"doc-42\"")
                     .contains("\"secret_type\":\"email\"")
                     .contains("\"label\":\"Lab results\"");
@@ -241,6 +254,8 @@ class PatientPortalAccountAndSecretCallsUnitTest {
             assertThat(service.revokeUnlockSecret(12L, "send_failed", staff).status())
                     .isEqualTo("revoked");
 
+            assertThat(exchange.sent).hasSize(2)
+                    .allSatisfy(request -> assertThat(request.getMethod()).isEqualTo("POST"));
             assertThat(exchange.sent.get(0).getRequestUri())
                     .contains("/internal/carlos/unlock-secrets/11/publish");
             assertThat(exchange.sent.get(1).getRequestUri())
@@ -362,7 +377,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                     .listContactReviews(
                             9999, -5, staff(PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW));
 
-            assertThat(exchange.sent.get(0).getRequestUri()).contains("limit=100&offset=0");
+            assertThat(exchange.onlyRequest("GET").getRequestUri()).contains("limit=100&offset=0");
         }
 
         @Test
@@ -379,7 +394,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                             Integer.MAX_VALUE,
                             staff(PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW));
 
-            assertThat(exchange.sent.get(0).getRequestUri()).contains("limit=50&offset=100000");
+            assertThat(exchange.onlyRequest("GET").getRequestUri()).contains("limit=50&offset=100000");
         }
 
         @Test
@@ -496,6 +511,31 @@ class PatientPortalAccountAndSecretCallsUnitTest {
         }
 
         @Test
+        @DisplayName("should reject a page whose items run past its declared total")
+        void shouldThrowMalformedResponse_whenReviewPageExceedsTotal() {
+            String overfullPage =
+                    "{\"items\":["
+                            + REVIEW_ITEM
+                            + ","
+                            + REVIEW_ITEM.replace("\"id\":3", "\"id\":4")
+                            + "],\"limit\":50,\"offset\":0,\"total\":1,\"next_offset\":null}";
+            ScriptedExchange exchange = new ScriptedExchange().reply(200, overfullPage);
+
+            assertThatThrownBy(
+                            () ->
+                                    service(exchange)
+                                            .listContactReviews(
+                                                    50,
+                                                    0,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_CONTACT_REVIEW)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
         @DisplayName("should echo the exact revision back on the decision")
         void shouldSendRevision_whenDecisionIsRecorded() throws Exception {
             ScriptedExchange exchange =
@@ -511,10 +551,10 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                                     "rev-abc",
                                     staff(PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW));
 
-            assertThat(bodyOf(exchange.sent.get(0)))
+            assertThat(bodyOf(exchange.onlyRequest("POST")))
                     .contains("\"approve\":true")
                     .contains("\"revision\":\"rev-abc\"");
-            assertThat(exchange.sent.get(0).getRequestUri())
+            assertThat(exchange.onlyRequest("POST").getRequestUri())
                     .contains("/internal/carlos/contact-reviews/3/decision");
             assertThat(decision.decision()).isEqualTo("approved");
         }

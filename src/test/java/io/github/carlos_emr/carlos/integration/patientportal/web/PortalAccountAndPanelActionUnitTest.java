@@ -372,13 +372,19 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should refuse a provider holding neither portal object")
         void shouldRefuseInJson_whenProviderMayReadNeitherSection() throws Exception {
             request.setMethod("GET");
-            when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
-                    .thenReturn(false);
+            // The patient record stays readable, so only the neither-section gate can refuse.
+            when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
+                    anyString(), eq(String.valueOf(DEMOGRAPHIC_NO)))).thenReturn(false);
+            when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                    anyString(), eq(String.valueOf(DEMOGRAPHIC_NO)))).thenReturn(false);
 
             panelAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(response.getContentAsString()).contains("not_permitted");
+            verify(securityInfoManager).hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                    eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO)));
+            verifyNoInteractions(patientPortalService);
         }
 
         @Test

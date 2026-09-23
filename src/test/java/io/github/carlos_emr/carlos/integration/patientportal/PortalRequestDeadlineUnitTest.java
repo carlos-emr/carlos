@@ -203,6 +203,8 @@ class PortalRequestDeadlineUnitTest {
             try {
                 release.await();
                 exchange.sendResponseHeaders(200, -1);
+            } catch (IOException exception) {
+                // The client closed first, which is the point of this test; nothing left to answer.
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
             } finally {

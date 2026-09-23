@@ -53,11 +53,15 @@ class PortalBoundaryRegressionUnitTest {
     }
 
     private PatientPortalService service(String body) {
+        return service(201, body);
+    }
+
+    private PatientPortalService service(int status, String body) {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
                 PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary", Duration.ofSeconds(1),
                 Duration.ofSeconds(1), Duration.ofSeconds(20), Set.of(PortalTestKeys.UNUSED_TLS_PIN));
-        return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(201, body));
+        return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(status, body));
     }
 
     @Test
@@ -199,8 +203,12 @@ class PortalBoundaryRegressionUnitTest {
 
     @Test
     void shouldRejectUnlockResponse_whenStateMissing() {
-        assertThatThrownBy(() -> service("{\"id\":1,\"force_password_reset\":true}")
-                .unlockAccount(123, staff())).isInstanceOf(PatientPortalException.class);
+        // 200 is unlock's success status, so the only thing wrong with this reply is the missing
+        // locked_at; a 201 would be refused for its status before the body was read.
+        assertThatThrownBy(() -> service(200, "{\"id\":1,\"force_password_reset\":true}")
+                .unlockAccount(123, staff()))
+                .isInstanceOf(PatientPortalException.class)
+                .hasRootCauseMessage("portal unlock response is missing lockout state");
     }
 
     @ParameterizedTest

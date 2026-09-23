@@ -26,13 +26,12 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
@@ -95,20 +94,25 @@ class PortalWebBoundaryRegressionUnitTest {
         request.setMethod("POST");
         request.setParameter("method", "unlock");
         request.setParameter("demographicNo", "123");
-        when(security.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
-        // Mockito defaults deny every patient-specific permission and patient-record access.
-        when(resolver.resolveForPatient(any(), any(), eq(123))).thenReturn(new PatientPortalStaffContext(
-                "999998", "Synthetic Provider", Set.of(PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK)));
-        when(portal.unlockAccount(eq(123), any())).thenReturn(
-                new PatientPortalAccountAcknowledgementDto(1L, "active", true, null));
+        // The user may see this patient's record and holds every other permission for them; only the
+        // unlock object is denied, so the refusal can come from nowhere but the unlock gate.
+        when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK),
+                eq(SecurityInfoManager.WRITE), eq("123"))).thenReturn(false);
         try (var servlet = mockStatic(ServletActionContext.class);
              var login = mockStatic(LoggedInInfo.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
             new PortalAccount2Action(security, portal, resolver).execute();
-            verifyNoInteractions(portal);
         }
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("\"not_permitted\"");
+        verify(security).hasPrivilege(session, PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK,
+                SecurityInfoManager.WRITE, "123");
+        verifyNoInteractions(portal, resolver);
     }
 
     @Test
