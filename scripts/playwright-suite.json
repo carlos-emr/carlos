@@ -2068,6 +2068,24 @@
       ]
     },
     {
+      "name": "encounter-header-i18n",
+      "script": "scripts/encounter-header-i18n-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "HEADER_I18N_SEARCH",
+        "HEADER_I18N_DEMOGRAPHIC_NO",
+        "HEADER_I18N_TIMEOUT_MS"
+      ],
+      "notes": "Walks the chart four times sequentially on one server: English, French, unsupported-only German (English fallback), and German followed by French. Checks all rendered identity labels, calculator uniqueness, and configured template-search bundle values."
+    },
+    {
       "name": "echart-note-editor",
       "script": "scripts/echart-note-editor-playwright-checks.js",
       "tiers": [
