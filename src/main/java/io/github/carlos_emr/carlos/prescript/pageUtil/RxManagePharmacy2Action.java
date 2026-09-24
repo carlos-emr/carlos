@@ -158,7 +158,11 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
             String pharmId = request.getParameter("pharmacyId");
-            String demographicNo = request.getParameter("demographicNo");
+            String demographicNo = patientOfOpenRxWindow();
+            if (demographicNo == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
 
             RxPharmacyData pharmacy = new RxPharmacyData();
 
@@ -201,10 +205,29 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * The patient a pharmacy link change may touch: the {@code demographicNo} the request names,
+     * provided Rx is open for that patient in this session. The request value alone was trusted
+     * before, so any chart's pharmacy links could be changed (ported from draft PR #3304).
+     *
+     * @return the demographic number as a string, or {@code null} when the request names no patient
+     *         or Rx is not open for it
+     */
+    private String patientOfOpenRxWindow() {
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        return RxSessionBeanResolver.isRequestForBeanPatient(request, bean)
+                ? String.valueOf(bean.getDemographicNo()) : null;
+    }
+
     public String setPreferred() {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
-            PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), request.getParameter("demographicNo"), request.getParameter("preferredOrder"));
+            String demographicNo = patientOfOpenRxWindow();
+            if (demographicNo == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
+            PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), demographicNo, request.getParameter("preferredOrder"));
             response.setContentType("application/json");
             objectMapper.writeValue(response.getWriter(), pharmacyInfo);
         } catch (Exception e) {

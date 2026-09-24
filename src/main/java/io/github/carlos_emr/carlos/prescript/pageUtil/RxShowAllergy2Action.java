@@ -109,11 +109,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
         reorder(request);
         try {
-            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
-            if (patient != null) {
-                // demoNoParam validated as numeric at method entry
-                request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            }
             response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -181,34 +176,20 @@ public final class RxShowAllergy2Action extends ActionSupport {
             return "failure";
         }
         // Setup bean
-        RxSessionBean bean;
-
-        if (request.getSession().getAttribute("RxSessionBean") != null) {
-            bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            if ((bean.getProviderNo() != user_no) || (bean.getDemographicNo() != Integer.parseInt(demo_no))) {
-                bean = new RxSessionBean();
-            }
-
-        } else {
-            bean = new RxSessionBean();
-        }
-
-
-        bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(demo_no));
+        // Per-patient state (#3875). The old code compared providerNo Strings with != and so
+        // replaced the bean (and wiped the staged drafts) every time allergies were opened.
+        RxSessionBean bean = RxSessionBeanResolver.activate(request, Integer.parseInt(demo_no), user_no);
         if (view != null) {
             bean.setView(view);
         }
-
-        // demographicNo validated via Integer.parseInt(); bean setters use validated values
-        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
         if (patient == null) {
             return "failure";
         }
-        request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // Not stored in the session any more: ShowAllergies2.jsp loads the patient for this
+        // request's bean through RxSessionBeanResolver.resolvePatient (#3875).
         return "success";
     }
 

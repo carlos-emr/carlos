@@ -62,7 +62,7 @@ public final class RxClearPending2Action extends ActionSupport {
 
         // Setup variables
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

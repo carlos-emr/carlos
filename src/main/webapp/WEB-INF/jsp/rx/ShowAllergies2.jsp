@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
@@ -74,13 +75,15 @@
     PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 %>
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
+<c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        bean = RxSessionBeanResolver.resolve(request);
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
@@ -88,7 +91,7 @@
     %>
 </c:if>
 <%
-    RxPatientData.Patient patient = (RxPatientData.Patient) session.getAttribute("Patient");
+    RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
     request.setAttribute("patient", patient);
     SecurityManager securityManager = new SecurityManager();
 %>

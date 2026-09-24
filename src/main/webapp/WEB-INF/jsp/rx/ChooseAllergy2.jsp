@@ -48,6 +48,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <html>
     <head>
@@ -59,12 +60,14 @@
         <title><fmt:message key="ChooseAllergy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-        <c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+        <c:if test="${empty pageScope.RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>
 
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
 
             <c:if test="${!bean.valid}">
                 <c:redirect url="error.html"/>

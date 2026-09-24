@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -53,7 +54,7 @@
 %>
 
 <%
-    RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+    RxSessionBean bean2 = RxSessionBeanResolver.resolve(request);
     RxPrescriptionData.Prescription[] allRxInStash = bean2.getStash();
     List allRandomIdInStash = new ArrayList();
     for (RxPrescriptionData.Prescription rx : allRxInStash) {

@@ -264,6 +264,29 @@ public class RxSessionBean implements java.io.Serializable {
         stash = new ArrayList();
     }
 
+    /**
+     * Drops stash items that a completed save already persisted, keeping unsaved drafts and the
+     * selected draft's position.
+     *
+     * <p>A patient's bean is reused when Rx is reopened ({@link RxSessionBeanResolver#activate}),
+     * so without this a prescription saved just before the window was closed would reappear
+     * staged and could be saved twice. {@code drugId} is 0 until {@code Prescription.Save}
+     * writes the row, so {@code drugId > 0} means "already saved". {@code script_no} is not a
+     * safe signal: a staged re-prescription copies its source drug's script number.</p>
+     *
+     * @since 2026-09-24
+     */
+    public void removePersistedStashItems() {
+        RxPrescriptionData.Prescription selected =
+                (stashIndex >= 0 && stashIndex < stash.size()) ? stash.get(stashIndex) : null;
+        stash.removeIf(rx -> rx.getDrugId() > 0);
+        if (selected != null && stash.contains(selected)) {
+            stashIndex = stash.indexOf(selected);
+        } else {
+            stashIndex = stash.size() - 1;
+        }
+    }
+
     public HashMap<Integer, Long> getFavIdRandomIdMaps() {
         return favIdRandomIdMap;
     }

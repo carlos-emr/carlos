@@ -88,7 +88,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession(false);
-        rxSessionBean = session == null ? null : (RxSessionBean) session.getAttribute("RxSessionBean");
+        rxSessionBean = session == null ? null : RxSessionBeanResolver.resolve(request);
         if (rxSessionBean == null) {
             return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
         }

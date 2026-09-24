@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -58,18 +59,20 @@
     RxPatientData.Patient patient = null;
     RxSessionBean bean = null;
 %>
-<c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+<c:if test="${empty pageScope.RxSessionBean}">
     <c:redirect url="error.html"/>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
+<c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        bean = RxSessionBeanResolver.resolve(request);
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
         }
-        patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        patient = RxSessionBeanResolver.resolvePatient(request);
     %>
 </c:if>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>

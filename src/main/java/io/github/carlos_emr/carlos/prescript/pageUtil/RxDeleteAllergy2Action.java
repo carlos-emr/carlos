@@ -83,7 +83,11 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
         String action = request.getParameter("action");
 
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
+        if (patient == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
         Allergy allergy = patient.getAllergy(id);
         if (allergy == null) {

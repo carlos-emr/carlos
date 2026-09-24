@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -81,21 +82,24 @@
         %>
         <%
             if (request.getParameter("demographicNo") != null) {
-                rxBean = new RxSessionBean();
-
-                rxBean.setProviderNo((String) session.getAttribute("user"));
-                rxBean.setDemographicNo(Integer.parseInt(request.getParameter("demographicNo")));
-
-                request.getSession().setAttribute("RxSessionBean", rxBean);
+                // Reuse this patient's bean (#3875): building a new one here wiped any stash staged
+                // in an open Rx window for the same patient.
+                int staticScriptDemographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+                if (staticScriptDemographicNo > 0) {
+                    rxBean = RxSessionBeanResolver.activate(request, staticScriptDemographicNo,
+                            (String) session.getAttribute("user"));
+                }
             }
         %>
 
-        <c:if test="${sessionScope.RxSessionBean == null}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+        <c:if test="${pageScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>
         </c:if>
 
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>

@@ -99,7 +99,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         RxSessionBean rxSessionBean = new RxSessionBean();
         rxSessionBean.setDemographicNo(1);
         rxSessionBean.setProviderNo("999998");
-        request.getSession().setAttribute("RxSessionBean", rxSessionBean);
+        RxSessionBeanResolver.register(request.getSession(), rxSessionBean);
 
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(PrescriptionManager.class, mockPrescriptionManager);
@@ -435,7 +435,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should redirect when prescription session is missing")
     void shouldRedirect_whenPrescriptionSessionIsMissing() throws Exception {
-        request.getSession().removeAttribute("RxSessionBean");
+        request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 

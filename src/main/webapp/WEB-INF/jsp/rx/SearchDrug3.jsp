@@ -63,6 +63,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -78,7 +79,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%
 String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
-RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
 
 if (rx_enhance!=null && rx_enhance.equals("true")) {
 	if (request.getParameter("ID") != null) {
@@ -105,11 +106,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 %>
 
 
-<c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+<c:if test="${empty pageScope.RxSessionBean}">
   <% response.sendRedirect("error.html"); %>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
-  <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page" />
+<c:if test="${not empty pageScope.RxSessionBean}">
+  <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page" />
   <c:if test="${not bean.valid}">
     <% response.sendRedirect("error.html"); %>
   </c:if>
@@ -220,6 +223,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
+        <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"></script>
         <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
@@ -855,7 +860,8 @@ function renderRxStage() {
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
 
-                                                    <input type="hidden" property="demographicNo" value="<%=patient.getDemographicNo()%>"/>
+                                                    <%-- Named so the save posts its patient: the server refuses a save that does not name the window's patient (#3875). --%>
+                                                    <input type="hidden" name="demographicNo" value="<%=patient.getDemographicNo()%>"/>
 
                                                 </div>
                                                 <input type="hidden" id="rxPharmacyId" name="rxPharmacyId" value="" />
@@ -1762,13 +1768,13 @@ function saveCustomName(element){
 }
 function popForm2(scriptId){
         try{
-            var url = ctx + "/rx/viewScript?scriptId="+scriptId;
+            var url = RxPatientContext.withPatient(ctx + "/rx/viewScript?scriptId="+scriptId);
             var calcs = jQuery("#Calcs").val();
             if( calcs != null && calcs != "" ) {
                 try {
                     var pharmacy = JSON.parse(calcs);
                     if( pharmacy != null && pharmacy.id != null ) {
-                        url= ctx + "/rx/viewScript?scriptId="+scriptId+"&pharmacyId="+encodeURIComponent(pharmacy.id);
+                        url= RxPatientContext.withPatient(ctx + "/rx/viewScript?scriptId="+scriptId+"&pharmacyId="+encodeURIComponent(pharmacy.id));
                     }
                 } catch (e) {
                     oscarLog(e);

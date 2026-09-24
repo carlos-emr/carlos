@@ -72,7 +72,7 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
         // Setup variables
         RxSessionBean bean =
-                (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+                RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -110,7 +110,7 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
         // Setup variables
         RxSessionBean bean =
-                (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+                RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
@@ -50,11 +51,13 @@
         <title>Edit Favorites</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
         <c:if test="${empty RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>
         <c:if test="${not empty RxSessionBean}">
-            <c:set var="bean" value="${RxSessionBean}" scope="session"/>
+            <c:set var="bean" value="${RxSessionBean}" scope="page"/>
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>

@@ -96,7 +96,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         liveBean = new RxSessionBean();
         liveBean.setProviderNo(PROVIDER_NO);
         liveBean.setDemographicNo(DEMOGRAPHIC_NO);
-        request.getSession().setAttribute("RxSessionBean", liveBean);
+        RxSessionBeanResolver.register(request.getSession(), liveBean);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -166,7 +166,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should redirect to the error page when there is no Rx session")
     void shouldRedirect_whenRxSessionMissing() throws Exception {
-        request.getSession().removeAttribute("RxSessionBean");
+        request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
 
         assertThat(newAction().execute()).isNull();
         assertThat(response.getRedirectedUrl()).isEqualTo("error.html");

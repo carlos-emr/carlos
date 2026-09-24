@@ -68,7 +68,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_rx)");
         }
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -98,7 +98,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_rx)");
         }
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

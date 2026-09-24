@@ -158,7 +158,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
     void shouldDeleteAllergy_whenIdParameterIsValid() throws Exception {
         mockRequest.setParameter("ID", "42");
         mockRequest.setParameter("demographicNo", "123");
-        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
+        openRxForPatient();
         when(mockRxPatient.getAllergy(42)).thenReturn(mockAllergy);
         when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
         when(mockRxPatient.getDemographicNo()).thenReturn(123);
@@ -185,7 +185,7 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
     @DisplayName("should return forbidden when allergy does not belong to the session patient")
     void shouldReturn403Forbidden_whenAllergyBelongsToDifferentPatient() throws Exception {
         mockRequest.setParameter("ID", "42");
-        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
+        openRxForPatient();
         when(mockRxPatient.getAllergy(42)).thenReturn(null);
 
         String result = action.execute();
@@ -196,4 +196,16 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         verify(mockRxPatient, never()).activateAllergy(anyInt());
         logActionMock.verifyNoInteractions();
     }
+    /**
+     * Opens Rx for patient 123 in this session (per-patient Rx state, #3875) and seeds the
+     * resolver's per-request patient cache with the mock, so no demographic lookup runs.
+     */
+    private void openRxForPatient() {
+        RxSessionBean rxBean = new RxSessionBean();
+        rxBean.setDemographicNo(123);
+        RxSessionBeanResolver.register(mockRequest.getSession(), rxBean);
+        when(mockRxPatient.getDemographicNo()).thenReturn(123);
+        mockRequest.setAttribute(RxSessionBeanResolver.PATIENT_REQUEST_ATTRIBUTE, mockRxPatient);
+    }
+
 }

@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %><%--
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %><%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -56,6 +56,8 @@
         <title>Print Preview</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
         <c:if test="${empty RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>

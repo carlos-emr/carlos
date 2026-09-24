@@ -34,6 +34,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page
         import="io.github.carlos_emr.carlos.rx.pageUtil.*,io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
@@ -94,6 +95,8 @@
         <title><fmt:message key="ManagePharmacy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
         <c:if test="${empty RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>

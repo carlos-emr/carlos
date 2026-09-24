@@ -30,6 +30,7 @@
 --%>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -95,11 +96,13 @@
         <title><fmt:message key="ViewScript.title"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+        <c:if test="${empty pageScope.RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>
@@ -133,6 +136,10 @@
         %>
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
+            // The patient of the window that opened this preview. Every Rx request from this page
+            // names it so the server resolves that patient's bean, not the most recently opened
+            // chart's (per-patient Rx state, #3875).
+            int viewScriptDemographicNo = bean.getDemographicNo();
             Provider provider = providerManager.getProvider(bean.getProviderNo());
             String providerFax = provider.getWorkPhone();
             if (providerFax == null) {
@@ -334,7 +341,7 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
-                    body: ''
+                    body: 'demographicNo=<%= viewScriptDemographicNo %>'
                 }).then(function() {
                     parent.document.getElementById('rxText').textContent = "";//make pending prescriptions disappear.
                     parent.document.getElementById('searchString').focus();
@@ -347,7 +354,7 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
-                    body: ''
+                    body: 'demographicNo=<%= viewScriptDemographicNo %>'
                 });
             }
 
@@ -1382,7 +1389,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
@@ -1390,6 +1397,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
+                                    <input type="hidden" name="demographicNo" value="<%= viewScriptDemographicNo %>"/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>

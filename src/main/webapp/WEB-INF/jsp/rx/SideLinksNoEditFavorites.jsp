@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -41,7 +42,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+    RxSessionBean bean2 = RxSessionBeanResolver.resolve(request);
 
     Allergy[] allergies = RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request), bean2.getDemographicNo()).getActiveAllergies();
     String alle = "";

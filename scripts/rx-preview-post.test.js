@@ -22,6 +22,8 @@ function launch(token) {
   Modal.getInstance = () => null;
   vm.runInNewContext(`${source}\npopForm2(789);`, {
     ctx: '/carlos',
+    // Per-patient Rx state (#3875): the preview POST names the window's patient.
+    RxPatientContext: require('../src/main/webapp/share/javascript/rx-patient-context.js').create('1001'),
     jQuery: () => ({ val: () => JSON.stringify({ id: '5&other=value' }) }),
     bootstrap: { Modal },
     updateDeleteOnCloseRxBox() {},
@@ -51,7 +53,7 @@ test('save/print preview uses a token-bearing POST into the modal iframe, never 
   const iframe = created.find(element => element.tag === 'iframe');
   assert.equal(form.method, 'post');
   assert.equal(form.target, iframe.name);
-  assert.equal(form.action, '/carlos/rx/viewScript?scriptId=789&pharmacyId=5%26other%3Dvalue');
+  assert.equal(form.action, '/carlos/rx/viewScript?scriptId=789&pharmacyId=5%26other%3Dvalue&demographicNo=1001');
   assert.equal(form.children[0].name, 'CSRF-TOKEN');
   assert.equal(form.children[0].value, 'session-owned-token');
   assert.equal(form.removed, true);

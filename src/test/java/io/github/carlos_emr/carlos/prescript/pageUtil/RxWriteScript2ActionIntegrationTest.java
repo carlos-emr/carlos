@@ -90,7 +90,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(requestedDemographicNo);
-        getMockSession().setAttribute("RxSessionBean", bean);
+        RxSessionBeanResolver.register(getMockSession(), bean);
         addRequestParameter("ltDrugId", String.valueOf(drugId));
         addRequestParameter("isLongTerm", "true");
 
@@ -119,7 +119,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(demographicNo);
-        getMockSession().setAttribute("RxSessionBean", bean);
+        RxSessionBeanResolver.register(getMockSession(), bean);
         addRequestParameter("ltDrugId", String.valueOf(drugId));
         addRequestParameter("isLongTerm", "true");
 
@@ -462,6 +462,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     void shouldSkipSaveAndArchival_whenStashEmpty() throws Exception {
         RxSessionBean bean = stageReRxSession(1001);
         bean.getReRxDrugIdList().add("3003");
+        addRequestParameter("demographicNo", "1001");
 
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             action.saveDrug(getMockRequest());
@@ -474,6 +475,42 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(getMockRequest().getAttribute("scriptId")).isNull();
         // The ReRx selection survives so the prescriber can still stage it.
         assertThat(bean.getReRxDrugIdList()).containsExactly("3003");
+    }
+
+    // #3875: a save must name the prescribing window's patient; the no-patient fallback is read-only.
+    @Test
+    @DisplayName("should refuse a save that names no patient even though a fallback bean exists")
+    void shouldRefuseSave_whenRequestNamesNoPatient() throws Exception {
+        RxSessionBean beanA = stageReRxSession(1001);
+        beanA.getReRxDrugIdList().add("3003");
+        RxSessionBean beanB = stageReRxSession(2002);
+        beanB.getReRxDrugIdList().add("4004");
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            String result = executeActionMethod(action, "updateSaveAllDrugs");
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            logAction.verifyNoInteractions();
+        }
+        verify(mockRxManager, never()).archiveDrug(any(), anyInt(), anyInt(), any(String.class));
+        assertThat(beanB.getReRxDrugIdList()).containsExactly("4004");
+    }
+
+    @Test
+    @DisplayName("should refuse a save for a patient whose Rx window is not open in this session")
+    void shouldRefuseSave_whenNamedPatientHasNoRxBean() throws Exception {
+        stageReRxSession(1001).getReRxDrugIdList().add("3003");
+        addRequestParameter("demographicNo", "2002");
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            String result = executeActionMethod(action, "updateSaveAllDrugs");
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            logAction.verifyNoInteractions();
+        }
+        verify(mockRxManager, never()).archiveDrug(any(), anyInt(), anyInt(), any(String.class));
     }
 
     /**
@@ -503,7 +540,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     private RxSessionBean stageReRxSession(int demographicNo) {
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(demographicNo);
-        getMockSession().setAttribute("RxSessionBean", bean);
+        RxSessionBeanResolver.register(getMockSession(), bean);
         return bean;
     }
 

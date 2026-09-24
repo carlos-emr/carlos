@@ -77,19 +77,19 @@ public final class RxAddAllergy2Action extends ActionSupport {
             return NONE;
         }
 
+        // The form names its patient; the allergy is only written when Rx/allergies is open for
+        // that patient in this session (per-patient state, #3875). This replaces a comparison
+        // against the shared "Patient" session attribute, which followed the last chart opened.
         String formDemographicNo = request.getParameter("formDemographicNo");
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
-        if (patient == null || formDemographicNo == null) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return NONE;
-        }
-
+        RxPatientData.Patient patient = null;
         try {
-            if (Integer.parseInt(formDemographicNo) != patient.getDemographicNo()) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return NONE;
+            if (formDemographicNo != null) {
+                patient = RxSessionBeanResolver.resolvePatient(request, Integer.parseInt(formDemographicNo));
             }
         } catch (NumberFormatException e) {
+            patient = null;
+        }
+        if (patient == null) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }

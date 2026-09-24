@@ -67,7 +67,7 @@ public final class RxChooseDrug2Action extends ActionSupport {
         //     p("locale="+locale.toString());
         //    p("message="+messages.toString());
         // Setup variables
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

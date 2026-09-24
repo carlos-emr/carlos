@@ -36,6 +36,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -73,18 +74,20 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
 
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
+        <c:if test="${not empty pageScope.RxSessionBean}">
             <%
                 // Directly access the RxSessionBean from the session
-                bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+                bean = RxSessionBeanResolver.resolve(request);
                 if (bean != null && !bean.isValid()) {
                     response.sendRedirect("error.html");
                     return; // Ensure no further JSP processing
                 }
-                RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+                RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
                 if (patient != null) {
                     surname = patient.getSurname();
                     firstName = patient.getFirstName();

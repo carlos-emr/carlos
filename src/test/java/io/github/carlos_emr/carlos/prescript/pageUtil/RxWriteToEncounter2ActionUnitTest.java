@@ -51,7 +51,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("case_program_id", "0");
         sessionBean = new RxSessionBean();
         sessionBean.setDemographicNo(42);
-        request.getSession().setAttribute("RxSessionBean", sessionBean);
+        RxSessionBeanResolver.register(request.getSession(), sessionBean);
         security = mock(SecurityInfoManager.class);
         notes = mock(CaseManagementManager.class);
         tmpDao = mock(CaseManagementTmpSaveDao.class);
@@ -99,7 +99,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRejectWithoutRedirect_whenRxSessionIsMissing() throws Exception {
-        request.getSession().removeAttribute("RxSessionBean");
+        request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
         new RxWriteToEncounter2Action().execute();
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getRedirectedUrl()).isNull();

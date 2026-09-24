@@ -118,7 +118,7 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
 
     /** Puts the bean where the action looks it up. */
     private void putBeanInSession(RxSessionBean rxBean) {
-        request.getSession().setAttribute("RxSessionBean", rxBean);
+        RxSessionBeanResolver.register(request.getSession(), rxBean);
     }
 
     private static RxPrescriptionData.Prescription staged(long randomId, int drugReferenceId) {

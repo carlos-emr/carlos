@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ page import="jakarta.servlet.http.HttpServletResponse" %><%--
@@ -60,6 +61,8 @@
         <title><fmt:message key="AddReaction.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>
@@ -72,7 +75,7 @@
 
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
-            RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+            RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
             if (patient == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;

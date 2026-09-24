@@ -106,8 +106,7 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         mockRequest.setParameter("type", "1");
         mockRequest.setParameter("startDate", "");
         mockRequest.setParameter("formDemographicNo", "123");
-        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
-        when(mockRxPatient.getDemographicNo()).thenReturn(123);
+        openRxForPatient();
 
         action = new RxAddAllergy2Action();
     }
@@ -184,7 +183,8 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject a missing session patient before adding an allergy")
     void shouldRejectAdd_whenSessionPatientIsMissing() throws Exception {
-        mockRequest.getSession().removeAttribute("Patient");
+        // Rx/allergies was never opened for the form's patient in this session.
+        mockRequest.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
 
         String result = action.execute();
 
@@ -279,4 +279,16 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
                 any(String.class), eq(LogConst.ARCHIVE), any(String.class),
                 any(String.class), any(String.class), any(String.class), any()), never());
     }
+    /**
+     * Opens Rx for patient 123 in this session (per-patient Rx state, #3875) and seeds the
+     * resolver's per-request patient cache with the mock, so no demographic lookup runs.
+     */
+    private void openRxForPatient() {
+        RxSessionBean rxBean = new RxSessionBean();
+        rxBean.setDemographicNo(123);
+        RxSessionBeanResolver.register(mockRequest.getSession(), rxBean);
+        when(mockRxPatient.getDemographicNo()).thenReturn(123);
+        mockRequest.setAttribute(RxSessionBeanResolver.PATIENT_REQUEST_ATTRIBUTE, mockRxPatient);
+    }
+
 }

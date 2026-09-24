@@ -86,13 +86,19 @@ public final class RxChoosePatient2Action extends ActionSupport {
         // p("user_no", user_no);
         // p("frm", frm.toString());
         // Setup bean
-        RxSessionBean bean = new RxSessionBean();
-
-        bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(this.getDemographicNo()));
-
-        // nosemgrep: tainted-session-from-http-request -- bean is built from session-sourced providerNo and validated demographicNo (parseInt)
-        request.getSession().setAttribute("RxSessionBean", bean);
+        int demographicNoInt;
+        try {
+            demographicNoInt = Integer.parseInt(this.getDemographicNo());
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Rejected Rx open: malformed demographicNo");
+            return redirect;
+        }
+        if (demographicNoInt <= 0) {
+            return redirect;
+        }
+        // Per-patient state (#3875): reuse this patient's bean so reopening Rx keeps staged drafts,
+        // and never replace another patient's bean that a second window is still using.
+        RxSessionBean bean = RxSessionBeanResolver.activate(request, demographicNoInt, user_no);
 
         RxPatientData rx = null;
         RxPatientData.Patient patient = null;
@@ -133,8 +139,8 @@ public final class RxChoosePatient2Action extends ActionSupport {
 
             }
 
-            // nosemgrep: tainted-session-from-http-request -- patient is DAO-sourced from RxPatientData.getPatient(), not raw user input
-            request.getSession().setAttribute("Patient", patient);
+            // The patient record is no longer parked in the session (it followed the last chart
+            // opened); Rx pages load it per request through RxSessionBeanResolver.resolvePatient.
         }
 
         return redirect;

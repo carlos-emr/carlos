@@ -32,6 +32,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FavoritesDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Favorites" %>
@@ -69,6 +71,8 @@
         <title><fmt:message key="SearchDrug.title.CopyFavorites"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
         <c:choose>
             <c:when test="${empty RxSessionBean}">
                 <c:redirect url="error.html"/>

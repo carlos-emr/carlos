@@ -97,7 +97,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-        RxSessionBean sessionBeanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean sessionBeanRX = RxSessionBeanResolver.resolve(request);
         if (sessionBeanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -143,7 +143,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-        RxSessionBean sessionBeanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean sessionBeanRX = RxSessionBeanResolver.resolve(request);
         if (sessionBeanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -194,7 +194,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean beanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean beanRX = RxSessionBeanResolver.resolve(request);
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -265,7 +265,7 @@ public String saveDigitalSignature() throws IOException {
 
     // Retrieve and validate the prescription session bean
     RxSessionBean sessionBeanRX =
-        (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBeanResolver.resolve(request);
     if (sessionBeanRX == null) {
         response.sendRedirect("error.html");
         return null;
@@ -382,7 +382,7 @@ public String saveDigitalSignature() throws IOException {
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -440,7 +440,7 @@ public String saveDigitalSignature() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean beanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean beanRX = RxSessionBeanResolver.resolve(request);
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -506,7 +506,7 @@ public String saveDigitalSignature() throws IOException {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
         CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
 
-        RxSessionBean beanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean beanRX = RxSessionBeanResolver.resolve(request);
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -515,6 +515,12 @@ public String saveDigitalSignature() throws IOException {
         // String idList = request.getParameter("drugIdList");
 
         Integer demoNo = Integer.parseInt(request.getParameter("demoNo"));
+        // Only stage the long-term drugs of the patient this Rx window belongs to (#3875; also the
+        // follow-up noted on PR #3369): demoNo is request input.
+        if (demoNo.intValue() != beanRX.getDemographicNo()) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
         String strShow = request.getParameter("showall");
 
         boolean showall = false;
@@ -537,7 +543,7 @@ public String saveDigitalSignature() throws IOException {
         }
 
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
 
         List<String> reRxDrugIdList = bean.getReRxDrugIdList();
 
@@ -592,7 +598,7 @@ public String saveDigitalSignature() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

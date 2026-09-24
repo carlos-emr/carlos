@@ -35,6 +35,7 @@
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
@@ -75,12 +76,14 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-        <c:if test="${sessionScope.RxSessionBean == null}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+        <c:if test="${pageScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>
         </c:if>
 
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
 
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
@@ -995,7 +998,9 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
         <%}%>
     </script>
 
-    <input type="hidden" name="demographicNo" id="demographicNo"/>
+    <%-- Carries the window's patient: the per-patient Rx bean is resolved from it, and a save that
+         does not name its patient is refused (#3875). --%>
+    <input type="hidden" name="demographicNo" id="demographicNo" value="<%= bean.getDemographicNo() %>"/>
     <input type="hidden" name="GCN_SEQNO" id="GCN_SEQNO"/>
     <input type="hidden" name="atcCode" id="atcCode"/>
     <input type="hidden" name="regionalIdentifier" id="regionalIdentifier"/>
@@ -1476,6 +1481,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                             </script>
                             <form action="${pageContext.request.contextPath}/rx/stash" method="post">
                                 <input type="hidden" name="action" value="">
+                                <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
                                 <input type="hidden" name="stashId"/>
                             </form>
                       </td>
