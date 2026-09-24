@@ -51,7 +51,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("DocumentAttachmentManagerImpl Unit Tests")
 @Tag("unit")
 @Tag("documentManager")
-class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
+class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private SecurityInfoManager securityInfoManager;
