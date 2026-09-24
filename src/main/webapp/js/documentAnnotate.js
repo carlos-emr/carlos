@@ -507,10 +507,7 @@
             var a = findAnnotation(Number(target.getAttribute('data-id')));
             if (!a || !canGrab(a)) { return false; }
             event.preventDefault();
-            // Every element drawn for the mark (a note and its hit box) moves together.
-            var els = Array.prototype.slice.call(svg.querySelectorAll('[data-id="' + a.id + '"]'));
-            moving = { pointerId: event.pointerId, a: a, els: els, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0,
-                moved: false, drawnWidth: noteWidth(els) };
+            moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
             svg.setPointerCapture(event.pointerId);
             return true;
         }
@@ -519,9 +516,11 @@
          * Rendered width of a note's text as a fraction of the page, or 0 for other marks. The
          * preview draws in the composer's font at its point size, so this tracks the width the
          * server measures; the 2% margin absorbs hinting differences between the two renderers.
+         * Measured on every move rather than once: until the annotation font arrives the text is
+         * laid out in a narrower fallback face, and a width taken then lets the note overrun.
          */
-        function noteWidth(els) {
-            var text = els.filter(function (el) { return el.tagName.toLowerCase() === 'text'; })[0];
+        function noteWidth(a) {
+            var text = svg.querySelector('text[data-id="' + a.id + '"]');
             if (!text || !svg.clientWidth) { return 0; }
             try { return (text.getBBox().width / svg.clientWidth) * 1.02; } catch (e) { return 0; }
         }
@@ -534,11 +533,13 @@
             // A few pixels of jitter on a click must not nudge the mark or swallow the click.
             if (!moving.moved && Math.abs(px) < MOVE_THRESHOLD_PX && Math.abs(py) < MOVE_THRESHOLD_PX) { return; }
             moving.moved = true;
-            var d = clampMove(moving.a, px / rect.width, py / rect.height, moving.drawnWidth);
+            var d = clampMove(moving.a, px / rect.width, py / rect.height, noteWidth(moving.a));
             moving.dx = d.dx;
             moving.dy = d.dy;
             var shift = 'translate(' + (d.dx * rect.width) + ',' + (d.dy * rect.height) + ')';
-            moving.els.forEach(function (el) {
+            // Every element drawn for the mark (a note and its hit box) moves together. Looked up
+            // each time, because a redraw mid-drag (a resize, the font arriving) replaces them.
+            Array.prototype.forEach.call(svg.querySelectorAll('[data-id="' + moving.a.id + '"]'), function (el) {
                 el.setAttribute('transform', shift);
                 el.classList.add('moving');
             });
@@ -908,6 +909,9 @@
         // font arrives; until then the text is laid out in a fallback face of different width.
         if (document.fonts && document.fonts.addEventListener) {
             document.fonts.addEventListener('loadingdone', resizeAllOverlays);
+            // Fetch the annotation face now rather than when the first note is drawn, so notes
+            // are measured (hit boxes, edge clamping) in the font the composer will use.
+            document.fonts.load('11px CarlosAnnotation').catch(function () { /* fallback face */ });
         }
         window.addEventListener('beforeunload', function (event) {
             if (state.saving || (state.annotations.length && !state.saved)) {
