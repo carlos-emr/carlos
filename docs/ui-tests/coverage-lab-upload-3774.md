@@ -22,16 +22,18 @@ The release audit script in PR #3781 can intersect `target/site/jacoco/jacoco.xm
 
 `FileUploadCheck.addFile` returns `UNSUCCESSFUL_SAVE` both for a duplicate checksum and for any failure it swallows. ON CML `LabUpload2Action` used to answer every such case with an empty `<outcome/>`. It now asks `FileUploadCheck.isFileRecorded`, which does not swallow failures. The action answers `uploadedPreviously` only when a checksum row exists; otherwise it answers `databaseNotStarted`, the existing retryable outcome, so a transient failure is never acknowledged as a duplicate. If the confirming lookup itself fails, the action also answers `databaseNotStarted`. The parser's `BufferedReader` is now closed.
 
-`addFile` records the checksum before the lab is parsed and saved, and `ABCDParser.save` writes the report, patient, routing and result rows through separate DAOs. A failure part-way used to leave partial rows and the checksum committed, so a retry was answered `uploadedPreviously` although the lab was never fully stored. The save now runs in one `TransactionTemplate`, which the `REQUIRED` DAO writes join. On a parse or save failure, the checksum row this request created is removed through `FileUploadCheck.removeFile`, after any rollback; existing checksum rows are never touched.
+`addFile` records the checksum before the lab is parsed and saved, and `ABCDParser.save` writes the report, patient, routing and result rows through separate DAOs. A failure part-way used to leave partial rows and the checksum committed, so a retry was answered `uploadedPreviously` although the lab was never fully stored. The save now runs in one `TransactionTemplate`, which the `REQUIRED` DAO writes join. The checksum row this request created is removed through `FileUploadCheck.removeFile`, but only when nothing can have been stored: the parse failed, or the transaction rolled back before its commit began. If the commit starts and then fails, the rows may have committed, so the checksum is kept and a retry is refused rather than stored twice. Existing checksum rows are never touched.
 
-Unit tests cover each branch and fail against the previous action: `LabUpload2ActionUnitTest` (8 tests) and `FileUploadCheckUnitTest` (4 tests).
+The request holds `addFile`'s monitor (`FileUploadCheck.class`) from the checksum claim until the lab is stored or its checksum removed. A concurrent upload of the same bytes therefore waits, then sees either a stored lab or no checksum; it can never be told `uploadedPreviously` for a lab that then rolls back. The lock covers one application instance, not several servers.
+
+Unit tests cover each branch and fail against the previous action: `LabUpload2ActionUnitTest` (9 tests, run under Spring's real commit and rollback lifecycle) and `FileUploadCheckUnitTest` (4 tests).
 
 The rollback was also checked on a real database, with the installed package from the section below. A `BEFORE INSERT` trigger on `labTestResults` raised an error for one marker test name in a synthetic ABCD file. The file was posted to `lab/CMLlabUpload`, then posted again after the trigger was dropped.
 
 | Package | Failed save leaves | Retry answers |
 |---|---|---|
 | before (`4a5578e3`) | report, patient and both routing rows, plus the checksum; no results | `uploadedPreviously`, and the lab stays partial |
-| after (`46b355cd`) | nothing; the checksum is removed too | `uploaded`, with every row stored once |
+| after (`46b355cd`, and again with the commit-state and lock changes) | nothing; the checksum is removed too | `uploaded`, with every row stored once |
 
 The probe was a one-off and is not committed; it removed its rows, archived files and trigger.
 

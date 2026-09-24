@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -61,6 +63,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
@@ -206,27 +209,51 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * <p>{@link FileUploadCheck#addFile} has already recorded the file's checksum, and every later
      * upload of the same bytes is answered {@code uploadedPreviously}. The parser writes the
      * report, patient, routing and result rows through separate DAOs, so they share one
-     * transaction: a failure part-way rolls all of them back, and only then is this request's
-     * checksum row removed. Removing it after a partial save would let a retry duplicate the
-     * committed rows; keeping it after a rollback would acknowledge a lab that was never stored.</p>
+     * transaction: a failure part-way rolls all of them back. This request's checksum row is
+     * removed only when nothing can have been stored: the parse failed, or the transaction rolled
+     * back before its commit began. If the commit started and then failed, the rows may have been
+     * committed, so the checksum is kept and a retry is refused rather than stored twice.</p>
      *
      * @param localFile the archived upload
      * @param checksumId the checksum row {@code addFile} created for this request
-     * @throws Exception when parsing or saving fails; nothing is stored and the checksum is removed
+     * @throws Exception when parsing or saving fails, or the commit cannot be confirmed
      */
     private static void storeLab(File localFile, int checksumId) throws Exception {
+        AtomicBoolean commitStarted = new AtomicBoolean();
+        AtomicBoolean rolledBackBeforeCommit = new AtomicBoolean();
+        boolean parsed = false;
         boolean stored = false;
         try {
             ABCDParser abc = new ABCDParser();
             try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
                 abc.parse(in);
             }
+            parsed = true;
             new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
-                    .executeWithoutResult(status -> saveParsedLab(abc));
+                    .executeWithoutResult(status -> {
+                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                            @Override
+                            public void beforeCommit(boolean readOnly) {
+                                commitStarted.set(true);
+                            }
+
+                            @Override
+                            public void afterCompletion(int completion) {
+                                if (completion == STATUS_ROLLED_BACK && !commitStarted.get()) {
+                                    rolledBackBeforeCommit.set(true);
+                                }
+                            }
+                        });
+                        saveParsedLab(abc);
+                    });
             stored = true;
         } finally {
             if (!stored) {
-                forgetChecksum(checksumId);
+                if (!parsed || rolledBackBeforeCommit.get()) {
+                    forgetChecksum(checksumId);
+                } else {
+                    MiscUtils.getLogger().error("CML lab commit could not be confirmed; its checksum is kept so a retry is not stored twice");
+                }
             }
         }
     }

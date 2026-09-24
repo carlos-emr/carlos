@@ -48,7 +48,10 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -70,8 +73,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private LoggedInInfo info;
     private SecurityInfoManager security;
-    private PlatformTransactionManager transactions;
-    private TransactionStatus transaction;
+    private RecordingTransactionManager transactions;
 
     @BeforeEach
     void setUpAction() {
@@ -84,10 +86,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, security);
         when(security.hasPrivilege(eq(info), eq("_lab"), eq("w"), isNull())).thenReturn(true);
-        transactions = mock(PlatformTransactionManager.class);
-        transaction = mock(TransactionStatus.class);
+        transactions = new RecordingTransactionManager();
         registerMock(PlatformTransactionManager.class, transactions);
-        when(transactions.getTransaction(any())).thenReturn(transaction);
     }
 
     @Test
@@ -151,8 +151,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(parsers.constructed()).hasSize(1);
             verify(parsers.constructed().get(0)).save(database);
             // The parser's DAO writes commit together, and a stored lab keeps its checksum.
-            verify(transactions).commit(transaction);
-            verify(transactions, never()).rollback(any());
+            assertThat(transactions.commits).isEqualTo(1);
+            assertThat(transactions.rollbacks).isZero();
             duplicateCheck.verify(() -> FileUploadCheck.removeFile(anyInt()), never());
             // The parser's reader over the archived lab must not leak a file handle.
             assertThatThrownBy(() -> parserReader.get().ready())
@@ -274,7 +274,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
             duplicateCheck.verify(() -> FileUploadCheck.removeFile(7));
             verify(parsers.constructed().get(0), never()).save(any());
-            verifyNoInteractions(transactions);
+            assertThat(transactions.begun).isZero();
             jdbc.verifyNoInteractions();
         }
     }
@@ -299,10 +299,66 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
             // The partial save is rolled back and the checksum removed, so a retry stores it cleanly.
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
-            verify(transactions).rollback(transaction);
-            verify(transactions, never()).commit(any());
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
             duplicateCheck.verify(() -> FileUploadCheck.removeFile(7));
             verify(database).close();
+        }
+    }
+
+    @Test
+    void shouldKeepChecksum_whenCommitOutcomeIsUnknown() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("unconfirmed-commit.hl7"), "MSH|unconfirmed commit");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        Connection database = mock(Connection.class);
+        transactions.failCommit = true;
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
+            stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(7);
+            jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // The rows may have committed, so the checksum stays and a retry cannot store them twice.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            verify(parsers.constructed().get(0)).save(database);
+            duplicateCheck.verify(() -> FileUploadCheck.removeFile(anyInt()), never());
+        }
+    }
+
+    /** Runs Spring's real commit/rollback lifecycle, including synchronizations, with no database. */
+    private static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
+        private int begun;
+        private int commits;
+        private int rollbacks;
+        private boolean failCommit;
+
+        @Override
+        protected Object doGetTransaction() {
+            return new Object();
+        }
+
+        @Override
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
+            begun++;
+        }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            if (failCommit) {
+                throw new TransactionSystemException("commit acknowledgement lost");
+            }
+            commits++;
+        }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+            rollbacks++;
         }
     }
 
