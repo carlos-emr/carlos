@@ -39,7 +39,7 @@ no-manual-page usr/sbin/carlosctl
 # application unit's package-driven restart counter. It does not start, stop,
 # enable or disable a service; those lifecycle operations use
 # deb-systemd-invoke so policy-rc.d remains authoritative.
-maintainer-script-calls-systemctl [postinst:202]
+maintainer-script-calls-systemctl [postinst:203]
 
 # Ubuntu 26.04's man-db exits 3 with this status-only pipeline message for
 # compressed manual pages under lintian's `man -l -Tutf8 -Z` invocation; the

@@ -184,8 +184,9 @@ front_door_listening() {
 
 # Clear carlos-emr.service's start rate-limit counter before a package-driven
 # lifecycle action. The unit carries StartLimitBurst=6/StartLimitIntervalSec=30min
-# to catch a genuine crash loop, but THREE packages (carlos-emr, -drugref,
-# -eform-renderer) each restart this one unit in a single apt transaction. An
+# to catch a genuine crash loop, but carlos-emr and carlos-emr-drugref each
+# restart this one unit in a single apt transaction (the separate renderer
+# package, until 2026.08.0~alpha13, made it three). An
 # install followed by an upgrade inside the same 30-minute window — the ordinary
 # way an operator applies a hotfix — therefore spends the whole budget, systemd
 # refuses the last restart with "start-limit-hit", and the EMR is left DOWN
@@ -1565,7 +1566,7 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         while [ "${i}" -lt 60 ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
                     --resolve "${PROBE_NAME}:443:${PROBE_IP}" \
-                    "https://${PROBE_NAME}/carlos/" 2>/dev/null || echo 000)"
+                    "https://${PROBE_NAME}/carlos/" 2>/dev/null || true)"
             case "${code}" in
                 200|302|303) break ;;
             esac

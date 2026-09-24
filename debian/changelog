@@ -38,6 +38,19 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
     failure warnings, ...). A failed open also exited the script instead of
     deferring provisioning as documented. The open is now probed in a
     subshell and performed with no redirection of its own.
+  * carlos-emr-drugref's postinst now starts MariaDB and waits for it (the same
+    bounded 60-second wait carlos-emr uses) before provisioning. It probed
+    once, immediately after carlos-emr's configure had restarted MariaDB to
+    apply its settings; losing that race skipped the DrugRef account, grants
+    and seed load while configure still succeeded, so prescribing lookups
+    returned nothing until a manual dpkg-reconfigure. If MariaDB still does not
+    answer, the warning now says what was skipped, and the EMR is not
+    restarted for a DrugRef that cannot deploy without its schema.
+  * carlos-emr-drugref's postinst waits (bounded, five minutes) for the
+    restarted Tomcat to serve DrugRef before returning. As the last package in
+    the transaction it used to return with the EMR still redeploying, so an
+    operator's first `carlos-ctl check` reported nothing listening on 18080.
+    It now declares its own curl dependency.
   * SKIP_EFORM_RENDERER=1 now builds carlos-emr without the renderer payload
     (browser, unit, profile and drop-in) instead of dropping a binary package;
     `carlos-ctl check` reports such a development build as a NOTE.

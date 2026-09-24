@@ -223,9 +223,11 @@ Depends:
 # mariadb-client (not -core) for the schema load; the -core package has the
 # client but not the tooling the rest of this deployment uses.
  mariadb-client (>= 1:11.4),
-# deb-systemd-invoke, to restart the shared Tomcat after (un)deploying the
-# DrugRef context.
- init-system-helpers (>= 1.54)
+# deb-systemd-invoke, to start MariaDB and to restart the shared Tomcat after
+# (un)deploying the DrugRef context.
+ init-system-helpers (>= 1.54),
+# curl: the postinst waits for the restarted Tomcat to serve DrugRef.
+ curl
 Description: DrugRef2 drug reference service for CARLOS EMR
  DrugRef2 is the drug and drug-interaction reference service CARLOS queries
  over XML-RPC when a prescription is written. It is built from
