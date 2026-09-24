@@ -1138,6 +1138,19 @@
       ]
     },
     {
+      "name": "rx-stash-patient-isolation",
+      "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": []
+    },
+    {
       "name": "login",
       "script": "scripts/login-playwright-checks.js",
       "tiers": [
