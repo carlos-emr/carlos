@@ -983,7 +983,9 @@ async function main() {
     const highlightRects = () => page.locator('svg.overlay').first().locator('rect.mark').count();
     const inksBeforeSwitch = await inkStroke().count();
     const highlightsBeforeSwitch = await highlightRects();
-    const blackStroke = await inkStroke().first().getAttribute('stroke');
+    // The viewer's black (COLORS.black in documentAnnotate.js); the earlier inks on this page
+    // were drawn in whatever swatch was active, so none of them is a safe reference.
+    const blackStroke = '#1A1A1A';
     await page.mouse.move(strokeBox.x + 60, strokeBox.y + 520);
     await page.mouse.down();
     await page.mouse.move(strokeBox.x + 160, strokeBox.y + 530, { steps: 4 });
