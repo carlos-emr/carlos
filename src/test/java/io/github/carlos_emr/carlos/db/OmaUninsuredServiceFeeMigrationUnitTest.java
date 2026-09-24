@@ -107,6 +107,26 @@ class OmaUninsuredServiceFeeMigrationUnitTest {
     }
 
     @Test
+    @DisplayName("should update stale fee rows for the same code and date before inserting missing ones")
+    void shouldUpsertFeeRows_beforeInsertingMissingOnes() {
+        int update = sql.indexOf("UPDATE `billingservice` AS bs");
+        int insert = sql.indexOf("INSERT INTO `billingservice`");
+
+        assertThat(update).isNotNegative().isLessThan(insert);
+        String updateStatement = sql.substring(update, sql.indexOf(';', update));
+        assertThat(updateStatement)
+                .contains("ON bs.`service_code` = fee.`service_code`")
+                .contains("AND bs.`billingservice_date` = fee.`billingservice_date`")
+                .contains("bs.`description`      = fee.`description`")
+                .contains("bs.`value`            = fee.`value`")
+                .contains("bs.`region`           = NULL")
+                // Clinic-configured flags are preserved by policy.
+                .doesNotContain("gstFlag")
+                .doesNotContain("sliFlag")
+                .doesNotContain("displaystyle");
+    }
+
+    @Test
     @DisplayName("should guard both inserts and only deactivate the seeded placeholder mappings")
     void shouldStayIdempotent_forRerun() {
         assertThat(sql)

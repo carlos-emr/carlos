@@ -9,9 +9,10 @@
 --   1. deactivates (status 'I') those three placeholder mappings, matched on their exact seeded
 --      group names so any real PRIVATE mapping of A007A an administrator added stays active.
 --      Nothing is deleted;
---   2. adds 34 private fee codes to billingservice. Private codes use the CARLOS underscore
---      convention (`_OMA_...`, at most 10 characters for billingservice.service_code) and no
---      region, so they never reach an OHIP claim file;
+--   2. upserts 34 private fee codes in billingservice: existing rows for the same code and
+--      effective date are updated, missing ones are inserted. Private codes use the CARLOS
+--      underscore convention (`_OMA_...`, at most 10 characters for billingservice.service_code)
+--      and no region, so they never reach an OHIP claim file;
 --   3. maps each code to the PRIVATE form (servicetype 'PRI') in three groups:
 --      Group1 = Forms, Group2 = Assessments, Group3 = Procedures.
 --
@@ -22,11 +23,29 @@
 -- Location: on/. billingservice and ctl_billingservice are shared tables, but the PRIVATE
 -- (servicetype 'PRI') billing form and its seed rows exist only in the Ontario data.
 --
--- Idempotent. Neither table has a unique key besides its auto-increment id, so both inserts are
--- existence-guarded: a fee row is skipped when the same code already has a row with the same
--- effective date (a later fee change can add a newly dated row), and a form mapping is skipped
--- when the code is already mapped to the PRIVATE form in any group or status (an administrator's
--- regrouping or deactivation is preserved).
+-- Local-customisation policy:
+--   * billingservice, rows keyed by (service_code, billingservice_date) for the 34 `_OMA_` codes
+--     and the effective dates below: this migration owns the fee-schedule fields and
+--     overwrites them on every run: description, value, percentage ('0.00'), region (NULL) and
+--     termination_date ('9999-12-31'). A stale description or fee from an earlier load is
+--     therefore corrected, not skipped. If duplicate rows share a code and date, all of them are
+--     updated, so the result does not depend on which row the fee lookup picks.
+--   * Clinic-configured flags on those rows are preserved: gstFlag, sliFlag, displaystyle,
+--     specialty, anaesthesia and service_compositecode (for example, a clinic that charges HST on
+--     insurance forms keeps its gstFlag). They are set only on insert.
+--   * Rows for the same codes with any OTHER effective date are left alone. A clinic that
+--     wants its own fee should add a later-dated row (billing uses the latest row dated on or
+--     before the bill date) or use its own non-`_OMA_` private code. Both survive a rerun.
+--   * Flyway applies this file once per database, so the overwrite affects only rows that existed
+--     before it ran (e.g. an earlier manual load of the upstream script). Fee edits an
+--     administrator makes later through Service Code admin are never touched.
+--   * ctl_billingservice: a form mapping is inserted only when the code is not already mapped to
+--     the PRIVATE form in any group or status, so an administrator's regrouping, reordering or
+--     deactivation is preserved.
+--
+-- Idempotent. Neither table has a unique key besides its auto-increment id, so the upsert is an
+-- UPDATE of matching rows followed by an existence-guarded INSERT of missing ones, and the form
+-- mapping insert is existence-guarded. A rerun rewrites the same values and inserts nothing.
 --
 -- The staging tables pin utf8mb4_general_ci (the collation of the real tables) so the NOT EXISTS
 -- comparisons cannot fail with "Illegal mix of collations" when a manual mariadb CLI session
@@ -82,6 +101,16 @@ INSERT INTO `carlos_oma_uninsured_fee` (`service_code`, `description`, `value`, 
     ('_OMA_N02', 'Fitness to work notes', '50.00', '2026-01-01'),
     ('_OMA_RECOR', 'Electronic Transfer of Records', '30.00', '2026-03-01'),
     ('_OMA_RX', 'Dispensing service fee', '20.75', '2026-01-01');
+
+UPDATE `billingservice` AS bs
+INNER JOIN `carlos_oma_uninsured_fee` AS fee
+    ON bs.`service_code` = fee.`service_code`
+    AND bs.`billingservice_date` = fee.`billingservice_date`
+SET bs.`description`      = fee.`description`,
+    bs.`value`            = fee.`value`,
+    bs.`percentage`       = '0.00',
+    bs.`region`           = NULL,
+    bs.`termination_date` = '9999-12-31';
 
 INSERT INTO `billingservice`
     (`service_compositecode`, `service_code`, `description`, `value`, `percentage`, `billingservice_date`,
