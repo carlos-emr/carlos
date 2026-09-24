@@ -200,6 +200,22 @@ public final class RxSessionBeanResolver {
     }
 
     /**
+     * The bean for a request that changes Rx state (stages, re-prescribes, edits or removes a
+     * staged item): only the bean of the patient the request explicitly names, never the
+     * no-patient fallback. A write that names no patient would otherwise land in whichever
+     * patient's Rx page was opened last, which with two charts open is the other patient; a
+     * drug staged there is then saved for that patient by the other window.
+     *
+     * @param request the current request
+     * @return the named patient's bean, or {@code null} when the request names no patient, names
+     *         one malformed or ambiguously, or Rx is not open for the named patient
+     */
+    public static RxSessionBean resolveForWrite(HttpServletRequest request) {
+        RxSessionBean bean = resolve(request);
+        return isRequestForBeanPatient(request, bean) ? bean : null;
+    }
+
+    /**
      * The bean Rx holds for {@code demographicNo} in this session, without consulting the request.
      *
      * @return the bean, or {@code null} when Rx was not opened for that patient
@@ -335,9 +351,43 @@ public final class RxSessionBeanResolver {
             return null;
         }
 
+        /**
+         * Over the cap, drops the least recently opened patient that has nothing staged, so a
+         * clinic day of eChart Prescriptions tabs and messenger previews ({@link #ensure}) does not
+         * silently throw away a draft prescription left in an earlier window. Only when every
+         * patient holds staged work is the least recently opened one dropped regardless; that is
+         * logged, and the window then gets "Rx not open for this patient" (a refused save) rather
+         * than a save against another patient.
+         */
         @Override
         protected boolean removeEldestEntry(Map.Entry<Integer, RxSessionBean> eldest) {
-            return size() > MAX_PATIENTS_PER_SESSION;
+            if (size() <= MAX_PATIENTS_PER_SESSION) {
+                return false;
+            }
+            // The newest entry (the patient being opened right now) is never a candidate: dropping
+            // it would hand the caller a bean the session no longer holds.
+            int candidates = size() - 1;
+            for (Map.Entry<Integer, RxSessionBean> entry : entrySet()) {
+                if (candidates-- <= 0) {
+                    break;
+                }
+                if (!hasStagedWork(entry.getValue())) {
+                    // LinkedHashMap allows removeEldestEntry to modify the map itself as long as it
+                    // then returns false.
+                    remove(entry.getKey());
+                    return false;
+                }
+            }
+            // Demographic numbers are PHI-correlating identifiers, so only the fact is logged.
+            org.apache.logging.log4j.LogManager.getLogger(RxSessionBeanResolver.class).warn(
+                    "Rx per-patient session cap ({}) reached with staged work in every bean; dropping the least recently opened patient's drafts",
+                    MAX_PATIENTS_PER_SESSION);
+            return true;
+        }
+
+        private static boolean hasStagedWork(RxSessionBean bean) {
+            return bean != null && (bean.getStashSize() > 0
+                    || (bean.getReRxDrugIdList() != null && !bean.getReRxDrugIdList().isEmpty()));
         }
     }
 }

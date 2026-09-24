@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -146,6 +147,47 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         if (mocks != null) {
             mocks.close();
         }
+    }
+
+    @Test
+    @DisplayName("should refuse to stage a re-prescription for a request that names no patient")
+    void shouldRefuseReRxStaging_whenRequestNamesNoPatient() throws Exception {
+        request.setParameter("drugId", "5");
+
+        String result = action.represcribe2();
+
+        // Falling back to the most recently opened Rx patient would stage the drug in another
+        // chart's stash (#3875).
+        assertThat(result).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(RxSessionBeanResolver.find(request.getSession(), 1).getStashSize()).isZero();
+    }
+
+    @Test
+    @DisplayName("should check _rx write and require a named patient before staging a saved drug")
+    void shouldRefuseSaveReRxToStash_whenRequestNamesNoPatient() throws Exception {
+        request.setParameter("drugId", "5");
+
+        String result = action.saveReRxDrugIdToStash();
+
+        assertThat(result).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull());
+    }
+
+    @Test
+    @DisplayName("should only treat a source drug of the Rx window's own patient as re-prescribable")
+    void shouldMatchSourceDrugOwner_toBeanPatient() {
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(1);
+
+        assertThat(RxRePrescribe2Action.isOwnedByBeanPatient(
+                new RxPrescriptionData.Prescription(5, "999998", 1), bean)).isTrue();
+        assertThat(RxRePrescribe2Action.isOwnedByBeanPatient(
+                new RxPrescriptionData.Prescription(5, "999998", 2), bean)).isFalse();
+        assertThat(RxRePrescribe2Action.isOwnedByBeanPatient(null, bean)).isFalse();
+        assertThat(RxRePrescribe2Action.isOwnedByBeanPatient(
+                new RxPrescriptionData.Prescription(5, "999998", 1), null)).isFalse();
     }
 
     @Test

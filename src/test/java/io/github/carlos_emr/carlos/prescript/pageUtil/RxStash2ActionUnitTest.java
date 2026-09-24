@@ -86,6 +86,8 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         request.setMethod("POST");
+        // The staging page names its patient on every Rx request; removal refuses one that does not (#3875).
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -179,6 +181,19 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
 
         new RxStash2Action().execute();
 
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should not remove a card through the fallback patient when the request names none")
+    void shouldKeepStash_whenRequestNamesNoPatient() throws Exception {
+        request.removeParameter("demographicNo");
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        new RxStash2Action().execute();
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
         assertThat(bean.getStashSize()).isEqualTo(2);
     }
 

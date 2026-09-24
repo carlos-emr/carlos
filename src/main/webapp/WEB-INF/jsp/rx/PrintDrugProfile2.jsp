@@ -219,12 +219,12 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(drug.getDemographicId()) %>' context="uriComponent"/>&regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><%=drug.getRxDate()%>
                                                     </a>
                                                 </td>
                                                 <td width=100%>
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(drug.getDemographicId()) %>' context="uriComponent"/>&regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
                                                     </a>
                                                 </td>
                                             </tr>

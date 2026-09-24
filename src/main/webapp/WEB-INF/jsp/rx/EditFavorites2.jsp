@@ -226,7 +226,7 @@
                 <table style="width:100%; height:100%">
                     <tr>
                         <td style="width:10%; vertical-align:top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> > <b><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> <fmt:message key="SearchDrug.title"/></a> > <b><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
                         </td>
                     </tr>
 
@@ -238,7 +238,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}';"/>
                             </div>
                         </td>
                     </tr>
@@ -414,7 +414,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}';"/>
                             </div>
                         </td>
                     </tr>

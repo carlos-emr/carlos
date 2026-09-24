@@ -321,7 +321,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             return NONE;
         }
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -373,7 +374,8 @@ public final class RxWriteScript2Action extends ActionSupport {
     public String saveCustomName() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -434,7 +436,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -542,7 +545,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // set default quantity;
         setDefaultQuantity(request);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -604,7 +608,8 @@ public final class RxWriteScript2Action extends ActionSupport {
     public String normalDrugSetCustom() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -658,7 +663,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         String success = "newRx";
         // set default quantity
         setDefaultQuantity(request);
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -875,7 +881,8 @@ public final class RxWriteScript2Action extends ActionSupport {
     public String updateDrug() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -1033,7 +1040,12 @@ public final class RxWriteScript2Action extends ActionSupport {
         // prescript.setspecialisntruction
         String randomId = request.getParameter("randomId");
         String specialInstruction = request.getParameter("specialInstruction");
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        if (bean == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
         RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
         if (specialInstruction.trim().length() > 0 && !specialInstruction.trim().equalsIgnoreCase("Enter Special Instruction")) {
             rx.setSpecialInstruction(specialInstruction.trim());
@@ -1049,7 +1061,12 @@ public final class RxWriteScript2Action extends ActionSupport {
     public String updateProperty() throws Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        if (bean == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
         String elem = request.getParameter("elementId");
         String val = request.getParameter("propertyValue");
         val = val.trim();

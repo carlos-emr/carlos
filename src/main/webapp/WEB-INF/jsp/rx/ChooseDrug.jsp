@@ -194,7 +194,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/rx/searchDrug">
+                                <a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>">
                                     <fmt:message key="SearchDrug.title"/></a>
                                 <b><fmt:message key="ChooseDrug.title"/></b>
                             </div>

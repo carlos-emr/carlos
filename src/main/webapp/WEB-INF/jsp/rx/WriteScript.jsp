@@ -1018,7 +1018,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> >
+                                <a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<%= bean.getDemographicNo() %>"> <fmt:message key="SearchDrug.title"/></a> >
                                 <fmt:message key="ChooseDrug.title"/> >
                                 <b><fmt:message key="WriteScript.title"/></b>
                             </div>

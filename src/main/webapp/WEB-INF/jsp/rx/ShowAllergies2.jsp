@@ -490,7 +490,7 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="${pageContext.request.contextPath}/rx/searchDrug"><fmt:message key="SearchDrug.title"/></a>
+                            <a href="${pageContext.request.contextPath}/rx/searchDrug?demographicNo=<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
                             <b><fmt:message key="EditAllergies.title"/></b>
                         </td>

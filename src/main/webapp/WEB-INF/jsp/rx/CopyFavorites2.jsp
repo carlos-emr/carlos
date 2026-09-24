@@ -113,7 +113,7 @@
                             <tr>
                                 <td>
                                     <div class="DivCCBreadCrumbs">
-                                        <a href="<%= request.getContextPath() %>/rx/searchDrug"> 
+                                        <a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> 
                                             <fmt:message key="SearchDrug.title"/>
                                         </a> > 
                                         <b>
@@ -125,7 +125,7 @@
                             <tr>
                                 <td>
                                     <div class="DivContentPadding">
-                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}';"/>
                                     </div>
                                 </td>
                             </tr>

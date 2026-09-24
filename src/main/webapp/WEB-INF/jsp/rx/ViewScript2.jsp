@@ -163,7 +163,7 @@
             String createAnewRx;
             if (reprint.equalsIgnoreCase("true")) {
                 bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug'";
+                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug?demographicNo=" + bean.getDemographicNo() + "'";
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
@@ -781,6 +781,7 @@
 				credentials: 'same-origin',
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
+						"&demographicNo=<%= bean.getDemographicNo() %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};

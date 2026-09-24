@@ -161,7 +161,7 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
                                     href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="ChooseAllergy.title"/></b></div>
                         </td>
                     </tr>

@@ -71,8 +71,9 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
 
         // Setup variables
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean =
-                RxSessionBeanResolver.resolve(request);
+                RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -109,8 +110,9 @@ public final class RxUseFavorite2Action extends ActionSupport {
         }
 
         // Setup variables
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean =
-                RxSessionBeanResolver.resolve(request);
+                RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

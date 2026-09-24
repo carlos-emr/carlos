@@ -61,3 +61,46 @@ test('install tags CarlosAjax, jQuery and popupWindow calls once', () => {
     ]);
     assert.equal(options.url, '/carlos/rx/drugInfo?demographicNo=1001');
 });
+
+test('install tags followed Rx links and form submissions with the page patient', () => {
+    const listeners = {};
+    const makeLink = (href) => {
+        const attrs = { href };
+        return {
+            getAttribute: (name) => attrs[name],
+            setAttribute: (name, value) => { attrs[name] = value; },
+            closest() { return this; },
+        };
+    };
+    const appended = [];
+    const win = {
+        document: {
+            addEventListener(type, fn) { listeners[type] = fn; },
+            createElement: () => ({}),
+        },
+    };
+    context.create('1001').install(win);
+
+    const staticScript = makeLink('/carlos/rx/ViewStaticScript2?regionalIdentifier=1');
+    listeners.click({ target: staticScript });
+    assert.equal(staticScript.getAttribute('href'),
+        '/carlos/rx/ViewStaticScript2?regionalIdentifier=1&demographicNo=1001');
+
+    const named = makeLink('/carlos/rx/ViewStaticScript2?demographicNo=2002');
+    listeners.click({ target: named });
+    assert.equal(named.getAttribute('href'), '/carlos/rx/ViewStaticScript2?demographicNo=2002');
+
+    const other = makeLink('javascript:void(0)');
+    listeners.click({ target: other });
+    assert.equal(other.getAttribute('href'), 'javascript:void(0)');
+
+    const form = {
+        getAttribute: () => '/carlos/rx/deleteRx',
+        querySelector: () => null,
+        appendChild: (el) => appended.push(el),
+    };
+    listeners.submit({ target: form });
+    assert.equal(appended.length, 1);
+    assert.equal(appended[0].name, 'demographicNo');
+    assert.equal(appended[0].value, '1001');
+});

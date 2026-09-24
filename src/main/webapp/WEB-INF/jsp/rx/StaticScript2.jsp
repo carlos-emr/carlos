@@ -81,19 +81,18 @@
             RxSessionBean rxBean = null;
         %>
         <%
-            if (request.getParameter("demographicNo") != null) {
-                // Reuse this patient's bean (#3875): building a new one here wiped any stash staged
-                // in an open Rx window for the same patient.
-                int staticScriptDemographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
-                if (staticScriptDemographicNo > 0) {
-                    rxBean = RxSessionBeanResolver.activate(request, staticScriptDemographicNo,
-                            (String) session.getAttribute("user"));
-                }
+            // This page lists a patient's saved drugs and offers to re-prescribe them, so it must be
+            // opened for an explicitly named patient. It never falls back to the most recently
+            // opened Rx patient: a link without demographicNo (the eChart Prescriptions tab, the
+            // drug profile) would otherwise show, and re-prescribe, another patient's medication
+            // (#3875). Reuse the named patient's bean so a stash staged for them survives.
+            int staticScriptDemographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+            if (staticScriptDemographicNo > 0) {
+                rxBean = RxSessionBeanResolver.activate(request, staticScriptDemographicNo,
+                        (String) session.getAttribute("user"));
+                pageContext.setAttribute("RxSessionBean", rxBean);
             }
         %>
-
-<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
-<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
         <c:if test="${pageScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>
         </c:if>
@@ -142,6 +141,9 @@
         <script language="javascript">
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
             var csrfToken = csrfEl ? csrfEl.value : '';
+            // Every Rx request from this page names its patient; staging refuses a request that
+            // does not (per-patient Rx state, #3875).
+            var staticScriptDemographicNo = encodeURIComponent('<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptBlock"/>');
 
             function addFavorite2(drugId, brandName) {
                 var favoriteName = window.prompt('Please enter a name for the Favorite:', brandName);
@@ -159,7 +161,7 @@
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
-                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>';
+                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>' + "&demographicNo=" + staticScriptDemographicNo;
                     });
                 }
             }
@@ -172,10 +174,10 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
-                    body: dataUpdateId + "&parameterValue=updateReRxDrug"
+                    body: dataUpdateId + "&parameterValue=updateReRxDrug&demographicNo=" + staticScriptDemographicNo
                 });
 
-                var data = "drugId=" + encodeURIComponent(reRxDrugId);
+                var data = "drugId=" + encodeURIComponent(reRxDrugId) + "&demographicNo=" + staticScriptDemographicNo;
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
                 await fetch(url, {
                     method: 'POST',
@@ -183,7 +185,7 @@
                     credentials: 'same-origin',
                     body: data
                 });
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?demographicNo=" + staticScriptDemographicNo;
             }
 
         </script>
@@ -202,7 +204,7 @@
                        width="100%" height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:message key="StaticScript.title"/></b>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="uriComponent"/>"> <fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:message key="StaticScript.title"/></b>
                             </div>
                         </td>
                     </tr>
@@ -359,7 +361,7 @@
             <td><br/>
                 <br/>
                 <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/></td>
+                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptAttribute"/>';"/></td>
         </tr>
         <!----End new rows here-->
         <tr height="100%">

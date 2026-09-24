@@ -32,6 +32,7 @@
  *   - jQuery.ajax calls,
  *   - rx.js popupWindow() popups,
  *   - form submissions (a hidden input is added on submit),
+ *   - followed links (the href is tagged on click),
  * when the target is an Rx route (/rx/...) and does not already name a patient.
  *
  * Load it after carlos-ajax.js, jQuery and rx.js. Use RxPatientContext.withPatient(url) for URLs
@@ -123,6 +124,20 @@
                     input.name = 'demographicNo';
                     input.value = demographicNo;
                     form.appendChild(input);
+                }, true);
+                // Plain links (drug profile, breadcrumbs, the static-script view) are navigations,
+                // which the wrappers above never see. Tag the href as the link is followed.
+                win.document.addEventListener('click', function (event) {
+                    var target = event.target;
+                    var link = target && target.closest ? target.closest('a[href]') : null;
+                    if (!link) {
+                        return;
+                    }
+                    var href = link.getAttribute('href');
+                    var tagged = withPatient(href);
+                    if (tagged !== href) {
+                        link.setAttribute('href', tagged);
+                    }
                 }, true);
             }
         }

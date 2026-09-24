@@ -194,7 +194,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean beanRX = RxSessionBeanResolver.resolve(request);
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean beanRX = RxSessionBeanResolver.resolveForWrite(request);
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -220,6 +221,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
                 // get original drug
                 RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+                if (!isOwnedByBeanPatient(oldRx, beanRX)) {
+                    logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
+                    continue;
+                }
 
                 // create copy of Prescription
                 RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
@@ -381,8 +386,11 @@ public String saveDigitalSignature() throws IOException {
     public String saveReRxDrugIdToStash() throws IOException {
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Staging a copy of a saved drug is an Rx write; this entry point had no privilege check.
+        checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -397,6 +405,10 @@ public String saveDigitalSignature() throws IOException {
             int drugId = Integer.parseInt(strId);
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            if (!isOwnedByBeanPatient(oldRx, bean)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
             Long rand = Math.round(Math.random() * 1000000);
@@ -440,7 +452,8 @@ public String saveDigitalSignature() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean beanRX = RxSessionBeanResolver.resolve(request);
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean beanRX = RxSessionBeanResolver.resolveForWrite(request);
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -454,6 +467,10 @@ public String saveDigitalSignature() throws IOException {
             int drugId = Integer.parseInt(strId);
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            if (!isOwnedByBeanPatient(oldRx, beanRX)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
 
@@ -506,7 +523,8 @@ public String saveDigitalSignature() throws IOException {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
         CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
 
-        RxSessionBean beanRX = RxSessionBeanResolver.resolve(request);
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean beanRX = RxSessionBeanResolver.resolveForWrite(request);
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -543,7 +561,8 @@ public String saveDigitalSignature() throws IOException {
         }
 
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // The same bean as beanRX: this request's explicitly named patient.
+        RxSessionBean bean = beanRX;
 
         List<String> reRxDrugIdList = bean.getReRxDrugIdList();
 
@@ -598,7 +617,8 @@ public String saveDigitalSignature() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -636,7 +656,17 @@ public String saveDigitalSignature() throws IOException {
         for (String drugId : reRxDrugList) {
             Long rand = Math.round(Math.random() * 1000000);
             RxPrescriptionData rxData = new RxPrescriptionData();
-            RxPrescriptionData.Prescription oldRx = rxData.getPrescription(Integer.parseInt(drugId));
+            RxPrescriptionData.Prescription oldRx;
+            try {
+                oldRx = rxData.getPrescription(Integer.parseInt(drugId));
+            } catch (RuntimeException e) {
+                // getPrescription throws for a missing row; one bad id must not drop the rest.
+                oldRx = null;
+            }
+            if (!isOwnedByBeanPatient(oldRx, bean)) {
+                logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
+                continue;
+            }
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx);
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
@@ -671,6 +701,20 @@ public String saveDigitalSignature() throws IOException {
         MiscUtils.getLogger().debug(s + "=" + s1);
     }
 
+
+    /**
+     * Whether a saved drug belongs to the Rx window's patient. The drug ids the staging calls take
+     * are request input: without this a drug id from another chart was copied, with its dosing and
+     * instructions, into this patient's stash and could be saved for them (#3875).
+     *
+     * @param source the saved drug being copied, or {@code null} when it was not found
+     * @param bean   the Rx window's bean
+     * @return {@code true} only when both are present and belong to the same patient
+     */
+    static boolean isOwnedByBeanPatient(RxPrescriptionData.Prescription source, RxSessionBean bean) {
+        return source != null && bean != null && bean.getDemographicNo() > 0
+                && source.getDemographicNo() == bean.getDemographicNo();
+    }
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {

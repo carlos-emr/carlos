@@ -260,6 +260,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.unstagedReRxMultiple"      var="msg_unstagedReRxMultiple"/>
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
+        <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
         <script type="text/javascript">
@@ -288,7 +289,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 unstagedReRxSingle: '${carlos:forJavaScript(msg_unstagedReRxSingle)}',
                 unstagedReRxMultiple: '${carlos:forJavaScript(msg_unstagedReRxMultiple)}',
                 saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
-                savePrompt: '${carlos:forJavaScript(msg_savePrompt)}'
+                savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
+                saveRefused: '${carlos:forJavaScript(msg_saveRefused)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -2066,7 +2068,8 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              window.location.href = ctx + "/rx/searchDrug";
+              // Reload this window's patient, not the most recently opened Rx patient (#3875).
+              window.location.href = RxPatientContext.withPatient(ctx + "/rx/searchDrug");
    }
 					})
 }
@@ -2784,7 +2787,11 @@ function updateQty(element){
                     alert(jsMsg.pleaseAddDrugFirst);
                 }
                 resetReRxDrugList();
-            }});
+            },
+            // The server refuses (409) a save that does not name an open Rx window's patient, e.g.
+            // after the session's per-patient state was dropped. Say so: failing silently leaves
+            // the prescriber believing the prescription was saved (#3875).
+            onFailure: reportRefusedSave});
         return false;
     }
     
@@ -2810,8 +2817,23 @@ function updateQty(element){
                 callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
                 resetReRxDrugList();
                 resetStash();
-            }});
+            },
+            onFailure: reportRefusedSave});
         return false;
+    }
+
+    /**
+     * Tells the prescriber a save did not happen. updateSaveAllDrugs answers 409 when the request
+     * does not name the patient of an open Rx window (per-patient Rx state, #3875).
+     *
+     * @param {Object} transport the CarlosAjax transport of the failed request
+     */
+    function reportRefusedSave(transport) {
+        if (transport && transport.status === 409) {
+            alert(jsMsg.saveRefused);
+        } else {
+            alert(jsMsg.saveRefused + ' (HTTP ' + (transport ? transport.status : '?') + ')');
+        }
     }
     
     /**

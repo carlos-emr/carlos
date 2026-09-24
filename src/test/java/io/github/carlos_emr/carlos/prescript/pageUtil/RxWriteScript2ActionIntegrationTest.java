@@ -305,6 +305,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     @DisplayName("should reject re-Rx update when action parameter is missing")
     void shouldRejectReRxUpdate_whenActionMissing() throws Exception {
         RxSessionBean bean = stageReRxSession(1001);
+        addRequestParameter("demographicNo", "1001");
         addRequestParameter("reRxDrugId", "3003");
 
         String result = executeActionMethod(action, "updateReRxDrug");
@@ -360,6 +361,24 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(bean.getReRxDrugIdList()).isEmpty();
         verify(mockDrugDao, never()).find(anyInt());
+    }
+
+    @Test
+    @DisplayName("should not stage a re-Rx drug on the fallback patient when the request names none")
+    void shouldRefuseReRxStaging_whenRequestNamesNoPatient() throws Exception {
+        int drugId = 3003;
+        RxSessionBean beanA = stageReRxSession(1001);
+        // Patient B's Rx page was opened last, so B is the no-patient fallback.
+        RxSessionBean beanB = stageReRxSession(2002);
+        addRequestParameter("action", "addToReRxDrugIdList");
+        addRequestParameter("reRxDrugId", String.valueOf(drugId));
+        when(mockDrugDao.find(drugId)).thenReturn(drugOwnedBy(drugId, 2002));
+
+        executeActionMethod(action, "updateReRxDrug");
+
+        assertThat(getMockResponse().getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(beanA.getReRxDrugIdList()).isEmpty();
+        assertThat(beanB.getReRxDrugIdList()).isEmpty();
     }
 
     @Test
@@ -552,6 +571,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
      */
     private RxSessionBean stageReRxRequest(int demographicNo, String reRxAction, String drugId) {
         RxSessionBean bean = stageReRxSession(demographicNo);
+        // Staging only acts on the patient the request names (#3875).
+        addRequestParameter("demographicNo", String.valueOf(demographicNo));
         addRequestParameter("action", reRxAction);
         addRequestParameter("reRxDrugId", drugId);
         return bean;

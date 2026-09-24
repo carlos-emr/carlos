@@ -166,6 +166,6 @@
     // Pulled from function in SearchDrug3.jsp - function needs to be defined here
     // for ShowAllergies2.jsp for favorite staging in allergies page
     function useFav2(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + encodeURIComponent(favoriteId);
+        location.href = "<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true&favid=" + encodeURIComponent(favoriteId);
     }
 </script>

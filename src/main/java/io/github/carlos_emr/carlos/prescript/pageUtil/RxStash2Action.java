@@ -160,7 +160,8 @@ public final class RxStash2Action extends ActionSupport {
         MiscUtils.getLogger().debug("===========start in deletePrescribe ===========");
 
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
 
         if (bean == null) {
             response.sendRedirect("error.html");

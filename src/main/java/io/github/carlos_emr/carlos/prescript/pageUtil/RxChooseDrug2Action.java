@@ -67,7 +67,8 @@ public final class RxChooseDrug2Action extends ActionSupport {
         //     p("locale="+locale.toString());
         //    p("message="+messages.toString());
         // Setup variables
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

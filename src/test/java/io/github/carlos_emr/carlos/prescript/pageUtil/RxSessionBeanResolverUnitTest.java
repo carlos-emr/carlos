@@ -189,6 +189,54 @@ class RxSessionBeanResolverUnitTest {
     }
 
     @Test
+    @DisplayName("should keep a patient's staged drafts over empty beans when the cap is exceeded")
+    void shouldEvictPatientWithoutStagedWork_whenCapExceeded() {
+        RxSessionBean withDraft = RxSessionBeanResolver.activate(request(), 1, PROVIDER);
+        withDraft.getStashList().add(draft(11));
+        RxSessionBean withReRx = RxSessionBeanResolver.activate(request(), 2, PROVIDER);
+        withReRx.getReRxDrugIdList().add("77");
+        // eChart Prescriptions tabs and messenger previews for many other patients.
+        for (int demo = 3; demo <= RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 1; demo++) {
+            RxSessionBeanResolver.ensure(request(), demo, PROVIDER);
+        }
+
+        assertThat(RxSessionBeanResolver.find(session, 1)).isSameAs(withDraft);
+        assertThat(RxSessionBeanResolver.find(session, 2)).isSameAs(withReRx);
+        // The least recently opened patient with nothing staged went instead.
+        assertThat(RxSessionBeanResolver.find(session, 3)).isNull();
+        assertThat(RxSessionBeanResolver.find(session, RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 1)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should never evict the patient being opened, even when every other bean holds drafts")
+    void shouldKeepNewestPatient_whenEveryOtherBeanHasDrafts() {
+        for (int demo = 1; demo <= RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION; demo++) {
+            RxSessionBeanResolver.activate(request(), demo, PROVIDER).getStashList().add(draft(demo));
+        }
+        int newest = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 1;
+
+        RxSessionBean opened = RxSessionBeanResolver.activate(request(), newest, PROVIDER);
+
+        assertThat(RxSessionBeanResolver.find(session, newest)).isSameAs(opened);
+        assertThat(RxSessionBeanResolver.find(session, 1)).isNull();
+        assertThat(RxSessionBeanResolver.find(session, 2)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should resolve a write only for an explicitly named patient, never the fallback")
+    void shouldRefuseFallback_forWriteResolution() {
+        RxSessionBean beanA = RxSessionBeanResolver.activate(request(), PATIENT_A, PROVIDER);
+        RxSessionBeanResolver.activate(request(), PATIENT_B, PROVIDER);
+
+        assertThat(RxSessionBeanResolver.resolveForWrite(request("demographicNo", String.valueOf(PATIENT_A))))
+                .isSameAs(beanA);
+        // No patient named: a read would get B, the most recently opened; a write gets nothing.
+        assertThat(RxSessionBeanResolver.resolveForWrite(request())).isNull();
+        assertThat(RxSessionBeanResolver.resolveForWrite(request("demographicNo", "3003"))).isNull();
+        assertThat(RxSessionBeanResolver.resolveForWrite(request("demographicNo", "abc"))).isNull();
+    }
+
+    @Test
     @DisplayName("should refuse to open Rx without a valid patient")
     void shouldThrow_whenDemographicNotPositive() {
         assertThatThrownBy(() -> RxSessionBeanResolver.activate(request(), 0, PROVIDER))
