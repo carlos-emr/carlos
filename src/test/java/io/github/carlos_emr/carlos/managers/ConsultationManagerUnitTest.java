@@ -423,6 +423,14 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return null for an unknown request id instead of failing while logging")
+        void shouldReturnNull_whenRequestIdUnknown() {
+            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(null);
+
+            assertThat(consultationManager.getRequest(mockLoggedInInfo, TEST_REQUEST_ID)).isNull();
+        }
+
+        @Test
         @DisplayName("should check read privilege before retrieving request")
         void shouldCheckReadPrivilege_whenGettingRequest() {
             // Given

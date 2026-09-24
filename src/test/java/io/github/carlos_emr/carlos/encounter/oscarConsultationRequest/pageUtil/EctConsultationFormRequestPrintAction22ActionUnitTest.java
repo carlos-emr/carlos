@@ -184,6 +184,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        org.mockito.Mockito.lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(true);
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(true);
 
         action = new EctConsultationFormRequestPrintAction22Action();
         // faxManager is a STATIC field resolved once at class load; capture the original and
@@ -442,5 +444,31 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         org.mockito.Mockito.lenient().when(doc.isPDF()).thenReturn(true);
         org.mockito.Mockito.lenient().when(doc.getFileName()).thenReturn(fileName);
         return doc;
+    }
+
+    @Test
+    @DisplayName("should refuse to print when the user may not access the stored consultation's patient")
+    void shouldRefusePrint_whenPatientAccessDenied() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        assertThat(consultationPdfCreatorConstruction.constructed()).isEmpty();
+        eDocUtilMock.verifyNoInteractions();
+        verify(consultationManager, never()).getAttachedEForms(any());
+    }
+
+    @Test
+    @DisplayName("should refuse to print when the user lacks consultation read access for the stored patient")
+    void shouldRefusePrint_whenPatientScopedConsultReadDenied() {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class);
+
+        assertThat(consultationPdfCreatorConstruction.constructed()).isEmpty();
+        verify(consultationManager, never()).getAttachedEForms(any());
     }
 }

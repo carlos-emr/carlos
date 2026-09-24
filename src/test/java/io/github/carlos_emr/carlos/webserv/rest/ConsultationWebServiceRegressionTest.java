@@ -24,7 +24,10 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,11 +40,16 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachmentTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseTo1;
@@ -62,6 +70,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -178,6 +188,98 @@ class ConsultationWebServiceRegressionTest {
 
         verify(consultationManager, never()).saveConsultationResponse(any(), any());
         verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
+    }
+
+    @Test
+    @DisplayName("should answer 404 without saving when updating an unknown consultation")
+    void shouldReturnNotFound_whenUpdatingUnknownConsultation() {
+        when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(new Demographic());
+        ConsultationRequestTo1 data = new ConsultationRequestTo1();
+        data.setId(457);
+        data.setDemographicId(DEMOGRAPHIC_NO);
+        data.setReferralDate(new Date());
+        data.setServiceId(1);
+        data.setUrgency("1");
+        data.setStatus("1");
+
+        Response response = service.updateConsultation(data);
+
+        assertThat(response.getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
+        verify(consultationManager, never()).saveConsultationRequest(any(), any());
+        verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
+    }
+
+    /**
+     * Issue #3867: attached consult_docs rows are looked up by consultation id alone, so a legacy row
+     * pointing at another patient's document was returned to the client. The stored consultation's
+     * patient is used, not the demographicId parameter, and only that patient's rows are listed.
+     */
+    @Test
+    @DisplayName("should list only the stored patient's attached documents for a consultation request")
+    void shouldOmitForeignAttachedDocument_whenListingRequestAttachments() {
+        ConsultationRequest stored = new ConsultationRequest();
+        stored.setDemographicId(DEMOGRAPHIC_NO);
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(stored);
+        EDoc own = edoc("10");
+        EDoc foreign = edoc("11");
+
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
+             MockedStatic<EDocUtil> eDocUtil = mockStatic(EDocUtil.class);
+             MockedStatic<EFormUtil> eFormUtil = mockStatic(EFormUtil.class);
+             MockedConstruction<CommonLabResultData> labs = mockConstruction(CommonLabResultData.class)) {
+            eDocUtil.when(() -> EDocUtil.listDocs(loggedInInfo, "123", "456", true)).thenReturn(new ArrayList<>(List.of(own, foreign)));
+            eFormUtil.when(() -> EFormUtil.listPatientEFormsShowLatestOnly("123")).thenReturn(new ArrayList<>());
+            when(attachmentOwnershipService.retainAttachable(eq(DocumentType.DOC), eq(DEMOGRAPHIC_NO), eq(List.of(own, foreign)), any()))
+                    .thenReturn(List.of(own));
+            when(attachmentOwnershipService.retainAttachable(eq(DocumentType.LAB), eq(DEMOGRAPHIC_NO), any(), any()))
+                    .thenReturn(List.of());
+
+            List<ConsultationAttachmentTo1> attachments = service.getRequestAttachments(456, 999, true);
+
+            assertThat(attachments).extracting(ConsultationAttachmentTo1::getDocumentNo).containsExactly(10);
+            eDocUtil.verify(() -> EDocUtil.listDocs(any(), eq("999"), any(), anyBoolean()), never());
+        }
+    }
+
+    @Test
+    @DisplayName("should list only the stored patient's attached documents for a consultation response")
+    void shouldOmitForeignAttachedDocument_whenListingResponseAttachments() {
+        ConsultationResponse stored = new ConsultationResponse();
+        stored.setDemographicNo(DEMOGRAPHIC_NO);
+        when(consultationManager.getResponse(loggedInInfo, 789)).thenReturn(stored);
+        EDoc own = edoc("10");
+        EDoc foreign = edoc("11");
+
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
+             MockedStatic<EDocUtil> eDocUtil = mockStatic(EDocUtil.class);
+             MockedStatic<EFormUtil> eFormUtil = mockStatic(EFormUtil.class);
+             MockedConstruction<CommonLabResultData> labs = mockConstruction(CommonLabResultData.class)) {
+            eDocUtil.when(() -> EDocUtil.listResponseDocs(loggedInInfo, "123", "789", true)).thenReturn(new ArrayList<>(List.of(own, foreign)));
+            eFormUtil.when(() -> EFormUtil.listPatientEFormsShowLatestOnly("123")).thenReturn(new ArrayList<>());
+            when(attachmentOwnershipService.retainAttachable(eq(DocumentType.DOC), eq(DEMOGRAPHIC_NO), eq(List.of(own, foreign)), any()))
+                    .thenReturn(List.of(own));
+            when(attachmentOwnershipService.retainAttachable(eq(DocumentType.LAB), eq(DEMOGRAPHIC_NO), any(), any()))
+                    .thenReturn(List.of());
+
+            List<ConsultationAttachmentTo1> attachments = service.getResponseAttachments(789, 999, true);
+
+            assertThat(attachments).extracting(ConsultationAttachmentTo1::getDocumentNo).containsExactly(10);
+        }
+    }
+
+    @Test
+    @DisplayName("should answer 404 when listing attachments of an unknown consultation")
+    void shouldReturnNotFound_whenListingAttachmentsOfUnknownConsultation() {
+        assertThatThrownBy(() -> service.getRequestAttachments(458, DEMOGRAPHIC_NO, true))
+                .isInstanceOfSatisfying(WebApplicationException.class,
+                        e -> assertThat(e.getResponse().getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
+    }
+
+    private static EDoc edoc(String docId) {
+        EDoc doc = new EDoc();
+        doc.setDocId(docId);
+        doc.setDescription("doc " + docId);
+        return doc;
     }
 
     /**

@@ -152,6 +152,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             request.setAttribute("printError", Boolean.TRUE);
             return "error";
         }
+        // The role-level _con check above says nothing about this patient; the packet carries the
+        // stored patient's PHI, so require access to that patient's record, as the fax route does.
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, ownerDemographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", String.valueOf(ownerDemographicNo))) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
         String demoNo = String.valueOf(ownerDemographicNo);
         List<EDoc> docs = retainOwned(DocumentType.DOC, ownerDemographicNo,
                 EDocUtil.listDocs(loggedInInfo, demoNo, reqId, EDocUtil.ATTACHED), EDoc::getDocId);

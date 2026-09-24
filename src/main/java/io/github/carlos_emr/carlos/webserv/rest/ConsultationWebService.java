@@ -191,7 +191,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
         if (requestId > 0) {
-            request = requestConverter.getAsTransferObject(getLoggedInInfo(), consultationManager.getRequest(getLoggedInInfo(), requestId));
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
             request.setDemographicId(demographicId);
@@ -233,15 +237,32 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getRequestAttachments(@QueryParam("requestId") Integer requestId, @QueryParam("demographicId") Integer demographicIdInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicId = demographicIdInt.toString();
+        // Issue #3867: for a stored consultation the patient is the stored one, not the parameter,
+        // and attached rows (looked up by consultation id alone) are listed only while they belong
+        // to that patient, so a legacy foreign row is never returned.
+        Integer ownerDemographicNo = demographicIdInt;
+        if (requestId != null && requestId > 0) {
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicId();
+        }
+        String demographicId = ownerDemographicNo.toString();
 
         List<EDoc> edocs = EDocUtil.listDocs(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            edocs = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocs, EDoc::getDocId);
+        }
         getDocuments(edocs, attached, attachments);
 
         List<EFormData> eforms = EFormUtil.listPatientEFormsShowLatestOnly(demographicId);
         getEformsForRequest(eforms, attached, attachments, requestId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsData(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicId, attached, attachments);
 
         return attachments;
@@ -371,6 +392,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         if (responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
+            if (responseD == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
             response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             demographicNo = responseD.getDemographicNo();
@@ -404,15 +428,31 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicNo = demographicNoInt.toString();
+        // Same rule as getRequestAttachments (issue #3867): the stored response's patient, and
+        // attached rows only while they belong to that patient.
+        Integer ownerDemographicNo = demographicNoInt;
+        if (responseId != null && responseId > 0) {
+            ConsultationResponse stored = consultationManager.getResponse(getLoggedInInfo(), responseId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicNo();
+        }
+        String demographicNo = ownerDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            edocList = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocList, EDoc::getDocId);
+        }
         getDocuments(edocList, attached, attachments);
 
         List<EFormData> eformList = EFormUtil.listPatientEFormsShowLatestOnly(demographicNo);
         getEformsForResponse(eformList, attached, attachments, responseId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsDataConsultResponse(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicNo, attached, attachments);
 
         return attachments;

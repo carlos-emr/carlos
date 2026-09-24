@@ -226,6 +226,20 @@ class AttachmentOwnershipServiceUnitTest {
         }
 
         @Test
+        @DisplayName("should keep an enabled CML lab when listing attachable labs")
+        void shouldKeepLegacyLab_forAttachableListing() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(20));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of(30));
+            AttachmentOwnershipService cmlEnabled = new AttachmentOwnershipService(ctlDocumentDao, patientLabRoutingDao,
+                    eFormDataDao, hrmDocumentToDemographicDao, consultationRequestDao, () -> Set.of("CML"));
+
+            assertThat(cmlEnabled.retainAttachable(DocumentType.LAB, PATIENT, List.of("30", "40", "20"), id -> id))
+                    .containsExactly("30", "20");
+        }
+
+        @Test
         @DisplayName("should keep nothing when the patient is unknown")
         void shouldReturnEmptyList_whenDemographicNull() {
             assertThat(service.retainOwned(DocumentType.DOC, null, List.of("10"), id -> id)).isEmpty();

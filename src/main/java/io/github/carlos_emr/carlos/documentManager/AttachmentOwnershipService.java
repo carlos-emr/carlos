@@ -217,6 +217,23 @@ public class AttachmentOwnershipService {
      */
     public <T> List<T> retainOwned(DocumentType type, Integer demographicNo, List<T> attachments,
                                    Function<T, String> idOf) {
+        return retain(attachments, idOf, ids -> findOwnedIds(type, demographicNo, ids));
+    }
+
+    /**
+     * Like {@link #retainOwned} but with the attach-time rule of {@link #findAttachableIds}: for
+     * listing a consultation's attachments back to the client that saves them, so a round trip
+     * neither drops nor keeps anything the save would treat differently. Not for rendering.
+     *
+     * @return the attachable attachments in their original order; never {@code null}
+     */
+    public <T> List<T> retainAttachable(DocumentType type, Integer demographicNo, List<T> attachments,
+                                        Function<T, String> idOf) {
+        return retain(attachments, idOf, ids -> findAttachableIds(type, demographicNo, ids));
+    }
+
+    private static <T> List<T> retain(List<T> attachments, Function<T, String> idOf,
+                                      Function<Collection<Integer>, Set<Integer>> keep) {
         if (attachments == null || attachments.isEmpty()) {
             return new ArrayList<>();
         }
@@ -227,7 +244,7 @@ public class AttachmentOwnershipService {
                 idByAttachment.put(attachment, id);
             }
         }
-        Set<Integer> owned = findOwnedIds(type, demographicNo, idByAttachment.values());
+        Set<Integer> owned = keep.apply(idByAttachment.values());
         List<T> retained = new ArrayList<>(attachments.size());
         for (T attachment : attachments) {
             Integer id = attachment == null ? null : idByAttachment.get(attachment);
