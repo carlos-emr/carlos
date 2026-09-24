@@ -18,6 +18,7 @@
     "test:login-playwright": "node scripts/login-playwright-checks.js",
     "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
+    "test:lab-upload-playwright": "node scripts/lab-upload-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
     "test:add-login-account-playwright": "node scripts/add-login-account-playwright-checks.js",
     "test:assign-role-playwright": "node scripts/assign-role-playwright-checks.js",

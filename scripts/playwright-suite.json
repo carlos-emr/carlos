@@ -487,6 +487,21 @@
       ]
     },
     {
+      "name": "lab-upload",
+      "script": "scripts/lab-upload-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CML_UPLOAD_KEY"
+      ]
+    },
+    {
       "name": "document-upload",
       "script": "scripts/document-upload-playwright-checks.js",
       "tiers": [
