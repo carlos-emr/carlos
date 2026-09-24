@@ -16,6 +16,7 @@
     "test:playwright-smoke": "node scripts/run-playwright-suite.js --tier smoke",
     "test:playwright-list": "node scripts/run-playwright-suite.js --list",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:echart-consult-specialist-playwright": "node scripts/echart-consult-specialist-playwright-checks.js",
     "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
