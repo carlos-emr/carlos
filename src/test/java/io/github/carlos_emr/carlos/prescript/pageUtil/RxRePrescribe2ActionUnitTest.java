@@ -176,6 +176,60 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should keep the staged source drug ids so the save archives the source medication")
+    void shouldArchiveSourceDrug_whenReprescribedFromDrugIdsParameter() throws Exception {
+        // drugIds path of represcribeMultiple: the request list is the source of truth. The
+        // session ReRx list must end up holding exactly the staged, owned source ids, because
+        // saveDrug() archives a re-prescribed source only when its id is in that list. Clearing it
+        // (the previous behaviour) saved the replacement and left the source active.
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugIds", "5,6");
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        bean.addReRxDrugIdList("99");
+
+        RxPrescriptionData.Prescription ownSource = new RxPrescriptionData.Prescription(5, "999998", 1);
+        ownSource.setBrandName("SOURCE DRUG");
+        RxPrescriptionData.Prescription otherPatientsDrug = new RxPrescriptionData.Prescription(6, "999998", 2);
+        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = org.mockito.Mockito.mockConstruction(
+                RxPrescriptionData.class, (mock, context) -> {
+                    when(mock.getPrescription(5)).thenReturn(ownSource);
+                    when(mock.getPrescription(6)).thenReturn(otherPatientsDrug);
+                    // Staging preloads interactions from the patient's current ATC codes.
+                    when(mock.getCurrentATCCodesByPatient(org.mockito.ArgumentMatchers.anyInt()))
+                            .thenReturn(new java.util.Vector<>());
+                    when(mock.newPrescription(anyString(), org.mockito.ArgumentMatchers.anyInt(),
+                            any(RxPrescriptionData.Prescription.class))).thenAnswer(invocation -> {
+                        RxPrescriptionData.Prescription source = invocation.getArgument(2);
+                        RxPrescriptionData.Prescription staged =
+                                new RxPrescriptionData.Prescription(0, invocation.getArgument(0), invocation.getArgument(1));
+                        staged.setBrandName(source.getBrandName());
+                        staged.setDrugReferenceId(source.getDrugId());
+                        return staged;
+                    });
+                })) {
+            assertThat(action.represcribeMultiple()).isEqualTo("represcribe");
+        }
+
+        assertThat(bean.getStashSize()).isEqualTo(1);
+        assertThat(bean.getStashItem(0).getDrugReferenceId()).isEqualTo(5);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("5");
+
+        // The save then archives that source, as saveDrug() does with the saved replacements.
+        io.github.carlos_emr.carlos.managers.RxManager rxManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxManager.class);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxManager.class, rxManager);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.DemographicManager.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+        when(rxManager.archiveDrug(mockLoggedInInfo, 5, 1, io.github.carlos_emr.carlos.commn.model.Drug.REPRESCRIBED))
+                .thenReturn(true);
+        new RxWriteScript2Action(org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class))
+                .archiveReRxDrugs(mockLoggedInInfo, bean, java.util.Set.of(5), "127.0.0.1", "audit");
+
+        verify(rxManager).archiveDrug(mockLoggedInInfo, 5, 1, io.github.carlos_emr.carlos.commn.model.Drug.REPRESCRIBED);
+    }
+
+    @Test
     @DisplayName("should only treat a source drug of the Rx window's own patient as re-prescribable")
     void shouldMatchSourceDrugOwner_toBeanPatient() {
         RxSessionBean bean = new RxSessionBean();

@@ -653,6 +653,9 @@ public String saveDigitalSignature() throws IOException {
         }
         MiscUtils.getLogger().debug(reRxDrugList);
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
+        // Source ids actually staged below. They must stay on the bean until the save: saveDrug()
+        // archives a re-prescribed source only when its id is in the ReRx list (archiveReRxDrugs).
+        List<String> stagedSourceIds = new ArrayList<>();
         for (String drugId : reRxDrugList) {
             Long rand = Math.round(Math.random() * 1000000);
             RxPrescriptionData rxData = new RxPrescriptionData();
@@ -684,9 +687,15 @@ public String saveDigitalSignature() throws IOException {
             }
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
+            stagedSourceIds.add(drugId);
         }
-        // Clear the session list after staging so the same drugs can be re-staged later
-        bean.clearReRxDrugIdList();
+        // Replace the list with exactly the sources staged by this request rather than clearing
+        // it. Clearing (the previous behaviour) left saveDrug() nothing to archive, so the
+        // replacement was saved while the source medication stayed active unless a late async
+        // addToReRxDrugIdList happened to repopulate the list. Keeping an id does not block
+        // re-staging (a repeated add is a no-op), and archiveReRxDrugs still archives only the
+        // sources whose replacement was actually saved.
+        bean.setReRxDrugIdList(new CopyOnWriteArrayList<>(stagedSourceIds));
         MiscUtils.getLogger().debug(listReRxDrug);
         request.setAttribute("listRxDrugs", listReRxDrug);
         MiscUtils.getLogger().debug("================END represcribeMultiple of RxRePrescribe2Action.java=================");
