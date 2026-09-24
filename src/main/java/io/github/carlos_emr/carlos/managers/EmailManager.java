@@ -34,6 +34,8 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
@@ -110,7 +112,7 @@ public class EmailManager {
      *
      * The method performs the following steps:
      * 1. Validates user has _email WRITE privilege
-     * 2. Sanitizes email data fields
+     * 2. Sanitizes email data fields and rejects any that would not fit the email log
      * 3. Creates email log entry in FAILED status
      * 4. Encrypts message and/or attachments if requested
      * 5. Sends email via configured email server
@@ -121,6 +123,8 @@ public class EmailManager {
      * @param emailData EmailData containing email subject, body, recipients, attachments, and configuration options
      * @return EmailLog the persisted email log entry with final status and metadata
      * @throws RuntimeException if user lacks _email WRITE privilege
+     * @throws EmailFieldLengthException if a field is too long for the email log; nothing is
+     *         persisted or sent in that case
      */
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
@@ -128,6 +132,13 @@ public class EmailManager {
         }
 
         sanitizeEmailFields(emailData);
+        // Validate after sanitizing so fields that will not be stored (e.g. the password when
+        // encryption is off) are not reported. The emailLog insert below would otherwise truncate
+        // or fail on an over-length value, so reject before anything is persisted or sent.
+        List<EmailFieldLengthValidator.Violation> violations = EmailFieldLengthValidator.validate(emailData);
+        if (!violations.isEmpty()) {
+            throw new EmailFieldLengthException(violations);
+        }
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
         try {
             if (emailData.getIsEncrypted()) {

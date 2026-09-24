@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -112,15 +113,21 @@ public class EmailSend2Action extends ActionSupport {
         boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        EmailLog emailLog = sendEmail(request);
+        request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
+        request.setAttribute("fdid", request.getParameter("fdid"));
+        EmailLog emailLog;
+        try {
+            emailLog = sendEmail(request);
+        } catch (EmailFieldLengthException e) {
+            // Nothing was sent or persisted, so the eForm must not be deleted.
+            return rejectOverLengthFields(e);
+        }
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         if (isEmailSuccessful && deleteEFormAfterEmail) {
             eformDataManager.removeEFormData(loggedInInfo, request.getParameter("fdid"));
         }
-        request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
-        request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
     }
@@ -141,10 +148,32 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
     public String sendDirectEmail() {
-        EmailLog emailLog = sendEmail(request);
+        EmailLog emailLog;
+        try {
+            emailLog = sendEmail(request);
+        } catch (EmailFieldLengthException e) {
+            return rejectOverLengthFields(e);
+        }
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
+        return SUCCESS;
+    }
+
+    /**
+     * Renders the compose result page with one i18n'd error per over-length field instead of
+     * sending. The compose page checks the same limits before submitting, so this is the
+     * server-side backstop for scripted or tampered submissions and for limits the browser
+     * measured differently.
+     *
+     * @param e the validation failure raised before anything was persisted or sent
+     * @return Struts2 SUCCESS result, which renders the failure panel of the compose page
+     */
+    private String rejectOverLengthFields(EmailFieldLengthException e) {
+        // Sizes and message keys only; the field content is PHI and is never logged.
+        logger.warn("Email rejected before sending: {}", e.getMessage());
+        request.setAttribute("isEmailSuccessful", false);
+        request.setAttribute("emailLengthViolations", e.getViolations());
         return SUCCESS;
     }
 
