@@ -143,6 +143,8 @@
                         <div>
                             <button type="submit" id="portal-invite" class="portal-button portal-button--primary"><fmt:message key="demographic.portal.invites.invite"/></button>
                         </div>
+                        <%-- The invite button's result, shown beside it; other actions report in the banner above. --%>
+                        <div id="portal-invite-status" class="portal-status portal-status--inline" role="status" aria-live="polite" hidden></div>
                     </form>
                     <div id="portal-invites"><fmt:message key="demographic.portal.loading"/></div>
                 </div>

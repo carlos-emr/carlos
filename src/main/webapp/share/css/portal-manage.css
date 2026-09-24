@@ -500,3 +500,11 @@
 .portal-consent .portal-error {
     margin-top: 6px;
 }
+
+/* The invite button's result, beside it in the form rather than in the banner at the top. */
+.portal-status--inline {
+    flex: 1 1 260px;
+    max-width: 520px;
+    margin: 0;
+    padding: 6px 10px;
+}

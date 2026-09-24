@@ -111,6 +111,7 @@
         unlock: root.dataset.canUnlock === 'true'
     };
     var statusBox = document.getElementById('portal-status');
+    var inviteStatusBox = document.getElementById('portal-invite-status');
     var lastInvites = [];
     var busy = false;
     var loadSequence = 0;
@@ -155,15 +156,25 @@
         return isNaN(date.getTime()) ? String(value) : date.toLocaleString();
     }
 
-    /** Shows a message; given several lines, the first is the headline and the rest explain it. */
-    function showStatus(message, ok) {
+    /**
+     * Shows a message; given several lines, the first is the headline and the rest explain it. It goes in
+     * box (the banner at the top by default, or the one beside the invite button) and clears the other,
+     * so only the latest result is on screen.
+     */
+    function showStatus(message, ok, box) {
+        var target = box || statusBox;
         var lines = Array.isArray(message) ? message : [message];
-        statusBox.replaceChildren(element(lines.length > 1 ? 'strong' : 'span', null, lines[0]));
+        target.replaceChildren(element(lines.length > 1 ? 'strong' : 'span', null, lines[0]));
         lines.slice(1).forEach(function (line) {
-            statusBox.appendChild(element('div', null, line));
+            target.appendChild(element('div', null, line));
         });
-        statusBox.classList.toggle('portal-status--error', !ok);
-        statusBox.hidden = false;
+        target.classList.toggle('portal-status--error', !ok);
+        target.hidden = false;
+        [statusBox, inviteStatusBox].forEach(function (other) {
+            if (other && other !== target) {
+                other.hidden = true;
+            }
+        });
     }
 
     async function csrfToken() {
@@ -213,25 +224,26 @@
         });
     }
 
-    async function act(path, params, confirmation) {
+    /** Performs an action and reloads the panel; its result is shown in box, or the top banner. */
+    async function act(path, params, confirmation, box) {
         if (busy || (confirmation && !window.confirm(confirmation))) {
             return;
         }
         setBusy(true);
         try {
-            await perform(path, params);
+            await perform(path, params, box);
             await load();
         } finally {
             setBusy(false);
         }
     }
 
-    async function perform(path, params) {
+    async function perform(path, params, box) {
         var result;
         try {
             result = await call('POST', path, params);
         } catch (failure) {
-            showStatus(text('error.generic'), false);
+            showStatus(text('error.generic'), false, box);
             return;
         }
         var body = result.payload;
@@ -240,17 +252,17 @@
             // not necessarily delivered. Only a sent one is good news, and its state label alone does not
             // tell staff what to do, so the attempt's own explanation is shown with it.
             var delivery = body.delivery;
-            showStatus(delivery ? describe(delivery) : text('done'), logic.isGoodNews(delivery));
+            showStatus(delivery ? describe(delivery) : text('done'), logic.isGoodNews(delivery), box);
         } else if (logic.offersWithdrawal(body, params)) {
             // An earlier attempt stopped before its code was activated and may be blocking this one.
             // Nothing from it reached the patient, so withdrawing it is safe once staff agree.
             if (window.confirm(text('invites.confirmWithdrawStale'))) {
-                await perform(path, Object.assign({}, params, {withdrawStale: 'true'}));
+                await perform(path, Object.assign({}, params, {withdrawStale: 'true'}), box);
                 return;
             }
-            showStatus(refusal(body), false);
+            showStatus(refusal(body), false, box);
         } else {
-            showStatus(refusal(body), false);
+            showStatus(refusal(body), false, box);
         }
     }
 
@@ -461,6 +473,7 @@
     document.getElementById('portal-refresh').addEventListener('click', function () {
         if (!busy) {
             statusBox.hidden = true;
+            inviteStatusBox.hidden = true;
             load();
         }
     });
@@ -482,7 +495,8 @@
             if (pending && !window.confirm(text('invites.confirmReplace'))) {
                 return;
             }
-            act('/demographic/portalInvite', inviteParams({method: 'create', confirmReplace: pending ? 'true' : 'false'}));
+            act('/demographic/portalInvite', inviteParams({method: 'create', confirmReplace: pending ? 'true' : 'false'}),
+                null, inviteStatusBox);
         });
     }
 
