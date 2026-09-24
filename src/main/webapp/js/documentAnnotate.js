@@ -67,7 +67,9 @@
         seq: 0,
         saved: false,
         saving: false,
-        uncertain: false
+        uncertain: false,
+        moving: false,       // a mark is being dragged on some page
+        refitPending: false  // the annotation font arrived mid-drag; refit notes when it ends
     };
 
     var pagesEl = document.getElementById('pages');
@@ -390,6 +392,28 @@
         redrawPage(a.page);
     }
 
+    /**
+     * Re-fits every note once the annotation font has loaded. A note placed or edited before
+     * then was fitted to its width in the fallback face, and a wider real face can leave it
+     * running past the page edge, which the composer refuses at save. A move in progress keeps
+     * its own measurements, so the refit waits for it to end rather than shifting the mark under
+     * the pointer.
+     */
+    function refitNotes() {
+        if (state.moving) {
+            state.refitPending = true;
+            return;
+        }
+        state.refitPending = false;
+        state.annotations.filter(isEditableText).forEach(fitNote);
+    }
+
+    /** Called whenever a move ends, however it ends, to run a refit that waited for it. */
+    function moveEnded() {
+        state.moving = false;
+        if (state.refitPending) { refitNotes(); }
+    }
+
     /** The mark's extent in page fractions, used to keep a move on the page. */
     function markBounds(a) {
         if (a.type !== 'ink') { return { x: a.x, y: a.y, w: a.w, h: a.h }; }
@@ -495,6 +519,7 @@
                 moving = null;
                 dragging = null;
                 redrawPage(page);
+                moveEnded();
             }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
@@ -558,6 +583,7 @@
             moving = null;
             dragging = null;
             redrawPage(page);
+            moveEnded();
         }
         svg.addEventListener('pointercancel', abandonGesture);
         svg.addEventListener('lostpointercapture', abandonGesture);
@@ -570,6 +596,7 @@
             event.preventDefault();
             moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0,
                 moved: false, bounds: markBounds(a), drawnWidth: 0 };
+            state.moving = true;
             svg.setPointerCapture(event.pointerId);
             return true;
         }
@@ -631,6 +658,7 @@
                 markClicked(done.a, page, clamp((event.clientX - rect.left) / rect.width),
                     clamp((event.clientY - rect.top) / rect.height));
             }
+            moveEnded();
         }
     }
 
@@ -988,10 +1016,14 @@
         // Note hit boxes are measured from the rendered text, so re-measure once the annotation
         // font arrives; until then the text is laid out in a fallback face of different width.
         if (document.fonts && document.fonts.addEventListener) {
-            document.fonts.addEventListener('loadingdone', resizeAllOverlays);
+            document.fonts.addEventListener('loadingdone', function () {
+                resizeAllOverlays();
+                refitNotes();
+            });
             // Fetch the annotation face now rather than when the first note is drawn, so notes
-            // are measured (hit boxes, edge clamping) in the font the composer will use.
-            document.fonts.load('11px CarlosAnnotation').catch(function () { /* fallback face */ });
+            // are measured (hit boxes, edge clamping) in the font the composer will use. Notes
+            // placed before it arrives are refitted once it has.
+            document.fonts.load('11px CarlosAnnotation').then(refitNotes, function () { /* fallback face */ });
         }
         window.addEventListener('beforeunload', function (event) {
             if (state.saving || (state.annotations.length && !state.saved)) {

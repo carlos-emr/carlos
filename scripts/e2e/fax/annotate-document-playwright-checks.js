@@ -722,6 +722,48 @@ async function main() {
     await openViewer();
     page.off('dialog', deleteLeaveWarning);
     check('leaving after deleting a saved mark warns about unsaved changes', warnedAfterDelete);
+
+    // A note placed before the annotation font arrives is fitted to its width in the fallback
+    // face. When the real, wider face lands the note must be refitted, or it runs off the page
+    // and the composer refuses the save. The font is held back and a narrower fallback forced
+    // (through the viewer's own stylesheet, since the page CSP admits no injected style) so the
+    // two widths genuinely differ.
+    let releaseFont;
+    const fontHeld = new Promise(resolve => { releaseFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await fontHeld;
+      await route.continue();
+    });
+    // The viewer just opened holds no marks, so leaving it raises no before-unload dialog.
+    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
+    const narrowFallback = await page.evaluate(() => {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      if (!sheet) { return false; }
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      return !document.fonts.check('11px CarlosAnnotation');
+    });
+    check('the annotation font is still loading while the note is placed', narrowFallback);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const fontBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note placed before the annotation font had loaded here'));
+    await page.mouse.click(fontBox.x + fontBox.width - 10, fontBox.y + 200);
+    const fallbackNote = await page.locator('svg.overlay').first().locator('text.mark').first().boundingBox();
+    releaseFont();
+    await page.waitForFunction(() => document.fonts.check('11px CarlosAnnotation'));
+    // The refit runs from the font's load promise and loadingdone; let both settle.
+    await page.waitForTimeout(300);
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
+    const fontNote = await page.locator('svg.overlay').first().locator('text.mark').first().boundingBox();
+    check('a note placed before the font loaded is refitted onto the page once it arrives',
+      fontNote.width > fallbackNote.width && fontNote.x + fontNote.width <= fontBox.x + fontBox.width + 1,
+      JSON.stringify([fallbackNote, fontNote, fontBox]));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('a note refitted after the font loaded saves',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {
       wordAttempts += 1;
