@@ -57,6 +57,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
@@ -121,8 +123,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // told uploadedPreviously for a batch that then rolls back.
             FileUploadCheck.StoreOutcome stored;
             try {
+                String archiveName = filename;
                 stored = FileUploadCheck.storeIfNew(filename, () -> new ByteArrayInputStream(uploadContent), proNo,
-                        checksumId -> storeMessages(uploadContent));
+                        checksumId -> storeMessages(uploadContent) && archiveInTransaction(uploadContent, archiveName));
             } catch (FileUploadCheck.LookupFailedException lookupEx) {
                 _logger.error("Could not check a PathNet upload's checksum: {}", LogSafe.exceptionTrace(lookupEx.getCause()));
                 request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
@@ -133,12 +136,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
             if (stored == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
                 outcome = "uploadedPreviously";
+            } else if (stored == FileUploadCheck.StoreOutcome.STORED) {
+                // Archived inside the committed transaction; nothing may fail after the commit.
+                outcome = "success";
             } else {
-                outcome = stored == FileUploadCheck.StoreOutcome.STORED ? "success" : OUTCOME_EXCEPTION;
-                //SAVE FILE TO DISK
-                if (!saveFile(new ByteArrayInputStream(uploadContent), filename)) {
-                    outcome = OUTCOME_EXCEPTION;
-                }
+                outcome = OUTCOME_EXCEPTION;
+                // A batch that was not stored is still archived for diagnosis, as before; the
+                // outcome is a failure either way, so a failed write here changes nothing.
+                saveFile(new ByteArrayInputStream(uploadContent), filename);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -185,10 +190,41 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * @param filename
      * @return boolean
      */
-    private static boolean saveFile(InputStream stream, String filename) {
-        String retVal = null;
-        boolean isAdded = true;
+    /**
+     * Archives a stored batch inside {@link FileUploadCheck#storeIfNew}'s transaction.
+     *
+     * <p>Written after the messages, before the commit: a failed write rejects the batch, rolling
+     * back its messages and checksum so the client's retry stores it, instead of committing a lab
+     * with no archive and answering a retryable {@code exception} that the retry then refuses as
+     * {@code uploadedPreviously}. If the transaction later rolls back, the archive is removed with
+     * the rows; after a commit, or a commit whose outcome is unknown, it is kept.</p>
+     *
+     * @return {@code false} when the archive could not be written, which rejects the batch
+     */
+    private static boolean archiveInTransaction(byte[] uploadContent, String filename) {
+        File archived = saveFile(new ByteArrayInputStream(uploadContent), filename);
+        if (archived == null) {
+            return false;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        deletePartialOutput(archived);
+                    }
+                }
+            });
+        }
+        return true;
+    }
 
+    /**
+     * Writes the upload to {@code DOCUMENT_DIR} under a new, generated name.
+     *
+     * @return the file written, or {@code null} when nothing was written
+     */
+    private static File saveFile(InputStream stream, String filename) {
         File outputFile = null;
 
         try (InputStream uploadStream = stream) {
@@ -210,10 +246,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 uploadStream.transferTo(bos);
             }
-            retVal = outputFile.getPath();
         } catch (FileAlreadyExistsException nameCollision) {
             MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
-            return isAdded = false;
+            return null;
         } catch (IOException | SecurityException ioe) {
             // Remove any partial output: the collision case is handled above, so a file existing
             // here was created by this call. Left behind, it would look like a complete lab to the
@@ -222,15 +257,15 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // exceptionTrace: the message of a filesystem exception here is the generated path,
             // whose basename embeds the caller-supplied lab filename.
             MiscUtils.getLogger().error("Error writing PathNet lab upload: {}", LogSafe.exceptionTrace(ioe));
-            return isAdded = false;
+            return null;
         }
 
-        return isAdded;
+        return outputFile;
     }
 
     /**
-     * Removes a partially written upload. Only ever called for a destination this invocation
-     * created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
+     * Removes a partially written or rolled-back upload. Only ever called for a destination this
+     * invocation created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
      *
      * @param outputFile the destination to remove, or {@code null} if none was created
      */

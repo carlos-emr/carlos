@@ -278,6 +278,37 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldRollBackStoredMessagesAndReportException_whenArchiveCannotBeWritten() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("unarchived.hl7"), "MSH|unarchivable PathNet content");
+        // A regular file where DOCUMENT_DIR should be: every archive write fails.
+        Path notADirectory = Files.writeString(root.resolve("document-store"), "not a directory");
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class, (connection, context) ->
+                     when(connection.Retrieve(any(InputStream.class))).thenReturn(new ArrayList<>(List.of("MSH|1"))));
+             MockedConstruction<Message> messages = mockConstruction(Message.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(notADirectory.toString());
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // Before, the messages and checksum committed first and the failed archive answered a
+            // retryable "exception" that the retry then refused as uploadedPreviously.
+            verify(messages.constructed().get(0)).ToDatabase();
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+        }
+    }
+
     /** Serves each validated reopen of {@code uploaded} as a stream whose closure the test can assert. */
     private static List<TrackedStream> trackOpenedStreams(MockedStatic<PathValidationUtils> paths, Path uploaded) {
         List<TrackedStream> opened = new CopyOnWriteArrayList<>();
