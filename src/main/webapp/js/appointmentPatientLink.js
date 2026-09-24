@@ -332,6 +332,20 @@
     }
 
     /**
+     * Reconcile the patient link now (rule 2/3) for a form or its name field.
+     * Page code that reads #keyword or #demographic_no before a scripted submit
+     * (onButRepeat's calculateEndTime(), whose "." no-show rule tests for an
+     * unlinked name) calls this first, so it sees the settled link rather than a
+     * stale one. A target with no controller is ignored.
+     */
+    function settle(target) {
+        var controller = controllers && target ? (controllers.get(target) || null) : null;
+        if (controller) {
+            controller.settle();
+        }
+    }
+
+    /**
      * Submit an appointment form from script. Reconciles the patient link first
      * (settle), then calls the native submit, which fires no submit event and so
      * would otherwise skip that step. A form with no controller is submitted as is.
@@ -360,6 +374,7 @@
         forField: forField,
         rebase: rebase,
         unlink: unlink,
+        settle: settle,
         submitForm: submitForm,
         isEscape: isEscape
     };

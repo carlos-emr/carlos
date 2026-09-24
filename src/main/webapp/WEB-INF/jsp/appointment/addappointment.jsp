@@ -472,6 +472,10 @@ Ontario, Canada
 
             function onButRepeat() {
                 document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmentrepeatbooking";
+                // Settle the patient link BEFORE calculateEndTime(): its "." no-show rule
+                // reads #demographic_no, and submitForm() would settle only afterwards,
+                // leaving a stale link to suppress status N on a hand-edited name.
+                CarlosAppointmentPatientLink.settle(document.forms[0]);
                 if (calculateEndTime()) {
                     CarlosAppointmentPatientLink.submitForm(document.forms[0]);
                 }

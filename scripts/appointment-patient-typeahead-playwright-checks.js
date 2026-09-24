@@ -42,6 +42,9 @@
  * URLs the day sheet's slot and appointment links open in their popups; the
  * day-sheet navigation itself is appointment-lifecycle's job.
  *
+ * No patient name, demographic_no or provider number is printed: failure
+ * messages say only whether a value was empty or mismatched (describe()).
+ *
  * Demo data only. The default search term matches the devcontainer's FAKE-
  * prefixed demo patients (.devcontainer/db/scripts/demo-name-sanitization.sql);
  * never point this at a database holding real patients.
@@ -117,6 +120,18 @@ const PAGES = {
   },
 };
 
+/**
+ * Describes a field value for a failure message without printing it: patient
+ * names, demographic_no and provider numbers never reach the output, even if
+ * the check is pointed at a database that is not the FAKE- demo set.
+ */
+function describe(value) {
+  if (value === null || value === undefined) {
+    return 'absent';
+  }
+  return value === '' ? 'empty' : 'non-empty, value withheld';
+}
+
 async function openPage(context, recorder, spec, baseUrl) {
   const page = await context.newPage();
   wirePage(page, spec.label, recorder, async (dialog, entry) => {
@@ -157,13 +172,13 @@ async function highlightFirstResult(page, label) {
   await keyword.fill(searchTerm);
   const items = await (await response).json();
   assert(Array.isArray(items) && items.length > 0,
-    `${label}: searching "${searchTerm}" returned no patients; set TYPEAHEAD_SEARCH_TERM to match an active demo patient`);
+    `${label}: the search returned no patients; set TYPEAHEAD_SEARCH_TERM to match an active demo patient`);
   await page.locator('ul.ui-autocomplete li.ui-menu-item').first().waitFor({ state: 'visible', timeout: 15000 });
   await page.keyboard.press('ArrowDown');
   const first = items[0];
   const shown = await keyword.inputValue();
   assert(shown === first.formattedName,
-    `${label}: arrowing onto the first result showed ${JSON.stringify(shown)}, expected ${JSON.stringify(first.formattedName)}`);
+    `${label}: arrowing onto the first result did not show that result's name in #keyword`);
   return { value: String(first.value), provider: String(first.provider || ''), name: first.formattedName };
 }
 
@@ -195,16 +210,16 @@ async function arrowBlurSubmit(context, recorder, spec, baseUrl) {
   await blurKeyword(page);
   const state = await fieldState(page);
   assert(state.demographicNo === item.value,
-    `${spec.label}: after arrow + blur #demographic_no=${JSON.stringify(state.demographicNo)}, expected the highlighted patient ${item.value}`);
+    `${spec.label}: after arrow + blur #demographic_no is not the highlighted patient's (${describe(state.demographicNo)})`);
   assert(state.mrp === item.provider,
-    `${spec.label}: after arrow + blur #mrp=${JSON.stringify(state.mrp)}, expected ${JSON.stringify(item.provider)}`);
+    `${spec.label}: after arrow + blur #mrp is not the highlighted patient's MRP (${describe(state.mrp)})`);
   const posted = await save(page, posts, spec);
   assert(posted.get('demographic_no') === item.value,
-    `${spec.label}: posted demographic_no=${posted.get('demographic_no')}, expected ${item.value}`);
+    `${spec.label}: the posted demographic_no is not the highlighted patient's (${describe(posted.get('demographic_no'))})`);
   assert(posted.get('keyword') === item.name, `${spec.label}: posted keyword does not match the highlighted patient`);
   if (spec.postsMrpAs) {
     assert(posted.get(spec.postsMrpAs) === item.provider,
-      `${spec.label}: posted ${spec.postsMrpAs}=${posted.get(spec.postsMrpAs)}, expected ${item.provider}`);
+      `${spec.label}: the posted ${spec.postsMrpAs} is not the highlighted patient's MRP (${describe(posted.get(spec.postsMrpAs))})`);
   }
   await page.close();
   console.log(`PASS ${spec.label}: arrow + blur commits the highlighted patient and posts its demographic_no`);
@@ -216,7 +231,7 @@ async function handEditSubmit(context, recorder, spec, baseUrl) {
   await page.locator('#keyword').fill(HAND_EDITED);
   const posted = await save(page, posts, spec);
   assert(posted.get('demographic_no') === '',
-    `${spec.label}: a hand-edited name posted the stale demographic_no=${posted.get('demographic_no')}`);
+    `${spec.label}: a hand-edited name posted a stale demographic_no (${describe(posted.get('demographic_no'))})`);
   assert(posted.get('keyword') === HAND_EDITED, `${spec.label}: the hand-edited name was not posted as typed`);
   if (spec.postsMrpAs) {
     assert(posted.get(spec.postsMrpAs) === '', `${spec.label}: the stale MRP was posted with a hand-edited name`);
@@ -231,9 +246,9 @@ async function blankSubmit(context, recorder, spec, baseUrl) {
   await page.locator('#keyword').fill('');
   const posted = await save(page, posts, spec);
   assert(posted.get('demographic_no') === item.value,
-    `${spec.label}: blanking the name dropped the link (posted demographic_no=${posted.get('demographic_no')})`);
+    `${spec.label}: blanking the name did not keep the link (posted demographic_no ${describe(posted.get('demographic_no'))})`);
   assert(posted.get('keyword') === item.name,
-    `${spec.label}: blanking the name did not restore the linked name (posted ${JSON.stringify(posted.get('keyword'))})`);
+    `${spec.label}: blanking the name did not restore the linked name (posted keyword ${describe(posted.get('keyword'))})`);
   await page.close();
   console.log(`PASS ${spec.label}: a blanked name keeps the link and restores the name`);
 }
@@ -262,7 +277,7 @@ async function submitWithoutBlur(context, recorder, spec, baseUrl) {
   assert(posts.length === before + 1, `${spec.label}: expected exactly one intercepted save POST`);
   const posted = posts[posts.length - 1];
   assert(posted.get('demographic_no') === '',
-    `${spec.label}: a submit without blur posted the stale demographic_no=${posted.get('demographic_no')}`);
+    `${spec.label}: a submit without blur posted a stale demographic_no (${describe(posted.get('demographic_no'))})`);
   if (spec === PAGES.add) {
     // onAdd sets status N for a "." name only when demographic_no is already
     // empty, so this is the inline handler's view of the link, as posted.
@@ -303,4 +318,6 @@ if (require.main === module) {
   runCheck({ name: 'appointment-patient-typeahead', run: main });
 }
 
-module.exports = { PAGES, SAVE_ROUTE, main };
+module.exports = {
+  PAGES, SAVE_ROUTE, describe, main,
+};

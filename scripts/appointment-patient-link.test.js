@@ -454,3 +454,71 @@ test('addappointment.jsp Do Not Book drops the patient link', () => {
   assert.ok(onNotBook, 'onNotBook() not found');
   assert.match(onNotBook[0], /CarlosAppointmentPatientLink\.unlink\(/);
 });
+
+/*
+ * Repeat booking (Add page): onButRepeat() runs calculateEndTime(), whose "."
+ * no-show rule reads #demographic_no, BEFORE submitForm(). The link must be
+ * settled first or a hand-edited "." name keeps the stale link and misses
+ * status N. noShowRule() is that rule's condition, as calculateEndTime() has it.
+ */
+function noShowRule(page) {
+  return page.nameField.value.substring(0, 1) === '.' && page.demographicField.value === '' ? 'N' : '';
+}
+
+test('settle(form) reconciles a hand-edited "." name before the no-show rule reads the link', () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101', provider: 'Dr. Who' });
+  type(page.nameField, '.late walk-in');
+  assert.equal(noShowRule(page), '', 'unsettled, the stale link hides the no-show');
+  PatientLink.settle(page.form);
+  assert.equal(noShowRule(page), 'N');
+  assert.equal(page.providerField.value, '');
+  PatientLink.submitForm(page.form);
+  assert.deepEqual(page.form.submitted, [{ keyword: '.late walk-in', demographicNo: '', mrp: '' }]);
+  assert.equal(page.unlinks(), 1, 'settling twice (settle, then submitForm) unlinks once');
+});
+
+test('settle(field) commits a highlighted row, and settle() ignores targets with no controller', () => {
+  const page = setup();
+  type(page.nameField, 'jo');
+  page.link.highlight(JONES);
+  PatientLink.settle(page.nameField);
+  assert.equal(page.demographicField.value, '202');
+  assert.doesNotThrow(() => PatientLink.settle(null));
+  assert.doesNotThrow(() => PatientLink.settle(new FakeElement()));
+});
+
+test('addappointment.jsp onButRepeat settles the link before calculateEndTime()', () => {
+  const source = fs.readFileSync(path.join(JSP_DIR, 'addappointment.jsp'), 'utf8');
+  const onButRepeat = source.match(/function onButRepeat\(\) \{[\s\S]*?\n\s{12}\}/);
+  assert.ok(onButRepeat, 'onButRepeat() not found');
+  const settleAt = onButRepeat[0].indexOf('CarlosAppointmentPatientLink.settle(');
+  const calcAt = onButRepeat[0].indexOf('if (calculateEndTime())');
+  assert.ok(settleAt >= 0, 'onButRepeat must settle the patient link');
+  assert.ok(calcAt > settleAt, 'the settle must precede the "." no-show rule in calculateEndTime()');
+});
+
+/*
+ * The browser check must not print patient identifiers: runCheck() logs a
+ * thrown message verbatim, and the check may be pointed at a database that is
+ * not the FAKE- demo set. Values reach messages only through describe().
+ */
+const TYPEAHEAD_CHECK = path.join(__dirname, 'appointment-patient-typeahead-playwright-checks.js');
+
+test('the typeahead browser check describes field values without printing them', () => {
+  const { describe } = require(TYPEAHEAD_CHECK);
+  for (const secret of ['FAKE-SMITH, JOHN', '101', '999998']) {
+    assert.ok(!describe(secret).includes(secret), 'a value must never be echoed');
+  }
+  assert.equal(describe(''), 'empty');
+  assert.equal(describe(null), 'absent');
+  assert.equal(describe(undefined), 'absent');
+});
+
+test('the typeahead browser check routes every patient-derived value in a message through describe()', () => {
+  const source = fs.readFileSync(TYPEAHEAD_CHECK, 'utf8');
+  const patientDerived = /\b(item|first|state|shown|searchTerm)\b|posted\.get\((?!'status'\))/;
+  const leaks = [...source.matchAll(/\$\{([^}]*)\}/g)]
+    .map((match) => match[1].trim())
+    .filter((expr) => patientDerived.test(expr) && !expr.startsWith('describe('));
+  assert.deepEqual(leaks, [], 'wrap these interpolations in describe()');
+});
