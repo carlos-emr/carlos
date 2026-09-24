@@ -23,8 +23,9 @@
  * every row it creates can be found and removed. It is never a real result.
  *
  * Steps:
- *   1. First upload: the popup reports "Uploaded successfully" and the lab
- *      reaches hl7TextInfo under this run's accession.
+ *   1. First upload: the popup reports "Uploaded successfully", the lab
+ *      reaches hl7TextInfo under this run's accession, and patientLabRouting
+ *      links it to the run's patient.
  *   2. Same file again: the popup reports "Already uploaded" (FileUploadCheck's
  *      MD5 gate) and no second hl7TextInfo row appears.
  *   3. The ON CML uploader (lab/CMLlabUpload) answers its XML outcome for the
@@ -219,7 +220,9 @@ async function workflow(session) {
     const matched = sql.value(`SELECT COUNT(*) FROM patientLabRouting pl JOIN hl7TextInfo h
       ON h.lab_no=pl.lab_no AND pl.lab_type='HL7'
       WHERE h.accessionNum=${h.sqlString(accession)} AND pl.demographic_no=${patient}`);
-    console.log(`    lab routed to the run's patient: ${matched === '1' ? 'yes' : 'no (left unmatched)'}`);
+    // PID carries the run patient's unique surname, DOB and sex, so matching is deterministic;
+    // a lab that files but stays unmatched is a routing regression, not a pass.
+    h.assert(matched === '1', `The uploaded lab was not routed to the run's patient (matched ${matched})`);
   });
 
   await session.step('the same file again is refused as already uploaded', async () => {
