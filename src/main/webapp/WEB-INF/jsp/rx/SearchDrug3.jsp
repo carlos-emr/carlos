@@ -2241,7 +2241,7 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
         addDrugToReRxList(uiRefId, drugId);
         selectedReRxIDs.push(drugId);
     } else {
-        removeDrugFromReRxList(uiRefId, drugId);
+        removeDrugFromReRxList(drugId);
         selectedReRxIDs = selectedReRxIDs.filter(id => id !== drugId);
     }
     updateReRxStageConfirmBoxVisibility();
@@ -2330,11 +2330,23 @@ function addDrugToReRxListInSession(uiRefId, drugId) {
 /**
  * Removes a drug from the re-prescribe list and updates the UI.
  *
- * @param uiRefId The unique ID used in the UI to reference this drug.
- * @param drugId The ID of the drug to remove.
+ * The staged card is set_<rand>, keyed by its stash random id, while the ReRx checkbox knows only
+ * the source drug id. Looking the card up as set_<drugId> never matched, so unticking ReRx left a
+ * ghost card on screen whose stash entry the server had already dropped (#3872). prescribe.jsp
+ * stamps each card with data-drug-ref-id so the two can be linked; the lookup is scoped to the
+ * staging pane so no other element can match.
+ *
+ * @param drugId The database ID of the source drug to remove.
  */
-function removeDrugFromReRxList(uiRefId, drugId) {
-    removeElementFromUI(getPrescribingDrugCardByUiRefId(uiRefId));
+function removeDrugFromReRxList(drugId) {
+    const stagingPane = document.getElementById('rxText');
+    if (stagingPane) {
+        stagingPane.querySelectorAll('fieldset[data-drug-ref-id]').forEach(function (card) {
+            if (card.getAttribute('data-drug-ref-id') === String(drugId)) {
+                removeElementFromUI(card);
+            }
+        });
+    }
     removeReRxDrugId(drugId);
 }
 

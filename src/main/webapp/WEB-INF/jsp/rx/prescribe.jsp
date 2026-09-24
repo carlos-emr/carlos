@@ -270,7 +270,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgRefillDurationError" var="i18nRefillDurationError"/>
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
-<fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
+<%-- data-drug-ref-id links a ReRx card to its source drug so unticking ReRx can find the card (#3872); 0 for a new drug. --%>
+<fieldset style="margin-top:2px;" id="<%=fieldSetId%>" data-drug-ref-id="<carlos:encode value='<%= String.valueOf(DrugReferenceId) %>' context="htmlAttribute"/>">
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
