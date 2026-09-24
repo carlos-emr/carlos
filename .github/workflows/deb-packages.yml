@@ -144,12 +144,15 @@ jobs:
           # transitional carlos-emr-eform-renderer that pre-merge installs need to
           # upgrade, and a release missing it must not count as finished, while a
           # backfill of an older tag is judged by the packages that tag defines.
-          # Each asset must also carry THIS tag's Debian version (the same
-          # '-' -> '~' mapping the changelog step below applies), so a stray
-          # .deb of another version under the same package name cannot make a
-          # release look finished.
-          expected_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/~/g')"
-          version_re="$(printf '%s' "$expected_version" | sed 's/[.]/\\./g')"
+          # Each asset must also carry THIS tag's version, so a stray .deb of
+          # another version under the same package name cannot make a release
+          # look finished. The Debian version maps '-' to '~' (the changelog
+          # step below), but GitHub stores a release asset with that '~' as '.'
+          # (see the .sha256 step), so a published alpha/rc asset reads
+          # carlos-emr_2026.08.0.alpha14_amd64.deb: accept either spelling of
+          # the pre-release separator, and nothing else.
+          expected_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/./g')"
+          version_re="$(printf '%s' "$RELEASE_TAG" | sed 's/[.]/\\./g; s/-/[.~]/g')"
           if ! info=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft,assets \
                 --jq '(.isDraft | tostring), .assets[].name' 2>/dev/null); then
             state=none
