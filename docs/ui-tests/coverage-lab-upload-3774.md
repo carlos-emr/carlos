@@ -16,4 +16,16 @@ mvn -B -Dtest=UtilitiesUploadUnitTest,InsideLabUpload2ActionUnitTest,io.github.c
   test org.jacoco:jacoco-maven-plugin:0.8.14:report
 ```
 
-The release audit script in PR #3781 can intersect `target/site/jacoco/jacoco.xml` with `d182f254cd` through this branch's head. Installed-DEB lab upload Playwright validation remains a separate browser coverage step; this Java slice does not claim it.
+The release audit script in PR #3781 can intersect `target/site/jacoco/jacoco.xml` with `d182f254cd` through this branch's head.
+
+## CML duplicate outcome (PR #3915)
+
+`FileUploadCheck.addFile` returns `UNSUCCESSFUL_SAVE` both for a duplicate checksum and for any failure it swallows. ON CML `LabUpload2Action` used to answer every such case with an empty `<outcome/>`. It now asks `FileUploadCheck.isFileRecorded`, which does not swallow failures. The action answers `uploadedPreviously` only when a checksum row exists; otherwise it answers `databaseNotStarted`, the existing retryable outcome, so a transient failure is never acknowledged as a duplicate. The parser's `BufferedReader` is now closed. Unit tests cover each branch and fail against the previous action: `LabUpload2ActionUnitTest` (5 tests) and `FileUploadCheckUnitTest` (3 tests).
+
+## Installed-DEB browser validation
+
+`scripts/lab-upload-playwright-checks.js` (`npm run test:lab-upload-playwright`, manifest entry `lab-upload`, tier `core`) drives the packaged front door. It uploads a synthetic CML HL7 message through the Inbox hub's inside-lab uploader popup and checks that the message is filed once and routed to the run's FAKE- patient. It then uploads the same file again and checks that the page reports "Already uploaded" without adding a second row. Finally it posts to `lab/CMLlabUpload`: a wrong key must answer `accessDenied`, and, when `CML_UPLOAD_KEY` is set to the server's value, a recorded file must answer `uploadedPreviously`. Every row it creates is removed, found by accession number and by the run-stamped saved file name.
+
+Validated on 2026-09-24 against a fresh `2026.09.0~snapshot23` install. The three packages were built from this branch at `4a5578e3`, whose duplicate check is behaviourally identical to the later `isFileRecorded` refactor, and the probe script from the branch head was run. They were installed per [deb-install-validation.md](deb-install-validation.md) sections 3 to 6: Ontario, self-signed TLS, demo data, forced first-login reset, `carlos-ctl check` all OK. `CML_UPLOAD_KEY` was set in `/etc/carlos-emr/carlos.properties` before the run. Results: `lab-upload` passed all three steps, including the keyed `uploadedPreviously` half, and left no residue. The adjacent checks `login`, `inboxhub-filters`, `inbox-preview-acknowledge`, `lab-acknowledge` and `lab-pdf-footer` passed on the same install.
+
+`document-upload` failed on its chart-navigation step, for a reason unrelated to lab upload. In the encounter left nav (`LeftNavBarDisplay.jsp`), each item's date column is a `z-index:100` span floated over the truncated title, and it holds a "..." link with the same `onclick`. With a long document title, the date column covers the centre of the title link, so Playwright's centre-point click is refused as intercepted. A user clicking the title still opens the document. Clicking near the start of the title (`position: { x: 4, y: 8 }`) passes the whole check. That harness change is left out of this PR.
