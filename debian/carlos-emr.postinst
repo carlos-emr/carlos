@@ -928,7 +928,7 @@ except ValueError:
             echo "carlos-emr: ERROR: ${RENDER_DIR}/chrome or chromedriver is missing or not" >&2
             echo "carlos-emr: ERROR: executable; eForm print/fax/archive will not work." >&2
             echo "carlos-emr: ERROR: Reinstall: sudo apt install --reinstall carlos-emr" >&2
-            mark_incomplete "the eForm render browser payload is incomplete"
+            echo "carlos-emr: ERROR: ('sudo carlos-ctl check' keeps reporting this until fixed)" >&2
         else
             echo "carlos-emr: NOTE: this build carries no eForm render browser (SKIP_EFORM_RENDERER);" >&2
             echo "carlos-emr: NOTE: saved-eForm print, fax and archive are unavailable." >&2
@@ -962,12 +962,15 @@ except ValueError:
             # print/fax/archive fails closed. Where the restriction is off the
             # sandbox works without the profile and a failed load is a warning.
             #
-            # Recorded as an unfinished install rather than failing configure
-            # (which the separate renderer package used to do): failing here would
-            # now leave the whole EMR -- and carlos-emr-drugref behind it --
-            # unconfigured over one subsystem. The marker makes it loud (debconf
-            # critical note, `carlos-ctl check`), and apparmor.service loads every
-            # profile in /etc/apparmor.d at the next boot regardless.
+            # Reported, not fatal (the separate renderer package used to fail its
+            # configure): failing here would now leave the whole EMR -- and
+            # carlos-emr-drugref behind it -- unconfigured over one subsystem.
+            # Deliberately NOT recorded in the install-incomplete marker either:
+            # finish-install neither reloads the profile nor checks the renderer,
+            # so it would clear the marker over a still-broken renderer. The
+            # durable signal is `carlos-ctl check`, which FAILs while the profile
+            # is unloaded on such a kernel; apparmor.service loads every profile in
+            # /etc/apparmor.d at the next boot regardless.
             if [ -e /sys/module/apparmor/parameters/enabled ] \
                && [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = "Y" ]; then
                 if apparmor_parser -r -T -W /etc/apparmor.d/carlos-emr-chromium 2>/dev/null; then
@@ -977,8 +980,8 @@ except ValueError:
                     echo "carlos-emr: ERROR: /etc/apparmor.d/carlos-emr-chromium, and this kernel restricts" >&2
                     echo "carlos-emr: ERROR: unprivileged user namespaces: the sandboxed render browser cannot" >&2
                     echo "carlos-emr: ERROR: start and eForm print/fax/archive WILL FAIL until it loads." >&2
-                    echo "carlos-emr: ERROR: Try: systemctl reload apparmor (or reboot)." >&2
-                    mark_incomplete "the eForm render browser AppArmor profile could not be loaded"
+                    echo "carlos-emr: ERROR: Try: systemctl reload apparmor (or reboot), then confirm" >&2
+                    echo "carlos-emr: ERROR: with: sudo carlos-ctl check" >&2
                 else
                     echo "carlos-emr: WARNING: could not load the AppArmor profile" >&2
                     echo "carlos-emr: WARNING: /etc/apparmor.d/carlos-emr-chromium. This kernel does not" >&2

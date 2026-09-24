@@ -3,7 +3,9 @@
 """Deployment ownership must describe CARLOS, including when it is down."""
 import contextlib
 import io
+import os
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 from carlos_ctl import validate
@@ -111,3 +113,86 @@ class TestFrontDoorListeners(unittest.TestCase):
     def test_an_ipv6_literal_compares_as_the_operator_wrote_it(self):
         found = self.listeners(self._ss("[::1]:80"), self._ss("[::1]:443"))
         self.assertEqual(found, [["::1"], ["::1"]])
+
+
+class TestStaleRendererPackage(unittest.TestCase):
+    """A pre-merge renderer left in config-files state must be reported before a purge."""
+
+    def run_check(self, postrm_text=None, control_path=None):
+        with tempfile.TemporaryDirectory() as directory:
+            path = control_path
+            if postrm_text is not None:
+                path = os.path.join(directory, "carlos-emr-eform-renderer.postrm")
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(postrm_text)
+            validate._failures = 0
+            text = io.StringIO()
+            with patch.object(validate, "out", return_value=path or "") as out, \
+                    contextlib.redirect_stdout(text):
+                validate._check_stale_renderer_package()
+            out.assert_called_once_with(
+                ["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"])
+            return validate._failures, text.getvalue()
+
+    def test_legacy_postrm_is_reported_with_the_remediation(self):
+        failures, text = self.run_check(
+            "#!/bin/sh\ncase \"$1\" in purge) rm -f /etc/carlos-emr/render-browser.env ;; esac\n")
+        self.assertEqual(failures, 1)
+        self.assertIn("Do not purge it", text)
+        self.assertIn("carlos-emr-eform-renderer_<version>_all.deb", text)
+        self.assertIn("apt install --reinstall carlos-emr", text)
+
+    def test_transitional_package_without_postrm_passes_silently(self):
+        self.assertEqual(self.run_check(), (0, ""))
+
+    def test_unrelated_postrm_passes_silently(self):
+        self.assertEqual(self.run_check("#!/bin/sh\nexit 0\n"), (0, ""))
+
+    def test_unreadable_control_path_is_not_a_crash(self):
+        self.assertEqual(self.run_check(control_path="/nonexistent/renderer.postrm"), (0, ""))
+
+
+class TestRenderPayload(unittest.TestCase):
+    """Only a complete, provisioned payload goes on to the service-level checks."""
+
+    def classify(self, binaries=("chrome", "chromedriver"), make_dir=True, env=True):
+        with tempfile.TemporaryDirectory() as directory:
+            chromium = os.path.join(directory, "chromium")
+            if make_dir:
+                os.mkdir(chromium)
+                for name in binaries:
+                    path = os.path.join(chromium, name)
+                    with open(path, "w", encoding="utf-8") as fh:
+                        fh.write("#!/bin/sh\n")
+                    os.chmod(path, 0o755)
+            render_env = os.path.join(directory, "render-browser.env")
+            if env:
+                with open(render_env, "w", encoding="utf-8") as fh:
+                    fh.write("CARLOS_RENDER_URL_BASE=abc\n")
+            validate._failures = 0
+            text = io.StringIO()
+            with contextlib.redirect_stdout(text):
+                proceed = validate._check_render_payload(chromium, render_env)
+            return proceed, validate._failures, text.getvalue()
+
+    def test_complete_payload_proceeds_to_service_checks(self):
+        self.assertEqual(self.classify()[:2], (True, 0))
+
+    def test_payload_without_token_file_fails(self):
+        proceed, failures, text = self.classify(env=False)
+        self.assertEqual((proceed, failures), (False, 1))
+        self.assertIn("postinst never completed", text)
+
+    def test_partial_payload_is_a_failure_not_a_skip_build(self):
+        proceed, failures, text = self.classify(binaries=("chrome",), env=False)
+        self.assertEqual((proceed, failures), (False, 1))
+        self.assertIn("missing or incomplete", text)
+
+    def test_deleted_payload_with_token_left_behind_fails(self):
+        proceed, failures, _ = self.classify(make_dir=False, env=True)
+        self.assertEqual((proceed, failures), (False, 1))
+
+    def test_skip_build_is_only_a_note(self):
+        proceed, failures, text = self.classify(make_dir=False, env=False)
+        self.assertEqual((proceed, failures), (False, 0))
+        self.assertIn("SKIP_EFORM_RENDERER", text)

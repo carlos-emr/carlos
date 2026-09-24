@@ -26,10 +26,13 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
   * The renderer's provisioning moved into the carlos-emr postinst. One
     behaviour changed: an AppArmor profile that cannot be loaded on a kernel
     that restricts unprivileged user namespaces used to fail the renderer's
-    configure; it now records the install as unfinished (debconf critical
-    note, `carlos-ctl check`) instead of leaving the whole EMR and DrugRef
-    unconfigured over one subsystem. apparmor.service loads the profile at
-    the next boot regardless.
+    configure; it is now reported as an ERROR and by `carlos-ctl check`
+    (which FAILs until the profile loads) instead of leaving the whole EMR and
+    DrugRef unconfigured over one subsystem. It is deliberately not recorded
+    in the install-incomplete marker, which finish-install would clear
+    without repairing the renderer. apparmor.service loads the profile at the
+    next boot regardless. `carlos-ctl check` also now FAILs on a partial
+    render payload instead of mistaking it for a SKIP_EFORM_RENDERER build.
   * Fix: every warning the carlos-emr and carlos-emr-drugref postinsts print
     after taking the provisioning lock was being discarded. The lock was
     opened with `exec 9>"$LOCK" 2>/dev/null`, and under dash a redirection

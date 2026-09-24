@@ -10,7 +10,8 @@ import time
 
 from . import config, dbops, provision, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
+    BACKUP_ENV, CHROMIUM_DIR, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RENDER_BROWSER_ENV, RESET,
+    YELLOW, need_root, out, run,
 )
 
 _failures = 0
@@ -93,6 +94,65 @@ def _check_front_door(bind_ip: str) -> None:
     else:
         _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
              "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
+
+
+def _check_stale_renderer_package() -> None:
+    """Flag a pre-merge carlos-emr-eform-renderer left in dpkg's config-files state.
+
+    apt REMOVES the old renderer (rather than upgrading it to the empty
+    transitional package) when the transitional deb is left out of an upgrade
+    from 2026.08.0~alpha13 or earlier. Its old postrm stays registered, and
+    purging it later runs that script against files carlos-emr now owns: it
+    deletes render-browser.env and the browser's home and disables
+    carlos-emr-chromedriver. The transitional package ships no postrm, so "a
+    registered renderer postrm that touches render-browser.env" is exactly that
+    state. Reported before anyone purges.
+    """
+    postrm = out(["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"])
+    if not postrm:
+        return
+    try:
+        with open(postrm, encoding="utf-8", errors="replace") as fh:
+            stale = "render-browser.env" in fh.read()
+    except OSError:
+        return
+    if stale:
+        print("\neForm render browser (package state)")
+        _bad("the pre-2026.08.0-alpha14 carlos-emr-eform-renderer package was removed instead "
+             "of upgraded, and purging it would delete the render browser's token and disable "
+             "its service. Do not purge it; install the transitional package from this release "
+             "first (sudo apt install ./carlos-emr-eform-renderer_<version>_all.deb). If it "
+             "was already purged: sudo apt install --reinstall carlos-emr")
+
+
+def _check_render_payload(chromium_dir: str, render_env: str) -> bool:
+    """Report whether the render browser is present and provisioned.
+
+    Returns True when both binaries are executable and the postinst has written
+    render-browser.env, i.e. when the service-level checks are meaningful. Gates
+    on the BINARIES, not on render-browser.env, which the postinst generates and
+    only purge removes.
+    """
+    print("\neForm render browser")
+    chrome = os.path.join(chromium_dir, "chrome")
+    driver = os.path.join(chromium_dir, "chromedriver")
+    if os.access(chrome, os.X_OK) and os.access(driver, os.X_OK):
+        if os.path.exists(render_env):
+            return True
+        _bad("the render browser is installed but render-browser.env is missing — the "
+             "carlos-emr postinst never completed (sudo apt install --reinstall carlos-emr)")
+        return False
+    if os.path.exists(chromium_dir) or os.path.exists(render_env):
+        # A SKIP_EFORM_RENDERER build ships no chromium_dir at all and never writes
+        # render-browser.env, so either one being present means a payload that was
+        # installed and is now incomplete.
+        _bad(f"the render browser under {chromium_dir} is missing or incomplete (chrome and "
+             "chromedriver must both be executable) — saved-eForm print, fax and archive "
+             "fail (sudo apt install --reinstall carlos-emr)")
+        return False
+    _note("this carlos-emr build carries no render browser (a SKIP_EFORM_RENDERER "
+          "development build); saved-eForm print, fax and archive are unavailable")
+    return False
 
 
 def cmd_check(argv) -> int:
@@ -212,52 +272,16 @@ def cmd_check(argv) -> int:
     # The eForm render browser ships inside carlos-emr (it was the separate
     # carlos-emr-eform-renderer package through 2026.08.0~alpha13). Only a
     # SKIP_EFORM_RENDERER dev build lacks it. Every check here maps to a way it
-    # silently breaks:
-    # the unit not running, the AppArmor userns grant missing on a kernel that enforces
+    # silently breaks: the payload or its token missing, the unit not running, the
+    # AppArmor userns grant missing on a kernel that enforces
     # apparmor_restrict_unprivileged_userns (Chromium aborts "No usable sandbox!" and
     # every eForm print/fax/archive fails closed), or carlos.properties pointing the
-    # JVM at a different port/token than the driver actually serves.
-    # Gate on the chromedriver BINARY, not on render-browser.env, which the postinst
-    # generates and only purge removes. Binary-present-but-env-missing IS a fault
-    # (postinst never completed); env-present-but-binary-missing means the payload was
-    # deleted from under an install that had it.
-    render_env = "/etc/carlos-emr/render-browser.env"
-    render_driver = "/usr/lib/carlos-emr/chromium/chromedriver"
-    # A pre-merge carlos-emr-eform-renderer that apt removed instead of upgrading
-    # to the transitional package keeps its old postrm registered (the transitional
-    # package ships none). Purging it runs that script against files carlos-emr now
-    # owns: it deletes render-browser.env and the browser's home and disables
-    # carlos-emr-chromedriver. Report it before anyone purges.
-    stale_renderer = False
-    postrm = out(["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"])
-    if postrm:
-        try:
-            with open(postrm, encoding="utf-8", errors="replace") as fh:
-                stale_renderer = "render-browser.env" in fh.read()
-        except OSError:
-            pass
-    if stale_renderer:
-        print("\neForm render browser (package state)")
-        _bad("the pre-2026.08.0-alpha14 carlos-emr-eform-renderer package was removed instead "
-             "of upgraded, and purging it would delete the render browser's token and disable "
-             "its service. Do not purge it; install the transitional package from this release "
-             "first (sudo apt install ./carlos-emr-eform-renderer_<version>_all.deb). If it "
-             "was already purged: sudo apt install --reinstall carlos-emr")
-    if os.path.exists(render_driver) and not os.path.exists(render_env):
-        print("\neForm render browser")
-        _bad("the render browser is installed but render-browser.env is missing — the "
-             "carlos-emr postinst never completed (sudo apt install --reinstall carlos-emr)")
-    elif not os.path.exists(render_driver) and os.path.exists(render_env):
-        print("\neForm render browser")
-        _bad(f"{render_driver} is missing although this host was set up with the render "
-             "browser (render-browser.env exists) — saved-eForm print, fax and archive "
-             "fail (sudo apt install --reinstall carlos-emr)")
-    elif not os.path.exists(render_driver):
-        print("\neForm render browser")
-        _note("this carlos-emr build carries no render browser (a SKIP_EFORM_RENDERER "
-              "development build); saved-eForm print, fax and archive are unavailable")
-    elif os.path.exists(render_driver):
-        print("\neForm render browser")
+    # JVM at a different port/token than the driver actually serves. `check` is the
+    # durable signal for all of these: the postinst reports them but deliberately
+    # does NOT record them in the install-incomplete marker, which finish-install
+    # clears without repairing the renderer.
+    _check_stale_renderer_package()
+    if _check_render_payload(CHROMIUM_DIR, RENDER_BROWSER_ENV):
         if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
             _ok("carlos-emr-chromedriver is running")
         else:
