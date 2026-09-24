@@ -323,11 +323,12 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         if (demographicNo == null || labType == null || labNos == null || labNos.isEmpty()) {
             return Collections.emptyList();
         }
-        Query query = entityManager.createQuery("select distinct x.labNo from " + this.modelClass.getName()
-                + " x where x.demographicNo = ?1 and x.labType = ?2 and x.labNo in (?3)");
-        query.setParameter(1, demographicNo);
-        query.setParameter(2, labType);
-        query.setParameter(3, labNos);
+        // Constant JPQL; every value, including the IN list, is a bound parameter.
+        Query query = entityManager.createQuery("select distinct x.labNo from PatientLabRouting x"
+                + " where x.demographicNo = :demographicNo and x.labType = :labType and x.labNo in (:labNos)");
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("labType", labType);
+        query.setParameter("labNos", labNos);
 
         @SuppressWarnings("unchecked")
         List<Integer> owned = query.getResultList();

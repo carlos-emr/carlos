@@ -175,10 +175,11 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
         if (demographicNo == null || hrmDocumentIds == null || hrmDocumentIds.isEmpty()) {
             return Collections.emptyList();
         }
-        Query query = entityManager.createQuery("select distinct x.hrmDocumentId from " + this.modelClass.getName()
-                + " x where x.demographicNo = ?1 and x.hrmDocumentId in (?2)");
-        query.setParameter(1, demographicNo);
-        query.setParameter(2, hrmDocumentIds);
+        // Constant JPQL; every value, including the IN list, is a bound parameter.
+        Query query = entityManager.createQuery("select distinct x.hrmDocumentId from HRMDocumentToDemographic x"
+                + " where x.demographicNo = :demographicNo and x.hrmDocumentId in (:hrmDocumentIds)");
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("hrmDocumentIds", hrmDocumentIds);
 
         @SuppressWarnings("unchecked")
         List<Integer> owned = query.getResultList();

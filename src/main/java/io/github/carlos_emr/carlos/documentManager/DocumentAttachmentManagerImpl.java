@@ -361,6 +361,67 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
+    @Override
+    public void verifyConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, Integer demographicNo,
+                                         Map<DocumentType, String[]> attachmentsByType) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+        if (attachmentsByType == null) {
+            return;
+        }
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, Boolean.FALSE, attachmentOwnershipService);
+        for (Map.Entry<DocumentType, String[]> entry : attachmentsByType.entrySet()) {
+            documentAttach.verifyConsultAttachments(entry.getValue(), entry.getKey(), requestId);
+        }
+    }
+
+    /**
+     * Keeps the attachments whose id belongs to {@code demographicNo}, with one batched ownership
+     * lookup; everything else (foreign, deleted, unparseable) is dropped and only the count logged.
+     */
+    <T> List<T> retainOwnedAttachments(DocumentType documentType, Integer demographicNo, List<T> attachments,
+                                       java.util.function.Function<T, String> idOf) {
+        if (attachments == null || attachments.isEmpty()) {
+            return attachments;
+        }
+        Map<T, Integer> idByAttachment = new IdentityHashMap<>();
+        for (T attachment : attachments) {
+            Integer id = parseAttachmentId(idOf.apply(attachment));
+            if (id != null) {
+                idByAttachment.put(attachment, id);
+            }
+        }
+        Set<Integer> owned = attachmentOwnershipService.findOwnedIds(documentType, demographicNo, new HashSet<>(idByAttachment.values()));
+        List<T> retained = new ArrayList<>(attachments.size());
+        for (T attachment : attachments) {
+            Integer id = idByAttachment.get(attachment);
+            if (id != null && owned.contains(id)) {
+                retained.add(attachment);
+            }
+        }
+        int dropped = attachments.size() - retained.size();
+        if (dropped > 0) {
+            logger.warn("Omitted {} consultation attachment(s) of type {} not owned by the consultation patient", dropped, documentType.getType());
+        }
+        return retained;
+    }
+
+    private static Integer parseAttachmentId(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer parseDemographicNo(String demographicId) {
+        return parseAttachmentId(demographicId);
+    }
+
     /**
      * Attaches documents to an electronic form (eForm).
      *
@@ -547,10 +608,18 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         String demographicId = (String) request.getAttribute("demographicId");
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
 
-        List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-        List<EDoc> attachedEDocs = EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED);
+        // Defence in depth for issue #3867: the eForm and document lookups below resolve attachments
+        // by consultation id alone, so a consult_docs row written before attach-time ownership checks
+        // existed could still print or fax another patient's record. Keep only this patient's own.
+        // HRM lookups are already scoped to the patient; forms have no common owner column.
+        Integer ownerDemographicNo = parseDemographicNo(demographicId);
+        List<EFormData> attachedEForms = retainOwnedAttachments(DocumentType.EFORM, ownerDemographicNo,
+                consultationManager.getAttachedEForms(requestId), eForm -> eForm.getId() == null ? null : String.valueOf(eForm.getId()));
+        List<EDoc> attachedEDocs = retainOwnedAttachments(DocumentType.DOC, ownerDemographicNo,
+                EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
         CommonLabResultData labResultData = new CommonLabResultData();
-        List<LabResultData> attachedLabs = labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
+        List<LabResultData> attachedLabs = retainOwnedAttachments(DocumentType.LAB, ownerDemographicNo,
+                labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED), LabResultData::getSegmentID);
         ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
         List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 

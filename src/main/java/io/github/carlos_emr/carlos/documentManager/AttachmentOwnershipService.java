@@ -52,8 +52,9 @@ import org.springframework.stereotype.Service;
  *
  * <p><b>Ownership sources.</b></p>
  * <ul>
- *   <li>{@link DocumentType#DOC}: a non-deleted {@code ctl_document} row with module
- *       {@code demographic} and module_id = patient.</li>
+ *   <li>{@link DocumentType#DOC}: a {@code ctl_document} row with module {@code demographic} and
+ *       module_id = patient, whose {@code document} row is not deleted ({@code document.status},
+ *       which is what {@code EDocUtil.deleteDocument} sets).</li>
  *   <li>{@link DocumentType#LAB}: a {@code patientLabRouting} row of type
  *       {@link PatientLabRoutingDao#HL7} for the patient. Only HL7 labs are matched because the
  *       attachment picker lists HL7 segments and the lab renderer only renders HL7 segments; lab

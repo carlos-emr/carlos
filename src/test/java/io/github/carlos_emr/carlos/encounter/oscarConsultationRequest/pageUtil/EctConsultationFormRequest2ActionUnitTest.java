@@ -936,6 +936,83 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         return consult;
     }
 
+    /**
+     * Issue #3867: the create path persists the consultation and then each attachment type in its
+     * own transaction, so a foreign attachment must be refused before the first write rather than
+     * half-way through, and the user gets the form's alert instead of the raw error page.
+     */
+    @Test
+    @DisplayName("rejects a create with a foreign attachment before the consultation or signature is saved")
+    void shouldReturnInput_beforeAnyWriteWhenCreateAttachmentNotOwned() throws Exception {
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"10"});
+        action.setLabNo(new String[] {"999"});
+        org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
+                .when(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo), org.mockito.ArgumentMatchers.isNull(),
+                        eq(1), org.mockito.ArgumentMatchers.anyMap());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("errorMessage")).asString()
+                .startsWith("One or more attachments could not be verified for this patient.")
+                .doesNotContain("999");
+        verify(consultationRequestDao, never()).persist(any());
+        verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(digitalSignatureManager);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("rejects an update with a foreign attachment before archiving or merging the consultation")
+    void shouldReturnInput_beforeArchivingWhenUpdateAttachmentNotOwned() throws Exception {
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"999"});
+        org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
+                .when(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo), eq(9), eq(1),
+                        org.mockito.ArgumentMatchers.anyMap());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.INPUT);
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+        verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("verifies every attachment type once before the create path writes anything")
+    void shouldVerifyAllAttachmentTypes_beforeCreateWrites() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"10"});
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Map<io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType, String[]>> verified =
+                ArgumentCaptor.forClass(java.util.Map.class);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(documentAttachmentManager, consultationRequestDao);
+        order.verify(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo),
+                org.mockito.ArgumentMatchers.isNull(), eq(1), verified.capture());
+        order.verify(consultationRequestDao).persist(any(ConsultationRequest.class));
+        assertThat(verified.getValue()).containsKeys(
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC,
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB,
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.EFORM,
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.HRM);
+        assertThat(persisted[0]).isNotNull();
+    }
+
     private ConsultationRequest[] capturePersistedConsultationRequest() {
         ConsultationRequest[] persisted = new ConsultationRequest[1];
         doAnswer(invocation -> {

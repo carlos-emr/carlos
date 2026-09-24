@@ -81,10 +81,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class ERefer2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
 
-    /** Generic rejection text; deliberately does not identify which attachment failed. */
-    static final String ATTACHMENTS_NOT_VERIFIED = "One or more attachments could not be verified for this patient.";
-    static final String CONSULTATION_NOT_VERIFIED = "The consultation request could not be verified for this patient.";
-    static final String INVALID_REQUEST = "Invalid eReferral attachment request.";
 
     /** One attachment token: a single type letter followed by a numeric id, e.g. {@code D123}. */
     private static final Pattern ATTACHMENT_TOKEN = Pattern.compile("([A-Za-z])(\\d{1,10})");
@@ -195,7 +191,7 @@ public class ERefer2Action extends ActionSupport {
         Integer demographicNo = parseId(demographicNoParam);
         Map<DocumentType, Set<Integer>> attachmentsByType = parseAttachments(documents);
         if (demographicNo == null || attachmentsByType == null) {
-            reject(HttpServletResponse.SC_BAD_REQUEST, INVALID_REQUEST);
+            reject(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
         requirePatientConsultWrite(demographicNo);
@@ -205,7 +201,7 @@ public class ERefer2Action extends ActionSupport {
         }
         if (!attachmentOwnershipService.allBelongToDemographic(attachmentsByType, demographicNo)) {
             logger.warn("Rejected Ocean eReferral attachment request: attachments not owned by the target patient");
-            reject(HttpServletResponse.SC_FORBIDDEN, ATTACHMENTS_NOT_VERIFIED);
+            reject(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
@@ -221,6 +217,7 @@ public class ERefer2Action extends ActionSupport {
 
         response.setContentType("text/plain");
         response.setCharacterEncoding("UTF-8");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         try (PrintWriter writer = response.getWriter()) {
             writer.write(eReferAttachment.getId().toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- text/plain response writing numeric database ID
         } catch (IOException e) {
@@ -241,9 +238,10 @@ public class ERefer2Action extends ActionSupport {
      * (all required; if any is missing the method returns without doing anything).
      * </p>
      * <p>
-     * The consultation request must belong to {@code demographicNo} and every attachment must
-     * belong to that patient; otherwise the request is rejected with 403 before any attach or
-     * detach. A malformed request is rejected with 400.
+     * The consultation request must belong to {@code demographicNo} and every newly added
+     * attachment must belong to that patient; otherwise the request is rejected with 403 before
+     * any attach or detach. Already-attached ids that no longer verify are detached, not sent.
+     * A malformed request is rejected with 400.
      * </p>
      * <p>
      * <b>Session Requirements:</b> Requires valid {@link LoggedInInfo} in HTTP session to identify
@@ -264,7 +262,7 @@ public class ERefer2Action extends ActionSupport {
         Integer requestId = parseId(requestIdParam);
         Map<DocumentType, Set<Integer>> attachmentsByType = parseAttachments(documents);
         if (demographicNo == null || requestId == null || attachmentsByType == null) {
-            reject(HttpServletResponse.SC_BAD_REQUEST, INVALID_REQUEST);
+            reject(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
         requirePatientConsultWrite(demographicNo);
@@ -273,20 +271,27 @@ public class ERefer2Action extends ActionSupport {
         // patient's consultation and queue records against the wrong referral.
         if (!attachmentOwnershipService.consultationRequestBelongsToDemographic(requestId, demographicNo)) {
             logger.warn("Rejected Ocean eReferral edit: consultation request does not belong to the target patient");
-            reject(HttpServletResponse.SC_FORBIDDEN, CONSULTATION_NOT_VERIFIED);
+            reject(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
+        Map<DocumentType, String[]> idStringsByType = new EnumMap<>(DocumentType.class);
+        for (DocumentType type : OCEAN_ATTACHMENT_TYPES) {
+            idStringsByType.put(type, toIdStrings(attachmentsByType.getOrDefault(type, Collections.emptySet())));
+        }
         // Verify every type up front: the attachToConsult calls below are separate writes, so a late
-        // rejection would leave the consultation partially updated.
-        if (!attachmentOwnershipService.allBelongToDemographic(attachmentsByType, demographicNo)) {
+        // rejection would leave the consultation partially updated. Newly added ids must be this
+        // patient's; ids already attached that no longer verify are detached by attachToConsult
+        // rather than failing the edit (a legacy row the user cannot remove from the form).
+        try {
+            documentAttachmentManager.verifyConsultAttachments(loggedInInfo, requestId, demographicNo, idStringsByType);
+        } catch (SecurityException e) {
             logger.warn("Rejected Ocean eReferral edit: attachments not owned by the target patient");
-            reject(HttpServletResponse.SC_FORBIDDEN, ATTACHMENTS_NOT_VERIFIED);
+            reject(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         for (DocumentType type : OCEAN_ATTACHMENT_TYPES) {
-            documentAttachmentManager.attachToConsult(loggedInInfo, type,
-                    toIdStrings(attachmentsByType.getOrDefault(type, Collections.emptySet())),
+            documentAttachmentManager.attachToConsult(loggedInInfo, type, idStringsByType.get(type),
                     providerNo, requestId, demographicNo, Boolean.TRUE);
         }
     }
@@ -298,8 +303,8 @@ public class ERefer2Action extends ActionSupport {
      * page already asks the user before sending without them. Empty tokens are skipped.</p>
      *
      * @param documents raw {@code documents} parameter, e.g. {@code D12|L7|F3|}
-     * @return ids grouped by DOC/LAB/EFORM/HRM (possibly empty), or {@code null} if any token is
-     *         malformed, overflows, or has an unknown type
+     * @return ids grouped by DOC/LAB/EFORM/HRM (possibly empty), or {@code null} if any token,
+     *         including a skipped F token, is malformed, overflows, or has an unknown type
      */
     static Map<DocumentType, Set<Integer>> parseAttachments(String documents) {
         Map<DocumentType, Set<Integer>> attachmentsByType = new EnumMap<>(DocumentType.class);
@@ -318,12 +323,13 @@ public class ERefer2Action extends ActionSupport {
             if (type == null) {
                 return null;
             }
-            if (type == DocumentType.FORM) {
-                continue;
-            }
+            // Parse before the FORM skip so a form token gets the same strictness (400 on overflow).
             Integer id = parseId(matcher.group(2));
             if (id == null) {
                 return null;
+            }
+            if (type == DocumentType.FORM) {
+                continue;
             }
             attachmentsByType.computeIfAbsent(type, k -> new LinkedHashSet<>()).add(id);
         }
@@ -367,14 +373,14 @@ public class ERefer2Action extends ActionSupport {
         }
     }
 
-    private void reject(int status, String message) {
+    /**
+     * Ends the request with a bare status. The only caller is conreq.js, which reads the status
+     * alone; sending no body means nothing request- or record-derived can be reflected here, and
+     * the response does not say which id or which check failed.
+     */
+    private void reject(int status) {
         response.setStatus(status);
-        response.setContentType("text/plain");
-        response.setCharacterEncoding("UTF-8");
-        try (PrintWriter writer = response.getWriter()) {
-            writer.write(message); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- text/plain constant message
-        } catch (IOException e) {
-            logger.error("Failed to write the eReferral rejection response", e);
-        }
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setContentLength(0);
     }
 }

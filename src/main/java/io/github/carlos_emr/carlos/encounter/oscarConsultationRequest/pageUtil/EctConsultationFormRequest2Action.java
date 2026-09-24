@@ -123,6 +123,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String INVALID_DEMOGRAPHIC_NUMBER = "Invalid demographic number";
     private static final String INVALID_CONSULTATION_REQUEST_ID = "Invalid consultation request id";
     private static final String CONSULTATION_REQUEST_UNAVAILABLE = "Consultation request unavailable";
+    private static final String ATTACHMENTS_NOT_VERIFIED =
+            "One or more attachments could not be verified for this patient. Please re-open the consultation from the patient's chart and attach the documents again.";
     private static final String CONSULT_PREVIEW_UNAVAILABLE_PREFIX = "A print preview of this consultation could not be generated. \n\n";
     private static final String CONSULT_PREVIEW_UNAVAILABLE_MESSAGE = CONSULT_PREVIEW_UNAVAILABLE_PREFIX + CONSULTATION_REQUEST_UNAVAILABLE + ".";
 
@@ -206,6 +208,34 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private void rejectInput(String message) {
         addActionError(message);
         request.setAttribute(ATTR_ERROR_MESSAGE, message);
+    }
+
+    /**
+     * Rejects the save, before its first write, when a newly attached DOC/LAB/EFORM/HRM id is not
+     * the consultation patient's (issue #3867). The save writes the consultation and then each
+     * attachment type in its own transaction, so relying on the per-type check inside
+     * {@code attachToConsult} alone would leave a half-saved consultation behind a raw error page.
+     * The message is deliberately generic: it does not say which attachment failed.
+     *
+     * @return {@code true} to continue; {@code false} after recording the input error
+     */
+    private boolean consultAttachmentsVerified(LoggedInInfo loggedInInfo, Integer requestId, int demographicId,
+                                               String[] attachedDocuments, String[] attachedLabs, String[] attachedForms,
+                                               String[] attachedEForms, String[] attachedHRMDocuments) {
+        Map<DocumentType, String[]> attachmentsByType = new EnumMap<>(DocumentType.class);
+        attachmentsByType.put(DocumentType.DOC, attachedDocuments);
+        attachmentsByType.put(DocumentType.LAB, attachedLabs);
+        attachmentsByType.put(DocumentType.FORM, attachedForms);
+        attachmentsByType.put(DocumentType.EFORM, attachedEForms);
+        attachmentsByType.put(DocumentType.HRM, attachedHRMDocuments);
+        try {
+            documentAttachmentManager.verifyConsultAttachments(loggedInInfo, requestId, demographicId, attachmentsByType);
+            return true;
+        } catch (SecurityException e) {
+            logger.warn("Rejected consultation save: attachments could not be verified for the consultation patient");
+            rejectInput(ATTACHMENTS_NOT_VERIFIED);
+            return false;
+        }
     }
 
     private void requireConsultWritePrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
@@ -397,6 +427,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 demographicNo = String.valueOf(demographicId);
                 requireConsultWritePrivilege(loggedInInfo, demographicNo);
 
+                // Before the signature, the consultation and any attachment are written (#3867).
+                if (!consultAttachmentsVerified(loggedInInfo, null, demographicId, attachedDocuments,
+                        attachedLabs, attachedForms, attachedEForms, attachedHRMDocuments)) {
+                    return INPUT;
+                }
+
                 if (newSignature) {
                     // Manual signature from tablet/signature pad. Capture intent up front: a null result
                     // is a genuine failure only when a signature was actually collected (a stamp-less
@@ -583,6 +619,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             int demographicId = target.demographicId();
             demographicNo = target.demographicNo();
             consultTargetWriteVerified = true;
+
+            // Before the archive copy, the merge and any attachment are written (#3867).
+            if (!consultAttachmentsVerified(loggedInInfo, consultationRequestId, demographicId, attachedDocuments,
+                    attachedLabs, attachedForms, attachedEForms, attachedHRMDocuments)) {
+                return INPUT;
+            }
 
             try {
                 consultationManager.archiveConsultationRequest(consultationRequestId);

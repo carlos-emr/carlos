@@ -58,6 +58,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -194,9 +195,9 @@ class ERefer2ActionUnitTest {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-            assertThat(response.getContentAsString())
-                    .isEqualTo(ERefer2Action.ATTACHMENTS_NOT_VERIFIED)
-                    .doesNotContain("999");
+            // Status only: the body must not echo the id or say which check failed.
+            assertThat(response.getContentAsString()).isEmpty();
+            assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
             verifyNoInteractions(eReferAttachmentDao);
         }
 
@@ -292,11 +293,16 @@ class ERefer2ActionUnitTest {
         void shouldAttachAllTypes_whenConsultationAndAttachmentsOwned() throws Exception {
             editRequest("D10|D11|L20|E30|H40");
             when(ownershipService.consultationRequestBelongsToDemographic(REQUEST_ID, DEMOGRAPHIC_NO)).thenReturn(true);
-            when(ownershipService.allBelongToDemographic(anyMap(), eq(DEMOGRAPHIC_NO))).thenReturn(true);
 
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<DocumentType, String[]>> verified = ArgumentCaptor.forClass(Map.class);
+            verify(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo), eq(REQUEST_ID),
+                    eq(DEMOGRAPHIC_NO), verified.capture());
+            assertThat(verified.getValue().get(DocumentType.DOC)).containsExactly("10", "11");
+            assertThat(verified.getValue().get(DocumentType.HRM)).containsExactly("40");
             verify(documentAttachmentManager).attachToConsult(loggedInInfo, DocumentType.DOC,
                     new String[]{"10", "11"}, PROVIDER_NO, REQUEST_ID, DEMOGRAPHIC_NO, Boolean.TRUE);
             verify(documentAttachmentManager).attachToConsult(loggedInInfo, DocumentType.LAB,
@@ -312,12 +318,11 @@ class ERefer2ActionUnitTest {
         void shouldRejectWithForbidden_whenRequestIdBelongsToAnotherPatient() throws Exception {
             editRequest("D10");
             when(ownershipService.consultationRequestBelongsToDemographic(REQUEST_ID, DEMOGRAPHIC_NO)).thenReturn(false);
-            when(ownershipService.allBelongToDemographic(anyMap(), eq(DEMOGRAPHIC_NO))).thenReturn(true);
 
             action.execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-            assertThat(response.getContentAsString()).isEqualTo(ERefer2Action.CONSULTATION_NOT_VERIFIED);
+            assertThat(response.getContentAsString()).isEmpty();
             verifyNoInteractions(documentAttachmentManager);
         }
 
@@ -326,13 +331,14 @@ class ERefer2ActionUnitTest {
         void shouldRejectWithForbidden_whenEditAttachmentBelongsToAnotherPatient() throws Exception {
             editRequest("D10|H999");
             when(ownershipService.consultationRequestBelongsToDemographic(REQUEST_ID, DEMOGRAPHIC_NO)).thenReturn(true);
-            when(ownershipService.allBelongToDemographic(anyMap(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
+            doThrow(new SecurityException("attachment does not belong to the consultation patient"))
+                    .when(documentAttachmentManager).verifyConsultAttachments(any(), any(), any(), anyMap());
 
             action.execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-            assertThat(response.getContentAsString()).isEqualTo(ERefer2Action.ATTACHMENTS_NOT_VERIFIED);
-            verifyNoInteractions(documentAttachmentManager);
+            assertThat(response.getContentAsString()).isEmpty();
+            verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -407,6 +413,14 @@ class ERefer2ActionUnitTest {
             assertThat(ERefer2Action.parseAttachments("")).isEmpty();
             assertThat(ERefer2Action.parseAttachments("|")).isEmpty();
             assertThat(List.copyOf(ERefer2Action.parseAttachments("F1").keySet())).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should reject an overflowing form token like any other token")
+        void shouldReturnNull_forOverflowingFormToken() {
+            assertThat(ERefer2Action.parseAttachments("D1|F9999999999")).isNull();
+            assertThat(ERefer2Action.parseAttachments("F2147483648")).isNull();
+            assertThat(ERefer2Action.parseAttachments("F2147483647")).isEmpty();
         }
     }
 }

@@ -614,9 +614,9 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
             return Collections.emptyList();
         }
         Query query = entityManager.createQuery(
-                "select distinct x.id from EFormData x where x.demographicId = ?1 and x.id in (?2)");
-        query.setParameter(1, demographicNo);
-        query.setParameter(2, fdids);
+                "select distinct x.id from EFormData x where x.demographicId = :demographicNo and x.id in (:fdids)");
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("fdids", fdids);
 
         @SuppressWarnings("unchecked")
         List<Integer> owned = query.getResultList();

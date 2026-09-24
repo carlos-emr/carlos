@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -102,6 +103,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -128,6 +131,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     private DocumentManager documentManager;
+
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     @Autowired
     ProviderDao providerDao;
@@ -413,7 +419,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getId() == null) data.setId(response.getId());
 
         //save attachments
-        saveResponseAttachments(data);
+        saveResponseAttachments(data, response.getDemographicNo());
 
         return data;
     }
@@ -796,6 +802,10 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 }
             }
             if (isNew) { //save the new attachment
+                if (!isAttachmentOwnedBy(request.getDemographicId(), newAtth)) {
+                    markUnverifiedAttachment(newAtth);
+                    continue;
+                }
                 consultationManager.saveConsultRequestDoc(getLoggedInInfo(), new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
             }
         }
@@ -806,7 +816,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
     }
 
-    private void saveResponseAttachments(ConsultationResponseTo1 response) {
+    private void saveResponseAttachments(ConsultationResponseTo1 response, Integer demographicNo) {
         List<ConsultationAttachmentTo1> newAttachments = response.getAttachments();
         List<ConsultResponseDoc> currentDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
         if (newAttachments == null || currentDocs == null) return;
@@ -827,6 +837,10 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 }
             }
             if (isNew) { //save the new attachment
+                if (!isAttachmentOwnedBy(demographicNo, newAtth)) {
+                    markUnverifiedAttachment(newAtth);
+                    continue;
+                }
                 consultationManager.saveConsultResponseDoc(getLoggedInInfo(), new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
             }
         }
@@ -835,6 +849,36 @@ public class ConsultationWebService extends AbstractServiceImpl {
         for (ConsultResponseDoc doc : currentDocs) {
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
         }
+    }
+
+    /**
+     * Whether an existing record referenced by a REST attachment belongs to the consultation's
+     * patient (issue #3867). Consultation print, fax and Ocean renderers resolve attachments by id
+     * alone, so an unverified id would disclose another patient's record. Forms have no common
+     * owner column and are accepted as before; unknown type codes are refused.
+     */
+    boolean isAttachmentOwnedBy(Integer demographicNo, ConsultationAttachmentTo1 attachment) {
+        DocumentType type = null;
+        for (DocumentType candidate : DocumentType.values()) {
+            if (candidate.getType().equals(attachment.getDocumentType())) {
+                type = candidate;
+                break;
+            }
+        }
+        if (type == null) {
+            return false;
+        }
+        if (!AttachmentOwnershipService.isVerifiable(type)) {
+            return true;
+        }
+        return attachmentOwnershipService.allBelongToDemographic(type, demographicNo,
+                Collections.singletonList(attachment.getDocumentNo()));
+    }
+
+    private void markUnverifiedAttachment(ConsultationAttachmentTo1 attachment) {
+        // Generic on purpose: the response must not reveal whether the id exists for another patient.
+        MiscUtils.getLogger().warn("saveAttachments: rejected an attachment not owned by the consultation patient");
+        attachment.setValidationError("Attachment could not be verified for this patient");
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,

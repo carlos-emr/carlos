@@ -154,6 +154,27 @@ public interface DocumentAttachmentManager {
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean);
 
     /**
+     * Checks, without writing anything, that every attachment a consultation save would newly add
+     * belongs to the consultation's patient (issue #3867).
+     *
+     * <p>{@link #attachToConsult} enforces the same rule, but a caller that saves the consultation
+     * and then several attachment types performs one write per call; calling this first lets it
+     * reject a bad request before the consultation, or any attachment type, has been written.
+     * Ids already attached to {@code requestId} are not re-checked here: {@code attachToConsult}
+     * detaches those that no longer verify instead of failing the save.</p>
+     *
+     * @param loggedInInfo the current user's session information
+     * @param requestId the consultation being edited, or {@code null} for one not yet saved
+     * @param demographicNo the consultation's patient
+     * @param attachmentsByType submitted attachment ids grouped by type; FORM entries are not checked
+     * @throws SecurityException if the user lacks {@code _con} write for the patient, or if any newly
+     *                           attached DOC/LAB/EFORM/HRM id is malformed, unknown or not the patient's
+     * @since 2026-09-24
+     */
+    public void verifyConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, Integer demographicNo,
+                                         Map<DocumentType, String[]> attachmentsByType);
+
+    /**
      * Attaches documents to an electronic form (eForm).
      *
      * <p>This method associates one or more documents with a specific eForm, allowing healthcare

@@ -24,9 +24,14 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -36,12 +41,14 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -71,6 +78,9 @@ class ConsultationWebServiceRegressionTest {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private AttachmentOwnershipService attachmentOwnershipService;
+
     private ConsultationWebService service;
 
     @BeforeEach
@@ -83,6 +93,49 @@ class ConsultationWebServiceRegressionTest {
         };
         ReflectionTestUtils.setField(service, "documentManager", documentManager);
         ReflectionTestUtils.setField(service, "consultationManager", consultationManager);
+        ReflectionTestUtils.setField(service, "attachmentOwnershipService", attachmentOwnershipService);
+    }
+
+    /**
+     * Issue #3867: the REST consultation save attached any existing record id it was given, and the
+     * consultation print, fax and Ocean renderers resolve attachments by id alone.
+     */
+    @Test
+    @DisplayName("should refuse to attach an existing record that belongs to another patient")
+    void shouldRefuseForeignAttachment_whenSavingRequestAttachments() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        ConsultationAttachmentTo1 owned = existingAttachment(ConsultationAttachmentTo1.TYPE_DOC, 10);
+        ConsultationAttachmentTo1 foreign = existingAttachment(ConsultationAttachmentTo1.TYPE_LAB, 999);
+        request.setAttachments(new ArrayList<>(List.of(owned, foreign)));
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(new ArrayList<>());
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
+        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.DOC, DEMOGRAPHIC_NO, List.of(10))).thenReturn(true);
+        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.LAB, DEMOGRAPHIC_NO, List.of(999))).thenReturn(false);
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        ArgumentCaptor<ConsultDocs> saved = ArgumentCaptor.forClass(ConsultDocs.class);
+        verify(consultationManager).saveConsultRequestDoc(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getAllValues()).extracting(ConsultDocs::getDocumentNo).containsExactly(10);
+        assertThat(foreign.getValidationError()).isEqualTo("Attachment could not be verified for this patient");
+        assertThat(owned.getValidationError()).isNull();
+    }
+
+    @Test
+    @DisplayName("should refuse an attachment with an unknown type code")
+    void shouldRefuseAttachment_whenTypeCodeUnknown() {
+        assertThat(service.isAttachmentOwnedBy(DEMOGRAPHIC_NO, existingAttachment("Z", 1))).isFalse();
+        verify(attachmentOwnershipService, never()).allBelongToDemographic(any(DocumentType.class), any(), any());
+    }
+
+    private static ConsultationAttachmentTo1 existingAttachment(String type, int documentNo) {
+        ConsultationAttachmentTo1 attachment = new ConsultationAttachmentTo1();
+        attachment.setDocumentType(type);
+        attachment.setDocumentNo(documentNo);
+        attachment.setAttached(true);
+        return attachment;
     }
 
     @Test

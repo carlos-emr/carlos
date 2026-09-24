@@ -44,7 +44,9 @@ public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
 
     /**
      * Returns the subset of {@code documentNos} that are linked to the given patient through a
-     * non-deleted {@code ctl_document} row (module {@code demographic}, module_id = patient).
+     * {@code ctl_document} row (module {@code demographic}, module_id = patient) and whose
+     * {@code document} row exists and is not deleted ({@code document.status <> 'D'}, the flag
+     * {@code EDocUtil.deleteDocument} sets).
      *
      * <p>Used as an ownership check before a document id supplied by a browser is attached to,
      * or sent out with, that patient's referral. A document that is unknown, deleted, or linked
