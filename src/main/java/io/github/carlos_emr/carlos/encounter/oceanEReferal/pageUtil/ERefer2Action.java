@@ -63,8 +63,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * attachment by id alone. The server therefore verifies, before anything is stored, that every
  * D/L/E/H id and the consultation request belong to the {@code demographicNo} in the request, via
  * {@link AttachmentOwnershipService}. Any foreign, unknown or malformed id rejects the whole
- * request, and the response does not say which id failed. The endpoint is POST-only: it mutates
- * attachment state, and CSRFGuard only validates unsafe methods.
+ * request, and the response does not say which id failed. Before any of that, the caller must hold
+ * patient-scoped {@code _con} write and be allowed to access the patient's record. The endpoint is
+ * POST-only: it mutates attachment state, and CSRFGuard only validates unsafe methods.
  * </p>
  * <p>
  * This is a 2Action implementation following OpenO EMR's Struts2 migration pattern,
@@ -365,10 +366,20 @@ public class ERefer2Action extends ActionSupport {
         return ids.stream().map(String::valueOf).toArray(String[]::new);
     }
 
-    /** Patient-scoped {@code _con} write check on top of the role-level check in {@link #execute()}. */
+    /**
+     * Patient-scoped checks on top of the role-level check in {@link #execute()}, run before any
+     * ownership lookup or write.
+     *
+     * <p>A patient-scoped {@code _con} write grant is not the circle-of-care check: a provider can
+     * hold {@code _con$<demographicNo>} while being blocked from that patient's chart
+     * ({@code _demographic$}/{@code _eChart$} "o"). Queued attachments are rendered and sent to
+     * Ocean by {@code ConsultationManager#getEReferAttachments}, which requires chart access, so
+     * the queueing side requires it too, as the consultation fax route does before sending PHI.</p>
+     */
     private void requirePatientConsultWrite(Integer demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo.intValue())) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo.intValue())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("missing required sec object (_con)");
         }
     }

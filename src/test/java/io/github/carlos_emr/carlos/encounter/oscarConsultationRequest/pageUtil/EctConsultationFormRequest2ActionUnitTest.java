@@ -154,6 +154,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), eq("1")))
                 .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(true);
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
         when(consultationSignatureService.resolveSignatureProviderNo("999998", "999998", "999998"))
@@ -1006,6 +1007,102 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
         verify(consultationRequestDao, never()).merge(any());
         verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any());
+    }
+
+    /**
+     * A patient-scoped {@code _con} write grant is not the circle-of-care check: attaching records to,
+     * previewing or faxing a consultation discloses the patient's chart, so it also requires access
+     * to the patient's record, before anything is written.
+     */
+    @Test
+    @DisplayName("returns the indistinguishable preview error without rendering when patient record access is denied")
+    void shouldReturnUnavailablePreviewError_whenPatientRecordAccessDenied() throws Exception {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request unavailable.");
+        verify(consultationSignatureService, never()).saveManualSignatureForPreview(any(), anyInt(), anyInt(), any(), any(), any());
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @Test
+    @DisplayName("denies a create that attaches records before any write when patient record access is denied")
+    void shouldDenyCreateWithAttachments_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"10"});
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(consultationRequestDao, never()).persist(any());
+        verifyNoInteractions(documentAttachmentManager, digitalSignatureManager);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("denies an update that attaches records before archiving when patient record access is denied")
+    void shouldDenyUpdateWithAttachments_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setLabNo(new String[] {"20"});
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+        verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("denies an update-and-fax before archiving when patient record access is denied")
+    void shouldDenyUpdateAndFax_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Update And Fax");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.isConsultationFaxEnabled()).thenReturn(true);
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+
+            assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+        }
+
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+        verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("still saves an update with no attachments when patient record access is denied")
+    void shouldSaveUpdateWithoutAttachments_whenPatientRecordAccessDenied() throws Exception {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Update");
+        action.setService("1");
+        action.setSpecialist("0");
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(any(ConsultationRequest.class));
     }
 
     @Test

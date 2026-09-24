@@ -246,6 +246,35 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Requires access to the patient's record when this submission attaches records or discloses the
+     * consultation packet (print preview, fax). A patient-scoped {@code _con} write grant is not the
+     * circle-of-care check: a provider can hold it while blocked from the patient's chart. Runs before
+     * the consultation, its signature or any attachment is written.
+     */
+    private void requirePatientRecordAccessForDisclosure(LoggedInInfo loggedInInfo, int demographicId, String submission,
+                                                         String[]... attachmentLists) {
+        boolean disclosesRecords = submission.endsWith("And Fax") || submission.endsWith("And Print Preview");
+        for (String[] attachments : attachmentLists) {
+            disclosesRecords |= hasAttachmentIds(attachments);
+        }
+        if (disclosesRecords && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+    }
+
+    private static boolean hasAttachmentIds(String[] attachments) {
+        if (attachments == null) {
+            return false;
+        }
+        for (String id : attachments) {
+            if (StringUtils.isNotBlank(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void requireConsultWritePrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_con)");
@@ -325,6 +354,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
 
         if (verification.status() == ConsultationWriteTargetStatus.VERIFIED) {
+            // The preview is the consultation packet with every attachment: same indistinguishable
+            // refusal as a failed write check when the user may not access this patient's record.
+            if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, verification.target().demographicId())) {
+                request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+                return null;
+            }
             return verification.target().demographicNo();
         }
         if (verification.status() == ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC) {
@@ -434,6 +469,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
                 demographicNo = String.valueOf(demographicId);
                 requireConsultWritePrivilege(loggedInInfo, demographicNo);
+                requirePatientRecordAccessForDisclosure(loggedInInfo, demographicId, submission, attachedDocuments,
+                        attachedLabs, attachedForms, attachedEForms, attachedHRMDocuments);
 
                 // Before the signature, the consultation and any attachment are written (#3867).
                 if (!consultAttachmentsVerified(loggedInInfo, null, demographicId, attachedDocuments,
@@ -627,6 +664,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             int demographicId = target.demographicId();
             demographicNo = target.demographicNo();
             consultTargetWriteVerified = true;
+            requirePatientRecordAccessForDisclosure(loggedInInfo, demographicId, submission, attachedDocuments,
+                    attachedLabs, attachedForms, attachedEForms, attachedHRMDocuments);
 
             // Before the archive copy, the merge and any attachment are written (#3867).
             if (!consultAttachmentsVerified(loggedInInfo, consultationRequestId, demographicId, attachedDocuments,
@@ -848,6 +887,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 ConsultationWriteTarget target = verification.target();
                 demographicNo = target.demographicNo();
                 requestId = String.valueOf(target.consultationRequestId());
+                requirePatientRecordAccessForDisclosure(loggedInInfo, target.demographicId(), submission);
             }
 
             String[] faxRecipients = request.getParameterValues("faxRecipients");

@@ -24,6 +24,7 @@ import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDataDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferralAttachmentUtil;
+import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -44,6 +45,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
@@ -73,6 +75,9 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     @Mock
     private AttachmentOwnershipService attachmentOwnershipService;
 
+    @Mock
+    private ConsultationManager consultationManager;
+
     private DocumentAttachmentManagerImpl manager;
 
     @BeforeEach
@@ -81,6 +86,9 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
         injectDependency(manager, "attachmentOwnershipService", attachmentOwnershipService);
+        injectDependency(manager, "consultationManager", consultationManager);
+        // Lenient: only the attach/verify/render paths consult it; the denial tests below override it.
+        lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         registerMock(ConsultDocsDao.class, consultDocsDao);
         registerMock(EFormDocsDao.class, eFormDocsDao);
     }
@@ -383,5 +391,69 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
                 .thenReturn(Set.of());
 
         assertThat(manager.retainOwnedAttachments(DocumentType.EFORM, null, List.of("5"), id -> id)).isEmpty();
+    }
+    /**
+     * A patient-scoped {@code _con} write grant is not the circle-of-care check. Attaching a record
+     * to a consultation queues it for print, fax and Ocean, so it also requires access to the
+     * patient's record, before any ownership lookup or write.
+     */
+    @Test
+    @DisplayName("should deny attaching before any lookup when patient record access is denied")
+    void shouldDenyAttachToConsult_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+        assertThatThrownBy(() -> manager.attachToConsult(
+                loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999", 456, 123, Boolean.TRUE))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verifyNoInteractions(consultDocsDao, attachmentOwnershipService);
+    }
+
+    @Test
+    @DisplayName("should still allow a detach-only call when patient record access is denied")
+    void shouldAllowDetachOnlyAttachToConsult_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.DOC.getType())).thenReturn(List.of());
+
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999", 456, 123);
+
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
+        verifyNoInteractions(attachmentOwnershipService);
+    }
+
+    @Test
+    @DisplayName("should deny verification before any lookup when patient record access is denied")
+    void shouldDenyVerifyConsultAttachments_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+        assertThatThrownBy(() -> manager.verifyConsultAttachments(loggedInInfo, 456, 123,
+                Map.of(DocumentType.LAB, new String[] {"20"})))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verifyNoInteractions(consultDocsDao, attachmentOwnershipService);
+    }
+
+    @Test
+    @DisplayName("should refuse to render the consultation packet when patient record access is denied")
+    void shouldDenyRenderConsultationForm_whenPatientRecordAccessDenied() {
+        org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
+        org.springframework.mock.web.MockHttpSession session = new org.springframework.mock.web.MockHttpSession();
+        LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+        request.setSession(session);
+        request.setAttribute("reqId", "456");
+        request.setAttribute("demographicId", "123");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, 123)).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+        assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request,
+                new org.springframework.mock.web.MockHttpServletResponse()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verifyNoInteractions(consultationManager, attachmentOwnershipService);
     }
 }

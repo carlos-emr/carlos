@@ -300,6 +300,47 @@ class AttachmentOwnershipServiceUnitTest {
         }
     }
 
+    /**
+     * Pins how the lab properties map to {@code patient_lab_routing.lab_type} values, including
+     * Epsilon: the consultation form lists CML routings for Epsilon_LABS, and Epsilon HL7 uploads
+     * are routed as HL7, so no {@code Epsilon} lab type is ever queried.
+     */
+    @Nested
+    @DisplayName("legacyLabTypes")
+    class LegacyLabTypes {
+
+        private java.util.Properties properties(String... keyValues) {
+            java.util.Properties properties = new java.util.Properties();
+            for (int i = 0; i < keyValues.length; i += 2) {
+                properties.setProperty(keyValues[i], keyValues[i + 1]);
+            }
+            return properties;
+        }
+
+        @Test
+        @DisplayName("should map Epsilon labs to CML routings and never to an Epsilon lab type")
+        void shouldMapEpsilonToCmlRouting_whenEpsilonLabsEnabled() {
+            assertThat(AttachmentOwnershipService.legacyLabTypes(properties("Epsilon_LABS", "yes")))
+                    .containsExactly("CML")
+                    .doesNotContain("Epsilon", "EPSILON", PatientLabRoutingDao.HL7);
+        }
+
+        @Test
+        @DisplayName("should map each enabled lab property to its routing type")
+        void shouldMapEachLabProperty_toItsRoutingType() {
+            assertThat(AttachmentOwnershipService.legacyLabTypes(properties(
+                    "CML_LABS", "yes", "MDS_LABS", " yes ", "PATHNET_LABS", "yes", "Epsilon_LABS", "yes")))
+                    .containsExactlyInAnyOrder("CML", "MDS", "BCP");
+        }
+
+        @Test
+        @DisplayName("should enable no legacy lab type unless a property is set to yes")
+        void shouldReturnEmpty_whenNoLabPropertyIsYes() {
+            assertThat(AttachmentOwnershipService.legacyLabTypes(properties(
+                    "CML_LABS", "no", "Epsilon_LABS", "true", "MDS_LABS", ""))).isEmpty();
+        }
+    }
+
     @Nested
     @DisplayName("consultationRequestBelongsToDemographic")
     class ConsultationOwnership {

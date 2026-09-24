@@ -118,8 +118,9 @@ public interface DocumentAttachmentManager {
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
-     * @throws SecurityException if the user lacks the required "_con" write privilege, or if a newly
-     *                           attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
+     * @throws SecurityException if the user lacks the required "_con" write privilege, if any id is
+     *                           submitted and the user may not access the patient's record, or if a
+     *                           newly attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo);
 
@@ -148,8 +149,9 @@ public interface DocumentAttachmentManager {
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
      * @param editOnOcean Boolean true if the consultation was created by OceanMD and requires automatic synchronization, false for standard attach/detach operations
-     * @throws SecurityException if the user lacks the required "_con" write privilege, or if a newly
-     *                           attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
+     * @throws SecurityException if the user lacks the required "_con" write privilege, if any id is
+     *                           submitted and the user may not access the patient's record, or if a
+     *                           newly attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean);
 
@@ -167,7 +169,8 @@ public interface DocumentAttachmentManager {
      * @param requestId the consultation being edited, or {@code null} for one not yet saved
      * @param demographicNo the consultation's patient
      * @param attachmentsByType submitted attachment ids grouped by type; FORM entries are not checked
-     * @throws SecurityException if the user lacks {@code _con} write for the patient, or if any newly
+     * @throws SecurityException if the user lacks {@code _con} write for the patient, if any id is
+     *                           submitted and the user may not access the patient's record, or if any newly
      *                           attached DOC/LAB/EFORM/HRM id is malformed, unknown or not the patient's
      * @since 2026-09-24
      */
@@ -281,6 +284,9 @@ public interface DocumentAttachmentManager {
      * @param response HttpServletResponse the HTTP response for potential streaming operations
      * @return Path the file system path to the rendered PDF document containing the consultation form and attachments
      * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process
+     * @throws SecurityException if the {@code demographicId} attribute is missing or malformed, or the
+     *                           user lacks {@code _con} read for that patient or access to the
+     *                           patient's record
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 

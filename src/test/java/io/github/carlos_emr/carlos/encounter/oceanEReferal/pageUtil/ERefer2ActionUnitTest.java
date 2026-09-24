@@ -111,6 +111,8 @@ class ERefer2ActionUnitTest {
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), anyInt()))
                 .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(DEMOGRAPHIC_NO)))
+                .thenReturn(true);
 
         request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -282,6 +284,19 @@ class ERefer2ActionUnitTest {
                     .hasMessage("missing required sec object (_con)");
             verifyNoInteractions(eReferAttachmentDao, ownershipService);
         }
+
+        @Test
+        @DisplayName("should throw before any ownership lookup when the user cannot access the patient's record")
+        void shouldThrowSecurityException_whenPatientRecordAccessDenied() {
+            attachRequest("D10|L20");
+            when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(DEMOGRAPHIC_NO)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+            verifyNoInteractions(eReferAttachmentDao, ownershipService, documentAttachmentManager);
+        }
     }
 
     @Nested
@@ -339,6 +354,32 @@ class ERefer2ActionUnitTest {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(response.getContentAsString()).isEmpty();
             verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should throw before any ownership lookup or attach when the user cannot access the patient's record")
+        void shouldThrowSecurityException_whenEditPatientRecordAccessDenied() {
+            editRequest("D10");
+            when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(DEMOGRAPHIC_NO)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+            verifyNoInteractions(documentAttachmentManager, ownershipService, eReferAttachmentDao);
+        }
+
+        @Test
+        @DisplayName("should throw before any ownership lookup when patient-level consultation write is denied")
+        void shouldThrowSecurityException_whenEditPatientLevelConsultWriteDenied() {
+            editRequest("D10");
+            when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), eq(DEMOGRAPHIC_NO)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+            verifyNoInteractions(documentAttachmentManager, ownershipService, eReferAttachmentDao);
         }
 
         @Test

@@ -122,13 +122,23 @@ public class AttachmentOwnershipService {
         this.enabledLegacyLabTypes = enabledLegacyLabTypes;
     }
 
+    private static Set<String> legacyLabTypesFromProperties() {
+        return legacyLabTypes(CarlosProperties.getInstance());
+    }
+
     /**
      * The non-HL7 lab routing types whose labs the consultation form lists, mirroring
      * {@code CommonLabResultData}: CML_LABS and Epsilon_LABS list CML-routed labs, MDS_LABS lists
      * MDS, PATHNET_LABS lists BCP. All are off unless set to {@code yes}.
+     *
+     * <p>Epsilon deliberately maps to {@code CML}, not to a {@code patient_lab_routing.lab_type} of
+     * {@code Epsilon}: with Epsilon_LABS on, the consultation form lists
+     * {@code MDSResultsData.populateCMLResultsData}, which reads CML routings only. Epsilon HL7
+     * uploads ({@code EpsilonHandler} through {@code MessageUploader}) are routed as {@code HL7} and
+     * are covered by the HL7 lookup. A legacy {@code Epsilon}-typed routing is never listed on the
+     * form, so it stays unattachable (fail closed) rather than widening what can be attached.</p>
      */
-    private static Set<String> legacyLabTypesFromProperties() {
-        CarlosProperties properties = CarlosProperties.getInstance();
+    static Set<String> legacyLabTypes(java.util.Properties properties) {
         Set<String> types = new HashSet<>();
         if (isYes(properties.getProperty("CML_LABS")) || isYes(properties.getProperty("Epsilon_LABS"))) {
             types.add("CML");
