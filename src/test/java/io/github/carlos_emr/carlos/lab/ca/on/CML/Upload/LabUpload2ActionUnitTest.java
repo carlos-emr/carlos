@@ -47,6 +47,7 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionSystemException;
@@ -331,12 +332,37 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldRemoveNewChecksum_whenTransactionCannotStart() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("no-transaction.hl7"), "MSH|no transaction");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        transactions.failBegin = true;
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
+            stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(7);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // Nothing ran, so nothing was written; a kept checksum would refuse every retry.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            verify(parsers.constructed().get(0), never()).save(any());
+            duplicateCheck.verify(() -> FileUploadCheck.removeFile(7));
+            jdbc.verifyNoInteractions();
+        }
+    }
+
     /** Runs Spring's real commit/rollback lifecycle, including synchronizations, with no database. */
     private static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
         private int begun;
         private int commits;
         private int rollbacks;
         private boolean failCommit;
+        private boolean failBegin;
 
         @Override
         protected Object doGetTransaction() {
@@ -345,6 +371,9 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
         @Override
         protected void doBegin(Object transaction, TransactionDefinition definition) {
+            if (failBegin) {
+                throw new CannotCreateTransactionException("database unavailable");
+            }
             begun++;
         }
 

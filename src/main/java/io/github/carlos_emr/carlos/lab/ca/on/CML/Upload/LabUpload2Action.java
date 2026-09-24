@@ -210,8 +210,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * upload of the same bytes is answered {@code uploadedPreviously}. The parser writes the
      * report, patient, routing and result rows through separate DAOs, so they share one
      * transaction: a failure part-way rolls all of them back. This request's checksum row is
-     * removed only when nothing can have been stored: the parse failed, or the transaction rolled
-     * back before its commit began. If the commit started and then failed, the rows may have been
+     * removed only when nothing can have been stored: the parse failed, the transaction could not
+     * start, or it rolled back before its commit began. If the commit started and then failed, the rows may have been
      * committed, so the checksum is kept and a retry is refused rather than stored twice.</p>
      *
      * @param localFile the archived upload
@@ -219,6 +219,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * @throws Exception when parsing or saving fails, or the commit cannot be confirmed
      */
     private static void storeLab(File localFile, int checksumId) throws Exception {
+        AtomicBoolean bodyEntered = new AtomicBoolean();
         AtomicBoolean commitStarted = new AtomicBoolean();
         AtomicBoolean rolledBackBeforeCommit = new AtomicBoolean();
         boolean parsed = false;
@@ -231,6 +232,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             parsed = true;
             new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
                     .executeWithoutResult(status -> {
+                        bodyEntered.set(true);
                         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                             @Override
                             public void beforeCommit(boolean readOnly) {
@@ -249,7 +251,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             stored = true;
         } finally {
             if (!stored) {
-                if (!parsed || rolledBackBeforeCommit.get()) {
+                // A transaction that never started wrote nothing, so its checksum goes too.
+                if (!parsed || !bodyEntered.get() || rolledBackBeforeCommit.get()) {
                     forgetChecksum(checksumId);
                 } else {
                     MiscUtils.getLogger().error("CML lab commit could not be confirmed; its checksum is kept so a retry is not stored twice");
