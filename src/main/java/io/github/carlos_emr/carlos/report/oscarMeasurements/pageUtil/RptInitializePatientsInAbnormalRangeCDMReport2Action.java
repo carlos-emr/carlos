@@ -376,8 +376,14 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         values.put(key, value);
     }
 
+    /**
+     * Returns a {@code value(key)} form field. Struts 7 never binds these names through
+     * {@link #setValue}, so the posted request parameter is the source; see
+     * {@link MappedFormValues}.
+     */
     public Object getValue(String key) {
-        return values.get(key);
+        Object value = values.get(key);
+        return value != null ? value : MappedFormValues.get(request, key);
     }
 
     private String[] patientSeenCheckbox;
