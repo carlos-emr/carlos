@@ -52,6 +52,15 @@ async function openFlowsheet(session, chart, template, label) {
   return session.popup(chart, link, label);
 }
 
+/**
+ * The row's own add link. Its URL starts with ?measurement=<type>; the "Add all overdue"
+ * link lists every overdue type after ?demographic_no=, so a plain measurement= match can
+ * pick it instead.
+ */
+function rowAddLink(flowsheet, type) {
+  return flowsheet.locator(`a.noborder[onclick*="ViewAddMeasurementData?measurement=${type}"]`).first();
+}
+
 async function selectOptions(page, selector) {
   return page.locator(`${selector} option`).evaluateAll((options) => options
     .map((option) => ({ value: option.value, disabled: option.disabled, selected: option.selected })));
@@ -74,9 +83,10 @@ async function workflow(session) {
     const text = await flowsheet.locator('body').innerText();
     h.assert(text.includes(FTLS_LABEL), 'the diabetes flowsheet does not label FTLS as the 10g monofilament exam');
     h.assert(text.includes(NRTF_LABEL), 'the diabetes flowsheet has no 128Hz tuning fork (NRTF) row');
-    const add = flowsheet.locator('a[onclick*="ViewAddMeasurementData"][onclick*="measurement=NRTF"]').first();
+    const add = rowAddLink(flowsheet, 'NRTF');
     const entry = await session.popup(flowsheet, add, 'nrtf-entry');
-    h.assert(await entry.locator('[name="inputType-0"]').inputValue() === 'NRTF', 'the flowsheet opened the wrong measurement');
+    const opened = await entry.locator('[name="inputType-0"]').inputValue();
+    h.assert(opened === 'NRTF', `the flowsheet's NRTF link opened the entry form for ${opened || 'no measurement'}`);
     const options = await selectOptions(entry, '[name="inputValue-0"]');
     const yes = options.find((option) => /^yes$/i.test(option.value));
     h.assert(yes, 'the NRTF entry does not offer the Yes/No/NA choices FTLS uses');
@@ -90,7 +100,7 @@ async function workflow(session) {
   await session.step('asthma Action Plan offers Provided / Revised / Reviewed and saves one', async () => {
     chart = await session.chart();
     const flowsheet = await openFlowsheet(session, chart, 'ASTH', 'asthma-flowsheet');
-    const add = flowsheet.locator('a[onclick*="ViewAddMeasurementData"][onclick*="measurement=AACP"]').first();
+    const add = rowAddLink(flowsheet, 'AACP');
     const entry = await session.popup(flowsheet, add, 'aacp-entry');
     const values = (await selectOptions(entry, '[name="inputValue-0"]')).map((option) => option.value).filter(Boolean);
     h.assert(JSON.stringify(values) === JSON.stringify(['Provided', 'Revised', 'Reviewed']),
