@@ -268,6 +268,18 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
 
     public List<Object[]> findTypesAndMeasuringInstructionByDemographicId(Integer demoNo);
 
+    /**
+     * Returns every measuring instruction stored on readings of one measurement type.
+     *
+     * <p>Readings keep the instruction that was current when they were saved, so this can include
+     * instructions the {@code measurementType} row no longer carries (for example AACP readings
+     * saved as {@code Yes/No} before it moved to {@code Provided/Revised/Reviewed}).</p>
+     *
+     * @param type the measurement type code, for example {@code AACP}
+     * @return the distinct stored instructions, in no particular order; empty when none
+     */
+    public List<String> findDistinctMeasuringInstructionsByType(String type);
+
     public List<Object[]> findByCreateDate(Date from, Date to);
 
     /**

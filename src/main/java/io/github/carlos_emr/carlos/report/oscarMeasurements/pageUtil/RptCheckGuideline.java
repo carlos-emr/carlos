@@ -141,7 +141,13 @@ public class RptCheckGuideline {
     }
 
     /*****************************************************************************************
-     * Check if the yes/no question met guideline 
+     * Check if a non-numeric (yes/no or categorical) reading met guideline.
+     *
+     * <p>A yes/no guideline keeps its original matching. Any other guideline is a categorical
+     * value, such as the Asthma Action Plan's {@code Provided}, {@code Revised} or
+     * {@code Reviewed} (issue #3893). A reading meets it when it holds the same value, ignoring
+     * surrounding whitespace. Without this branch every categorical reading counted as not
+     * meeting the guideline.</p>
      *
      * @return boolean
      ******************************************************************************************/
@@ -169,6 +175,10 @@ public class RptCheckGuideline {
                 passAllTests = false;
                 MiscUtils.getLogger().debug("fail yesno test");
             }
+        } else {
+            // Categorical guideline: the validation rule that accepted it is case-sensitive, so
+            // an exact match is the same comparison the reading itself was validated with.
+            passAllTests = dataEntry != null && guideline.trim().equals(dataEntry.trim());
         }
         return passAllTests;
     }

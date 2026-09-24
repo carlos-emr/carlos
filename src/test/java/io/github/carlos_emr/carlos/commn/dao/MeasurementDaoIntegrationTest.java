@@ -983,4 +983,45 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             assertThat(result).containsKeys("BP", "WT");
         }
     }
+
+    // ========================================================================
+    // findDistinctMeasuringInstructionsByType
+    // ========================================================================
+
+    @Nested
+    @DisplayName("findDistinctMeasuringInstructionsByType")
+    @Tag("read")
+    class FindDistinctMeasuringInstructionsByType {
+
+        @Test
+        @DisplayName("should return each stored instruction of the type once, including legacy ones")
+        void shouldReturnDistinctInstructions_forType() {
+            // Given: AACP readings saved before and after its instruction changed, plus another type
+            Measurement legacy = createMeasurement(DEMO_NO, "AACP", "Yes", lastWeek);
+            legacy.setMeasuringInstruction("Yes/No");
+            entityManager.persist(legacy);
+            Measurement legacyAgain = createMeasurement(DEMO_NO_2, "AACP", "No", lastWeek);
+            legacyAgain.setMeasuringInstruction("Yes/No");
+            entityManager.persist(legacyAgain);
+            Measurement current = createMeasurement(DEMO_NO, "AACP", "Provided", today);
+            current.setMeasuringInstruction("Provided/Revised/Reviewed");
+            entityManager.persist(current);
+            Measurement other = createMeasurement(DEMO_NO, "SKST", "Yes", today);
+            other.setMeasuringInstruction("Smoking status");
+            entityManager.persist(other);
+            entityManager.flush();
+
+            // When
+            List<String> result = measurementDao.findDistinctMeasuringInstructionsByType("AACP");
+
+            // Then
+            assertThat(result).containsExactlyInAnyOrder("Yes/No", "Provided/Revised/Reviewed");
+        }
+
+        @Test
+        @DisplayName("should return an empty list when no reading of the type exists")
+        void shouldReturnEmpty_whenTypeHasNoReadings() {
+            assertThat(measurementDao.findDistinctMeasuringInstructionsByType("NOPE")).isEmpty();
+        }
+    }
 }

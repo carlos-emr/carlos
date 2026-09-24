@@ -724,6 +724,14 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public List<String> findDistinctMeasuringInstructionsByType(String type) {
+        Query query = createQuery("SELECT DISTINCT m.measuringInstruction", "m", "m.type = ?1");
+        query.setParameter(1, type);
+        return query.getResultList();
+    }
+
+    @Override
     public List<Object[]> findByCreateDate(Date from, Date to) {
         Query query = createQuery("SELECT DISTINCT m.demographicId", "m",
                 "m.createDate >= ?1 AND m.createDate <= ?2");
