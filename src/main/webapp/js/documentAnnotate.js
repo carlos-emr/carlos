@@ -680,8 +680,14 @@
             var a = grabbableAt(event.clientX, event.clientY);
             if (!a) { return false; }
             event.preventDefault();
-            moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0,
-                moved: false, bounds: markBounds(a), drawnWidth: 0 };
+            var start = svg.getBoundingClientRect();
+            // The grab point is kept in page fractions as well as screen pixels: a resize or a
+            // scroll mid-drag moves the page under the pointer, and a pixel delta from the old
+            // layout would then leave the mark drifting away from the pointer.
+            moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY,
+                fx0: start.width ? (event.clientX - start.left) / start.width : 0,
+                fy0: start.height ? (event.clientY - start.top) / start.height : 0,
+                dx: 0, dy: 0, moved: false, bounds: markBounds(a), drawnWidth: 0 };
             state.moves++;
             updateCounts();
             svg.setPointerCapture(event.pointerId);
@@ -721,7 +727,9 @@
             // Measured on every move, not once: the note may still be in the fallback face when
             // the drag starts, and the annotation font arriving mid-drag widens it.
             moving.drawnWidth = noteWidth(moving.a);
-            var d = clampMove(moving.a, px / rect.width, py / rect.height, moving.bounds, moving.drawnWidth);
+            var fx = (event.clientX - rect.left) / rect.width - moving.fx0;
+            var fy = (event.clientY - rect.top) / rect.height - moving.fy0;
+            var d = clampMove(moving.a, fx, fy, moving.bounds, moving.drawnWidth);
             moving.dx = d.dx;
             moving.dy = d.dy;
             // Kept in the shared state, not just on the elements, so a redraw mid-drag can put

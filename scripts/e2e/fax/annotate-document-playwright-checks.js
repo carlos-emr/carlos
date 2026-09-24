@@ -637,6 +637,24 @@ async function main() {
       && Math.abs(hlSaveAfter.y - hlSaveBefore.y + 40) < 3,
       JSON.stringify([saveHeldDuringDrag, saveDuringDrag, hlSaveBefore, hlSaveAfter]));
 
+    // The page moving under the pointer mid-drag (a scroll here; a resize that re-centres the
+    // page is the same) must not leave the mark behind: it follows the pointer on the page.
+    const scrollOverlayBefore = await page.locator('svg.overlay').first().boundingBox();
+    const hlScrollBefore = await settledBox('rect.mark');
+    await page.mouse.move(hlScrollBefore.x + 6, hlScrollBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(hlScrollBefore.x + 6, hlScrollBefore.y + 46, { steps: 6 });
+    await page.evaluate(() => window.scrollBy({ top: 30, behavior: 'instant' }));
+    await page.mouse.move(hlScrollBefore.x + 6, hlScrollBefore.y + 47, { steps: 2 });
+    await page.mouse.up();
+    const scrollOverlayAfter = await page.locator('svg.overlay').first().boundingBox();
+    const hlScrollAfter = await settledBox('rect.mark');
+    const pointerOnPage = 47 + (scrollOverlayBefore.y - scrollOverlayAfter.y);
+    const markOnPage = (hlScrollAfter.y - scrollOverlayAfter.y) - (hlScrollBefore.y - scrollOverlayBefore.y);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    check('a drag keeps the mark under the pointer when the page scrolls mid-drag',
+      Math.abs(markOnPage - pointerOnPage) < 3, JSON.stringify({ pointerOnPage, markOnPage }));
+
     await page.locator('.swatch[data-color="black"]').click();
     await page.locator('.tool[data-tool="draw"]').click();
     await drag(400, 250, 600, 250);
