@@ -395,7 +395,10 @@ async function main() {
       await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
     }
     async function mark(tool = 'highlight') {
-      await page.evaluate(() => window.scrollTo(0, 0));
+      // The viewer's CSS sets scroll-behavior: smooth. A default scrollTo would animate, and the
+      // overlay's bounding box read below could still be the pre-scroll one, putting the whole
+      // stroke off the page. 'instant' makes the scroll complete before the box is measured.
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       if (tool === 'draw') { await page.locator('.swatch[data-color="black"]').click(); }
       await page.locator(`.tool[data-tool="${tool}"]`).click();
       const bounds = await page.locator('svg.overlay').first().boundingBox();
@@ -433,7 +436,7 @@ async function main() {
       await waitForSave();
       check('a mark on the last page saves successfully in a multipage document',
         await page.locator('#status').getAttribute('class') === 'status ok');
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     }
 
     // A successful save must not suppress warnings for subsequent unsaved edits.
