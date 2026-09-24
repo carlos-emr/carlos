@@ -130,11 +130,16 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
 
         // validations.id is auto-increment; a converted OpenO/oscar19 database may number its
         // rules differently, so neither the insert nor the normalizing update may pin id 7.
-        assertThat(sql).contains("WHERE `type` = 'FTLS' AND `validation` IS NOT NULL");
+        assertThat(sql).contains("WHERE ftls.`type` = 'FTLS' AND ftls.`validation` IS NOT NULL");
         // measurementType.validation is NOT NULL, so an unset rule is an empty string: both the
         // rule-seeding guard and the FTLS lookup must skip it, or NRTF would copy '' and be
         // dropped by EctMeasurementTypesBeanHandler (CodeRabbit review on #3900).
-        assertThat(sql.split("`validation` IS NOT NULL AND `validation` <> ''", -1)).hasSize(3);
+        assertThat(sql.split(java.util.regex.Pattern.quote("ftls.`validation` IS NOT NULL AND ftls.`validation` <> ''"), -1)).hasSize(3);
+        // It has no foreign key either: an FTLS id whose validations row was deleted must not be
+        // copied, so both places also require the rule to exist (Copilot review on #3900).
+        assertThat(sql.split(java.util.regex.Pattern.quote(
+                "AND EXISTS (SELECT 1 FROM `validations` vr WHERE vr.`id` = ftls.`validation`)"), -1))
+                .hasSize(3);
         assertThat(sql).doesNotContain("`validation`           = '7'");
         assertThat(sql).doesNotContain("       '7',\n");
         assertThat(sql).contains("`validation`           = @carlos_nrtf_validation");
@@ -157,9 +162,10 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
         String insert = sql.substring(ruleInsert, resolve);
         assertThat(insert).contains("'Yes/No/NA', 'YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA'");
         // Only on a double miss, and never as a duplicate of an existing rule.
-        assertThat(insert).contains("WHERE `type` = 'FTLS' AND `validation` IS NOT NULL");
+        assertThat(insert).contains("WHERE ftls.`type` = 'FTLS' AND ftls.`validation` IS NOT NULL");
         assertThat(insert).contains("WHERE `name` = 'Yes/No/NA'");
-        assertThat(insert).doesNotContain("`id`");
+        // The rule is inserted by name and pattern; it never names an id of its own.
+        assertThat(insert).contains("INSERT INTO `validations` (`name`, `regularExp`)").doesNotContain("(`id`");
     }
 
     private static Element parse(String resource) throws Exception {

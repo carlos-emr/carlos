@@ -180,7 +180,8 @@ public class RptCheckGuideline {
         } else {
             // Categorical guideline: the validation rule that accepted it is case-sensitive, so
             // an exact match is the same comparison the reading itself was validated with.
-            passAllTests = dataEntry != null && guideline.trim().equals(dataEntry.trim());
+            // A blank guideline names no category, so it must not "match" blank readings.
+            passAllTests = !guideline.isBlank() && dataEntry != null && guideline.trim().equals(dataEntry.trim());
         }
         return passAllTests;
     }

@@ -18,6 +18,11 @@
 -- insert-if-missing pattern V1.0.33 uses for its Provided/Revised/Reviewed rule, so the lookup
 -- cannot come back NULL and NRTF never binds to whatever rule happens to own id 7.
 --
+-- measurementType.validation has no foreign key, so an adopted database can keep an FTLS id whose
+-- validations row was deleted. The FTLS rule is used only when that row still exists; a stale id
+-- falls through to the Yes/No/NA rule rather than binding NRTF to a missing rule, which would hide
+-- NRTF from the measurement UI (Copilot review on #3900).
+--
 -- Idempotent. measurementType has no unique key on `type` (only an auto-increment id), so an
 -- ON DUPLICATE KEY UPDATE insert would never match and would add a duplicate row on every rerun;
 -- the insert is guarded with NOT EXISTS instead. The follow-up UPDATE normalizes every field when
@@ -31,7 +36,8 @@ INSERT INTO `validations` (`name`, `regularExp`)
 SELECT 'Yes/No/NA', 'YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA'
 FROM DUAL
 WHERE NOT EXISTS (
-    SELECT 1 FROM `measurementType` WHERE `type` = 'FTLS' AND `validation` IS NOT NULL AND `validation` <> '')
+    SELECT 1 FROM `measurementType` ftls WHERE ftls.`type` = 'FTLS' AND ftls.`validation` IS NOT NULL AND ftls.`validation` <> ''
+      AND EXISTS (SELECT 1 FROM `validations` vr WHERE vr.`id` = ftls.`validation`))
   AND NOT EXISTS (
     SELECT 1 FROM `validations`
     WHERE `name` = 'Yes/No/NA'
@@ -40,9 +46,10 @@ WHERE NOT EXISTS (
 -- Resolved in separate steps so no expression mixes the table collation with the client's
 -- connection collation (a manual MariaDB CLI session may default to utf8mb4_uca1400_ai_ci).
 SET @carlos_nrtf_validation = (
-    SELECT `validation` FROM `measurementType`
-    WHERE `type` = 'FTLS' AND `validation` IS NOT NULL AND `validation` <> ''
-    ORDER BY `id` LIMIT 1);
+    SELECT ftls.`validation` FROM `measurementType` ftls
+    WHERE ftls.`type` = 'FTLS' AND ftls.`validation` IS NOT NULL AND ftls.`validation` <> ''
+      AND EXISTS (SELECT 1 FROM `validations` vr WHERE vr.`id` = ftls.`validation`)
+    ORDER BY ftls.`id` LIMIT 1);
 SET @carlos_nrtf_validation = IFNULL(@carlos_nrtf_validation, (
     SELECT `id` FROM `validations`
     WHERE `name` = 'Yes/No/NA'

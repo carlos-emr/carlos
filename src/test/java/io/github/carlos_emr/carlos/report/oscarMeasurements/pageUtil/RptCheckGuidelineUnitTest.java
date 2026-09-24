@@ -113,4 +113,12 @@ class RptCheckGuidelineUnitTest extends CarlosUnitTestBase {
         assertThat(check.isYesNoMetGuideline("Yes", "Provided")).isFalse();
         assertThat(check.isYesNoMetGuideline(null, "Provided")).isFalse();
     }
+
+    @Test
+    @DisplayName("should not count blank readings as meeting a blank guideline")
+    void shouldRejectBlankReadings_forBlankGuideline() {
+        assertThat(check.isYesNoMetGuideline("", "")).isFalse();
+        assertThat(check.isYesNoMetGuideline("  ", " ")).isFalse();
+        assertThat(check.isYesNoMetGuideline("Provided", "")).isFalse();
+    }
 }
