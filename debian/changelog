@@ -21,8 +21,10 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
     renderer instead (no transitional package, no --no-remove), the postinst
     and `carlos-ctl check` warn not to purge it and name the fix.
   * carlos-emr-drugref (Architecture: all) now depends on carlos-emr
-    (= ${source:Version}) rather than ${binary:Version}, and carlos-emr
-    recommends it the same way, as an arch-all/arch-any pair must.
+    (>= ${source:Version}, << ${source:Version}.1~) rather than
+    (= ${binary:Version}), the binNMU-safe form for an arch-all package
+    depending on an arch-any one; carlos-emr recommends it with
+    (= ${source:Version}).
   * The renderer's provisioning moved into the carlos-emr postinst. One
     behaviour changed: an AppArmor profile that cannot be loaded on a kernel
     that restricts unprivileged user namespaces used to fail the renderer's

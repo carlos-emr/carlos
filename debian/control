@@ -217,9 +217,13 @@ Depends:
  ${misc:Depends},
 # Exact version: the two packages ship one Tomcat instance and one set of
 # database accounts between them, and carlos-emr-drugref's postinst calls
-# carlos-ctl from carlos-emr. ${source:Version} because this package is
-# Architecture: all and carlos-emr is not (lintian: not-binnmuable-all-depends-any).
- carlos-emr (= ${source:Version}),
+# carlos-ctl from carlos-emr. Written as the ${source:Version} range because
+# this package is Architecture: all and carlos-emr is not: an exact version
+# would make DrugRef uninstallable beside a binNMU of carlos-emr (X+b1), and
+# ${binary:Version} is lintian's not-binnmuable-all-depends-any. The range admits
+# exactly this source version and its binNMUs.
+ carlos-emr (>= ${source:Version}),
+ carlos-emr (<< ${source:Version}.1~),
 # mariadb-client (not -core) for the schema load; the -core package has the
 # client but not the tooling the rest of this deployment uses.
  mariadb-client (>= 1:11.4),

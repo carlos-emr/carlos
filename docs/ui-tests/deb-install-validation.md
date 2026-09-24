@@ -340,16 +340,19 @@ carlos-emr carlos-emr/reset-seed-admin boolean true
 carlos-emr carlos-emr/install-demo-data boolean true
 EOF
 lxc file push /tmp/carlos-preseed.txt carlos-test/root/
-lxc file push ../carlos-emr_*_all.deb ../carlos-emr-drugref_*_all.deb \
-              ../carlos-emr-eform-renderer_*_amd64.deb carlos-test/root/
+# From 2026.08.0-alpha14 carlos-emr is _amd64 (it carries the eForm renderer)
+# and carlos-emr-eform-renderer is an empty _all transitional package; earlier
+# builds were carlos-emr_*_all.deb + carlos-emr-eform-renderer_*_amd64.deb.
+lxc file push ../carlos-emr_*_amd64.deb ../carlos-emr-drugref_*_all.deb \
+              ../carlos-emr-eform-renderer_*_all.deb carlos-test/root/
 
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
   debconf-set-selections /root/carlos-preseed.txt
-  apt-get install -y /root/carlos-emr_*_all.deb \
+  apt-get install -y --no-remove /root/carlos-emr_*_amd64.deb \
                      /root/carlos-emr-drugref_*_all.deb \
-                     /root/carlos-emr-eform-renderer_*_amd64.deb'
+                     /root/carlos-emr-eform-renderer_*_all.deb'
 ```
 
 Then verify the deployment before anything else:
@@ -1016,9 +1019,9 @@ upgrade path — schema migrates before the service restarts:
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y --reinstall /root/carlos-emr_*_all.deb \
+  apt-get install -y --reinstall --no-remove /root/carlos-emr_*_amd64.deb \
       /root/carlos-emr-drugref_*_all.deb \
-      /root/carlos-emr-eform-renderer_*_amd64.deb'
+      /root/carlos-emr-eform-renderer_*_all.deb'
 lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
                                            # new migrations counted in flyway_schema_history
 ```

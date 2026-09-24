@@ -229,7 +229,10 @@ def cmd_init_config(argv) -> int:
     # logs and continues, and never blocks deployment.
     chromium = f"{CHROMIUM_DIR}/chrome"
     chromedriver = f"{CHROMIUM_DIR}/chromedriver"
-    if os.path.exists(chromium) and os.path.exists(chromedriver):
+    # EXECUTABLE, not merely present: the same test the postinst (which only
+    # generates render-browser.env for a usable payload) and `carlos-ctl check`
+    # apply, so the three never disagree about whether a browser is installed.
+    if os.access(chromium, os.X_OK) and os.access(chromedriver, os.X_OK):
         prop_set(PROPERTIES, "eform_pdf_browser_chromium_path", chromium)
         # The application CONNECTS to chromedriver; it no longer spawns one. The
         # url-base is a bearer credential generated into render-browser.env at

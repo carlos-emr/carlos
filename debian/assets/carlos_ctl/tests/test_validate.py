@@ -118,25 +118,35 @@ class TestFrontDoorListeners(unittest.TestCase):
 class TestStaleRendererPackage(unittest.TestCase):
     """A pre-merge renderer left in config-files state must be reported before a purge."""
 
-    def run_check(self, postrm_text=None, control_path=None):
+    STATUS = ["dpkg-query", "-W", "-f=${db:Status-Status}", "carlos-emr-eform-renderer"]
+    CONTROL = ["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"]
+
+    def run_check(self, postrm_text=None, control_path=None, status="config-files"):
         with tempfile.TemporaryDirectory() as directory:
             path = control_path
             if postrm_text is not None:
                 path = os.path.join(directory, "carlos-emr-eform-renderer.postrm")
                 with open(path, "w", encoding="utf-8") as fh:
                     fh.write(postrm_text)
+            answers = {tuple(self.STATUS): status, tuple(self.CONTROL): path or ""}
             validate._failures = 0
             text = io.StringIO()
-            with patch.object(validate, "out", return_value=path or "") as out, \
+            with patch.object(validate, "out", side_effect=lambda cmd: answers[tuple(cmd)]), \
                     contextlib.redirect_stdout(text):
                 validate._check_stale_renderer_package()
-            out.assert_called_once_with(
-                ["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"])
             return validate._failures, text.getvalue()
 
+    LEGACY = "#!/bin/sh\ncase \"$1\" in purge) rm -f /etc/carlos-emr/render-browser.env ;; esac\n"
+
+    def test_legacy_postrm_of_an_installed_package_is_not_the_trap(self):
+        self.assertEqual(self.run_check(self.LEGACY, status="installed"), (0, ""))
+        self.assertEqual(self.run_check(self.LEGACY, status="half-configured"), (0, ""))
+
+    def test_absent_package_passes_silently(self):
+        self.assertEqual(self.run_check(status=""), (0, ""))
+
     def test_legacy_postrm_is_reported_with_the_remediation(self):
-        failures, text = self.run_check(
-            "#!/bin/sh\ncase \"$1\" in purge) rm -f /etc/carlos-emr/render-browser.env ;; esac\n")
+        failures, text = self.run_check(self.LEGACY)
         self.assertEqual(failures, 1)
         self.assertIn("Do not purge it", text)
         self.assertIn("carlos-emr-eform-renderer_<version>_all.deb", text)

@@ -30,6 +30,15 @@ acquire_provision_lock() {
     flock -w 300 9
 }
 
+# carlos-emr.service is running or on its way up. is-active alone is false while a
+# unit is still `activating`, which would end a readiness wait before it began.
+emr_alive() {
+    case "$(systemctl is-active carlos-emr.service 2>/dev/null)" in
+        active|activating|reloading) return 0 ;;
+    esac
+    return 1
+}
+
 case "$1" in
     configure)
         # Configuration, installed once. It carries a database password, so it
@@ -181,15 +190,27 @@ case "$1" in
         # leave the EMR down for good. reset-failed clears the start counter (and
         # the failed state) so a restart we asked for on purpose is never refused
         # as a crash loop — see the same guard in carlos-emr.postinst.
-        # Not when the database was unreachable: nothing was provisioned, DrugRef
-        # cannot deploy without its schema, and the wait below would only burn
-        # five minutes before saying so. The dpkg-reconfigure the warning above
-        # asks for does the restart once MariaDB is back.
-        if [ "${DB_READY}" = 1 ] && [ -d /run/systemd/system ] && \
+        if [ -d /run/systemd/system ] && \
            { systemctl is-active --quiet carlos-emr.service || \
              systemctl is-failed --quiet carlos-emr.service; }; then
             systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
-            if deb-systemd-invoke restart carlos-emr.service; then
+            if ! deb-systemd-invoke restart carlos-emr.service; then
+                echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
+                echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2
+            elif [ "${DB_READY}" != 1 ]; then
+                # Restarted anyway -- on an upgrade the new DrugRef webapp must be
+                # loaded even if MariaDB was merely slow -- but not waited for: the
+                # schema may not exist, and the wait would only burn five minutes
+                # before saying what the warning above already said.
+                :
+            elif ! emr_alive; then
+                # A restart can exit 0 without starting anything: the unit's
+                # ConditionPathExists= skips it while the seeded-credential guard
+                # is in place (carlos-emr.postinst explains that state). Nothing
+                # will come up, so do not wait for it.
+                echo "carlos-emr-drugref: the EMR is not running (see carlos-emr's messages above);"
+                echo "carlos-emr-drugref: DrugRef deploys with it when it starts."
+            else
                 # Wait for the redeploy, bounded, as carlos-emr.postinst does after
                 # its own start. Without it this is the last package configured, so
                 # apt returned while Tomcat was still down for the ~2 minute
@@ -202,7 +223,8 @@ case "$1" in
                 # up (200 is accepted too), and 000 / 404 / 503 until then.
                 echo "carlos-emr-drugref: waiting for the EMR to redeploy with DrugRef (a couple of minutes)..."
                 i=0
-                while [ "${i}" -lt 60 ]; do
+                code=""
+                while [ "${i}" -lt 60 ] && emr_alive; do
                     # Match READY positively. curl already prints 000 when it
                     # cannot connect, so an `|| echo 000` fallback turned that
                     # into 000000, which a list of not-ready codes let through:
@@ -216,15 +238,15 @@ case "$1" in
                     sleep 5
                     i=$((i + 1))
                 done
-                if [ "${i}" -ge 60 ]; then
-                    echo "carlos-emr-drugref: WARNING: DrugRef has not answered after five minutes" >&2
-                    echo "carlos-emr-drugref: WARNING: (carlos-ctl logs | grep drugref2)." >&2
-                else
-                    echo "carlos-emr-drugref: DrugRef is deployed."
-                fi
-            else
-                echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
-                echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2
+                # The loop also ends early if the EMR stops (a failed deploy), so
+                # judge by the answer, not by the counter.
+                case "${code:-}" in
+                    200|405) echo "carlos-emr-drugref: DrugRef is deployed." ;;
+                    *)
+                        echo "carlos-emr-drugref: WARNING: DrugRef did not answer after the restart" >&2
+                        echo "carlos-emr-drugref: WARNING: (systemctl status carlos-emr; carlos-ctl logs | grep drugref2)." >&2
+                        ;;
+                esac
             fi
         fi
         ;;

@@ -106,8 +106,13 @@ def _check_stale_renderer_package() -> None:
     deletes render-browser.env and the browser's home and disables
     carlos-emr-chromedriver. The transitional package ships no postrm, so "a
     registered renderer postrm that touches render-browser.env" is exactly that
-    state. Reported before anyone purges.
+    state -- but only in dpkg's config-files state: an old renderer that is
+    still installed (deconfigured mid-transaction) is not the trap. Reported
+    before anyone purges.
     """
+    state = out(["dpkg-query", "-W", "-f=${db:Status-Status}", "carlos-emr-eform-renderer"])
+    if state != "config-files":
+        return
     postrm = out(["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"])
     if not postrm:
         return

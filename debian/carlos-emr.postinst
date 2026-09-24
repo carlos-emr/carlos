@@ -943,8 +943,13 @@ except ValueError:
         # another package's scripts, so make the trap visible instead: the fix is
         # to install the transitional package, whose (absent) postrm replaces it.
         # carlos-ctl check reports the same state.
+        # Only the config-files state is the trap: an old renderer still installed
+        # (e.g. deconfigured mid-transaction) is about to be upgraded or removed by
+        # this very transaction, and saying "was removed" about it would be false.
+        old_renderer_state="$(dpkg-query -W -f='${db:Status-Status}' carlos-emr-eform-renderer 2>/dev/null || true)"
         old_renderer_postrm="$(dpkg-query --control-path carlos-emr-eform-renderer postrm 2>/dev/null || true)"
-        if [ -n "${old_renderer_postrm}" ] && grep -qs 'render-browser.env' "${old_renderer_postrm}"; then
+        if [ "${old_renderer_state}" = config-files ] && [ -n "${old_renderer_postrm}" ] \
+            && grep -qs 'render-browser.env' "${old_renderer_postrm}"; then
             echo "carlos-emr: WARNING: the old carlos-emr-eform-renderer package was removed but" >&2
             echo "carlos-emr: WARNING: not upgraded, and its removal script is still registered." >&2
             echo "carlos-emr: WARNING: Do NOT purge it: that would delete the render browser's token" >&2
