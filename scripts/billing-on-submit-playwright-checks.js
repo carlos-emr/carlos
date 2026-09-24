@@ -93,9 +93,12 @@ function code(name, raw, fallback, { allowPrivate = false } = {}) {
 }
 const demographicNo = digits('BILLING_DEMOGRAPHIC_NO', process.env.BILLING_DEMOGRAPHIC_NO, '1');
 const providerNo = digits('BILLING_PROVIDER_NO', process.env.BILLING_PROVIDER_NO, '999998');
-const billingDate = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
-assert(/^\d{4}-\d{2}-\d{2}$/.test(billingDate), 'BILLING_SUBMIT_DATE must be YYYY-MM-DD');
 const ohipCode = code('BILLING_OHIP_CODE', process.env.BILLING_OHIP_CODE, 'A007A', { allowPrivate: true });
+// The fee lookup takes the latest row dated on or before the bill date. The OHIP default date
+// predates the OMA uninsured fees (effective 2026-01-01), so a private code defaults to today.
+const billingDate = process.env.BILLING_SUBMIT_DATE
+  || (ohipCode.startsWith('_') ? new Date().toISOString().slice(0, 10) : '2024-05-06');
+assert(/^\d{4}-\d{2}-\d{2}$/.test(billingDate), 'BILLING_SUBMIT_DATE must be YYYY-MM-DD');
 const bonusCode = code('BILLING_BONUS_CODE', process.env.BILLING_BONUS_CODE, 'Q040A');
 const dxCode = process.env.BILLING_DX_CODE || '250';
 assert(/^\d{3,4}$/.test(dxCode), 'BILLING_DX_CODE must be a 3-4 digit diagnostic code');

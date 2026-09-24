@@ -131,6 +131,10 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
         // validations.id is auto-increment; a converted OpenO/oscar19 database may number its
         // rules differently, so neither the insert nor the normalizing update may pin id 7.
         assertThat(sql).contains("WHERE `type` = 'FTLS' AND `validation` IS NOT NULL");
+        // measurementType.validation is NOT NULL, so an unset rule is an empty string: both the
+        // rule-seeding guard and the FTLS lookup must skip it, or NRTF would copy '' and be
+        // dropped by EctMeasurementTypesBeanHandler (CodeRabbit review on #3900).
+        assertThat(sql.split("`validation` IS NOT NULL AND `validation` <> ''", -1)).hasSize(3);
         assertThat(sql).doesNotContain("`validation`           = '7'");
         assertThat(sql).doesNotContain("       '7',\n");
         assertThat(sql).contains("`validation`           = @carlos_nrtf_validation");

@@ -31,7 +31,7 @@ INSERT INTO `validations` (`name`, `regularExp`)
 SELECT 'Yes/No/NA', 'YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA'
 FROM DUAL
 WHERE NOT EXISTS (
-    SELECT 1 FROM `measurementType` WHERE `type` = 'FTLS' AND `validation` IS NOT NULL)
+    SELECT 1 FROM `measurementType` WHERE `type` = 'FTLS' AND `validation` IS NOT NULL AND `validation` <> '')
   AND NOT EXISTS (
     SELECT 1 FROM `validations`
     WHERE `name` = 'Yes/No/NA'
@@ -41,7 +41,7 @@ WHERE NOT EXISTS (
 -- connection collation (a manual MariaDB CLI session may default to utf8mb4_uca1400_ai_ci).
 SET @carlos_nrtf_validation = (
     SELECT `validation` FROM `measurementType`
-    WHERE `type` = 'FTLS' AND `validation` IS NOT NULL
+    WHERE `type` = 'FTLS' AND `validation` IS NOT NULL AND `validation` <> ''
     ORDER BY `id` LIMIT 1);
 SET @carlos_nrtf_validation = IFNULL(@carlos_nrtf_validation, (
     SELECT `id` FROM `validations`
