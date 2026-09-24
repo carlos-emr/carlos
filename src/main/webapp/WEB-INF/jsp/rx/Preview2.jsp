@@ -28,6 +28,29 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Preview2.jsp: prescription print preview.
+
+    Purpose: renders the printable prescription for the current Rx session:
+    clinic and practitioner header, patient block, drug lines and signature.
+    ViewScript2.jsp loads it into its preview frame for printing.
+
+    Features:
+    - Reads the prescription from the session RxSessionBean. With no bean in
+      the session the page redirects to error.html instead of rendering.
+    - The prescription text and practitioner number are encoded for their
+      context (html or htmlAttribute) (#3873). Some older clinic header fields
+      are still written unencoded and need the same treatment.
+    - The hidden rx_no_newlines field carries the plain-text prescription that
+      ViewScript2.jsp copies into the encounter note when pasting to the eChart.
+
+    Parameters:
+    - scriptId: optional; the saved prescription to preview.
+
+    Reached through the rx/ViewPreview2 gate action (struts-prescription.xml).
+
+    @since 2004-02-05
+--%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -455,7 +478,7 @@
                                         <%= provider.getClinicCity() %>&nbsp;&nbsp;<%=provider.getClinicProvince()%>&nbsp;&nbsp;
                                         <%= provider.getClinicPostal() %>
                                         <% if (provider.getPractitionerNo() != null && !provider.getPractitionerNo().equals("")) { %>
-                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
+                                        <br><fmt:message key="RxPreview.PractNo"/>:<carlos:encode value='<%= provider.getPractitionerNo() %>'/>
                                         <% } %>
                                         <br>
                                         <%
@@ -630,7 +653,7 @@
                                 &nbsp; <carlos:encode value='<%= doctorName %>' context="html"/>
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
-                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
+                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <carlos:encode value='<%= pracNo %>'/>
                                 <% } %>
                             </td>
                         </tr>
@@ -714,7 +737,8 @@
 
                         <input type="hidden" name="rx"
                                value="<carlos:encode value='<%= strRxForPdf %>' context="htmlAttribute"/>"/>
-                        <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
+                        <input type="hidden" name="rx_no_newlines"
+                               value="<carlos:encode value='<%= strRxNoNewLines.toString() %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>
                     </table>

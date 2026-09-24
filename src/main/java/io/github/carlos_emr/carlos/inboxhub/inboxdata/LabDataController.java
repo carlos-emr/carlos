@@ -151,7 +151,7 @@ public class LabDataController {
      *
      * <p>Supported result types and their display destinations:</p>
      * <ul>
-     *   <li><b>MDS</b>: Routed to /SegmentDisplay.jsp for Medical Data Systems results</li>
+     *   <li><b>MDS</b>: Routed to /oscarMDS/ViewSegmentDisplay for Medical Data Systems results</li>
      *   <li><b>CML</b>: Routed to /lab/CA/ON/ViewCMLDisplay for Ontario CML lab results</li>
      *   <li><b>HL7 TEXT</b>: Routes based on discipline/category:
      *     <ul>
@@ -182,7 +182,7 @@ public class LabDataController {
             LabResultData labResult = results.get(i);
             //Setting inbox item type:
             if (labResult.isMDS()) {
-                url.append("/SegmentDisplay.jsp?");
+                url.append("/oscarMDS/ViewSegmentDisplay?");
             }
             else if (labResult.isCML()) {
                 url.append("/lab/CA/ON/ViewCMLDisplay?");
