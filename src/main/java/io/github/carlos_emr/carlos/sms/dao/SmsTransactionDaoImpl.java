@@ -42,6 +42,39 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         return query.getResultList();
     }
 
+    /**
+     * One page of a patient's messages, newest first. The id tie-breaker keeps rows created in the same
+     * instant in a fixed order, so consecutive pages never repeat or skip a row.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<SmsTransaction> findByDemographicNo(Integer demographicNo, int offset, int limit) {
+        if (demographicNo == null) {
+            return List.of();
+        }
+        TypedQuery<SmsTransaction> query = entityManager.createQuery(
+                "SELECT t FROM SmsTransaction t WHERE t.demographicNo = :demographicNo "
+                        + "ORDER BY t.createdAt DESC, t.id DESC",
+                SmsTransaction.class
+        );
+        query.setParameter("demographicNo", demographicNo);
+        query.setFirstResult(Math.max(0, offset));
+        query.setMaxResults(safeLimit(limit));
+        return query.getResultList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countByDemographicNo(Integer demographicNo) {
+        if (demographicNo == null) {
+            return 0L;
+        }
+        return entityManager.createQuery(
+                        "SELECT COUNT(t) FROM SmsTransaction t WHERE t.demographicNo = :demographicNo", Long.class)
+                .setParameter("demographicNo", demographicNo)
+                .getSingleResult();
+    }
+
     @Override
     @Transactional(readOnly = true)
     public Optional<SmsTransaction> findByProviderMessageId(SmsProviderType providerType, String providerMessageId) {

@@ -94,6 +94,13 @@
             <result name="apptResults">/WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp</result>
         </action>
 
+        <!-- Patient SMS history popup and its POST-only, audited "show message" (#3839). -->
+        <action name="sms/ViewSmsHistory"
+                class="io.github.carlos_emr.carlos.sms.web.ViewSmsHistory2Action">
+            <result name="success">/WEB-INF/jsp/sms/smsHistory.jsp</result>
+            <result name="message">/WEB-INF/jsp/sms/smsMessageBody.jsp</result>
+        </action>
+
         <action name="demographic/DemographicApptHistory"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicApptHistory2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicappthistory.jsp</result>

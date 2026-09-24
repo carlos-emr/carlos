@@ -552,6 +552,15 @@ public class SmsTransaction extends AbstractModel<Long> {
         return messageBodySha256;
     }
 
+    /**
+     * Whether the full message text is still stored, without reading it. A consent-blocked row keeps
+     * only the body length and hash, so there is nothing to open, and asking the audited read path
+     * would record a read of nothing.
+     */
+    public boolean hasStoredMessageBody() {
+        return messageBody != null;
+    }
+
     public int getMessageBodyLength() {
         return messageBodyLength;
     }

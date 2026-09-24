@@ -25,6 +25,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("model")
 class SmsTransactionUnitTest {
     @Test
+    @DisplayName("hasStoredMessageBody reports stored text without reading it, and false once consent discards it")
+    void shouldReportStoredBody_untilConsentBlockDiscardsIt() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assertThat(transaction.hasStoredMessageBody()).isTrue();
+
+        transaction.markConsentBlocked(SmsConsentDecisionDto.blocked(
+                SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN", "No SMS consent is recorded for this patient."));
+
+        assertThat(transaction.hasStoredMessageBody()).isFalse();
+        assertThat(transaction.getMessageBodyLength()).isEqualTo("Appointment reminder".length());
+    }
+
+    @Test
     @DisplayName("transaction type exposes only supported SMS workflows")
     void shouldExposeSupportedValues_whenReadingTransactionTypes() {
         assertThat(SmsMessagePurpose.values())
