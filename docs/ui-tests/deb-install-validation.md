@@ -455,8 +455,9 @@ lxc exec carlos-test -- bash -c '
 
 Do not run `playwright install` on Ubuntu 26.04 with Playwright 1.60.0: that
 Playwright release does not recognise the `ubuntu26.04-x64` host platform. The
-`carlos-emr-eform-renderer` package already supplies the release-pinned Chromium
-and its runtime dependencies. Using it also makes the suite exercise the exact
+`carlos-emr` package already supplies the release-pinned Chromium and its
+runtime dependencies (before 2026.08.0-alpha14 the separate
+`carlos-emr-eform-renderer` package did). Using it also makes the suite exercise the exact
 browser shipped to operators instead of a second downloaded browser.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture

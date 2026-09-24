@@ -33,7 +33,9 @@ Contents
 0. Getting the packages
 -----------------------
 
-Release builds of both packages are attached to every CARLOS GitHub release
+Release builds of the packages (carlos-emr for amd64, carlos-emr-drugref, and
+the empty transitional carlos-emr-eform-renderer) are attached to every CARLOS
+GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
@@ -689,7 +691,21 @@ preinst stops the service and timers before unpack — replacing the exploded
 webapp underneath a running JVM is not safe), replaces the webapp, re-renders
 the derived configuration, runs `carlos-ctl db-migrate`, and starts the
 service again. Plan the maintenance window for the whole operation: unpack of
-the ~400 MB webapp plus migration plus the ~2-minute redeploy.
+the ~400 MB webapp plus migration plus the ~2-minute redeploy. In the standard
+transaction (carlos-emr with carlos-emr-drugref) the application deploys
+TWICE: once when carlos-emr starts it, and again when carlos-emr-drugref
+restarts it to load DrugRef. apt returns only after DrugRef answers, so a
+`carlos-ctl check` straight afterwards reflects the finished system; allow
+about four minutes, and up to ten on a slow host.
+
+Upgrading from 2026.08.0-alpha13 or earlier: the eForm renderer, then its own
+package, is now part of carlos-emr. Include
+carlos-emr-eform-renderer_<version>_all.deb (the empty transitional package)
+in the same apt command, with --no-remove, so the old renderer package is
+upgraded rather than removed. Its browser, service, AppArmor profile and
+render token move into carlos-emr unchanged. If apt removed it instead,
+`carlos-ctl check` reports it: do not purge it, install the transitional
+package first.
 
 Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings

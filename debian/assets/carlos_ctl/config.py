@@ -221,9 +221,10 @@ def cmd_init_config(argv) -> int:
     # (eform_pdf_browser_service_url) and never spawns or downloads a driver.
     #
     # The probe follows the browser rather than being hard-off: with no browser
-    # installed (a SKIP_EFORM_RENDERER development build, or a pre-2026.08.0~alpha14
-    # install without the then-separate renderer package) it could only fail and log an error burst on every boot, but
-    # once one IS installed a silent probe is worse than none — a broken
+    # installed (a SKIP_EFORM_RENDERER development build, or a
+    # pre-2026.08.0~alpha14 install without the then-separate renderer package)
+    # it could only fail and log an error burst on every boot, but once one IS
+    # installed a silent probe is worse than none — a broken
     # renderer then surfaces as a failed print mid-consultation instead of one
     # WARN at startup. "warn" is the application's own documented default; it
     # logs and continues, and never blocks deployment.

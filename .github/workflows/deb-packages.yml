@@ -11,7 +11,7 @@
 # SBOM, and this workflow downloads that WAR, builds the .debs, attaches them,
 # and only then flips the release to published. The order matters because the
 # repository enables immutable releases — assets cannot be added once a release
-# is published, so every asset (WAR, SBOM, both .debs) must be in place while it
+# is published, so every asset (WAR, SBOM, every .deb) must be in place while it
 # is still a draft.
 #
 #   * The deb ships the release's OWN WAR, downloaded from the draft and
@@ -293,7 +293,7 @@ jobs:
         if: env.SKIP != 'true'
         run: |
           set -euo pipefail
-          # Every asset (WAR, SBOM, both .debs) is now attached to the draft.
+          # Every asset (WAR, SBOM, every .deb) is now attached to the draft.
           # Flip it to published — this is the point the release becomes
           # immutable. The latest-pointer decision lives here (not in
           # publish-release.yml) because the release is only published once all
