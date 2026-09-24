@@ -122,6 +122,14 @@ class ConsultationWebServiceEndpointTest extends CarlosRestTestBase {
         injectDependency(service, "clinicDAO", mockClinicDAO);
         injectDependency(service, "userPropertyDAO", mockUserPropertyDAO);
         injectDependency(service, "consultationServiceDao", mockConsultationServiceDao);
+        // Attachment listing filters attached rows by the consultation patient (issue #3867); a real
+        // ownership service over mocked lookups keeps the endpoint wiring realistic.
+        injectDependency(service, "attachmentOwnershipService", new io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService(
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.EFormDataDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.class)));
         return service;
     }
 

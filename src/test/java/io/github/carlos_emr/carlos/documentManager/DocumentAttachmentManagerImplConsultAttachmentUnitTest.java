@@ -19,8 +19,11 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDataDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferralAttachmentUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -37,9 +40,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -235,6 +240,38 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
      * or re-filed since) must not survive a re-save, but it must not block the save either: the
      * user cannot remove it from the form. It is detached and the save continues.
      */
+    /**
+     * Issue #3867 review: detaching a legacy foreign row on an Ocean edit must only touch this
+     * patient's Ocean queue, never another patient's queue row for the same document id.
+     */
+    @Test
+    @DisplayName("should scope the Ocean queue removal to the consultation patient when detaching on an Ocean edit")
+    void shouldScopeOceanDetachToPatient_whenDetachingOnOceanEdit() {
+        int demographicNo = 123;
+        int requestId = 456;
+        ConsultDocs legacyForeign = new ConsultDocs(requestId, 555, DocumentType.DOC.getType(), "999");
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+                .thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+                .thenReturn(List.of(legacyForeign));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(555)))
+                .thenReturn(Set.of());
+        when(consultDocsDao.findByRequestIdDocNoDocType(requestId, 555, DocumentType.DOC.getType()))
+                .thenReturn(List.of(legacyForeign));
+
+        // The utility resolves its DAOs in a static initializer that instrumentation runs.
+        registerMock(EReferAttachmentDataDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDataDaoImpl.class));
+        registerMock(EReferAttachmentDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDaoImpl.class));
+        try (MockedStatic<OceanEReferralAttachmentUtil> ocean = mockStatic(OceanEReferralAttachmentUtil.class)) {
+            manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"555"}, "999", requestId, demographicNo, Boolean.TRUE);
+
+            ocean.verify(() -> OceanEReferralAttachmentUtil.detachOceanEReferralConsult("555", demographicNo, DocumentType.DOC.getType()));
+            ocean.verifyNoMoreInteractions();
+        }
+        assertThat(legacyForeign.getDeleted()).isEqualTo("Y");
+    }
+
     @Test
     @DisplayName("should detach an already attached id that no longer belongs to the patient without failing the save")
     void shouldDetachExistingAttachment_whenNoLongerOwnedByPatient() {

@@ -14,10 +14,15 @@ public class OceanEReferralAttachmentUtil {
     private static EReferAttachmentDataDaoImpl eReferAttachmentDataDao = SpringUtils.getBean(EReferAttachmentDataDaoImpl.class);
     private static EReferAttachmentDaoImpl eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDaoImpl.class);
 
-    public static void detachOceanEReferralConsult(String docId, String type) {
+    /**
+     * Removes the document from this patient's pending Ocean eReferral queue. Scoped to
+     * {@code demographicNo} (issue #3867): the same document id may be queued for another patient,
+     * for example when a legacy foreign consultation row is detached, and that row must stay.
+     */
+    public static void detachOceanEReferralConsult(String docId, Integer demographicNo, String type) {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR_OF_DAY, -1);
-        EReferAttachmentData eReferAttachmentData = eReferAttachmentDataDao.getRecentByDocumentId(Integer.parseInt(docId), type, calendar.getTime());
+        EReferAttachmentData eReferAttachmentData = eReferAttachmentDataDao.getRecentByDocumentId(Integer.parseInt(docId), type, demographicNo, calendar.getTime());
         if (eReferAttachmentData == null) {
             return;
         }

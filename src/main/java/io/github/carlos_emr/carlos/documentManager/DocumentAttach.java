@@ -190,7 +190,7 @@ public class DocumentAttach {
             }
 
             if (editOnOcean) {
-                OceanEReferralAttachmentUtil.detachOceanEReferralConsult(docId, documentType.getType());
+                OceanEReferralAttachmentUtil.detachOceanEReferralConsult(docId, demographicNo, documentType.getType());
             }
         }
     }

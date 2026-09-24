@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
@@ -239,6 +240,47 @@ class ConsultationWebServiceRegressionTest {
             assertThat(attachments).extracting(ConsultationAttachmentTo1::getDocumentNo).containsExactly(10);
             eDocUtil.verify(() -> EDocUtil.listDocs(any(), eq("999"), any(), anyBoolean()), never());
         }
+    }
+
+    @Test
+    @DisplayName("should list only the stored patient's attached labs for a consultation request")
+    void shouldOmitForeignAttachedLab_whenListingRequestAttachments() {
+        ConsultationRequest stored = new ConsultationRequest();
+        stored.setDemographicId(DEMOGRAPHIC_NO);
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(stored);
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            // LabResultData resolves beans in its static initializer; build the labs under the mock.
+            LabResultData ownLab = lab("30");
+            LabResultData foreignLab = lab("31");
+            assertOnlyOwnLabListed(ownLab, foreignLab);
+        }
+    }
+
+    private void assertOnlyOwnLabListed(LabResultData ownLab, LabResultData foreignLab) {
+        try (MockedStatic<EDocUtil> eDocUtil = mockStatic(EDocUtil.class);
+             MockedStatic<EFormUtil> eFormUtil = mockStatic(EFormUtil.class);
+             MockedConstruction<CommonLabResultData> labs = mockConstruction(CommonLabResultData.class,
+                     (labData, context) -> when(labData.populateLabResultsData(loggedInInfo, "123", "456", true))
+                             .thenReturn(new ArrayList<>(List.of(ownLab, foreignLab))))) {
+            eDocUtil.when(() -> EDocUtil.listDocs(loggedInInfo, "123", "456", true)).thenReturn(new ArrayList<>());
+            eFormUtil.when(() -> EFormUtil.listPatientEFormsShowLatestOnly("123")).thenReturn(new ArrayList<>());
+            when(attachmentOwnershipService.retainAttachable(eq(DocumentType.DOC), eq(DEMOGRAPHIC_NO), any(), any()))
+                    .thenReturn(List.of());
+            when(attachmentOwnershipService.retainAttachable(eq(DocumentType.LAB), eq(DEMOGRAPHIC_NO), eq(List.of(ownLab, foreignLab)), any()))
+                    .thenReturn(List.of(ownLab));
+
+            List<ConsultationAttachmentTo1> attachments = service.getRequestAttachments(456, 999, true);
+
+            assertThat(attachments).extracting(ConsultationAttachmentTo1::getDocumentNo).containsExactly(30);
+            assertThat(attachments).extracting(ConsultationAttachmentTo1::getDocumentType).containsExactly(ConsultationAttachmentTo1.TYPE_LAB);
+        }
+    }
+
+    private static LabResultData lab(String segmentId) {
+        LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+        lab.setSegmentID(segmentId);
+        lab.setLabPatientId(segmentId);
+        return lab;
     }
 
     @Test
