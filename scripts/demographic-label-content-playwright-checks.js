@@ -5,6 +5,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openPrintMenu, assertIsPdf } = require('./demographic-labels-playwright-checks');
+const { contextPathOf } = require('./anonymous-access-refused-playwright-checks');
 
 function assertPatientText(text, surname, address) {
   const compact = value => value.replace(/\s+/g, '');
@@ -13,18 +14,21 @@ function assertPatientText(text, surname, address) {
 }
 // With new_label_print=true each menu item opens a ViewPrint* HTML wrapper whose
 // iframe#pdf holds the real document; the legacy setting opens the PDF itself.
-// The iframe src is relative to the wrapper and must stay inside the application.
-function resolvePdfUrl(popupUrl, iframeSrc) {
+// The iframe src is relative to the wrapper and must stay inside THIS application:
+// same origin AND under the configured context path, not another app on the host.
+function resolvePdfUrl(popupUrl, iframeSrc, baseUrl) {
   if (!iframeSrc) return popupUrl;
   const target = new URL(iframeSrc, popupUrl);
-  h.assert(target.origin === new URL(popupUrl).origin, 'Label wrapper embedded a PDF from another origin');
+  const contextPath = contextPathOf(baseUrl);
+  h.assert(target.origin === new URL(baseUrl).origin && target.pathname.startsWith(`${contextPath}/`),
+    'Label wrapper embedded a PDF from outside the CARLOS application');
   return target.href;
 }
-async function pdfUrlFor(produced) {
+async function pdfUrlFor(produced, baseUrl) {
   if (produced.kind !== 'popup' || !produced.page) return produced.url;
   const frame = produced.page.locator('iframe#pdf');
   const src = await frame.count() > 0 ? await frame.first().getAttribute('src') : null;
-  return resolvePdfUrl(produced.url, src);
+  return resolvePdfUrl(produced.url, src, baseUrl);
 }
 async function workflow(s) {
   try { execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 }); }
@@ -38,7 +42,7 @@ async function workflow(s) {
       const produced = await ui.clickDownloadsOrOpens(s.master, menu.getByRole('link', { name: label, exact: true }),
         { context: s.context, recorder: s.recorder, label: 'owned-label', timeout: 30000 });
       try {
-        const response = await s.context.request.get(await pdfUrlFor(produced), { maxRedirects: 0 });
+        const response = await s.context.request.get(await pdfUrlFor(produced, s.config.baseUrl), { maxRedirects: 0 });
         const bytes = await response.body();
         assertIsPdf({ label }, response.status(), response.headers()['content-type'] || '', bytes);
         const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
