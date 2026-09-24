@@ -56,7 +56,9 @@ async function workflow(s) {
     await page.close();
     // The Forms module heading is the chart's own control for the saved forms list;
     // the per-form shortcut anchors are not rendered for a freshly saved record.
-    const list = await s.popup(chart, chart.locator('h3[onclick*="/encounter/ViewFormlist"]').first(), 'rh-form-list');
+    const formsHeading = chart.locator('h3[onclick*="/encounter/ViewFormlist"]');
+    h.assert(await formsHeading.count() === 1, 'Chart did not render exactly one Forms module heading');
+    const list = await s.popup(chart, formsHeading, 'rh-form-list');
     const savedLinks = list.locator('a').filter({ hasText: formName });
     h.assert(await savedLinks.count() === 1, 'Patient saved forms list did not show exactly one owned RH form');
     page = await s.popup(list, savedLinks.first(), 'rh-reopen');
@@ -88,8 +90,11 @@ async function workflow(s) {
       // interrupted run, never blocks RH writes for anyone else.
       s.sql.execute(`DELIMITER //
         CREATE TRIGGER ${name} BEFORE ${operation} ON formRhImmuneGlobulin
-        FOR EACH ROW IF NEW.demographic_no=${s.patient} THEN
-          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='RH rollback probe'; END IF//`);
+        FOR EACH ROW BEGIN
+          IF NEW.demographic_no=${s.patient} THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='RH rollback probe';
+          END IF;
+        END//`);
     }
     const count = s.sql.value(formCount);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
