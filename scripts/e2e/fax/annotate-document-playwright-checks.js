@@ -510,6 +510,8 @@ async function main() {
     const ov = await page.locator('svg.overlay').first().boundingBox();
     const markCount = async () => Number(await page.locator('#markCount').textContent());
     const boxOf = selector => page.locator('svg.overlay').first().locator(selector).first().boundingBox();
+    // Every press below lands above y ~ 570 of the overlay: with the overlay starting ~140 px
+    // down, anything lower falls outside the default 720 px viewport and never reaches the page.
     async function drag(x0, y0, x1, y1) {
       await page.mouse.move(ov.x + x0, ov.y + y0);
       await page.mouse.down();
@@ -544,10 +546,10 @@ async function main() {
 
     await page.locator('.swatch[data-color="black"]').click();
     await page.locator('.tool[data-tool="draw"]').click();
-    await drag(400, 600, 600, 600);
+    await drag(400, 250, 600, 250);
     await page.locator('.tool[data-tool="select"]').click();
     const inkBefore = await boxOf('g.mark[data-kind="stroke"]');
-    await drag(500, 600, 500, 700);
+    await drag(500, 250, 500, 350);
     const inkAfter = await boxOf('g.mark[data-kind="stroke"]');
     check('select moves an ink stroke by its hit area', Math.abs(inkAfter.y - inkBefore.y - 100) < 3 && await markCount() === 3,
       JSON.stringify([inkBefore, inkAfter]));
