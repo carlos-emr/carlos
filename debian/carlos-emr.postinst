@@ -762,9 +762,9 @@ except ValueError:
         if command -v mariadb >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
             # A fresh mariadb-server install may not have finished starting.
             sd_invoke start mariadb.service >/dev/null 2>&1 || true
-            i=0
-            while [ "${i}" -lt 30 ] && ! mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; do
-                sleep 2; i=$((i + 1))
+            deadline=$(( $(uptime_s) + 60 ))  # every probe capped too (hung server)
+            while [ "$(uptime_s)" -lt "${deadline}" ] && ! timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+                sleep 2
             done
         fi
 
@@ -802,7 +802,7 @@ except ValueError:
                 esac
             fi
             if [ "${ELIGIBLE}" = 1 ]; then
-                if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+                if timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; then
                     OSCAR_SCHEMA="$(mariadb --protocol=socket --user=root -N -B \
                         -e "SHOW DATABASES LIKE 'oscar'" 2>/dev/null || true)"
                     if [ -z "${OSCAR_SCHEMA}" ]; then
@@ -1128,7 +1128,7 @@ except ValueError:
             echo "carlos-emr:   sudo carlos-ctl import-o19 --cleanup" >&2
             echo "carlos-emr: Once the copy has started --cleanup refuses; finish with --resume," >&2
             echo "carlos-emr: or restore the pre-import snapshot." >&2
-        elif mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+        elif timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; then
             # mariadb-server was already running when this package's drop-in
             # was unpacked, so it is still on distribution defaults — STRICT
             # sql_mode and no binary log, neither of which this deployment can
