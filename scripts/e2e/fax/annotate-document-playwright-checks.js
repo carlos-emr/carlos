@@ -1000,6 +1000,46 @@ async function main() {
       JSON.stringify([inksBeforeSwitch, await inkStroke().count(), highlightsBeforeSwitch, await highlightRects(), blackStroke, switchedStroke]));
     await page.locator('.swatch[data-color="yellow"]').click();
 
+    // A click on a mark is dispatched by the tool the press started in, not the toolbar at
+    // release. A second pointer (a programmatic click) switching Select to Text mid-press must
+    // still delete the pressed signature, not stamp a text note; and switching Text to Signature
+    // mid-press on a note must still open the note, not stamp a signature over it.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const switchBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="signature"]').click();
+    // Kept inside the viewport: a synthetic click below it lands nowhere.
+    await page.mouse.click(switchBox.x + switchBox.width * 0.55, switchBox.y + 300);
+    const switchSig = await page.locator('svg.overlay').first().locator('g.mark[data-kind="placed"]').last().boundingBox();
+    const marksBeforeSwitchClick = await markCount();
+    let promptedOnSwitch = false;
+    const noteSwitchPrompt = dialog => { promptedOnSwitch = true; dialog.dismiss(); };
+    page.on('dialog', noteSwitchPrompt);
+    await page.locator('.tool[data-tool="select"]').click();
+    await page.mouse.move(switchSig.x + 12, switchSig.y + 12);
+    await page.mouse.down();
+    await page.locator('.tool[data-tool="text"]').evaluate(button => button.click());
+    await page.mouse.up();
+    const marksAfterSwitchClick = await markCount();
+    check('a tool change mid-press still deletes the pressed signature in select',
+      marksAfterSwitchClick === marksBeforeSwitchClick - 1 && !promptedOnSwitch,
+      JSON.stringify([marksBeforeSwitchClick, marksAfterSwitchClick, promptedOnSwitch]));
+    page.off('dialog', noteSwitchPrompt);
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note pressed under a tool switch'));
+    await page.mouse.click(switchBox.x + switchBox.width * 0.55, switchBox.y + 340);
+    const switchNote = await page.locator('svg.overlay').first().locator('text.mark').last().boundingBox();
+    const marksBeforeNoteSwitch = await markCount();
+    promptedOnSwitch = false;
+    page.on('dialog', noteSwitchPrompt);
+    await page.mouse.move(switchNote.x + 4, switchNote.y + 4);
+    await page.mouse.down();
+    await page.locator('.tool[data-tool="signature"]').evaluate(button => button.click());
+    await page.mouse.up();
+    page.off('dialog', noteSwitchPrompt);
+    check('a tool change mid-press still opens the pressed note in the text tool',
+      promptedOnSwitch && await markCount() === marksBeforeNoteSwitch,
+      JSON.stringify([promptedOnSwitch, marksBeforeNoteSwitch, await markCount()]));
+
     // Hold an actual server save response; attempted edits must not re-enable duplicate submission.
     let releaseSave;
     const hold = new Promise(resolve => { releaseSave = resolve; });

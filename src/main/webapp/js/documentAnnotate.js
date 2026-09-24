@@ -572,15 +572,17 @@
      * A press on a mark that was released without moving it. A note opens for editing (from
      * select, text or date); select deletes anything else. In a placing tool the click otherwise
      * does what it did before marks could be grabbed: it places a new mark at that point, so a
-     * date can still be stamped inside a signature box.
+     * date can still be stamped inside a signature box. The tool and colour are the gesture's
+     * own, recorded at the press: a second pointer switching the toolbar before the release
+     * must not turn a select click into a placement, or a note click into a delete.
      */
-    function markClicked(a, page, nx, ny) {
-        if (isEditableText(a) && (state.tool === 'select' || state.tool === 'text' || state.tool === 'date')) {
+    function markClicked(a, page, nx, ny, tool, color) {
+        if (isEditableText(a) && (tool === 'select' || tool === 'text' || tool === 'date')) {
             editText(a);
-        } else if (state.tool === 'select') {
+        } else if (tool === 'select') {
             removeAnnotation(a.id);
         } else {
-            placePoint(page, nx, ny);
+            placePoint(page, nx, ny, tool, color);
         }
     }
 
@@ -637,7 +639,7 @@
             var ny = (event.clientY - rect.top) / rect.height;
 
             if (state.tool === 'text' || state.tool === 'date' || state.tool === 'signature') {
-                placePoint(page, nx, ny);
+                placePoint(page, nx, ny, state.tool, state.color);
                 return;
             }
             if (state.tool === 'highlight') { fetchWordBoxes(page); }
@@ -721,7 +723,8 @@
             moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY,
                 fx0: start.width ? (event.clientX - start.left) / start.width : 0,
                 fy0: start.height ? (event.clientY - start.top) / start.height : 0,
-                dx: 0, dy: 0, moved: false, bounds: markBounds(a), drawnWidth: 0 };
+                dx: 0, dy: 0, moved: false, bounds: markBounds(a), drawnWidth: 0,
+                tool: state.tool, color: state.color };
             state.moves++;
             updateCounts();
             svg.setPointerCapture(event.pointerId);
@@ -783,7 +786,7 @@
             } else {
                 var rect = svg.getBoundingClientRect();
                 markClicked(done.a, page, clamp((event.clientX - rect.left) / rect.width),
-                    clamp((event.clientY - rect.top) / rect.height));
+                    clamp((event.clientY - rect.top) / rect.height), done.tool, done.color);
             }
             moveEnded();
         }
@@ -861,8 +864,9 @@
         return now.getFullYear() + '-' + month + '-' + day;
     }
 
-    function placePoint(page, nx, ny) {
-        if (state.tool === 'signature') {
+    /** Places a new mark for the given tool and colour (the gesture's own, not the live toolbar). */
+    function placePoint(page, nx, ny, tool, color) {
+        if (tool === 'signature') {
             addAnnotation({
                 type: 'signature', page: page, color: 'black',
                 // Clamped against the mark's OWN size, so it can be placed anywhere its box
@@ -872,14 +876,14 @@
             });
             return;
         }
-        var isDate = state.tool === 'date';
+        var isDate = tool === 'date';
         var value = isDate ? todayLocal()
             : window.prompt(t('promptText', 'Note to add:'), '');
         // Blank means no note, as it does when editing: the parser refuses whitespace-only text,
         // and an invisible mark would fail the whole save.
         if (!value || !value.trim()) { return; }
         var note = {
-            type: isDate ? 'date' : 'text', page: page, color: state.color,
+            type: isDate ? 'date' : 'text', page: page, color: color,
             x: clamp(nx, TEXT_W), y: clamp(ny, TEXT_H), w: TEXT_W, h: TEXT_H,
             text: value, fontSize: 11
         };
