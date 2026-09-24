@@ -32,6 +32,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.apache.struts2.ServletActionContext;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -90,6 +92,87 @@ class EctDisplayConsult2ActionUnitTest {
             assertThat(panel.getItem(2).getColour()).isEqualTo("red");
             assertThat(panel.getItem(2).getURL()).contains("requestId=101");
             verify(requests.constructed().getFirst()).estConsultationVecByDemographic(loggedInInfo, "1");
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] service=''{0}'' specialist=''{1}'' -> ''{2}''")
+    @CsvSource(value = {
+            "Cardiology|Smith, John|Cardiology - Smith, John",
+            "Cardiology|N/A|Cardiology",
+            "Cardiology|'  N/A  '|Cardiology",
+            "Cardiology|''|Cardiology",
+            "Cardiology|'   '|Cardiology",
+            "Cardiology|NULL|Cardiology",
+            "''|Smith, John|Smith, John",
+            "NULL|'  Smith, John  '|Smith, John",
+            "'  Cardiology  '|'  Smith, John '|Cardiology - Smith, John",
+            "''|N/A|''",
+            "NULL|NULL|''"
+    }, delimiter = '|', nullValues = "NULL")
+    @DisplayName("should combine service and specialist without stray separators")
+    void shouldBuildReferralLabel_forServiceAndSpecialistCombinations(String service, String specialist, String expected) {
+        assertThat(EctDisplayConsult2Action.buildReferralLabel(service, specialist)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest(name = "[{index}] label=''{0}'' date=''{1}'' -> ''{2}''")
+    @CsvSource(value = {
+            "Cardiology - Smith, John|2026-01-05|Cardiology - Smith, John 2026-01-05",
+            "''|2026-01-05|2026-01-05",
+            "NULL|2026-01-05|2026-01-05",
+            "Cardiology|''|Cardiology",
+            "Cardiology|NULL|Cardiology",
+            "''|''|''"
+    }, delimiter = '|', nullValues = "NULL")
+    @DisplayName("should append the date to the hover text without stray spaces")
+    void shouldBuildLinkTitle_forLabelAndDateCombinations(String label, String date, String expected) {
+        assertThat(EctDisplayConsult2Action.buildLinkTitle(label, date)).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should show the specialist, encode the visible title and keep the hover text raw for the JSP encoder")
+    void shouldRenderSpecialistLabel_withEncodedTruncatedTitle() {
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(security.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
+        WebApplicationContext context = mock(WebApplicationContext.class);
+        when(context.getBean(UserPropertyDAO.class)).thenReturn(mock(UserPropertyDAO.class));
+        MockServletContext servletContext = new MockServletContext();
+        servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
+        MockHttpServletRequest request = new MockHttpServletRequest(servletContext);
+        request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", loggedInInfo);
+        request.setContextPath("/carlos");
+        EctSessionBean session = new EctSessionBean();
+        session.providerNo = "999998";
+        session.demographicNo = "1";
+        session.appointmentNo = "11";
+        String longService = "Otolaryngology Head and Neck Surgery Clinic";
+
+        try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class);
+             MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
+             MockedConstruction<EctViewConsultationRequestsUtil> requests = mockConstruction(
+                     EctViewConsultationRequestsUtil.class, (rows, construction) -> {
+                         rows.ids = List.of("201", "202");
+                         rows.service = List.of(longService, "Cardiology");
+                         rows.vSpecialist = List.of("FAKE-Smith, Anne", "<b>FAKE-O'Neil</b>");
+                         rows.date = List.of("2099-01-01", "2099-01-01");
+                         rows.status = List.of("1", "1");
+                     })) {
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            EctDisplayConsult2Action action = spy(new EctDisplayConsult2Action());
+            doReturn("Consultations").when(action).getText(anyString());
+            NavBarDisplayDAO panel = new NavBarDisplayDAO();
+
+            assertThat(action.getInfo(session, request, panel)).isTrue();
+
+            NavBarDisplayDAO.Item encoded = panel.getItem(0);
+            assertThat(encoded.getTitle()).isEqualTo("Cardiology - &lt;b&gt;FAKE-O'Neil&lt;/b&gt;");
+            assertThat(encoded.getLinkTitle()).startsWith("Cardiology - <b>FAKE-O'Neil</b> ");
+
+            NavBarDisplayDAO.Item truncated = panel.getItem(1);
+            String fullLabel = longService + " - FAKE-Smith, Anne";
+            assertThat(truncated.getTitle()).isEqualTo(fullLabel.substring(0, 45) + "...");
+            assertThat(truncated.getLinkTitle()).startsWith(fullLabel + " ");
         }
     }
 }
