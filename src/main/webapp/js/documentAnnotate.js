@@ -436,10 +436,14 @@
         if (!width) { return null; }
         var x = Math.max(0, Math.min(a.x, 1 - width - EDGE_EPSILON));
         var w = Math.min(width, 1 - x - EDGE_EPSILON);
-        if (x === a.x && w === a.w) { return null; }
+        // A change under FIT_TOLERANCE is measurement noise, not a fit: the painted glyph box
+        // settles by a few hundred-thousandths of a pixel as a freshly loaded face is applied,
+        // and both the font-load promise and the loadingdone event refit. Without the tolerance
+        // the second refit re-fits and redraws every note the first one already fitted.
+        if (Math.abs(x - a.x) < FIT_TOLERANCE && Math.abs(w - a.w) < FIT_TOLERANCE) { return null; }
         // The composer draws a note from its x alone (w only bounds the parser's check), so only
         // a changed x moves what a saved copy would show.
-        var moved = x !== a.x;
+        var moved = Math.abs(x - a.x) >= FIT_TOLERANCE;
         a.x = x;
         a.w = w;
         return { moved: moved };
@@ -520,6 +524,9 @@
     // The parser rejects x + w > 1. Stopping a hair inside the edge keeps a mark dragged hard
     // against it from failing the save on floating-point rounding.
     var EDGE_EPSILON = 1e-9;
+    // Fractions of the page width below which a refit is noise (under a thousandth of a pixel on
+    // any page). The 2% margin in noteWidth dwarfs it, so a skipped refit cannot let text overrun.
+    var FIT_TOLERANCE = 1e-6;
 
     /**
      * Limits a move so the whole mark stays on its page; the server rejects anything past the
