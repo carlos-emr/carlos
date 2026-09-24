@@ -427,4 +427,125 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             verifyNoInteractions(mockConsentDao);
         }
     }
+
+    @Nested
+    @DisplayName("recordExplicitConsent")
+    class RecordExplicitConsent {
+
+        private Consent impliedOptIn() {
+            Consent consent = consent(21, false, new java.util.Date(1_000L));
+            consent.setExplicit(false);
+            return consent;
+        }
+
+        @Test
+        @DisplayName("should mark an implied opt-in explicit and stamp its dates and author")
+        void shouldUpgradeImpliedOptIn_toExplicit() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(implied));
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            boolean result = manager.recordExplicitConsent(loggedInInfo, 100, 1);
+
+            assertThat(result).isTrue();
+            assertThat(implied.isExplicit()).isTrue();
+            assertThat(implied.getConsentDate()).isNotNull();
+            assertThat(implied.getEditDate()).isAfter(new java.util.Date(1_000L));
+            assertThat(implied.getLastEnteredBy()).isEqualTo("999998");
+            verify(mockConsentDao).merge(implied);
+        }
+
+        @Test
+        @DisplayName("should change nothing when the record is already explicit")
+        void shouldLeaveRecordUntouched_whenAlreadyExplicit() {
+            Consent explicit = consent(22, false, new java.util.Date(1_000L));
+            explicit.setExplicit(true);
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(explicit));
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isTrue();
+            assertThat(explicit.getEditDate()).isEqualTo(new java.util.Date(1_000L));
+            verify(mockConsentDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse to confirm consent the patient opted out of")
+        void shouldNotUpgrade_whenPatientOptedOut() {
+            Consent optedOut = consent(23, true, new java.util.Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(optedOut));
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            assertThat(optedOut.isExplicit()).isFalse();
+            verify(mockConsentDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse when there is no live record to confirm")
+        void shouldNotUpgrade_whenNoLiveRecordExists() {
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of());
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            verify(mockConsentDao, never()).merge(any());
+            verify(mockConsentDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should refuse for an inactive consent type")
+        void shouldNotUpgrade_whenConsentTypeInactive() {
+            ConsentType inactive = createActiveConsentType(1, "email");
+            inactive.setActive(false);
+            when(mockConsentTypeDao.find(1)).thenReturn(inactive);
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            verifyNoInteractions(mockConsentDao);
+        }
+
+        @Test
+        @DisplayName("should throw and change nothing when write privilege denied")
+        void shouldThrow_whenWritePrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.recordExplicitConsent(loggedInInfo, 100, 1))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Unauthorised Access");
+            verifyNoInteractions(mockConsentDao);
+        }
+
+        @Test
+        @DisplayName("should keep a routine save from upgrading an implied record")
+        void shouldKeepImplied_whenChartIsResavedWithOptIn() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(implied));
+
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+
+            assertThat(implied.isExplicit()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("getAllConsentsByDemographic")
+    class GetAllConsentsByDemographic {
+
+        @Test
+        @DisplayName("should return one deciding record per consent type")
+        void shouldReturnEffectiveRecord_perConsentType() {
+            Consent emailOptIn = consent(31, false, new java.util.Date(3_000L));
+            emailOptIn.setConsentTypeId(1);
+            Consent emailOptOut = consent(32, true, new java.util.Date(1_000L));
+            emailOptOut.setConsentTypeId(1);
+            Consent smsOptIn = consent(33, false, new java.util.Date(2_000L));
+            smsOptIn.setConsentTypeId(2);
+            when(mockConsentDao.findByDemographic(100)).thenReturn(java.util.List.of(emailOptIn, smsOptIn, emailOptOut));
+
+            java.util.List<Consent> result = manager.getAllConsentsByDemographic(loggedInInfo, 100);
+
+            assertThat(result).containsExactly(emailOptOut, smsOptIn);
+        }
+    }
 }

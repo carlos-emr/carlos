@@ -974,7 +974,7 @@
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    Consented:${carlos:forHtml(patientConsent.consentDate)}
+                                                                                                    Consented${ patientConsent.explicit ? '' : ' (implied)' }:${carlos:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
@@ -1010,6 +1010,18 @@
                                                                                            name="clearRadio_${consentType.type}_btn"
                                                                                            onclick="consentClearBtn('${consentType.type}')"
                                                                                            value="<fmt:message key='demographic.demographiceditdemographic.clear'/>"/>
+
+                                                                                        <%-- #3858: an implied record is upgraded only by this deliberate box, never by
+                                                                                             re-saving the pre-checked Opt-in radio, which every demographic save posts. --%>
+                                                                                    <c:if test="${ not empty patientConsent and not patientConsent.optout and not patientConsent.explicit }">
+                                                                                        <div class="recordExplicitConsent">
+                                                                                            <input type="checkbox"
+                                                                                                   name="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"
+                                                                                                   id="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"
+                                                                                                   value="1"/>
+                                                                                            <label for="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}">Patient confirmed consent directly</label>
+                                                                                        </div>
+                                                                                    </c:if>
 
                                                                                         <%-- Was this consent set by the user? Or by the database?  --%>
                                                                                     <input type="hidden"
