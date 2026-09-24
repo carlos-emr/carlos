@@ -666,22 +666,57 @@ function remotePrint() {
         hailMary()
     }
 
-		/*
-		 * Needs to be saved if this is
-		 * a new eForm or it has been altered.
-		 */
-		if(typeof needToConfirm !== 'undefined' && needToConfirm) {
-			console.log("eForm needs to be saved.")
-			remoteSave();
-		}
+    // The save follows the print, as it always has: remoteSave() submits the form and navigates this
+    // window away, so it must not run before the page has been handed to the printer.
+    saveAfterPrint(typeof needToConfirm === 'undefined' ? undefined : needToConfirm);
+}
 
-		/*
-		 * for situations when the eForm does not contain dirty form
-		 * detection; save it everytime.
-		 */
-		else if(typeof needToConfirm === 'undefined') {
-			remoteSave();
-	}
+/**
+ * Decides what Print does about saving the eForm to the eChart, given the eForm's dirty flag.
+ *
+ * - "save": the form was edited (flag truthy), or it has no dirty-form detection at all (flag
+ *   undefined). Both keep their long-standing behaviour of saving on every print.
+ * - "confirm": the form has dirty detection and it reports no manual edit. This used to skip the
+ *   save silently, so a printed form was missing from the chart with no hint to the provider
+ *   (issue #3901). Clinicians routinely print forms whose content is entirely pre-filled from the
+ *   chart, so "not edited" does not mean "nothing worth keeping"; the provider decides.
+ *
+ * Adapted from MagentaHealth/Open-O b5dca89b7a, which also prompts for forms without dirty
+ * detection. CARLOS keeps saving those unconditionally: without a dirty flag the toolbar cannot
+ * tell an untouched form from an edited one, and prompting there would let a Cancel drop edits.
+ *
+ * @param {*} dirtyFlag the eForm's global needToConfirm, or undefined when the form declares none
+ * @returns {"save"|"confirm"}
+ */
+function printSaveDecision(dirtyFlag) {
+    if (typeof dirtyFlag === 'undefined' || dirtyFlag) {
+        return "save";
+    }
+    return "confirm";
+}
+
+/**
+ * Localized text for the "save the unedited form?" prompt, rendered by the server onto the
+ * toolbar fragment's root element. English fallback for when the fragment did not load.
+ */
+function printSaveUneditedConfirmMessage() {
+    const toolbar = document.getElementById("eform_floating_toolbar");
+    const message = toolbar ? toolbar.getAttribute("data-print-save-unedited-confirm") : null;
+    return message || "You haven't manually edited this eForm. Would you like to save a copy to the patient's chart anyway?";
+}
+
+/**
+ * Applies {@link printSaveDecision} once per Print click. The form has already been printed by the
+ * time this runs, so Cancel only declines the chart copy; it never withdraws the printout.
+ *
+ * @param {*} dirtyFlag see printSaveDecision
+ * @returns {boolean} true when a save was attempted and remoteSave() reported success
+ */
+function saveAfterPrint(dirtyFlag) {
+    if (printSaveDecision(dirtyFlag) === "confirm" && !confirm(printSaveUneditedConfirmMessage())) {
+        return false;
+    }
+    return remoteSave();
 }
 
 function hailMary() {
