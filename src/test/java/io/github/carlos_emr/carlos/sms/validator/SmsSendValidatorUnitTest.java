@@ -73,7 +73,7 @@ class SmsSendValidatorUnitTest {
         assertThat(accepted.valid()).isTrue();
         assertThat(rejected.valid()).isFalse();
         assertThat(rejected.messages()).containsExactly(
-                "SMS message body is too long for one text message (161 of 160 characters)."
+                "SMS message body is too long for one text message (uses 161 of 160 spaces)."
         );
     }
 
@@ -86,7 +86,8 @@ class SmsSendValidatorUnitTest {
 
         assertThat(result.valid()).isFalse();
         assertThat(result.messages()).containsExactly(
-                "SMS message body is too long for one text message (161 of 160 characters)."
+                "SMS message body is too long for one text message (uses 161 of 160 spaces; "
+                        + "€ { } [ ] ~ | ^ \\ each take two)."
         );
     }
 
@@ -104,7 +105,7 @@ class SmsSendValidatorUnitTest {
         assertThat(accepted.valid()).isTrue();
         assertThat(rejected.valid()).isFalse();
         assertThat(rejected.messages()).containsExactly(
-                "SMS message body is too long for one text message (71 of 70 characters; accented or special "
+                "SMS message body is too long for one text message (uses 71 of 70 spaces; accented or special "
                         + "characters lower the limit from 160 to 70)."
         );
     }

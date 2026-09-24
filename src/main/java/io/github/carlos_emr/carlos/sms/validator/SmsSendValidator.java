@@ -40,18 +40,22 @@ public class SmsSendValidator {
             // split and billed as several messages by other providers.
             SmsSegments.Count count = SmsSegments.count(body);
             if (count.segments() > 1) {
-                messages.add(tooLongMessage(count));
+                messages.add(tooLongMessage(count, body));
             }
         }
 
         return new Result(messages);
     }
 
-    private static String tooLongMessage(SmsSegments.Count count) {
-        String message = "SMS message body is too long for one text message (" + count.units() + " of "
-                + count.singleSegmentLimit() + " characters";
+    // Counts are segment units, not characters (an extension character or emoji takes two), so the
+    // message says "spaces" and names the cause when the two differ. It never echoes the body itself.
+    private static String tooLongMessage(SmsSegments.Count count, String body) {
+        String message = "SMS message body is too long for one text message (uses " + count.units() + " of "
+                + count.singleSegmentLimit() + " spaces";
         if (count.encoding() == SmsSegments.Encoding.UCS_2) {
             message += "; accented or special characters lower the limit from 160 to 70";
+        } else if (count.units() > body.length()) {
+            message += "; € { } [ ] ~ | ^ \\ each take two";
         }
         return message + ").";
     }
