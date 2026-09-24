@@ -209,20 +209,26 @@ public final class NvcBundleParser {
         }
 
         CodeSystem lotSystem = subsets.get("CodeSystem/" + LOT_CODE_SYSTEM_ID) instanceof CodeSystem cs ? cs : null;
-        if (lotSystem != null) {
-            for (ConceptDefinitionComponent lotConcept : lotSystem.getConcept()) {
-                String lotNumber = stringProperty(lotConcept, "lotNumber");
-                if (isBlank(lotNumber)) {
-                    continue;
-                }
-                NvcCatalogue.Lot lot = new NvcCatalogue.Lot(lotNumber.trim(), dateProperty(lotConcept, "expiryDate"));
-                for (String tradename : codes(lotConcept.getExtension(), EXT_LINKED_TRADENAME)) {
-                    ProductBuilder product = products.get(tradename);
-                    if (product != null) {
-                        product.lots.put(lot.lotNumber(), lot);
-                    }
+        if (lotSystem == null) {
+            // Replacing without it would erase every installed lot number and expiry date.
+            throw new NvcBundleException("NVC bundle is missing the vaccine lot CodeSystem");
+        }
+        int attachedLots = 0;
+        for (ConceptDefinitionComponent lotConcept : lotSystem.getConcept()) {
+            String lotNumber = stringProperty(lotConcept, "lotNumber");
+            if (isBlank(lotNumber)) {
+                continue;
+            }
+            NvcCatalogue.Lot lot = new NvcCatalogue.Lot(lotNumber.trim(), dateProperty(lotConcept, "expiryDate"));
+            for (String tradename : codes(lotConcept.getExtension(), EXT_LINKED_TRADENAME)) {
+                ProductBuilder product = products.get(tradename);
+                if (product != null && product.lots.put(lot.lotNumber(), lot) == null) {
+                    attachedLots++;
                 }
             }
+        }
+        if (attachedLots == 0) {
+            throw new NvcBundleException("NVC lot CodeSystem links no lots to an installed tradename");
         }
 
         List<NvcCatalogue.Product> productList = new ArrayList<>(products.size());

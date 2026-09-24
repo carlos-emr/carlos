@@ -188,6 +188,15 @@ class NvcBundleParserUnitTest {
     }
 
     @Test
+    void shouldRejectBundle_whenLotCodeSystemIsMissing() {
+        String withoutLots = fixtureJson.replace("\"id\": \"nvc-vaccine-lot-id\"", "\"id\": \"lots-renamed\"");
+
+        assertThatThrownBy(() -> NvcBundleParser.parse(withoutLots))
+                .isInstanceOf(NvcBundleException.class)
+                .hasMessageContaining("lot CodeSystem");
+    }
+
+    @Test
     void shouldRejectBundle_whenRootIsNotTheNvcCollection() {
         String otherBundle = fixtureJson.replaceFirst("\"id\": \"NVC\"", "\"id\": \"SomethingElse\"");
         String searchSet = fixtureJson.replaceFirst("\"type\": \"collection\"", "\"type\": \"searchset\"");
