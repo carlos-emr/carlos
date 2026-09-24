@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
@@ -419,6 +420,10 @@ public class EmailManager {
      * @param emailData EmailData the email data to sanitize
      */
     private void sanitizeEmailFields(EmailData emailData) {
+        // Every send path, not only the eForm setup, must strip line breaks from the subject: the
+        // direct compose POST reaches here with the raw request value, and CR/LF in a subject is
+        // an SMTP header injection. Done before validation so the stored and sent subjects match.
+        emailData.setSubject(EmailAttachmentSettings.sanitizeSubject(emailData.getSubject()));
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
             emailData.setIsEncrypted(false);
             emailData.setIsAttachmentEncrypted(false);

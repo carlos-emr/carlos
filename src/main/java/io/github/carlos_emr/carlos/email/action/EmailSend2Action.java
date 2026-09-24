@@ -227,7 +227,17 @@ public class EmailSend2Action extends ActionSupport {
     private EmailLog sendEmail(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         EmailData emailData = prepareEmailFields(request);
-        return emailManager.sendEmail(loggedInInfo, emailData);
+        try {
+            return emailManager.sendEmail(loggedInInfo, emailData);
+        } catch (EmailFieldLengthException e) {
+            // Nothing was sent. prepareEmailFields took the prepared attachments out of the
+            // session, so put them back: otherwise shortening the field and sending again would
+            // silently send the email without its PDFs.
+            if (emailData.getAttachments() != null && !emailData.getAttachments().isEmpty()) {
+                request.getSession().setAttribute("emailAttachmentList", emailData.getAttachments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            }
+            throw e;
+        }
     }
 
     /**

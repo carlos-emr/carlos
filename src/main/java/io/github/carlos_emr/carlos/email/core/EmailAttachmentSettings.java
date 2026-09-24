@@ -180,7 +180,7 @@ public record EmailAttachmentSettings(
      * @param subject the raw subject from user input
      * @return the sanitized subject, or null if input was null
      */
-    static String sanitizeSubject(String subject) {
+    public static String sanitizeSubject(String subject) {
         if (subject == null) {
             return null;
         }

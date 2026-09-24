@@ -125,4 +125,17 @@ class EmailManagerFieldLengthUnitTest {
                 .hasMessageContaining("No active email configuration");
         assertThat(data.getPassword()).isEmpty();
     }
+
+    @Test
+    @DisplayName("should strip line breaks from a subject that did not come through the eForm setup")
+    void shouldStripLineBreaks_whenSubjectComesFromDirectCompose() {
+        EmailData data = emailData();
+        // The direct compose POST hands the raw request value to the manager.
+        data.setSubject("Results\r\nBcc: attacker@example.com\u2028x");
+
+        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No active email configuration");
+        assertThat(data.getSubject()).isEqualTo("ResultsBcc: attacker@example.comx");
+    }
 }

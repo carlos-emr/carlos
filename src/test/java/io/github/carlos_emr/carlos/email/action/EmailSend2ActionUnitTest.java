@@ -17,6 +17,7 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.struts2.ServletActionContext;
@@ -29,6 +30,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
@@ -54,7 +56,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailSend2Action")
-class EmailSend2ActionTest extends CarlosUnitTestBase {
+class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private EmailManager emailManager;
@@ -153,5 +155,20 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
         assertThat(request.getAttribute("emailLengthViolations")).isNotNull();
         assertThat(request.getAttribute("emailLog")).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep the prepared attachments for a retry when a field is too long")
+    void shouldRestoreAttachments_whenFieldTooLong() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "EFORM");
+        request.setParameter("fdid", "42");
+        List<EmailAttachment> attachments = new ArrayList<>(List.of(new EmailAttachment()));
+        request.getSession().setAttribute("emailAttachmentList", attachments);
+        EmailSend2Action action = overLengthAction(request);
+
+        action.sendEFormEmail();
+
+        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
     }
 }

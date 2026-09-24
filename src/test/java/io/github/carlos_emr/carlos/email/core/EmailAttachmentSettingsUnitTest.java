@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailAttachmentSettings validation")
-class EmailAttachmentSettingsTest {
+class EmailAttachmentSettingsUnitTest {
 
     @Nested
     @DisplayName("validateEmail")
