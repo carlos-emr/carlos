@@ -976,7 +976,7 @@
                                 <%
                                     if (LabResultData.isMDS(type)) {
                                 %>
-                                <a href="javascript:reportWindow('SegmentDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isCML(type)) {
                                 %>
