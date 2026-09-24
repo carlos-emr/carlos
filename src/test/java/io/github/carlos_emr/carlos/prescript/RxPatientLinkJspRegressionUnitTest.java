@@ -70,6 +70,22 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should keep the drug-profile Show All / Show Current toggles on the page's patient")
+    void shouldNamePatient_onDrugProfileToggleLinks() throws IOException {
+        int found = 0;
+        for (String line : read("rx/PrintDrugProfile2.jsp").split("\\R")) {
+            if (!line.contains(">Show All</a>") && !line.contains(">Show Current</a>")) {
+                continue;
+            }
+            found++;
+            assertThat(line).contains("/rx/ViewPrintDrugProfile2?").contains(
+                    "demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context=\"uriComponent\"/>");
+        }
+        // Show All and Show Current, above and below the drug list.
+        assertThat(found).isEqualTo(4);
+    }
+
+    @Test
     @DisplayName("should open the static-script page only for an explicitly named patient")
     void shouldRefuseFallbackPatient_onStaticScriptPage() throws IOException {
         String jsp = read("rx/StaticScript2.jsp");

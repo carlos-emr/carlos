@@ -126,6 +126,31 @@ test('install tags CarlosAjax, jQuery and popupWindow calls once', () => {
     assert.equal(options.url, '/carlos/rx/drugInfo?demographicNo=1001');
 });
 
+test('install tags Oscar.js popup2 popups, keeping the six-argument signature', () => {
+    const seen = [];
+    const win = {
+        popup2(height, width, top, left, url, name) {
+            seen.push([height, width, top, left, url, name, this === win]);
+            return 'window';
+        },
+    };
+    const rx = context.create('1001');
+    rx.install(win);
+    rx.install(win);
+
+    assert.equal(win.popup2(600, 800, 70, 110, '/carlos/rx/searchDrug?rx2=true&searchString=x', 'n'), 'window');
+    win.popup2(575, 650, 70, 110, '/carlos/rx/RxReason?demographicNo=2002&drugId=5', 'r');
+    win.popup2(1, 1, 0, 0, '/carlos/encounter/x', 'e');
+    win.popup2(1, 1, 0, 0, '//other.example/rx/searchDrug', 'o');
+
+    assert.deepEqual(seen, [
+        [600, 800, 70, 110, '/carlos/rx/searchDrug?rx2=true&searchString=x&demographicNo=1001', 'n', true],
+        [575, 650, 70, 110, '/carlos/rx/RxReason?demographicNo=2002&drugId=5', 'r', true],
+        [1, 1, 0, 0, '/carlos/encounter/x', 'e', true],
+        [1, 1, 0, 0, '//other.example/rx/searchDrug', 'o', true],
+    ]);
+});
+
 test('install tags followed Rx links and form submissions with the page patient', () => {
     const listeners = {};
     const makeLink = (href) => {

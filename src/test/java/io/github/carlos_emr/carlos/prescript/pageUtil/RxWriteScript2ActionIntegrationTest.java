@@ -91,6 +91,9 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(requestedDemographicNo);
         RxSessionBeanResolver.register(getMockSession(), bean);
+        // Name the bean's own patient: the long-term toggle requires it (#3875), so the drug
+        // ownership check below is what refuses this request.
+        addRequestParameter("demographicNo", String.valueOf(requestedDemographicNo));
         addRequestParameter("ltDrugId", String.valueOf(drugId));
         addRequestParameter("isLongTerm", "true");
 
@@ -120,6 +123,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(demographicNo);
         RxSessionBeanResolver.register(getMockSession(), bean);
+        // The long-term toggle only acts for the patient the request names (#3875).
+        addRequestParameter("demographicNo", String.valueOf(demographicNo));
         addRequestParameter("ltDrugId", String.valueOf(drugId));
         addRequestParameter("isLongTerm", "true");
 

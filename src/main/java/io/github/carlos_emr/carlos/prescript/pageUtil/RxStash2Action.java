@@ -70,8 +70,13 @@ public final class RxStash2Action extends ActionSupport {
 
 
         String method = request.getParameter("parameterValue");
-        boolean removesStashItem = "deletePrescribe".equals(method)
-                || (method == null && "delete".equals(request.getParameter("action")));
+        // The legacy action=delete branch runs for ANY parameterValue other than the two named
+        // dispatches (null, blank or unrelated), so the gate must match the dispatch below rather
+        // than only method == null; otherwise a GET with parameterValue= could remove a card.
+        // Both the raw parameter and the Struts-bound field are checked since execute() acts on the latter.
+        boolean legacyDelete = !"setStashIndex".equals(method) && !"deletePrescribe".equals(method)
+                && ("delete".equals(request.getParameter("action")) || "delete".equals(this.getAction()));
+        boolean removesStashItem = "deletePrescribe".equals(method) || legacyDelete;
         if (removesStashItem && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);

@@ -46,6 +46,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest("POST", "/rx/WriteToEncounter");
         response = new MockHttpServletResponse();
         request.addParameter("expectedDemographicNo", "42");
+        request.addParameter("demographicNo", "42");
         request.addParameter("body", "exact prescription text");
         request.getSession().setAttribute("user", "999998");
         request.getSession().setAttribute("case_program_id", "0");
@@ -94,6 +95,17 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         request.removeParameter("expectedDemographicNo");
         new RxWriteToEncounter2Action().execute();
         assertThat(response.getStatus()).isEqualTo(409);
+        verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
+    void shouldRejectBeforeNoteAccess_whenRequestNamesNoPatient() throws Exception {
+        // expectedDemographicNo matches the session's active (fallback) patient, but the request
+        // does not name its patient: the write resolver refuses it before any note access (#3875).
+        request.removeParameter("demographicNo");
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
         verifyNoInteractions(notes, tmpDao);
     }
 

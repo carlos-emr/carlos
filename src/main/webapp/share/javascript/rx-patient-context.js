@@ -30,7 +30,7 @@
  * data-demographic-no on the script tag, adds demographicNo to:
  *   - CarlosAjax.request / CarlosAjax.updater calls,
  *   - jQuery.ajax calls,
- *   - rx.js popupWindow() popups,
+ *   - rx.js popupWindow() and Oscar.js popup2() popups,
  *   - form submissions (a hidden input is added on submit),
  *   - followed links (the href is tagged on click),
  * when the target is an Rx route (/rx/...) and does not already name a patient.
@@ -131,6 +131,17 @@
                 };
                 win.popupWindow.__rxPatientContext = true;
             }
+            // Oscar.js popup2(height, width, top, left, url, windowName): the Rx search and reason
+            // popups on the staging page open through it, and popup() delegates to it too.
+            // popup2 keeps its window registry on the global it is called through
+            // (context.popup2.winRefs), so the wrapper simply becomes that global.
+            if (typeof win.popup2 === 'function' && !win.popup2.__rxPatientContext) {
+                var popup2 = win.popup2;
+                win.popup2 = function (height, width, top, left, url, name) {
+                    return popup2.call(this, height, width, top, left, withPatient(url), name);
+                };
+                win.popup2.__rxPatientContext = true;
+            }
             if (win.document && win.document.addEventListener && !win.document.__rxPatientContext) {
                 win.document.__rxPatientContext = true;
                 win.document.addEventListener('submit', function (event) {
@@ -175,7 +186,7 @@
         var context = create(currentScriptDemographicNo());
         root.RxPatientContext = context;
         context.install(root);
-        // rx.js and page scripts may define popupWindow after this script runs.
+        // rx.js, Oscar.js and page scripts may define popupWindow / popup2 after this script runs.
         root.document.addEventListener('DOMContentLoaded', function () {
             context.install(root);
         });

@@ -88,7 +88,9 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession(false);
-        rxSessionBean = session == null ? null : RxSessionBeanResolver.resolve(request);
+        // Writes clinical text to a chart: only the bean of the patient the request explicitly names,
+        // never the active-patient fallback (#3875). ViewScript2.jsp posts demographicNo.
+        rxSessionBean = session == null ? null : RxSessionBeanResolver.resolveForWrite(request);
         if (rxSessionBean == null) {
             return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
         }

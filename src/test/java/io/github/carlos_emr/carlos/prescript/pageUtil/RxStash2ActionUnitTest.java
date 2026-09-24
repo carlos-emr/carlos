@@ -159,6 +159,41 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(bean.getStashSize()).isEqualTo(2);
     }
 
+    @ParameterizedTest(name = "parameterValue=\"{0}\"")
+    @ValueSource(strings = {"", "unrelated", "iterateStash"})
+    @DisplayName("should reject a GET legacy action=delete whatever non-dispatch parameterValue it carries")
+    void shouldRejectLegacyDelete_whenGetCarriesOtherParameterValue(String parameterValue) throws Exception {
+        request.setMethod("GET");
+        request.setParameter("parameterValue", parameterValue);
+        request.setParameter("action", "delete");
+        request.setParameter("stashId", "0");
+        RxStash2Action action = new RxStash2Action();
+        action.setAction("delete");
+        action.setStashId(0);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should still allow GET for the legacy action=edit cursor move")
+    void shouldAllowGet_forLegacyEdit() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("action", "edit");
+        RxStash2Action action = new RxStash2Action();
+        action.setAction("edit");
+        action.setStashId(0);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(bean.getStashIndex()).isZero();
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
     @Test
     @DisplayName("should remove exactly the card whose random id was posted")
     void shouldRemoveCard_byStashRandomId() throws Exception {

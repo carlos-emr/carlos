@@ -128,6 +128,9 @@
             }
         }
         RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
+        // The Show All / Show Current toggles reload this page; they must name this page's patient
+        // or the reload falls back to whichever patient's Rx was opened last (#3875).
+        String profileDemographicNo = patient != null ? String.valueOf(patient.getDemographicNo()) : "";
         if (patient != null) {
             surname = patient.getSurname();
             firstName = patient.getFirstName();
@@ -181,9 +184,9 @@
                                     <td align="right" class="noPrint">
                                         <div class="DivContentSectionHead">
                                             <% if (showall) { %>
-                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2">Show Current</a>
+                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show Current</a>
                                             <% } else { %>
-                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all">Show All</a>
+                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all&demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show All</a>
                                             <% } %>
                                             | <a href="javascript:void(0);window.print();">Print</a>
                                         </div>
@@ -246,9 +249,9 @@
                             <div class="DivContentSectionHead">
 
                                 <% if (showall) { %>
-                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2">Show Current</a>
+                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show Current</a>
                                 <% } else { %>
-                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all">Show All</a>
+                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all&demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show All</a>
                                 <% } %>
                                 | <a href="javascript:void(0);window.print();">Print</a>
                             </div>
