@@ -15,11 +15,15 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 
 import jakarta.mail.Address;
 import jakarta.mail.MessagingException;
 import jakarta.mail.SendFailedException;
 import jakarta.mail.internet.MimeMessage;
+
+import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -260,10 +264,13 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         if (!(failure instanceof org.springframework.mail.MailSendException sendFailure)) {
             return false;
         }
-        // This sender dispatches exactly one message. Spring's connectTransport failure reports
-        // the same exception as both the top-level cause and that message's failure. Failures
-        // during DATA have no top-level cause; closing an accepted connection has no failed message.
-        // Do not infer the stage from a TLS/timeout exception type or from remote diagnostic text.
+        // This sender dispatches exactly one message, and only two shapes prove it never left:
+        // - connect time: Spring reports the same exception as both the top-level cause and that
+        //   message's failure;
+        // - refused at RCPT TO: see isRefusedAtRecipients.
+        // Failures during DATA have no top-level cause and are not the RCPT-stage exception, and
+        // closing an accepted connection has no failed message; both stay uncertain. Do not infer
+        // the stage from a TLS/timeout exception type or from remote diagnostic text.
         Exception[] messageFailures = sendFailure.getMessageExceptions();
         if (messageFailures.length != 1) {
             return false;
@@ -271,27 +278,55 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         if (sendFailure.getCause() != null && messageFailures[0] == sendFailure.getCause()) {
             return true;
         }
-        return isRefusedByEveryRecipient(messageFailures[0]);
+        if (isRefusedAtRecipients(messageFailures[0])) {
+            logRecipientRefusal((SendFailedException) messageFailures[0]);
+            return true;
+        }
+        return false;
     }
 
     /**
-     * Recognises the server refusing the recipients (#3857). Spring reports that failure with no
-     * top-level cause, so the connect-time shape above misses it.
+     * Recognises the server refusing recipients at RCPT TO (#3857). Spring reports that failure
+     * with no top-level cause, so the connect-time shape misses it.
      *
-     * <p>The signal is the mail library's own address accounting, not the exception type or the
-     * server's text. When a recipient is refused and partial sends are off (the default, and
-     * never enabled here) the transport resets the session before DATA, so no address was sent
-     * to. It reports that as no valid-sent addresses and at least one invalid one. Any valid-sent
-     * address means some copy may have gone out, which stays uncertain.</p>
+     * <p>The signal is the mail library's own address accounting, not the server's text. When any
+     * recipient is refused (5xx, or 4xx such as greylisting) and partial sends are off, which
+     * {@link #applyAllOrNothingRecipients} pins, the transport resets the session before DATA and
+     * throws exactly {@code SendFailedException}: no valid-sent address, and every address listed
+     * as invalid or valid-but-unsent. The exact class matters. The DATA-stage
+     * {@code SMTPSendFailedException} is a subclass, and a failure there may follow acceptance,
+     * so it must never match. Any valid-sent address likewise means a copy may have gone out.</p>
      */
-    private static boolean isRefusedByEveryRecipient(Exception messageFailure) {
-        return messageFailure instanceof SendFailedException refused
-                && isEmpty(refused.getValidSentAddresses())
-                && !isEmpty(refused.getInvalidAddresses());
+    private static boolean isRefusedAtRecipients(Exception messageFailure) {
+        if (messageFailure == null || messageFailure.getClass() != SendFailedException.class) {
+            return false;
+        }
+        SendFailedException refused = (SendFailedException) messageFailure;
+        return isEmpty(refused.getValidSentAddresses())
+                && !(isEmpty(refused.getInvalidAddresses()) && isEmpty(refused.getValidUnsentAddresses()));
     }
 
     private static boolean isEmpty(Address[] addresses) {
         return addresses == null || addresses.length == 0;
+    }
+
+    /**
+     * Logs why the server refused, for an operator telling a mistyped address (550) from a relay
+     * or policy block (551/553/554) or a temporary refusal (4xx). Only counts and numeric reply
+     * codes are logged: the addresses and the server's text can identify the patient.
+     */
+    private void logRecipientRefusal(SendFailedException refused) {
+        Set<Integer> replyCodes = new TreeSet<>();
+        Exception next = refused.getNextException();
+        for (int depth = 0; next != null && depth < 32; depth++) {
+            if (next instanceof SMTPAddressFailedException addressFailure) {
+                replyCodes.add(addressFailure.getReturnCode());
+            }
+            next = next instanceof MessagingException messaging ? messaging.getNextException() : null;
+        }
+        Address[] invalid = refused.getInvalidAddresses();
+        logger.warn("SMTP server refused the message at RCPT TO; refusedRecipients={}, replyCodes={}",
+                invalid == null ? 0 : invalid.length, replyCodes);
     }
 
     /**
@@ -434,6 +469,7 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         properties.put("mail.debug", "false");
 
         applySmtpTimeouts(properties);
+        applyAllOrNothingRecipients(properties);
         mailSender.setJavaMailProperties(properties);
         return mailSender;
     }
@@ -469,6 +505,17 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     protected EmailSendingException invalidConfiguration(EmailConfig emailConfig) {
         String senderEmail = emailConfig != null ? emailConfig.getSenderEmail() : "unknown";
         return new EmailSendingException("Invalid credentials configured for " + senderEmail);
+    }
+
+    /**
+     * Pins the transport to all-or-nothing recipients, the default that
+     * {@link #isRefusedAtRecipients} relies on to treat a refused recipient as "nothing was sent".
+     * With partial sends on, the other recipients would receive the message, and a later failure
+     * could be misread as a refusal.
+     */
+    static void applyAllOrNothingRecipients(Properties properties) {
+        properties.put("mail.smtp.sendpartial", "false");
+        properties.put("mail.smtp.reportsuccess", "false");
     }
 
     static void applySmtpTimeouts(Properties properties) {

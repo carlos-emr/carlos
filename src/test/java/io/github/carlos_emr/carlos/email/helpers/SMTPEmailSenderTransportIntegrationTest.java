@@ -85,14 +85,7 @@ class SMTPEmailSenderTransportIntegrationTest {
             receiver.setSoTimeout(10_000);
             CompletableFuture<byte[]> received = new CompletableFuture<>();
             Thread.ofPlatform().daemon(true).start(() -> receive(receiver, received, dropAcknowledgement));
-            EmailConfig config = new EmailConfig();
-            config.setEmailType(EmailConfig.EmailType.SMTP);
-            config.setEmailProvider(EmailConfig.EmailProvider.LOCAL);
-            config.setSenderEmail("sender@example.test");
-            config.setSenderFirstName("Synthetic");
-            config.setSenderLastName("Sender");
-            config.setConfigDetailsJson("{\"host\":\"127.0.0.1\",\"port\":\"" + receiver.getLocalPort() + "\"}");
-            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, config,
+            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
                     new String[]{"recipient@example.test"}, "Synthetic archive transport test",
                     "First line\r\n.dot-stuffed line\r\nFinal line", List.of());
             byte[] archived = sender.prepareArtifactBytes();
@@ -163,7 +156,10 @@ class SMTPEmailSenderTransportIntegrationTest {
                 if (line.startsWith("RCPT TO:<unknown")) {
                     reply = "550 5.1.1 Recipient address rejected: User unknown";
                 } else if (line.equals("DATA")) {
+                    // Refuse at once so a regression fails fast instead of waiting out the I/O timeout.
                     dataReceived.complete(true);
+                    output.write("554 test receiver: DATA must not be reached\r\n".getBytes(StandardCharsets.US_ASCII));
+                    output.flush();
                     return;
                 } else if (line.equals("QUIT")) {
                     output.write("221 bye\r\n".getBytes(StandardCharsets.US_ASCII));
