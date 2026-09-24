@@ -597,12 +597,22 @@ async function main() {
     await page.mouse.move(hlRedrawBefore.x + 6, hlRedrawBefore.y + 6);
     await page.mouse.down();
     await page.mouse.move(hlRedrawBefore.x + 6, hlRedrawBefore.y + 66, { steps: 6 });
+    // The redraw replaces the mark's elements, so a measurement can land on one just detached;
+    // retry until a box comes back.
+    const settledBox = async selector => {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const box = await boxOf(selector);
+        if (box) { return box; }
+        await page.waitForTimeout(50);
+      }
+      return boxOf(selector);
+    };
     await page.setViewportSize({ width: viewport.width, height: viewport.height + 40 });
     await page.waitForTimeout(150);
-    const hlDuringRedraw = await boxOf('rect.mark');
+    const hlDuringRedraw = await settledBox('rect.mark');
     await page.mouse.up();
     await page.setViewportSize(viewport);
-    const hlRedrawAfter = await boxOf('rect.mark');
+    const hlRedrawAfter = await settledBox('rect.mark');
     check('a redraw during a drag keeps the dragged mark under the pointer',
       Math.abs(hlDuringRedraw.y - hlRedrawBefore.y - 60) < 3 && Math.abs(hlRedrawAfter.y - hlRedrawBefore.y - 60) < 3,
       JSON.stringify([hlRedrawBefore, hlDuringRedraw, hlRedrawAfter]));
