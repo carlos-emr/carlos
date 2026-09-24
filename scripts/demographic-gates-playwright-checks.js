@@ -2,6 +2,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Deliberate unauthenticated route probes complement the UI-driven positive workflows.
 const h = require('./lib/playwright-harness');
+const { REFUSED_STATUSES, contextPathOf, isLoginSurface } = require('./anonymous-access-refused-playwright-checks');
 const ROUTES = [
   'ViewContact', 'ViewContactSearch', 'ViewProContact', 'ViewProContactSearch',
   'ViewProfessionalSpecialistSearch', 'ViewSearch', 'ViewAddDemoToPatientSet',
@@ -13,11 +14,14 @@ const ROUTES = [
   'ViewManageHealthCareTeam', 'ViewEnrollmentHistory', 'ViewPrintEnvelope', 'ViewPrintAddressLabel',
   'ViewPrintClientLabLabel', 'ViewPrintDemoChartLabel', 'ViewPrintDemoLabel',
 ];
+// Same login-surface rule as anonymous-access-refused: an exact context-root action,
+// never "any same-origin path ending in /index", which would pass a redirect into
+// a protected page such as /administration/index.
 function assertProtected(status, location, baseUrl) {
-  if (status === 401 || status === 403) return;
+  if (REFUSED_STATUSES.includes(status)) return;
   h.assert(status >= 300 && status < 400 && location, 'Unauthenticated demographic route did not reject or redirect');
   const target = new URL(location, baseUrl);
-  h.assert(target.origin === new URL(baseUrl).origin && /\/(login|logout|logoutPage|index|loginfailed)(?:\.[a-z]+)?$/i.test(target.pathname),
+  h.assert(target.origin === new URL(baseUrl).origin && isLoginSurface(target.href, contextPathOf(baseUrl)),
     'Unauthenticated demographic route redirected somewhere other than login');
 }
 async function main() {

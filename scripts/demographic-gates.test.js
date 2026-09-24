@@ -17,6 +17,12 @@ test('gate assertion rejects silent success, missing routes, errors and external
   assert.throws(() => assertProtected(302, 'https://example.com/login', base));
   assert.throws(() => assertProtected(302, '/carlos/demographic/ViewContact', base));
   assert.throws(() => assertProtected(302, null, base));
+  // A same-origin page that merely ends in a login-surface name is not the login surface.
+  assert.throws(() => assertProtected(302, '/carlos/administration/index', base));
+  assert.throws(() => assertProtected(302, '/carlos/demographic/login', base));
+  assert.throws(() => assertProtected(302, '/other/logoutPage', base));
   for (const status of [401, 403]) assert.doesNotThrow(() => assertProtected(status, null, base));
   assert.doesNotThrow(() => assertProtected(302, '/carlos/login', base));
+  assert.doesNotThrow(() => assertProtected(302, '/carlos/logoutPage', base));
+  assert.doesNotThrow(() => assertProtected(302, 'http://127.0.0.1:8080/carlos/logoutPage', new URL(base)));
 });
