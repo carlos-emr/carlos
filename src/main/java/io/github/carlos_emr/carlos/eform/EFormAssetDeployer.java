@@ -131,10 +131,21 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     /**
      * Assets to deploy. These filenames must match exactly what the RTL eForm's
      * form_html references via {@code displayImage?imagefile=<filename>}.
+     *
+     * <p>The {@code .rtl} entries are the Rich Text Letter's starter templates. They reach the
+     * clinician through {@code efmformrtl_templates}, which lists every {@code *.rtl} file in the
+     * eForm images directory, so a template that is not deployed simply does not exist as far as
+     * the editor's template dropdown is concerned — which is why they ship here rather than being
+     * left for an administrator to upload. All of them are <em>seeded</em>, not managed (see
+     * {@link #MANAGED_ASSETS}): a clinic is expected to edit a letter template, and an edit must
+     * survive the next redeploy.</p>
      */
     private static final String[] ASSETS = {
         "editControl2.js",
         "blank.rtl",
+        "clinic_letter.rtl",
+        "consultation_letter.rtl",
+        "patient_letter.rtl",
         "editor_help.html"
     };
 

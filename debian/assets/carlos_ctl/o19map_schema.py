@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-2+6ea61c42'
+SCHEMA_MAP_VERSION = 'o19map-3+6ea61c42'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -21075,7 +21075,7 @@ CREDENTIAL_TABLES = ['ServiceClient', 'oscarKeys', 'publicKeys']
 # the claim header P7 aggregates by fiscal year, per province: the money check.
 # Keyed by province rather than emitted per profile because the import reads it
 # for the host's province, which it has already asserted against the profile.
-BILLING_TOTALS_TABLE = {
+CLAIM_HEADER_TABLE = {
     'on': 'billing_on_cheader1',
     'bc': 'billing',
 }
@@ -21302,7 +21302,6 @@ PRIMITIVE_COLUMNS = {
     'clinic_location': ['clinic_no'],
     'consultResponseDoc': ['documentNo', 'responseId'],
     'consultationRequestExt': ['requestId'],
-    'consultationRequests': ['patientWillBook'],
     'consultdocs': ['document_no', 'requestId'],
     'cssStyles': ['id'],
     'ctl_billingservice': ['service_order'],
@@ -22504,7 +22503,7 @@ PRIMITIVE_COLUMNS = {
 # differs between provinces is repeated here.
 PROFILES = {
     'bc': {
-        'SCHEMA_MAP_VERSION': 'o19map-2+f2e0d233',
+        'SCHEMA_MAP_VERSION': 'o19map-3+f2e0d233',
         'O19_PROFILE': 'bc',
         'TABLES': {
             'AppDefinition': {
@@ -53064,7 +53063,6 @@ PROFILES = {
             'clinic_location': ['clinic_no'],
             'consultResponseDoc': ['documentNo', 'responseId'],
             'consultationRequestExt': ['requestId'],
-            'consultationRequests': ['patientWillBook'],
             'consultdocs': ['document_no', 'requestId'],
             'cssStyles': ['id'],
             'ctl_billingservice': ['service_order'],

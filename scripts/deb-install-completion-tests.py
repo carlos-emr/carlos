@@ -27,8 +27,9 @@ class RecoveryFailures(unittest.TestCase):
         self.addCleanup(self._release_lock)
         self.mocks = {}
         for owner, name, value in [(p, 'need_root', None), (p, '_wait_for_db', True),
-                (p.config, 'load', types.SimpleNamespace(db_name='test')),
+                (p.config, 'load', types.SimpleNamespace(db_name='test', bind_ip='127.0.0.1')),
                 (p.config, 'cmd_init_config', 0),
+                (p.config, 'apply_nginx', 0),
                 (p.dbops, 'cmd_db_apply_settings', 0), (p.dbops, 'cmd_db_users', 0),
                 (p, '_table_count', 431), (p.dbops, 'run_flyway', 0),
                 (p.dbops, 'cmd_db_migrate', 0), (p.dbops, 'cmd_bootstrap_admin', 0),
@@ -58,6 +59,26 @@ class RecoveryFailures(unittest.TestCase):
     def test_success_clears_marker(self):
         self.assertEqual(self.run_recovery(), 0)
         self.assertFalse(self.marker.exists())
+
+    def test_front_door_recovery_precedes_completion(self):
+        def apply(bind_ip, **kwargs):
+            self.assertTrue(self.marker.exists())
+            self.assertEqual(bind_ip, '127.0.0.1')
+            self.assertEqual(kwargs, {'start_if_inactive': True})
+            return 0
+        self.mocks['apply_nginx'].side_effect = apply
+        self.assertEqual(self.run_recovery(), 0)
+        self.mocks['apply_nginx'].assert_called_once()
+        self.assertFalse(self.marker.exists())
+
+    def test_failed_front_door_recovery_keeps_marker_and_does_not_start_emr(self):
+        for failure in (1, SystemExit(1)):
+            with self.subTest(failure=failure):
+                self.mocks['apply_nginx'].return_value = 1
+                self.mocks['apply_nginx'].side_effect = failure if isinstance(failure, SystemExit) else None
+                self.assertNotEqual(self.run_recovery(), 0)
+                self.assertTrue(self.marker.exists())
+                self.mocks['run'].assert_not_called()
 
     def test_requested_demo_failure_must_not_be_success(self):
         self.marker.write_text('reset_admin=false\ndemo_data=true\n')

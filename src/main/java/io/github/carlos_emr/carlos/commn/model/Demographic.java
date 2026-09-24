@@ -44,7 +44,6 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.springframework.context.i18n.LocaleContextHolder;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -1779,14 +1778,25 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
 
     /**
+     * Bundle lookup without the JVM-default-locale fallback. Plain
+     * {@code getBundle(name, locale)} answers an unsupported locale with the <em>server's</em>
+     * language, which is exactly the leak the callers below pass a browser locale in to avoid.
+     */
+    private static final ResourceBundle.Control NO_FALLBACK_CONTROL =
+            ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES);
+
+    /**
      * Loads the oscarResources bundle for the given locale, falling back to English if the locale
      * has no matching bundle.
+     *
+     * @param locale the browser-preferred locale for this request; {@code null} means English
      */
     private static ResourceBundle getResourceBundle(Locale locale) {
         try {
-            return ResourceBundle.getBundle("oscarResources", locale);
-        } catch (MissingResourceException e) {
-            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
+            return ResourceBundle.getBundle("oscarResources",
+                    locale == null ? Locale.ENGLISH : locale, NO_FALLBACK_CONTROL);
+        } catch (MissingResourceException _) {
+            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH, NO_FALLBACK_CONTROL);
         }
     }
 
@@ -1797,15 +1807,40 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private static String getRes(ResourceBundle bundle, String key, String fallback) {
         try {
             return bundle.getString(key);
-        } catch (MissingResourceException e) {
+        } catch (MissingResourceException _) {
             return fallback;
         }
     }
 
+    /**
+     * Compatibility entry point for callers compiled against earlier releases.
+     *
+     * @deprecated Pass the negotiated browser locale to
+     * {@link #getStandardIdentificationHtml(String, Locale)}. Legacy callers use English.
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
     public String getStandardIdentificationHTML(String contextPath) {
+        return getStandardIdentificationHtml(contextPath, Locale.ENGLISH);
+    }
+
+    /**
+     * Renders the patient identity block shown at the top of the chart.
+     *
+     * <p>The locale is a required argument, not something this method looks up, because CARLOS
+     * has no Spring {@code LocaleResolver} on the Struts/JSP request path: {@code LocaleContextHolder}
+     * and the JVM default both report the <em>server's</em> language there. The chart header is
+     * assembled here in Java but surrounded by {@code <fmt:message>} text resolved from the
+     * browser's {@code Accept-Language}, so taking the locale from anywhere but the request
+     * produced a header that was half translated. Callers pass
+     * {@code LocaleUtils.resolveBundleLocale(request)}.</p>
+     *
+     * @param contextPath servlet context path used to build the edit / appointment-history links
+     * @param locale browser-preferred locale for this request; {@code null} falls back to English
+     */
+    public String getStandardIdentificationHtml(String contextPath, Locale locale) {
         //TODO move this into the DemographicManager as a property modifier and wrap each item with setting preferences
         StringBuilder sb = new StringBuilder();
-        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
+        ResourceBundle carlosRes = getResourceBundle(locale);
 
         sb.append("<div id='patient-label'>");
         sb.append("<div id='patient-full-name'>");
@@ -1888,6 +1923,51 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append("</div>");
         }
 
+        appendContactDetails(sb, carlosRes);
+
+        //--> next appointment date
+        sb.append("<div id='patient-next-appointment'>");
+        sb.append("<div class='label'>");
+        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
+                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()))
+                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
+        String apptHistoryTitle = getRes(carlosRes, "global.viewAppointmentHistory", "Appointment History");
+        sb.append("<a href=\"").append(SafeEncode.forHtmlAttribute(apptHref))
+                .append("\" title='").append(SafeEncode.forHtmlAttribute(apptHistoryTitle))
+                .append("' target='_blank'>");
+        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
+        sb.append(nAppt);
+        sb.append("</a>");
+        sb.append("</div>");
+        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
+        if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
+            sb.append(SafeEncode.forHtmlContent(getNextAppointment()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        //--> most responsible practitioner (last item, pushed to right via CSS)
+        sb.append("<div id='patient-mrp'>");
+        sb.append("<div class='label'>");
+        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
+        sb.append(mrpLabel);
+        sb.append("</div>");
+        Provider mrp = getMrp();
+        if (mrp != null) {
+            sb.append(SafeEncode.forHtmlContent(mrp.getFormattedName()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        sb.append("</div>");
+
+        return sb.toString();
+    }
+
+    /** Appends optional contact fields using the caller-selected message bundle. */
+    private void appendContactDetails(StringBuilder sb, ResourceBundle carlosRes) {
         //--> phone
         if (getPhone() != null && !getPhone().isEmpty()) {
             sb.append("<div id='patient-phone' class='copyable' title='")
@@ -1930,44 +2010,6 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append(SafeEncode.forHtmlContent(getEmail()));
             sb.append("</div>");
         }
-
-        //--> next appointment date
-        sb.append("<div id='patient-next-appointment'>");
-        sb.append("<div class='label'>");
-        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
-                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()))
-                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
-        sb.append("<a href=\"").append(SafeEncode.forHtmlAttribute(apptHref))
-                .append("\" title='View Appointment History' target='_blank'>");
-        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
-        sb.append(nAppt);
-        sb.append("</a>");
-        sb.append("</div>");
-        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
-        if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
-            sb.append(SafeEncode.forHtmlContent(getNextAppointment()));
-        } else {
-            sb.append(SafeEncode.forHtmlContent(unknown));
-        }
-        sb.append("</div>");
-
-        //--> most responsible practitioner (last item, pushed to right via CSS)
-        sb.append("<div id='patient-mrp'>");
-        sb.append("<div class='label'>");
-        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
-        sb.append(mrpLabel);
-        sb.append("</div>");
-        Provider mrp = getMrp();
-        if (mrp != null) {
-            sb.append(SafeEncode.forHtmlContent(mrp.getFormattedName()));
-        } else {
-            sb.append(SafeEncode.forHtmlContent(unknown));
-        }
-        sb.append("</div>");
-
-        sb.append("</div>");
-
-        return sb.toString();
     }
 
     @Override
@@ -1975,11 +2017,30 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public Integer getId() {
         return this.getDemographicNo();
     }
+    /**
+     * Compatibility bean property for callers without a request locale.
+     *
+     * @deprecated Use {@link #getRosterStatusDisplay(Locale)} for browser-localized text.
+     * Legacy callers use English.
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
     @jakarta.persistence.Transient
-
     public String getRosterStatusDisplay() {
+        return getRosterStatusDisplay(Locale.ENGLISH);
+    }
+
+    /**
+     * Roster status as a clinician-readable label.
+     *
+     * <p>Takes the locale rather than reading one, for the reason given on
+     * {@link #getStandardIdentificationHtml(String, Locale)}. This locale-aware overload is not a JavaBean getter;
+     * the deprecated no-argument compatibility property remains {@code @Transient}.</p>
+     *
+     * @param locale browser-preferred locale for this request; {@code null} falls back to English
+     */
+    public String getRosterStatusDisplay(Locale locale) {
         String rs = StringUtils.trimToNull(this.getRosterStatus());
-        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
+        ResourceBundle carlosRes = getResourceBundle(locale);
         if (rs != null) {
             if ("RO".equals(rs)) {
                 return getRes(carlosRes, "demographic.enrollementhistory.Rostered", "ROSTERED");

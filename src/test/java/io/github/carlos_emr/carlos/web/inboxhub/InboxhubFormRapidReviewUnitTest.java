@@ -45,13 +45,28 @@ class InboxhubFormRapidReviewUnitTest {
     @Test
     @DisplayName("should use DataTable draw event when opening next Rapid Review item")
     void shouldUseDataTableDrawEvent_whenOpeningNextRapidReviewItem() throws Exception {
+        // Rapid Review has TWO advance routes now, and the difference matters. The re-fetch
+        // route still has to wait for the redraw, because the row it wants does not exist yet
+        // and may not land in the order it was appended. The in-place route must NOT wait: no
+        // fetch is running, the next item is already rendered, and hanging on a draw event
+        // that will never fire would silently stop advancing.
         String jsp = Files.readString(INBOXHUB_FORM);
-        String openNextInboxItem = extractOpenNextInboxItem(jsp);
 
-        assertThat(openNextInboxItem)
+        assertThat(extractFunction(jsp, "openNextInboxItemAfterDraw"))
+                .as("the re-fetch route waits for the redraw before clicking")
                 .contains("jQuery('#inbox_table').one('draw.dt', function()")
                 .contains("document.querySelector('#inbox_table tbody tr a')")
                 .contains("nextLink.click();")
+                .doesNotContain("setTimeout");
+
+        assertThat(extractFunction(jsp, "openNextInboxItem"))
+                .as("the in-place route acts at once: the next item is already on screen")
+                .contains("document.querySelector('#inbox_table tbody tr a')")
+                .contains("nextLink.click();")
+                .as("and it advances preview mode to the card that took the acknowledged "
+                        + "one's place rather than to the top of the list")
+                .contains("nextCard[0].scrollIntoView({ block: 'start' });")
+                .doesNotContain("draw.dt")
                 .doesNotContain("setTimeout");
     }
 
@@ -62,7 +77,10 @@ class InboxhubFormRapidReviewUnitTest {
         int addDataFunctionStart = jsp.indexOf("function addDataInInboxhubListTable(data)");
         int pageOneStart = jsp.indexOf("if (page == 1) {", addDataFunctionStart);
         int pendingRapidReviewBlock = jsp.indexOf("if (pendingRapidReviewOpen)", pageOneStart);
-        int openNextCall = jsp.indexOf("openNextInboxItem();", pendingRapidReviewBlock);
+        // The re-fetch route's call, which is the one that must be registered before the
+        // redraw. The in-place route (openNextInboxItem) is reached from the acknowledge
+        // listener instead and never runs here.
+        int openNextCall = jsp.indexOf("openNextInboxItemAfterDraw();", pendingRapidReviewBlock);
         int redrawCall = jsp.indexOf("jQuery('#inbox_table').DataTable().draw(false);", pageOneStart);
 
         assertThat(addDataFunctionStart).isNotNegative();
@@ -97,13 +115,32 @@ class InboxhubFormRapidReviewUnitTest {
                 .doesNotContain("source: contextPath + \"/provider/SearchProvider?method=labSearch\"");
     }
 
-    private String extractOpenNextInboxItem(String jsp) {
-        int start = jsp.indexOf("function openNextInboxItem()");
-        int end = jsp.indexOf("\n    // State variables preserved", start);
-
-        assertThat(start).isNotNegative();
-        assertThat(end).isNotNegative();
-        return jsp.substring(start, end);
+    /**
+     * One named function's body, delimited by brace matching.
+     *
+     * NOT by "everything up to the next landmark". That is how the draw-event assertion
+     * above kept passing after openNextInboxItem stopped using a draw event: a second
+     * function had been added between it and the landmark, so the extracted span covered
+     * both and the assertion found its listener in the wrong one.
+     */
+    private String extractFunction(String jsp, String name) {
+        int start = jsp.indexOf("function " + name + "()");
+        assertThat(start).as("function %s must exist", name).isNotNegative();
+        int open = jsp.indexOf('{', start);
+        assertThat(open).isNotNegative();
+        int depth = 0;
+        for (int at = open; at < jsp.length(); at++) {
+            char ch = jsp.charAt(at);
+            if (ch == '{') {
+                depth++;
+            } else if (ch == '}') {
+                depth--;
+                if (depth == 0) {
+                    return jsp.substring(start, at + 1);
+                }
+            }
+        }
+        throw new AssertionError("unbalanced braces reading function " + name);
     }
 
     private String extractToggleAcknowledged(String jsp) {

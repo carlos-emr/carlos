@@ -33,7 +33,7 @@
 # variables above for a fully offline build.
 
 export DH_VERBOSE = 1
-export JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk-$(shell dpkg --print-architecture)
+export JAVA_HOME ?= /usr/lib/jvm/java-25-openjdk-$(shell dpkg --print-architecture)
 export LC_ALL = C.UTF-8
 
 # Maven wants a writable local repository; keep it inside the build tree so a
@@ -196,6 +196,7 @@ override_dh_auto_install:
 	  database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
 	  database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
 	  database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	  database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql \
 	  database/mysql/updates/update-2026-03-10-standardize-prevention-types.sql \
 	  $(STAGE)/$(SHAREDIR)/schema/o19-fixups/
 	install -d $(STAGE)/$(SHAREDIR)/lib
@@ -226,7 +227,9 @@ override_dh_auto_install:
 	    database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
 	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
 	    database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	    database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql \
 	    .devcontainer/db/scripts/demo-hrm-report.sql \
+	    .devcontainer/db/scripts/admin_test_data.sql \
 	    $(STAGE)/$(SHAREDIR)/demo/
 	# Demo document FILES. The snapshot's document rows reference these PDFs and
 	# synthetic HRM files cover the snapshot's original .xml.<timestamp> names

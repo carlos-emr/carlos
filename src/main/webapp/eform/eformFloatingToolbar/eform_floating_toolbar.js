@@ -106,6 +106,14 @@ let editorLoadingBlockCount = 0;
  * clinician to "wait" forever. The (visible) alert is raised here so callers stay simple.
  */
 function editorStillLoading() {
+    if (typeof window.cancelPendingFaxSubmission === 'function') { window.cancelPendingFaxSubmission(); }
+    // Measurement loads must settle before any save/download/fax workflow flags or spinner.
+    if (typeof window.measurementHistoryStillLoading === 'function' && window.measurementHistoryStillLoading()) {
+        if (typeof window.cancelLetterOutput === 'function') { window.cancelLetterOutput(); }
+        window.needToConfirm = true;
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+        return true;
+    }
 	// Scoped to the editor's OWN template dropdown (#template, created by editControl2.js and
 	// repopulated when efmformrtl_templates returns). The previous query was every `select option`
 	// in the document, and the "loading..." literal appears nowhere in CARLOS-shipped code — it can
@@ -548,6 +556,7 @@ function setHiddenFormInput(id, name, value) {
  * workflow (e.g. a stale faxEForm=true making a later Save enter the fax path).
  */
 function clearWorkflowFlags() {
+    if (typeof window.cancelPendingFaxSubmission === 'function') { window.cancelPendingFaxSubmission(); }
     // Scoped to toolbar-created nodes only (see setHiddenFormInput). Never select by bare id: the
     // surrounding eForm is author-supplied HTML and may own an element of the same name.
     document.querySelectorAll('[data-carlos-workflow-flag]').forEach(function (el) {
@@ -562,6 +571,10 @@ function clearWorkflowFlags() {
  * open the Oscar Email dialog.
  */
 function remoteEmail() {
+    // Reject a pending letter before asking for consent or changing workflow intent.
+    if (editorStillLoading()) {
+        return;
+    }
     if (!document.getElementById("hasValidRecipient") || !document.getElementById("emailConsentStatus") || !document.getElementById("emailConsentName")) {
         alert("Valid recipient or consent parameter is not defined in the EForm.");
         return;
@@ -583,11 +596,6 @@ function remoteEmail() {
         }
     }
 
-    // Check before appending emailEForm=true so an editor-still-loading abort does not leave it on
-    // the form for a later plain Save to ride into the email workflow.
-    if (editorStillLoading()) {
-        return;
-    }
     clearWorkflowFlags();
     setHiddenFormInput("emailAction", "emailEForm", "true");
     remoteSave();
@@ -615,6 +623,9 @@ function remoteSaveOnly() {
 }
 
 function remotePrint() {
+    if (editorStillLoading()) {
+        return;
+    }
     // Same reason as remoteSaveOnly above: Print saves, and must not inherit a cancelled Fax's intent.
     clearWorkflowFlags();
 

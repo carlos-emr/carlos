@@ -140,6 +140,14 @@
                 if (fs != null) {
                     type = (fs.isExternal()) ? "System" : "Custom";
                 }
+
+                // The Health Tracker's backing flowsheet is intentionally empty and is
+                // curated per provider/patient from the tracker page itself, so it is not
+                // something to enable, disable or edit clinic-wide from here. Its visibility
+                // is governed by the health_tracker property instead.
+                if ("tracker".equals(flowSheet.getName())) {
+                    continue;
+                }
         %>
 
 						<tr>

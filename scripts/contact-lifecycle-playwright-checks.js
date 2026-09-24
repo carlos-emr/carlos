@@ -46,7 +46,7 @@ async function workflow(s) {
     await editor.locator('a[onclick="addContact();"]').click();
     await field('type').selectOption('2');
     const search = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]'), 'contact-search');
-    await search.locator('[name="keyword"]').fill(marker);
+    await search.locator('input[name="keyword"][type="text"]').fill(marker);
     await clickAndAwaitReload(search, search.locator('input[type="submit"]').first());
     await search.locator('tr[onclick]').filter({ hasText: marker }).click();
     assert(await field('contactId').inputValue() === contact, 'Contact search selected the wrong record');
@@ -111,13 +111,13 @@ async function workflow(s) {
       WHERE demographicNo=${patient} AND contactId=${sqlString(s.provider)} AND deleted=0`, '1|1',
       'Professional consent/status update did not persist');
   });
-  await s.step('editing an existing internal contact creates a correctly typed reciprocal association', async () => {
-    // Internal search is disabled in the release UI. Seed only the pre-existing
-    // relationship; changing its role and creating the reverse row use the form.
+  await s.step('internal patient search creates a correctly typed reciprocal association', async () => {
+    // Seed only the related patient. Find and select that patient through the
+    // actual picker, then create and edit the relationship through the form.
     let related;
     // demographic.last_name is VARCHAR(30); the 23-character marker plus this
     // suffix must round-trip unchanged for the cleanup ownership check.
-    const relatedName = `${marker}-REL`;
+    const relatedName = `${marker}-O'N`;
     s.cleanup(() => {
       if (!related) return;
       assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${related}
@@ -135,19 +135,22 @@ async function workflow(s) {
       VALUES (${sqlString(relatedName)},'Related','1960','01','02','M','AC',
         ${sqlString(s.provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
     assert(/^[1-9]\d*$/.test(related), 'Related patient fixture was not created');
-    const facility = sql.value(`SELECT facilityId FROM DemographicContact
-      WHERE demographicNo=${patient} AND category='professional' AND deleted=0 LIMIT 1`);
-    assert(/^\d+$/.test(facility), 'The saved professional contact has no facility');
-    const association = sql.value(`INSERT INTO DemographicContact
-      (facilityId,creator,updateDate,demographicNo,contactId,type,role,category,deleted,consentToContact,active)
-      VALUES (${facility},${sqlString(s.provider)},NOW(),${patient},${sqlString(related)},1,'Other','personal',0,1,1);
-      SELECT LAST_INSERT_ID()`);
-    assert(/^[1-9]\d*$/.test(association), 'Internal association fixture was not created');
     await open();
-    assert(await field('type').isDisabled(), 'Existing contact type should be omitted from form submission');
-    assert(await field('contactId').inputValue() === related, 'Editor opened the wrong internal contact');
+    await editor.locator('a[onclick="addContact();"]').click();
+    await field('type').selectOption('1');
+    const patientSearch = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'patient-contact-search');
+    await patientSearch.locator('input[name="keyword"][type="text"]').fill(relatedName);
+    await clickAndAwaitReload(patientSearch, patientSearch.locator('input[type="submit"]').first());
+    await patientSearch.locator('tr[onclick]').filter({
+      has: patientSearch.locator(`input[name="demographic_no"][value="${related}"]`),
+    }).locator('td.lastName').click();
+    assert(await field('contactId').inputValue() === related, 'Internal search selected the wrong patient');
+    assert(await field('contactName').inputValue() === `${relatedName},Related`, 'Internal search corrupted the patient display name');
     await field('role').selectOption('Parent');
     await save();
+    const association = sql.value(`SELECT id FROM DemographicContact WHERE demographicNo=${patient}
+      AND contactId=${sqlString(related)} AND type=1 AND category='personal' AND deleted=0`);
+    assert(/^[1-9]\d*$/.test(association), 'Internal patient selection did not create an association');
     await expectValue(sql, `SELECT CONCAT(type,'|',role,'|',contactId) FROM DemographicContact
       WHERE id=${association} AND demographicNo=${patient}`, `1|Parent|${related}`,
       'Editing the relationship moved or changed the original association');
@@ -155,12 +158,43 @@ async function workflow(s) {
       WHERE demographicNo=${related} AND deleted=0`, `1|Daughter|${patient}||`,
       'The reciprocal relationship has the wrong type or unrequested SDM/emergency flags');
     await open();
+    assert(await field('type').isDisabled(), 'Existing contact type must remain immutable');
     assert(await field('role').inputValue() === 'Parent', 'Internal contact role did not reopen');
     await field('note').fill(`${marker}-INTERNAL`);
     await save();
     assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${related}`) === '1',
       'Saving an existing relationship duplicated its reciprocal association');
   });
+  await s.step('invalid counts and category tampering are rejected without changing associations', async () => {
+    await open();
+    await editor.waitForFunction(() => document.querySelector('input[name="CSRF-TOKEN"]')?.value);
+    const token = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const form = await editor.locator('form[name="contactForm"]').evaluate(element => ({
+      action: element.action, entries: Array.from(new FormData(element).entries()),
+    }));
+    const original = new URLSearchParams(form.entries);
+    assert(original.get('method') === 'saveManage', 'The actual contact form does not target saveManage');
+    const ownId = original.get('contact_1.id');
+    const related = original.get('contact_1.contactId');
+    assert(/^[1-9]\d*$/.test(ownId) && /^[1-9]\d*$/.test(related), 'Missing owned internal association');
+    const snapshot = () => JSON.stringify(sql.rows(`SELECT * FROM DemographicContact
+      WHERE demographicNo IN (${patient},${related}) ORDER BY id`));
+    const before = snapshot();
+    for (const [field, value, expected] of [
+      ['procontact_num', 'invalid', 400], ['procontact_1.id', ownId, 403],
+    ]) {
+      const tampered = new URLSearchParams(original);
+      tampered.set(field, value);
+      const response = await s.context.request.post(form.action, {
+        headers: {'CSRF-TOKEN': token, 'Content-Type': 'application/x-www-form-urlencoded'},
+        data: tampered.toString(),
+      });
+      assert(response.status() === expected, `Contact ${field} tampering did not return HTTP ${expected}`);
+      assert(snapshot() === before, 'Rejected contact request changed persisted association data');
+    }
+    await editor.close();
+  });
+
 }
 if (require.main === module) runWorkflow('contact-lifecycle', workflow);
 module.exports = { workflow };

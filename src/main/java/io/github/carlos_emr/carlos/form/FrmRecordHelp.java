@@ -64,6 +64,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class FrmRecordHelp {
     private static final Pattern INSERT_ROW_ID_FILTER = Pattern.compile("(?i)\\bID\\s*=\\s*0\\b");
 
+    /**
+     * JDBC type names these legacy form tables report for the 1-bit columns the JSPs
+     * render as checkboxes. MySQL/MariaDB answer {@code TINYINT} with a display-width
+     * suffix (for example {@code TINYINT(1)}), hence the prefix match rather than equality.
+     */
+    private static final String TINYINT_TYPE = "TINYINT";
+    private static final String BIT_TYPE = "bit";
+
     private String _dateFormat = "yyyy/MM/dd";
     private String _newDateFormat = "yyyy-MM-dd"; //handles both date formats, but yyyy/MM/dd is displayed to avoid deprecation
 
@@ -121,7 +129,7 @@ public class FrmRecordHelp {
                     String name = md.getColumnName(i);
                     String value;
 
-                    if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+                    if (isBooleanColumnType(md.getColumnTypeName(i))) {
                         if (rs.getInt(i) == 1)
                             value = "checked='checked'";
                         else
@@ -207,6 +215,21 @@ public class FrmRecordHelp {
 
             return insertedId;
         }
+    }
+
+    /**
+     * Whether a JDBC column type name denotes one of the boolean-valued columns these
+     * legacy form tables use for checkbox fields.
+     *
+     * @param columnTypeName value from {@code ResultSetMetaData.getColumnTypeName}; may be null
+     * @return true for {@code TINYINT...} or {@code bit}, in any case
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision")
+    private static boolean isBooleanColumnType(String columnTypeName) {
+        return columnTypeName != null
+                && (columnTypeName.regionMatches(true, 0, TINYINT_TYPE, 0, TINYINT_TYPE.length())
+                        || BIT_TYPE.equalsIgnoreCase(columnTypeName));
     }
 
     private String archiveSelectSql(String sql) throws SQLException {
@@ -297,7 +320,7 @@ public class FrmRecordHelp {
 
             String value = props.getProperty(name, null);
 
-            if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+            if (isBooleanColumnType(md.getColumnTypeName(i))) {
                 if (value != null) {
                     if (value.equalsIgnoreCase("on") || value.equalsIgnoreCase("checked='checked'")) {
                         rs.updateInt(name, 1);
@@ -445,7 +468,7 @@ public class FrmRecordHelp {
             String name = md.getColumnName(i);
             String value;
 
-            if ((md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
+            if (isBooleanColumnType(md.getColumnTypeName(i)) && md.getScale(i) == 1) {
                 if (rs.getInt(i) == 1)
                     value = "on";
                 else

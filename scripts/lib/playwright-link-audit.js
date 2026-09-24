@@ -123,32 +123,25 @@ async function catalogueLinks(page, options = {}) {
     const relRoute = /^[./]/.test(relAttribute) || /^[A-Za-z0-9_][A-Za-z0-9_.-]*\//.test(relAttribute)
       ? relAttribute
       : '';
-    // Three shapes, in order, because CARLOS writes all three and an
-    // absolute-only pattern dropped the other two: the item was catalogued
-    // with no route, and an item with href="#" and no route was filtered out
-    // of the audit entirely -- so those pages were never opened while the
-    // audit still reported a full sweep.
-    //   absolute   popupPage(600,900,'/carlos/billing/...')
-    //   relative   popupPage(..., '../encounter/IncomingEncounter?...')
-    //   bare       popup(..., 'DemographicEdit?demographic_no=...')
-    const routeInOnclick = opener.match(/["']((?:\.{1,2}\/)+[A-Za-z0-9_][^"'\s]*)["']/)
-      || opener.match(/["'](\/[A-Za-z0-9_][A-Za-z0-9_/.-]*(?:\?[^"']*)?)["']/)
-      // Bare paths only when the token actually looks like one: it carries a
-      // slash, a query string, or a server-page extension. Without that guard
-      // this matches the window name and the feature string that sit in the
-      // same argument list ('_blank', 'width=600'), and the audit would report
-      // a route for every opener whether or not it found one.
-      // The segment class excludes '/' deliberately. With '/' inside it, a
-      // segment could be split at any slash and (?:\/[^...]*)* had exponentially
-      // many ways to match the same string -- catastrophic backtracking on an
-      // unterminated quote full of slashes, which would hang the audit inside
-      // the page rather than fail it (CodeQL js/redos).
-      || opener.match(/["']([A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[^"'\s?/]*)*(?:\.(?:jsp|do|html?)\b)?(?:\?[^"']*)?)["']/);
-    const looksLikeRoute = routeInOnclick
-      && (/^[./]/.test(routeInOnclick[1])
-        || /[/?]/.test(routeInOnclick[1])
-        || /\.(?:jsp|do|html?)$/i.test(routeInOnclick[1]));
-    const route = looksLikeRoute ? routeInOnclick[1] : relRoute;
+    // Read complete quoted literals, including escaped quotes, without executing
+    // the handler. Decode before validating the route: even its slashes may be
+    // JavaScript-encoded. The disjoint alternatives avoid nested backtracking.
+    const literals = opener.match(/"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/g) || [];
+    const route = literals.map(literal => literal.slice(1, -1).replace(
+      /\\(?:x([0-9a-fA-F]{2})|u(?:([0-9a-fA-F]{4})|\{([0-9a-fA-F]+)\})|([\s\S]))/g,
+      (escape, hex, unicode, codePoint, character) => {
+        if (hex || unicode) return String.fromCharCode(parseInt(hex || unicode, 16));
+        // Braced escapes also allow astral code points and leading zeroes.
+        // fromCodePoint rejects invalid values rather than inventing a probe URL.
+        if (codePoint) return String.fromCodePoint(parseInt(codePoint, 16));
+        const special = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v' };
+        return Object.prototype.hasOwnProperty.call(special, character) ? special[character] : character;
+      },
+    )).find(candidate => !/\s/.test(candidate)
+      && (/^(?:\.{1,2}\/)+[A-Za-z0-9_]/.test(candidate)
+        || /^\/[A-Za-z0-9_]/.test(candidate)
+        || (/^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:[/?]|$)/.test(candidate)
+          && (/[/?]/.test(candidate) || /\.(?:jsp|do|html?)$/i.test(candidate))))) || relRoute;
     // A FRAGMENT IS NOT A DESTINATION. Excluding only the exact string '#' let
     // every in-page tab and collapse through (`href="#custom"`,
     // `href="#collapseClinical"`, `href="#top"`). Clicking one stays on the host
@@ -253,27 +246,13 @@ async function csrfBootstrapFinding(page, itemText) {
   const readsToken = await page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation
     const inline = Array.from(document.querySelectorAll('script:not([src])'))
       .map((element) => element.textContent || '').join('\n');
-    // THE SHARED HELPER COUNTS TOO, and on its own. carlos-ajax.js reads
-    // input[name="CSRF-TOKEN"] on the page's behalf, so a page calling
-    // CarlosAjax never mentions the token itself -- which is why the static
-    // audit missed eight such pages, six of them violations, until it was
-    // widened to cover the helper. Without this the browser half stays blind to
-    // them too, and those six open clean in every surface audit that touches
-    // them.
-    //
-    // Mirrors sendsMutatingViaSharedHelper() in lib/csrf-bootstrap-audit.js:
-    // the helper defaults to POST and injects no token for GET or HEAD, so a
-    // page whose every call is a GET has nothing to bootstrap. Written out
-    // longhand rather than imported because this body runs inside the page.
-    const helperCalls = [...inline.matchAll(/\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/g)];
-    const mutatesViaHelper = helperCalls.some((call) => {
-      const options = inline.slice(call.index, call.index + 400);
-      const method = options.match(/\bmethod\s*:\s*['"]([A-Za-z]+)['"]/);
-      return !method || !['GET', 'HEAD'].includes(method[1].toUpperCase());
-    });
-    if (mutatesViaHelper) {
-      return true;
-    }
+    // THE SHARED HELPER DOES NOT COUNT. A page that POSTs only through
+    // CarlosAjax never needs the hidden input: the helper sends with
+    // XMLHttpRequest so that CSRFGuard's injected script puts the CSRF-TOKEN
+    // header on every send (lib/csrf-bootstrap-audit.js explains; issue #3665,
+    // finding 10, was the static audit judging those pages anyway).
+    // csrf-xhr-token-playwright-checks.js is the live proof for that path;
+    // this probe stays with the rule's own case, the page's own fetch/XHR.
     return /CSRF-TOKEN/.test(inline) && /fetch\(|XMLHttpRequest|\$\.ajax|\$\.post/.test(inline);
   }).catch(() => false);
   if (!readsToken) {

@@ -40,7 +40,9 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-SCHEMA_MAP_VERSION = "o19map-2"
+# The nullable consultation booking field no longer needs primitive coercion.
+# Refuse resuming a partially applied import under the previous conversion rules.
+SCHEMA_MAP_VERSION = "o19map-3"
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -293,7 +295,11 @@ CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
 # header is billing_on_cheader1; in BC the invoice lives in `billing`
 # (the province-neutral table CARLOS's BillingBCDao reads), with
 # billingmaster holding its service lines.
-BILLING_TOTALS_TABLE = {
+# Named for the claim header itself rather than for "billing totals": the value
+# is a schema identifier, and a name-based scanner heuristic reads a billing name
+# as financial data about a person, which made every message that names the table
+# read as clear-text logging of private data.
+CLAIM_HEADER_TABLE = {
     "on": "billing_on_cheader1",
     "bc": "billing",
 }

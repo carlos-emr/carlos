@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -186,6 +186,7 @@ CSRFGuard's client script only injects the hidden `<input name="CSRF-TOKEN">` in
 Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" style="display:none;"></form>` — CSRFGuard skips action-less forms, so the input never gets populated. Note also how CSRFGuard 4.5 (configured with `org.owasp.csrfguard.Ajax=true`, see `Owasp.CsrfGuard.properties`) validates tokens:
 
 - **AJAX / XHR requests** carrying `X-Requested-With: XMLHttpRequest` are validated via the `CSRF-TOKEN` request header. XHRs hijacked by CSRFGuard's injected client script get this header set automatically; `fetch()` calls are **not** hijacked and must set `CSRF-TOKEN` explicitly (e.g. reading it from the hidden `input[name="CSRF-TOKEN"]`).
+  - **Server-side, never compare `X-Requested-With` with `equals`.** CSRFGuard's hijack calls `setRequestHeader` a second time, and the XHR spec combines repeated values, so a jQuery `$.ajax` POST arrives as `X-Requested-With: XMLHttpRequest, OWASP CSRFGuard Project` and a `carlos-ajax.js` request carries the marker alone. Use `RequestNegotiation.isAjax(request)`. See `docs/csrf-protection-architecture.md` → "`X-Requested-With` is a LIST, not a single value".
 - **Classic form POSTs** (non-AJAX) are validated via the `CSRF-TOKEN` form-body parameter injected by CSRFGuard into the `<form>`.
 
 Header validation takes precedence over body-parameter validation when both are present.
@@ -332,7 +333,7 @@ default for new code.
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
-- Caffeine 3.2.3 cache dependency required by Struts for internal caching
+- Caffeine 3.2.4 cache dependency required by Struts for internal caching
 
 ### Direct Response Actions
 
@@ -613,7 +614,7 @@ public Example2Action(SomeManager someManager) {
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and Jakarta XML Binding
+- **Java 25** with modern language features and Jakarta XML Binding
 - **Spring Framework 7.0.6**: IoC container, MVC, AOP, Security, transaction management (Jakarta EE 11)
 - **Spring Security 7.0.4**: Crypto module for password hashing
 - **Hibernate 7.2.7**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
@@ -625,7 +626,7 @@ public Example2Action(SomeManager someManager) {
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
-  - Requires Caffeine 3.2.3 cache dependency for internal caching
+  - Requires Caffeine 3.2.4 cache dependency for internal caching
 - **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
@@ -886,7 +887,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 
 ### Docker Setup
 - Development environment runs in Docker containers
-- Tomcat container with Java 21 and debugging enabled
+- Tomcat container with Java 25 and debugging enabled
 - MariaDB database container
 - Maven repository caching for faster builds
 - Port 8080 for web application, 3306 for database

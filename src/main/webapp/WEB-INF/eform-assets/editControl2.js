@@ -108,9 +108,11 @@
 */
 //GLOBALS
 var cfg_layout = '[select-block]|[bold][italic]|[unordered][ordered][rule]|[undo][redo]|[indent][outdent][select-all][clean]|[clock][spell][help]<br />[edit-area]';
-var cfg_formatblock = '<option value="">&mdash; format &mdash;</option>  <option value="<p>">Paragraph</option>  <option value="<h1>">Heading 1</option>  <option value="<h2>">Heading 2 <H2></option>  <option value="<h3>">Heading 3 <H3></option>  <option value="<h4>">Heading 4 <H4></option>  <option value="<h5>">Heading 5 <H5></option>  <option value="<h6>">Heading 6 <H6></option>  </select>';
+var cfg_formatblock = '<option value="">&mdash; format &mdash;</option>  <option value="<p>">Paragraph</option>  <option value="<h1>">Heading 1</option>  <option value="<h2>">Heading 2</option>  <option value="<h3>">Heading 3</option>  <option value="<h4>">Heading 4</option>  <option value="<h5>">Heading 5</option>  <option value="<h6>">Heading 6</option>  </select>';
 var cfg_formatface = '<option value="">&mdash; font face &mdash;</option>  <option value="Arial,Helvetica,sans-serif">Arial</option> <option value="Courier">Courier</option> <option value="Times New Roman">Times</option> </select>';
-var cfg_formatfontsize = '<option value="">&mdash; font size &mdash;</option>  <option value="1">1</option>  <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> <option value="5">5</option> <option value="6">6</option> <option value="7">7</option> </select>';
+// Approximate CSS pixels at default browser font settings; retain legacy 1-7 values
+// so formatting commands and existing saved letters keep their original behavior.
+var cfg_formatfontsize = '<option value="">&mdash; font size &mdash;</option>  <option value="1">&asymp;10px</option>  <option value="2">&asymp;13px</option> <option value="3">&asymp;16px</option> <option value="4">&asymp;18px</option> <option value="5">&asymp;24px</option> <option value="6">&asymp;32px</option> <option value="7">&asymp;48px</option> </select>';
 var cfg_formattemplate = '<option value="">&mdash; template &mdash;</option>  <option value="blank.rtl">blank</option>  </select>';
 var cfg_isrc = '';  				// path to icons degrades to text buttons if icons not found
 var cfg_filesrc = '';				// path to blank.html and editor_help.html
@@ -297,7 +299,10 @@ function ex(command,value){
 	document.getElementById(cfg_editorname).contentWindow.document.execCommand(command, false, value); 
 }
 
-function editControlContents(editorname) {
+function editControlContents(editorname, allowPendingMeasurements) {
+	// Template expansion reads content too; only those internal reads may bypass
+	// the save/print gate so changing a template still completes while a request runs.
+	if (!allowPendingMeasurements) { cancelPendingFaxSubmission(); assertMeasurementHistoryReady(); }
 	var value = "";
 	// HARD STOP: the stored letter never made it into the editor (see seteditControlContents'
 	// fallback branch). Every caller of this function feeds its result to a save, so returning the
@@ -327,7 +332,10 @@ function editControlContents(editorname) {
 // isStoredContent: true only when restoring a SAVED letter. The new-form template path
 // (populateTemplate) also writes through here before designMode is enabled, and losing a blank
 // template costs nothing — so only a stored-content write that cannot land is treated as data loss.
-function seteditControlContents(editorname, value, isStoredContent){
+function seteditControlContents(editorname, value, isStoredContent, keepPendingSourceView){
+	cancelPendingFaxSubmission();
+	measureTemplateRevision++;
+	if (!keepPendingSourceView) { pendingMeasureSourceView = null; }
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
@@ -393,22 +401,88 @@ function Select(selectname){
   	}
 }
 
-/**
- * Turns designMode on in the editor iframe's CURRENT document. Every template load (blank.rtl or a
- * clinic .rtl) navigates the iframe, and the parent's iframe.onload handler runs BEFORE the template's
- * own <body onload="document.designMode='on'"> has executed, so parseTemplate() reached
- * seteditControlContents() with designMode still off. That function refuses to write into a
- * non-designMode iframe (it is the guard that stops saved letters vanishing), logged a console error
- * on every new letter, and dropped the parsed template — harmless for the empty blank.rtl, but a
- * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
- * parse, is order-independent: the template's own onload then finds it already on.
- */
+/** Clear legacy and toolbar output intent after a blocked letter action. */
+function cancelLetterOutput() {
+    cancelPendingFaxSubmission();
+    if (typeof clearWorkflowFlags === 'function') { clearWorkflowFlags(); }
+    var faxField = document.getElementById('faxEForm');
+    if (faxField) { faxField.value = false; }
+    var letterForm = measurementLetterForm();
+    if (letterForm && typeof letterForm.querySelectorAll === 'function') {
+        Array.prototype.forEach.call(letterForm.querySelectorAll('#printHolder, #saveHolder'), function(field) {
+            field.value = 'false';
+        });
+    }
+    window.needToConfirm = true;
+    if (typeof HideSpin === 'function' && document.getElementById('oscar-spinner-screen')
+            && document.getElementById('oscar-spinner')) { HideSpin(); }
+}
+
+function guardLetterSubmit() {
+    var form = measurementLetterForm();
+    if (!form || typeof form.submit !== 'function' || form.submit.__rtlMeasurementGuard) { return; }
+    var nativeSubmit = form.submit;
+    var preparing = false;
+    function cancelSubmission(message) {
+        cancelLetterOutput();
+        alert(message);
+        return false;
+    }
+    var guardedSubmit = function() {
+        if (preparing) { return false; }
+        if (measurementHistoryStillLoading()) {
+            return cancelSubmission('The letter is still loading. Please wait before saving.');
+        }
+        preparing = true;
+        try {
+            // Legacy PrintSaveButton timers bypass submit events and may hold an
+            // old Letter value. Serialize the current editor immediately before POST.
+            if (typeof saveRTL === 'function') { saveRTL(); }
+            if (measurementHistoryStillLoading()) {
+                return cancelSubmission('The letter is still loading. Please wait before saving.');
+            }
+            return nativeSubmit.apply(form, arguments);
+        } catch (error) {
+            return cancelSubmission('The letter could not be prepared for saving. Please review it and try again.');
+        } finally { preparing = false; }
+    };
+    guardedSubmit.__rtlMeasurementGuard = true;
+    form.submit = guardedSubmit;
+}
+
+function guardLetterPrint(targetWindow) {
+    if (!targetWindow || typeof targetWindow.print !== 'function') { return; }
+    var previousPrint = targetWindow.print;
+    var printDocument = targetWindow.document;
+    if (previousPrint.__rtlMeasurementGuard && previousPrint.__rtlPrintDocument === printDocument) { return; }
+    // Rewrap a retained WindowProxy function for the new document, while old
+    // delayed callbacks keep their own document check and remain cancelled.
+    var nativePrint = previousPrint.__rtlNativePrint || previousPrint;
+    var guardedPrint = function() {
+        if (targetWindow.document !== printDocument) { return; }
+        cancelPendingFaxSubmission();
+        if (measurementHistoryStillLoading()) {
+            cancelLetterOutput();
+            alert('The letter is still loading. Please wait before printing.');
+            return;
+        }
+        return nativePrint.call(targetWindow);
+    };
+    guardedPrint.__rtlMeasurementGuard = true;
+    guardedPrint.__rtlPrintDocument = printDocument;
+    guardedPrint.__rtlNativePrint = nativePrint;
+    targetWindow.print = guardedPrint;
+}
+guardLetterPrint(window);
+
+/** Enable the current iframe document before parsing or restoring letter content. */
 function enableEditorDesignMode() {
 	var frame = document.getElementById(cfg_editorname);
 	var frameDoc;
 	try { frameDoc = frame && frame.contentWindow ? frame.contentWindow.document : null; }
 	catch (e) { frameDoc = null; } // cross-origin frame: nothing to do (and nothing we could edit)
 	if (frameDoc && frameDoc.designMode !== 'on') { frameDoc.designMode = 'on'; }
+	if (frameDoc) { guardLetterPrint(frame.contentWindow); }
 }
 
 /**
@@ -425,10 +499,12 @@ function enableEditorDesignMode() {
  * double-firing on ordinary typing is harmless.
  */
 function attachDirtyFlagListener() {
-	if (typeof setDirtyFlag !== 'function') { return; }
+	guardLetterSubmit();
 	var frame = document.getElementById(cfg_editorname);
 	var frameWindow = frame ? frame.contentWindow : null;
 	if (!frameWindow || typeof frameWindow.addEventListener !== 'function') { return; }
+	guardLetterPrint(frameWindow);
+	if (typeof setDirtyFlag !== 'function') { return; }
 	frameWindow.addEventListener('keypress', setDirtyFlag, true);
 	frameWindow.addEventListener('input', setDirtyFlag, true);
 }
@@ -440,24 +516,33 @@ function existsTemplate(template) {
 }
 
 function loadDefaultTemplate() {
-	// Skipping loading of default template if the letter already has content.
-	if (editControlContents(cfg_editorname).trim() != '') { return; }
+	// Internal measurement markers must not suppress the configured template.
+	// Loading replaces the document. Report a discarded insertion unless a
+	// new measurement request explicitly superseded it.
+	var content = editControlContents(cfg_editorname, true).replace(/<!--RTL measurement (?:insertion|selection)-->/g, '');
+	if (content.trim() != '') { measureInitialTemplateLoading = false; finishPendingSourceView(); return; }
+	cancelPendingFaxSubmission();
+	pendingMeasureSourceView = null;
+	showLetterStatus('rtl-template-lookup-status', '', false);
+	measureTemplateRevision++;
+	measureInitialTemplateLoading = true;
+	// Invalidate markers before navigation starts, including a fast REST response.
+	document.getElementById(cfg_editorname).contentDocument.body.textContent = '';
 	if (existsTemplate(cfg_template)) {
 		var selected = cfg_template;
-		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
+		document.getElementById(cfg_editorname).contentWindow.location = cfg_filesrc + selected;
 		document.getElementById('subject').value = cfg_template == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
-		//for IE put some delay to ensure that the new src is loaded before we parse it
-    	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
+		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); finishPendingSourceView(); };
+		// Parse once from iframe load; a second delayed parse could replace later edits.
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
 		var blankFrame = document.getElementById(cfg_editorname);
 		// srcdoc navigates the iframe too, so the listener has to follow the new Window here as well.
-		blankFrame.onload = function() { enableEditorDesignMode(); attachDirtyFlagListener(); };
+		blankFrame.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); attachDirtyFlagListener(); finishPendingSourceView(); };
 		blankFrame.srcdoc = blankTemplate;
 	}
 }
@@ -471,22 +556,38 @@ function loadTemplate(selectname){
     	var selected = document.getElementById(selectname).options[cursel].value;
 		// Security: validate template name to prevent path traversal or script injection via iframe src
 		if (!/^[\w.\- ]+$/.test(selected)) { console.warn('loadTemplate: invalid template name:', selected); return; }
+		cancelPendingFaxSubmission();
+		measureTemplateRevision++;
+		measureInitialTemplateLoading = true;
+		pendingMeasureSourceView = null;
+		showLetterStatus('rtl-template-lookup-status', '', false);
+		var previousDocument = document.getElementById(cfg_editorname).contentDocument;
+		[pendingMeasureBatch, activeMeasureBatch].concat(measureRequestQueue).forEach(function(batch) {
+			if (batch && batch.document === previousDocument && batch.marker.parentNode) {
+				batch.marker.parentNode.removeChild(batch.marker);
+			}
+		});
 		//document.getElementById(cfg_editorname).src = cfg_filesrc + selected + '.html' ; //FF != IE
-		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
+		document.getElementById(cfg_editorname).contentWindow.location = cfg_filesrc + selected;
 		document.getElementById('subject').value = selected == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
-		//for IE put some delay to ensure that the new src is loaded before we parse it
-    		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
+		obj.onload = function() { measureInitialTemplateLoading = false; enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); finishPendingSourceView(); };
+		// Parse once from iframe load; a second delayed parse could replace later edits.
     	}
 }
 
 function parseTemplate(){
+	var templateRevision = ++measureTemplateRevision;
+	var templateDocument = document.getElementById(cfg_editorname).contentDocument;
+    function templateIsCurrent() {
+        var frame = document.getElementById(cfg_editorname);
+        return measureTemplateRevision === templateRevision && frame && frame.contentDocument === templateDocument;
+    }
 	//replace template placeholders with database pulls
-	var contents=editControlContents(cfg_editorname);
+	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
 	var keys = [];
 	var needLookup = false;
@@ -511,14 +612,32 @@ function parseTemplate(){
 		var templateMapping = cache.getMapping("template");
 		if (templateMapping != null) {			
 			templateMapping.values = keys;
-			cache.lookup("template");	
+			if (!cache.flushCache && cache.contains("template")) { populateTemplate(); return; }
+			measureTemplateLookupsPending++;
+			try { cache.lookup("template", 15000, {
+                isCurrent: templateIsCurrent,
+                onStale: function() { finishTemplateLookup(true, true); },
+                onResponse: function() {
+                    var populated = false;
+                    try { populateTemplate(); populated = true; }
+                    catch (error) { console.warn('RTL: template population failed.'); }
+                    finally { finishTemplateLookup(populated); }
+                },
+                onError: function() {
+                    // A failed lookup for a replaced letter must not add a failure
+                    // notice to its replacement, but must release its pending count.
+                    finishTemplateLookup(false, !templateIsCurrent());
+                }
+            }); }
+			catch (error) { finishTemplateLookup(false); }
 		}		 
 	}
 }
 
 function populateTemplate(){
-	//replace template placeholders with database pulls
-	var contents=editControlContents(cfg_editorname);
+	// Read the live editor when the lookup completes, not a request-time snapshot.
+	// Text typed or replaced while waiting remains part of the expanded content.
+	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
 	contents='';
 	var x;
@@ -543,7 +662,8 @@ function populateTemplate(){
 		}
 		contents += temp[x];
 	}
-	seteditControlContents(cfg_editorname,contents);
+	seteditControlContents(cfg_editorname,contents,false,true);
+	showLetterStatus('rtl-template-lookup-status', '', false);
 }
 
 function parseText(obs) {
@@ -599,9 +719,60 @@ function doHtml(value) {
 			editorDoc.body.appendChild(editorDoc.createTextNode(value));
 		}
 	}
+	bindStampFallbacks(editorDoc);
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
 	document.getElementById(cfg_editorname).contentWindow.focus();
+}
+
+/**
+ * Attaches the stamps.js / stamp.png fallback to a freshly inserted provider stamp.
+ *
+ * pickStamp() marks a per-provider stamp with STAMP_MARKER_ATTRIBUTE. The handler cannot be an
+ * inline onerror: doHtml() runs every insertion through DOMPurify, which strips event-handler
+ * attributes, so it is bound here instead — after insertion, in the same task, before the image can
+ * finish loading.
+ *
+ * This is what makes the fallback a guarantee rather than a race. probeProviderStamp() usually
+ * answers first and pickStamp() then emits the right URL outright, but on a form_html that predates
+ * the hidden identity inputs the provider number only arrives with the APCache lookup, so the very
+ * first Stamp click can be issued before any probe has completed. Without this the letter would
+ * keep a broken image and the documented fallback would never run.
+ *
+ * SECURITY: the marker carries no data. The fallback FILENAME is held in carlosPendingStampFallback
+ * and never round-trips through the DOM, because this scans the whole editor document — which after
+ * a reopen holds the restored saved letter, i.e. stored, user-authored HTML. DOMPurify permits
+ * data-* attributes, so a filename read back out of an attribute would be attacker-influenced DOM
+ * text flowing into an image URL (CodeQL js/html-constructed-from-input). Keeping the value in
+ * module state means the URL is only ever built from legacyStampFile(), the same trusted
+ * ImgArray/APCache source pickStamp() has always used. The marker is removed as it is consumed, so
+ * it never reaches the stored letter either.
+ */
+function bindStampFallbacks(editorDoc) {
+	if (!editorDoc || !editorDoc.querySelectorAll) { return; }
+	var fallback = carlosPendingStampFallback;
+	carlosPendingStampFallback = "";
+	var stamps = editorDoc.querySelectorAll('img[' + STAMP_MARKER_ATTRIBUTE + ']');
+	for (var index = 0; index < stamps.length; index++) {
+		(function (image) {
+			image.removeAttribute(STAMP_MARKER_ATTRIBUTE);
+			// Defence in depth: a stray marker on restored content has no pending fallback, and a
+			// filename is a plain basename or it is not used.
+			if (!/^[\w.\- ]+$/.test(fallback)) { return; }
+			// Closure flag, not an attribute: the guard must not leave a marker in the stored
+			// letter, and swapping src can itself fire another error event.
+			var swapped = false;
+			var swap = function () {
+				if (swapped) { return; }
+				swapped = true;
+				console.log('editControl: stored signature unavailable; falling back to ' + fallback);
+				image.src = stampImageSrc(fallback);
+			};
+			image.addEventListener('error', swap);
+			// The image may already have failed from cache before this ran.
+			if (image.complete && image.naturalWidth === 0) { swap(); }
+		})(stamps[index]);
+	}
 }
 
 function block(blockElements) {
@@ -683,6 +854,8 @@ function doTable() {
 }
 
 function doExport() {
+	cancelPendingFaxSubmission();
+	assertMeasurementHistoryReady();
 	var blob = new Blob([document.getElementById('edit').contentWindow.document.documentElement.outerHTML], { type: 'text/html;charset=utf-8'}); 
 	saveAs(blob, document.getElementById('subject').value+'.rtl');
 }
@@ -703,6 +876,14 @@ function doBreak(){
 }
 
 function viewsource(source) {
+	cancelPendingFaxSubmission();
+	var editorDoc = document.getElementById(cfg_editorname).contentDocument;
+	if (measurementHistoryStillLoading()) {
+		pendingMeasureSourceView = {document: editorDoc, source: !!source};
+		if (!measureBatchFailed) { showMeasurementStatus('Source view will change after measurements finish loading.', false); }
+		return;
+	}
+	if (!!editorDoc.__rtlSourceMode === !!source) { return; }
 	// load the html into a variable, blank the body, import as text, disable gui
 	var html;
 	if (isIE()){
@@ -744,6 +925,7 @@ function viewsource(source) {
 		document.getElementById("control3").style.visibility="visible";
 		document.getElementById("control4").style.visibility="visible";
 	}
+	document.getElementById(cfg_editorname).contentDocument.__rtlSourceMode = !!source;
 	return;
 }
 
@@ -834,14 +1016,75 @@ function printKey (key) {
 	if (value != null && checkKeyResponse(key)) { doHtml(cache.get(key)); } 		  
 }
 	
+var pendingFaxSubmission = null;
+
+function cancelPendingFaxSubmission() {
+	if (!pendingFaxSubmission) { return; }
+	window.clearTimeout(pendingFaxSubmission.timer);
+	pendingFaxSubmission = null;
+	var faxField = document.getElementById('faxEForm');
+	if (faxField) { faxField.value=false; }
+	window.needToConfirm=true;
+}
+
 function submitFaxButton() {
-	document.getElementById('faxEForm').value=true;
-	saveRTL();
-	setTimeout(function() { document.RichTextLetter.submit(); }, 1000);
+	cancelPendingFaxSubmission();
+	assertMeasurementHistoryReady();
+	var faxField = document.getElementById('faxEForm');
+	function serializeFaxLetter() {
+		try {
+			saveRTL();
+		} catch (error) {
+			faxField.value=false;
+			window.needToConfirm=true;
+			throw error;
+		}
+	}
+	// Leave fax intent unset until the delayed POST actually goes ahead.
+	faxField.value=false;
+	var revision = measureRequestRevision;
+	var letterDocument = document.getElementById(cfg_editorname).contentDocument;
+	var patient = measurementPatientId();
+	serializeFaxLetter();
+	var submission = {timer: null};
+	pendingFaxSubmission = submission;
+	submission.timer = window.setTimeout(function() {
+		// A newer output action owns the form, even if this timer was queued already.
+		if (pendingFaxSubmission !== submission) { return; }
+		pendingFaxSubmission = null;
+		try {
+			if (measureRequestRevision !== revision
+					|| document.getElementById(cfg_editorname).contentDocument !== letterDocument
+					|| measurementPatientId() !== patient) {
+				faxField.value=false;
+				window.needToConfirm=true;
+				alert('The letter changed while preparing the fax. Review it and select Fax again.');
+				return;
+			}
+			serializeFaxLetter();
+			faxField.value=true;
+			document.RichTextLetter.submit();
+		} catch (error) {
+			faxField.value=false;
+			window.needToConfirm=true;
+			alert('The letter could not be prepared for fax. Review it and select Fax again.');
+		}
+	}, 1000);
 }
 	
 
 	cache.addMapping({name: "template", cacheResponseHandler: populateTemplate});
+
+    function finishTemplateLookup(success, stale) {
+        measureTemplateLookupsPending = Math.max(0, measureTemplateLookupsPending - 1);
+        // Template completeness is independent of measurement failures. A successful
+        // measurement must not hide this warning, nor can a stale callback clear it.
+        if (!stale) {
+            showLetterStatus('rtl-template-lookup-status', success ? '' :
+                'Template fields could not be loaded. Select the template again to retry.', true);
+        }
+        finishPendingSourceView();
+    }
 
 // add RTL specific key values 
 // each cache name is an array of key values
@@ -977,26 +1220,38 @@ function submitFaxButton() {
 
 	cache.addMapping({
 		name: "_ClosingSalutation", 
-		values: ["provider_name_first_init", "current_user_fname_lname", "doctor", "current_user"],	
+		values: ["provider_name_first_init", "current_user_fname_lname", "doctor", "current_user",
+			"current_user_id", "current_user_ohip_no", "doctor_provider_no"],	
 		storeInCacheHandler: function (key,value) {		
+			// The identity may only have arrived with this lookup (a form_html predating the hidden
+			// inputs), so re-run the existence probe now that it is known.
+			probeProviderStamp();
 			var imgsrc=pickStamp();
 			var frag = ("<p>Yours Sincerely<p>" + imgsrc + "<p>");
-			var salutation = frag;
-			if (!cache.isEmpty("provider_name_first_init")) {
-					salutation=(frag+cache.get("provider_name_first_init") + ", MD");
-				}
-			// now allow for signing by the current user 
-			if (cache.contains("current_user")) {
+			// The NAME must name whoever the STAMP signed as. Deciding them separately is how a
+			// letter ended up with one clinician's signature above another clinician's name.
+			var signsAsCurrentUser = stampSignerRole() === "user";
+			if (!signsAsCurrentUser && cache.contains("current_user")) {
+				// No provider numbers to go on (a pre-migration form_html with no AP values either):
+				// fall back to the legacy rule, where the current user having a stamps.js entry is
+				// what marks them as the signer.
 				for (i=0; i<ImgArray.length;i++){
 					var ListItemArr =  ImgArray[i].split("|");
 					var UserName = ListItemArr[0];
 					var FileName = ListItemArr[1]; void FileName; // retained for external API consumers
-					if (cache.get('current_user').indexOf(UserName)>=0){
-						console.log('current user has a signature so use it in the closing salutation');					
-							salutation=(frag+cache.get("current_user_fname_lname") + ", MD");
-						}
+					if (UserName && cache.get('current_user').indexOf(UserName)>=0){
+						console.log('current user has a signature so use it in the closing salutation');
+						signsAsCurrentUser = true;
 					}
+				}
 			}
+			var signerName = "";
+			if (signsAsCurrentUser && !cache.isEmpty("current_user_fname_lname")) {
+				signerName = cache.get("current_user_fname_lname");
+			} else if (!cache.isEmpty("provider_name_first_init")) {
+				signerName = cache.get("provider_name_first_init");
+			}
+			var salutation = signerName.length > 0 ? (frag + signerName + ", MD") : frag;
 			cache.put(this.name, salutation);
 		},
 		cacheResponseHandler:function () {
@@ -1007,10 +1262,18 @@ function submitFaxButton() {
 	});
 	
 
+	// current_user_id / current_user_ohip_no / doctor_provider_no drive pickStamp()'s choice of
+	// consult_sig_<provider_no>.png. They normally arrive as hidden inputs on the form, but an
+	// install whose stored Rich Text Letter form_html predates those inputs has none, so they are
+	// listed here too: the lookup that resolves the stamp then also fetches the identity it needs.
 	cache.addMapping({
 		name: "stamp", 
-		values: ["stamp_name", "doctor", "current_user"], 
+		values: ["stamp_name", "doctor", "current_user",
+			"current_user_id", "current_user_ohip_no", "doctor_provider_no"], 
 		storeInCacheHandler: function(_key,_val) { 
+				// Re-probe: on a form_html without the hidden inputs the identity only becomes known
+				// here, so the probe fired at Start() had no filename to check.
+				probeProviderStamp();
 				var imgsrc=pickStamp();
 				cache.put("stamp",imgsrc);
 		}
@@ -1087,11 +1350,31 @@ function submitFaxButton() {
 	 * Note: updateAttached() is defined in the DB-stored form_html, not here.
 	 */
 	function Start() {
+			measureInitialTemplateLoading = true;
+			measureTemplateCatalogLoading = true;
 
+            function catalogFailed() {
+                var templateSelect = document.getElementById('template');
+                if (templateSelect) {
+                    Array.prototype.forEach.call(templateSelect.options, function(option) {
+                        if (option.textContent.trim() === 'loading...') { option.textContent = 'Templates unavailable'; }
+                    });
+                }
+                showLetterStatus('rtl-template-catalog-status', 'Letter templates could not be loaded. Check the letter before saving; reopen the form to retry loading templates.', true);
+                measureTemplateCatalogLoading = false;
+                loadDefaultTemplate();
+            }
 			// Load template <option> elements into the template dropdown
 			$.ajax({
 				url : "efmformrtl_templates",
+                timeout: 15000,
 				success : function(data) {
+                    var catalog = new DOMParser().parseFromString(data, 'text/html');
+                    // The endpoint always includes blank.rtl. A login/error page
+                    // returned with HTTP 200 must not look like an empty catalogue.
+                    if (!catalog.querySelector('option[value="blank.rtl"]')) {
+                        catalogFailed(); return;
+                    }
 					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
 					if (cleanData !== null) {
 						$("#template").html(cleanData);
@@ -1108,11 +1391,13 @@ function submitFaxButton() {
 							templateSelect.append(safeOpt);
 						});
 					}
+					measureTemplateCatalogLoading = false;
+					showLetterStatus('rtl-template-catalog-status', '', false);
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
 					console.error('Failed to load letter templates: ' + status);
-					loadDefaultTemplate();
+                    catalogFailed();
 				}
 			});
 
@@ -1156,7 +1441,13 @@ function submitFaxButton() {
 				seteditControlContents(cfg_editorname, contents, true);
 			}
 			maximize();
-			
+
+			// Body onload, so every hidden input the server populated is in the DOM. Warm the
+			// per-provider signature check now rather than when the Stamp button is pressed: the
+			// answer decides whether the stamp falls back to stamps.js, and pickStamp() is called
+			// synchronously from a cache handler that cannot wait for a round trip.
+			probeProviderStamp();
+
 			console.log('updating attached');
 			updateAttached();
 	}
@@ -1221,39 +1512,175 @@ function submitFaxButton() {
 	}
 
  
+	/**
+	 * Lowest ohip_no that identifies a billing practitioner (MD / NP / RMW).
+	 *
+	 * Numbers below this are reserved for non-billing accounts that still need a schedule
+	 * (residents, nurses, clerical staff, room/resource pseudo-providers), so a letter written
+	 * under one of those logins is signed by the patient's MRP rather than by the typist. Mirrors
+	 * sign() in visualEformEditor.jsp, which uses the same delegation rule.
+	 */
+	var MIN_BILLING_PROVIDER_OHIP_NO = 1000;
+
+	/**
+	 * Provider identity the stamp is chosen from, in the two places it can reach this page.
+	 *
+	 * The hidden inputs are the primary source: efmformadd_data/efmshowform_data populate them
+	 * server-side from the form's oscarDB= attributes, and the $('input:hidden') sweep in Start()
+	 * copies them into the cache before any button can be clicked. The AP keys are the same values
+	 * fetched over APCache, and cover an install whose stored form_html predates those inputs (a
+	 * clinic that customized the Rich Text Letter row, or one that has not run the migration yet):
+	 * they are listed on the "stamp" and "_ClosingSalutation" mappings so a lookup pulls them.
+	 */
+	var STAMP_PROVIDER_FIELDS = {
+		userId:     { inputId: "user_id",            apKey: "current_user_id" },
+		userOhipNo: { inputId: "user_ohip_no",       apKey: "current_user_ohip_no" },
+		doctorNo:   { inputId: "doctor_provider_no", apKey: "doctor_provider_no" }
+	};
+
+	function stampProviderField(field) {
+		// Trimmed to match ConsultationSignatureService.isNumericProviderNo(), which trims before
+		// testing \d+. An AP output that arrives padded must resolve to the same provider on both
+		// sides, or the letter silently falls back to stamp.png for a provider who has a signature.
+		var element = document.getElementById(field.inputId);
+		if (element && typeof element.value === "string" && element.value.trim().length > 0) {
+			return element.value.trim();
+		}
+		if (cache.contains(field.apKey) && !cache.isEmpty(field.apKey)) {
+			return String(cache.get(field.apKey)).trim();
+		}
+		return "";
+	}
+
+	/**
+	 * Who signs this letter: "user" (the logged-in provider), "mrp" (the patient's most responsible
+	 * provider), or "" when neither can be determined.
+	 *
+	 * A billing practitioner signs their own letters; anyone else is writing under the direction of
+	 * the MRP and signs with that provider's signature. Both the stamp IMAGE and the typed NAME in
+	 * the closing salutation derive from this single answer — they used to be decided separately,
+	 * and a billing user with a signature file but no stamps.js entry got their own signature
+	 * printed above the MRP's name.
+	 */
+	function stampSignerRole() {
+		var userOhipNo = parseInt(stampProviderField(STAMP_PROVIDER_FIELDS.userOhipNo), 10);
+		if (!isNaN(userOhipNo) && userOhipNo > MIN_BILLING_PROVIDER_OHIP_NO
+				&& stampProviderField(STAMP_PROVIDER_FIELDS.userId).length > 0) {
+			return "user";
+		}
+		if (stampProviderField(STAMP_PROVIDER_FIELDS.doctorNo).length > 0) { return "mrp"; }
+		return "";
+	}
+
+	/** Provider number whose signature should sign this letter, or "" when it cannot be determined. */
+	function stampProviderNumber() {
+		var role = stampSignerRole();
+		if (role === "user") { return stampProviderField(STAMP_PROVIDER_FIELDS.userId); }
+		if (role === "mrp") { return stampProviderField(STAMP_PROVIDER_FIELDS.doctorNo); }
+		return "";
+	}
+
+	/**
+	 * Image URL for an eForm asset.
+	 *
+	 * cfg_isrc is what the host form configures (the Rich Text Letter sets
+	 * "../eform/displayImage.do?imagefile="), but it defaults to the empty string, and an empty
+	 * base would make the stamp a bare relative filename that resolves against the action path and
+	 * 404s. Fall back to the extensionless route, which is the canonical one.
+	 */
+	function stampImageSrc(file) {
+		var base = (typeof cfg_isrc === "string" && cfg_isrc.length > 0)
+			? cfg_isrc
+			: "../eform/displayImage?imagefile=";
+		return base + file;
+	}
+
+	/** Signature file CARLOS stores per provider (Administration > Provider > signature). */
+	function providerStampFile() {
+		var providerNumber = stampProviderNumber();
+		// Defensive, not cosmetic: this becomes an imagefile= query value, and the eForm image
+		// route treats it as a path component. Provider numbers are digits in every supported
+		// install; anything else means the AP returned something unexpected, so stamp nothing
+		// rather than assemble a filename out of it.
+		if (!/^[0-9]{1,20}$/.test(providerNumber)) { return ""; }
+		return "consult_sig_" + providerNumber + ".png";
+	}
+
+	/**
+	 * Valueless marker pickStamp() puts on a per-provider stamp, and the fallback filename that goes
+	 * with it. The filename lives here rather than in the markup on purpose — see
+	 * {@link bindStampFallbacks}, which scans the whole editor document including restored saved
+	 * letters, so anything read back out of an attribute is attacker-influenced DOM text.
+	 */
+	var STAMP_MARKER_ATTRIBUTE = "data-carlos-stamp";
+	var carlosPendingStampFallback = "";
+
+	/**
+	 * Records whether the per-provider signature file actually exists, so a provider who has not
+	 * uploaded one still gets the clinic's stamps.js / stamp.png fallback instead of a broken image.
+	 *
+	 * The probe is fired once from Start(), well before the Stamp button can be clicked. If it has
+	 * not answered yet the per-provider file is used anyway — that is the intended stamp, and the
+	 * legacy fallback is the exception.
+	 */
+	var carlosProviderStampProbe = { file: "", missing: false };
+
+	function probeProviderStamp() {
+		var file = providerStampFile();
+		if (file === "" || file === carlosProviderStampProbe.file) { return; }
+		carlosProviderStampProbe = { file: file, missing: false };
+		var probe = new Image();
+		probe.onerror = function() {
+			// Only trust the result if it is still about the file we asked for.
+			if (carlosProviderStampProbe.file === file) { carlosProviderStampProbe.missing = true; }
+			console.log("editControl: no stored signature for " + file + "; falling back to stamps.js");
+		};
+		probe.src = stampImageSrc(file);
+	}
+
+	function legacyStampFile() {
+		// Clinic-supplied override: a stamps.js in the eForm images folder defining
+		// var ImgArray = ["doctor|SignatureFile.png", ...];
+		// Current user wins over the MRP, matching the _ClosingSalutation rule.
+		var fileName = "stamp.png";
+		var sources = ["doctor", "current_user"];
+		// `var` on both counters deliberately: the loops this replaces assigned a bare `i`,
+		// which is an implicit global shared with fhtLetterhead() and the closing-salutation
+		// handler.
+		for (var s = 0; s < sources.length; s++) {
+			if (cache.isEmpty(sources[s])) { continue; }
+			var signer = String(cache.get(sources[s]));
+			for (var entry = 0; entry < ImgArray.length; entry++) {
+				var pair = String(ImgArray[entry]).split("|");
+				var userName = pair[0];
+				var signatureFile = pair[1];
+				if (userName && signatureFile && signer.indexOf(userName) >= 0) {
+					fileName = signatureFile;
+				}
+			}
+		}
+		return fileName;
+	}
+
 	function pickStamp() {
 		// set the HTML contents of the signature stamp
-		// for single user set stamp.png to be that users signature image in the images folder
-		// otherwise form a stamp.js file and upload to images with content as below 
-		// defining key value pairs of name of doctor and the corresponding image file
-		// var ImgArray = [
-		//	"doctor|SignatureFile.png",
-		//	];
-
-		var mystamp ='<img src="../eform/displayImage?imagefile=stamp.png" width="200" height="100">';
-		if (cache.contains("doctor")) {
-			for (i=0; i<ImgArray.length;i++){
-		        var ListItemArr =  ImgArray[i].split("|");
-		        var UserName = ListItemArr[0];
-		        var FileName = ListItemArr[1];
-		        if (cache.get('doctor').indexOf(UserName)>=0){
-		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
-			        }
-				}
+		//
+		// Preferred source is the provider's own signature image, consult_sig_<provider_no>.png,
+		// the same file the consultation module and the visual eForm editor stamp with. stamps.js
+		// (an ImgArray of "doctor|SignatureFile.png" pairs) and the single-user stamp.png remain as
+		// fallbacks for an install that has not loaded per-provider signatures: before this, they
+		// were the ONLY sources, so every letter from a multi-provider clinic without a stamps.js
+		// was signed with the same stamp.png.
+		var file = providerStampFile();
+		if (file === "" || (carlosProviderStampProbe.file === file && carlosProviderStampProbe.missing)) {
+			return '<img src="' + stampImageSrc(legacyStampFile()) + '" width="200" height="100" />';
 		}
-		// now allow for signing by the current user 
-		if (cache.contains("current_user")) {
-			for (i=0; i<ImgArray.length;i++){
-		        var ListItemArr =  ImgArray[i].split("|");
-		        var UserName = ListItemArr[0];
-		        var FileName = ListItemArr[1];
-		        if (cache.get('current_user').indexOf(UserName)>=0){
-					console.log('current user has a signature so use it');					
-		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
-			        }
-				}
-		}
-		return mystamp;
+		// The per-provider file is the intended stamp, but the probe may not have answered yet.
+		// bindStampFallbacks() turns the marker into a load-error handler once this is inserted.
+		// The fallback filename rides module state, not the markup: see bindStampFallbacks().
+		carlosPendingStampFallback = legacyStampFile();
+		return '<img src="' + stampImageSrc(file) + '" ' + STAMP_MARKER_ATTRIBUTE
+			+ '="1" width="200" height="100" />';
 	}
 	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
@@ -1280,76 +1707,404 @@ if (location.search) {
 }
 
 
-// The graph link URLs are commented out below in getMeasures(). The old
-// hardcoded fid=74 path would be wrong for most installations. If the graph
-// link feature is re-enabled, derive the fid from the URL parameter
-// (gup("fid")) instead of hardcoding it.
-var measureArray = [];
-var measureDateArray = [];
+// RTL measurement batches share one request and retain their original insertion point.
+var pendingMeasureBatch = null;
+var measureRequestQueue = [];
+var activeMeasureBatch = null;
+var measureBatchesPending = 0;
+var measureBatchFailed = false;
+var failedMeasureTypes = Object.create(null);
+var rejectedMeasureTypes = Object.create(null);
+var measureRequestRevision = 0;
+var measureInitialTemplateLoading = false;
+var measureTemplateCatalogLoading = true;
+var measureTemplateLookupsPending = 0;
+var measureTemplateRevision = 0;
+var pendingMeasureSourceView = null;
 
-/**
- * Retrieves measurement/lab history for a given measurement type and inserts
- * a formatted summary into the editor. Called by labgrid() and labgrid2()
- * (the "Lab Grid" and "Vitals" sidebar buttons).
- *
- * Makes a synchronous XHR to efmshowform_data to fetch measurement data
- * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
- *
- * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
- * @param {number} max - Maximum number of historical values to display
- */
-function getMeasures(measure, max) {
-    var xmlhttp = new XMLHttpRequest();
-    // pathArray was originally used to build newURL; kept for potential future use by callers.
-    var pathArray = window.location.pathname.split('/'); void pathArray;
-    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory?type=" + measure;
-    xmlhttp.onreadystatechange = function() {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            var str = xmlhttp.responseText; //local variable
-            if (!str) {
-                return;
-            }
-            var myRe = /<td width="10">([0-9.,]+)<\/td>/g; //for the measurement
-            var myArray;
-            measureArray = []
-            measureDateArray = []
-            var i = 0;
-            while ((myArray = myRe.exec(str)) !== null) {
-                measureArray[i] = myArray[1];
-                i = i + 1;
-            }
+function measurementHistoryStillLoading() {
+    return measureBatchesPending > 0 || measureInitialTemplateLoading
+        || measureTemplateCatalogLoading || measureTemplateLookupsPending > 0;
+}
 
-            var myRe = /<td width="150">([0-9,-]+)<\/td>\s*<td width="150">/g; //the first date is the observation date
-            var myArray;
-            var i = 0;
-            while ((myArray = myRe.exec(str)) !== null) {
-                measureDateArray[i] = myArray[1];
-                i = i + 1;
-            }
-        }
-    }
-    xmlhttp.open("GET", newURL, false);
-    xmlhttp.send();
-    //alert(this.patient_name.value)
-    if (measureArray.length > 0) {
-        //myGraphWindow = "<a href=" + formPath + measure + "&GraphType=Bar" + "&mA=" + measureArray + "&mDA=" + measureDateArray + " target='_blank'>" + measure + ": " + "</a>"
-       var myGraphWindow = measure + ": "
-
-       
- //myGraphWindow = formPath + measure + measureArray + measureDateArray + measure + ": "
-         doHtml("<font size='3'>"+myGraphWindow +"</font>");
-        var displaynum = measureArray.length
-        if (measureArray.length > max) {
-            displaynum = max
-        }
-        for (var jj = 0; jj < displaynum; jj++) {
-            var d = new Date(measureDateArray[jj])
-            var LabDate = "(" + d.getFullYear() + "/" + (d.getMonth() + 1) + "); "
-            doHtml("<font size='3'>"+measureArray[jj].bold()+ "</font>"+"<font size='2'>"+LabDate+ "</font>")
-        }
-           doHtml("<br></br>");
+function assertMeasurementHistoryReady() {
+    if (measurementHistoryStillLoading()) {
+        // Legacy saveRTL implementations clear this flag before serializing. A
+        // blocked save must retain the unload warning even if the request fails.
+        cancelLetterOutput();
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+        throw new Error('RTL measurements are still loading');
     }
 }
+
+function showMeasurementStatus(message, failed) {
+    showLetterStatus('rtl-measurement-status', message, failed);
+}
+
+function showLetterStatus(id, message, failed) {
+    var notice = document.getElementById(id);
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.id = id;
+        notice.className = 'DoNotPrint';
+        notice.setAttribute('role', 'status');
+        var editor = document.getElementById(cfg_editorname);
+        if (!editor || !editor.parentNode) { return; }
+        editor.parentNode.insertBefore(notice, editor);
+    }
+    notice.textContent = message;
+    notice.style.color = failed ? '#a00000' : '';
+    notice.hidden = !message;
+}
+
+function showRejectedMeasureStatus() {
+    var types = Object.keys(rejectedMeasureTypes);
+    var reasons = types.map(function(type) { return rejectedMeasureTypes[type]; })
+        .filter(function(reason, index, all) { return all.indexOf(reason) === index; });
+    showLetterStatus('rtl-measurement-precondition-status', types.length ?
+        reasons.join(' ') + ' Requested types still to retry: ' + types.join(', ') + '.' : '', true);
+}
+
+function measurementPatientId() {
+    var field = document.getElementById('demographicNo');
+    var form = measurementLetterForm();
+    var action = form ? form.action : '';
+    var patient = field ? field.value : gup('efmdemographic_no', action) || gup('demographic_no', action)
+        || gup('demographic_no') || gup('efmdemographic_no');
+    if (!/^[1-9][0-9]*$/.test(String(patient || ''))) {
+        throw new Error('The letter has no patient selected.');
+    }
+    return String(patient);
+}
+
+function createMeasureBatch() {
+    var frame = document.getElementById(cfg_editorname);
+    var editorDoc = frame && frame.contentDocument;
+    if (!editorDoc || !editorDoc.body) { throw new Error('The letter editor is not ready.'); }
+    var patient = measurementPatientId();
+    var marker = editorDoc.createComment('RTL measurement insertion');
+    var startMarker = null;
+    var selectionSnapshot = null;
+    var selection = editorDoc.getSelection();
+    if (selection && selection.rangeCount && editorDoc.body.contains(selection.getRangeAt(0).endContainer)) {
+        var selectedRange = selection.getRangeAt(0).cloneRange();
+        var hasSelection = !selectedRange.collapsed;
+        if (hasSelection) { selectionSnapshot = selectedRange.cloneContents(); }
+        var range = selectedRange.cloneRange();
+        range.collapse(false);
+        range.insertNode(marker);
+        if (hasSelection) {
+            startMarker = editorDoc.createComment('RTL measurement selection');
+            var startRange = selectedRange.cloneRange();
+            startRange.collapse(true);
+            startRange.insertNode(startMarker);
+        }
+        range.setStartAfter(marker);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    } else {
+        editorDoc.body.appendChild(marker);
+    }
+    return {patient: patient, document: editorDoc, revision: measureTemplateRevision,
+        marker: marker, startMarker: startMarker, selectionSnapshot: selectionSnapshot, requests: []};
+}
+
+function measureBatchHasCurrentCaret(batch) {
+    var selection = batch.document.getSelection();
+    if (!selection || !selection.rangeCount) {
+        var body = batch.document.body;
+        return batch.marker.parentNode === body && body.childNodes[body.childNodes.length - 1] === batch.marker;
+    }
+    var range = selection.getRangeAt(0);
+    if (!range.collapsed) { return false; }
+    var insertion = batch.document.createRange();
+    insertion.setStartAfter(batch.marker);
+    insertion.collapse(true);
+    return range.compareBoundaryPoints(0, insertion) === 0;
+}
+
+/**
+ * Queue a measurement type for the current letter. Consecutive same-tick calls
+ * at one insertion point share a request; batches run serially in click order.
+ * The promise always settles, including failure, because legacy sidebar callers
+ * do not await it. A visible error distinguishes failure from an empty history.
+ */
+function getMeasures(measure, max) {
+    measureRequestRevision++;
+    cancelPendingFaxSubmission();
+    return new Promise(function(resolve) {
+        try {
+            if (measureInitialTemplateLoading || measureTemplateCatalogLoading || measureTemplateLookupsPending > 0) {
+                rejectedMeasureTypes[String(measure)] = 'Lab Grid or Vitals was not loaded while the template was loading. Retry after the template finishes.';
+                showRejectedMeasureStatus();
+                resolve({values: [], dates: [], failed: true});
+                return;
+            }
+            var editorFrame = document.getElementById(cfg_editorname);
+            if (editorFrame && editorFrame.contentDocument && editorFrame.contentDocument.__rtlSourceMode) {
+                rejectedMeasureTypes[String(measure)] = 'Lab Grid or Vitals was not loaded in HTML source view. Return to the visual editor and retry.';
+                showRejectedMeasureStatus();
+                resolve({values: [], dates: [], failed: true});
+                return;
+            }
+            var batches = [pendingMeasureBatch, activeMeasureBatch].concat(measureRequestQueue);
+            batches.forEach(function(batch) {
+                if (batch && !measureBatchIsCurrent(batch)) { batch.superseded = true; }
+            });
+            var continuingGroup = batches.some(function(batch) { return batch && !batch.superseded && measureBatchIsCurrent(batch); });
+            if (measureBatchFailed && continuingGroup) {
+                // A success in another queued batch cannot repair every failed
+                // insertion. Finish that group before accepting a fresh retry.
+                showMeasurementStatus('Some measurements were not inserted. Wait for the remaining loads to finish, then retry Lab Grid or Vitals.', true);
+                resolve({values: [], dates: [], failed: true});
+                return;
+            }
+            if (pendingMeasureBatch && (!measureBatchIsCurrent(pendingMeasureBatch)
+                    || !measureBatchHasCurrentCaret(pendingMeasureBatch))) { flushMeasureRequests(); }
+            if (!pendingMeasureBatch) {
+                pendingMeasureBatch = createMeasureBatch();
+                if (!continuingGroup) { measureBatchFailed = false; }
+                measureBatchesPending++;
+                showMeasurementStatus('Loading measurements. Please wait before saving or printing.', false);
+                window.setTimeout(flushMeasureRequests, 0);
+            }
+            pendingMeasureBatch.requests.push({measure: String(measure), max: max, resolve: resolve});
+
+        } catch (error) {
+            measureBatchFailed = true;
+            failedMeasureTypes[String(measure)] = true;
+            showMeasurementStatus('Measurements could not be loaded. Check that a patient and letter are open.', true);
+            resolve({values: [], dates: [], failed: true});
+        }
+    });
+}
+
+function flushMeasureRequests() {
+    if (pendingMeasureBatch) {
+        measureRequestQueue.push(pendingMeasureBatch);
+        pendingMeasureBatch = null;
+    }
+    startNextMeasureBatch();
+}
+
+function startNextMeasureBatch() {
+    if (activeMeasureBatch || !measureRequestQueue.length) { return; }
+    var batch = measureRequestQueue.shift();
+    activeMeasureBatch = batch;
+    var history = measureBatchIsCurrent(batch) ? fetchMeasureHistory(batch)
+        : Promise.reject(new Error('The original measurement insertion point is no longer available'));
+    history.then(function(measurements) {
+        var histories = batch.requests.map(function(request) {
+            return normalizeMeasureHistory(measurements, request, batch.patient);
+        });
+        insertMeasureBatch(batch, histories);
+        batch.requests.forEach(function(request) {
+            delete failedMeasureTypes[request.measure];
+            delete rejectedMeasureTypes[request.measure];
+        });
+        showRejectedMeasureStatus();
+        return histories;
+    }).catch(function() {
+        // Only a fresh request can supersede this failure silently. Navigation
+        // alone still needs a retry warning for the discarded measurements.
+        var cancelled = !!batch.superseded;
+        if (!cancelled) {
+            measureBatchFailed = true;
+            batch.requests.forEach(function(request) { failedMeasureTypes[request.measure] = true; });
+        }
+        return batch.requests.map(function() { return {values: [], dates: [], failed: true, cancelled: !!cancelled}; });
+    }).then(function(histories) {
+        [batch.marker, batch.startMarker].forEach(function(marker) {
+            if (marker && marker.parentNode) { marker.parentNode.removeChild(marker); }
+        });
+        measureBatchesPending--;
+        activeMeasureBatch = null;
+        var failedTypes = Object.keys(failedMeasureTypes);
+        if (!failedTypes.length) { measureBatchFailed = false; }
+        if (failedTypes.length) {
+            showMeasurementStatus('Some requested measurements were not inserted. Please retry Lab Grid or Vitals before saving an incomplete letter. Types still to retry: ' + failedTypes.join(', ') + '.', true);
+        } else {
+            showMeasurementStatus(measureBatchesPending ? 'Loading measurements. Please wait before saving or printing.' : '', false);
+        }
+        // Settle callers only after releasing this batch's save/print gate.
+        batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
+        startNextMeasureBatch();
+        finishPendingSourceView();
+    });
+}
+
+function finishPendingSourceView() {
+    if (measurementHistoryStillLoading() || !pendingMeasureSourceView) { return; }
+    var transition = pendingMeasureSourceView;
+    pendingMeasureSourceView = null;
+    var frame = document.getElementById(cfg_editorname);
+    if (frame && frame.contentDocument === transition.document) {
+        try { viewsource(transition.source); }
+        catch (error) { showMeasurementStatus('Letter loading finished, but source view could not be changed. Please retry the source-view control.', true); }
+    }
+}
+
+function fetchMeasureHistory(batch) {
+    return new Promise(function(resolve, reject) {
+        var request = new XMLHttpRequest();
+        // Existing read-authorized REST service binds the request to this letter's patient.
+        // The legacy HTML-history endpoint instead uses the mutable encounter session patient.
+        var url = new URL('../ws/rs/measurements/' + batch.patient, window.location.href);
+        request.open('POST', url.pathname, true);
+        request.setRequestHeader('Content-Type', 'application/json');
+        request.setRequestHeader('Accept', 'application/json');
+        request.timeout = 15000;
+        request.onload = function() {
+            if (request.status !== 200) { reject(new Error('Measurement request failed')); return; }
+            try {
+                var data = JSON.parse(request.responseText);
+                if (!data || !data.measurements || typeof data.measurements !== 'object' || Array.isArray(data.measurements)) {
+                    throw new Error('Invalid measurement response');
+                }
+                resolve(data.measurements);
+            } catch (error) { reject(error); }
+        };
+        request.onerror = request.ontimeout = request.onabort = function() {
+            reject(new Error('Measurement request did not complete'));
+        };
+        request.send(JSON.stringify({types: Array.from(new Set(batch.requests.map(function(item) { return item.measure; })))}));
+    });
+}
+
+function normalizeMeasureHistory(measurements, request, patient) {
+    var rows = Object.prototype.hasOwnProperty.call(measurements, request.measure) ? measurements[request.measure] : [];
+    if (!Array.isArray(rows)) { throw new Error('Invalid measurement history'); }
+    rows.forEach(function(row) {
+        if (!row || String(row.demographicId) !== patient || row.type !== request.measure || typeof row.dataField !== 'string') {
+            throw new Error('Measurement response does not match the request');
+        }
+    });
+    // Legacy callers omit max (or pass a nonnumeric 'all') for the full history.
+    // Preserve that contract, including zero/negative limits yielding no values.
+    var limit = Number(request.max);
+    limit = Number.isNaN(limit) || limit === Infinity ? rows.length : Math.max(0, Math.ceil(limit));
+    rows = rows.slice().sort(function(a, b) {
+        return measurementDateTime(b.dateObserved) - measurementDateTime(a.dateObserved);
+    }).slice(0, limit);
+    return {values: rows.map(function(row) { return row.dataField; }),
+        dates: rows.map(function(row) { return row.dateObserved; })};
+}
+
+function measurementDateTime(value) {
+    // Date-only service values describe local clinical dates. Date.parse would
+    // treat them as UTC and could sort midnight behind the previous evening.
+    var localDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (localDate) { return new Date(Number(localDate[1]), Number(localDate[2]) - 1, Number(localDate[3])).getTime(); }
+    var timestamp = typeof value === 'number' ? value : Date.parse(value);
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function measurementMonth(value) {
+    // Calendar-only dates retain their clinical month; timestamps, including
+    // ISO strings with an offset, use the same local month as epoch values.
+    var parts = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(value || ''));
+    if (parts) { return parts[1] + '/' + Number(parts[2]); }
+    var timestamp = typeof value === 'number' ? value : Date.parse(value);
+    var date = new Date(timestamp);
+    if (!Number.isNaN(date.getTime())) { return date.getFullYear() + '/' + (date.getMonth() + 1); }
+    return 'date unavailable';
+}
+
+function appendMeasureText(parent, text, size, bold) {
+    var node = parent.ownerDocument.createElement('font');
+    node.setAttribute('size', size);
+    var content = bold ? parent.ownerDocument.createElement('b') : node;
+    content.textContent = text;
+    if (bold) { node.appendChild(content); }
+    parent.appendChild(node);
+}
+
+function measureBatchContextIsCurrent(batch) {
+    var frame = document.getElementById(cfg_editorname);
+    try {
+        return frame && frame.contentDocument === batch.document && measurementPatientId() === batch.patient
+            && measureTemplateRevision === batch.revision;
+    } catch (error) { return false; }
+}
+
+function measureBatchIsCurrent(batch) {
+    return measureBatchContextIsCurrent(batch) && batch.document.body.contains(batch.marker)
+        && (!batch.startMarker || batch.document.body.contains(batch.startMarker));
+}
+
+function insertMeasureBatch(batch, histories) {
+    if (!measureBatchIsCurrent(batch)) {
+        throw new Error('The original measurement insertion point is no longer available');
+    }
+    var fragment = batch.document.createDocumentFragment();
+    histories.forEach(function(history, index) {
+        if (!history.values.length) { return; }
+        appendMeasureText(fragment, batch.requests[index].measure + ': ', '3', false);
+        history.values.forEach(function(value, i) {
+            appendMeasureText(fragment, value, '3', true);
+            appendMeasureText(fragment, '(' + measurementMonth(history.dates[i]) + '); ', '2', false);
+        });
+        fragment.appendChild(batch.document.createElement('br'));
+    });
+    var changed = fragment.childNodes.length > 0;
+    if (changed && batch.startMarker) {
+        var selectedRange = batch.document.createRange();
+        selectedRange.setStartAfter(batch.startMarker);
+        selectedRange.setEndBefore(batch.marker);
+        if (!selectedRange.cloneContents().isEqualNode(batch.selectionSnapshot)) {
+            throw new Error('The selected letter content changed while measurements loaded');
+        }
+        selectedRange.deleteContents();
+    }
+    batch.marker.parentNode.insertBefore(fragment, batch.marker);
+    if (changed) {
+        // Saved forms can supply an event-dependent or broken legacy callback.
+        // Insertion already succeeded: never report it as a failed load (which
+        // would invite a duplicate retry), and always retain the unload warning.
+        window.needToConfirm = true;
+        if (typeof setDirtyFlag === 'function') {
+            try { setDirtyFlag(); }
+            catch (error) { console.warn('RTL: legacy dirty-state callback failed after measurement insertion.'); }
+            finally { window.needToConfirm = true; }
+        }
+    }
+}
+
+function measurementLetterForm() {
+    var editor = document.getElementById(cfg_editorname);
+    return (editor && editor.closest ? editor.closest('form') : null) || document.RichTextLetter || null;
+}
+
+// Legacy forms can print before calling saveRTL(), so intercept their controls in
+// the capture phase. The floating toolbar has its own pre-workflow guard below.
+document.addEventListener('click', function(event) {
+    if (!event.target.closest) { return; }
+    var control = event.target.closest('input, button');
+    if (!control) { return; }
+    var letterForm = measurementLetterForm();
+    if (control.form && control.form !== letterForm) { return; }
+    var outputControl = /^(SubmitButton|PrintButton|PrintSaveButton|PrintSubmitButton|pdfButton|pdfSaveButton)$/;
+    if ((control.type === 'submit' && letterForm && control.form === letterForm)
+            || outputControl.test(control.name) || outputControl.test(control.id)) {
+        if (typeof cancelPendingFaxSubmission === 'function') { cancelPendingFaxSubmission(); }
+        if (!measurementHistoryStillLoading()) { return; }
+        cancelLetterOutput();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+    }
+}, true);
+document.addEventListener('submit', function(event) {
+    if (event.target !== measurementLetterForm()) { return; }
+    if (typeof cancelPendingFaxSubmission === 'function') { cancelPendingFaxSubmission(); }
+    if (measurementHistoryStillLoading()) {
+        cancelLetterOutput();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+    }
+}, true);
 
 // end lab grid //
 

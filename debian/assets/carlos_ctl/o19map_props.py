@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS properties manifest."""
 
-PROPS_MAP_VERSION = 'o19map-2+47eba883'
+PROPS_MAP_VERSION = 'o19map-3+47eba883'
 
 # active keys of the stock O19 oscar_mcmaster.properties — the baseline-diff
 # reference: clinic keys equal to these defaults are ignored (CARLOS defaults win)
@@ -486,6 +486,7 @@ CARLOS_DEFAULTS = {
     'confidentiality_statement.v1': 'The information transmitted is intended only for the person to whom it is addressed and may contain confidential, proprietary and/or privileged material. Any unauthorized review, distribution or other use of or the taking of any action in reliance upon this information is prohibited. The contents of this message may be subject to privilege and all rights to that privilege are expressly claimed and not waived. If you receive this in error, please contact the sender  and delete or destroy this message and any copies. Thank you.',
     'consultation_fax_enabled': 'true',
     'faxPollInterval': '60000',
+    'label.top': '24',
     'save_as_xml': 'false',
 }
 

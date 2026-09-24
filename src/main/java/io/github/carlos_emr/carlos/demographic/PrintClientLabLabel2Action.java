@@ -34,31 +34,31 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.HashMap;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarDocumentCreator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Streams the client lab label for a patient the provider may read.
+ * Clinic template overrides take precedence over the bundled JasperReports template;
+ * unavailable overrides fall back to the bundle. Printer settings belong to the
+ * logged-in provider, and missing settings leave printing interactive.
+ */
 public class PrintClientLabLabel2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -69,94 +69,64 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     public PrintClientLabLabel2Action() {
     }
 
+    /**
+     * Checks patient-specific demographic read access and validates demographic_no
+     * before generating the PDF. Authorized requests with invalid identifiers return
+     * HTTP 400; access denial takes precedence. Report
+     * generation failures return HTTP 500 before any successful PDF output.
+     *
+     * @return NONE because this action completes the response directly
+     * @throws SecurityException if the provider lacks patient demographic read access
+     * @throws IOException if the template or response stream cannot be read or written
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
+                request.getParameter("demographic_no"), response, securityInfoManager);
+        if (demographicNo == null) {
+            return NONE;
         }
 
-        //patient
-        String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
-        if (classpath == null)
-            classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
-        System.setProperty("jasper.reports.compile.class.path", classpath);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
         String defaultPrinterName = "";
-        Boolean silentPrint = false;
         prop = propertyDao.getProp(loggedInInfo.getLoggedInProviderNo(), UserProperty.DEFAULT_PRINTER_CLIENT_LAB_LABEL);
         if (prop != null) {
             defaultPrinterName = prop.getValue();
         }
         prop = propertyDao.getProp(loggedInInfo.getLoggedInProviderNo(), UserProperty.DEFAULT_PRINTER_CLIENT_LAB_LABEL_SILENT_PRINT);
-        if (prop != null) {
-            if (prop.getValue().equalsIgnoreCase("yes")) {
-                silentPrint = true;
-            }
-        }
+        boolean silentPrint = prop != null && "yes".equalsIgnoreCase(prop.getValue());
         String exportPdfJavascript = null;
 
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
-                    + "params.printerName='" + defaultPrinterName + "';";
-            if (silentPrint == true) {
+                    + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
+            if (silentPrint) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";
         }
-        HashMap<String, String> parameters = new HashMap<String, String>();
-        parameters.put("demo", request.getParameter("demographic_no"));
+        HashMap<String, Object> parameters = new HashMap<>();
+        parameters.put("demo", demographicNo);
 
         InputStream ins = null;
         try {
-            logger.debug("user home: " + System.getProperty("user.home"));
             File file = PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/ClientLabLabel.xml"));
-            if (file.exists()) {
-                ins = new FileInputStream(file);
-            } else {
-                ins = getClass().getResourceAsStream("/oscar/oscarDemographic/ClientLabLabel.xml");
-                logger.debug("loading from : /oscar/oscarDemographic/ClientLabLabel.xml " + ins);
-            }
-            ServletOutputStream sos = response.getOutputStream();
-            response.setHeader("Content-disposition", getHeader(response).toString());
-            OscarDocumentCreator osc = new OscarDocumentCreator();
-            try (Connection connection = LegacyJdbcQuery.getConnection()) {
-                osc.fillDocumentStream(parameters, sos, "pdf", ins, connection, exportPdfJavascript);
-            }
-        } catch (FileNotFoundException ex1) {
-            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
-        } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
-        } catch (Exception ex1) {
-            MiscUtils.getLogger().error("Error", ex1);
-        } finally {
-            IOUtils.closeQuietly(ins);
+            ins = new FileInputStream(file);
+        } catch (FileNotFoundException | SecurityException ex) {
+            logger.debug("Client lab label override unavailable; using bundled template");
         }
-        // Action writes PDF bytes directly to response.getOutputStream() above, so return
-        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
-        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
-        // and the global exception result would render errorpage.jsp on top of the PDF bytes
-        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        if (ins == null) {
+            ins = getClass().getResourceAsStream("/oscar/oscarDemographic/ClientLabLabel.xml");
+        }
+        DemographicLabelPdf.write(response, parameters, ins, exportPdfJavascript);
         return NONE;
     }
 
-    private StringBuilder getHeader(HttpServletResponse response) {
-        StringBuilder strHeader = new StringBuilder();
-        strHeader.append("label_");
-        strHeader.append(".pdf");
-        response.setHeader("Cache-Control", "max-age=0");
-        response.setDateHeader("Expires", 0);
-        response.setContentType("application/pdf");
-        StringBuilder sbContentDispValue = new StringBuilder();
-        sbContentDispValue.append("inline; filename="); //inline - display
-        sbContentDispValue.append(strHeader);
-        return sbContentDispValue;
-    }
 }

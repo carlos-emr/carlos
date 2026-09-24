@@ -737,6 +737,7 @@ test('a broken popup from an unclassified opener is a failure, not a clean host 
 test('a blank popup from an unclassified opener is a failure too', async () => {
   const { auditCatalogue } = require('./lib/playwright-link-audit');
   const popup = fakePopup('   ');
+  popup.page.url = () => 'http://127.0.0.1:8080/carlos/admin/popup?patient=private#fragment';
   const pages = [{}];
   const fake = fakeAuditPage({
     textFor: () => 'Hidden Opener',
@@ -752,7 +753,9 @@ test('a blank popup from an unclassified opener is a failure too', async () => {
     labelPrefix: 'admin',
     timeout: 1000,
   });
-  assert.deepEqual(result.failures, ['Hidden Opener: audit destination rendered a blank page']);
+  assert.deepEqual(result.failures, [
+    'Hidden Opener: audit destination rendered a blank page (http://127.0.0.1:8080/carlos/admin/popup)',
+  ]);
 });
 
 test('the administration shell keeps its route in rel, and that is catalogued', async () => {
@@ -941,30 +944,19 @@ test('the per-surface limit bounds attempts, not successes', () => {
   assert.ok(body.indexOf('attempted += 1;') < body.indexOf('target = await openItem'));
 });
 
-test('the browser-side CSRF audit knows about the shared helper too', () => {
-  // The static audit was widened to carlos-ajax.js; this one was not, so the
-  // six known violations would still have opened clean in every surface audit
-  // that touches them. GET and HEAD stay excluded for the same reason: the
-  // helper injects no token for them.
+test('the browser-side CSRF audit leaves the shared helper alone, like the static one', () => {
+  // It briefly judged CarlosAjax callers, mirroring the static audit's widening
+  // that produced issue #3665 finding 10. The helper sends with XMLHttpRequest
+  // so CSRFGuard's script equips every send with the token header; a page that
+  // only calls it has nothing to bootstrap, and reporting it would send a
+  // maintainer to add an include the page does not need. The two halves must
+  // agree, or a surface audit fails on a page the static audit passes.
   const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-link-audit'), 'utf8');
   const finding = source.slice(source.indexOf('async function csrfBootstrapFinding'));
   const body = finding.slice(0, finding.indexOf('\n}\n'));
-  assert.match(body, /CarlosAjax/);
-  assert.match(body, /\['GET', 'HEAD'\]/);
-
-  // The predicate itself, run the way the page would run it.
-  const mutates = (inline) => {
-    const calls = [...inline.matchAll(/\bCarlosAjax\s*\.\s*(?:request|updater|post)\s*\(/g)];
-    return calls.some((call) => {
-      const options = inline.slice(call.index, call.index + 400);
-      const method = options.match(/\bmethod\s*:\s*['"]([A-Za-z]+)['"]/);
-      return !method || !['GET', 'HEAD'].includes(method[1].toUpperCase());
-    });
-  };
-  assert.equal(mutates('CarlosAjax.request(url, { parameters: p });'), true, 'no method means POST');
-  assert.equal(mutates("CarlosAjax.updater('dd', url, { method: 'GET' });"), false);
-  assert.equal(mutates("CarlosAjax.updater('dd', url, { method: 'POST', parameters: p });"), true);
-  assert.equal(mutates('somethingElse.request(url);'), false);
+  assert.doesNotMatch(body, /matchAll\(\/\\bCarlosAjax/, 'the probe must not scan for helper calls');
+  assert.match(body, /CarlosAjax/, 'the probe must say why the helper is out of scope');
+  assert.match(body, /CSRF-TOKEN[^\n]*\n?[^\n]*fetch/, 'the rule\'s own case, a page reading the token for its own fetch/XHR, stays');
 });
 
 /*
@@ -1136,4 +1128,48 @@ test('current-document exclusion preserves handlers, popups and different destin
     { href: 'view?id=2' }, { href: '/elsewhere' }, { href: 'http://[' }]) {
     assert.equal(isCurrentDocumentLink({ ...item, ...changed }, host), false);
   }
+});
+
+
+test('JavaScript-encoded query separators resolve to the URL the browser opens', async () => {
+  const items = await catalogue([
+    anchorDouble({ href: '#', onclick: String.raw`popupPage(600,900,'/carlos/messenger/DisplayMessages?providerNo=999998\x26userName=Test')` }, 'Messages'),
+    anchorDouble({ href: '#', onclick: String.raw`window.open('/carlos/encounter/IncomingConsultation?providerNo=999998\u0026userName=Test')` }, 'Consultations'),
+    anchorDouble({ href: String.raw`javascript:window.open('/carlos/documentManager/ViewDocumentReport?function=providers\x26functionid=999998')` }, 'Documents'),
+  ]);
+  assert.equal(items[0].route, '/carlos/messenger/DisplayMessages?providerNo=999998&userName=Test');
+  assert.equal(items[1].route, '/carlos/encounter/IncomingConsultation?providerNo=999998&userName=Test');
+  assert.equal(items[2].route, '/carlos/documentManager/ViewDocumentReport?function=providers&functionid=999998');
+});
+
+
+for (const [literal, expected] of [
+  [String.raw`'/carlos/foo\x2fbar'`, '/carlos/foo/bar'],
+  [String.raw`'foo\x2Fbar'`, 'foo/bar'],
+  [String.raw`'/carlos/O\'Reilly'`, "/carlos/O'Reilly"],
+  [String.raw`'/carlos/report?q=\X26\U0026'`, '/carlos/report?q=X26U0026'],
+  [String.raw`'\u002fcarlos\x2freport'`, '/carlos/report'],
+]) {
+  test(`route extraction decodes the complete literal ${literal}`, async () => {
+    const items = await catalogue([anchorDouble({href: '#', onclick: `popup(${literal}, '_blank')`}, 'Open')]);
+    assert.equal(items[0].route, expected);
+  });
+}
+
+
+for (const [literal, expected] of [
+  [String.raw`'/carlos\u{2f}report'`, '/carlos/report'],
+  [String.raw`'\u{0000002F}carlos/report'`, '/carlos/report'],
+  [String.raw`'/carlos/report?q=\u{1F600}'`, '/carlos/report?q=😀'],
+]) {
+  test(`route extraction decodes Unicode code-point literal ${literal}`, async () => {
+    const items = await catalogue([anchorDouble({href: '#', onclick: `popup(${literal}, '_blank')`}, 'Open')]);
+    assert.equal(items[0].route, expected);
+  });
+}
+
+test('an invalid Unicode code point fails the audit instead of inventing a route', async () => {
+  await assert.rejects(() => catalogue([anchorDouble({
+    href: '#', onclick: String.raw`popup('/carlos/\u{110000}')`,
+  }, 'Open')]), RangeError);
 });

@@ -25,11 +25,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("unit")
 @DisplayName("Credential logging regression tests")
 class CredentialLoggingRegressionTest {
 
