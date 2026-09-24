@@ -57,6 +57,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -122,10 +123,13 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // holds the checksum lock throughout, so a concurrent upload of the same file is never
             // told uploadedPreviously for a batch that then rolls back.
             FileUploadCheck.StoreOutcome stored;
+            // The archive written in the store step, cleared only if a confirmed rollback removed it.
+            AtomicReference<File> keptArchive = new AtomicReference<>();
             try {
                 String archiveName = filename;
                 stored = FileUploadCheck.storeIfNew(filename, () -> new ByteArrayInputStream(uploadContent), proNo,
-                        checksumId -> storeMessages(uploadContent) && archiveInTransaction(uploadContent, archiveName));
+                        checksumId -> storeMessages(uploadContent)
+                                && archiveInTransaction(uploadContent, archiveName, keptArchive));
             } catch (FileUploadCheck.LookupFailedException lookupEx) {
                 _logger.error("Could not check a PathNet upload's checksum: {}", LogSafe.exceptionTrace(lookupEx.getCause()));
                 request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
@@ -142,8 +146,12 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } else {
                 outcome = OUTCOME_EXCEPTION;
                 // A batch that was not stored is still archived for diagnosis, as before; the
-                // outcome is a failure either way, so a failed write here changes nothing.
-                saveFile(new ByteArrayInputStream(uploadContent), filename);
+                // outcome is a failure either way, so a failed write here changes nothing. Skipped
+                // when the store step's archive survived: the commit outcome is then unknown and
+                // the batch may be stored, so a second copy would duplicate it.
+                if (keptArchive.get() == null) {
+                    saveFile(new ByteArrayInputStream(uploadContent), filename);
+                }
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -199,19 +207,22 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * {@code uploadedPreviously}. If the transaction later rolls back, the archive is removed with
      * the rows; after a commit, or a commit whose outcome is unknown, it is kept.</p>
      *
+     * @param kept receives the archive written; cleared again when a rollback removes it
      * @return {@code false} when the archive could not be written, which rejects the batch
      */
-    private static boolean archiveInTransaction(byte[] uploadContent, String filename) {
+    private static boolean archiveInTransaction(byte[] uploadContent, String filename, AtomicReference<File> kept) {
         File archived = saveFile(new ByteArrayInputStream(uploadContent), filename);
         if (archived == null) {
             return false;
         }
+        kept.set(archived);
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
                     if (status == STATUS_ROLLED_BACK) {
                         deletePartialOutput(archived);
+                        kept.set(null);
                     }
                 }
             });

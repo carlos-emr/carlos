@@ -309,6 +309,37 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldKeepSingleArchive_whenCommitOutcomeIsUnknown() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("unacknowledged.hl7"), "MSH|unacknowledged PathNet content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        transactions.failCommit = true;
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class, (connection, context) ->
+                     when(connection.Retrieve(any(InputStream.class))).thenReturn(new ArrayList<>(List.of("MSH|1"))));
+             MockedConstruction<Message> messages = mockConstruction(Message.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // The batch may have committed with its archive, so the failure path must not archive
+            // a second copy of it.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            try (var children = Files.list(documentDir)) {
+                assertThat(children.toList()).hasSize(1);
+            }
+        }
+    }
+
     /** Serves each validated reopen of {@code uploaded} as a stream whose closure the test can assert. */
     private static List<TrackedStream> trackOpenedStreams(MockedStatic<PathValidationUtils> paths, Path uploaded) {
         List<TrackedStream> opened = new CopyOnWriteArrayList<>();
