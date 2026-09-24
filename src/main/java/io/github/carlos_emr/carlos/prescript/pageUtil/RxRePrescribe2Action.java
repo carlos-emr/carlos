@@ -466,7 +466,7 @@ public String saveDigitalSignature() throws IOException {
             recordReRxSource(bean, drugId);
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = RxStashIds.next(RxStashIds.DEFAULT_BOUND);
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
@@ -547,7 +547,7 @@ public String saveDigitalSignature() throws IOException {
             try {
               	 rand = Long.parseLong(request.getParameter("rand"));
 	    }  catch (NumberFormatException e) {
-		rand = Math.round(Math.random() * 10001);
+		rand = RxStashIds.next(10_001);
             }
             rx.setRandomId(rand);
 
@@ -647,7 +647,7 @@ public String saveDigitalSignature() throws IOException {
 
         List<RxPrescriptionData.Prescription> listLongTerm = new ArrayList<Prescription>();
         for (int i = 0; i < listLongTermMed.size(); i++) {
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = RxStashIds.next(RxStashIds.DEFAULT_BOUND);
 
             // loop this
             int drugId = listLongTermMed.get(i);
@@ -751,7 +751,7 @@ public String saveDigitalSignature() throws IOException {
         // archives a re-prescribed source only when its id is in that list (archiveReRxDrugs).
         int staged = 0;
         for (String drugId : reRxDrugList) {
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = RxStashIds.next(RxStashIds.DEFAULT_BOUND);
             RxPrescriptionData rxData = new RxPrescriptionData();
             RxPrescriptionData.Prescription oldRx;
             try {
