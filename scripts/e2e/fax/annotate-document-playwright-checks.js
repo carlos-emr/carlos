@@ -387,10 +387,12 @@ async function main() {
     }
 
     // Run against the deployed viewer, injecting only the named failure at its network boundary.
-    async function openViewer() {
+    // waitUntil 'domcontentloaded' opens the viewer while a held subresource (the annotation
+    // font) is still outstanding; the default waits for the load event.
+    async function openViewer(waitUntil = 'load') {
       const dismiss = dialog => dialog.accept();
       page.on('dialog', dismiss);
-      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
+      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated baseUrl; docId is a positive integer
       page.off('dialog', dismiss);
       await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
     }
@@ -734,11 +736,7 @@ async function main() {
       await fontHeld;
       await route.continue();
     });
-    // The viewer just opened holds no marks, so leaving it raises no before-unload dialog.
-    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
-    // Same validated baseUrl; docId is a positive integer parsed from the environment.
-    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
+    await openViewer('domcontentloaded');
     const narrowFallback = await page.evaluate(() => {
       const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
       if (!sheet) { return false; }
@@ -785,10 +783,7 @@ async function main() {
       await lateFontHeld;
       await route.continue();
     });
-    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
-    // Same validated baseUrl; docId is a positive integer parsed from the environment.
-    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
+    await openViewer('domcontentloaded');
     await page.evaluate(() => {
       const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
       sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
