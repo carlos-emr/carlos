@@ -519,7 +519,7 @@
                 var encodedId = encodeURIComponent(tableId);
                 var url = '';
                 if (tableName === 'MDS') {
-                    url = 'javascript:reportWindow(\'SegmentDisplay.jsp?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/oscarMDS/ViewSegmentDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'CML') {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'HL7') {
