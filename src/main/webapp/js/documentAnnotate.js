@@ -203,12 +203,17 @@
      */
     function addNoteHitArea(svg, textEl, id) {
         var box;
-        try { box = textEl.getBBox(); } catch (e) { return; }
-        if (!box || !box.width || !box.height) { return; }
+        var width;
+        try {
+            box = textEl.getBBox();
+            width = advanceWidth(textEl);
+        } catch (e) { return; }
+        if (!box || !width || !box.height) { return; }
         var hit = document.createElementNS(SVG_NS, 'rect');
         hit.setAttribute('x', box.x);
         hit.setAttribute('y', box.y);
-        hit.setAttribute('width', box.width);
+        // The full advance, so a press on a note's trailing spaces still grabs it.
+        hit.setAttribute('width', width);
         hit.setAttribute('height', box.height);
         // 'transparent' is still a paint, so the default visiblePainted hit-testing counts it.
         hit.setAttribute('fill', 'transparent');
@@ -388,7 +393,18 @@
         var svg = pagesEl.querySelector('.page[data-page="' + a.page + '"] svg');
         var text = svg ? svg.querySelector('text[data-id="' + a.id + '"]') : null;
         if (!text || !svg.clientWidth) { return 0; }
-        try { return (text.getBBox().width / svg.clientWidth) * 1.02; } catch (e) { return 0; }
+        try { return (advanceWidth(text) / svg.clientWidth) * 1.02; } catch (e) { return 0; }
+    }
+
+    /**
+     * The width the text advances, spaces included. The composer checks the full string width
+     * (PDFBox getStringWidth), so a trailing or repeated space counts; the painted glyph box
+     * can leave it out. The stylesheet keeps note whitespace (white-space: pre) so the preview
+     * lays out the same spaces the saved copy draws.
+     */
+    function advanceWidth(textEl) {
+        var length = typeof textEl.getComputedTextLength === 'function' ? textEl.getComputedTextLength() : 0;
+        return Math.max(length, textEl.getBBox().width);
     }
 
     /**

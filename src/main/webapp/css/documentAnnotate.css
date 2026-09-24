@@ -220,6 +220,10 @@ body {
 .pages[data-saving] .overlay .mark[data-kind],
 .pages[data-saving] .overlay .mark-hit { cursor: progress; }
 
+/* Keep a note's spaces as typed: the composer draws every space and measures the full string
+   against the page edge, so the preview must lay out (and the fit must measure) the same text. */
+.overlay text.mark { white-space: pre; }
+
 .mark.moving { opacity: .7; }
 
 .page-caption {

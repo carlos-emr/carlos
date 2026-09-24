@@ -883,6 +883,19 @@ async function main() {
     check('a note refitted after its save ended saves on retry',
       await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
     await openViewer();
+
+    // The composer measures a note's full string, spaces included. A note ending in spaces,
+    // placed hard against the right edge, must be fitted by that width or the save is refused.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const spaceBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note with trailing spaces' + ' '.repeat(24)));
+    await page.mouse.click(spaceBox.x + spaceBox.width - 10, spaceBox.y + 260);
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('a note ending in spaces fits the page by its full width and saves',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {
       wordAttempts += 1;
