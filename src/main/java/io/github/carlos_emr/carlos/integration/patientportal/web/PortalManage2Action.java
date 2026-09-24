@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -32,10 +33,11 @@ import org.apache.struts2.ServletActionContext;
 /**
  * View gate for {@code demographic/portalManage.jsp}, the staff page for a patient's portal access.
  *
- * <p>The page itself holds no patient data: it loads the panel and performs every action through the
- * JSON routes, which check their own privileges. This gate refuses a caller who could use none of
- * them, and tells the page which controls to render, so staff are not offered buttons the server
- * would refuse.
+ * <p>The page loads the panel and performs every action through the JSON routes, which check their own
+ * privileges. This gate refuses a caller who could use none of them, and tells the page which controls
+ * to render, so staff are not offered buttons the server would refuse. For a user who may send
+ * invitations it also passes the chart's email consent, the same state the email layer checks before
+ * sending, so staff see why an invitation would be refused before they try.
  *
  * @since 2026-09-22
  */
@@ -43,15 +45,21 @@ public final class PortalManage2Action extends ActionSupport {
 
     private static final long serialVersionUID = 1L;
     static final String DEMOGRAPHIC_ATTRIBUTE = "portalDemographicNo";
+    /** Consent type name, status code ({@code EmailLog.EmailConsentStatus}) and status message key. */
+    static final String CONSENT_NAME_ATTRIBUTE = "portalConsentName";
+    static final String CONSENT_STATUS_ATTRIBUTE = "portalConsentStatus";
+    static final String CONSENT_LABEL_ATTRIBUTE = "portalConsentLabelKey";
 
     private final transient SecurityInfoManager securityInfoManager;
+    private final transient EmailComposeManager emailComposeManager;
 
     public PortalManage2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailComposeManager.class));
     }
 
-    PortalManage2Action(SecurityInfoManager securityInfoManager) {
+    PortalManage2Action(SecurityInfoManager securityInfoManager, EmailComposeManager emailComposeManager) {
         this.securityInfoManager = securityInfoManager;
+        this.emailComposeManager = emailComposeManager;
     }
 
     @Override
@@ -74,8 +82,15 @@ public final class PortalManage2Action extends ActionSupport {
         boolean managesInvites =
                 allowed(session, PortalStaffContextResolver.OBJECT_INVITE, SecurityInfoManager.WRITE, demographicNo);
         // The same rules PortalInvite2Action applies, so a button is shown only where it will work.
-        request.setAttribute("portalCanInvite",
-                managesInvites && PortalInvite2Action.maySend(securityInfoManager, session));
+        boolean mayInvite = managesInvites && PortalInvite2Action.maySend(securityInfoManager, session);
+        request.setAttribute("portalCanInvite", mayInvite);
+        if (mayInvite) {
+            // Sending requires _email write, which covers the _email read this lookup checks.
+            String[] consent = emailComposeManager.getEmailConsentStatus(session, demographicNo);
+            request.setAttribute(CONSENT_NAME_ATTRIBUTE, consent[0]);
+            request.setAttribute(CONSENT_STATUS_ATTRIBUTE, consent[1]);
+            request.setAttribute(CONSENT_LABEL_ATTRIBUTE, consent[2]);
+        }
         request.setAttribute("portalCanRecover",
                 managesInvites && PortalInvite2Action.mayResolve(securityInfoManager, session));
         request.setAttribute("portalCanRevoke", managesInvites);

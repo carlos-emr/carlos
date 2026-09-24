@@ -29,8 +29,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
@@ -49,6 +51,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 class PortalManage2ActionUnitTest {
 
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final EmailComposeManager compose = mock(EmailComposeManager.class);
     private final MockHttpServletRequest request = new MockHttpServletRequest();
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
@@ -77,7 +80,7 @@ class PortalManage2ActionUnitTest {
     @Test
     @DisplayName("should refuse a caller with no portal read rights")
     void shouldRefuse_withoutPortalReadRights() {
-        assertThatThrownBy(() -> new PortalManage2Action(security).execute())
+        assertThatThrownBy(() -> new PortalManage2Action(security, compose).execute())
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -86,7 +89,7 @@ class PortalManage2ActionUnitTest {
     void shouldRefuse_withoutAPatient() {
         request.removeParameter("demographicNo");
 
-        assertThatThrownBy(() -> new PortalManage2Action(security).execute())
+        assertThatThrownBy(() -> new PortalManage2Action(security, compose).execute())
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -96,7 +99,7 @@ class PortalManage2ActionUnitTest {
         grant("_portal.invite", SecurityInfoManager.READ);
         grant("_portal.invite", SecurityInfoManager.WRITE);
 
-        assertThat(new PortalManage2Action(security).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new PortalManage2Action(security, compose).execute()).isEqualTo(ActionSupport.SUCCESS);
         // Invitation rights alone: revoke only, the front-desk case.
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(false);
         assertThat(request.getAttribute("portalCanRecover")).isEqualTo(false);
@@ -104,12 +107,14 @@ class PortalManage2ActionUnitTest {
 
         // Email write: resolving a delivery works, sending still needs document write for the archive.
         when(security.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
-        new PortalManage2Action(security).execute();
+        new PortalManage2Action(security, compose).execute();
         assertThat(request.getAttribute("portalCanRecover")).isEqualTo(true);
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(false);
 
         when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
-        new PortalManage2Action(security).execute();
+        when(compose.getEmailConsentStatus(any(), eq(123)))
+                .thenReturn(new String[]{"Email", "UNKNOWN", "email.consent.status.unknown"});
+        new PortalManage2Action(security, compose).execute();
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(true);
         assertThat(request.getAttribute(PortalManage2Action.DEMOGRAPHIC_ATTRIBUTE)).isEqualTo(123);
     }
@@ -119,7 +124,7 @@ class PortalManage2ActionUnitTest {
     void shouldAdmitAccountReader_withoutAccountControls() {
         grant("_portal.account", SecurityInfoManager.READ);
 
-        assertThat(new PortalManage2Action(security).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new PortalManage2Action(security, compose).execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(false);
         assertThat(request.getAttribute("portalCanUnlock")).isEqualTo(false);
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(false);
@@ -127,5 +132,34 @@ class PortalManage2ActionUnitTest {
 
     private void grant(String object, String right) {
         when(security.hasPrivilege(any(), eq(object), eq(right), eq("123"))).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("should show a user who may invite what the chart says about email consent")
+    void shouldPassChartConsent_whenUserMayInvite() {
+        grant("_portal.invite", SecurityInfoManager.READ);
+        grant("_portal.invite", SecurityInfoManager.WRITE);
+        when(security.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
+        when(compose.getEmailConsentStatus(any(), eq(123)))
+                .thenReturn(new String[]{"Email communication", "OPT_OUT", "email.consent.status.optOut"});
+
+        new PortalManage2Action(security, compose).execute();
+
+        assertThat(request.getAttribute(PortalManage2Action.CONSENT_NAME_ATTRIBUTE)).isEqualTo("Email communication");
+        assertThat(request.getAttribute(PortalManage2Action.CONSENT_STATUS_ATTRIBUTE)).isEqualTo("OPT_OUT");
+        assertThat(request.getAttribute(PortalManage2Action.CONSENT_LABEL_ATTRIBUTE))
+                .isEqualTo("email.consent.status.optOut");
+    }
+
+    @Test
+    @DisplayName("should not look up consent for a user who cannot invite")
+    void shouldSkipConsent_whenUserCannotInvite() {
+        grant("_portal.account", SecurityInfoManager.READ);
+
+        new PortalManage2Action(security, compose).execute();
+
+        verifyNoInteractions(compose);
+        assertThat(request.getAttribute(PortalManage2Action.CONSENT_STATUS_ATTRIBUTE)).isNull();
     }
 }
