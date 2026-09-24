@@ -27,10 +27,12 @@
     patient's navigation down the left (Master Record, Appointment History, this page), and panels.
 
     Reached through demographic/portalManage, whose gate (PortalManage2Action) requires demographic
-    read access plus portal invite or account read rights, and sets which controls to render. The page
-    holds no patient data itself: portal-manage.js loads demographic/portalPanel and performs every
-    action through demographic/portalInvite and demographic/portalAccount, each of which checks its own
-    privileges. Everything the page says comes from the message list below, so it is translated with
+    read access plus portal invite or account read rights, and sets which controls to render. The only
+    patient detail the gate supplies is the chart's email consent, for a user who may invite; everything
+    else comes from portal-manage.js, which loads demographic/portalPanel and performs every action
+    through demographic/portalInvite and demographic/portalAccount, each of which checks its own
+    privileges. The invite button's result is shown beside it; every other action reports in the banner
+    at the top. Everything the page says comes from the message list below, so it is translated with
     the rest of CARLOS: delivery outcomes and invitation refusals arrive as codes and are looked up
     there. Only a refusal the list does not know (a consent block, which carries the email layer's own
     explanation, or a portal failure) is shown as the server worded it.
@@ -115,7 +117,7 @@
                         </div>
                         <div class="portal-consent">
                             <span class="portal-consent__label"><fmt:message key="demographic.portal.invites.consentOnChart"/></span>
-                            <span id="portal-consent-status" data-status="${carlos:forHtmlAttribute(portalConsentStatus)}">
+                            <span id="portal-consent-status">
                                 <c:if test="${not empty portalConsentLabelKey}"><fmt:message key="${portalConsentLabelKey}"/></c:if>
                                 <c:if test="${not empty portalConsentName}"><span class="portal-muted">(<carlos:encode value="${portalConsentName}"/>)</span></c:if>
                             </span>

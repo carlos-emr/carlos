@@ -115,6 +115,8 @@
     var lastInvites = [];
     var busy = false;
     var loadSequence = 0;
+    // A typed disable reason survives the panel being rebuilt, for example after the portal refuses it.
+    var draftReason = '';
 
     // Read once into a map: keys include values from the portal (an invitation's status), which must
     // never be spliced into a CSS selector.
@@ -232,7 +234,7 @@
         setBusy(true);
         try {
             await perform(path, params, box);
-            await load();
+            await load(box || statusBox);
         } finally {
             setBusy(false);
         }
@@ -284,6 +286,9 @@
             return;
         }
         var disabled = account.status === 'disabled';
+        if (disabled) {
+            draftReason = '';
+        }
         var details = element('dl', 'portal-details');
         function fact(key, value) {
             details.appendChild(element('dt', null, text('account.field.' + key)));
@@ -308,6 +313,10 @@
             reason.id = 'portal-disable-reason';
             reason.maxLength = 64;
             reason.autocomplete = 'off';
+            reason.value = draftReason;
+            reason.addEventListener('input', function () {
+                draftReason = reason.value;
+            });
             field.appendChild(label);
             field.appendChild(reason);
             box.appendChild(field);
@@ -442,15 +451,27 @@
         return params;
     }
 
-    async function load() {
+    /**
+     * Reloads the panel. After an action, resultBox holds that action's result: a failed reload is added
+     * to it rather than replacing it, so staff still see what the action did (an invitation that was sent,
+     * say) as well as that the panel could not be refreshed.
+     */
+    async function load(resultBox) {
         // Only the newest read may render: an older one finishing late would show a stale panel.
         var sequence = ++loadSequence;
         var result;
+        function loadFailed(message) {
+            if (resultBox && !resultBox.hidden) {
+                resultBox.appendChild(element('div', null, message));
+            } else {
+                showStatus(message, false);
+            }
+        }
         try {
             result = await call('GET', '/demographic/portalPanel');
         } catch (failure) {
             if (sequence === loadSequence) {
-                showStatus(text('error.generic'), false);
+                loadFailed(text('error.generic'));
             }
             return;
         }
@@ -459,7 +480,7 @@
         }
         var payload = result.payload;
         if (!payload || result.status !== 200) {
-            showStatus(refusal(payload), false);
+            loadFailed(refusal(payload));
             ['portal-account', 'portal-invites', 'portal-deliveries'].forEach(function (id) {
                 document.getElementById(id).replaceChildren();
             });
@@ -470,11 +491,10 @@
         renderDeliveries(payload);
     }
 
+    // A full reload: the chart's email consent comes from the page gate, not the panel, and must be current too.
     document.getElementById('portal-refresh').addEventListener('click', function () {
         if (!busy) {
-            statusBox.hidden = true;
-            inviteStatusBox.hidden = true;
-            load();
+            window.location.reload();
         }
     });
 
