@@ -384,13 +384,26 @@
      */
     function fitNote(a) {
         var width = noteWidth(a);
-        if (!width) { return; }
+        if (!width) { return false; }
         var x = Math.max(0, Math.min(a.x, 1 - width - EDGE_EPSILON));
         var w = Math.min(width, 1 - x - EDGE_EPSILON);
-        if (x === a.x && w === a.w) { return; }
+        if (x === a.x && w === a.w) { return false; }
+        // The composer draws a note from its x alone (w only bounds the parser's check), so only
+        // a changed x moves what a saved copy would show.
+        var moved = x !== a.x;
         a.x = x;
         a.w = w;
         redrawPage(a.page);
+        return moved;
+    }
+
+    /** Fits every note to its drawn width; true when any note moved. */
+    function fitAllNotes() {
+        var moved = false;
+        state.annotations.filter(isEditableText).forEach(function (a) {
+            if (fitNote(a)) { moved = true; }
+        });
+        return moved;
     }
 
     /**
@@ -398,15 +411,20 @@
      * then was fitted to its width in the fallback face, and a wider real face can leave it
      * running past the page edge, which the composer refuses at save. A move in progress keeps
      * its own measurements, so the refit waits for it to end rather than shifting the mark under
-     * the pointer.
+     * the pointer. A save in flight waits too: its payload is already posted, and changing the
+     * model under it would leave the page reporting as saved marks the copy does not have. The
+     * deferred refit runs when the save ends, and a note it moves makes the page unsaved again.
      */
     function refitNotes() {
-        if (state.moving) {
+        if (state.moving || state.saving) {
             state.refitPending = true;
             return;
         }
         state.refitPending = false;
-        state.annotations.filter(isEditableText).forEach(fitNote);
+        if (fitAllNotes() && state.saved) {
+            state.saved = false;
+            updateCounts();
+        }
     }
 
     /** Called whenever a move ends, however it ends, to run a refit that waited for it. */
@@ -905,7 +923,9 @@
         document.getElementById('btnSaveFax').disabled = true;
 
         annotationFontReady().then(function () {
-            refitNotes();
+            // This save's own snapshot is about to be taken, so it fits the notes directly;
+            // refitNotes would defer to the save in progress.
+            fitAllNotes();
             return csrfTokenReady();
         }).then(function () {
             return fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
@@ -937,6 +957,9 @@
             updateCounts();
             setStatus(t('saved', 'Saved as a new document.') + ' #' + result.data.documentNo, 'ok');
             if (thenFax) {
+                // The page is leaving for the fax cover; a late refit must not raise the
+                // unsaved-changes prompt on the way out.
+                state.refitPending = false;
                 window.location.href = cfg.contextPath + '/documentManager/FaxDocument?docId='
                     + encodeURIComponent(result.data.documentNo);
             } else {
@@ -954,6 +977,8 @@
             state.uncertain = true;
             setStatus('The save could not be confirmed. Check the patient’s documents before saving another copy.', 'error');
             updateCounts();
+        }).then(function () {
+            if (state.refitPending) { refitNotes(); }
         });
     }
 

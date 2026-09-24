@@ -773,6 +773,65 @@ async function main() {
     check('a note refitted after the font loaded saves',
       await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
     await openViewer();
+
+    // If the font is later than the save's wait, the save posts fallback widths. A refit arriving
+    // while that request is out must not change the model under it (the page would then report
+    // as saved marks the filed copy lacks); it runs once the save ends. Here the fallback-width
+    // note overruns the page in the real face, so the save is refused, the deferred refit pulls
+    // the note back, and the retry files.
+    let releaseLateFont;
+    const lateFontHeld = new Promise(resolve => { releaseLateFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await lateFontHeld;
+      await route.continue();
+    });
+    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
+    // Same validated baseUrl; docId is a positive integer parsed from the environment.
+    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
+    await page.evaluate(() => {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+    const lateBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note saved before a very late annotation font arrived'));
+    await page.mouse.click(lateBox.x + lateBox.width - 10, lateBox.y + 200);
+    const lateNote = page.locator('svg.overlay').first().locator('text.mark').first();
+    const lateBefore = await lateNote.boundingBox();
+    let releaseLateSave;
+    const lateSaveHeld = new Promise(resolve => { releaseLateSave = resolve; });
+    let lateSaveSeen;
+    const lateSaveArrived = new Promise(resolve => { lateSaveSeen = resolve; });
+    await page.route('**/SaveAnnotatedDocument?*', async route => {
+      lateSaveSeen();
+      await lateSaveHeld;
+      await route.continue();
+    });
+    await page.locator('#btnSave').click();
+    await Promise.race([lateSaveArrived,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Save did not post after the font wait')), 15000))]);
+    releaseLateFont();
+    await page.waitForFunction(() => document.fonts.check('11px CarlosAnnotation'));
+    await page.waitForTimeout(300);
+    const lateInFlight = await lateNote.boundingBox();
+    check('a font arriving during a save does not move a note under the in-flight request',
+      Math.abs(lateInFlight.x - lateBefore.x) < 1, JSON.stringify([lateBefore, lateInFlight]));
+    releaseLateSave();
+    await waitForSave();
+    await page.unroute('**/SaveAnnotatedDocument?*');
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
+    await page.waitForTimeout(300);
+    const lateAfter = await lateNote.boundingBox();
+    check('the refit deferred by a save runs once it ends',
+      lateAfter.x + lateAfter.width <= lateBox.x + lateBox.width + 1 && await page.locator('#btnSave').isEnabled(),
+      JSON.stringify([await page.locator('#status').textContent(), lateAfter, lateBox]));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('a note refitted after its save ended saves on retry',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {
       wordAttempts += 1;
