@@ -131,26 +131,42 @@ jobs:
         run: |
           set -eu
           # gh release view (unlike the releases/tags REST endpoint, which 404s
-          # on drafts) can see a DRAFT release. One call computes the state via
-          # gh's built-in jq (system jq is not installed in the image):
+          # on drafts) can see a DRAFT release. One call returns the draft flag
+          # and the asset names via gh's built-in jq (system jq is not installed
+          # in the image), and the state is decided here:
           #   draft / none  -> proceed to build, attach, and publish
-          #   done          -> published with BOTH packages; nothing to do
-          #                    (immutable, so a re-upload would 422)
+          #   done          -> published with EVERY package this tag builds;
+          #                    nothing to do (immutable, so a re-upload would 422)
           #   missing       -> published but a package is absent; fail fast
           #                    (immutable release can never be completed)
-          state=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft,assets --jq '
-            if .isDraft then "draft"
-            elif ([.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length) >= 1
-             and ([.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length) >= 1
-            then "done" else "missing" end' 2>/dev/null || echo none)
+          # The expected set is the binary packages in THIS tag's debian/control,
+          # not a hard-coded list: from 2026.08.0-alpha14 it includes the empty
+          # transitional carlos-emr-eform-renderer that pre-merge installs need to
+          # upgrade, and a release missing it must not count as finished, while a
+          # backfill of an older tag is judged by the packages that tag defines.
+          if ! info=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft,assets \
+                --jq '(.isDraft | tostring), .assets[].name' 2>/dev/null); then
+            state=none
+          elif [ "$(printf '%s\n' "$info" | head -n 1)" = true ]; then
+            state=draft
+          else
+            state=done
+            missing_pkgs=""
+            for pkg in $(sed -n 's/^Package: *//p' debian/control); do
+              if ! printf '%s\n' "$info" | tail -n +2 | grep -q "^${pkg}_.*\.deb\$"; then
+                state=missing
+                missing_pkgs="$missing_pkgs $pkg"
+              fi
+            done
+          fi
           case "$state" in
             draft|none)
               echo "SKIP=false" >> "$GITHUB_ENV" ;;
             done)
-              echo "Release $RELEASE_TAG is already published with both carlos-emr and carlos-emr-drugref .deb assets; nothing to do."
+              echo "Release $RELEASE_TAG is already published with every .deb this tag builds; nothing to do."
               echo "SKIP=true" >> "$GITHUB_ENV" ;;
             missing)
-              echo "::error::Release $RELEASE_TAG is already published but is missing a .deb asset. Immutable releases cannot accept new assets, so this cannot be completed; ship the .debs with the next release."
+              echo "::error::Release $RELEASE_TAG is already published but is missing .deb assets for:$missing_pkgs. Immutable releases cannot accept new assets, so this cannot be completed; ship the .debs with the next release."
               exit 1 ;;
           esac
 

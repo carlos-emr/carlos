@@ -55,7 +55,10 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
     restarted Tomcat to serve DrugRef before returning. As the last package in
     the transaction it used to return with the EMR still redeploying, so an
     operator's first `carlos-ctl check` reported nothing listening on 18080.
-    It now declares its own curl dependency.
+    It now declares its own curl dependency. Both readiness waits (and
+    carlos-emr's own) use a wall-clock deadline: an attempt count with a
+    10-second probe timeout could hold dpkg for 15 minutes behind a message
+    that said five.
   * SKIP_EFORM_RENDERER=1 now builds carlos-emr without the renderer payload
     (browser, unit, profile and drop-in) instead of dropping a binary package;
     `carlos-ctl check` reports such a development build as a NOTE.

@@ -68,9 +68,12 @@ case "$1" in
         # dpkg-reconfigure by hand. deb-systemd-invoke honours policy-rc.d.
         if [ -d /run/systemd/system ]; then
             deb-systemd-invoke start mariadb.service >/dev/null 2>&1 || true
-            i=0
-            while [ "${i}" -lt 30 ] && ! mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; do
-                sleep 2; i=$((i + 1))
+            # Wall-clock bound with a per-attempt connect timeout, so "60 seconds"
+            # in the warning below is what actually happened.
+            deadline=$(( $(date +%s) + 60 ))
+            while [ "$(date +%s)" -lt "${deadline}" ] \
+                && ! mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+                sleep 2
             done
         fi
 
@@ -222,9 +225,14 @@ case "$1" in
                 # deployed: the service answers a GET with 405 once DrugRef is
                 # up (200 is accepted too), and 000 / 404 / 503 until then.
                 echo "carlos-emr-drugref: waiting for the EMR to redeploy with DrugRef (a couple of minutes)..."
-                i=0
+                # A wall-clock deadline, not an attempt count: each probe can take
+                # its full 10-second --max-time, so 60 attempts plus a 5-second sleep
+                # could hold dpkg for 15 minutes behind a "five minutes" message.
+                # The last probe may start just before the deadline, so the true
+                # bound is ~5 min + 10 s.
+                deadline=$(( $(date +%s) + 300 ))
                 code=""
-                while [ "${i}" -lt 60 ] && emr_alive; do
+                while [ "$(date +%s)" -lt "${deadline}" ] && emr_alive; do
                     # Match READY positively. curl already prints 000 when it
                     # cannot connect, so an `|| echo 000` fallback turned that
                     # into 000000, which a list of not-ready codes let through:
@@ -236,14 +244,13 @@ case "$1" in
                         200|405) break ;;
                     esac
                     sleep 5
-                    i=$((i + 1))
                 done
                 # The loop also ends early if the EMR stops (a failed deploy), so
                 # judge by the answer, not by the counter.
                 case "${code:-}" in
                     200|405) echo "carlos-emr-drugref: DrugRef is deployed." ;;
                     *)
-                        echo "carlos-emr-drugref: WARNING: DrugRef did not answer after the restart" >&2
+                        echo "carlos-emr-drugref: WARNING: DrugRef did not answer within five minutes of the restart" >&2
                         echo "carlos-emr-drugref: WARNING: (systemctl status carlos-emr; carlos-ctl logs | grep drugref2)." >&2
                         ;;
                 esac

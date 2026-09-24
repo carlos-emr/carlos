@@ -1570,8 +1570,13 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
             ""|0.0.0.0) PROBE_IP=127.0.0.1 ;;
             ::) PROBE_IP=::1 ;;
         esac
-        i=0
-        while [ "${i}" -lt 60 ]; do
+        # A wall-clock deadline, not an attempt count: each probe can itself take
+        # its 10-second --max-time, so 60 attempts with a 5-second sleep could hold
+        # dpkg for 15 minutes behind a message that says five. The last probe may
+        # start just before the deadline, so the true bound is ~5 min + 10 s.
+        deadline=$(( $(date +%s) + 300 ))
+        code=""
+        while [ "$(date +%s)" -lt "${deadline}" ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
                     --resolve "${PROBE_NAME}:443:${PROBE_IP}" \
                     "https://${PROBE_NAME}/carlos/" 2>/dev/null || true)"
@@ -1579,9 +1584,12 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
                 200|302|303) break ;;
             esac
             sleep 5
-            i=$((i + 1))
         done
-        if [ "${i}" -ge 60 ]; then
+        case "${code}" in
+            200|302|303) served=1 ;;
+            *) served=0 ;;
+        esac
+        if [ "${served}" = 0 ]; then
             echo "carlos-emr: the application has not answered after five minutes." >&2
             echo "carlos-emr: run 'journalctl -u carlos-emr -n 200' to see why." >&2
         else
