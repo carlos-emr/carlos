@@ -138,4 +138,54 @@ class EmailManagerFieldLengthUnitTest {
                 .hasMessageContaining("No active email configuration");
         assertThat(data.getSubject()).isEqualTo("ResultsBcc: attacker@example.comx");
     }
+
+    @Test
+    @DisplayName("should strip control characters from a direct-compose password and clue before checking them")
+    void shouldStripControlCharacters_whenPasswordComesFromDirectCompose() {
+        EmailData data = emailData();
+        data.setIsEncrypted(true);
+        data.setEncryptedMessage("Secret");
+        // 50 visible characters plus line breaks and a tab: fits once sanitized, as on the eForm path.
+        data.setPassword("p".repeat(EmailFieldLengthValidator.MAX_PASSWORD_CHARS - 2) + "\r\n" + "pp\t");
+        data.setPasswordClue("Your date\r\nof birth");
+
+        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No active email configuration");
+        assertThat(data.getPassword()).isEqualTo("p".repeat(EmailFieldLengthValidator.MAX_PASSWORD_CHARS));
+        assertThat(data.getPasswordClue()).isEqualTo("Your dateof birth");
+    }
+
+    @Test
+    @DisplayName("should clear an encrypted message instead of rejecting it when encryption is off")
+    void shouldClearEncryptedMessage_whenEncryptionIsOff() {
+        EmailData data = emailData();
+        data.setIsEncrypted(false);
+        // Typed before encryption was switched off: never sent, so it is neither stored nor checked.
+        data.setEncryptedMessage("e".repeat(EmailFieldLengthValidator.MAX_BLOB_TEXT_UTF8_BYTES + 1));
+        data.setPassword("p".repeat(EmailFieldLengthValidator.MAX_PASSWORD_CHARS + 1));
+
+        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No active email configuration");
+        assertThat(data.getEncryptedMessage()).isEmpty();
+        assertThat(data.getPassword()).isEmpty();
+        assertThat(data.getPasswordClue()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should still reject an over-length encrypted message when encryption is on")
+    void shouldRejectEncryptedMessage_whenEncryptionIsOn() {
+        EmailData data = emailData();
+        data.setIsEncrypted(true);
+        data.setPassword("pass12345");
+        data.setEncryptedMessage("e".repeat(EmailFieldLengthValidator.MAX_BLOB_TEXT_UTF8_BYTES + 1));
+
+        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
+                .isInstanceOf(EmailFieldLengthException.class)
+                .satisfies(e -> assertThat(((EmailFieldLengthException) e).getViolations())
+                        .extracting("messageKey")
+                        .containsExactly("email.compose.msg.encryptedMessageTooLong"));
+        verifyNoInteractions(emailLogDao);
+    }
 }

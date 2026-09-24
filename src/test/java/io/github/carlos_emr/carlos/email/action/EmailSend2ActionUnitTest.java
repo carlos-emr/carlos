@@ -36,7 +36,11 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -44,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -64,14 +69,21 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private EmailManager emailManager;
     private EformDataManager eformDataManager;
+    private EmailComposeManager emailComposeManager;
+    private DemographicManager demographicManager;
 
     @BeforeEach
     void setUp() {
         emailManager = mock(EmailManager.class);
         eformDataManager = mock(EformDataManager.class);
+        emailComposeManager = mock(EmailComposeManager.class);
+        demographicManager = mock(DemographicManager.class);
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, emailManager);
         registerMock(EformDataManager.class, eformDataManager);
+        registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(DemographicManager.class, demographicManager);
+        when(emailComposeManager.getEmailConsentStatus(any(), any())).thenReturn(new String[]{"", "Unknown"});
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
         // NPEing before each test assigns action.request/response explicitly.
@@ -136,9 +148,11 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.sendEFormEmail();
 
         assertThat(result).isEqualTo("success");
-        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        // Unset, so the page renders the editable form rather than the sent/failed result panel.
+        assertThat(request.getAttribute("isEmailSuccessful")).isNull();
         assertThat(request.getAttribute("fdid")).isEqualTo("42");
-        assertThat(request.getAttribute("isOpenEForm")).isEqualTo("true");
+        assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
+        assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
         assertThat((List<?>) request.getAttribute("emailLengthViolations"))
                 .extracting("messageKey")
                 .containsExactly("email.compose.msg.subjectTooLong");
@@ -155,9 +169,10 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.sendDirectEmail();
 
         assertThat(result).isEqualTo("success");
-        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("isEmailSuccessful")).isNull();
         assertThat(request.getAttribute("emailLengthViolations")).isNotNull();
         assertThat(request.getAttribute("emailLog")).isNull();
+        assertThat(request.getAttribute("transactionType")).isEqualTo(TransactionType.DIRECT);
     }
 
     @Test
@@ -176,6 +191,79 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isSameAs(attachments);
         assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY)).isEqualTo("7");
+        // The retry form lists them too.
+        assertThat(request.getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isSameAs(attachments);
+    }
+
+    @Test
+    @DisplayName("should hand every entered field back to the compose page when a field is too long")
+    @SuppressWarnings("unchecked")
+    void shouldRestoreComposeFields_whenFieldTooLong() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "EFORM");
+        request.setParameter("demographicId", "7");
+        request.setParameter("fdid", "42");
+        request.setParameter("fid", "3");
+        request.setParameter("senderConfigId", "5");
+        request.setParameter("receiverEmailAddress", "a@example.com", "b@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Secret");
+        request.setParameter("emailPDFPassword", "pass12345");
+        request.setParameter("emailPDFPasswordClue", "Clue");
+        request.setParameter("internalComment", "Note");
+        request.setParameter("patientChartOption", "doNotAddAsNote");
+        request.setParameter("additionalURLParams", "a=b");
+        List<EmailConfig> senders = List.of(new EmailConfig());
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(senders);
+        when(demographicManager.getDemographicFormattedName(any(), eq(7))).thenReturn("FAKE, Patient");
+        when(emailComposeManager.getEmailConsentStatus(any(), eq(7))).thenReturn(new String[]{"Email", "Explicit Opt-In"});
+        EmailSend2Action action = overLengthAction(request);
+
+        action.sendEFormEmail();
+
+        assertThat(request.getAttribute("transactionType")).isEqualTo(TransactionType.EFORM);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("7");
+        assertThat(request.getAttribute("fid")).isEqualTo("3");
+        assertThat(request.getAttribute("senderAccounts")).isSameAs(senders);
+        assertThat(request.getAttribute("senderConfigId")).isEqualTo("5");
+        assertThat((List<Object>) request.getAttribute("receiverEmailList")).containsExactly("a@example.com", "b@example.com");
+        assertThat((List<?>) request.getAttribute("invalidReceiverEmailList")).isEmpty();
+        assertThat(request.getAttribute("receiverName")).isEqualTo("FAKE, Patient");
+        assertThat(request.getAttribute("emailConsentName")).isEqualTo("Email");
+        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("Explicit Opt-In");
+        assertThat(request.getAttribute("subjectEmail")).isEqualTo("Subject");
+        assertThat(request.getAttribute("bodyEmail")).isEqualTo("Body");
+        assertThat(request.getAttribute("encryptedMessageEmail")).isEqualTo("Secret");
+        assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("pass12345");
+        assertThat(request.getAttribute("emailPDFPasswordClue")).isEqualTo("Clue");
+        assertThat(request.getAttribute("internalComment")).isEqualTo("Note");
+        assertThat(request.getAttribute("emailPatientChartOption")).isEqualTo("doNotAddAsNote");
+        assertThat(request.getAttribute("emailAdditionalParams")).isEqualTo("a=b");
+        assertThat(request.getAttribute("isEmailAutoSend")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should drop echoed values the page writes unencoded unless they are well formed")
+    void shouldNormaliseEchoedValues_whenFieldTooLong() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "EFORM\"><script>");
+        request.setParameter("fdid", "42<b>");
+        request.setParameter("senderConfigId", "x");
+        request.setParameter("openEFormAfterEmail", "true\"><script>");
+        request.setParameter("patientChartOption", "bogus");
+        EmailSend2Action action = overLengthAction(request);
+
+        action.sendEFormEmail();
+
+        assertThat(request.getAttribute("transactionType")).isNull();
+        assertThat(request.getAttribute("fdid")).isNull();
+        assertThat(request.getAttribute("senderConfigId")).isNull();
+        assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(false);
+        assertThat(request.getAttribute("emailPatientChartOption")).isNull();
+        assertThat(request.getAttribute("receiverName")).isNull();
+        verifyNoInteractions(demographicManager);
+        verifyNoInteractions(eformDataManager);
     }
 
     @Test

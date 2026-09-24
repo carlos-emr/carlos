@@ -37,7 +37,11 @@
  *   1. a 1,100-character subject (limit 1,024) is refused by the page with a visible message
  *      and nothing is submitted;
  *   2. the same form submitted with the page script bypassed is refused by the server, which
- *      renders its own message, and no emailLog row is written.
+ *      renders its own message, and no emailLog row is written;
+ *   3. the server re-renders the compose form, still editable, with everything that was entered
+ *      (subject, body, encrypted message, password and clue, chart option and internal comment,
+ *      sender, recipient and the hidden fields a resend posts), so the provider can shorten the
+ *      field and send again from the same window.
  *
  * Fixtures, all removed afterwards: a synthetic patient (runWorkflow) with an example.com email
  * address, one active sender account on an unroutable .invalid domain, and one logged email to resend.
@@ -74,6 +78,12 @@ async function workflow(session) {
       'WITHOUT_NOTE', 'DIRECT', ${patient}, ${h.sqlString(provider)}); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(logId), 'the logged email fixture was not created');
   const logCount = () => sql.value(`SELECT COUNT(*) FROM emailLog WHERE demographicNo=${patient}`);
+  // The compose page disables itself without a sender or a valid recipient, so confirm the
+  // fixtures landed where the application reads them before blaming the page.
+  h.assert(sql.value(`SELECT email FROM demographic WHERE demographic_no=${patient}`) === patientEmail,
+    'the patient email fixture was not stored on the demographic record');
+  h.assert(sql.value(`SELECT COUNT(*) FROM emailConfig WHERE id=${configId} AND active=1`) === '1',
+    'the sender account fixture is not active');
 
   const compose = await context.newPage();
   h.wireStrictPage(compose, 'email-compose', session.recorder);
@@ -114,7 +124,23 @@ async function workflow(session) {
     h.assert(logCount() === '1', 'an email was logged for the refused subject');
   });
 
+  // Synthetic values for every other field the retry form has to hand back.
+  const entered = {
+    body: `Retry body ${marker}`,
+    encryptedMessage: `Encrypted ${marker}`,
+    password: 'Passw0rd-FAKE',
+    clue: `Clue ${marker}`,
+    internalComment: `Internal ${marker}`,
+  };
+
   await session.step('the server refuses the same subject when the page check is bypassed', async () => {
+    await compose.locator('#bodyEmail').fill(entered.body);
+    await compose.locator('#encryptionSwitch').check();
+    await compose.locator('#encryptedMessage').fill(entered.encryptedMessage);
+    await compose.locator('#emailPDFPassword').fill(entered.password);
+    await compose.locator('#emailPDFPasswordClue').fill(entered.clue);
+    await compose.locator('#addFullNoteOption').check();
+    await compose.locator('#internalComment').fill(entered.internalComment);
     await Promise.all([
       compose.waitForNavigation({ waitUntil: 'domcontentloaded' }),
       // HTMLFormElement.submit() skips the onsubmit handler, as a scripted or replayed POST would.
@@ -125,6 +151,53 @@ async function workflow(session) {
     await alert.waitFor({ state: 'visible' });
     h.assert(/1,?100/.test(await alert.innerText()), 'the server message does not state the entered size');
     h.assert(logCount() === '1', 'the server logged (and so truncated) the over-length email');
+  });
+
+  await session.step('the refused email reopens editable with everything that was entered', async () => {
+    const form = await compose.evaluate(() => {
+      const byId = (id) => document.getElementById(id);
+      const named = (name) => Array.from(document.querySelectorAll(`#emailComposeForm [name="${name}"]`));
+      const hidden = (name) => named(name).filter((el) => el.type === 'hidden').map((el) => el.value);
+      return {
+        action: byId('emailComposeForm').getAttribute('action') || '',
+        subjectDisabled: byId('subjectEmail').disabled,
+        subjectLength: byId('subjectEmail').value.length,
+        subjectError: byId('subjectError').innerText,
+        body: byId('bodyEmail').value,
+        encryption: byId('encryptionSwitch').checked,
+        isEmailEncrypted: byId('isEmailEncrypted').value,
+        encryptedMessage: byId('encryptedMessage').value,
+        password: byId('emailPDFPassword').value,
+        clue: byId('emailPDFPasswordClue').value,
+        fullNote: byId('addFullNoteOption').checked,
+        internalComment: byId('internalComment').value,
+        sender: byId('senderEmailAddress').value,
+        recipients: hidden('receiverEmailAddress'),
+        demographicId: hidden('demographicId'),
+        transactionType: hidden('transactionType'),
+        resultPanelShown: Boolean(document.getElementById('successMessage')),
+      };
+    });
+    h.assert(!form.subjectDisabled, 'the refused email reopened with its fields disabled');
+    h.assert(/method=sendDirectEmail/.test(form.action), 'the refused email reopened without a send action');
+    h.assert(!form.resultPanelShown, 'the refused email was reported as sent');
+    h.assert(form.subjectLength === OVERSIZE_SUBJECT.length, 'the refused subject was not handed back in full');
+    h.assert(/1,100/.test(form.subjectError), 'the retry form does not mark the over-length subject');
+    h.assert(form.body === entered.body, 'the body was not handed back');
+    h.assert(form.encryption && form.isEmailEncrypted === 'true', 'the retry form dropped the encryption choice');
+    h.assert(form.encryptedMessage === entered.encryptedMessage, 'the encrypted message was not handed back');
+    h.assert(form.password === entered.password, 'the PDF password was not handed back');
+    h.assert(form.clue === entered.clue, 'the password clue was not handed back');
+    h.assert(form.fullNote && form.internalComment === entered.internalComment,
+      'the chart option or internal comment was not handed back');
+    h.assert(form.sender === configId, 'the sender account was not handed back');
+    h.assert(form.recipients.length === 1 && form.recipients[0] === patientEmail,
+      'the recipient was not handed back');
+    h.assert(form.demographicId.length === 1 && form.demographicId[0] === patient,
+      'the patient was not handed back');
+    h.assert(form.transactionType.length === 1 && form.transactionType[0] === 'DIRECT',
+      'the transaction type was not handed back');
+    h.assert(logCount() === '1', 'reopening the refused email logged it');
   });
   await compose.close();
 }

@@ -413,8 +413,8 @@ public class EmailManager {
      * Sanitization rules:
      * - If no encrypted message and no attachments: disable encryption entirely
      * - If no encrypted message and unencrypted attachments: disable encryption
+     * - If encryption disabled: clear all encryption-related fields (checked first)
      * - If no attachments: disable attachment encryption
-     * - If encryption disabled: clear all encryption-related fields
      * - If no chart note: clear internal comment
      *
      * @param emailData EmailData the email data to sanitize
@@ -424,7 +424,23 @@ public class EmailManager {
         // direct compose POST reaches here with the raw request value, and CR/LF in a subject is
         // an SMTP header injection. Done before validation so the stored and sent subjects match.
         emailData.setSubject(EmailAttachmentSettings.sanitizeSubject(emailData.getSubject()));
-        if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
+        // The eForm setup strips control characters from the password and clue, but the direct
+        // compose and resend POSTs reach here with the raw values. Apply the same rule to every
+        // path, before validation, so the length check, the stored value and the PDF password
+        // all see one value (the compose page counts these fields the same way).
+        emailData.setPassword(EmailAttachmentSettings.sanitizePassword(emailData.getPassword()));
+        emailData.setPasswordClue(EmailAttachmentSettings.sanitizePassword(emailData.getPasswordClue()));
+        if (!emailData.getIsEncrypted()) {
+            // Encryption is off, so nothing below will use these fields: the encrypted message is
+            // only ever sent as the password-protected PDF. Clear them first. Previously an
+            // encrypted message typed before switching encryption off (and with no attachments)
+            // was kept and stored although never sent, and the length check could then reject a
+            // field the compose page hides and does not check, e.g. on an eForm auto-send.
+            emailData.setEncryptedMessage("");
+            emailData.setIsAttachmentEncrypted(false);
+            emailData.setPassword("");
+            emailData.setPasswordClue("");
+        } else if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
             emailData.setIsEncrypted(false);
             emailData.setIsAttachmentEncrypted(false);
             emailData.setPassword("");
@@ -436,11 +452,6 @@ public class EmailManager {
             emailData.setPasswordClue("");
         } else if (emailData.getAttachments().isEmpty()) {
             emailData.setIsAttachmentEncrypted(false);
-        } else if (!emailData.getIsEncrypted()) {
-            emailData.setEncryptedMessage("");
-            emailData.setIsAttachmentEncrypted(false);
-            emailData.setPassword("");
-            emailData.setPasswordClue("");
         }
 
         if (emailData.getChartDisplayOption().equals(ChartDisplayOption.WITHOUT_NOTE)) {

@@ -197,7 +197,7 @@ public record EmailAttachmentSettings(
      * @param password the raw password/clue from user input
      * @return the sanitized value, or null if input was null
      */
-    static String sanitizePassword(String password) {
+    public static String sanitizePassword(String password) {
         if (password == null) {
             return null;
         }

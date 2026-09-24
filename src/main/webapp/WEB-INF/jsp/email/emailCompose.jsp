@@ -248,6 +248,23 @@
                 </c:when>
             </c:choose>
 
+            <c:if test="${ not empty emailLengthViolations }">
+                <%-- EmailSend2Action rejected the submission before persisting or sending it
+                     because a field would not fit the emailLog table (issue #3905). It re-renders
+                     this form with everything the provider entered, so the fields can be
+                     shortened and sent again from here. Only bundle text and integer sizes are
+                     rendered in this panel, never field content. --%>
+                <div class="alert alert-danger" role="alert" id="emailLengthErrorMessage">
+                    <p><fmt:message key="email.compose.msg.fieldsTooLong"/></p>
+                    <ul class="mb-0">
+                        <c:forEach items="${ emailLengthViolations }" var="violation">
+                            <li><fmt:message key="${ violation.messageKey }"><fmt:param value="${ violation.actual }"/><fmt:param value="${ violation.limit }"/></fmt:message></li>
+                        </c:forEach>
+                    </ul>
+                </div>
+            </c:if>
+            <input type="hidden" name="emailRejectedForLength" id="emailRejectedForLength"
+                   value="${ not empty emailLengthViolations }"/>
             <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
@@ -635,19 +652,6 @@
         <%-- the confirmation tags. --%>
         <c:if test="${ not empty isEmailSuccessful }">
             <c:choose>
-                <c:when test="${ not empty emailLengthViolations }">
-                    <%-- EmailSend2Action rejected the submission before persisting or sending it
-                         because a field would not fit the emailLog table (issue #3905). Only
-                         bundle text and integer sizes are rendered here, never field content. --%>
-                    <div class="alert alert-danger" role="alert" id="emailLengthErrorMessage">
-                        <p><fmt:message key="email.compose.msg.fieldsTooLong"/></p>
-                        <ul class="mb-0">
-                            <c:forEach items="${ emailLengthViolations }" var="violation">
-                                <li><fmt:message key="${ violation.messageKey }"><fmt:param value="${ violation.actual }"/><fmt:param value="${ violation.limit }"/></fmt:message></li>
-                            </c:forEach>
-                        </ul>
-                    </div>
-                </c:when>
                 <c:when test="${ emailLog.status eq 'SUCCESS' }">
 				<div class="alert alert-success" role="alert" id="successMessage">
 					<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
@@ -696,9 +700,6 @@
             return;
         }
 
-        // Auto-send email
-        autoSendEmail();
-
         // Convert attachment size into kb/mb
         convertAttachmentSize();
 
@@ -716,6 +717,19 @@
 
 	// Toggle internal note text area
 	toggleInternalTextArea();
+
+        if (document.getElementById('emailRejectedForLength').value === 'true') {
+            // The server refused the last send. Mark the fields it reported (where the page can
+            // measure them) and wait for the provider; a rejected retry is never auto-sent.
+            validateForm();
+            return;
+        }
+
+        // Auto-send email. Runs last: validateForm() and the submitted form data depend on the
+        // chart option, encryption state and internal-comment visibility set just above. Before,
+        // an auto-sent email always went with the default chart option and was length-checked
+        // against the wrong set of fields.
+        autoSendEmail();
     });
 
     document.addEventListener("keydown", function (event) {
@@ -800,8 +814,8 @@
             checkLength(document.getElementById('encryptedMessage'), 'bytes', EMAIL_MAX_BLOB_TEXT_UTF8_BYTES,
                 emailComposeEncryptedMessageTooLongMsg, errors, 'encryptedMessageError');
             if (hasEncryptedMessage || (hasAttachments && isAttachmentEncrypted)) {
-                checkLength(emailPDFPassword, 'chars', EMAIL_MAX_PASSWORD_CHARS, emailComposePasswordTooLongMsg, errors, 'emailPDFPasswordError');
-                checkLength(emailPDFPasswordClue, 'chars', EMAIL_MAX_PASSWORD_CLUE_CHARS, emailComposeClueTooLongMsg, errors, 'emailPDFPasswordClueError');
+                checkLength(withoutControlChars(emailPDFPassword), 'chars', EMAIL_MAX_PASSWORD_CHARS, emailComposePasswordTooLongMsg, errors, 'emailPDFPasswordError');
+                checkLength(withoutControlChars(emailPDFPasswordClue), 'chars', EMAIL_MAX_PASSWORD_CLUE_CHARS, emailComposeClueTooLongMsg, errors, 'emailPDFPasswordClueError');
             }
         }
         const addFullNoteOption = document.getElementById('addFullNoteOption');
@@ -835,6 +849,13 @@
     function measureLength(value, unit) {
         const submitted = value.replace(/\r\n|\r|\n/g, '\r\n');
         return unit === 'bytes' ? new TextEncoder().encode(submitted).length : Array.from(submitted).length;
+    }
+
+    // The password and clue are stored with ASCII control characters (including line breaks)
+    // removed, as EmailAttachmentSettings.sanitizePassword does on the server, so count them the
+    // same way: a clue with line breaks must not be refused here and accepted there.
+    function withoutControlChars(field) {
+        return {name: field.name, value: field.value.replace(/[\x00-\x1F\x7F]/g, '')};
     }
 
     // Flags a field that exceeds its limit. Runs after validateField, so it never replaces an
