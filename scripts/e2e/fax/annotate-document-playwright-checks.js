@@ -474,6 +474,31 @@ async function main() {
     check('unsupported glyph rejection stays visible and editable',
       (await page.locator('#status').textContent()).includes('cannot display') && await page.locator('#btnSave').isEnabled());
 
+    // Placed marks can be dragged and re-edited without leaving the current tool, and the
+    // moved/edited model must still pass the server's bounds and text validation.
+    await openViewer();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic movable note'));
+    await page.locator('svg.overlay').first().click({ position: { x: 120, y: 140 } });
+    const noteBefore = await page.locator('text.mark').first().boundingBox();
+    await page.mouse.move(noteBefore.x + 4, noteBefore.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(noteBefore.x + 84, noteBefore.y + 124, { steps: 8 });
+    await page.mouse.up();
+    const noteAfter = await page.locator('text.mark').first().boundingBox();
+    check('a text note can be dragged while the text tool is active',
+      Math.abs(noteAfter.y - noteBefore.y - 120) < 3 && await page.locator('#markCount').textContent() === '1',
+      JSON.stringify([noteBefore, noteAfter]));
+    page.once('dialog', dialog => dialog.accept('Synthetic edited note'));
+    await page.mouse.click(noteAfter.x + 4, noteAfter.y + 4);
+    check('clicking a text note edits it in place',
+      await page.locator('text.mark').first().textContent() === 'Synthetic edited note'
+      && await page.locator('#markCount').textContent() === '1');
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('a moved and edited note saves successfully',
+      await page.locator('#status').getAttribute('class') === 'status ok');
+
     await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {

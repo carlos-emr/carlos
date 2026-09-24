@@ -184,7 +184,8 @@ body {
 .page .overlay {
     position: absolute;
     inset: 0;
-    /* Marks are hit-tested for deletion in select mode; every other mode draws. */
+    /* Marks are hit-tested for moving, editing and (select mode) deletion; empty
+       overlay space draws in every mode except select. */
     touch-action: none;
 }
 
@@ -195,7 +196,15 @@ body {
 .pages[data-tool="date"] .overlay,
 .pages[data-tool="signature"] .overlay { cursor: copy; }
 
-.pages[data-tool="select"] .mark { cursor: pointer; }
+/* Placed marks (text, date, signature) can be moved from any tool; ink and highlights
+   only from select, so the drawing tools keep drawing across them. */
+.pages[data-tool="select"] .mark,
+.page .mark[data-kind="placed"] { cursor: move; }
+
+/* Hit the whole line box of a note, not just its glyph outlines. */
+text.mark { pointer-events: bounding-box; }
+
+.mark.moving { opacity: .7; }
 
 .page-caption {
     padding: 4px 8px;

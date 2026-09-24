@@ -51,6 +51,8 @@
     var TEXT_H = 0.035;
 
     var DPI_STEPS = [96, 144, 192];
+    // Pointer travel, in CSS pixels, before a press on a mark becomes a move rather than a click.
+    var MOVE_THRESHOLD_PX = 4;
     var COLORS = {
         yellow: '#FFF176', green: '#7BE8B8', blue: '#8FD3F4',
         pink: '#FFC2DD', red: '#E03B3B', black: '#1A1A1A'
@@ -169,11 +171,7 @@
             var el = renderMark(a, w, h, scale);
             if (!el) { return; }
             el.setAttribute('data-id', a.id);
-            el.addEventListener('click', function (event) {
-                if (state.tool !== 'select') { return; }
-                event.stopPropagation();
-                removeAnnotation(a.id);
-            });
+            el.setAttribute('data-kind', isPlaced(a) ? 'placed' : 'stroke');
             svg.appendChild(el);
         });
     }
@@ -201,17 +199,31 @@
     function renderMark(a, w, h, scale) {
         var unit = scale || 1;
         if (a.type === 'ink') {
-            var poly = document.createElementNS(SVG_NS, 'polyline');
-            poly.setAttribute('points', a.points.map(function (p) {
+            var points = a.points.map(function (p) {
                 return (p[0] * w) + ',' + (p[1] * h);
-            }).join(' '));
+            }).join(' ');
+            var stroke = document.createElementNS(SVG_NS, 'g');
+            stroke.setAttribute('class', 'mark');
+            // A 2 pt line is too thin to grab reliably with a mouse, let alone a finger. This
+            // wider, invisible copy is the hit target for moving it; it is never posted.
+            var hit = document.createElementNS(SVG_NS, 'polyline');
+            hit.setAttribute('points', points);
+            hit.setAttribute('fill', 'none');
+            hit.setAttribute('stroke', 'transparent');
+            hit.setAttribute('stroke-width', Math.max(12, (a.strokeWidth || DEFAULT_STROKE_WIDTH) * unit));
+            hit.setAttribute('stroke-linecap', 'round');
+            hit.setAttribute('stroke-linejoin', 'round');
+            hit.setAttribute('pointer-events', 'stroke');
+            var poly = document.createElementNS(SVG_NS, 'polyline');
+            poly.setAttribute('points', points);
             poly.setAttribute('fill', 'none');
             poly.setAttribute('stroke', COLORS[a.color] || COLORS.black);
             poly.setAttribute('stroke-width', (a.strokeWidth || DEFAULT_STROKE_WIDTH) * unit);
             poly.setAttribute('stroke-linecap', 'round');
             poly.setAttribute('stroke-linejoin', 'round');
-            poly.setAttribute('class', 'mark');
-            return poly;
+            stroke.appendChild(hit);
+            stroke.appendChild(poly);
+            return stroke;
         }
         if (a.type === 'highlight') {
             var rect = document.createElementNS(SVG_NS, 'rect');
@@ -288,6 +300,101 @@
         updateCounts();
     }
 
+    /** Records an in-place edit to an existing mark (a move or a text change). */
+    function annotationChanged(a) {
+        state.saved = false;
+        redrawPage(a.page);
+        updateCounts();
+    }
+
+    function findAnnotation(id) {
+        for (var i = 0; i < state.annotations.length; i++) {
+            if (state.annotations[i].id === id) { return state.annotations[i]; }
+        }
+        return null;
+    }
+
+    /**
+     * Text, date and signature marks are objects placed at a point. They can be picked up and
+     * moved from ANY tool, so a provider can nudge a note while still adding others. Ink and
+     * highlights cover an area that new marks are routinely drawn across (highlighting a line a
+     * note already sits on, circling a highlight), so in the drawing tools a press on one must
+     * still start a new mark; they are moved with the select tool.
+     */
+    function isPlaced(a) {
+        return a.type === 'text' || a.type === 'date' || a.type === 'signature';
+    }
+
+    function isEditableText(a) {
+        return a.type === 'text' || a.type === 'date';
+    }
+
+    function canGrab(a) {
+        return !state.saving && (state.tool === 'select' || isPlaced(a));
+    }
+
+    /** The mark's extent in page fractions, used to keep a move on the page. */
+    function markBounds(a) {
+        if (a.type !== 'ink') { return { x: a.x, y: a.y, w: a.w, h: a.h }; }
+        var xs = a.points.map(function (p) { return p[0]; });
+        var ys = a.points.map(function (p) { return p[1]; });
+        var x0 = Math.min.apply(null, xs);
+        var y0 = Math.min.apply(null, ys);
+        return { x: x0, y: y0, w: Math.max.apply(null, xs) - x0, h: Math.max.apply(null, ys) - y0 };
+    }
+
+    // The parser rejects x + w > 1. Stopping a hair inside the edge keeps a mark dragged hard
+    // against it from failing the save on floating-point rounding.
+    var EDGE_EPSILON = 1e-9;
+
+    /** Limits a move so the whole mark stays on its page; the server rejects anything past the edge. */
+    function clampMove(a, dx, dy) {
+        var b = markBounds(a);
+        return {
+            dx: Math.max(-b.x, Math.min(1 - b.x - b.w - EDGE_EPSILON, dx)),
+            dy: Math.max(-b.y, Math.min(1 - b.y - b.h - EDGE_EPSILON, dy))
+        };
+    }
+
+    function moveAnnotation(a, dx, dy) {
+        if (state.saving || (!dx && !dy)) { return; }
+        if (a.type === 'ink') {
+            a.points = a.points.map(function (p) {
+                return [clamp(p[0] + dx), clamp(p[1] + dy)];
+            });
+        } else {
+            // dx/dy are already limited by clampMove; this only guards against a negative zero.
+            a.x = Math.max(0, a.x + dx);
+            a.y = Math.max(0, a.y + dy);
+        }
+        annotationChanged(a);
+    }
+
+    /**
+     * Re-opens a text or date note for editing. Cancelling leaves it as it was; clearing it
+     * removes the note, since the server refuses an empty text mark.
+     */
+    function editText(a) {
+        if (state.saving) { return; }
+        var value = window.prompt(t('promptEditText', 'Edit note (clear it to remove the note):'), a.text);
+        if (value === null || value === a.text) { return; }
+        if (!value.trim()) {
+            removeAnnotation(a.id);
+            return;
+        }
+        a.text = value;
+        annotationChanged(a);
+    }
+
+    /** A press on a mark that was released without moving it. */
+    function markClicked(a) {
+        if (isEditableText(a)) {
+            editText(a);
+        } else if (state.tool === 'select') {
+            removeAnnotation(a.id);
+        }
+    }
+
     function updateCounts() {
         var count = state.annotations.length;
         document.getElementById('markCount').textContent = String(count);
@@ -301,8 +408,10 @@
         var svg = wrap.querySelector('svg');
         var page = Number(wrap.dataset.page);
         var dragging = null;
+        var moving = null;
 
         svg.addEventListener('pointerdown', function (event) {
+            if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
                     || wrap.classList.contains('load-failed')) { return; }
             var rect = svg.getBoundingClientRect();
@@ -319,6 +428,10 @@
         });
 
         svg.addEventListener('pointermove', function (event) {
+            if (moving) {
+                continueMove(event);
+                return;
+            }
             if (!dragging) { return; }
             var rect = svg.getBoundingClientRect();
             var nx = clamp((event.clientX - rect.left) / rect.width);
@@ -332,12 +445,62 @@
         });
 
         svg.addEventListener('pointerup', function (event) {
+            if (moving) {
+                finishMove(event);
+                return;
+            }
             if (!dragging) { return; }
             svg.releasePointerCapture(event.pointerId);
             commitDrag(page, dragging);
             dragging = null;
             redrawPage(page);
         });
+
+        svg.addEventListener('pointercancel', function () {
+            if (!moving) { return; }
+            moving = null;
+            redrawPage(page);
+        });
+
+        // Moves are previewed with a transform on the mark's own element and written to the
+        // model only on release, so a drag that is cancelled leaves the model untouched.
+        function startMove(event) {
+            var target = event.target && event.target.closest ? event.target.closest('.mark[data-id]') : null;
+            if (!target) { return false; }
+            var a = findAnnotation(Number(target.getAttribute('data-id')));
+            if (!a || !canGrab(a)) { return false; }
+            event.preventDefault();
+            moving = { a: a, el: target, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
+            svg.setPointerCapture(event.pointerId);
+            return true;
+        }
+
+        function continueMove(event) {
+            var rect = svg.getBoundingClientRect();
+            if (!rect.width || !rect.height) { return; }
+            var px = event.clientX - moving.x0;
+            var py = event.clientY - moving.y0;
+            // A few pixels of jitter on a click must not nudge the mark or swallow the click.
+            if (!moving.moved && Math.abs(px) < MOVE_THRESHOLD_PX && Math.abs(py) < MOVE_THRESHOLD_PX) { return; }
+            moving.moved = true;
+            var d = clampMove(moving.a, px / rect.width, py / rect.height);
+            moving.dx = d.dx;
+            moving.dy = d.dy;
+            moving.el.setAttribute('transform', 'translate(' + (d.dx * rect.width) + ',' + (d.dy * rect.height) + ')');
+            moving.el.classList.add('moving');
+        }
+
+        function finishMove(event) {
+            var done = moving;
+            moving = null;
+            if (svg.hasPointerCapture(event.pointerId)) { svg.releasePointerCapture(event.pointerId); }
+            if (done.moved) {
+                moveAnnotation(done.a, done.dx, done.dy);
+                redrawPage(page);
+            } else {
+                markClicked(done.a);
+            }
+        }
     }
 
     /** Points-to-pixels scale for the page image this overlay sits on; 1 if it is not measurable. */
