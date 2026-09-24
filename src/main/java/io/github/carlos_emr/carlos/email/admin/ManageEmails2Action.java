@@ -274,7 +274,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, String.valueOf(demographicNo));
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, String.valueOf(demographicNo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- the patient number of the stored email log (an int), only compared with the next send's patient
         request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return "compose";
