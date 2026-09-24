@@ -72,6 +72,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -1101,11 +1102,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
         }
 
-        List<Integer> allIndex = new ArrayList();
-        for (int i = 0; i < bean.getStashSize(); i++) {
-            allIndex.add(i);
-        }
-
         List<Integer> existingIndex = new ArrayList();
         for (String num : randNum) {
             int stashIndex = bean.getIndexFromRx(Integer.parseInt(num));
@@ -1358,22 +1354,43 @@ public final class RxWriteScript2Action extends ActionSupport {
                 continue;
             }
         }
-        for (Integer n : existingIndex) {
-            if (allIndex.contains(n)) {
-                allIndex.remove(n);
-            }
-        }
-        List<Integer> deletedIndex = allIndex;
-        // remove closed Rx from stash
-        for (Integer n : deletedIndex) {
-            bean.removeStashItem(n);
-            if (bean.getStashIndex() >= bean.getStashSize()) {
-                bean.setStashIndex(bean.getStashSize() - 1);
-            }
-        }
+        removeClosedStashItems(bean, existingIndex);
 
         saveDrug(request);
         return "refresh";
+    }
+
+    /**
+     * Drops every stash entry whose card was closed in the browser, i.e. every index that
+     * is not in {@code keptIndexes}.
+     *
+     * <p>Indexes are removed in descending order. {@link RxSessionBean#removeStashItem(int)}
+     * is a positional {@code ArrayList.remove}, so removing index 0 before index 2 shifts
+     * the old index 2 down to 1 and the second removal then deletes a card the prescriber
+     * kept. With two or more cards closed, that saved a drug the prescriber had dismissed
+     * and dropped one they meant to prescribe. The list of indexes is computed on a copy so
+     * the caller's list is never mutated.</p>
+     *
+     * <p>Package-private for {@code RxWriteScript2ActionStashRemovalUnitTest}.</p>
+     *
+     * @param bean        the Rx session whose stash is pruned
+     * @param keptIndexes stash indexes that still have a card on the submitted form
+     * @since 2026-09-24
+     */
+    static void removeClosedStashItems(RxSessionBean bean, List<Integer> keptIndexes) {
+        List<Integer> closedIndexes = new ArrayList<>();
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            if (!keptIndexes.contains(i)) {
+                closedIndexes.add(i);
+            }
+        }
+        closedIndexes.sort(Collections.reverseOrder());
+        for (int index : closedIndexes) {
+            bean.removeStashItem(index);
+        }
+        if (bean.getStashIndex() >= bean.getStashSize()) {
+            bean.setStashIndex(bean.getStashSize() - 1);
+        }
     }
 
     public String updateLongTermStatus() throws IOException, Exception {

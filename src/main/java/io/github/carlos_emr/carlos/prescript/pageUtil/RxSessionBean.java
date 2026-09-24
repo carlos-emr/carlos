@@ -226,8 +226,10 @@ public class RxSessionBean implements java.io.Serializable {
                 }
             } else {
                 if (rx.getBrandName() != null && item.getBrandName() != null) {
+                    // GCN_SEQNO is a String: == compared references, so two stash entries
+                    // for the same drug built from different requests never matched.
                     if (rx.getBrandName().equals(item.getBrandName())
-                            && rx.getGCN_SEQNO() == item.getGCN_SEQNO()) {
+                            && Objects.equals(rx.getGCN_SEQNO(), item.getGCN_SEQNO())) {
                         ret = i;
                         break;
                     }
