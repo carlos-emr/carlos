@@ -113,9 +113,12 @@ public class BillingOnReviewValidator {
             if (serviceCode.isEmpty()) {
                 continue;
             }
-            // Replace _ with \_ so SQL LIKE doesn't treat it as wildcard.
+            // Pass the code through unescaped. The DAO compares with JPQL '=' and a bound
+            // parameter, where '_' is already a literal. The old LIKE-style '\_' escaping made
+            // every underscore code (the "_"-prefixed private codes, e.g. _OMA_A003) miss and
+            // be reported invalid.
             List<Object> svcCodes = billingServiceDao.findBillingCodesByCodeAndTerminationDate(
-                    serviceCode.trim().replace("_", "\\_"), filterDate);
+                    serviceCode.trim(), filterDate);
             if (svcCodes.isEmpty()) {
                 codeValid = false;
                 messages.add(new Message(Message.Severity.ERROR,

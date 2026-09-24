@@ -98,6 +98,17 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate);
 
+    /**
+     * Returns the distinct service code when a row with exactly {@code serviceCode} is still
+     * active after {@code terminationDate}.
+     *
+     * <p>This is an equality match, not {@code LIKE}: pass the code as stored. Do not escape
+     * {@code _} or {@code %}; private codes start with {@code _} (e.g. {@code _OMA_A003}).</p>
+     *
+     * @param serviceCode the literal service code
+     * @param terminationDate rows must terminate after this date
+     * @return the matching code, or an empty list
+     */
     List<Object> findBillingCodesByCodeAndTerminationDate(String serviceCode, Date terminationDate);
 
     String getCodeDescription(String val, String billReferalDate);

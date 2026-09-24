@@ -760,5 +760,31 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnNonNull_forAnyCodeAndTerminationDate() throws Exception {
             assertThat(dao.findBillingCodesByCodeAndTerminationDate("CDE", new Date())).isNotNull();
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find an underscore private code by its literal value")
+        void shouldFindUnderscoreCode_byLiteralValue() throws Exception {
+            BillingService bs = createBillingService("_OMA_A003", "20260101");
+            bs.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(bs);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_A003", new Date()))
+                    .containsExactly("_OMA_A003");
+            // A LIKE-style escaped value is not the stored code under an equality match.
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("\\_OMA\\_A003", new Date()))
+                    .isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not treat underscore as a single-character wildcard")
+        void shouldNotMatchOtherCodes_whenCodeContainsUnderscore() throws Exception {
+            BillingService bs = createBillingService("XOMAXA003", "20260101");
+            bs.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(bs);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_A003", new Date())).isEmpty();
+        }
     }
 }

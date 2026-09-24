@@ -128,18 +128,20 @@ class BillingOnReviewValidatorUnitTest {
     }
 
     @Test
-    @DisplayName("escapes underscores in service code so SQL LIKE doesn't wildcard them")
-    void shouldEscapeUnderscores_inServiceCodeLookup() {
-        request.setParameter("serviceCode0", "A_07A");
+    @DisplayName("passes underscore codes unescaped because the DAO lookup is an equality match")
+    void shouldPassUnderscoresUnescaped_inServiceCodeLookup() {
+        request.setParameter("serviceCode0", " _OMA_A003 ");
         when(billingServiceDao.findBillingCodesByCodeAndTerminationDate(anyString(), any(Date.class)))
                 .thenReturn(List.of(new Object()));
 
-        newValidator().validate(request, "1", "2026-04-26");
+        BillingOnReviewValidator.Result result =
+                newValidator().validate(request, "1", "2026-04-26");
 
-        // The DAO call must receive the escaped form so SQL LIKE treats `_`
-        // as a literal — preserves the legacy scriptlet's intent.
+        // findBillingCodesByCodeAndTerminationDate compares with '=', so a LIKE-style
+        // "\_" escape would look up a code that does not exist.
+        assertThat(result.codeValid()).isTrue();
         Mockito.verify(billingServiceDao)
-                .findBillingCodesByCodeAndTerminationDate(eq("A\\_07A"), any(Date.class));
+                .findBillingCodesByCodeAndTerminationDate(eq("_OMA_A003"), any(Date.class));
     }
 
     @Test
