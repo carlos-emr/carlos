@@ -68,11 +68,13 @@ async function stageCustomDrug(page, name) {
   return added[0].split('_')[1];
 }
 
+/**
+ * "Save Only" saves the stash over AJAX. Callers wait on the database (expectValue polls), which
+ * is the outcome that matters; racing waitForLoadState against the click could not tell the
+ * post-save page from the pre-save one.
+ */
 async function saveOnly(page) {
-  await Promise.all([
-    page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {}),
-    page.locator('#saveOnlyButton').click(),
-  ]);
+  await page.locator('#saveOnlyButton').click();
 }
 
 function drugsFor(sql, demographicNo, marker) {
