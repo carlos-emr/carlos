@@ -103,8 +103,26 @@ class AsthmaActionPlanDropdownRegressionTest {
 
         assertThat(jsp)
                 .contains("MeasurementDropdownOptions.forValidation(validations)")
-                .contains("if (MeasurementDropdownOptions.isLegacyValue(opts, val)) { %>")
+                .contains("boolean legacyValue = MeasurementDropdownOptions.isLegacyValue(opts, val);")
+                .contains("if (legacyValue) { %>")
                 .contains("<option value=\"<carlos:encode value='<%= val %>' context=\"htmlAttribute\"/>\""
                         + " selected disabled><carlos:encode value='<%= val %>' context=\"html\"/>");
+    }
+
+    @Test
+    @DisplayName("should not submit or re-save a legacy value, and say so on the page")
+    void shouldNotResubmitLegacyValue_whenShownForReference() throws Exception {
+        String jsp = Files.readString(ADD_MEASUREMENT_JSP, StandardCharsets.UTF_8);
+
+        // The legacy option is the only carrier of the value and stays disabled: no hidden
+        // inputValue-* re-posts an old reading as new data.
+        assertThat(jsp).doesNotContain("type=\"hidden\" name=\"<%= \"inputValue-\"")
+                .doesNotContain("type=\"hidden\" name=\"<%=\"inputValue-\"")
+                .contains("<span class=\"legacyValueNote\" id=\"<%=\"legacyValueNote-\"+ctr%>\">"
+                        + "Recorded under an earlier option list; shown for reference only and not saved again.</span>");
+        // Viewing a saved reading is read-only: every control is disabled and only Delete posts.
+        assertThat(jsp).contains("saveAction = \"encounter/oscarMeasurements/DeleteData2\";")
+                .contains("Array.from(f.elements).forEach(function(el) { el.disabled = true; });")
+                .contains("<input type=\"submit\" name=\"delete\" value=\"Delete\" id=\"deleteButton\"/>");
     }
 }

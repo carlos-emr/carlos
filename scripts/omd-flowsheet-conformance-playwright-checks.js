@@ -32,7 +32,9 @@
  *   2. Asthma flowsheet (DE16.098): the Action Plan entry offers Provided / Revised /
  *      Reviewed (migration V1.0.33) and saves one of them.
  *   3. An Action Plan reading stored before that change ("Yes") still displays when opened
- *      for editing: selected, and disabled so it cannot be chosen for a new reading.
+ *      for editing: selected, and disabled so it cannot be chosen for a new reading. The page
+ *      says it is shown for reference only, opens read-only (Delete only), and the legacy value
+ *      is not part of what the form submits, so it is never re-saved as a new reading.
  *
  * The check owns a synthetic patient (runWorkflow) and removes its diagnoses and readings.
  *
@@ -126,6 +128,19 @@ async function workflow(session) {
     h.assert(legacy, 'the stored "Yes" reading is not shown on the edit page');
     h.assert(legacy.selected && legacy.disabled, 'the stored "Yes" reading must be selected and disabled');
     h.assert(options.filter((option) => option.selected).length === 1, 'more than one Action Plan option is selected');
+    // The legacy value is shown for reference only: the page says so, a saved reading opens
+    // read-only with Delete as its only action, and the disabled option is not part of what
+    // the form would submit, so it cannot be re-saved as a new reading.
+    await page.locator('#legacyValueNote-0').waitFor({ state: 'visible' });
+    h.assert(await page.getByRole('button', { name: 'Save', exact: true }).count() === 0,
+      'a saved Action Plan reading offers Save; it should open read-only');
+    const submitted = await page.locator('#measurementForm').evaluate((form) => {
+      const data = new FormData(form);
+      return { value: data.get('inputValue-0'), deletes: data.getAll('deleteCheckbox') };
+    });
+    h.assert(submitted.value === null, `the legacy Action Plan value would be submitted as ${JSON.stringify(submitted.value)}`);
+    h.assert(submitted.deletes.length === 1 && submitted.deletes[0] === id,
+      'the read-only Action Plan page no longer offers Delete for the stored reading');
     await page.close();
   });
 }

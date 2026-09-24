@@ -519,6 +519,7 @@
                                         name="<%= "inputValue-" + ctr %>">
                                     <option value=""></option>
                                     <% List<String> opts = MeasurementDropdownOptions.forValidation(validations);
+                                        boolean legacyValue = MeasurementDropdownOptions.isLegacyValue(opts, val);
                                         for (String opt : opts) {%>
                                     <option value="<carlos:encode value='<%= opt %>' context="htmlAttribute"/>"  <%=sel(opt, val)%>><carlos:encode value='<%= opt %>' context="html"/>
                                     </option>
@@ -527,11 +528,24 @@
                                         // before Provided/Revised/Reviewed, issue #3893) matches no option. Show it
                                         // selected so an existing reading still displays; disabled so it cannot be
                                         // chosen for a new reading.
-                                        if (MeasurementDropdownOptions.isLegacyValue(opts, val)) { %>
+                                        //
+                                        // Being disabled, it is deliberately NOT submitted, and nothing depends on it:
+                                        //  - viewing a saved reading (id set): the whole form is disabled and only
+                                        //    Delete posts (to DeleteData2, which reads deleteCheckbox, not the value);
+                                        //  - a value bounced back after validation errors: a legacy value can only
+                                        //    arrive by bypassing this dropdown, and the server already rejected it
+                                        //    against the current rule, so re-submitting it would fail again.
+                                        // Re-saving it would also duplicate an old reading as new data, so no hidden
+                                        // inputValue-* carries it. An empty inputValue-* is skipped by
+                                        // EctMeasurements2Action, so nothing is saved unless a current option is chosen.
+                                        if (legacyValue) { %>
                                     <option value="<carlos:encode value='<%= val %>' context="htmlAttribute"/>" selected disabled><carlos:encode value='<%= val %>' context="html"/>
                                     </option>
                                     <% } %>
                                 </select>
+                                <% if (legacyValue) { %>
+                                <span class="legacyValueNote" id="<%="legacyValueNote-"+ctr%>">Recorded under an earlier option list; shown for reference only and not saved again.</span>
+                                <% } %>
                                 <%} else if (validations != null && validations.getName().startsWith("Integer")) { %>
                                 <select id="<%= "inputValue-" + ctr %>"
                                         name="<%= "inputValue-" + ctr %>">
