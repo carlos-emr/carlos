@@ -31,6 +31,8 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -63,6 +65,26 @@ public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements 
         @SuppressWarnings("unchecked")
         List<CtlDocument> cList = query.getResultList();
         return cList;
+    }
+
+    @Override
+    public List<Integer> findDocumentNosForDemographic(Integer demographicNo, Collection<Integer> documentNos) {
+        if (demographicNo == null || documentNos == null || documentNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // Status is compared null-safely: legacy rows may carry a NULL status and are still live.
+        Query query = entityManager.createQuery(
+                "select distinct x.id.documentNo from CtlDocument x"
+                        + " where x.id.module = ?1 and x.id.moduleId = ?2"
+                        + " and (x.status is null or x.status <> 'D')"
+                        + " and x.id.documentNo in (?3)");
+        query.setParameter(1, DocumentDao.Module.DEMOGRAPHIC.getName());
+        query.setParameter(2, demographicNo);
+        query.setParameter(3, documentNos);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
     }
 
 }

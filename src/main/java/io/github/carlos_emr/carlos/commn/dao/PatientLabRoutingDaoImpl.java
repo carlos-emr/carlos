@@ -32,6 +32,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -316,4 +318,19 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         return results;
     }
 
+    @Override
+    public List<Integer> findLabNosForDemographic(Integer demographicNo, String labType, Collection<Integer> labNos) {
+        if (demographicNo == null || labType == null || labNos == null || labNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Query query = entityManager.createQuery("select distinct x.labNo from " + this.modelClass.getName()
+                + " x where x.demographicNo = ?1 and x.labType = ?2 and x.labNo in (?3)");
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, labType);
+        query.setParameter(3, labNos);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
+    }
 }

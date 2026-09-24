@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +38,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -60,6 +63,9 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private AttachmentOwnershipService attachmentOwnershipService;
+
     private DocumentAttachmentManagerImpl manager;
 
     @BeforeEach
@@ -67,6 +73,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
         manager = new DocumentAttachmentManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
+        injectDependency(manager, "attachmentOwnershipService", attachmentOwnershipService);
         registerMock(ConsultDocsDao.class, consultDocsDao);
         registerMock(EFormDocsDao.class, eFormDocsDao);
     }
@@ -99,6 +106,8 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of());
+        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.DOC, demographicNo, Set.of(789)))
+                .thenReturn(true);
 
         manager.attachToConsult(
                 loggedInInfo,
@@ -157,5 +166,63 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
         verifyNoInteractions(consultDocsDao);
+    }
+
+    @Test
+    @DisplayName("should reject a newly attached document that belongs to another patient before any write")
+    void shouldRejectAttachToConsult_whenNewDocumentBelongsToAnotherPatient() {
+        int demographicNo = 123;
+        int requestId = 456;
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+                .thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+                .thenReturn(List.of());
+        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.DOC, demographicNo, Set.of(999)))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> manager.attachToConsult(
+                loggedInInfo, DocumentType.DOC, new String[] {"999"}, "999", requestId, demographicNo, Boolean.TRUE))
+                .isInstanceOf(SecurityException.class);
+
+        verify(consultDocsDao, never()).persist(any());
+        verify(consultDocsDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("should reject a non-numeric attachment id before any write")
+    void shouldRejectAttachToConsult_whenAttachmentIdNotNumeric() {
+        int demographicNo = 123;
+        int requestId = 456;
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+                .thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.LAB.getType()))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> manager.attachToConsult(
+                loggedInInfo, DocumentType.LAB, new String[] {"12x"}, "999", requestId, demographicNo))
+                .isInstanceOf(SecurityException.class);
+
+        verify(consultDocsDao, never()).persist(any());
+        verifyNoInteractions(attachmentOwnershipService);
+    }
+
+    @Test
+    @DisplayName("should not re-verify ids already attached to the consultation")
+    void shouldSkipOwnershipCheck_forAlreadyAttachedIds() {
+        int demographicNo = 123;
+        int requestId = 456;
+        ConsultDocs existing = new ConsultDocs(requestId, 789, DocumentType.DOC.getType(), "999");
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+                .thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+                .thenReturn(List.of(existing));
+
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999", requestId, demographicNo);
+
+        verifyNoInteractions(attachmentOwnershipService);
+        verify(consultDocsDao, never()).persist(any());
     }
 }

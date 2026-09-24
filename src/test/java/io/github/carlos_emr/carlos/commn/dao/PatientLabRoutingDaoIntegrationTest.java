@@ -119,4 +119,31 @@ public class PatientLabRoutingDaoIntegrationTest extends CarlosTestBase {
             assertThat(all).hasSizeGreaterThanOrEqualTo(4);
         }
     }
+
+    @Nested
+    @DisplayName("Ownership lookup (issue #3867)")
+    class OwnershipLookup {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only lab numbers routed to the patient for the lab type")
+        void shouldReturnOwnedLabNos_forDemographicAndLabType() {
+            createRouting(DEMO_1, 81001, "HL7");
+            createRouting(DEMO_2, 81002, "HL7");
+            createRouting(DEMO_1, 81003, "CML");
+
+            List<Integer> owned = patientLabRoutingDao.findLabNosForDemographic(
+                    DEMO_1, PatientLabRoutingDao.HL7, List.of(81001, 81002, 81003, 89999));
+
+            assertThat(owned).containsExactly(81001);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty without querying for an empty id list")
+        void shouldReturnEmpty_forEmptyIdList() {
+            assertThat(patientLabRoutingDao.findLabNosForDemographic(DEMO_1, PatientLabRoutingDao.HL7, List.of())).isEmpty();
+            assertThat(patientLabRoutingDao.findLabNosForDemographic(DEMO_1, null, List.of(81001))).isEmpty();
+        }
+    }
 }

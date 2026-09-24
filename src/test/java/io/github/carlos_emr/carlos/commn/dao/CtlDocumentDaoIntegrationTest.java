@@ -108,4 +108,54 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
             assertThat(results).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("Ownership lookup (issue #3867)")
+    class OwnershipLookup {
+
+        private void link(int documentNo, int demographicNo, String status) {
+            CtlDocument doc = new CtlDocument();
+            doc.getId().setDocumentNo(documentNo);
+            doc.getId().setModule("demographic");
+            doc.getId().setModuleId(demographicNo);
+            doc.setStatus(status);
+            ctlDocumentDao.persist(doc);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only live documents linked to the patient")
+        void shouldReturnOwnedLiveDocuments_forDemographic() {
+            link(30001, 7001, "A");
+            link(30002, 7001, "D");
+            link(30003, 7002, "A");
+            link(30004, 7001, null);
+
+            List<Integer> owned = ctlDocumentDao.findDocumentNosForDemographic(7001, List.of(30001, 30002, 30003, 30004, 39999));
+
+            assertThat(owned).containsExactlyInAnyOrder(30001, 30004);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should ignore documents linked through another module")
+        void shouldIgnoreNonDemographicModule_forDemographic() {
+            CtlDocument doc = new CtlDocument();
+            doc.getId().setDocumentNo(30010);
+            doc.getId().setModule("provider");
+            doc.getId().setModuleId(7001);
+            doc.setStatus("A");
+            ctlDocumentDao.persist(doc);
+
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(7001, List.of(30010))).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty without querying for an empty id list")
+        void shouldReturnEmpty_forEmptyIdList() {
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(7001, List.of())).isEmpty();
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(null, List.of(30001))).isEmpty();
+        }
+    }
 }

@@ -39,9 +39,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -99,6 +102,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -163,6 +167,8 @@ public class ConsultationManagerImpl implements ConsultationManager {
     DocumentManager documentManager;
     @Autowired
     private DocumentAttachmentManager documentAttachmentManager;
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     private final Logger logger = MiscUtils.getLogger();
 
@@ -454,8 +460,17 @@ public class ConsultationManagerImpl implements ConsultationManager {
             return Collections.emptyList();
         }
 
+        Set<String> ownedAttachmentKeys = findOwnedEReferAttachmentKeys(eReferAttachment, demographicNo);
+
         List<ConsultationAttachment> consultationAttachments = new ArrayList<>();
+        int droppedAttachments = 0;
         for (EReferAttachmentData eReferAttachmentData : eReferAttachment.getAttachments()) {
+            if (!ownedAttachmentKeys.contains(eReferAttachmentKey(eReferAttachmentData.getLabType(), eReferAttachmentData.getLabId()))) {
+                // Defence in depth for issue #3867: never render and send a record that is not this
+                // patient's, including rows queued before ERefer2Action verified ownership.
+                droppedAttachments++;
+                continue;
+            }
             try {
                 ConsultationAttachment consultationAttachment = null;
                 switch (eReferAttachmentData.getLabType()) {
@@ -496,11 +511,57 @@ public class ConsultationManagerImpl implements ConsultationManager {
             }
         }
 
+        if (droppedAttachments > 0) {
+            logger.warn("Dropped {} Ocean eReferral attachment(s) not owned by the requested patient", droppedAttachments);
+        }
+
         // Archives the retrieved attachments so they can't be retrieved again
         eReferAttachment.setArchived(true);
         eReferAttachmentDao.merge(eReferAttachment);
 
         return consultationAttachments;
+    }
+
+    /**
+     * Returns the {@code type:id} keys of the queued eReferral attachments that belong to the
+     * requested patient, with one batched ownership lookup per attachment type.
+     *
+     * <p>The queued row must itself be for the requested patient; otherwise nothing is owned.
+     * Types without an ownership source (forms, unknown codes) are never owned; the renderer
+     * skips those anyway.</p>
+     */
+    private Set<String> findOwnedEReferAttachmentKeys(EReferAttachment eReferAttachment, Integer demographicNo) {
+        if (demographicNo == null || !demographicNo.equals(eReferAttachment.getDemographicNo())
+                || eReferAttachment.getAttachments() == null) {
+            return Collections.emptySet();
+        }
+        Map<DocumentType, Set<Integer>> idsByType = new EnumMap<>(DocumentType.class);
+        for (EReferAttachmentData data : eReferAttachment.getAttachments()) {
+            DocumentType type = documentTypeForCode(data.getLabType());
+            if (type != null && data.getLabId() != null) {
+                idsByType.computeIfAbsent(type, k -> new HashSet<>()).add(data.getLabId());
+            }
+        }
+        Set<String> owned = new HashSet<>();
+        for (Map.Entry<DocumentType, Set<Integer>> entry : idsByType.entrySet()) {
+            for (Integer id : attachmentOwnershipService.findOwnedIds(entry.getKey(), demographicNo, entry.getValue())) {
+                owned.add(eReferAttachmentKey(entry.getKey().getType(), id));
+            }
+        }
+        return owned;
+    }
+
+    private static DocumentType documentTypeForCode(String code) {
+        for (DocumentType type : DocumentType.values()) {
+            if (type.getType().equals(code)) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    private static String eReferAttachmentKey(String typeCode, Integer id) {
+        return typeCode + ":" + id;
     }
 
     /**

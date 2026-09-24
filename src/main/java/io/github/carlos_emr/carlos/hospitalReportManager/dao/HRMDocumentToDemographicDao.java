@@ -15,6 +15,8 @@
 package io.github.carlos_emr.carlos.hospitalReportManager.dao;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -158,4 +160,28 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
         return attachedHRMDocumentToDemographics;
     }
 
+    /**
+     * Returns the subset of {@code hrmDocumentIds} linked to the given patient through
+     * {@code HRMDocumentToDemographic}. Used as an ownership check before a browser-supplied HRM id
+     * is attached to, or sent out with, that patient's referral.
+     *
+     * @param demographicNo the patient that must own the reports; {@code null} yields an empty list
+     * @param hrmDocumentIds candidate HRM document ids; {@code null} or empty yields an empty list
+     *                       without querying
+     * @return the owned HRM document ids; never {@code null}
+     * @since 2026-09-24
+     */
+    public List<Integer> findHrmIdsForDemographic(Integer demographicNo, Collection<Integer> hrmDocumentIds) {
+        if (demographicNo == null || hrmDocumentIds == null || hrmDocumentIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Query query = entityManager.createQuery("select distinct x.hrmDocumentId from " + this.modelClass.getName()
+                + " x where x.demographicNo = ?1 and x.hrmDocumentId in (?2)");
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, hrmDocumentIds);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
+    }
 }

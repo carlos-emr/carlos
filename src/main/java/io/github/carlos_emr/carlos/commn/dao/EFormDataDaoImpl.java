@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -605,5 +606,20 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
             return d;
         }
         return null;
+    }
+
+    @Override
+    public List<Integer> findFdidsForDemographic(Integer demographicNo, Collection<Integer> fdids) {
+        if (demographicNo == null || fdids == null || fdids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Query query = entityManager.createQuery(
+                "select distinct x.id from EFormData x where x.demographicId = ?1 and x.id in (?2)");
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, fdids);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
     }
 }

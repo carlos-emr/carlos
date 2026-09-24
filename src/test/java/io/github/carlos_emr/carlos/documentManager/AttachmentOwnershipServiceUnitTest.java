@@ -1,0 +1,231 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.documentManager;
+
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests for {@link AttachmentOwnershipService}, the server-side ownership gate for
+ * consultation and Ocean eReferral attachments (issue #3867).
+ *
+ * @since 2026-09-24
+ */
+@DisplayName("AttachmentOwnershipService")
+@Tag("unit")
+@Tag("security")
+@Tag("documentManager")
+class AttachmentOwnershipServiceUnitTest {
+
+    private static final int PATIENT = 1001;
+    private static final int OTHER_PATIENT = 2002;
+
+    private CtlDocumentDao ctlDocumentDao;
+    private PatientLabRoutingDao patientLabRoutingDao;
+    private EFormDataDao eFormDataDao;
+    private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
+    private ConsultationRequestDao consultationRequestDao;
+    private AttachmentOwnershipService service;
+
+    @BeforeEach
+    void setUp() {
+        ctlDocumentDao = mock(CtlDocumentDao.class);
+        patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+        eFormDataDao = mock(EFormDataDao.class);
+        hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
+        consultationRequestDao = mock(ConsultationRequestDao.class);
+        service = new AttachmentOwnershipService(ctlDocumentDao, patientLabRoutingDao, eFormDataDao,
+                hrmDocumentToDemographicDao, consultationRequestDao);
+    }
+
+    @Nested
+    @DisplayName("allBelongToDemographic")
+    class AllBelong {
+
+        @Test
+        @DisplayName("should accept documents that all belong to the patient")
+        void shouldReturnTrue_whenAllDocumentsOwned() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(10, 11));
+
+            assertThat(service.allBelongToDemographic(DocumentType.DOC, PATIENT, List.of(10, 11))).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject a document that belongs to another patient")
+        void shouldReturnFalse_whenDocumentForeign() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of());
+
+            assertThat(service.allBelongToDemographic(DocumentType.DOC, PATIENT, List.of(999))).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject a mixed list of own and foreign ids")
+        void shouldReturnFalse_whenOwnAndForeignIdsMixed() {
+            when(eFormDataDao.findFdidsForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(30));
+
+            assertThat(service.allBelongToDemographic(DocumentType.EFORM, PATIENT, List.of(30, 31))).isFalse();
+        }
+
+        @Test
+        @DisplayName("should accept duplicate ids that are owned")
+        void shouldReturnTrue_forDuplicateOwnedIds() {
+            when(hrmDocumentToDemographicDao.findHrmIdsForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(40));
+
+            assertThat(service.allBelongToDemographic(DocumentType.HRM, PATIENT, List.of(40, 40))).isTrue();
+        }
+
+        @Test
+        @DisplayName("should treat an empty list as owned without querying")
+        void shouldReturnTrue_forEmptyList() {
+            assertThat(service.allBelongToDemographic(DocumentType.DOC, PATIENT, Collections.emptyList())).isTrue();
+            assertThat(service.allBelongToDemographic(DocumentType.DOC, PATIENT, null)).isTrue();
+            verifyNoInteractions(ctlDocumentDao, patientLabRoutingDao, eFormDataDao, hrmDocumentToDemographicDao);
+        }
+
+        @Test
+        @DisplayName("should reject when the patient is missing")
+        void shouldReturnFalse_whenDemographicNull() {
+            assertThat(service.allBelongToDemographic(DocumentType.DOC, null, List.of(10))).isFalse();
+            verifyNoInteractions(ctlDocumentDao);
+        }
+
+        @Test
+        @DisplayName("should reject a null id")
+        void shouldReturnFalse_forNullId() {
+            assertThat(service.allBelongToDemographic(DocumentType.DOC, PATIENT, Arrays.asList(10, null))).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject form ids because they cannot be verified")
+        void shouldReturnFalse_forUnverifiableFormType() {
+            assertThat(service.allBelongToDemographic(DocumentType.FORM, PATIENT, List.of(5))).isFalse();
+            assertThat(AttachmentOwnershipService.isVerifiable(DocumentType.FORM)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should check labs against HL7 routings only")
+        void shouldQueryHl7Routing_forLabIds() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(20));
+
+            assertThat(service.allBelongToDemographic(DocumentType.LAB, PATIENT, List.of(20))).isTrue();
+            verify(patientLabRoutingDao).findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection());
+        }
+
+        @Test
+        @DisplayName("should reject the grouped request when any type has a foreign id")
+        void shouldReturnFalse_whenAnyTypeInGroupForeign() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(10));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), any(), anyCollection())).thenReturn(List.of());
+            Map<DocumentType, Set<Integer>> grouped = new EnumMap<>(DocumentType.class);
+            grouped.put(DocumentType.DOC, Set.of(10));
+            grouped.put(DocumentType.LAB, Set.of(20));
+
+            assertThat(service.allBelongToDemographic(grouped, PATIENT)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should accept the grouped request when every type is owned")
+        void shouldReturnTrue_whenEveryTypeInGroupOwned() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(10));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), any(), anyCollection())).thenReturn(List.of(20));
+            Map<DocumentType, Set<Integer>> grouped = new EnumMap<>(DocumentType.class);
+            grouped.put(DocumentType.DOC, Set.of(10));
+            grouped.put(DocumentType.LAB, Set.of(20));
+
+            assertThat(service.allBelongToDemographic(grouped, PATIENT)).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("findOwnedIds")
+    class FindOwnedIds {
+
+        @Test
+        @DisplayName("should never return ids the caller did not ask about")
+        void shouldIntersectWithRequest_whenDaoReturnsExtraIds() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(10, 77));
+
+            assertThat(service.findOwnedIds(DocumentType.DOC, PATIENT, List.of(10, 11))).containsExactly(10);
+        }
+    }
+
+    @Nested
+    @DisplayName("consultationRequestBelongsToDemographic")
+    class ConsultationOwnership {
+
+        @Test
+        @DisplayName("should accept a consultation written for the patient")
+        void shouldReturnTrue_whenConsultationBelongsToPatient() {
+            ConsultationRequest consultation = new ConsultationRequest();
+            consultation.setDemographicId(PATIENT);
+            when(consultationRequestDao.find(55)).thenReturn(consultation);
+
+            assertThat(service.consultationRequestBelongsToDemographic(55, PATIENT)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject a consultation written for another patient")
+        void shouldReturnFalse_whenRequestIdBelongsToAnotherPatient() {
+            ConsultationRequest consultation = new ConsultationRequest();
+            consultation.setDemographicId(OTHER_PATIENT);
+            when(consultationRequestDao.find(55)).thenReturn(consultation);
+
+            assertThat(service.consultationRequestBelongsToDemographic(55, PATIENT)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject an unknown consultation")
+        void shouldReturnFalse_whenConsultationUnknown() {
+            when(consultationRequestDao.find(55)).thenReturn(null);
+
+            assertThat(service.consultationRequestBelongsToDemographic(55, PATIENT)).isFalse();
+            assertThat(service.consultationRequestBelongsToDemographic(null, PATIENT)).isFalse();
+        }
+    }
+}

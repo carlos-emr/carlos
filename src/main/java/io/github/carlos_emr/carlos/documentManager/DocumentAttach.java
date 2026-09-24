@@ -11,7 +11,9 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
@@ -29,14 +31,48 @@ public class DocumentAttach {
 
     private Integer demographicNo;
 
+    static final String ATTACHMENT_NOT_OWNED = "attachment does not belong to the consultation patient";
+
     public DocumentAttach() {
     }
+
+    /**
+     * Verifies newly attached consult ids against {@link #demographicNo}; {@code null} only on the
+     * eForm-attachment path, which never calls {@link #attachToConsult}.
+     */
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     public DocumentAttach(Integer demographicNo, Boolean editOnOcean) {
         this.demographicNo = demographicNo;
         this.editOnOcean = editOnOcean;
     }
 
+    /**
+     * Consultation attach/detach bound to one patient, with attachment ownership enforced.
+     *
+     * @param demographicNo patient the consultation request belongs to
+     * @param editOnOcean whether new attachments are also queued for Ocean eReferral
+     * @param attachmentOwnershipService verifies that newly attached ids belong to {@code demographicNo}
+     */
+    public DocumentAttach(Integer demographicNo, Boolean editOnOcean, AttachmentOwnershipService attachmentOwnershipService) {
+        this(demographicNo, editOnOcean);
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
+
+    /**
+     * Replaces the consultation's attachments of one type with {@code attachments}.
+     *
+     * <p>Ids that are not already attached must belong to the consultation's patient
+     * (issue #3867): the renderers that print, fax and send consultation attachments to Ocean
+     * resolve each id on its own, so a foreign id would disclose another patient's record. The
+     * whole call is rejected before any detach or attach so a rejected request leaves the
+     * consultation unchanged. Ids already attached are not re-checked, so re-saving a consultation
+     * is not blocked by a document that was later reassigned. {@link DocumentType#FORM} ids have no
+     * common owner column and are not checked here.</p>
+     *
+     * @throws SecurityException if a newly attached id is unknown, malformed or belongs to another
+     *                           patient, or if no ownership verifier is configured
+     */
     public void attachToConsult(String[] attachments, DocumentType documentType, String providerNo, Integer requestId) {
         List<String> currentList = new ArrayList<>(Arrays.asList(attachments));
         List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
@@ -44,8 +80,34 @@ public class DocumentAttach {
         for (ConsultDocs consultDoc : consultDocsList) {
             oldList.add(Integer.toString(consultDoc.getDocumentNo()));
         }
+        requireNewAttachmentsOwnedByPatient(currentList, oldList, documentType);
         detachFromConsult(currentList, oldList, documentType, requestId);
         attachToConsult(currentList, oldList, documentType, providerNo, requestId);
+    }
+
+    private void requireNewAttachmentsOwnedByPatient(List<String> currentList, List<String> oldList, DocumentType documentType) {
+        if (!AttachmentOwnershipService.isVerifiable(documentType)) {
+            return;
+        }
+        Set<Integer> newIds = new HashSet<>();
+        for (String docId : currentList) {
+            if (oldList.contains(docId)) {
+                continue;
+            }
+            try {
+                newIds.add(Integer.valueOf(docId));
+            } catch (NumberFormatException e) {
+                throw new SecurityException(ATTACHMENT_NOT_OWNED);
+            }
+        }
+        if (newIds.isEmpty()) {
+            return;
+        }
+        // Fail closed: a caller that did not wire a verifier must not attach unverified ids.
+        if (attachmentOwnershipService == null
+                || !attachmentOwnershipService.allBelongToDemographic(documentType, demographicNo, newIds)) {
+            throw new SecurityException(ATTACHMENT_NOT_OWNED);
+        }
     }
 
     private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo, Integer requestId) {

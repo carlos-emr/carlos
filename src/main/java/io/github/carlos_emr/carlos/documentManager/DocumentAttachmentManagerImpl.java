@@ -102,6 +102,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private NioFileManager nioFileManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     // @Autowired
     // public void setEformDataManager(EformDataManager eformDataManager) {
@@ -327,7 +329,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        DocumentAttach documentAttach = new DocumentAttach();
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, Boolean.FALSE, attachmentOwnershipService);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
@@ -355,7 +357,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean, attachmentOwnershipService);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
