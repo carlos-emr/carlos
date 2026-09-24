@@ -179,6 +179,23 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the submitted encryption choices when a field is too long")
+    void shouldKeepEncryptionFlags_whenFieldTooLong() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "7");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        EmailSend2Action action = overLengthAction(request);
+
+        action.sendDirectEmail();
+
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("emailLengthViolations")).isNotNull();
+    }
+
+    @Test
     @DisplayName("should not send attachments prepared for another patient")
     void shouldDropAttachments_whenPreparedForAnotherPatient() {
         MockHttpServletRequest request = new MockHttpServletRequest();

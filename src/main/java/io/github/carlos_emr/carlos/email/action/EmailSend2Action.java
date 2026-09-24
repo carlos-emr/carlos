@@ -182,6 +182,12 @@ public class EmailSend2Action extends ActionSupport {
         logger.warn("Email rejected before sending: {}", e.getMessage());
         request.setAttribute("isEmailSuccessful", false);
         request.setAttribute("emailLengthViolations", e.getViolations());
+        // The compose page renders its encryption checkboxes and hidden flags from these request
+        // attributes. Echo what was submitted so the re-rendered form never carries a weaker
+        // encryption state than the one the provider chose (Copilot review on #3906).
+        request.setAttribute("isEmailEncrypted", "true".equals(request.getParameter("isEmailEncrypted")));
+        request.setAttribute("isEmailAttachmentEncrypted",
+                "true".equals(request.getParameter("isEmailAttachmentEncrypted")));
         return SUCCESS;
     }
 
