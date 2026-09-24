@@ -138,8 +138,10 @@
         return node;
     }
 
-    function button(label, className, onClick) {
-        var node = element('button', 'btn btn-sm ' + className + ' me-1', label);
+    /** A button in the page's style; variant is primary, secondary or danger. */
+    function button(label, variant, onClick, small) {
+        var node = element('button', 'portal-button portal-button--' + variant
+            + (small ? ' portal-button--small' : ''), label);
         node.type = 'button';
         node.addEventListener('click', onClick);
         return node;
@@ -160,7 +162,8 @@
         lines.slice(1).forEach(function (line) {
             statusBox.appendChild(element('div', null, line));
         });
-        statusBox.className = 'alert ' + (ok ? 'alert-success' : 'alert-warning');
+        statusBox.classList.toggle('portal-status--error', !ok);
+        statusBox.hidden = false;
     }
 
     async function csrfToken() {
@@ -255,7 +258,7 @@
         var box = document.getElementById('portal-account');
         box.replaceChildren();
         if (payload.accountError) {
-            box.appendChild(element('p', 'text-danger', text('error.generic')));
+            box.appendChild(element('p', 'portal-error', text('error.generic')));
             return;
         }
         var account = payload.account;
@@ -263,34 +266,65 @@
             return;
         }
         // A patient with an account has nothing to be invited to; the server refuses it too.
-        var form = document.getElementById('portal-invite-form');
-        form.classList.toggle('d-none', !can.invite || account !== null);
+        document.getElementById('portal-invite-form').hidden = !can.invite || account !== null;
         if (account === null) {
-            box.appendChild(element('p', 'text-muted', text('account.none')));
+            box.appendChild(element('p', 'portal-muted', text('account.none')));
             return;
         }
-        var facts = element('p');
-        facts.textContent = text(account.status === 'active' ? 'account.active' : 'account.disabled')
-            + (account.locked ? ' · ' + text('account.locked') : '')
-            + (account.forcePasswordReset ? ' · ' + text('account.resetRequired') : '');
-        box.appendChild(facts);
+        var disabled = account.status === 'disabled';
+        var details = element('dl', 'portal-details');
+        function fact(key, value) {
+            details.appendChild(element('dt', null, text('account.field.' + key)));
+            details.appendChild(element('dd', null, value));
+        }
+        fact('status', text(disabled ? 'account.disabled' : 'account.active'));
+        fact('locked', text(account.locked ? 'yes' : 'no'));
+        fact('resetRequired', text(account.forcePasswordReset ? 'yes' : 'no'));
+        if (disabled) {
+            fact('disabledAt', when(account.disabledAt));
+            fact('disabledReason', account.disabledReason || '');
+        }
+        box.appendChild(details);
+
+        var reason = null;
+        if (can.setAccess && !disabled) {
+            var field = element('div', 'portal-field');
+            var label = element('label', null, text('account.disableReason'));
+            label.htmlFor = 'portal-disable-reason';
+            reason = element('input');
+            reason.type = 'text';
+            reason.id = 'portal-disable-reason';
+            reason.maxLength = 64;
+            reason.autocomplete = 'off';
+            field.appendChild(label);
+            field.appendChild(reason);
+            box.appendChild(field);
+        }
+        var actions = element('div', 'portal-actions');
         if (can.unlock && account.locked) {
-            box.appendChild(button(text('account.unlock'), 'btn-outline-primary', function () {
-                act('/demographic/portalAccount', {method: 'unlock'});
+            actions.appendChild(button(text('account.unlock'), 'primary', function () {
+                act('/demographic/portalAccount', {method: 'unlock'}, text('account.confirmUnlock'));
             }));
         }
-        if (can.setAccess && account.status === 'active') {
-            box.appendChild(button(text('account.disable'), 'btn-outline-danger', function () {
-                var reason = window.prompt(text('account.disableReason'));
-                if (reason) {
-                    act('/demographic/portalAccount', {method: 'access', enabled: 'false', reason: reason.slice(0, 64)});
+        if (reason) {
+            actions.appendChild(button(text('account.disable'), 'danger', function () {
+                var why = reason.value.trim();
+                if (!why || why.length > 64) {
+                    showStatus(text('account.reasonRequired'), false);
+                    reason.focus();
+                    return;
                 }
+                act('/demographic/portalAccount', {method: 'access', enabled: 'false', reason: why},
+                    text('account.confirmDisable'));
             }));
         }
-        if (can.setAccess && account.status === 'disabled') {
-            box.appendChild(button(text('account.enable'), 'btn-outline-primary', function () {
-                act('/demographic/portalAccount', {method: 'access', enabled: 'true'});
+        if (can.setAccess && disabled) {
+            actions.appendChild(button(text('account.enable'), 'primary', function () {
+                act('/demographic/portalAccount', {method: 'access', enabled: 'true'}, text('account.confirmEnable'));
             }));
+        }
+        if (actions.childElementCount) {
+            box.appendChild(actions);
         }
     }
 
@@ -298,15 +332,15 @@
         var box = document.getElementById('portal-invites');
         box.replaceChildren();
         if (payload.invitesError) {
-            box.appendChild(element('p', 'text-danger', text('error.generic')));
+            box.appendChild(element('p', 'portal-error', text('error.generic')));
             return;
         }
         lastInvites = payload.invites || [];
         if (lastInvites.length === 0) {
-            box.appendChild(element('p', 'text-muted', text('invites.none')));
+            box.appendChild(element('p', 'portal-muted', text('invites.none')));
             return;
         }
-        var table = element('table', 'table table-sm align-middle');
+        var table = element('table', 'portal-table');
         var head = table.createTHead().insertRow();
         ['invites.status', 'invites.issued', 'invites.by', 'invites.expires', ''].forEach(function (key) {
             head.appendChild(element('th', null, key ? text(key) : ''));
@@ -314,23 +348,29 @@
         var body = table.createTBody();
         lastInvites.forEach(function (invite) {
             var row = body.insertRow();
-            row.insertCell().textContent = text('invites.status.' + invite.status);
-            row.insertCell().textContent = when(invite.lastIssuedAt);
-            row.insertCell().textContent = invite.lastIssuedBy || '';
+            // Each cell carries its column's name, shown beside it on a narrow screen where the header is hidden.
+            function cell(key, value) {
+                var node = row.insertCell();
+                node.dataset.label = text(key);
+                node.textContent = value;
+            }
+            cell('invites.status', text('invites.status.' + invite.status));
+            cell('invites.issued', when(invite.lastIssuedAt));
+            cell('invites.by', invite.lastIssuedBy || '');
             // A prepared invitation's expiry is the portal's deadline for committing delivery, not the
             // patient's, so it is not shown.
-            row.insertCell().textContent = invite.status === 'pending' ? when(invite.expiresAt) : '';
+            cell('invites.expires', invite.status === 'pending' ? when(invite.expiresAt) : '');
             var actions = row.insertCell();
             if (invite.status === 'pending' && can.invite) {
-                actions.appendChild(button(text('invites.resend'), 'btn-outline-primary', function () {
+                actions.appendChild(button(text('invites.resend'), 'secondary', function () {
                     act('/demographic/portalInvite', inviteParams({method: 'resend', inviteId: invite.inviteId}));
-                }));
+                }, true));
             }
             if ((invite.status === 'pending' || invite.status === 'prepared') && can.revoke) {
-                actions.appendChild(button(text('invites.revoke'), 'btn-outline-danger', function () {
+                actions.appendChild(button(text('invites.revoke'), 'danger', function () {
                     act('/demographic/portalInvite', {method: 'revoke', inviteId: invite.inviteId},
                         text('invites.confirmRevoke'));
-                }));
+                }, true));
             }
         });
         box.appendChild(table);
@@ -340,38 +380,38 @@
         var box = document.getElementById('portal-deliveries');
         box.replaceChildren();
         if (payload.deliveriesError) {
-            box.appendChild(element('p', 'text-danger', text('error.generic')));
+            box.appendChild(element('p', 'portal-error', text('error.generic')));
             return;
         }
         var deliveries = payload.deliveries || [];
         if (deliveries.length === 0) {
-            box.appendChild(element('p', 'text-muted', text('deliveries.none')));
+            box.appendChild(element('p', 'portal-muted', text('deliveries.none')));
             return;
         }
-        var list = element('ul', 'list-group');
+        var list = element('ul', 'portal-deliveries');
         deliveries.forEach(function (delivery) {
-            var item = element('li', 'list-group-item');
+            var item = element('li');
             var description = describe(delivery);
-            item.appendChild(element('div', 'fw-semibold', description[0]));
-            item.appendChild(element('div', 'small text-muted', text('deliveries.when') + ' ' + when(delivery.updatedAt)));
+            item.appendChild(element('div', 'portal-deliveries__state', description[0]));
+            item.appendChild(element('div', 'portal-muted', text('deliveries.when') + ' ' + when(delivery.updatedAt)));
             description.slice(1).forEach(function (line) {
-                item.appendChild(element('div', 'small', line));
+                item.appendChild(element('div', 'portal-deliveries__detail', line));
             });
             if (can.recover) {
                 if (delivery.decisions && delivery.decisions.length) {
-                    var actions = element('div', 'mt-1');
+                    var actions = element('div', 'portal-actions');
                     delivery.decisions.forEach(function (decision) {
-                        actions.appendChild(button(text('deliveries.decision.' + decision), 'btn-outline-secondary', function () {
+                        actions.appendChild(button(text('deliveries.decision.' + decision), 'secondary', function () {
                             // None of these can be undone: each withdraws or revokes a code, or signs a chart
                             // note, so each is confirmed first.
                             act('/demographic/portalInvite',
                                 {method: 'recover', deliveryId: delivery.deliveryId, decision: decision},
                                 message('deliveries.confirm.' + decision));
-                        }));
+                        }, true));
                     });
                     item.appendChild(actions);
                 } else if (!delivery.finished) {
-                    item.appendChild(element('div', 'small text-muted', text('deliveries.waiting')));
+                    item.appendChild(element('div', 'portal-muted', text('deliveries.waiting')));
                 }
             }
             list.appendChild(item);
@@ -417,11 +457,18 @@
         renderDeliveries(payload);
     }
 
+    document.getElementById('portal-refresh').addEventListener('click', function () {
+        if (!busy) {
+            statusBox.hidden = true;
+            load();
+        }
+    });
+
     var form = document.getElementById('portal-invite-form');
     if (can.invite) {
-        form.classList.remove('d-none');
+        form.hidden = false;
         document.getElementById('portal-consent-override').addEventListener('change', function (event) {
-            document.getElementById('portal-consent-reason').classList.toggle('d-none', !event.target.checked);
+            document.getElementById('portal-consent-reason').hidden = !event.target.checked;
         });
         form.addEventListener('submit', function (event) {
             event.preventDefault();
