@@ -82,6 +82,20 @@ async function workflow(session) {
   await compose.locator('#emailComposeForm').waitFor({ state: 'attached' });
   h.assert(await compose.locator('#subjectEmail').inputValue() === marker,
     'the compose page did not open with the logged email');
+  // The page disables every field when it finds no sender, no valid recipient or an invalid one.
+  // Name which of those it saw, so a fixture problem is not reported as a fill timeout.
+  const readiness = await compose.evaluate(() => {
+    const value = (id) => (document.getElementById(id) || {}).value;
+    return {
+      senders: value('totalSenderEmails'),
+      recipients: value('totalRecipintEmails'),
+      invalidRecipients: value('totalInvalidRecipintEmails'),
+      emailError: value('isEmailError'),
+      subjectDisabled: document.getElementById('subjectEmail').disabled,
+    };
+  });
+  h.assert(!readiness.subjectDisabled,
+    `the compose form opened disabled: ${JSON.stringify(readiness)}`);
 
   await session.step('the page refuses a 1,100-character subject before sending', async () => {
     await compose.locator('#subjectEmail').fill(OVERSIZE_SUBJECT);
