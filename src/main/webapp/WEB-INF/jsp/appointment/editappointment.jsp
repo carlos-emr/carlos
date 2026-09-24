@@ -265,6 +265,7 @@
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
 
         <style>
 
@@ -618,6 +619,8 @@
                 document.EDITAPPT.chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
+                // The pasted name and link belong together; make them the new baseline.
+                CarlosAppointmentPatientLink.rebase(document.EDITAPPT.keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
@@ -731,6 +734,59 @@
 
                 var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
+                // The banners describe whichever patient is linked: refresh them on every
+                // link, whether made by select or committed on blur, and hide them when the
+                // link is removed.
+                function showPatientBanners(item) {
+                    // Update patient alert banner
+                    var patientAlert = item.alert || "";
+                    var alertBanner = document.getElementById('patientAlertBanner');
+                    if (alertBanner) {
+                        document.getElementById('patientAlertText').textContent = patientAlert;
+                        alertBanner.style.display = patientAlert ? '' : 'none';
+                    }
+
+                    // Update patient status banner
+                    var rawStatus = item.status || "";
+                    var rawRoster = item.rosterStatus || "";
+                    var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
+                    var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
+                    var statusBanner = document.getElementById('patientStatusBanner');
+                    if (statusBanner) {
+                        var statusTextEl = document.getElementById('patientStatusText');
+                        if (displayStatus || displayRoster) {
+                            var rosterLabel = statusBanner.getAttribute('data-roster-label') || 'Roster Status';
+                            var parts = [];
+                            if (displayStatus) parts.push(displayStatus);
+                            if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
+                            statusTextEl.textContent = parts.join("\u00a0");
+                            statusBanner.style.display = '';
+                        } else {
+                            statusBanner.style.display = 'none';
+                        }
+                    }
+                }
+
+                function hidePatientBanners() {
+                    ['patientAlertBanner', 'patientStatusBanner'].forEach(function (id) {
+                        var banner = document.getElementById(id);
+                        if (banner) {
+                            banner.style.display = 'none';
+                        }
+                    });
+                }
+
+                // Keeps #keyword and #demographic_no/#mrp in step: commits a highlighted row
+                // on blur/submit and reconciles a hand-edited name (issue #3883). See
+                // js/appointmentPatientLink.js for the semantics.
+                var patientLink = CarlosAppointmentPatientLink.create({
+                    nameField: document.getElementById('keyword'),
+                    demographicField: document.getElementById('demographic_no'),
+                    providerField: document.getElementById('mrp'),
+                    onCommit: showPatientBanners,
+                    onUnlink: hidePatientBanners
+                });
+
                 jQuery("#keyword").autocomplete({
                     source: function (req, res) {
                         jQuery.ajax({
@@ -744,43 +800,15 @@
                     minLength: 2,
 
                     focus: function (event, ui) {
-                        jQuery("#keyword").val(ui.item.formattedName);
+                        patientLink.highlight(ui.item);
                         return false;
                     },
                     select: function (event, ui) {
-                        jQuery("#demographic_no").val(ui.item.value);
-                        jQuery("#mrp").val(ui.item.provider);
-                        jQuery("#keyword").val(ui.item.formattedName);
-
-                        // Update patient alert banner
-                        var patientAlert = ui.item.alert || "";
-                        var alertBanner = document.getElementById('patientAlertBanner');
-                        if (alertBanner) {
-                            document.getElementById('patientAlertText').textContent = patientAlert;
-                            alertBanner.style.display = patientAlert ? '' : 'none';
-                        }
-
-                        // Update patient status banner
-                        var rawStatus = ui.item.status || "";
-                        var rawRoster = ui.item.rosterStatus || "";
-                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
-                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
-                        var statusBanner = document.getElementById('patientStatusBanner');
-                        if (statusBanner) {
-                            var statusTextEl = document.getElementById('patientStatusText');
-                            if (displayStatus || displayRoster) {
-                                var rosterLabel = statusBanner.getAttribute('data-roster-label') || 'Roster Status';
-                                var parts = [];
-                                if (displayStatus) parts.push(displayStatus);
-                                if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
-                                statusTextEl.textContent = parts.join("\u00a0");
-                                statusBanner.style.display = '';
-                            } else {
-                                statusBanner.style.display = 'none';
-                            }
-                        }
-
+                        patientLink.commit(ui.item);
                         return false;
+                    },
+                    close: function (event) {
+                        patientLink.menuClosed(event);
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {

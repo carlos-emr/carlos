@@ -1,0 +1,279 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
+ * Keeps the Add/Edit Appointment patient name field (#keyword) and the patient
+ * link (#demographic_no, plus the read-only #mrp display) in step.
+ *
+ * WHY THIS EXISTS (issue #3883). The jQuery UI autocomplete's focus callback,
+ * which runs while the user arrows or hovers through results, writes only the
+ * name; select, the only place the link was written, fires only on Enter, Tab
+ * or a click on the row. Arrowing to a patient and then clicking or tabbing
+ * away saved the appointment with that patient's name and demographic_no = 0.
+ *
+ * HOW THE SAVE ACTIONS READ THESE FIELDS, which is what the semantics below
+ * are built around:
+ *   - AppointmentAddRecord2Action: a non-empty demographic_no WINS. The
+ *     appointment is booked for that patient and the typed name is replaced by
+ *     the patient's name from the database. A stale link therefore books the
+ *     old patient silently, whatever the name field says.
+ *   - AppointmentUpdateRecord2Action: demographic_no and keyword are saved
+ *     independently, so a stale link saves a name that belongs to one patient
+ *     against another patient's chart.
+ * Either way, a name that no longer matches the link is a wrong-patient risk,
+ * so the two must agree by the time the field is left or the form submitted.
+ *
+ * SEMANTICS (adapted from MagentaHealth/Open-O 4dcd933fb9 and b82ce7d85a):
+ *   1. Typing never unlinks. Only the highlighted row is dropped, so a search
+ *      in progress cannot flip the link underneath the user (b82ce7d85a).
+ *   2. On blur, on submit, and when the menu closes other than by Escape, a
+ *      highlighted row that the field still shows is committed exactly as
+ *      select would commit it (4dcd933fb9).
+ *   3. Otherwise, on blur or submit, the field is reconciled against the link:
+ *      - same name as the linked patient (ignoring surrounding whitespace):
+ *        the link is kept and the exact linked name restored;
+ *      - field cleared to blank: the linked name is put back and the link kept.
+ *        Blanking the field is how users start a new search, and dropping the
+ *        booked patient because a search was abandoned is what b82ce7d85a
+ *        fixed. The restored name makes the kept link visible, not silent;
+ *      - any other text: the user has deliberately named someone or something
+ *        else, so the link is removed (demographic_no and the MRP display are
+ *        cleared, the patient banners hidden). This diverges from b82ce7d85a,
+ *        which kept the link here; on Add that booked the old patient under
+ *        the old name despite the new text. Picking a patient again relinks.
+ *   Page code that writes the fields directly calls rebase() (pasteAppt) or
+ *   unlink() (Do Not Book), since assigning .value fires no input event.
+ *
+ * Plain DOM, no jQuery: the pages feed it from their existing autocomplete
+ * callbacks. Exposed as window.CarlosAppointmentPatientLink and as a CommonJS
+ * module for scripts/appointment-patient-link.test.js.
+ *
+ * @since 2026-09-24
+ */
+(function (root) {
+    'use strict';
+
+    var ESCAPE_KEY_CODE = 27;
+
+    // One controller per name field, so page functions defined outside the
+    // ready handler (pasteAppt, onNotBook) can reach it from the element alone.
+    var controllers = typeof WeakMap === 'function' ? new WeakMap() : null;
+
+    function text(value) {
+        return value === undefined || value === null ? '' : String(value);
+    }
+
+    /**
+     * True when a jQuery UI event was caused by the Escape key. jQuery UI wraps
+     * the triggering event, so walk the originalEvent chain.
+     */
+    function isEscape(event) {
+        var current = event;
+        var depth = 0;
+        while (current && depth < 5) {
+            if (current.type === 'keydown'
+                    && (current.keyCode === ESCAPE_KEY_CODE || current.key === 'Escape')) {
+                return true;
+            }
+            current = current.originalEvent;
+            depth++;
+        }
+        return false;
+    }
+
+    /**
+     * Wire a patient name field to its link fields.
+     *
+     * @param {Object} options
+     * @param {HTMLInputElement} options.nameField          the #keyword input
+     * @param {HTMLInputElement} options.demographicField   the demographic_no input
+     * @param {HTMLInputElement} [options.providerField]    the read-only MRP display
+     * @param {function(Object)} [options.onCommit]  called with the autocomplete item
+     *        whenever a patient is linked, by select or by blur (patient banners)
+     * @param {function()} [options.onUnlink]  called when the link is removed
+     * @returns {Object} the controller: highlight, commit, menuClosed, settle,
+     *          rebase, unlink, and state() for tests
+     */
+    function create(options) {
+        var nameField = options.nameField;
+        var demographicField = options.demographicField;
+        var providerField = options.providerField || null;
+        var onCommit = options.onCommit || function () {};
+        var onUnlink = options.onUnlink || function () {};
+
+        // The row highlighted with the arrow keys or the mouse but not yet selected.
+        var highlighted = null;
+        // The patient the field is linked to, with the name shown when the link was
+        // made, or null when the appointment is not linked to a patient.
+        var linked = null;
+
+        function rebase() {
+            highlighted = null;
+            var demographicNo = text(demographicField.value);
+            // "0" is how a pasted free-text appointment carries "no patient".
+            linked = demographicNo === '' || demographicNo === '0' ? null : {
+                value: demographicNo,
+                provider: providerField ? text(providerField.value) : '',
+                formattedName: text(nameField.value)
+            };
+        }
+
+        function highlight(item) {
+            nameField.value = text(item.formattedName);
+            highlighted = item;
+        }
+
+        function commit(item) {
+            demographicField.value = text(item.value);
+            if (providerField) {
+                providerField.value = text(item.provider);
+            }
+            nameField.value = text(item.formattedName);
+            rebase();
+            onCommit(item);
+        }
+
+        function unlink() {
+            highlighted = null;
+            linked = null;
+            demographicField.value = '';
+            if (providerField) {
+                providerField.value = '';
+            }
+            onUnlink();
+        }
+
+        // Rule 2: commit the highlighted row only while the field still shows it.
+        // Escape, or arrowing past either end of the menu, puts the typed term back
+        // without an input event, and this comparison is what catches that.
+        function commitHighlightedIfShown() {
+            if (highlighted && text(highlighted.formattedName) === text(nameField.value)) {
+                commit(highlighted);
+                return true;
+            }
+            return false;
+        }
+
+        function menuClosed(event) {
+            if (isEscape(event)) {
+                highlighted = null;
+                return;
+            }
+            // The menu also closes mid-typing when a search returns nothing, so this
+            // only ever commits; unlinking waits for blur or submit (rule 1).
+            commitHighlightedIfShown();
+        }
+
+        // Rules 2 and 3: run when the user leaves the field or submits the form.
+        function settle() {
+            if (commitHighlightedIfShown()) {
+                return;
+            }
+            highlighted = null;
+            if (!linked) {
+                return;
+            }
+            if (text(demographicField.value) !== linked.value) {
+                // Something other than this controller changed the link; trust it.
+                rebase();
+                return;
+            }
+            var name = text(nameField.value).trim();
+            if (name === '' || name === linked.formattedName.trim()) {
+                nameField.value = linked.formattedName;
+                return;
+            }
+            unlink();
+        }
+
+        nameField.addEventListener('focus', function () {
+            // Pick up a link written by page code that did not call rebase().
+            if (text(demographicField.value) !== (linked ? linked.value : '')) {
+                rebase();
+            }
+        });
+        nameField.addEventListener('input', function () {
+            highlighted = null;
+        });
+        nameField.addEventListener('keydown', function (event) {
+            if (isEscape(event)) {
+                highlighted = null;
+            }
+        });
+        nameField.addEventListener('blur', settle);
+        // Enter with the menu closed submits without a blur, so reconcile there too.
+        if (nameField.form) {
+            nameField.form.addEventListener('submit', settle);
+        }
+
+        rebase();
+
+        var controller = {
+            highlight: highlight,
+            commit: commit,
+            menuClosed: menuClosed,
+            settle: settle,
+            rebase: rebase,
+            unlink: unlink,
+            state: function () {
+                return { highlighted: highlighted, linked: linked };
+            }
+        };
+        if (controllers) {
+            controllers.set(nameField, controller);
+        }
+        return controller;
+    }
+
+    /** The controller attached to a name field, or null if none was created. */
+    function forField(nameField) {
+        return controllers && nameField ? (controllers.get(nameField) || null) : null;
+    }
+
+    /** Take the field's current name and link as the baseline (after a direct write). */
+    function rebase(nameField) {
+        var controller = forField(nameField);
+        if (controller) {
+            controller.rebase();
+        }
+    }
+
+    /** Remove the patient link (after page code replaced the name directly). */
+    function unlink(nameField) {
+        var controller = forField(nameField);
+        if (controller) {
+            controller.unlink();
+        }
+    }
+
+    var api = {
+        create: create,
+        forField: forField,
+        rebase: rebase,
+        unlink: unlink,
+        isEscape: isEscape
+    };
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = api;
+    }
+    root.CarlosAppointmentPatientLink = api;
+}(typeof window !== 'undefined' ? window : this));
