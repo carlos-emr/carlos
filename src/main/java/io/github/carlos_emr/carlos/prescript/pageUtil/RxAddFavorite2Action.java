@@ -141,7 +141,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
             if (stashId < 0) {
                 // No staged card carries this key (stale or malformed): favourite nothing.
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return null;
+                return NONE;
             }
             bean.getStashItem(stashId).AddToFavorites(providerNo, favoriteName);
         }

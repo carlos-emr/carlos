@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %><%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%--
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -56,23 +56,9 @@
         <title>Print Preview</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
-<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
-     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
-     dereferences the bean (#3908). --%>
-<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
-        <c:if test="${empty RxSessionBean}">
-            <c:redirect url="error.html"/>
-        </c:if>
-        <c:if test="${not empty RxSessionBean}">
-            <c:set var="bean" value="${RxSessionBean}" scope="page"/>
-            <c:if test="${bean.valid == false}">
-                <c:redirect url="error.html"/>
-            </c:if>
-        </c:if>
-        <%
-            RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
-        %>
+<%-- This is the Rx patient chooser (ViewPrint and searchPatient): it runs before any patient is
+     chosen and shows only search results, so it must not depend on per-patient Rx state. Resolving
+     a bean here sent a session with no open Rx patient to the error page before the search form (#3908). --%>
         <link rel="stylesheet" type="text/css" href="styles.css">
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">

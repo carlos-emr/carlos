@@ -149,7 +149,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
         String result = executeActionMethod(action, "updateLongTermStatus");
 
-        assertThat(result).isNull();
+        // JSON is written directly, so Struts processing ends with NONE rather than a bare null.
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         JsonNode responseBody = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
         assertThat(responseBody.get("success").asBoolean()).isTrue();

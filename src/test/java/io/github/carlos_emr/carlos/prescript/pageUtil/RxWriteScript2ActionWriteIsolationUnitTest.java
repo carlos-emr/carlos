@@ -281,6 +281,20 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should end Struts processing after writing the special-instruction JSON")
+    void shouldReturnNone_afterWritingSpecialInstructionJson() throws Exception {
+        // A named result forwarded prescribe.jsp over the JSON the autocomplete reads.
+        request.setParameter("query", "take");
+        when(mockRxManager.getStoredInstructionsMatching("take")).thenReturn(java.util.Set.of("take one daily"));
+
+        String result = action.searchSpecialInstructions();
+
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("take one daily");
+    }
+
+    @Test
     @DisplayName("should still allow a GET re-render that is not an update")
     void shouldAllowGet_forNonUpdateRender() throws Exception {
         request.setMethod("GET");

@@ -148,7 +148,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
         response.getWriter().write(jsonObject.toString());
 
-        return null;
+        return NONE;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -184,7 +184,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("Cannot write unlink response", e);
         }
 
-        return null;
+        return NONE;
     }
 
     public String getPharmacyFromDemographic() throws IOException {
@@ -206,7 +206,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         response.setContentType("application/json");
         objectMapper.writeValue(response.getWriter(), pharmacyList);
 
-        return null;
+        return NONE;
     }
 
     /**
@@ -249,7 +249,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("ERROR SETTING PREFERRED ORDER", e);
         }
 
-        return null;
+        return NONE;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -283,7 +283,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("Cannot write response", e);
         }
 
-        return null;
+        return NONE;
     }
 
     public String save() {
@@ -310,7 +310,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
                     request.getParameter("pharmacyFax"), request.getParameter("pharmacyEmail"), request.getParameter("pharmacyServiceLocationId"), request.getParameter("pharmacyNotes"));
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error Updating Pharmacy " + request.getParameter("pharmacyId"), e);
-            return null;
+            return NONE;
         }
 
         try {
@@ -321,7 +321,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error writing response", e);
         }
 
-        return null;
+        return NONE;
     }
 
     public String search() {
@@ -340,7 +340,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }
 
-        return null;
+        return NONE;
 
     }
 
@@ -360,13 +360,13 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }
 
-        return null;
+        return NONE;
     }
 
     public String getPharmacyInfo() throws IOException {
         String pharmacyId = request.getParameter("pharmacyId");
         MiscUtils.getLogger().debug("pharmacyId=" + pharmacyId);
-        if (pharmacyId == null) return null;
+        if (pharmacyId == null) return NONE;
         RxPharmacyData pharmacyData = new RxPharmacyData();
         PharmacyInfo pharmacy = pharmacyData.getPharmacy(pharmacyId);
         HashMap<String, String> hm = new HashMap<String, String>();
@@ -388,7 +388,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
             response.getOutputStream().write(jsonObject.toString().getBytes());
         }
-        return null;
+        return NONE;
     }
 
     public String getTotalDemographicsPreferedToPharmacy() throws IOException {
@@ -398,7 +398,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put("totalDemographics", totalDemographics);
         response.getOutputStream().write(jsonObject.toString().getBytes());
-        return null;
+        return NONE;
     }
 
     /**

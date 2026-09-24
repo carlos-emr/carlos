@@ -120,7 +120,7 @@ class RxPatientLinkJspRegressionUnitTest {
                 }
             }
         }
-        assertThat(pages).isGreaterThanOrEqualTo(17);
+        assertThat(pages).isGreaterThanOrEqualTo(16);
     }
 
     @Test
@@ -155,6 +155,9 @@ class RxPatientLinkJspRegressionUnitTest {
         assertThat(jsp).contains("/rx/rePrescribe2?method=saveReRxDrugIdToStash");
         assertThat(jsp).contains("\"&demographicNo=\" + staticScriptDemographicNo");
         assertThat(jsp).contains("/rx/searchDrug?demographicNo=\" + staticScriptDemographicNo");
+        // A refused stage (403/409/CSRF error page) reports the refusal instead of opening the search.
+        assertThat(jsp).contains("if (!response || !response.ok) {")
+                .contains("<fmt:message key=\"StaticScript.js.reRxRefused\" var=\"msg_reRxRefused\"/>");
     }
 
     @Test
@@ -199,5 +202,16 @@ class RxPatientLinkJspRegressionUnitTest {
         // An iframe src assignment is not tagged by rx-patient-context.js (medication history modal).
         assertThat(read("rx/SearchDrug3.jsp")).contains(
                 "this.waitifrm.setAttribute(\"src\",RxPatientContext.withPatient(displaySRC+\"?randomId=\"+encodeURIComponent(randomId)));");
+    }
+
+    @Test
+    @DisplayName("should render the Rx Print patient chooser without any per-patient Rx state")
+    void shouldRenderPrintChooser_withoutRxPatient() throws IOException {
+        // The chooser runs before a patient is chosen; resolving a bean sent a session with no open
+        // Rx patient to error.html before the search form (#3908).
+        String jsp = read("rx/Print.jsp");
+        assertThat(jsp).doesNotContain("RxSessionBeanResolver").doesNotContain("RxSessionBean")
+                .doesNotContain("error.html");
+        assertThat(jsp).contains("/rx/searchPatient\" method=\"post\"").contains("name=\"surname\"");
     }
 }

@@ -370,7 +370,8 @@ public class RxSessionBean implements java.io.Serializable {
             addToWorkingAllergyWarnings(atccode, worker);
             worker.start();
         } catch (Exception e) {
-            logger.error("Error for demographic " + getDemographicNo(), e);
+            // The demographic number is a PHI-correlating identifier; log only the failure.
+            logger.error("Allergy warning check failed ({})", e.getClass().getSimpleName());
         }
     }
 

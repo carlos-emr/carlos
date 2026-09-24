@@ -423,13 +423,11 @@ public String saveDigitalSignature() throws IOException {
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
@@ -493,13 +491,11 @@ public String saveDigitalSignature() throws IOException {
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
@@ -595,13 +591,11 @@ public String saveDigitalSignature() throws IOException {
             // give prescript a random id.
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
@@ -680,13 +674,11 @@ public String saveDigitalSignature() throws IOException {
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx);
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
             if (RxUtil.isRxUniqueInStash(bean, rx)) {

@@ -138,11 +138,13 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
 
+        <fmt:message key="StaticScript.js.reRxRefused" var="msg_reRxRefused"/>
         <script language="javascript">
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
             var csrfToken = csrfEl ? csrfEl.value : '';
             // Every Rx request from this page names its patient; staging refuses a request that
             // does not (per-patient Rx state, #3875).
+            var staticScriptReRxRefused = '<carlos:encode value="${msg_reRxRefused}" context="javaScriptBlock"/>';
             var staticScriptDemographicNo = encodeURIComponent('<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptBlock"/>');
 
             function addFavorite2(drugId, brandName) {
@@ -175,12 +177,23 @@
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId) + "&demographicNo=" + staticScriptDemographicNo;
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
-                await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                    credentials: 'same-origin',
-                    body: data
-                });
+                var response = null;
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                        credentials: 'same-origin',
+                        body: data
+                    });
+                } catch (e) {
+                    response = null;
+                }
+                // A refused stage (403 not this patient's drug, 409 no open Rx for the patient, or a
+                // CSRF/HTML error page) must not look like success by opening the drug search.
+                if (!response || !response.ok) {
+                    alert(staticScriptReRxRefused + ' (HTTP ' + (response ? response.status : '?') + ')');
+                    return;
+                }
                 location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?demographicNo=" + staticScriptDemographicNo;
             }
 

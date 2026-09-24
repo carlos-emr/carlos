@@ -899,7 +899,7 @@
                 thisForm.setPrn(rx.getPrn());
 
                 if (rx.getSpecial() == null || rx.getSpecial().length() < 6)
-                    MiscUtils.getLogger().error("The drug special passed to the display of the user was already blank :" + rx.getSpecial());
+                    MiscUtils.getLogger().warn("The drug instructions passed to the display were blank or truncated");
 
                 thisForm.setSpecial(rx.getSpecial());
                 thisForm.setLongTerm(rx.getLongTerm());

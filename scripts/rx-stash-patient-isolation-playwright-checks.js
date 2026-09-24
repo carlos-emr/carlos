@@ -34,6 +34,9 @@
  *      another's chart.
  *   3. Unticking ReRx removes the staged card for that drug, and the source prescription is not
  *      archived by a ReRx that was never saved.
+ *   4. The Rx Print patient chooser renders its search form for a session that has not opened
+ *      any patient's Rx yet (it runs first, before this check opens one). It resolved a per-patient
+ *      Rx bean and sent such a session to error.html before the form.
  *
  * The check owns two synthetic patients and every drug row it saves (removed afterwards). It
  * stages custom drugs through the Custom Drug button, so it needs no DrugRef lookup.
@@ -97,6 +100,19 @@ async function workflow(session) {
     AND last_name=${h.sqlString(marker)}`));
   session.cleanup(() => clearDrugs(second));
   session.cleanup(() => clearDrugs(patient));
+
+  // First, while this login has not opened any patient's Rx.
+  await session.step('the Print patient chooser renders with no Rx patient open', async () => {
+    const page = await session.context.newPage();
+    await h.gotoApp(page, session.config.baseUrl, '/rx/ViewPrint');
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await h.assertNotErrorPage(page, 'Rx Print patient chooser');
+    h.assert(new URL(page.url()).pathname.endsWith('/rx/ViewPrint'),
+      'the Rx Print patient chooser redirected away without an Rx patient');
+    await page.locator('form[action$="/rx/searchPatient"] input[name="surname"]')
+      .waitFor({ state: 'visible', timeout: 20000 });
+    await page.close();
+  });
 
   await session.step('closing one staged drug saves only the other', async () => {
     const rx = await openRx(session, patient);

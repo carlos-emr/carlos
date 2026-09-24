@@ -251,7 +251,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.error("Unable to get DrugForm from drugref");
             }
 
-            logger.debug("SAVING STASH " + rx.getCustomInstr());
             if (rx.getSpecial() == null) {
                 logger.error("Prescription drug instructions are missing");
             } else if (rx.getSpecial().length() < 6) {
@@ -942,7 +941,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 }
 
                 String instructions = request.getParameter("instruction");
-                logger.debug("instruction:" + instructions);
                 rx.setSpecial(instructions);
                 RxUtil.instrucParser(rx);
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
@@ -965,7 +963,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("unitName", rx.getUnitName());
                 hm.put("policyViolations", rx.getPolicyViolations());
                 ObjectNode jsonObject = objectMapper.valueToTree(hm);
-                logger.debug("jsonObject:" + jsonObject.toString());
                 response.getOutputStream().write(jsonObject.toString().getBytes());
             } catch (Exception e) {
                 logger.error("Error ({})", e.getClass().getSimpleName());
@@ -1542,7 +1539,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         response.setContentType("application/json");
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         response.getOutputStream().write(jsonObject.toString().getBytes());
-        return null;
+        return NONE;
     }
   
     public void saveDrug(final HttpServletRequest request) throws Exception {
@@ -1645,7 +1642,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write("{\"results\":[]}");
-            return null;
+            return NONE;
         }
 
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
@@ -1653,7 +1650,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write("{\"results\":[]}");
-            return null;
+            return NONE;
         }
 
         int randomIdInt;
@@ -1663,14 +1660,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write("{\"results\":[]}");
-            return null;
+            return NONE;
         }
         RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
         if (rx == null) {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write("{\"results\":[]}");
-            return null;
+            return NONE;
         }
         List<HashMap<String, String>> history = RxUtil.getPreviousInstructions(rx);
         if (history == null) {
@@ -1697,7 +1694,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         objectMapper.writeValue(response.getWriter(), json);
-        return null;
+        return NONE;
     }
 
     public String searchSpecialInstructions() throws IOException {
@@ -1713,7 +1710,8 @@ public final class RxWriteScript2Action extends ActionSupport {
 		ObjectMapper mapper = new ObjectMapper();
         mapper.writeValue(response.getWriter(), json);
 
-        return "prescribe";
+        // JSON is written directly: a named result would forward prescribe.jsp over it.
+        return NONE;
 	}
 
     public String checkNoStashItem() throws IOException, Exception {
@@ -1727,7 +1725,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         response.setContentType("application/json");
 
         response.getOutputStream().write(jsonObject.toString().getBytes());
-        return null;
+        return NONE;
     }
 
 
@@ -1904,8 +1902,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             request.setAttribute("message", getText("SelectReason.error.duplicateCode"));
             return;
         }
-
-        MiscUtils.getLogger().debug("addDrugReasonCalled codingSystem " + codingSystem + " code " + code + " drugIdStr " + drugId);
 
         boolean primaryReasonFlag = true;
         if (!"true".equals(primaryReasonFlagStr)) {
