@@ -71,6 +71,7 @@
         moves: 0,            // marks being dragged now; pages track their own gestures
         strokes: 0,          // highlight or ink strokes being drawn now
         previews: {},        // mark id -> {dx, dy} page fractions of a drag not yet released
+        strokePreviews: {},  // page -> the highlight/ink drag being drawn there, not yet released
         refitPending: false, // the annotation font arrived mid-drag; refit notes when it ends
         fontReady: null      // settles once the annotation font has loaded or failed
     };
@@ -185,6 +186,10 @@
         Object.keys(state.previews).forEach(function (id) {
             applyPreview(svg, id, state.previews[id], w, h);
         });
+        // Likewise a stroke still being drawn: its preview lives only in the overlay, so a
+        // redraw mid-stroke (the annotation font arriving, a resize) would blank it until the
+        // next pointer move.
+        if (state.strokePreviews[page]) { previewDrag(svg, state.strokePreviews[page]); }
     }
 
     /** Shifts every element drawn for a mark by a drag preview given in page fractions. */
@@ -617,6 +622,7 @@
                 var staleMove = moving !== null;
                 var staleStroke = dragging !== null;
                 if (staleMove) { delete state.previews[moving.a.id]; }
+                delete state.strokePreviews[page];
                 moving = null;
                 dragging = null;
                 redrawPage(page);
@@ -635,7 +641,8 @@
                 return;
             }
             if (state.tool === 'highlight') { fetchWordBoxes(page); }
-            dragging = { pointerId: event.pointerId, x0: nx, y0: ny, points: [[nx, ny]] };
+            dragging = { pointerId: event.pointerId, x0: nx, y0: ny, points: [[nx, ny]],
+                tool: state.tool, color: state.color };
             strokeStarted();
             svg.setPointerCapture(event.pointerId);
         });
@@ -661,6 +668,7 @@
             }
             dragging.x1 = nx;
             dragging.y1 = ny;
+            state.strokePreviews[page] = dragging;
             previewDrag(svg, dragging);
         });
 
@@ -672,6 +680,7 @@
             if (!owns(dragging, event)) { return; }
             var drag = dragging;
             dragging = null;
+            delete state.strokePreviews[page];
             if (svg.hasPointerCapture(event.pointerId)) { svg.releasePointerCapture(event.pointerId); }
             strokeEnded();
             commitDrag(page, drag);
@@ -687,6 +696,7 @@
             var abandonedMove = moving !== null;
             var abandonedStroke = dragging !== null;
             if (abandonedMove) { delete state.previews[moving.a.id]; }
+            delete state.strokePreviews[page];
             moving = null;
             dragging = null;
             redrawPage(page);
@@ -789,13 +799,13 @@
         var w = svg.clientWidth;
         var h = svg.clientHeight;
         var el;
-        if (state.tool === 'draw') {
+        if ((drag.tool || state.tool) === 'draw') {
             el = document.createElementNS(SVG_NS, 'polyline');
             el.setAttribute('points', drag.points.map(function (p) {
                 return (p[0] * w) + ',' + (p[1] * h);
             }).join(' '));
             el.setAttribute('fill', 'none');
-            el.setAttribute('stroke', COLORS[state.color]);
+            el.setAttribute('stroke', COLORS[drag.color || state.color]);
             // Same per-page scale redrawPage() uses. Hard-coding 2 here made the stroke visibly
             // change width the instant the pointer came up, because the committed mark is drawn
             // at strokeWidth * pxPerPoint while the preview was drawn at 2 device pixels.
@@ -806,7 +816,7 @@
             el.setAttribute('y', Math.min(drag.y0, drag.y1 === undefined ? drag.y0 : drag.y1) * h);
             el.setAttribute('width', Math.abs((drag.x1 === undefined ? drag.x0 : drag.x1) - drag.x0) * w);
             el.setAttribute('height', Math.abs((drag.y1 === undefined ? drag.y0 : drag.y1) - drag.y0) * h);
-            el.setAttribute('fill', COLORS[state.color]);
+            el.setAttribute('fill', COLORS[drag.color || state.color]);
             el.setAttribute('fill-opacity', '0.3');
         }
         el.setAttribute('class', 'preview');
@@ -862,7 +872,9 @@
         var isDate = state.tool === 'date';
         var value = isDate ? todayLocal()
             : window.prompt(t('promptText', 'Note to add:'), '');
-        if (!value) { return; }
+        // Blank means no note, as it does when editing: the parser refuses whitespace-only text,
+        // and an invisible mark would fail the whole save.
+        if (!value || !value.trim()) { return; }
         var note = {
             type: isDate ? 'date' : 'text', page: page, color: state.color,
             x: clamp(nx, TEXT_W), y: clamp(ny, TEXT_H), w: TEXT_W, h: TEXT_H,

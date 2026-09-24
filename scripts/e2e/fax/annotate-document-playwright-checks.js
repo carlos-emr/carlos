@@ -948,6 +948,33 @@ async function main() {
       && await page.locator('#btnSave').isEnabled(),
       JSON.stringify([saveHeldDuringStroke, saveDuringStroke, marksBeforeStroke, await markCount()]));
 
+    // A redraw mid-stroke (a resize here; the annotation font arriving does the same) must not
+    // blank the stroke preview: the provider keeps seeing the line they are drawing.
+    const strokeViewport = page.viewportSize();
+    const previewCount = () => page.locator('svg.overlay').first().locator('.preview').count();
+    const marksBeforeRedraw = await markCount();
+    await page.mouse.move(strokeBox.x + 60, strokeBox.y + 470);
+    await page.mouse.down();
+    await page.mouse.move(strokeBox.x + 220, strokeBox.y + 490, { steps: 6 });
+    const previewBeforeResize = await previewCount();
+    await page.setViewportSize({ width: strokeViewport.width, height: strokeViewport.height + 40 });
+    await page.waitForTimeout(150);
+    const previewAfterResize = await previewCount();
+    await page.mouse.up();
+    await page.setViewportSize(strokeViewport);
+    check('a redraw during a stroke keeps the stroke preview visible',
+      previewBeforeResize === 1 && previewAfterResize === 1 && await markCount() === marksBeforeRedraw + 1,
+      JSON.stringify([previewBeforeResize, previewAfterResize, marksBeforeRedraw, await markCount()]));
+
+    // A whitespace-only note is no note: the parser refuses blank text, and an invisible mark
+    // would fail the whole save.
+    await page.locator('.tool[data-tool="text"]').click();
+    const marksBeforeBlank = await markCount();
+    page.once('dialog', dialog => dialog.accept('   '));
+    await page.mouse.click(strokeBox.x + 300, strokeBox.y + 200);
+    check('a whitespace-only note is not placed', await markCount() === marksBeforeBlank,
+      JSON.stringify([marksBeforeBlank, await markCount()]));
+
     // Hold an actual server save response; attempted edits must not re-enable duplicate submission.
     let releaseSave;
     const hold = new Promise(resolve => { releaseSave = resolve; });
