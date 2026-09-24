@@ -156,10 +156,11 @@ function removeArchivedUploads(stamp) {
     return;
   }
   const root = fs.realpathSync(store);
-  const owned = new RegExp(`^LabUpload\\.lab-upload-probe-${stamp}\\.hl7\\.\\d+$`);
-  const ownFiles = () => fs.readdirSync(root).filter((name) => owned.test(name));
-  // name matched the fixed pattern above and is joined to the resolved store root.
+  const prefix = `LabUpload.lab-upload-probe-${stamp}.hl7.`;
+  const ownFiles = () => fs.readdirSync(root)
+    .filter((name) => /^LabUpload\.lab-upload-probe-[0-9A-F]{8}\.hl7\.\d+$/.test(name) && name.startsWith(prefix));
   const found = ownFiles();
+  // name matched the fixed pattern above and is joined to the resolved store root.
   for (const name of found) fs.unlinkSync(path.join(root, name)); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
   // Every run archives at least the first upload; finding none means the store or the archive
   // name no longer matches, and cleanup would otherwise pass while leaving the files behind.
