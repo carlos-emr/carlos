@@ -11,6 +11,10 @@ import java.util.Optional;
 public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
     List<SmsTransaction> findByDemographicNo(Integer demographicNo, int limit);
 
+    List<SmsTransaction> findByDemographicNo(Integer demographicNo, int offset, int limit);
+
+    long countByDemographicNo(Integer demographicNo);
+
     Optional<SmsTransaction> findByProviderMessageId(SmsProviderType providerType, String providerMessageId);
 
     Optional<SmsTransaction> findByClientReferenceId(SmsProviderType providerType, String clientReferenceId);

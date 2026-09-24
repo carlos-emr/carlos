@@ -327,6 +327,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // GET/HEAD and PUT/PATCH/DELETE alike); getFaxSchedularStatus/getPendingIncomingFaxes
         // stay verb-open (see ConfigureFax2ActionUnitTest).
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
+        // SMS: the patient SMS history list renders on a bare GET; only method=showMessage (an audited
+        // read of a message's full text) is POST-only (see ViewSmsHistory2ActionUnitTest). Issue #3839.
+        "io.github.carlos_emr.carlos.sms.web.ViewSmsHistory2Action",
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
@@ -441,6 +444,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         "io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action",
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
+        // sms slice: ViewSmsHistory2Action is the first SMS web action; the sms package is not in
+        // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator, #3839).
+        "io.github.carlos_emr.carlos.sms.web.ViewSmsHistory2Action",
         // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
         "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",

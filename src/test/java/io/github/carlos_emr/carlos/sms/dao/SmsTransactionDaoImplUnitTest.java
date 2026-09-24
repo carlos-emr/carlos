@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -40,6 +41,9 @@ class SmsTransactionDaoImplUnitTest {
 
     @Mock
     private TypedQuery<SmsTransaction> query;
+
+    @Mock
+    private TypedQuery<Long> countQuery;
 
     @Test
     @DisplayName("findByDemographicNo skips querying when demographic is missing")
@@ -216,6 +220,54 @@ class SmsTransactionDaoImplUnitTest {
         when(query.setMaxResults(anyInt())).thenReturn(query);
         when(query.setLockMode(any(LockModeType.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(results);
+    }
+
+    @Test
+    @DisplayName("findByDemographicNo pages newest first with a tie-breaker so pages never overlap")
+    void shouldPageNewestFirst_withIdTieBreaker() {
+        SmsTransactionDaoImpl dao = newDao();
+        when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
+        when(query.setParameter("demographicNo", 123)).thenReturn(query);
+        when(query.setFirstResult(50)).thenReturn(query);
+        when(query.setMaxResults(25)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of());
+
+        dao.findByDemographicNo(123, 50, 25);
+
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager).createQuery(jpql.capture(), eq(SmsTransaction.class));
+        assertThat(jpql.getValue()).endsWith("ORDER BY t.createdAt DESC, t.id DESC");
+        verify(query).setFirstResult(50);
+        verify(query).setMaxResults(25);
+    }
+
+    @Test
+    @DisplayName("findByDemographicNo treats a negative offset as the first page")
+    void shouldStartAtFirstRow_whenOffsetIsNegative() {
+        SmsTransactionDaoImpl dao = newDao();
+        when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
+        when(query.setParameter("demographicNo", 123)).thenReturn(query);
+        when(query.setFirstResult(0)).thenReturn(query);
+        when(query.setMaxResults(25)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of());
+
+        dao.findByDemographicNo(123, -5, 25);
+
+        verify(query).setFirstResult(0);
+    }
+
+    @Test
+    @DisplayName("countByDemographicNo counts the patient's rows and skips querying without a patient")
+    void shouldCountRows_forDemographic() {
+        SmsTransactionDaoImpl dao = newDao();
+        when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(countQuery);
+        when(countQuery.setParameter("demographicNo", 123)).thenReturn(countQuery);
+        when(countQuery.getSingleResult()).thenReturn(42L);
+
+        assertThat(dao.countByDemographicNo(123)).isEqualTo(42L);
+        assertThat(dao.countByDemographicNo(null)).isZero();
+        verify(entityManager).createQuery(
+                "SELECT COUNT(t) FROM SmsTransaction t WHERE t.demographicNo = :demographicNo", Long.class);
     }
 
     private SmsTransactionDaoImpl newDao() {
