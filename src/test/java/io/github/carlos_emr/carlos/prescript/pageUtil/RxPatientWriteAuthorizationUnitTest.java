@@ -470,6 +470,95 @@ class RxPatientWriteAuthorizationUnitTest {
         }
     }
 
+    static Stream<Arguments> readPaths() {
+        List<String> reads = List.of("rePrescribe.reprint", "rePrescribe.reprint2", "viewScript.preview",
+                "writeScript.listPreviousInstructions", "writeScript.getInstructionsAutocomplete",
+                "writeScript.checkNoStashItem", "writeScript.iterateStash", "writeScript.edit",
+                "stash.setStashIndex", "stash.edit", "addFavorite.savedDrug", "addFavorite.savedDrugAjax");
+        return reads.stream().flatMap(read -> Stream.of(
+                Arguments.of(read, "patient read"), Arguments.of(read, "record access")));
+    }
+
+    @ParameterizedTest(name = "{0} ({1} denied)")
+    @MethodSource("readPaths")
+    @DisplayName("should refuse a read of a patient the caller may not read")
+    void shouldRefuseRead_whenPatientReadDenied(String path, String denied) {
+        // Each of these resolved the patient from the request (or the active fallback) after only a
+        // global _rx check; the patient is now authorised first (#3908).
+        denyPatient(denied, DEMOGRAPHIC_NO, "_rx");
+        request.setParameter("randomId", String.valueOf(bean.getStashItem(0).getRandomId()));
+        request.setParameter("scriptNo", "1234");
+        request.setParameter("term", "take");
+        io.github.carlos_emr.carlos.commn.model.Drug drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+        drug.setDemographicId(DEMOGRAPHIC_NO);
+        when(dependency(io.github.carlos_emr.carlos.commn.dao.DrugDao.class).find(5)).thenReturn(drug);
+
+        ThrowingCallable read = switch (path) {
+            case "rePrescribe.reprint" -> () -> {
+                RxRePrescribe2Action action = new RxRePrescribe2Action();
+                action.setDrugList("5");
+                action.reprint();
+            };
+            case "rePrescribe.reprint2" -> () -> new RxRePrescribe2Action().reprint2();
+            case "viewScript.preview" -> () -> {
+                request.setMethod("GET");
+                new RxViewScript2Action(mock(io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class)).execute();
+            };
+            case "writeScript.listPreviousInstructions" -> () -> new RxWriteScript2Action().listPreviousInstructions();
+            case "writeScript.getInstructionsAutocomplete" -> () -> new RxWriteScript2Action().getInstructionsAutocomplete();
+            case "writeScript.checkNoStashItem" -> () -> new RxWriteScript2Action().checkNoStashItem();
+            case "writeScript.iterateStash" -> () -> new RxWriteScript2Action().iterateStash();
+            case "writeScript.edit" -> () -> {
+                RxWriteScript2Action action = new RxWriteScript2Action();
+                action.setAction("edit");
+                action.execute();
+            };
+            case "stash.setStashIndex" -> () -> new RxStash2Action().setStashIndex();
+            case "stash.edit" -> () -> {
+                RxStash2Action action = new RxStash2Action();
+                action.setAction("edit");
+                action.execute();
+            };
+            case "addFavorite.savedDrug" -> () -> {
+                RxAddFavorite2Action action = new RxAddFavorite2Action();
+                action.setDrugId("5");
+                action.setFavoriteName("fav");
+                action.execute();
+            };
+            default -> () -> {
+                request.setParameter("parameterValue", "addFav2");
+                request.setParameter("drugId", "5");
+                request.setParameter("favoriteName", "fav");
+                new RxAddFavorite2Action().execute();
+            };
+        };
+
+        assertThatThrownBy(read)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        assertThat(bean.getStashIndex()).isZero();
+        for (Map.Entry<Class<?>, Object> entry : dependencies.entrySet()) {
+            if (entry.getKey().equals(io.github.carlos_emr.carlos.commn.dao.DrugDao.class)) {
+                continue; // the favourite path loads the drug to learn its patient
+            }
+            verifyNoInteractions(entry.getValue());
+        }
+        logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should give a JSP no bean for a patient the caller may not read")
+    void shouldHideBeanFromJsp_whenPatientNotReadable() {
+        // The Rx JSPs stop rendering on a null bean, whatever route forwarded to them (#3908).
+        assertThat(io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess
+                .resolveAuthorised(request, "_rx", "r")).isSameAs(bean);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.eq(DEMOGRAPHIC_NO)))
+                .thenReturn(false);
+        assertThat(io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess
+                .resolveAuthorised(request, "_rx", "r")).isNull();
+    }
+
     @SuppressWarnings("unchecked")
     private <T> T dependency(Class<T> type) {
         return (T) dependencies.computeIfAbsent(type, Mockito::mock);

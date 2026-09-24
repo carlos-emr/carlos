@@ -56,19 +56,17 @@ class RxUpdateFormJspRegressionUnitTest {
     }
 
     @Test
-    @DisplayName("should only change the drug on a POST with _rx write for the drug's own patient")
-    void shouldGateDrugUpdate_onPostAndPatientScopedWritePrivilege() throws IOException {
+    @DisplayName("should keep the drug id on the update POST and leave loading and authorising to the gate")
+    void shouldPostDrugId_andRenderOnlyGateAttributes() throws IOException {
         String jsp = Files.readString(UPDATE_FORM_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("\"POST\".equalsIgnoreCase(request.getMethod())");
-        // The drug id is caller-supplied, so write access is checked against the patient the drug
-        // belongs to, not globally and not against a request-supplied patient.
-        assertThat(jsp).contains("Integer drugDemographicNo = drug.getDemographicId();");
-        assertThat(jsp).contains("\"_rx\", \"w\", drugDemographicNo.intValue())");
-        assertThat(jsp).contains("isAllowedAccessToPatientRecord(updateLoggedInInfo, drugDemographicNo)");
-        assertThat(jsp).doesNotContain("\"_rx\", \"w\", null");
-        assertThat(jsp).contains("missing required sec object (_rx)");
-        // The ownership check must run before the drug row is merged.
-        assertThat(jsp.indexOf("isAllowedAccessToPatientRecord")).isLessThan(jsp.indexOf("drugDao.merge(drug)"));
+        // The form posts to a concrete URL without a query string, so the drug id travels as a
+        // hidden input; without it the POST had no id and the update failed (#3908).
+        assertThat(jsp).contains("<input type=\"hidden\" name=\"id\" value=\"<carlos:encode value='<%= id %>' context=\"htmlAttribute\"/>\"/>");
+        assertThat(jsp).contains("<input type=\"hidden\" name=\"action\" value=\"update\"/>");
+        // The drug is loaded, authorised against its own patient and changed in ViewUpdateForm2Action;
+        // the page never reads the drug by a request id itself.
+        assertThat(jsp).doesNotContain("drugDao").doesNotContain("DrugDao").doesNotContain("request.getParameter(\"id\")");
+        assertThat(jsp).contains("request.getAttribute(\"drugId\")").contains("request.getAttribute(\"drugForm\")");
     }
 }

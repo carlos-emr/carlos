@@ -315,9 +315,12 @@ async function savePrescriptionSignatureAssociation(page, digitalSignatureId) {
   }
 
   const csrfToken = await readCsrfToken(page);
+  // Names the prescribing window's patient, as ViewScript2's setDigitalSignatureToRx does: the
+  // server refuses (409) a signature write that does not name the script's patient (#3908).
   const form = {
     method: 'saveDigitalSignature',
     scriptId: prescriptionScriptId,
+    demographicNo: prescriptionDemographicNo,
   };
   if (signatureId) {
     form.digitalSignatureId = signatureId;

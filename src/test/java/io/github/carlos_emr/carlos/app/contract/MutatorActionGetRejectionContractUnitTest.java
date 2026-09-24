@@ -270,6 +270,18 @@ class MutatorActionGetRejectionContractUnitTest {
             // Every dispatch (Delete, Delete2, Discontinue, clearStash, clearReRxDrugList) archives
             // drugs or clears staged state; all reject non-POST before anything else (#3908).
             Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+                    "_rx", "u"),
+            // Deleting / re-activating an allergy, staging a favourite, adding a favourite and
+            // editing or deleting one are writes; each rejects non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action",
+                    "_allergy", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
                     "_rx", "u")
         );
     }
@@ -333,6 +345,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // save and the legacy pharmacyAction form are POST-only (#3908). Covered by
         // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+        // Drug-form editor gate: GET renders it for a readable patient; action=update changes the
+        // drug and rejects GET/HEAD (#3908). Covered by ViewUpdateForm2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
         // Prescription stash: deletePrescribe and the legacy action=delete remove a staged card and
         // are POST-only; setStashIndex / action=edit cursor moves stay verb-open. Issue #3871.
         // Covered by RxStash2ActionUnitTest.
@@ -491,7 +506,13 @@ class MutatorActionGetRejectionContractUnitTest {
         // pharmacy links are POST-only.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

@@ -54,18 +54,28 @@ public final class RxDeleteFavorite2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    /**
+     * Deletes a favourite of the logged-in provider. POST-only (405 otherwise), needs global
+     * {@code _rx} update, and refuses a malformed id (400), a missing favourite (404) or another
+     * provider's (403) before deleting (#3908).
+     *
+     * @return {@code success}, or {@code NONE} after an error response
+     */
     public String execute()
             throws IOException, ServletException {
-
+        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
+        RxPrescriptionData.Favorite favorite = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());
+        if (favorite == null) {
+            return NONE;
+        }
+        new RxPrescriptionData().deleteFavorite(favorite.getFavoriteId());
 
-        int favoriteId = Integer.parseInt(this.getFavoriteId());
-        new RxPrescriptionData().deleteFavorite(favoriteId);
-
-        // Setup variables
         return SUCCESS;
     }
 

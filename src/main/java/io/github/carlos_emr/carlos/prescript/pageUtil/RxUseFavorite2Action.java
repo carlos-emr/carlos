@@ -71,6 +71,13 @@ public final class RxUseFavorite2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
+        // Staging a favourite changes the patient's stash: POST-only (#3908). SearchDrug3's
+        // useFav2 posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         if ("useFav2".equals(request.getParameter("parameterValue"))) {
             return useFav2();
@@ -127,6 +134,13 @@ public final class RxUseFavorite2Action extends ActionSupport {
      */
     public String useFav2()
             throws IOException {
+        // Staging a favourite changes the patient's stash: POST-only (#3908). SearchDrug3's
+        // useFav2 posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {

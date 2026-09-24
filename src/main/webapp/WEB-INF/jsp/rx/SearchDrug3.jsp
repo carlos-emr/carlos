@@ -63,7 +63,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -110,7 +110,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 <%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
      or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
      dereferences the bean (#3908). --%>
-<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
 <c:if test="${empty pageScope.RxSessionBean}">
   <% response.sendRedirect("error.html"); %>
 </c:if>

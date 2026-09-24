@@ -30,7 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -63,14 +63,14 @@
 <%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
      or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
      dereferences the bean (#3908). --%>
-<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
 <c:if test="${empty pageScope.RxSessionBean}">
     <c:redirect url="error.html"/>
 </c:if>
 <c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        bean = RxSessionBeanResolver.resolve(request);
+        bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing

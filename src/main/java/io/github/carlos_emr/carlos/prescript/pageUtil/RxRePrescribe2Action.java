@@ -110,7 +110,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-        RxSessionBean sessionBeanRX = RxSessionBeanResolver.resolve(request);
+        RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (sessionBeanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -162,7 +162,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-        RxSessionBean sessionBeanRX = RxSessionBeanResolver.resolve(request);
+        RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (sessionBeanRX == null) {
             // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
             // answer 409 instead (#3908).

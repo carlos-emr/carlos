@@ -187,7 +187,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // re-render (#3875).
         RxSessionBean bean = this.getAction() != null && this.getAction().startsWith("update")
                 ? RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w")
-                : RxSessionBeanResolver.resolve(request);
+                : RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
 
         if (bean == null) {
             response.sendRedirect("error.html");
@@ -558,7 +558,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // if din is null, use BN to find it
         // if prescript is custom drug, use customName to find it.
         // append results to a list.
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -1125,7 +1125,10 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @return the staged-card view, or {@code null} when nothing is staged
      */
     public String iterateStash() {
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Dispatched before execute()'s common privilege check: check _rx read here, globally and
+        // (through resolveForRead) for the patient whose stash is rendered (#3908).
+        checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_READ);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         // No Rx session for this request's patient means nothing is staged.
         if (bean == null) {
             return null;
@@ -1768,7 +1771,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             return NONE;
         }
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null || randomId == null || randomId.isBlank()) {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
@@ -1848,7 +1851,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @return {@code NONE}; the JSON is written directly
      */
     public String checkNoStashItem() throws IOException, Exception {
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         // No Rx session for this request's patient: report an empty stash rather than a 500.
         int n = bean == null ? 0 : bean.getStashSize();
         HashMap hm = new HashMap();

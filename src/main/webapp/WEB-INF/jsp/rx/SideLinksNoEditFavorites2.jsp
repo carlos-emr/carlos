@@ -29,7 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -42,7 +42,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    RxSessionBean bean2 = RxSessionBeanResolver.resolve(request);
+    RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
     if (bean2 == null) {
         // No Rx open for the request's patient (or a malformed demographicNo): nothing to render,
         // and never another patient's (#3908).

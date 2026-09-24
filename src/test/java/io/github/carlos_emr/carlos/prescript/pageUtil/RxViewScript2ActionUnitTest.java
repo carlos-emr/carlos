@@ -255,18 +255,13 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("scriptId")).isNull();
     }
 
-    @org.junit.jupiter.params.ParameterizedTest(name = "{0} denied")
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"patient privilege", "record access"})
-    @DisplayName("should not stamp a saved script when the caller may not write this patient")
-    void shouldSkipStamp_whenPatientLevelWriteDenied(String denied) throws Exception {
-        // Global _rx write is held; the patient-level check for this chart is not (#3908).
+    @Test
+    @DisplayName("should show but not stamp a saved script when the caller may read but not write this patient")
+    void shouldSkipStamp_whenPatientLevelWriteDenied() throws Exception {
+        // Global _rx write is held; patient-level write for this chart is not (#3908).
         request.setMethod("POST");
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
-        if ("patient privilege".equals(denied)) {
-            when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(DEMOGRAPHIC_NO))).thenReturn(false);
-        } else {
-            when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
-        }
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(DEMOGRAPHIC_NO))).thenReturn(false);
         liveBean.getStashList().add(savedItem(5, "789"));
 
         String result = newAction().execute();
@@ -274,6 +269,23 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("viewScript");
         assertThat(request.getAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED)).isNull();
         verifyNoInteractions(stampService, prescriptionDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "POST"})
+    @DisplayName("should refuse the script view for a patient whose record the caller may not open")
+    void shouldRefuseView_whenPatientRecordAccessDenied(String httpMethod) {
+        // The view reads the patient's prescriptions: patient-level _rx read and record access (#3908).
+        request.setMethod(httpMethod);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
+        liveBean.getStashList().add(savedItem(5, "789"));
+
+        assertThatThrownBy(() -> newAction().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+        verifyNoInteractions(stampService, prescriptionDao);
+        assertThat(request.getAttribute("scriptId")).isNull();
     }
 
     @Test

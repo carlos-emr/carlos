@@ -79,7 +79,16 @@ async function stageCustomDrug(page, name) {
  * post-save page from the pre-save one.
  */
 async function saveOnly(page) {
+  // Wait for the save itself so a refused or failed save is reported with its status and the
+  // server's answer, not only as a missing row once the database poll times out.
+  const saved = page.waitForResponse((response) => response.request().method() === 'POST'
+    && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url()), { timeout: 30000 });
   await page.locator('#saveOnlyButton').click();
+  const response = await saved;
+  if (response.status() >= 400) {
+    const body = (await response.text().catch(() => '')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+    throw new Error(`Save Only answered HTTP ${response.status()}: ${body}`);
+  }
 }
 
 function drugsFor(sql, demographicNo, marker) {

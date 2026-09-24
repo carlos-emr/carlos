@@ -96,7 +96,7 @@ public final class RxViewScript2Action extends ActionSupport {
 
 
         HttpSession session = request.getSession();
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

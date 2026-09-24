@@ -115,9 +115,12 @@ class RxPatientLinkJspRegressionUnitTest {
                 if (jsp.contains(guarded)) {
                     pages++;
                 }
-                if (jsp.contains("RxSessionBean bean2 = RxSessionBeanResolver.resolve(request);")) {
+                if (jsp.contains("RxSessionBean bean2 = ")) {
                     assertThat(jsp).as(file.toString()).contains("if (bean2 == null) {");
                 }
+                // Every Rx page authorises the patient it renders, whatever route forwarded to it:
+                // the plain resolver is never used to pick the page's bean (#3908).
+                assertThat(jsp).as(file.toString()).doesNotContain("RxSessionBeanResolver.resolve(request)");
             }
         }
         assertThat(pages).isGreaterThanOrEqualTo(16);

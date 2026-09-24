@@ -106,7 +106,7 @@ public final class RxStash2Action extends ActionSupport {
         // action=edit cursor move is a read and may use the active-patient fallback (#3875).
         RxSessionBean bean = "delete".equals(this.getAction())
                 ? RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w")
-                : RxSessionBeanResolver.resolve(request);
+                : RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -152,7 +152,7 @@ public final class RxStash2Action extends ActionSupport {
 
 
             // Setup variables
-            RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+            RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
 
             if (bean == null) {
                 response.sendRedirect("error.html");
@@ -167,6 +167,9 @@ public final class RxStash2Action extends ActionSupport {
             }
 
 
+        } catch (SecurityException e) {
+            // A refused patient is a 403, not a logged-and-ignored error (#3908).
+            throw e;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }

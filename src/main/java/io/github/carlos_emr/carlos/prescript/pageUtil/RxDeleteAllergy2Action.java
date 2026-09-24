@@ -70,6 +70,13 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
+        // Deleting or re-activating an allergy changes the chart: POST-only, refused before
+        // anything else (#3908). ShowAllergies2's $.ajax posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "u", null)) {
             throw new SecurityException("missing required sec object (_allergy)");

@@ -129,4 +129,47 @@ public final class RxRequestedPatientAccess {
         }
         return bean;
     }
+
+    /**
+     * The Rx bean a read renders ({@link RxSessionBeanResolver#resolve}: the named patient's, or the
+     * active patient's when none is named), after authorising the caller for that bean's patient.
+     *
+     * @param securityInfoManager the authorisation service
+     * @param request             the current request
+     * @param objectName          the security object read, e.g. {@code _rx}
+     * @param privilege           the privilege the read needs, e.g. {@code r}
+     * @return the bean, or {@code null} when no bean resolves (callers keep their refusal)
+     * @throws SecurityException when the caller may not read that patient's data
+     */
+    public static RxSessionBean resolveForRead(SecurityInfoManager securityInfoManager, HttpServletRequest request,
+                                               String objectName, String privilege) {
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        if (bean != null) {
+            requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    bean.getDemographicNo(), objectName, privilege);
+        }
+        return bean;
+    }
+
+    /**
+     * For the Rx JSPs: the bean {@link RxSessionBeanResolver#resolve} gives this request, or
+     * {@code null} when there is none <em>or</em> the logged-in caller may not read that bean's
+     * patient at {@code objectName}/{@code privilege} (patient-level privilege and record access).
+     * The JSPs already stop rendering on {@code null}, so every Rx page authorises the patient it
+     * renders whatever route forwarded to it (#3908).
+     *
+     * @param request    the current request
+     * @param objectName the security object the page reads, e.g. {@code _rx} or {@code _allergy}
+     * @param privilege  the privilege the page needs, e.g. {@code r}
+     * @return the authorised bean, or {@code null}
+     */
+    public static RxSessionBean resolveAuthorised(HttpServletRequest request, String objectName, String privilege) {
+        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        if (bean == null) {
+            return null;
+        }
+        SecurityInfoManager securityInfoManager = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(SecurityInfoManager.class);
+        return mayAccessPatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                bean.getDemographicNo(), objectName, privilege) ? bean : null;
+    }
 }

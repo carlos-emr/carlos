@@ -93,6 +93,8 @@ class RxDeleteAllergy2ActionUnitTest extends CarlosUnitTestBase {
 
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
+        // Deleting or re-activating an allergy is POST-only (#3908).
+        mockRequest.setMethod("POST");
         mockResponse = new MockHttpServletResponse();
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);

@@ -294,7 +294,8 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
 
             new RxAddFavorite2Action().execute();
 
-            assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+            // The AJAX caller gets 409, not a redirect it would follow to a 200 page (#3908).
+            assertThat(response.getStatus()).isEqualTo(409);
             verify(stagedCard, never()).AddToFavorites(anyString(), anyString());
         }
 
