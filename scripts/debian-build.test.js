@@ -76,6 +76,24 @@ test('every EMR restart point activates the carlos-emr-restart trigger carlos-em
   assert.match(postinst, /if \[ "\$1" = triggered \] && \[ -d \/run\/systemd\/system \]; then/);
 });
 
+// Renderer provisioning (the one-time move, the url-base token, the browser
+// restart) must wait for the provisioning lock like init-config does: another
+// run's init-config reads renderer.env to render the service URL, and changing
+// it underneath would leave carlos.properties naming a URL the browser no
+// longer serves.
+test('renderer provisioning and restart are gated on the provisioning lock', () => {
+  const postinst = fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8');
+  assert.match(postinst, /^        RENDER_PROVISION="\$\{PROVISION_LOCK_HELD\}"$/m);
+  const move = postinst.indexOf('One-time move off the pre-2026.08.0~alpha14 names');
+  const token = postinst.indexOf("printf 'CARLOS_RENDER_URL_BASE=%s\\n'");
+  for (const at of [move, token]) {
+    assert.ok(at > 0);
+    const before = postinst.slice(0, at);
+    assert.ok(before.lastIndexOf('if [ "${RENDER_PROVISION}" = 1 ]; then') > before.lastIndexOf('RENDER_PROVISION="${PROVISION_LOCK_HELD}"'));
+  }
+  assert.match(postinst, /if \[ "\$\{RENDER_PAYLOAD:-0\}" = 1 \] && \[ "\$\{RENDER_PROVISION:-1\}" = 1 \]; then\n        sd_invoke restart carlos-emr-render-browser\.service/);
+});
+
 // The render browser must not reuse any name the pre-2026.08.0~alpha14
 // carlos-emr-eform-renderer postrm deletes or disables on purge.
 test('render browser names avoid everything the old renderer purge touches', () => {

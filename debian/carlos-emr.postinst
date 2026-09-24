@@ -952,46 +952,63 @@ except ValueError:
             echo "carlos-emr: NOTE: saved-eForm print, fax and archive are unavailable." >&2
         fi
 
-        # One-time move off the pre-2026.08.0~alpha14 names. The separate
-        # carlos-emr-eform-renderer package used render-browser.env, the home
-        # /var/lib/carlos-emr/render and carlos-emr-chromedriver.service, and its
-        # postrm deletes/disables exactly those on purge -- a purge that can come
-        # at any time after this upgrade (apt removes the old package when the
-        # transitional deb is left out, and it lingers in config-files state).
-        # Living under NEW names makes that purge harmless by construction, with
-        # no reliance on the operator reading a warning. The token moves across
-        # (so the running configuration's service URL stays valid); the old home
-        # held only Chromium scratch and crash dumps -- rendered patient pages --
-        # so it is removed rather than kept; the old unit is stopped (its driver
-        # still holds the port) and forgotten.
-        # Stop the old unit first -- its driver holds the port and runs out of
-        # the old home -- but only once no package ships the old unit any more
-        # (always true here: the old renderer's exact dependency on the
-        # carlos-emr it came with means it has been upgraded to the transitional
-        # package or removed by now).
-        if [ ! -e /usr/lib/systemd/system/carlos-emr-chromedriver.service ] \
-            && [ ! -e /lib/systemd/system/carlos-emr-chromedriver.service ]; then
-            if [ -d /run/systemd/system ]; then
-                deb-systemd-invoke stop carlos-emr-chromedriver.service >/dev/null 2>&1 || true
+        # The renderer state this configure writes -- the one-time move and the
+        # url-base token below -- and the browser restart near the end are
+        # serialized by the provisioning lock, like init-config. Without it
+        # another run (finish-install, the boot provisioner) may be inside
+        # init-config reading renderer.env to render eform_pdf_browser_service_url;
+        # moving the file or changing the token under it would leave
+        # carlos.properties naming a URL the browser no longer serves. This
+        # configure already skips init-config, migrations and the EMR start in
+        # that case, and the renderer waits with them.
+        RENDER_PROVISION="${PROVISION_LOCK_HELD}"
+        if [ "${RENDER_PROVISION}" = 0 ]; then
+            echo "carlos-emr: NOT provisioning the eForm render browser: another provisioning" >&2
+            echo "carlos-emr: run holds the lock. Once it has finished, run:" >&2
+            echo "carlos-emr:   sudo dpkg-reconfigure carlos-emr" >&2
+        fi
+        if [ "${RENDER_PROVISION}" = 1 ]; then
+            # One-time move off the pre-2026.08.0~alpha14 names. The separate
+            # carlos-emr-eform-renderer package used render-browser.env, the home
+            # /var/lib/carlos-emr/render and carlos-emr-chromedriver.service, and its
+            # postrm deletes/disables exactly those on purge -- a purge that can come
+            # at any time after this upgrade (apt removes the old package when the
+            # transitional deb is left out, and it lingers in config-files state).
+            # Living under NEW names makes that purge harmless by construction, with
+            # no reliance on the operator reading a warning. The token moves across
+            # (so the running configuration's service URL stays valid); the old home
+            # held only Chromium scratch and crash dumps -- rendered patient pages --
+            # so it is removed rather than kept; the old unit is stopped (its driver
+            # still holds the port) and forgotten.
+            # Stop the old unit first -- its driver holds the port and runs out of
+            # the old home -- but only once no package ships the old unit any more
+            # (always true here: the old renderer's exact dependency on the
+            # carlos-emr it came with means it has been upgraded to the transitional
+            # package or removed by now).
+            if [ ! -e /usr/lib/systemd/system/carlos-emr-chromedriver.service ] \
+                && [ ! -e /lib/systemd/system/carlos-emr-chromedriver.service ]; then
+                if [ -d /run/systemd/system ]; then
+                    deb-systemd-invoke stop carlos-emr-chromedriver.service >/dev/null 2>&1 || true
+                fi
+                deb-systemd-helper purge carlos-emr-chromedriver.service >/dev/null 2>&1 || true
+                rm -f /etc/systemd/system/multi-user.target.wants/carlos-emr-chromedriver.service
             fi
-            deb-systemd-helper purge carlos-emr-chromedriver.service >/dev/null 2>&1 || true
-            rm -f /etc/systemd/system/multi-user.target.wants/carlos-emr-chromedriver.service
-        fi
-        OLD_RENDER_ENV="${CONF_DIR}/render-browser.env"
-        if [ -e "${OLD_RENDER_ENV}" ]; then
-            if [ ! -e "${RENDER_ENV}" ]; then
-                mv -f "${OLD_RENDER_ENV}" "${RENDER_ENV}"
-                echo "carlos-emr: moved the render browser settings to ${RENDER_ENV}"
-            else
-                rm -f "${OLD_RENDER_ENV}"
+            OLD_RENDER_ENV="${CONF_DIR}/render-browser.env"
+            if [ -e "${OLD_RENDER_ENV}" ]; then
+                if [ ! -e "${RENDER_ENV}" ]; then
+                    mv -f "${OLD_RENDER_ENV}" "${RENDER_ENV}"
+                    echo "carlos-emr: moved the render browser settings to ${RENDER_ENV}"
+                else
+                    rm -f "${OLD_RENDER_ENV}"
+                fi
             fi
-        fi
-        if [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
-            rm -rf "${STATE}/render"
-        fi
-        if getent passwd carlos-render >/dev/null \
-            && [ "$(getent passwd carlos-render | cut -d: -f6)" != "${STATE}/renderer" ]; then
-            usermod -d "${STATE}/renderer" carlos-render || true
+            if [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
+                rm -rf "${STATE}/render"
+            fi
+            if getent passwd carlos-render >/dev/null \
+                && [ "$(getent passwd carlos-render | cut -d: -f6)" != "${STATE}/renderer" ]; then
+                usermod -d "${STATE}/renderer" carlos-render || true
+            fi
         fi
 
         if [ "${RENDER_PAYLOAD}" = 1 ]; then
@@ -1031,42 +1048,44 @@ except ValueError:
                 fi
             fi
 
-            # The account and its home exist by now (the accounts and directories
-            # sections above), so the chown below cannot fail with "invalid group".
-            #
-            # The render browser's own settings, including the url-base capability
-            # token. 0640 root:carlos-render: the browser account reads it, and the
-            # `carlos` account deliberately cannot -- just as carlos-render cannot
-            # read carlos.properties. Generated once and never rotated
-            # automatically; rotating means updating eform_pdf_browser_service_url
-            # to match (init-config does that from this file).
-            if [ ! -e "${RENDER_ENV}" ]; then
-                install -m 0640 -o root -g carlos-render "${SHARE}/skel/renderer.env" "${RENDER_ENV}"
-            fi
-            chown root:carlos-render "${RENDER_ENV}"
-            chmod 0640 "${RENDER_ENV}"
-            # Two cases: the key present-but-empty (sed substitutes) and the key
-            # ABSENT entirely (sed would match nothing and leave no token while
-            # reporting success). The unit refuses to start without one.
-            if ! grep -q '^CARLOS_RENDER_URL_BASE=' "${RENDER_ENV}"; then
-                # An operator-edited file may lack a trailing newline; appending
-                # onto its last line would fuse the key into it and this guard
-                # would re-append on every configure.
-                [ ! -s "${RENDER_ENV}" ] || [ -z "$(tail -c1 "${RENDER_ENV}")" ] || echo >> "${RENDER_ENV}"
-                printf 'CARLOS_RENDER_URL_BASE=%s\n' "$(openssl rand -hex 16)" >> "${RENDER_ENV}"
-                RENDER_TOKEN_NEW=1
-            elif ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
-                # chromedriver has no authentication and any local uid can reach
-                # a loopback port, so this prefix is what stops another local
-                # account driving a browser as carlos-render.
-                url_base="$(openssl rand -hex 16)"
-                tmp="$(mktemp "${RENDER_ENV}.XXXXXX")"
-                chmod 0640 "${tmp}"
-                chown root:carlos-render "${tmp}"
-                sed "s|^CARLOS_RENDER_URL_BASE=.*|CARLOS_RENDER_URL_BASE=${url_base}|" \
-                    "${RENDER_ENV}" > "${tmp}"
-                mv "${tmp}" "${RENDER_ENV}"
-                RENDER_TOKEN_NEW=1
+            if [ "${RENDER_PROVISION}" = 1 ]; then
+                # The account and its home exist by now (the accounts and directories
+                # sections above), so the chown below cannot fail with "invalid group".
+                #
+                # The render browser's own settings, including the url-base capability
+                # token. 0640 root:carlos-render: the browser account reads it, and the
+                # `carlos` account deliberately cannot -- just as carlos-render cannot
+                # read carlos.properties. Generated once and never rotated
+                # automatically; rotating means updating eform_pdf_browser_service_url
+                # to match (init-config does that from this file).
+                if [ ! -e "${RENDER_ENV}" ]; then
+                    install -m 0640 -o root -g carlos-render "${SHARE}/skel/renderer.env" "${RENDER_ENV}"
+                fi
+                chown root:carlos-render "${RENDER_ENV}"
+                chmod 0640 "${RENDER_ENV}"
+                # Two cases: the key present-but-empty (sed substitutes) and the key
+                # ABSENT entirely (sed would match nothing and leave no token while
+                # reporting success). The unit refuses to start without one.
+                if ! grep -q '^CARLOS_RENDER_URL_BASE=' "${RENDER_ENV}"; then
+                    # An operator-edited file may lack a trailing newline; appending
+                    # onto its last line would fuse the key into it and this guard
+                    # would re-append on every configure.
+                    [ ! -s "${RENDER_ENV}" ] || [ -z "$(tail -c1 "${RENDER_ENV}")" ] || echo >> "${RENDER_ENV}"
+                    printf 'CARLOS_RENDER_URL_BASE=%s\n' "$(openssl rand -hex 16)" >> "${RENDER_ENV}"
+                    RENDER_TOKEN_NEW=1
+                elif ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
+                    # chromedriver has no authentication and any local uid can reach
+                    # a loopback port, so this prefix is what stops another local
+                    # account driving a browser as carlos-render.
+                    url_base="$(openssl rand -hex 16)"
+                    tmp="$(mktemp "${RENDER_ENV}.XXXXXX")"
+                    chmod 0640 "${tmp}"
+                    chown root:carlos-render "${tmp}"
+                    sed "s|^CARLOS_RENDER_URL_BASE=.*|CARLOS_RENDER_URL_BASE=${url_base}|" \
+                        "${RENDER_ENV}" > "${tmp}"
+                    mv "${tmp}" "${RENDER_ENV}"
+                    RENDER_TOKEN_NEW=1
+                fi
             fi
         fi
 
@@ -1640,7 +1659,7 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # the unit (deb-systemd-invoke skips a unit that is neither enabled nor
     # active). Independent of the credential and schema gates below: the browser
     # holds no credential and serves nothing until the EMR connects to it.
-    if [ "${RENDER_PAYLOAD:-0}" = 1 ]; then
+    if [ "${RENDER_PAYLOAD:-0}" = 1 ] && [ "${RENDER_PROVISION:-1}" = 1 ]; then
         sd_invoke restart carlos-emr-render-browser.service || {
             echo "carlos-emr: WARNING: the eForm render browser service did not start;" >&2
             echo "carlos-emr: WARNING: eForm print/fax/archive will fail until it does" >&2
