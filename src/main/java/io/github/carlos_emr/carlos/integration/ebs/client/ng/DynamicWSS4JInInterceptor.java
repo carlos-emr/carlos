@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.cxf.attachment.AttachmentDeserializer;
 import org.apache.cxf.interceptor.Fault;
+import org.apache.cxf.io.CacheSizeExceededException;
 import org.apache.cxf.io.CachedOutputStream;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
@@ -87,7 +88,13 @@ import java.util.regex.Pattern;
  * {@code attachment-max-size} limit is deliberately not applied: this cache holds the whole
  * entity (every attachment together), so applying it here would cap the total size of a
  * multi-file download. CXF's {@code AttachmentDeserializer} still enforces it per attachment
- * downstream. Only a bounded prefix of at
+ * downstream. The cache as a whole is instead bounded by an aggregate cap on the entity,
+ * {@value #RESPONSE_MAX_SIZE} (default {@link #DEFAULT_MAX_RESPONSE_BYTES}, 1 GiB), read the same
+ * way, so a runaway or hostile response cannot fill the spill directory (or the heap, with a high
+ * threshold) before CXF and WSS4J get to reject it; the copy stops at the first chunk that would
+ * cross the cap, and the partial cache is deleted. The read itself is bounded in time by the
+ * HTTP conduit receive timeout {@link EdtClientBuilder} configures for this client. Only a bounded
+ * prefix of at
  * most {@link #DEFAULT_MAX_SCAN_BYTES} bytes is read into memory for the scan: it must contain
  * the whole plain SOAP envelope, or the MIME preamble, the root part and the delimiter that ends
  * it. Otherwise the message is rejected. Attachment bytes beyond the prefix are never held in
@@ -123,6 +130,30 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * attachments), so 16 MiB is generous while keeping the per-message heap cost bounded.
      */
     static final int DEFAULT_MAX_SCAN_BYTES = 16 * 1024 * 1024;
+
+    /**
+     * Contextual property (message, exchange, endpoint, then bus, like CXF's
+     * {@code attachment-*} settings) that overrides {@link #DEFAULT_MAX_RESPONSE_BYTES}: the
+     * maximum size, in bytes, of the whole response entity accepted into the replay cache. The
+     * value is a {@link Number} or a numeric {@link String} and must be positive.
+     */
+    static final String RESPONSE_MAX_SIZE = "carlos.mcedt.response-max-size";
+
+    /**
+     * Default aggregate cap, in bytes, on the whole response entity (envelope plus every
+     * attachment) copied into the replay cache: 1 GiB.
+     *
+     * <p>This is defence in depth, not a functional limit. CXF's per-attachment
+     * {@code attachment-max-size} cannot be applied to this cache without capping the total size
+     * of a legitimate multi-file download, so without an aggregate cap nothing would stop a
+     * runaway gateway response from filling the spill directory before CXF or WSS4J could reject
+     * it. MCEDT downloads are claims error files, remittance advice and reports, with a small
+     * number of resources per request (see {@link #MAX_ENCRYPTED_KEYS}); even a large RA batch is
+     * orders of magnitude below 1 GiB, so the default does not constrain real downloads while
+     * still bounding the disk used by one in-flight response. Sites that need a different bound
+     * set {@link #RESPONSE_MAX_SIZE}.</p>
+     */
+    static final long DEFAULT_MAX_RESPONSE_BYTES = 1024L * 1024L * 1024L;
 
     /** Fault text for an envelope that does not fit the scan limit; carries no message content. */
     private static final String SCAN_LIMIT_MESSAGE =
@@ -188,7 +219,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * @param message the incoming CXF message
      * @throws Fault if the content cannot be read, is malformed, exceeds
      *               {@link #MAX_ENCRYPTED_KEYS}, or its envelope does not fit the scan limit
-     *               ({@link #DEFAULT_MAX_SCAN_BYTES}); failing here is deliberate so a
+     *               ({@link #DEFAULT_MAX_SCAN_BYTES}), or the whole entity exceeds the response
+     *               size cap ({@link #RESPONSE_MAX_SIZE}); failing here is deliberate so a
      *               misdetected message never reaches WSS4J with a wrong action list
      */
     @Override
@@ -277,8 +309,18 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         boolean truncated;
         InputStream replay = null;
         try {
-            applyCacheSettings(message, cache);
-            is.transferTo(cache);
+            long maxResponseBytes = applyCacheSettings(message, cache);
+            try {
+                // CachedOutputStream checks the cap before writing each chunk, so no byte beyond
+                // it is buffered or spilled.
+                is.transferTo(cache);
+            } catch (CacheSizeExceededException e) {
+                // Stop reading the rest of an oversized entity now; the exchange faults anyway.
+                IOException limit = new IOException("MCEDT response exceeds the " + RESPONSE_MAX_SIZE
+                        + " limit of " + maxResponseBytes + " bytes", e);
+                closeQuietly(is, limit);
+                throw limit;
+            }
             cache.flush();
             long size = cache.size();
             truncated = size > maxScanBytes;
@@ -315,14 +357,15 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * MCEDT download spills to the configured directory at the configured threshold exactly as
      * CXF's own attachment caching would. Mirrors the directory and threshold handling of CXF's
      * {@code AttachmentUtil.setStreamedAttachmentProperties}; {@code attachment-max-size} is
-     * intentionally skipped (see the class Javadoc). The package-private test threshold, when
-     * set, takes precedence.
+     * intentionally skipped (see the class Javadoc); the aggregate {@link #RESPONSE_MAX_SIZE}
+     * cap is applied instead. The package-private test threshold, when set, takes precedence.
      *
-     * @throws IOException if a configured value has the wrong type, is not a number, or names a
-     *                     directory that is not absolute, existing and writable; the text is
-     *                     fixed and carries no message content
+     * @return the aggregate response cap applied to the cache, in bytes
+     * @throws IOException if a configured value has the wrong type, is not a number, is a
+     *                     non-positive response cap, or names a directory that is not absolute,
+     *                     existing and writable; the text is fixed and carries no message content
      */
-    private void applyCacheSettings(Message message, CachedOutputStream cache) throws IOException {
+    private long applyCacheSettings(Message message, CachedOutputStream cache) throws IOException {
         Object directory = message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY);
         if (directory != null) {
             cache.setOutputDir(spillDirectory(directory));
@@ -344,6 +387,33 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         if (cacheThreshold > 0) {
             cache.setThreshold(cacheThreshold);
         }
+
+        long maxResponseBytes = responseMaxSize(message.getContextualProperty(RESPONSE_MAX_SIZE));
+        // Replaces any JVM-wide CachedOutputStream default: this cap is sized for MCEDT batches.
+        cache.setMaxSize(maxResponseBytes);
+        return maxResponseBytes;
+    }
+
+    /** Parses {@link #RESPONSE_MAX_SIZE}; unset means {@link #DEFAULT_MAX_RESPONSE_BYTES}. */
+    private static long responseMaxSize(Object configured) throws IOException {
+        long value;
+        if (configured == null) {
+            return DEFAULT_MAX_RESPONSE_BYTES;
+        } else if (configured instanceof Number number) {
+            value = number.longValue();
+        } else if (configured instanceof String text) {
+            try {
+                value = Long.parseLong(text.trim());
+            } catch (NumberFormatException e) {
+                throw new IOException(RESPONSE_MAX_SIZE + " is not a number", e);
+            }
+        } else {
+            throw new IOException(RESPONSE_MAX_SIZE + " must be a Number or a String");
+        }
+        if (value <= 0) {
+            throw new IOException(RESPONSE_MAX_SIZE + " must be positive");
+        }
+        return value;
     }
 
     /**

@@ -892,6 +892,98 @@ class DynamicWSS4JInInterceptorUnitTest {
         verify(message, never()).setContent(eq(InputStream.class), any());
     }
 
+    // ---------------------------------------------------------------- aggregate response cap
+
+    @Test
+    @DisplayName("should replay the entity intact when it is under the default response cap")
+    void shouldReplayEntityIntact_whenUnderDefaultResponseCap() throws IOException {
+        assertThat(DynamicWSS4JInInterceptor.DEFAULT_MAX_RESPONSE_BYTES)
+                .as("generous enough for multi-file MCEDT batches").isGreaterThanOrEqualTo(512L * 1024 * 1024);
+        byte[] mime = mimeWithBinaryAttachment(3, 256 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent(mime);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+        try (InputStream replay = capturedReplay()) {
+            assertThat(replay.readAllBytes()).isEqualTo(mime);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject an oversized entity, delete the spilled cache and close the source stream")
+    void shouldRejectAndDeleteCache_whenEntityExceedsResponseCap() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 4096, 1024);
+        byte[] mime = mimeWithBinaryAttachment(2, 256 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        when(message.getContextualProperty(DynamicWSS4JInInterceptor.RESPONSE_MAX_SIZE)).thenReturn(64L * 1024);
+        CountingInputStream source = new CountingInputStream(mime);
+        when(message.getContent(InputStream.class)).thenReturn(source);
+        Set<String> before = cacheTempFiles();
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(org.apache.cxf.io.CacheSizeExceededException.class)
+                .hasMessageContaining(DynamicWSS4JInInterceptor.RESPONSE_MAX_SIZE)
+                .hasMessageContaining(String.valueOf(64 * 1024))
+                .hasMessageNotContaining("EK-");
+        assertThat(source.read).as("copy stops at the cap instead of draining the entity")
+                .isLessThan(mime.length);
+        assertThat(source.closed).isTrue();
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
+        assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"number", "string"})
+    @DisplayName("should honour a configured response cap given as a Number or a String")
+    void shouldHonourConfiguredResponseCap_forNumberOrStringValue(String form) {
+        byte[] mime = mimeWithBinaryAttachment(1, 8 * 1024);
+        long cap = mime.length - 1L;
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        when(message.getContextualProperty(DynamicWSS4JInInterceptor.RESPONSE_MAX_SIZE))
+                .thenReturn("number".equals(form) ? (Object) cap : " " + cap + " ");
+        givenContent(mime);
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasMessageContaining("limit of " + cap + " bytes");
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should accept an entity that is exactly the configured response cap")
+    void shouldAcceptEntity_whenExactlyAtResponseCap() throws IOException {
+        byte[] mime = mimeWithBinaryAttachment(2, 8 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        when(message.getContextualProperty(DynamicWSS4JInInterceptor.RESPONSE_MAX_SIZE))
+                .thenReturn(String.valueOf(mime.length));
+        givenContent(mime);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+        try (InputStream replay = capturedReplay()) {
+            assertThat(replay.readAllBytes()).isEqualTo(mime);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "big"})
+    @DisplayName("should reject the message when the configured response cap is not a positive number")
+    void shouldRejectMessage_whenResponseCapIsInvalid(String configured) {
+        when(message.getContextualProperty(DynamicWSS4JInInterceptor.RESPONSE_MAX_SIZE)).thenReturn(configured);
+        givenContent(envelope(1, true));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasMessageContaining(DynamicWSS4JInInterceptor.RESPONSE_MAX_SIZE);
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private void givenContent(String content) {
@@ -939,6 +1031,44 @@ class DynamicWSS4JInInterceptorUnitTest {
         System.arraycopy(attachment, 0, all, head.length, attachment.length);
         System.arraycopy(tail, 0, all, head.length + attachment.length, tail.length);
         return all;
+    }
+
+    /**
+     * Source stream that records how many bytes were read and whether it was closed. It extends
+     * {@link InputStream} directly, not {@link ByteArrayInputStream}, so the interceptor's copy
+     * goes through the default chunked {@code transferTo}, as it does for a real HTTP stream.
+     */
+    private static final class CountingInputStream extends InputStream {
+        private final ByteArrayInputStream delegate;
+        private long read;
+        private boolean closed;
+
+        CountingInputStream(byte[] content) {
+            delegate = new ByteArrayInputStream(content);
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) {
+            int n = delegate.read(b, off, len);
+            if (n > 0) {
+                read += n;
+            }
+            return n;
+        }
+
+        @Override
+        public int read() {
+            int b = delegate.read();
+            if (b >= 0) {
+                read++;
+            }
+            return b;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
     }
 
     private void assertNoWssInterceptorAdded() {
