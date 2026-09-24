@@ -61,7 +61,16 @@
  *        which kept the link here; on Add that booked the old patient under
  *        the old name despite the new text. Picking a patient again relinks.
  *   Page code that writes the fields directly calls rebase() (pasteAppt) or
- *   unlink() (Do Not Book), since assigning .value fires no input event.
+ *   unlink() (Do Not Book), since assigning .value fires no input event. When
+ *   rebase() finds a different patient, the MRP display and the patient
+ *   banners belonged to the old one: without the new patient's metadata the
+ *   MRP is cleared and the banners hidden (onStale); with it, onCommit
+ *   refreshes them.
+ *   Page code that submits programmatically calls submitForm(form), never
+ *   form.submit(): the native method dispatches no submit event, so rule 3
+ *   would otherwise be skipped. requestSubmit() is deliberately not used; it
+ *   would also run the pages' onsubmit handlers (onAdd/onSub), whose
+ *   confirmations and saveTemp branching those call sites bypass today.
  *
  * Plain DOM, no jQuery: the pages feed it from their existing autocomplete
  * callbacks. Exposed as window.CarlosAppointmentPatientLink and as a CommonJS
@@ -110,6 +119,10 @@
      * @param {function(Object)} [options.onCommit]  called with the autocomplete item
      *        whenever a patient is linked, by select or by blur (patient banners)
      * @param {function()} [options.onUnlink]  called when the link is removed
+     * @param {function(?Object)} [options.onStale]  called with the new baseline
+     *        (or null) when rebase() finds the link changed and no patient metadata
+     *        was supplied, so banners describing the old patient must go.
+     *        Defaults to onUnlink.
      * @returns {Object} the controller: highlight, commit, menuClosed, settle,
      *          rebase, unlink, and state() for tests
      */
@@ -119,6 +132,7 @@
         var providerField = options.providerField || null;
         var onCommit = options.onCommit || function () {};
         var onUnlink = options.onUnlink || function () {};
+        var onStale = options.onStale || function () { onUnlink(); };
 
         // The row highlighted with the arrow keys or the mouse but not yet selected.
         var highlighted = null;
@@ -126,15 +140,50 @@
         // made, or null when the appointment is not linked to a patient.
         var linked = null;
 
-        function rebase() {
-            highlighted = null;
+        // The linked demographic_no in the field now, or null for "no patient".
+        // "0" is how a pasted free-text appointment carries "no patient".
+        function fieldLink() {
             var demographicNo = text(demographicField.value);
-            // "0" is how a pasted free-text appointment carries "no patient".
-            linked = demographicNo === '' || demographicNo === '0' ? null : {
+            return demographicNo === '' || demographicNo === '0' ? null : demographicNo;
+        }
+
+        // Record the fields as the baseline, silently. Only for states whose
+        // banners and MRP are already right: page load and commit().
+        function snapshot() {
+            highlighted = null;
+            var demographicNo = fieldLink();
+            linked = demographicNo === null ? null : {
                 value: demographicNo,
                 provider: providerField ? text(providerField.value) : '',
                 formattedName: text(nameField.value)
             };
+        }
+
+        /**
+         * Adopt a name and link that code outside this controller wrote.
+         *
+         * @param {Object} [item] the new patient's autocomplete-shaped metadata
+         *        (provider, alert, status, rosterStatus), when the caller has it
+         */
+        function rebase(item) {
+            var previous = linked ? linked.value : null;
+            var current = fieldLink();
+            if (item && current !== null) {
+                if (providerField) {
+                    providerField.value = text(item.provider);
+                }
+                snapshot();
+                onCommit(item);
+                return;
+            }
+            if (current !== previous && providerField) {
+                // The MRP shown belongs to the previous patient (or to nobody now).
+                providerField.value = '';
+            }
+            snapshot();
+            if (current !== previous) {
+                onStale(linked);
+            }
         }
 
         function highlight(item) {
@@ -148,7 +197,7 @@
                 providerField.value = text(item.provider);
             }
             nameField.value = text(item.formattedName);
-            rebase();
+            snapshot();
             onCommit(item);
         }
 
@@ -207,7 +256,7 @@
 
         nameField.addEventListener('focus', function () {
             // Pick up a link written by page code that did not call rebase().
-            if (text(demographicField.value) !== (linked ? linked.value : '')) {
+            if (fieldLink() !== (linked ? linked.value : null)) {
                 rebase();
             }
         });
@@ -225,7 +274,8 @@
             nameField.form.addEventListener('submit', settle);
         }
 
-        rebase();
+        // The server rendered the initial banners and MRP for this link.
+        snapshot();
 
         var controller = {
             highlight: highlight,
@@ -240,6 +290,9 @@
         };
         if (controllers) {
             controllers.set(nameField, controller);
+            if (nameField.form) {
+                controllers.set(nameField.form, controller);
+            }
         }
         return controller;
     }
@@ -249,12 +302,32 @@
         return controllers && nameField ? (controllers.get(nameField) || null) : null;
     }
 
-    /** Take the field's current name and link as the baseline (after a direct write). */
-    function rebase(nameField) {
+    /**
+     * Take the field's current name and link as the baseline after a direct write
+     * (pasteAppt). Pass the patient's metadata if known; otherwise a changed link
+     * clears the MRP and hides the banners.
+     */
+    function rebase(nameField, item) {
         var controller = forField(nameField);
         if (controller) {
-            controller.rebase();
+            controller.rebase(item);
         }
+    }
+
+    /**
+     * Submit an appointment form from script. Reconciles the patient link first
+     * (settle), then calls the native submit, which fires no submit event and so
+     * would otherwise skip that step. A form with no controller is submitted as is.
+     */
+    function submitForm(form) {
+        var controller = controllers && form ? (controllers.get(form) || null) : null;
+        if (controller) {
+            controller.settle();
+        }
+        // The prototype method, so a form control named "submit" cannot shadow it.
+        var nativeSubmit = typeof HTMLFormElement !== 'undefined'
+            ? HTMLFormElement.prototype.submit : form.submit;
+        nativeSubmit.call(form);
     }
 
     /** Remove the patient link (after page code replaced the name directly). */
@@ -270,6 +343,7 @@
         forField: forField,
         rebase: rebase,
         unlink: unlink,
+        submitForm: submitForm,
         isEscape: isEscape
     };
     if (typeof module !== 'undefined' && module.exports) {

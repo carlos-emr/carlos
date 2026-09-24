@@ -473,7 +473,7 @@ Ontario, Canada
             function onButRepeat() {
                 document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmentrepeatbooking";
                 if (calculateEndTime()) {
-                    document.forms[0].submit();
+                    CarlosAppointmentPatientLink.submitForm(document.forms[0]);
                 }
             }
 
@@ -505,7 +505,9 @@ Ontario, Canada
                 //document.forms[0].chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
                 document.forms[0].keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
                 document.forms[0].demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
-                // The pasted name and link belong together; make them the new baseline.
+                // The pasted name and link belong together; make them the new baseline. ApptData
+                // carries no alert/status/MRP, so a different patient clears the MRP and hides
+                // the previous patient's banners rather than leave them describing the wrong chart.
                 CarlosAppointmentPatientLink.rebase(document.forms[0].keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].reasonCode.value = "<carlos:encode value='<%= apptObj.getReasonCode() %>' context="javaScriptBlock"/>";

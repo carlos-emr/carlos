@@ -45,6 +45,14 @@ function setup({ name = '', demographicNo = '', provider = '' } = {}) {
   nameField.form = form;
   const demographicField = new FakeElement(demographicNo);
   const providerField = new FakeElement(provider);
+  // Native HTMLFormElement.submit(): records what would be posted, and, like
+  // the real method, dispatches no submit event.
+  form.submitted = [];
+  form.submit = function submit() {
+    this.submitted.push({
+      keyword: nameField.value, demographicNo: demographicField.value, mrp: providerField.value,
+    });
+  };
   const commits = [];
   let unlinks = 0;
   const link = PatientLink.create({
@@ -225,6 +233,84 @@ test('rebase() after pasteAppt-style direct writes adopts the pasted patient', (
   assert.equal(page.nameField.value, 'JONES, ANN');
 });
 
+test('rebase() to a different patient without metadata clears the MRP and hides the banners', () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101', provider: 'Dr. Who' });
+  page.nameField.value = 'JONES, ANN';
+  page.demographicField.value = '202';
+  PatientLink.rebase(page.nameField);
+  assert.equal(page.providerField.value, '', "Dr. Who is SMITH's MRP, not JONES's");
+  assert.equal(page.unlinks(), 1, 'onStale defaults to onUnlink, which hides the banners');
+  assert.deepEqual(page.commits, []);
+  assert.equal(page.link.state().linked.value, '202');
+});
+
+test('rebase() to "no patient" (demographic_no 0) hides the banners', () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101', provider: 'Dr. Who' });
+  page.nameField.value = 'Staff lunch';
+  page.demographicField.value = '0';
+  PatientLink.rebase(page.nameField);
+  assert.equal(page.providerField.value, '');
+  assert.equal(page.unlinks(), 1);
+  assert.equal(page.link.state().linked, null);
+});
+
+test('rebase() with the pasted patient metadata refreshes the banners via onCommit', () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101', provider: 'Dr. Who' });
+  page.nameField.value = 'JONES, ANN';
+  page.demographicField.value = '202';
+  PatientLink.rebase(page.nameField, JONES);
+  assert.equal(page.providerField.value, 'Dr. No');
+  assert.deepEqual(page.commits, [JONES]);
+  assert.equal(page.unlinks(), 0);
+});
+
+test('rebase() to the same patient leaves the MRP and banners alone', () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101', provider: 'Dr. Who' });
+  PatientLink.rebase(page.nameField);
+  assert.equal(page.providerField.value, 'Dr. Who');
+  assert.equal(page.unlinks(), 0);
+  assert.deepEqual(page.commits, []);
+});
+
+test('onStale, when given, is called instead of onUnlink with the new baseline', () => {
+  const nameField = new FakeElement('SMITH, JOHN');
+  const demographicField = new FakeElement('101');
+  const stale = [];
+  let unlinks = 0;
+  PatientLink.create({
+    nameField, demographicField, onStale: (linked) => stale.push(linked), onUnlink: () => { unlinks += 1; },
+  });
+  demographicField.value = '202';
+  PatientLink.rebase(nameField);
+  assert.equal(stale.length, 1);
+  assert.equal(stale[0].value, '202');
+  assert.equal(unlinks, 0);
+});
+
+test('submitForm() reconciles a hand-edited name before the native submit', () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101', provider: 'Dr. Who' });
+  type(page.nameField, 'Staff lunch');
+  PatientLink.submitForm(page.form);
+  assert.deepEqual(page.form.submitted, [{ keyword: 'Staff lunch', demographicNo: '', mrp: '' }]);
+  assert.equal(page.unlinks(), 1);
+});
+
+test('submitForm() commits a highlighted row before the native submit', () => {
+  const page = setup();
+  type(page.nameField, 'jo');
+  page.link.highlight(JONES);
+  PatientLink.submitForm(page.form);
+  assert.deepEqual(page.form.submitted, [{ keyword: 'JONES, ANN', demographicNo: '202', mrp: 'Dr. No' }]);
+});
+
+test('submitForm() still submits a form with no controller', () => {
+  const form = new FakeElement();
+  let submitted = 0;
+  form.submit = () => { submitted += 1; };
+  PatientLink.submitForm(form);
+  assert.equal(submitted, 1);
+});
+
 test('a link written by page code without rebase() is picked up on focus', () => {
   const page = setup();
   page.nameField.value = 'JONES, ANN';
@@ -278,6 +364,27 @@ for (const page of ['addappointment.jsp', 'editappointment.jsp']) {
     assert.match(source, /CarlosAppointmentPatientLink\.rebase\(/, 'pasteAppt must rebase');
     assert.doesNotMatch(source, /\("#demographic_no"\)\.val\(ui\.item/,
       'the link must only be written by the shared controller');
+  });
+}
+
+/*
+ * HTMLFormElement.submit() dispatches no submit event, so a raw call skips the
+ * reconcile step and can post a hand-edited name with the old demographic_no.
+ * Every scripted submission must go through submitForm(). The expected counts
+ * are the call sites audited for #3883, so a new one has to be looked at.
+ */
+const SUBMIT_SITES = { 'addappointment.jsp': 1, 'editappointment.jsp': 6 };
+
+for (const [page, expected] of Object.entries(SUBMIT_SITES)) {
+  test(`${page} has no scripted submit that bypasses the patient-link controller`, () => {
+    const source = fs.readFileSync(path.join(JSP_DIR, page), 'utf8');
+    const raw = source.split('\n')
+      .map((line, index) => ({ line, number: index + 1 }))
+      .filter(({ line }) => /\.submit\s*\(\s*\)|\.requestSubmit\s*\(|\$\([^)]*\)\.submit\s*\(|\.trigger\(\s*['"]submit['"]/.test(line));
+    assert.deepEqual(raw.map(({ number, line }) => `${number}: ${line.trim()}`), [],
+      'use CarlosAppointmentPatientLink.submitForm(form) instead');
+    const routed = source.match(/CarlosAppointmentPatientLink\.submitForm\(/g) || [];
+    assert.equal(routed.length, expected, `${page} scripted submit sites changed; audit and update SUBMIT_SITES`);
   });
 }
 

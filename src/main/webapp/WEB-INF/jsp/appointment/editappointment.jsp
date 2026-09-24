@@ -388,7 +388,7 @@
             function onButRepeat() {
                 if (calculateEndTime()) {
                     document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking";
-                    document.forms[0].submit();
+                    CarlosAppointmentPatientLink.submitForm(document.forms[0]);
                 }
             }
 
@@ -446,7 +446,7 @@
                 }
                 document.EDITAPPT.displaymode.value = 'Update Appt';
                 document.EDITAPPT.buttoncancel.value = 'Cancel Appt';
-                document.EDITAPPT.submit();
+                CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);
             }
 
             function upCaseCtrl(ctrl) {
@@ -619,7 +619,9 @@
                 document.EDITAPPT.chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
-                // The pasted name and link belong together; make them the new baseline.
+                // The pasted name and link belong together; make them the new baseline. ApptData
+                // carries no alert/status/MRP, so a different patient clears the MRP and hides
+                // the previous patient's banners rather than leave them describing the wrong chart.
                 CarlosAppointmentPatientLink.rebase(document.EDITAPPT.keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
@@ -634,7 +636,7 @@
             <% } %>
 
             function onCut() {
-                document.EDITAPPT.submit();
+                CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);
             }
 
 
@@ -1475,7 +1477,7 @@
                     <input type="button"
                            name="noShowButton" id="noShowButton" class="btn btn-secondary"
                            value="<fmt:message key="appointment.editappointment.btnNoShow"/>"
-                           onClick="document.EDITAPPT.action='<%=request.getContextPath() %>/appointment/UpdateRecord';document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
+                           onClick="document.EDITAPPT.action='<%=request.getContextPath() %>/appointment/UpdateRecord';document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);">
                     <br>
                     <a class="btn"
                        onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentviewrecordcard?appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
@@ -1484,10 +1486,10 @@
                        onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=850,width=1000,resizable=yes,location=no,scrollbars=yes,menubars=no,toolbars=no')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');CarlosAppointmentPatientLink.submitForm(document.forms['EDITAPPT']);">
                         <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:message key="appointment.appointmentedit.cut"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/appointmentcopyrecord';document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/appointmentcopyrecord';document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');CarlosAppointmentPatientLink.submitForm(document.forms['EDITAPPT']);">
                         <i class="fa-solid fa-copy"></i>&nbsp;<fmt:message key="appointment.appointmentedit.copy"/> </a>
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="button" id="repeatButton" class="btn"
