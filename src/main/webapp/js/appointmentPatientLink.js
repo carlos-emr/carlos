@@ -269,9 +269,26 @@
             }
         });
         nameField.addEventListener('blur', settle);
-        // Enter with the menu closed submits without a blur, so reconcile there too.
-        if (nameField.form) {
-            nameField.form.addEventListener('submit', settle);
+        // A submit that does not blur the field first (implicit submission, or
+        // requestSubmit()) must reconcile too, and BEFORE the form's inline
+        // onsubmit="return onAdd()" / "return onSub()" runs: those read #keyword
+        // and #demographic_no (onAdd's "." no-show rule, for one). An inline
+        // handler is registered when the attribute is parsed, long before this
+        // code, so a plain listener on the form would run after it. A capture
+        // listener on the document runs in the capture phase, which always
+        // precedes the target phase the form's own handlers run in.
+        var form = nameField.form;
+        if (form) {
+            var doc = form.ownerDocument;
+            if (doc && typeof doc.addEventListener === 'function') {
+                doc.addEventListener('submit', function (event) {
+                    if (event.target === form) {
+                        settle();
+                    }
+                }, true);
+            } else {
+                form.addEventListener('submit', settle, true);
+            }
         }
 
         // The server rendered the initial banners and MRP for this link.

@@ -21,16 +21,36 @@ class FakeElement {
     this.form = null;
   }
 
-  addEventListener(type, listener) {
-    (this.listeners[type] = this.listeners[type] || []).push(listener);
+  addEventListener(type, listener, capture = false) {
+    (this.listeners[type] = this.listeners[type] || []).push({ listener, capture: Boolean(capture) });
   }
 
   fire(type, props = {}) {
-    const event = { type, ...props };
-    for (const listener of this.listeners[type] || []) {
+    const event = { type, target: this, ...props };
+    for (const { listener } of this.listeners[type] || []) {
       listener(event);
     }
     return event;
+  }
+}
+
+/**
+ * Dispatch a submit event the way the DOM does: capture-phase listeners on the
+ * document first, then the form's own listeners in registration order. The
+ * form's inline onsubmit attribute is registered at parse time, before any
+ * script, so setup() adds it first -- which is exactly why a plain listener
+ * added by the controller would run after it.
+ */
+function dispatchSubmit(form) {
+  const event = { type: 'submit', target: form };
+  for (const { listener, capture } of form.ownerDocument.listeners.submit || []) {
+    if (capture) listener(event);
+  }
+  for (const { listener } of form.listeners.submit || []) {
+    listener(event);
+  }
+  for (const { listener, capture } of form.ownerDocument.listeners.submit || []) {
+    if (!capture) listener(event);
   }
 }
 
@@ -41,6 +61,7 @@ const JONES = { value: '202', provider: 'Dr. No', formattedName: 'JONES, ANN' };
 
 function setup({ name = '', demographicNo = '', provider = '' } = {}) {
   const form = new FakeElement();
+  form.ownerDocument = new FakeElement();
   const nameField = new FakeElement(name);
   nameField.form = form;
   const demographicField = new FakeElement(demographicNo);
@@ -53,6 +74,12 @@ function setup({ name = '', demographicNo = '', provider = '' } = {}) {
       keyword: nameField.value, demographicNo: demographicField.value, mrp: providerField.value,
     });
   };
+  // Stand-in for onsubmit="return onAdd()": records what the page's own submit
+  // handler would read. Registered before create(), as the parsed attribute is.
+  form.inlineSaw = [];
+  form.addEventListener('submit', () => {
+    form.inlineSaw.push({ keyword: nameField.value, demographicNo: demographicField.value });
+  });
   const commits = [];
   let unlinks = 0;
   const link = PatientLink.create({
@@ -191,15 +218,48 @@ test('an edit that ends at the linked name (modulo whitespace) keeps the link', 
 test('Enter-submit without a blur still reconciles the link', () => {
   const page = setup({ name: 'SMITH, JOHN', demographicNo: '101' });
   type(page.nameField, 'JONES');
-  page.form.fire('submit');
+  dispatchSubmit(page.form);
   assert.equal(page.demographicField.value, '');
+});
+
+test("the form's inline onsubmit handler sees the reconciled link, not the stale one", () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101' });
+  type(page.nameField, '.late');
+  dispatchSubmit(page.form);
+  assert.deepEqual(page.form.inlineSaw, [{ keyword: '.late', demographicNo: '' }],
+    "onAdd's no-show rule must see demographic_no already cleared");
+});
+
+test("the form's inline onsubmit handler sees a highlighted row already committed", () => {
+  const page = setup();
+  type(page.nameField, 'jo');
+  page.link.highlight(JONES);
+  dispatchSubmit(page.form);
+  assert.deepEqual(page.form.inlineSaw, [{ keyword: 'JONES, ANN', demographicNo: '202' }]);
+});
+
+test('submit events for another form on the page are ignored', () => {
+  const page = setup({ name: 'SMITH, JOHN', demographicNo: '101' });
+  type(page.nameField, 'JONES');
+  const other = new FakeElement();
+  other.ownerDocument = page.form.ownerDocument;
+  dispatchSubmit(other);
+  assert.equal(page.demographicField.value, '101', 'only this form\'s submit reconciles');
+});
+
+test('the controller registers its submit listener in the capture phase on the document', () => {
+  const page = setup();
+  const docListeners = page.form.ownerDocument.listeners.submit || [];
+  assert.equal(docListeners.length, 1);
+  assert.equal(docListeners[0].capture, true);
+  assert.equal(page.form.listeners.submit.length, 1, 'only the inline stand-in is on the form itself');
 });
 
 test('submit with a highlighted row commits it', () => {
   const page = setup();
   type(page.nameField, 'jo');
   page.link.highlight(JONES);
-  page.form.fire('submit');
+  dispatchSubmit(page.form);
   assert.equal(page.demographicField.value, '202');
 });
 

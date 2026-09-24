@@ -2136,6 +2136,24 @@
       ]
     },
     {
+      "name": "appointment-patient-typeahead",
+      "script": "scripts/appointment-patient-typeahead-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_NO",
+        "APPOINTMENT_PROVIDER_NO",
+        "APPOINTMENT_DAYS_AHEAD",
+        "TYPEAHEAD_SEARCH_TERM"
+      ]
+    },
+    {
       "name": "prevention-add-data",
       "script": "scripts/prevention-add-data-playwright-checks.js",
       "tiers": [
