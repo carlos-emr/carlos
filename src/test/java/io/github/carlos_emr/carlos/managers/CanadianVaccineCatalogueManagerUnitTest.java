@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -45,6 +46,9 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.junit.jupiter.api.AfterEach;
@@ -291,6 +295,43 @@ class CanadianVaccineCatalogueManagerUnitTest extends CarlosUnitTestBase {
                     .hasMessage("missing required sec object (_admin)");
 
             verify(manager, never()).fetchBundleJson(anyString());
+        }
+
+        @Test
+        void shouldSerializeUpdates_soAStaleDownloadCannotCommitLast() throws Exception {
+            CountDownLatch firstFetching = new CountDownLatch(1);
+            CountDownLatch releaseFirst = new CountDownLatch(1);
+            AtomicInteger concurrentFetches = new AtomicInteger();
+            AtomicInteger maxConcurrent = new AtomicInteger();
+            doAnswer(call -> {
+                maxConcurrent.accumulateAndGet(concurrentFetches.incrementAndGet(), Math::max);
+                firstFetching.countDown();
+                releaseFirst.await(5, TimeUnit.SECONDS);
+                concurrentFetches.decrementAndGet();
+                return fixture;
+            }).when(manager).fetchBundleJson(anyString());
+
+            Thread first = new Thread(this::updateQuietly);
+            Thread second = new Thread(this::updateQuietly);
+            first.start();
+            firstFetching.await(5, TimeUnit.SECONDS);
+            second.start();
+            Thread.sleep(200);
+            releaseFirst.countDown();
+            first.join(5000);
+            second.join(5000);
+
+            assertThat(maxConcurrent.get()).isEqualTo(1);
+            verify(manager, times(2)).fetchBundleJson(anyString());
+            verify(transactionManager, times(2)).commit(any());
+        }
+
+        private void updateQuietly() {
+            try {
+                manager.update(admin);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
         }
 
         @Test

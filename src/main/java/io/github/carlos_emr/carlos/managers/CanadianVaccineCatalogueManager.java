@@ -41,6 +41,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.config.ConnectionConfig;
@@ -120,6 +121,12 @@ public class CanadianVaccineCatalogueManager {
     private final LookupListItemDao lookupListItemDao;
     private final SecurityInfoManager securityInfoManager;
     private final TransactionTemplate transactionTemplate;
+    /**
+     * Serializes updates end to end (download and replace). Without it two administrators could
+     * download different NVC versions and the older one could commit last. A later caller waits,
+     * then downloads afresh, so the last install is always the newest bundle.
+     */
+    private final ReentrantLock updateLock = new ReentrantLock();
 
     public CanadianVaccineCatalogueManager(CVCMedicationDao medicationDao,
                                            CVCMedicationLotNumberDao lotNumberDao,
@@ -177,8 +184,14 @@ public class CanadianVaccineCatalogueManager {
             throw new SecurityException("missing required sec object (_admin)");
         }
         String url = getCVCURL() + NVC_BUNDLE_PATH;
-        NvcCatalogue catalogue = NvcBundleParser.parse(fetchBundleJson(url));
-        transactionTemplate.executeWithoutResult(status -> replaceCatalogue(loggedInInfo, catalogue));
+        NvcCatalogue catalogue;
+        updateLock.lock();
+        try {
+            catalogue = NvcBundleParser.parse(fetchBundleJson(url));
+            transactionTemplate.executeWithoutResult(status -> replaceCatalogue(loggedInInfo, catalogue));
+        } finally {
+            updateLock.unlock();
+        }
         logger.info("NVC catalogue {} installed: {} generics, {} tradenames, {} lots",
                 catalogue.version(), catalogue.generics().size(), catalogue.tradenames().size(),
                 catalogue.products().stream().mapToInt(p -> p.lots().size()).sum());
