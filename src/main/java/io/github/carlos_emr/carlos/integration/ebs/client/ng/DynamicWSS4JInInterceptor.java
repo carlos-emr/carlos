@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.cxf.attachment.AttachmentDeserializer;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.io.CachedOutputStream;
@@ -23,6 +24,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -314,17 +318,14 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * intentionally skipped (see the class Javadoc). The package-private test threshold, when
      * set, takes precedence.
      *
-     * @throws IOException if a configured value has the wrong type or is not a number; the text
-     *                     is fixed and carries no message content
+     * @throws IOException if a configured value has the wrong type, is not a number, or names a
+     *                     directory that is not absolute, existing and writable; the text is
+     *                     fixed and carries no message content
      */
     private void applyCacheSettings(Message message, CachedOutputStream cache) throws IOException {
         Object directory = message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY);
-        if (directory instanceof File dir) {
-            cache.setOutputDir(dir);
-        } else if (directory instanceof String dir) {
-            cache.setOutputDir(new File(dir));
-        } else if (directory != null) {
-            throw new IOException("attachment-directory must be a File or a String");
+        if (directory != null) {
+            cache.setOutputDir(spillDirectory(directory));
         }
 
         Object threshold = message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MEMORY_THRESHOLD);
@@ -349,6 +350,38 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * Scans the cached prefix: an empty (whitespace-only) entity means "no encryption",
      * otherwise the envelope is located and its Security header counted.
      */
+    /**
+     * Validates the configured {@code attachment-directory}. The value is operator configuration
+     * (CXF bus, endpoint or message properties set in code or Spring config), never derived from
+     * the response, but it decides where cached MCEDT responses (claims and report payloads) are
+     * written, so it must be an absolute, existing, writable directory. A misconfigured value rejects the message
+     * rather than silently spilling to a different location than the operator intended.
+     */
+    // Operator-configured CXF property, never request-derived; the path is normalised and must be
+    // an absolute, existing, writable directory before it is used.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "attachment-directory is an operator-configured CXF property, never request-derived; "
+                    + "it is normalised and must be an absolute, existing, writable directory")
+    private static File spillDirectory(Object configured) throws IOException {
+        Path dir;
+        try {
+            if (configured instanceof File file) {
+                dir = file.toPath();
+            } else if (configured instanceof String text) {
+                dir = Path.of(text.trim());
+            } else {
+                throw new IOException("attachment-directory must be a File or a String");
+            }
+        } catch (InvalidPathException e) {
+            throw new IOException("attachment-directory is not a valid path", e);
+        }
+        dir = dir.normalize();
+        if (!dir.isAbsolute() || !Files.isDirectory(dir) || !Files.isWritable(dir)) {
+            throw new IOException("attachment-directory must be an absolute, existing, writable directory");
+        }
+        return dir.toFile();
+    }
+
     private static EncryptionDetectionResult detectInPrefix(byte[] prefix, boolean truncated,
                                                             String contentType)
             throws IOException, XMLStreamException {

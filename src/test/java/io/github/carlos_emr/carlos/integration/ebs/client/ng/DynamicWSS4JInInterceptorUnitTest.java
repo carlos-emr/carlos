@@ -857,6 +857,41 @@ class DynamicWSS4JInInterceptorUnitTest {
         verify(message, never()).setContent(eq(InputStream.class), any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"relative/spill", "does-not-exist"})
+    @DisplayName("should reject the message when attachment-directory is relative or does not exist")
+    void shouldRejectMessage_whenAttachmentDirectoryIsInvalid(String relativeName, @TempDir File base) {
+        // Relative as given, and an absolute path under the temp dir that was never created.
+        for (Object configured : new Object[] {relativeName, new File(base, relativeName).getAbsolutePath(),
+                new File(base, relativeName)}) {
+            Message msg = mock(Message.class);
+            when(msg.getInterceptorChain()).thenReturn(chain);
+            when(msg.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY)).thenReturn(configured);
+            when(msg.getContent(InputStream.class))
+                    .thenReturn(new ByteArrayInputStream(envelope(1, true).getBytes(StandardCharsets.UTF_8)));
+
+            assertThatThrownBy(() -> interceptor.handleMessage(msg))
+                    .isInstanceOf(Fault.class)
+                    .hasMessageContaining("attachment-directory must be an absolute, existing, writable directory");
+            verify(msg, never()).setContent(eq(InputStream.class), any());
+        }
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should reject the message when attachment-directory names a regular file")
+    void shouldRejectMessage_whenAttachmentDirectoryIsAFile(@TempDir File base) throws IOException {
+        File notADirectory = new File(base, "spill.txt");
+        assertThat(notADirectory.createNewFile()).isTrue();
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY))
+                .thenReturn(notADirectory.getAbsolutePath());
+        givenContent(envelope(1, true));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private void givenContent(String content) {
