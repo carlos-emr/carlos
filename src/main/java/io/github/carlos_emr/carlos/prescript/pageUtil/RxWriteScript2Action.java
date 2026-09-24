@@ -1021,6 +1021,10 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     public String iterateStash() {
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // No Rx session for this request's patient means nothing is staged.
+        if (bean == null) {
+            return null;
+        }
         List<RxPrescriptionData.Prescription> listP = Arrays.asList(bean.getStash());
         if (listP.size() == 0) {
             return null;
@@ -1639,7 +1643,8 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     public String checkNoStashItem() throws IOException, Exception {
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
-        int n = bean.getStashSize();
+        // No Rx session for this request's patient: report an empty stash rather than a 500.
+        int n = bean == null ? 0 : bean.getStashSize();
         HashMap hm = new HashMap();
         hm.put("NoStashItem", n);
         ObjectNode jsonObject = objectMapper.valueToTree(hm);

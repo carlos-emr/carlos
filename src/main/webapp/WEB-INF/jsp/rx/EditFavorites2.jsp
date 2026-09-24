@@ -258,11 +258,11 @@
                                                 style = "style='background-color:#F5F5F5'";
                                         %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line1">
-                                            <td colspan=2><b>Favorite Name:</b><input type=hidden
+                                            <td colspan=2><label for="fldFavoriteName<%= i%>"><b>Favorite Name:</b></label><input type=hidden
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
-                                                <input type=text size="50" name="fldFavoriteName<%= i%>"
-                                                       class=tblRow size=80 value="<%= f.getFavoriteName() %>"/>&nbsp;&nbsp;&nbsp;
+                                                <input type=text size="50" name="fldFavoriteName<%= i%>" id="fldFavoriteName<%= i%>"
+                                                       class=tblRow size=80 value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
                                                 <a id="saveSuccess_<%=i%>" style="display:none;color:red">Changes

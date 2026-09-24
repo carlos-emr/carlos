@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
@@ -168,9 +169,9 @@
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line1">
                                                     <td colspan="2">
-                                                        <b>Favorite Name:</b>
+                                                        <label for="fldFavoriteName${i}"><b>Favorite Name:</b></label>
                                                         <input type="hidden" name="fldFavoriteId${i}" value="${fav.id}"/>
-                                                        <input type="text" size="50" name="fldFavoriteName${i}" class="tblRow" value="${fav.favoriteName}"/>
+                                                        <input type="text" size="50" name="fldFavoriteName${i}" id="fldFavoriteName${i}" class="tblRow" value="${carlos:forHtmlAttribute(fav.favoriteName)}"/>
                                                     </td>
                                                 </tr>
                                                 
@@ -180,10 +181,10 @@
                                                 </tr>
 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line3">
-                                                    <td><b>Take:</b>
-                                                        <input type="text" name="fldTakeMin${i}" class="tblRow" size="3" value="${fav.takeMin}"/>
-                                                        <span>to</span>
-                                                        <input type="text" name="fldTakeMax${i}" class="tblRow" size="3" value="${fav.takeMax}"/>
+                                                    <td><label for="fldTakeMin${i}"><b>Take:</b></label>
+                                                        <input type="text" name="fldTakeMin${i}" id="fldTakeMin${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMin)}"/>
+                                                        <label for="fldTakeMax${i}">to</label>
+                                                        <input type="text" name="fldTakeMax${i}" id="fldTakeMax${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMax)}"/>
                                                     </td>
                                                 </tr>
                                             </c:forEach>
