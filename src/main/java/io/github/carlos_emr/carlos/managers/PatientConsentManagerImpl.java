@@ -410,6 +410,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             return true;
         }
 
+        // The consent date is restamped to when the patient confirmed. Consent keeps no history,
+        // so the audit entry carries the date the implied consent was first recorded.
+        Date priorConsentDate = consent.getConsentDate();
         Date now = new Date(System.currentTimeMillis());
         consent.setExplicit(true);
         consent.setConsentDate(now);
@@ -417,7 +420,8 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
         consentDao.merge(consent);
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.recordExplicitConsent",
-                " Demographic: " + demographic_no + " ConsentId: " + consent.getId());
+                " Demographic: " + demographic_no + " ConsentId: " + consent.getId()
+                        + " implied->explicit PriorConsentDate: " + priorConsentDate);
         return true;
     }
 

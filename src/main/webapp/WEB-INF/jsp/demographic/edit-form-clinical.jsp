@@ -974,7 +974,7 @@
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    Consented${ patientConsent.explicit ? '' : ' (implied)' }:${carlos:forHtml(patientConsent.consentDate)}
+                                                                                                    Consented<c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>:${carlos:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
@@ -992,6 +992,7 @@
                                                                                            name="${ consentType.type }"
                                                                                            id="optin_${ consentType.type }"
                                                                                            value="0"
+                                                                                           onchange="setExplicitConsentBox('${carlos:forJavaScriptAttribute(consentType.type)}', true)"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and not patientConsent.optout }">
                                                                                                 ${carlos:forHtml('checked')}
                                                                                             </c:if>
@@ -1001,6 +1002,7 @@
                                                                                            name="${ consentType.type }"
                                                                                            id="optout_${ consentType.type }"
                                                                                            value="1"
+                                                                                           onchange="setExplicitConsentBox('${carlos:forJavaScriptAttribute(consentType.type)}', false)"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and patientConsent.optout }">
                                                                                                 ${carlos:forHtml('checked')}
                                                                                             </c:if>
@@ -1012,14 +1014,17 @@
                                                                                            value="<fmt:message key='demographic.demographiceditdemographic.clear'/>"/>
 
                                                                                         <%-- #3858: an implied record is upgraded only by this deliberate box, never by
-                                                                                             re-saving the pre-checked Opt-in radio, which every demographic save posts. --%>
-                                                                                    <c:if test="${ not empty patientConsent and not patientConsent.optout and not patientConsent.explicit }">
+                                                                                             re-saving the pre-checked Opt-in radio, which every demographic save posts.
+                                                                                             Shown for any implied record, so an implied opt-out switched to Opt-in can be
+                                                                                             confirmed in the same save; enabled only while Opt-in is selected. --%>
+                                                                                    <c:if test="${ not empty patientConsent and not patientConsent.explicit }">
                                                                                         <div class="recordExplicitConsent">
                                                                                             <input type="checkbox"
                                                                                                    name="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                                    id="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"
-                                                                                                   value="1"/>
-                                                                                            <label for="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}">Patient confirmed consent directly</label>
+                                                                                                   value="1"
+                                                                                                    <c:if test="${ patientConsent.optout }">disabled</c:if>/>
+                                                                                            <label for="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"><fmt:message key="demographic.demographiceditdemographic.confirmExplicitConsent"/></label>
                                                                                         </div>
                                                                                     </c:if>
 

@@ -547,5 +547,25 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).containsExactly(emailOptOut, smsOptIn);
         }
+
+        @Test
+        @DisplayName("should return an empty list when the patient has no consent records")
+        void shouldReturnEmptyList_whenNoRecords() {
+            when(mockConsentDao.findByDemographic(100)).thenReturn(java.util.List.of());
+
+            assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 100)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should throw when read privilege denied")
+        void shouldThrow_whenReadPrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 100))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Unauthorised Access");
+            verifyNoInteractions(mockConsentDao);
+        }
     }
 }

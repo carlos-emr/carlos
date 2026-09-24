@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -254,6 +255,54 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
 
             verify(consentManager, never()).addEditConsentRecord(any(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
             verify(consentManager, never()).deleteConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should do nothing with the box when no choice is posted")
+        void shouldIgnoreConfirmationBox_whenNoChoicePosted() {
+            request.setParameter("recordExplicit_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager, never()).addEditConsentRecord(any(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should accept only the value 1 for the box")
+        void shouldIgnoreConfirmationBox_forValueOtherThanOne() {
+            request.setParameter("email_consent", "0");
+            request.setParameter("recordExplicit_email_consent", "on");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should not upgrade when the choice is unrecognised even with the box ticked")
+        void shouldNotRecordExplicitConsent_whenChoiceUnrecognised() {
+            request.setParameter("email_consent", "yes");
+            request.setParameter("recordExplicit_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should log when a requested upgrade was not recorded")
+        void shouldLogWarning_whenExplicitConsentNotRecorded() {
+            request.setParameter("email_consent", "0");
+            request.setParameter("recordExplicit_email_consent", "1");
+            when(consentManager.recordExplicitConsent(mockLoggedInInfo, 42, 7)).thenReturn(false);
+
+            try (LogCapture capture = LogCapture.forLogger(DemographicUpdate2Action.class)) {
+                DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                assertThat(capture.messages())
+                        .anySatisfy(message -> assertThat(message).contains("explicit consent was requested but not recorded"));
+            }
         }
 
         @Test
