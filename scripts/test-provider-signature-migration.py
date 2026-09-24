@@ -13,7 +13,7 @@ import unittest
 import uuid
 
 MIGRATION = (Path(__file__).resolve().parents[1] /
-             'database/mysql/migration/common/V1.0.23.1__enforce_provider_signature_identity.sql').read_text()
+             'database/mysql/migration/common/V1.0.30__enforce_provider_signature_identity.sql').read_text()
 
 
 class SignatureIdentityMigration(unittest.TestCase):
@@ -76,6 +76,12 @@ class SignatureIdentityMigration(unittest.TestCase):
         self.run_sql(MIGRATION, success=False)
         self.assertEqual(self.snapshot(), before)
 
+    def test_conflicting_trailing_space_preserves_source(self):
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099','Doctor ')")
+        before = self.snapshot()
+        self.run_sql(MIGRATION, success=False)
+        self.assertEqual(self.snapshot(), before)
+
     def test_conflicting_provider_case_preserves_source(self):
         self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('t099','Doctor')")
         before = self.snapshot()
@@ -94,7 +100,6 @@ class SignatureIdentityMigration(unittest.TestCase):
         before = self.snapshot()
         self.run_sql(MIGRATION)
         self.assertEqual(self.snapshot(), before)
-
 
     def test_identical_unassigned_rows_survive_assigned_deduplication(self):
         self.run_sql("INSERT INTO providerExt VALUES (NULL,'One'),(NULL,'One'),"
