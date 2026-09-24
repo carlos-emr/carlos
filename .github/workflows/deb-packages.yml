@@ -161,8 +161,20 @@ jobs:
           else
             state=done
             missing_pkgs=""
-            for pkg in $(sed -n 's/^Package: *//p' debian/control); do
-              if ! printf '%s\n' "$info" | tail -n +2 | grep -q "^${pkg}_${version_re}_[a-z0-9]*\.deb\$"; then
+            # Package and Architecture pairs from the tag's control file, so
+            # each asset must also carry its declared architecture: a
+            # carlos-emr _all.deb is not the _amd64 package that carries the
+            # renderer. A wildcard architecture (any, linux-any) falls back to
+            # any suffix.
+            pairs="$(awk '/^Package:/{p=$2} /^Architecture:/{if (p != "") print p ":" $2; p=""}' debian/control)"
+            for pair in $pairs; do
+              pkg="${pair%%:*}"
+              arch="${pair#*:}"
+              case "$arch" in
+                *any*) arch_re='[a-z0-9]*' ;;
+                *) arch_re="$arch" ;;
+              esac
+              if ! printf '%s\n' "$info" | tail -n +2 | grep -q "^${pkg}_${version_re}_${arch_re}\.deb\$"; then
                 state=missing
                 missing_pkgs="$missing_pkgs $pkg"
               fi
