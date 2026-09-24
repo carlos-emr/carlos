@@ -298,9 +298,9 @@ public class CanadianVaccineCatalogueManager {
                 "Routes of administration from the National Vaccine Catalogue", catalogue.routes());
 
         userPropertyDao.saveProp(CVC_UPDATED_PROP, new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()));
-        if (catalogue.version() != null) {
-            userPropertyDao.saveProp(CVC_VERSION_PROP, catalogue.version());
-        }
+        // Always overwritten: an unversioned bundle must not leave the previous install's
+        // version on display (a blank value reads back as "no version").
+        userPropertyDao.saveProp(CVC_VERSION_PROP, catalogue.version() == null ? "" : catalogue.version());
         if (userPropertyDao.getProp(CVC_FIRST_DATE_PROP) == null) {
             userPropertyDao.saveProp(CVC_FIRST_DATE_PROP, String.valueOf(System.currentTimeMillis()));
         }

@@ -30,6 +30,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -174,6 +177,17 @@ class NvcBundleParserUnitTest {
     }
 
     @Test
+    void shouldSkipTradename_whenLinkedGenericIsNotInstalled() throws Exception {
+        // Drop Xanaflu's generic (Influenza trivalent) from the Generic ValueSet.
+        NvcCatalogue parsed = NvcBundleParser.parse(removeGenericConcept(fixtureJson, INFLUENZA_TRIVALENT_GENERIC));
+
+        assertThat(parsed.tradenames()).extracting(NvcCatalogue.Vaccine::snomedConceptId)
+                .containsExactly(COMIRNATY_TRADENAME);
+        assertThat(parsed.products()).extracting(NvcCatalogue.Product::snomedCode)
+                .containsExactly(COMIRNATY_TRADENAME);
+    }
+
+    @Test
     void shouldRejectBundle_whenRootIsNotTheNvcCollection() {
         String otherBundle = fixtureJson.replaceFirst("\"id\": \"NVC\"", "\"id\": \"SomethingElse\"");
         String searchSet = fixtureJson.replaceFirst("\"type\": \"collection\"", "\"type\": \"searchset\"");
@@ -189,6 +203,25 @@ class NvcBundleParserUnitTest {
             "{\"resourceType\":\"Bundle\",\"type\":\"collection\"}"})
     void shouldRejectInput_whenNotAUsableNvcBundle(String body) {
         assertThatThrownBy(() -> NvcBundleParser.parse(body)).isInstanceOf(NvcBundleException.class);
+    }
+
+    /** The fixture with one generic concept removed from the Generic ValueSet. */
+    private static String removeGenericConcept(String json, String code) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(json);
+        for (JsonNode entry : root.get("entry")) {
+            JsonNode resource = entry.get("resource");
+            if ("Generic".equals(resource.path("id").asText())) {
+                ArrayNode includes =
+                        (ArrayNode) resource.get("compose").get("include");
+                for (int i = includes.size() - 1; i >= 0; i--) {
+                    if (code.equals(includes.get(i).get("concept").get(0).get("code").asText())) {
+                        includes.remove(i);
+                    }
+                }
+            }
+        }
+        return mapper.writeValueAsString(root);
     }
 
     private static NvcCatalogue.Product product(String snomedCode) {

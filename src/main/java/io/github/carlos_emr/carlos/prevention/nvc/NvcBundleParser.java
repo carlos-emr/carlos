@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.prevention.nvc;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -45,8 +46,12 @@ import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
 import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceDesignationComponent;
 import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
 
+import org.apache.logging.log4j.Logger;
+
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Parses the NVC v2 FHIR R4 {@code Bundle/NVC} download into an {@link NvcCatalogue}.
@@ -99,6 +104,7 @@ public final class NvcBundleParser {
     private static final int MAX_DIN_DIGITS = 9;
 
     private static final FhirContext FHIR_R4 = FhirContext.forR4();
+    private static final Logger LOGGER = MiscUtils.getLogger();
 
     private NvcBundleParser() {
     }
@@ -164,15 +170,29 @@ public final class NvcBundleParser {
             throw new NvcBundleException("NVC Generic ValueSet contains no active concepts");
         }
 
+        Set<String> genericIds = new HashSet<>();
+        for (NvcCatalogue.Vaccine generic : generics) {
+            genericIds.add(generic.snomedConceptId());
+        }
+
         List<NvcCatalogue.Vaccine> tradenames = new ArrayList<>();
         Map<String, ProductBuilder> products = new LinkedHashMap<>();
+        int unlinked = 0;
         for (ConceptReferenceComponent concept : activeConcepts(tradenameSet)) {
+            String parent = firstCode(concept.getExtension(), EXT_LINKED_GENERIC);
+            if (parent == null || !genericIds.contains(parent)) {
+                // Every brand the Prevention module offers must resolve to an installed generic:
+                // add-by-lot and the tradename picker dereference the parent. None of the
+                // September 2026 bundle's 229 active tradenames hit this.
+                unlinked++;
+                continue;
+            }
             String synonym = firstNonBlank(designation(concept, SNOMED_SYNONYM), concept.getDisplay());
             tradenames.add(new NvcCatalogue.Vaccine(
                     concept.getCode(),
                     synonym,
                     firstNonBlank(designation(concept, NVC_PUBLIC_PICKLIST), synonym),
-                    firstCode(concept.getExtension(), EXT_LINKED_GENERIC)));
+                    parent));
 
             ProductBuilder product = new ProductBuilder(concept.getCode(), synonym);
             product.din = din(firstCode(concept.getExtension(), EXT_DIN));
@@ -183,6 +203,9 @@ public final class NvcBundleParser {
         if (tradenames.isEmpty()) {
             // Replacing with no brands would also delete every product and lot.
             throw new NvcBundleException("NVC Tradename ValueSet contains no active concepts");
+        }
+        if (unlinked > 0) {
+            LOGGER.warn("Skipped {} active NVC tradename(s) with no installed generic parent", unlinked);
         }
 
         CodeSystem lotSystem = subsets.get("CodeSystem/" + LOT_CODE_SYSTEM_ID) instanceof CodeSystem cs ? cs : null;
