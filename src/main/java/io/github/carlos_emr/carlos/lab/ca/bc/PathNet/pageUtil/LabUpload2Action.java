@@ -115,43 +115,30 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 uploadContent = uploadStream.readAllBytes();
             }
 
-            int check = FileUploadCheck.addFile(filename, new ByteArrayInputStream(uploadContent), proNo);
-            if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                Connection connection = new Connection();
-                ArrayList<String> messages = connection.Retrieve(new ByteArrayInputStream(uploadContent));
-                if (messages != null) {
-                    try {
-                        int size = messages.size();
-
-                        String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-                        for (int i = 0; i < size; i++) {
-                            if (_logger.isDebugEnabled()) {
-                                _logger.debug("Call Message Constructor for message # " + i);
-                            }
-                            Message message = new Message(now);
-                            if (_logger.isDebugEnabled()) {
-                                _logger.debug("Call Message.Parse for message # " + i);
-                            }
-                            message.Parse(messages.get(i));
-                            if (_logger.isDebugEnabled()) {
-                                _logger.debug("Call Message.ToDatabase for message # " + i);
-                            }
-                            message.ToDatabase();
-                        }
-                        outcome = "success";
-                    } catch (Exception ex) {
-                        //success = false; //<- for future when transactional
-                        _logger.error("Error - oscar.PathNet.Contorller - Message: " + ex.getMessage() + " = " + ex.toString(), ex);
-                        outcome = OUTCOME_EXCEPTION;
-                    }
-                    //connection.Acknowledge(success);
-                }
+            // storeIfNew records the checksum in the same transaction as the messages' rows, so a
+            // failure leaves neither and a retry stores the batch; a real duplicate is refused. It
+            // holds the checksum lock throughout, so a concurrent upload of the same file is never
+            // told uploadedPreviously for a batch that then rolls back.
+            FileUploadCheck.StoreOutcome stored;
+            try {
+                stored = FileUploadCheck.storeIfNew(filename, () -> new ByteArrayInputStream(uploadContent), proNo,
+                        checksumId -> storeMessages(uploadContent));
+            } catch (FileUploadCheck.LookupFailedException lookupEx) {
+                _logger.error("Could not check a PathNet upload's checksum: {}", LogSafe.exceptionTrace(lookupEx.getCause()));
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
+                return SUCCESS;
+            } catch (Exception ex) {
+                _logger.error("PathNet upload could not be stored: {}", LogSafe.exceptionTrace(ex));
+                stored = null;
+            }
+            if (stored == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+                outcome = "uploadedPreviously";
+            } else {
+                outcome = stored == FileUploadCheck.StoreOutcome.STORED ? "success" : OUTCOME_EXCEPTION;
                 //SAVE FILE TO DISK
                 if (!saveFile(new ByteArrayInputStream(uploadContent), filename)) {
                     outcome = OUTCOME_EXCEPTION;
                 }
-            } else {
-                outcome = "uploadedPreviously";
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -163,6 +150,29 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
 
     public LabUpload2Action() {
+    }
+
+    /**
+     * Parses every message in the upload and writes it to the database. Runs inside
+     * {@link FileUploadCheck#storeIfNew}'s transaction, so the rows of every message and the
+     * checksum commit together; a failing message rolls back the ones before it.
+     *
+     * @param uploadContent the upload's bytes
+     * @return {@code false} when the upload holds no messages, which rejects it
+     * @throws Exception when a message cannot be parsed or stored
+     */
+    private static boolean storeMessages(byte[] uploadContent) throws Exception {
+        ArrayList<String> messages = new Connection().Retrieve(new ByteArrayInputStream(uploadContent));
+        if (messages == null) {
+            return false;
+        }
+        String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        for (int i = 0; i < messages.size(); i++) {
+            Message message = new Message(now);
+            message.Parse(messages.get(i));
+            message.ToDatabase();
+        }
+        return true;
     }
 
 

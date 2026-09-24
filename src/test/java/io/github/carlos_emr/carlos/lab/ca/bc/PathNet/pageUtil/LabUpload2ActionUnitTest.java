@@ -24,8 +24,10 @@ package io.github.carlos_emr.carlos.lab.ca.bc.PathNet.pageUtil;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Connection;
+import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.Message;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.ByteArrayInputStream;
@@ -47,6 +49,8 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -67,6 +71,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private LoggedInInfo info;
     private SecurityInfoManager security;
+    private RecordingTransactionManager transactions;
 
     @BeforeEach
     void setUpAction() {
@@ -78,6 +83,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, security);
         when(security.hasPrivilege(eq(info), eq("_lab"), eq("w"), isNull())).thenReturn(true);
+        transactions = new RecordingTransactionManager();
+        registerMock(PlatformTransactionManager.class, transactions);
     }
 
     @Test
@@ -100,11 +107,13 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedConstruction<Connection> connections = mockConstruction(Connection.class, (connection, context) ->
                      when(connection.Retrieve(any(InputStream.class))).thenAnswer(invocation -> {
                          InputStream parserStream = invocation.getArgument(0);
                          assertThat(parserStream.readAllBytes()).isEqualTo("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
+                         // Messages are stored in the transaction holding the upload's checksum row.
+                         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
                          return new ArrayList<String>();
                      }))) {
             paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile()))
@@ -113,18 +122,25 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             CarlosProperties properties = mock(CarlosProperties.class);
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)))
                     .thenAnswer(invocation -> {
-                        InputStream hashStream = invocation.getArgument(1);
+                        InputStream hashStream = invocation.getArgument(0);
                         assertThat(hashStream.readAllBytes()).isEqualTo("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
                         // Rewrite the temp upload after hashing: parse and archive must still see the hashed bytes.
                         Files.writeString(uploaded, "MSH|replaced after duplicate check");
+                        return false;
+                    });
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenAnswer(invocation -> {
+                        InputStream recordStream = invocation.getArgument(1);
+                        assertThat(recordStream.readAllBytes()).isEqualTo("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
                         return 1;
                     });
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("outcome")).isEqualTo("success");
+            assertThat(transactions.commits).isEqualTo(1);
             assertThat(connections.constructed()).hasSize(1);
             try (var children = Files.list(documentDir)) {
                 var archived = children.toList();
@@ -143,7 +159,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedConstruction<Connection> connections = mockConstruction(Connection.class)) {
             paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile()))
                     .thenReturn(uploaded.toFile());
@@ -151,17 +167,81 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             CarlosProperties properties = mock(CarlosProperties.class);
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
-                    .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(true);
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("outcome")).isEqualTo("uploadedPreviously");
             assertThat(connections.constructed()).isEmpty();
+            assertThat(transactions.begun).isZero();
             try (var children = Files.list(documentDir)) {
                 assertThat(children.toList()).isEmpty();
             }
             assertThat(opened).hasSize(1).allMatch(TrackedStream::isClosed);
+        }
+    }
+
+    @Test
+    void shouldRollBackChecksumAndReportException_whenMessageCannotBeStored() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("broken.hl7"), "MSH|broken PathNet content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class, (connection, context) ->
+                     when(connection.Retrieve(any(InputStream.class))).thenReturn(new ArrayList<>(List.of("MSH|1", "MSH|2"))));
+             MockedConstruction<Message> messages = mockConstruction(Message.class, (message, context) -> {
+                 if (context.getCount() == 2) {
+                     doThrow(new java.sql.SQLException("result insert failed")).when(message).ToDatabase();
+                 }
+             })) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // The first message's rows and the checksum roll back with the failing second message,
+            // so a retry stores the batch instead of being answered uploadedPreviously.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            assertThat(messages.constructed()).hasSize(2);
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+            try (var children = Files.list(documentDir)) {
+                assertThat(children.toList()).hasSize(1);
+            }
+        }
+    }
+
+    @Test
+    void shouldRollBackChecksumAndReportException_whenUploadHoldsNoMessages() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("empty.hl7"), "not a PathNet batch");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class, (connection, context) ->
+                     when(connection.Retrieve(any(InputStream.class))).thenReturn(null))) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // Before, an unreadable batch kept its checksum and left the outcome empty.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
         }
     }
 

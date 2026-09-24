@@ -46,6 +46,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * @author Jay Gallagher
@@ -82,20 +85,129 @@ public final class FileUploadCheck {
      * {@link #addFile}.
      *
      * <p>For a caller that has already confirmed the content is new and records it inside its own
-     * transaction, so the checksum commits or rolls back together with what the file produced.</p>
+     * transaction, so the checksum commits or rolls back together with what the file produced.
+     * {@link #storeIfNew} is that caller.</p>
      *
      * @param name the file name to record
      * @param is the file content; read to the end but not closed
      * @param provider the uploading provider number
+     * @return the new checksum row's id
      * @throws IOException if the content cannot be read; a database failure propagates too
      */
-    public static void recordFile(String name, InputStream is, String provider) throws IOException {
+    public static int recordFile(String name, InputStream is, String provider) throws IOException {
         io.github.carlos_emr.carlos.commn.model.FileUploadCheck f = new io.github.carlos_emr.carlos.commn.model.FileUploadCheck();
         f.setProviderNo(provider);
         f.setFilename(name);
         f.setMd5sum(contentKey(is));
         f.setDateTime(new Date());
         SpringUtils.getBean(FileUploadCheckDao.class).persist(f);
+        return f.getId();
+    }
+
+    /** What {@link #storeIfNew} did with an upload. */
+    public enum StoreOutcome {
+        /** The content was new; its checksum and everything the store step wrote committed together. */
+        STORED,
+        /** A checksum for the content was already recorded; nothing was stored. */
+        ALREADY_RECORDED,
+        /** The store step rejected the content; its writes and the checksum were rolled back. */
+        REJECTED
+    }
+
+    /** Opens the upload's content; called once for the duplicate check and once to record it. */
+    @FunctionalInterface
+    public interface ContentSource {
+        InputStream open() throws IOException;
+    }
+
+    /** Stores an upload inside {@link #storeIfNew}'s transaction. */
+    @FunctionalInterface
+    public interface ContentStore {
+        /**
+         * @param checksumId the id of the checksum row recorded for this content, uncommitted
+         * @return {@code false} to reject the content, rolling back the checksum and every write
+         * @throws Exception to fail the upload; the transaction rolls back and the exception propagates
+         */
+        boolean store(int checksumId) throws Exception;
+    }
+
+    /** The duplicate lookup itself failed, so nothing is known about the content and a retry is safe. */
+    public static final class LookupFailedException extends RuntimeException {
+        LookupFailedException(Throwable cause) {
+            super("The upload's checksum could not be checked", cause);
+        }
+    }
+
+    // Carries a checked exception from the store step out of TransactionTemplate's callback.
+    private static final class StoreFailure extends RuntimeException {
+        StoreFailure(Exception cause) {
+            super(cause);
+        }
+    }
+
+    /**
+     * Stores an upload once: its checksum exists exactly when what it produced does.
+     *
+     * <p>{@link #addFile} commits the checksum before the caller parses and saves the file, so a
+     * failure part-way either leaves a checksum that refuses every retry as a duplicate, or must be
+     * undone by a separate cleanup that can itself fail. Here the checksum is recorded with
+     * {@link #recordFile} in the same transaction as the store step's writes: both commit, or both
+     * roll back, including when the step rejects the content or throws. A commit whose outcome is
+     * unknown likewise left both or neither.</p>
+     *
+     * <p>The lookup and the transaction run while holding this class's monitor, which
+     * {@link #addFile} (static synchronized) also takes. No other upload in the same application
+     * instance can therefore see this content's checksum before it commits, or claim the same
+     * content in between. The lock does not reach across servers. The transaction reads at
+     * READ_COMMITTED, as {@code ProviderLabRouting.routeMagic} requires of the transaction it joins
+     * under MariaDB's snapshot isolation.</p>
+     *
+     * @param name the file name to record with the checksum
+     * @param content opens the upload's content
+     * @param provider the uploading provider number
+     * @param store writes what the upload produces, through DAOs that join the transaction
+     * @return what happened to the upload
+     * @throws LookupFailedException if the duplicate lookup fails; nothing was recorded or stored
+     * @throws Exception whatever the store step or the transaction threw; nothing was left recorded,
+     *         except that if the commit itself failed, its outcome is unknown: the checksum and the
+     *         store step's writes committed together or not at all
+     */
+    public static StoreOutcome storeIfNew(String name, ContentSource content, String provider, ContentStore store)
+            throws Exception {
+        synchronized (FileUploadCheck.class) {
+            boolean recorded;
+            try (InputStream in = content.open()) {
+                recorded = isFileRecorded(in);
+            } catch (IOException | RuntimeException lookupFailure) {
+                throw new LookupFailedException(lookupFailure);
+            }
+            if (recorded) {
+                return StoreOutcome.ALREADY_RECORDED;
+            }
+            TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+            transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+            try {
+                return transaction.execute(status -> {
+                    try {
+                        int checksumId;
+                        try (InputStream in = content.open()) {
+                            checksumId = recordFile(name, in, provider);
+                        }
+                        if (store.store(checksumId)) {
+                            return StoreOutcome.STORED;
+                        }
+                        status.setRollbackOnly();
+                        return StoreOutcome.REJECTED;
+                    } catch (RuntimeException unchecked) {
+                        throw unchecked;
+                    } catch (Exception checked) {
+                        throw new StoreFailure(checked);
+                    }
+                });
+            } catch (StoreFailure failure) {
+                throw (Exception) failure.getCause();
+            }
+        }
     }
 
     // FindSecBugs WEAK_MESSAGE_DIGEST_MD5: MD5 is this class's duplicate-detection key (addFile

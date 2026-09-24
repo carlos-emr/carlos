@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.BufferedReader;
@@ -47,12 +48,7 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionSystemException;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
-import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -120,7 +116,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         AtomicReference<BufferedReader> parserReader = new AtomicReference<>();
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class, (parser, context) -> {
                  doAnswer(invocation -> {
@@ -144,7 +140,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                         assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
                         InputStream stream = invocation.getArgument(1);
                         assertThat(stream.readAllBytes()).isEqualTo("MSH|fixture CML content".getBytes(StandardCharsets.UTF_8));
-                        return null;
+                        return 1;
                     });
             jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
 
@@ -175,7 +171,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
@@ -204,7 +200,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
@@ -222,25 +218,27 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRecordNothing_whenParsingFails() throws Exception {
+    void shouldRollBackChecksum_whenParsingFails() throws Exception {
         Path uploaded = Files.writeString(root.resolve("malformed.hl7"), "not a CML report");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class, (parser, context) ->
                      doThrow(new IllegalStateException("unparseable")).when(parser).parse(any(BufferedReader.class)))) {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
             checksums.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            checksums.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998"))).thenReturn(1);
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
-            // Parsing only reads the file, so no checksum exists to refuse a corrected retry.
+            // The parse runs in the transaction holding the checksum, so its failure takes the
+            // checksum with it and a corrected retry is not refused.
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
-            checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), anyString()), never());
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
             verify(parsers.constructed().get(0), never()).save(any());
-            assertThat(transactions.begun).isZero();
             jdbc.verifyNoInteractions();
         }
     }
@@ -252,7 +250,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Connection database = mock(Connection.class);
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class, (parser, context) ->
                      doThrow(new IllegalStateException("result insert failed")).when(parser).save(any(Connection.class)))) {
@@ -261,7 +259,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             checksums.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
                     .thenAnswer(invocation -> {
                         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-                        return null;
+                        return 1;
                     });
             jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
 
@@ -284,7 +282,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         transactions.failBegin = true;
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
@@ -294,70 +292,34 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), anyString()), never());
-            verify(parsers.constructed().get(0), never()).save(any());
+            assertThat(parsers.constructed()).isEmpty();
             jdbc.verifyNoInteractions();
         }
     }
 
     @Test
-    void shouldAttemptNoCleanup_whenCommitOutcomeIsUnknown() throws Exception {
+    void shouldReportException_whenCommitOutcomeIsUnknown() throws Exception {
         Path uploaded = Files.writeString(root.resolve("unconfirmed-commit.hl7"), "MSH|unconfirmed commit");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         Connection database = mock(Connection.class);
         transactions.failCommit = true;
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
             checksums.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            checksums.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998"))).thenReturn(1);
             jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
-            // Checksum and lab rows share the commit, so they stand or fall together; the action
-            // touches neither afterwards, and a retry sees a consistent answer either way.
+            // Checksum and lab rows share the commit, so they stand or fall together and a retry
+            // sees a consistent answer either way; there is nothing to clean up afterwards.
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
             verify(parsers.constructed().get(0)).save(database);
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")));
-            checksums.verify(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)));
-            checksums.verifyNoMoreInteractions();
-        }
-    }
-
-    /** Runs Spring's real commit/rollback lifecycle, including synchronizations, with no database. */
-    private static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
-        private int begun;
-        private int commits;
-        private int rollbacks;
-        private boolean failCommit;
-        private boolean failBegin;
-
-        @Override
-        protected Object doGetTransaction() {
-            return new Object();
-        }
-
-        @Override
-        protected void doBegin(Object transaction, TransactionDefinition definition) {
-            if (failBegin) {
-                throw new CannotCreateTransactionException("database unavailable");
-            }
-            begun++;
-        }
-
-        @Override
-        protected void doCommit(DefaultTransactionStatus status) {
-            if (failCommit) {
-                throw new TransactionSystemException("commit acknowledgement lost");
-            }
-            commits++;
-        }
-
-        @Override
-        protected void doRollback(DefaultTransactionStatus status) {
-            rollbacks++;
         }
     }
 

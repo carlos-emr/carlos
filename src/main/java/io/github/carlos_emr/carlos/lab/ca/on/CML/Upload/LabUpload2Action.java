@@ -50,8 +50,6 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -141,29 +139,27 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         return SUCCESS;
                     }
 
-                    // FileUploadCheck.addFile is static synchronized, and every lab uploader claims
-                    // checksums through it. Holding the same monitor from the duplicate check until
-                    // the lab and its checksum have committed or rolled back means no other upload
-                    // in this application instance can see, or claim, this content in between.
-                    // It is a lock within one instance, not across servers.
-                    synchronized (FileUploadCheck.class) {
-                        boolean recorded;
-                        try {
-                            recorded = isRecordedUpload(localFile);
-                        } catch (IOException | RuntimeException lookupEx) {
-                            // Nothing is known about this content, so the client may retry.
-                            _logger.error("Could not check a CML upload's checksum: {}",
-                                    LogSafe.exceptionTrace(lookupEx));
-                            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_DATABASE_NOT_STARTED);
-                            return SUCCESS;
-                        }
-                        if (recorded) {
-                            outcome = OUTCOME_UPLOADED_PREVIOUSLY;
-                        } else {
-                            storeLab(localFile, filename, proNo);
-                            outcome = "uploaded";
-                        }
+                    // storeIfNew records the checksum in the same transaction as the parsed lab, so
+                    // a failure leaves neither and a retry stores the lab, while a real duplicate is
+                    // refused. It holds the checksum lock throughout, so no concurrent upload is told
+                    // uploadedPreviously for a lab that is still in flight.
+                    FileUploadCheck.StoreOutcome stored;
+                    try {
+                        stored = FileUploadCheck.storeIfNew(filename, () -> new FileInputStream(localFile), proNo,
+                                checksumId -> {
+                                    storeLab(localFile);
+                                    return true;
+                                });
+                    } catch (FileUploadCheck.LookupFailedException lookupEx) {
+                        // Nothing is known about this content, so the client may retry.
+                        _logger.error("Could not check a CML upload's checksum: {}",
+                                LogSafe.exceptionTrace(lookupEx.getCause()));
+                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_DATABASE_NOT_STARTED);
+                        return SUCCESS;
                     }
+                    outcome = stored == FileUploadCheck.StoreOutcome.ALREADY_RECORDED
+                            ? OUTCOME_UPLOADED_PREVIOUSLY
+                            : "uploaded";
                 } else {
                     outcome = OUTCOME_ACCESS_DENIED;  //file could not save
                     MiscUtils.getLogger().debug("Could not save file :" + filename + " to disk");
@@ -187,38 +183,19 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     /**
-     * Parses a new lab, then records its checksum and stores it in one transaction.
-     *
-     * <p>The checksum is what later uploads of the same bytes are refused by, so it must exist
-     * exactly when the lab does. The parser writes the report, patient, routing and result rows
-     * through separate DAOs; they and the checksum row all join this transaction. A failure
-     * part-way rolls every one of them back, so a retry stores the lab, and a commit whose outcome
-     * is unknown left either all of them or none. Parsing only reads the file, so a parse failure
-     * records nothing.</p>
+     * Parses the archived lab and saves it. Runs inside {@link FileUploadCheck#storeIfNew}'s
+     * transaction: the parser writes the report, patient, routing and result rows through separate
+     * DAOs, which join it together with the checksum row, so a failure part-way rolls all of them back.
      *
      * @param localFile the archived upload
-     * @param filename the file name recorded with the checksum
-     * @param providerNo the uploading provider number
-     * @throws Exception when parsing or storing fails; nothing is left recorded
+     * @throws Exception when parsing or saving fails
      */
-    private static void storeLab(File localFile, String filename, String providerNo) throws Exception {
+    private static void storeLab(File localFile) throws Exception {
         ABCDParser abc = new ABCDParser();
         try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
             abc.parse(in);
         }
-        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
-                .executeWithoutResult(status -> {
-                    recordChecksum(localFile, filename, providerNo);
-                    saveParsedLab(abc);
-                });
-    }
-
-    private static void recordChecksum(File localFile, String filename, String providerNo) {
-        try (InputStream in = new FileInputStream(localFile)) {
-            FileUploadCheck.recordFile(filename, in, providerNo);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        saveParsedLab(abc);
     }
 
     // The parser only reads patients and providers through this connection; every row it writes
@@ -230,21 +207,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             throw new IllegalStateException("CML lab save failed", e);
         }
     }
-
-    /**
-     * Confirms that a file's content is already recorded by {@link FileUploadCheck}.
-     *
-     * @param localFile the archived upload whose content is looked up
-     * @return {@code true} only when a checksum row exists for the file's content
-     * @throws IOException if the archived file cannot be read; a database failure
-     *         propagates too, so neither is mistaken for a duplicate
-     */
-    private static boolean isRecordedUpload(File localFile) throws IOException {
-        try (InputStream in = new FileInputStream(localFile)) {
-            return FileUploadCheck.isFileRecorded(in);
-        }
-    }
-
 
     /**
      * Save a Jakarta FormFile to a preconfigured place.

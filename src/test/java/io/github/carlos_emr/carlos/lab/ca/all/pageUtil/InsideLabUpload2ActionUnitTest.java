@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.InputStream;
@@ -43,6 +44,8 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,6 +66,7 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private LoggedInInfo info;
     private SecurityInfoManager security;
+    private RecordingTransactionManager transactions;
 
     @BeforeEach
     void setUpAction() {
@@ -76,6 +80,8 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, security);
         when(security.hasPrivilege(eq(info), eq("_lab"), eq("w"), isNull())).thenReturn(true);
+        transactions = new RecordingTransactionManager();
+        registerMock(PlatformTransactionManager.class, transactions);
     }
 
     @Test
@@ -95,17 +101,23 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Path source = Files.writeString(root.resolve("source.hl7"), "MSH|inside-lab fixture");
         MessageHandler handler = mock(MessageHandler.class);
         when(handler.parse(eq(info), eq("InsideLabUpload2Action"), anyString(), eq(1), eq("192.0.2.10")))
-                .thenReturn("success");
+                .thenAnswer(invocation -> {
+                    // The handler stores the lab in the transaction holding its checksum row (id 1).
+                    assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                    assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
+                    return "success";
+                });
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<HandlerClassFactory> handlers = mockStatic(HandlerClassFactory.class)) {
             paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(source.toFile()))
                     .thenAnswer(invocation -> Files.newInputStream(source));
             CarlosProperties properties = mock(CarlosProperties.class);
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
                     .thenReturn(1);
             handlers.when(() -> HandlerClassFactory.getHandler("HL7")).thenReturn(handler);
 
@@ -113,6 +125,8 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
             Map<?, ?> statuses = (Map<?, ?>) request.getAttribute("filesStatusMap");
             assertThat(statuses.get("source.hl7").toString()).isEqualTo("COMPLETED");
+            assertThat(transactions.commits).isEqualTo(1);
+            duplicateCheck.verify(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), anyString()), never());
             try (var children = Files.list(documentDir)) {
                 var archived = children.toList();
                 assertThat(archived).hasSize(1);
@@ -126,22 +140,82 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Path source = Files.writeString(root.resolve("duplicate.hl7"), "MSH|duplicate fixture");
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
-             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<HandlerClassFactory> handlers = mockStatic(HandlerClassFactory.class)) {
             paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(source.toFile()))
                     .thenAnswer(invocation -> Files.newInputStream(source));
             CarlosProperties properties = mock(CarlosProperties.class);
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
-            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
-                    .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(true);
 
             assertThat(execute(source)).isEqualTo(ActionSupport.SUCCESS);
 
             Map<?, ?> statuses = (Map<?, ?>) request.getAttribute("filesStatusMap");
             assertThat(statuses.get("duplicate.hl7").toString()).isEqualTo("EXISTS");
             handlers.verifyNoInteractions();
+            assertThat(transactions.begun).isZero();
         }
+    }
+
+    @Test
+    void shouldRollBackChecksumAndMarkInvalid_whenHandlerRejectsLab(@TempDir Path documentDir) throws Exception {
+        Path source = Files.writeString(root.resolve("rejected.hl7"), "MSH|rejected fixture");
+        MessageHandler handler = mock(MessageHandler.class);
+        when(handler.parse(eq(info), eq("InsideLabUpload2Action"), anyString(), eq(1), eq("192.0.2.10"))).thenReturn(null);
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedStatic<HandlerClassFactory> handlers = mockStatic(HandlerClassFactory.class)) {
+            stubSavedUpload(paths, configuration, source, documentDir);
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+            handlers.when(() -> HandlerClassFactory.getHandler("HL7")).thenReturn(handler);
+
+            assertThat(execute(source)).isEqualTo(ActionSupport.SUCCESS);
+
+            // A handler that gives up leaves no checksum behind (it rolled back with any partial
+            // rows), so the file is not reported "Already uploaded" when it is sent again.
+            Map<?, ?> statuses = (Map<?, ?>) request.getAttribute("filesStatusMap");
+            assertThat(statuses.get("rejected.hl7").toString()).isEqualTo("INVALID");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+        }
+    }
+
+    @Test
+    void shouldRollBackChecksumAndMarkFailed_whenHandlerThrows(@TempDir Path documentDir) throws Exception {
+        Path source = Files.writeString(root.resolve("broken.hl7"), "MSH|broken fixture");
+        MessageHandler handler = mock(MessageHandler.class);
+        when(handler.parse(eq(info), eq("InsideLabUpload2Action"), anyString(), eq(1), eq("192.0.2.10")))
+                .thenThrow(new IllegalStateException("routing failed"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedStatic<HandlerClassFactory> handlers = mockStatic(HandlerClassFactory.class)) {
+            stubSavedUpload(paths, configuration, source, documentDir);
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+            handlers.when(() -> HandlerClassFactory.getHandler("HL7")).thenReturn(handler);
+
+            assertThat(execute(source)).isEqualTo(ActionSupport.SUCCESS);
+
+            Map<?, ?> statuses = (Map<?, ?>) request.getAttribute("filesStatusMap");
+            assertThat(statuses.get("broken.hl7").toString()).isEqualTo("FAILED");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+        }
+    }
+
+    private void stubSavedUpload(MockedStatic<PathValidationUtils> paths, MockedStatic<CarlosProperties> configuration,
+                                 Path source, Path documentDir) {
+        paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(source.toFile()))
+                .thenAnswer(invocation -> Files.newInputStream(source));
+        CarlosProperties properties = mock(CarlosProperties.class);
+        configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
     }
 
     private String execute(Path source) {
