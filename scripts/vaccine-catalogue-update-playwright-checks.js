@@ -29,7 +29,8 @@
  *      and RouteOfAdmin lookup lists, and the install bookkeeping.
  *   3. A second update replaces rather than accumulates: catalogue and lookup
  *      list row counts are unchanged.
- *   4. The patient Preventions page switches to the catalogue picker: typing a
+ *   4. The patient Preventions page adds the catalogue picker beside the brand
+ *      picker (which must remain): typing a
  *      real NVC lot number offers that lot, and choosing it opens Add Prevention
  *      for the lot's generic with its brand pre-selected and the lot's expiry
  *      date filled. Nothing is saved to the chart.
@@ -195,6 +196,9 @@ async function main() {
     await assertNotErrorPage(prevention, 'patient Preventions page');
     const picker = prevention.locator('#lotNumberToAdd2');
     await picker.waitFor({ state: 'visible', timeout: 20000 });
+    // Additive: installing the catalogue must not take the curated brand picker away.
+    assert(await prevention.locator('#immunization').isVisible(),
+      'the brand picker (#immunization) disappeared once the catalogue was installed');
     await picker.pressSequentially(lotNumber, { delay: 40 });
     const choice = prevention.locator('#lotNumberToAdd2_choices .ac-item').first();
     await choice.waitFor({ state: 'visible', timeout: 20000 });
