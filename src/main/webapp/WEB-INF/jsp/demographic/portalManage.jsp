@@ -36,7 +36,7 @@
     explanation, or a portal failure) is shown as the server worded it.
 
     Request attributes: portalDemographicNo, portalCanInvite, portalCanRecover, portalCanRevoke, portalCanSetAccess,
-    portalCanUnlock.
+    portalCanUnlock, and, when portalCanInvite, portalConsentName, portalConsentStatus and portalConsentLabelKey.
 
     @since 2026-09-22
 --%>
@@ -113,13 +113,32 @@
                                 <option value="sms" disabled><fmt:message key="demographic.portal.invites.channel.sms"/></option>
                             </select>
                         </div>
-                        <div class="portal-check">
-                            <input type="checkbox" id="portal-consent-override" name="consentOverride" value="true">
-                            <label for="portal-consent-override"><fmt:message key="demographic.portal.invites.consentOverride"/></label>
-                            <fmt:message key="demographic.portal.invites.consentReason" var="consentReasonLabel"/>
-                            <input type="text" id="portal-consent-reason" name="consentOverrideReason" maxlength="255" hidden
-                                   placeholder="${carlos:forHtmlAttribute(consentReasonLabel)}"
-                                   aria-label="${carlos:forHtmlAttribute(consentReasonLabel)}">
+                        <div class="portal-consent">
+                            <span class="portal-consent__label"><fmt:message key="demographic.portal.invites.consentOnChart"/></span>
+                            <span id="portal-consent-status" data-status="${carlos:forHtmlAttribute(portalConsentStatus)}">
+                                <c:if test="${not empty portalConsentLabelKey}"><fmt:message key="${portalConsentLabelKey}"/></c:if>
+                                <c:if test="${not empty portalConsentName}"><span class="portal-muted">(<carlos:encode value="${portalConsentName}"/>)</span></c:if>
+                            </span>
+                            <%-- The email layer sends on an opt-in, and on an unknown only with a documented override;
+                                 it refuses an opt-out, or any email when consent tracking is not configured. --%>
+                            <c:choose>
+                                <c:when test="${portalConsentStatus == 'UNKNOWN'}">
+                                    <div class="portal-check">
+                                        <input type="checkbox" id="portal-consent-override" name="consentOverride" value="true">
+                                        <label for="portal-consent-override"><fmt:message key="demographic.portal.invites.consentOverride"/></label>
+                                        <fmt:message key="demographic.portal.invites.consentReason" var="consentReasonLabel"/>
+                                        <input type="text" id="portal-consent-reason" name="consentOverrideReason" maxlength="255" hidden
+                                               placeholder="${carlos:forHtmlAttribute(consentReasonLabel)}"
+                                               aria-label="${carlos:forHtmlAttribute(consentReasonLabel)}">
+                                    </div>
+                                </c:when>
+                                <c:when test="${portalConsentStatus == 'OPT_OUT'}">
+                                    <div class="portal-error"><fmt:message key="demographic.portal.invites.consent.optOut"/></div>
+                                </c:when>
+                                <c:when test="${portalConsentStatus == 'NOT_CONFIGURED'}">
+                                    <div class="portal-error"><fmt:message key="demographic.portal.invites.consent.notConfigured"/></div>
+                                </c:when>
+                            </c:choose>
                         </div>
                         <div>
                             <button type="submit" id="portal-invite" class="portal-button portal-button--primary"><fmt:message key="demographic.portal.invites.invite"/></button>

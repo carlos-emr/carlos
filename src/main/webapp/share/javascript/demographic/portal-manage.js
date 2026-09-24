@@ -420,8 +420,9 @@
     }
 
     function inviteParams(params) {
+        // The override is offered only when the chart records consent as unknown.
         var override = document.getElementById('portal-consent-override');
-        if (override.checked) {
+        if (override && override.checked) {
             params.consentOverride = 'true';
             params.consentOverrideReason = document.getElementById('portal-consent-reason').value;
         }
@@ -467,9 +468,12 @@
     var form = document.getElementById('portal-invite-form');
     if (can.invite) {
         form.hidden = false;
-        document.getElementById('portal-consent-override').addEventListener('change', function (event) {
-            document.getElementById('portal-consent-reason').hidden = !event.target.checked;
-        });
+        var override = document.getElementById('portal-consent-override');
+        if (override) {
+            override.addEventListener('change', function (event) {
+                document.getElementById('portal-consent-reason').hidden = !event.target.checked;
+            });
+        }
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             var pending = lastInvites.some(function (invite) {
