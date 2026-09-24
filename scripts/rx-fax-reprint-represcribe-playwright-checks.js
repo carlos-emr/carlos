@@ -57,8 +57,15 @@
  * the stored stamp signature) through the UI, identified by a per-run-unique
  * custom drug name, and removes exactly those rows in a finally and on
  * SIGINT/SIGTERM. It reprints and re-prescribes only rows it created itself, so
- * no pre-existing patient record is mutated. It writes no files; the fax servlet
- * is not exercised here (that is the sibling check's job).
+ * no pre-existing patient record is mutated. It also stages, and removes in the
+ * same finally, one active fax gateway account (fax_config) on a per-run 416
+ * number, and a per-run unroutable 555 fax number on the patient's pharmacies;
+ * ViewScript2 only renders a faxable destination with both. It writes no files
+ * and never clicks Fax; the fax servlet is not exercised here (that is the
+ * sibling check's job).
+ *
+ * Operator prerequisites (the only ones): rx_fax_enabled=true in carlos.properties
+ * and the provider stamp PNG, as for rx-fax-signature-stamp.
  *
  * Env contract:
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
@@ -118,6 +125,12 @@ const runSuffix = String(randomInt(1000000, 10000000));
 // never reach a real fax machine. Unique per run so the cleanup predicate can tell THIS run's
 // fixture from a concurrent run's and never restores over one still in use.
 const FIXTURE_FAX_NUMBER = `555${runSuffix}`;
+// The sender account ViewScript2 needs before it will render hasFaxNumber=true: it only offers a
+// pharmacy destination through an active fax gateway account. fax_config.faxNumber/faxReply are
+// varchar(10), so '416' + the 7-digit run suffix, as in rx-fax-signature-stamp. This check never
+// clicks Fax, so the account never sends anything; it exists only for the page's fax state.
+const FIXTURE_SENDER_FAX_NUMBER = `416${runSuffix}`;
+let stagedFaxConfig = null;
 const customDrugName = `PW RX REPRINT ${Date.now()}${runSuffix}`;
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
@@ -309,6 +322,25 @@ function seedPharmacyFax() {
   return rows.length > 0;
 }
 
+/**
+ * An active SRFax gateway account for this run, reusing one already on this run's number. A clean
+ * install ships only the inactive, blank default fax_config row, so without this ViewScript2 has no
+ * usable sender and renders hasFaxNumber=false whatever the pharmacy fixture holds.
+ */
+function stageFaxConfig() {
+  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${FIXTURE_SENDER_FAX_NUMBER}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
+  if (/^\d+$/.test(existing)) {
+    stagedFaxConfig = { id: existing, created: false };
+    return;
+  }
+  const id = sql(
+    `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
+    + `VALUES ('SRFAX', 1, '${FIXTURE_SENDER_FAX_NUMBER}', '${FIXTURE_SENDER_FAX_NUMBER}', 'Playwright Reprint', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
+  ).trim();
+  stagedFaxConfig = { id, created: /^\d+$/.test(id) };
+  visited.push({ label: 'fax-config', created: stagedFaxConfig.created });
+}
+
 // --- cleanup -----------------------------------------------------------------
 
 /**
@@ -332,6 +364,12 @@ function cleanupFixtures() {
     });
     attempt('drugs', () => sql(`DELETE FROM drugs WHERE script_no IN (${list});`));
     attempt('prescription', () => sql(`DELETE FROM prescription WHERE script_no IN (${list});`));
+  }
+  if (stagedFaxConfig && stagedFaxConfig.created) {
+    const { id } = stagedFaxConfig;
+    stagedFaxConfig = null;
+    attempt('fax_config', () => sql(
+      `DELETE FROM fax_config WHERE id=${id} AND faxNumber='${FIXTURE_SENDER_FAX_NUMBER}';`));
   }
   while (seededPharmacyFaxes.length) {
     const { recordId, wasNull } = seededPharmacyFaxes.pop();
@@ -697,6 +735,7 @@ async function runChecks(context) {
   try {
     await checkBuildStamp(context);
 
+    stageFaxConfig();
     if (!seedPharmacyFax()) {
       findings.push({
         label: 'pharmacy-fax', type: 'no-active-pharmacy',
