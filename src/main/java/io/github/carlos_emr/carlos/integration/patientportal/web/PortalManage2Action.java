@@ -25,9 +25,11 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextR
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -44,6 +46,8 @@ import org.apache.struts2.ServletActionContext;
 public final class PortalManage2Action extends ActionSupport {
 
     private static final long serialVersionUID = 1L;
+    private static final Logger logger = MiscUtils.getLogger();
+
     static final String DEMOGRAPHIC_ATTRIBUTE = "portalDemographicNo";
     /** Consent type name, status code ({@code EmailLog.EmailConsentStatus}) and status message key. */
     static final String CONSENT_NAME_ATTRIBUTE = "portalConsentName";
@@ -85,11 +89,7 @@ public final class PortalManage2Action extends ActionSupport {
         boolean mayInvite = managesInvites && PortalInvite2Action.maySend(securityInfoManager, session);
         request.setAttribute("portalCanInvite", mayInvite);
         if (mayInvite) {
-            // Sending requires _email write, which covers the _email read this lookup checks.
-            String[] consent = emailComposeManager.getEmailConsentStatus(session, demographicNo);
-            request.setAttribute(CONSENT_NAME_ATTRIBUTE, consent[0]);
-            request.setAttribute(CONSENT_STATUS_ATTRIBUTE, consent[1]);
-            request.setAttribute(CONSENT_LABEL_ATTRIBUTE, consent[2]);
+            addConsent(request, session, demographicNo);
         }
         request.setAttribute("portalCanRecover",
                 managesInvites && PortalInvite2Action.mayResolve(securityInfoManager, session));
@@ -99,6 +99,25 @@ public final class PortalManage2Action extends ActionSupport {
         request.setAttribute("portalCanUnlock", allowed(session, PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK,
                 SecurityInfoManager.WRITE, demographicNo));
         return SUCCESS;
+    }
+
+    /**
+     * Passes the chart's email consent to the page. It is information for staff only: the send checks
+     * consent again. So a failed lookup leaves the page without it rather than failing the page, which
+     * would also take away the account controls.
+     */
+    private void addConsent(HttpServletRequest request, LoggedInInfo session, int demographicNo) {
+        String[] consent;
+        try {
+            // Sending requires _email write, which covers the _email read this lookup checks.
+            consent = emailComposeManager.getEmailConsentStatus(session, demographicNo);
+        } catch (RuntimeException e) {
+            logger.warn("Portal page could not read the chart's email consent: {}", e.getClass().getSimpleName());
+            return;
+        }
+        request.setAttribute(CONSENT_NAME_ATTRIBUTE, consent[0]);
+        request.setAttribute(CONSENT_STATUS_ATTRIBUTE, consent[1]);
+        request.setAttribute(CONSENT_LABEL_ATTRIBUTE, consent[2]);
     }
 
     private boolean allowed(LoggedInInfo session, String object, String right, int demographicNo) {

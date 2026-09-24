@@ -162,4 +162,20 @@ class PortalManage2ActionUnitTest {
         verifyNoInteractions(compose);
         assertThat(request.getAttribute(PortalManage2Action.CONSENT_STATUS_ATTRIBUTE)).isNull();
     }
+
+    @Test
+    @DisplayName("should still render the page when the consent lookup fails")
+    void shouldRenderPage_whenConsentLookupFails() {
+        grant("_portal.invite", SecurityInfoManager.READ);
+        grant("_portal.invite", SecurityInfoManager.WRITE);
+        grant("_portal.account", SecurityInfoManager.WRITE);
+        when(security.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
+        when(compose.getEmailConsentStatus(any(), eq(123))).thenThrow(new IllegalStateException("database down"));
+
+        assertThat(new PortalManage2Action(security, compose).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("portalCanInvite")).isEqualTo(true);
+        assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(true);
+        assertThat(request.getAttribute(PortalManage2Action.CONSENT_STATUS_ATTRIBUTE)).isNull();
+    }
 }
