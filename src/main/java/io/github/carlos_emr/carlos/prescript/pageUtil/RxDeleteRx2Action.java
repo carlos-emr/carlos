@@ -251,6 +251,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     public String clearStash()
             throws IOException {
+        // The other write paths of this action check _rx update; clearing the stash is a write too.
+        checkPrivilege(request, PRIVILEGE_UPDATE);
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {

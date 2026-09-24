@@ -44,6 +44,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -202,6 +203,18 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("successClearStash");
             assertThat(bean.getStashSize()).isZero();
+        }
+
+        @Test
+        @DisplayName("should refuse to clear the stash without the _rx update privilege")
+        void shouldRefuseClearStash_whenRxUpdatePrivilegeMissing() {
+            namePatient();
+            request.setParameter("parameterValue", "clearStash");
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("u"), isNull())).thenReturn(false);
+
+            assertThatThrownBy(() -> new RxDeleteRx2Action().execute())
+                    .hasMessageContaining("missing required sec object (_rx)");
+            assertThat(bean.getStashSize()).isEqualTo(2);
         }
 
         @Test
