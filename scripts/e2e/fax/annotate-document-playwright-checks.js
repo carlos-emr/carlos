@@ -975,6 +975,29 @@ async function main() {
     check('a whitespace-only note is not placed', await markCount() === marksBeforeBlank,
       JSON.stringify([marksBeforeBlank, await markCount()]));
 
+    // A stroke finishes as the mark it started as. A second pointer (here a programmatic click)
+    // switching the tool and swatch mid-stroke must not change what the first pointer commits.
+    await page.locator('.swatch[data-color="black"]').click();
+    await page.locator('.tool[data-tool="draw"]').click();
+    const inkStroke = () => page.locator('svg.overlay').first().locator('g.mark[data-kind="stroke"] polyline:not(.ink-hit)');
+    const highlightRects = () => page.locator('svg.overlay').first().locator('rect.mark').count();
+    const inksBeforeSwitch = await inkStroke().count();
+    const highlightsBeforeSwitch = await highlightRects();
+    const blackStroke = await inkStroke().first().getAttribute('stroke');
+    await page.mouse.move(strokeBox.x + 60, strokeBox.y + 520);
+    await page.mouse.down();
+    await page.mouse.move(strokeBox.x + 160, strokeBox.y + 530, { steps: 4 });
+    await page.locator('.tool[data-tool="highlight"]').evaluate(button => button.click());
+    await page.locator('.swatch[data-color="yellow"]').evaluate(button => button.click());
+    await page.mouse.move(strokeBox.x + 260, strokeBox.y + 540, { steps: 4 });
+    await page.mouse.up();
+    const switchedStroke = await inkStroke().last().getAttribute('stroke');
+    check('a tool or colour change mid-stroke does not change what the stroke commits as',
+      await inkStroke().count() === inksBeforeSwitch + 1 && await highlightRects() === highlightsBeforeSwitch
+      && switchedStroke === blackStroke,
+      JSON.stringify([inksBeforeSwitch, await inkStroke().count(), highlightsBeforeSwitch, await highlightRects(), blackStroke, switchedStroke]));
+    await page.locator('.swatch[data-color="yellow"]').click();
+
     // Hold an actual server save response; attempted edits must not re-enable duplicate submission.
     let releaseSave;
     const hold = new Promise(resolve => { releaseSave = resolve; });

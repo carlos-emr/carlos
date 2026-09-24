@@ -663,7 +663,9 @@
             var rect = svg.getBoundingClientRect();
             var nx = clamp((event.clientX - rect.left) / rect.width);
             var ny = clamp((event.clientY - rect.top) / rect.height);
-            if (state.tool === 'draw') {
+            // The gesture's own tool, not the toolbar's: a second pointer can change the toolbar
+            // mid-stroke, and the stroke must finish as the mark it started as.
+            if (dragging.tool === 'draw') {
                 dragging.points.push([nx, ny]);
             }
             dragging.x1 = nx;
@@ -823,11 +825,12 @@
         svg.appendChild(el);
     }
 
+    /** Commits a finished stroke as the mark (tool and colour) its gesture started with. */
     function commitDrag(page, drag) {
-        if (state.tool === 'draw') {
+        if (drag.tool === 'draw') {
             if (drag.points.length < 2) { return; }
             addAnnotation({
-                type: 'ink', page: page, color: state.color,
+                type: 'ink', page: page, color: drag.color,
                 strokeWidth: DEFAULT_STROKE_WIDTH, points: simplify(drag.points)
             });
             return;
@@ -839,10 +842,10 @@
         if (w < 0.004 || h < 0.004) { return; }
 
         var box = { x: x, y: y, w: w, h: h };
-        if (state.tool === 'highlight') {
+        if (drag.tool === 'highlight') {
             box = snapToWords(page, box) || box;
             addAnnotation({
-                type: 'highlight', page: page, color: state.color,
+                type: 'highlight', page: page, color: drag.color,
                 x: box.x, y: box.y, w: box.w, h: box.h
             });
         }
