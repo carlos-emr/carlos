@@ -47,10 +47,13 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -67,6 +70,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private LoggedInInfo info;
     private SecurityInfoManager security;
+    private PlatformTransactionManager transactions;
+    private TransactionStatus transaction;
 
     @BeforeEach
     void setUpAction() {
@@ -79,6 +84,10 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, security);
         when(security.hasPrivilege(eq(info), eq("_lab"), eq("w"), isNull())).thenReturn(true);
+        transactions = mock(PlatformTransactionManager.class);
+        transaction = mock(TransactionStatus.class);
+        registerMock(PlatformTransactionManager.class, transactions);
+        when(transactions.getTransaction(any())).thenReturn(transaction);
     }
 
     @Test
@@ -138,6 +147,10 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("outcome")).isEqualTo("uploaded");
             assertThat(parsers.constructed()).hasSize(1);
             verify(parsers.constructed().get(0)).save(database);
+            // The parser's DAO writes commit together, and a stored lab keeps its checksum.
+            verify(transactions).commit(transaction);
+            verify(transactions, never()).rollback(any());
+            duplicateCheck.verify(() -> FileUploadCheck.removeFile(anyInt()), never());
             // The parser's reader over the archived lab must not leak a file handle.
             assertThatThrownBy(() -> parserReader.get().ready())
                     .isInstanceOf(IOException.class).hasMessageContaining("closed");
@@ -210,6 +223,91 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(parsers.constructed()).isEmpty();
             jdbc.verifyNoInteractions();
         }
+    }
+
+    @Test
+    void shouldReportRetryableFailure_whenChecksumConfirmationFails() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("unconfirmed.hl7"), "MSH|unconfirmed CML content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
+            stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)))
+                    .thenThrow(new IllegalStateException("database unavailable"));
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // The confirming lookup failed too, so nothing is known: retryable, not "exception".
+            assertThat(request.getAttribute("outcome")).isEqualTo("databaseNotStarted");
+            assertThat(parsers.constructed()).isEmpty();
+            jdbc.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRemoveNewChecksum_whenParsingFails() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("malformed.hl7"), "not a CML report");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class, (parser, context) ->
+                     doThrow(new IllegalStateException("unparseable")).when(parser).parse(any(BufferedReader.class)))) {
+            stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(7);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // Nothing was written, so the checksum goes too and a retry is not called a duplicate.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            duplicateCheck.verify(() -> FileUploadCheck.removeFile(7));
+            verify(parsers.constructed().get(0), never()).save(any());
+            verifyNoInteractions(transactions);
+            jdbc.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRollBackAndRemoveNewChecksum_whenSavingFails() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("unsaved.hl7"), "MSH|unsaved CML content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        Connection database = mock(Connection.class);
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class, (parser, context) ->
+                     doThrow(new IllegalStateException("result insert failed")).when(parser).save(any(Connection.class)))) {
+            stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(7);
+            jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // The partial save is rolled back and the checksum removed, so a retry stores it cleanly.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            verify(transactions).rollback(transaction);
+            verify(transactions, never()).commit(any());
+            duplicateCheck.verify(() -> FileUploadCheck.removeFile(7));
+            verify(database).close();
+        }
+    }
+
+    private void stubAuthorizedUpload(MockedStatic<PathValidationUtils> paths, MockedStatic<CarlosProperties> configuration,
+                                      Path uploaded, Path documentDir) {
+        paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+        CarlosProperties properties = mock(CarlosProperties.class);
+        configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+        when(properties.getProperty("CML_UPLOAD_KEY")).thenReturn("fixture-key");
     }
 
     private String execute(Path uploaded) {

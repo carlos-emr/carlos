@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Pins the duplicate lookup that, unlike addFile, does not swallow failures.
@@ -66,6 +67,13 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
         when(dao.findByMd5Sum(anyString())).thenReturn(List.of());
 
         assertThat(FileUploadCheck.isFileRecorded(new ByteArrayInputStream(CONTENT))).isFalse();
+    }
+
+    @Test
+    void shouldRemoveChecksumRow_byIdReturnedFromAddFile() {
+        FileUploadCheck.removeFile(7);
+
+        verify(dao).remove(7);
     }
 
     @Test

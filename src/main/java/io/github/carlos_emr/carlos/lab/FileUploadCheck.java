@@ -81,6 +81,16 @@ public final class FileUploadCheck {
         return hasFileBeenUploaded(DigestUtils.md5Hex(is));
     }
 
+    /**
+     * Removes a checksum row, so content whose processing failed after {@link #addFile} is not
+     * treated as a duplicate when it is sent again.
+     *
+     * @param id the id {@link #addFile} returned for the row
+     */
+    public static void removeFile(int id) {
+        SpringUtils.getBean(FileUploadCheckDao.class).remove(id);
+    }
+
     public static Map<String, String> getFileInfo(Integer id) {
         Map<String, String> fileInfo = new HashMap<String, String>();
         FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);

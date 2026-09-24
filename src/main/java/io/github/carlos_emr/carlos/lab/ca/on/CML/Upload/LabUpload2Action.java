@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
@@ -49,6 +50,8 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -152,18 +155,19 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         // which it swallows. Acknowledge a duplicate only when the checksum is
                         // really on record: a false "uploadedPreviously" tells the XML client
                         // not to retry a lab that was never stored.
-                        outcome = isRecordedUpload(localFile)
-                                ? OUTCOME_UPLOADED_PREVIOUSLY
-                                : OUTCOME_DATABASE_NOT_STARTED;
+                        // A lookup that fails confirms nothing either, so it is the same
+                        // retryable failure rather than a generic exception.
+                        try {
+                            outcome = isRecordedUpload(localFile)
+                                    ? OUTCOME_UPLOADED_PREVIOUSLY
+                                    : OUTCOME_DATABASE_NOT_STARTED;
+                        } catch (IOException | RuntimeException lookupEx) {
+                            _logger.error("Could not confirm a rejected CML upload's checksum: {}",
+                                    LogSafe.exceptionTrace(lookupEx));
+                            outcome = OUTCOME_DATABASE_NOT_STARTED;
+                        }
                     } else {
-                        ABCDParser abc = new ABCDParser();
-                        try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
-                            abc.parse(in);
-                        }
-
-                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-                            abc.save(connection);
-                        }
+                        storeLab(localFile, check);
                         outcome = "uploaded";
                     }
                 } else {
@@ -186,6 +190,57 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
 
     public LabUpload2Action() {
+    }
+
+    /**
+     * Parses and stores a newly recorded lab, or leaves it retryable.
+     *
+     * <p>{@link FileUploadCheck#addFile} has already recorded the file's checksum, and every later
+     * upload of the same bytes is answered {@code uploadedPreviously}. The parser writes the
+     * report, patient, routing and result rows through separate DAOs, so they share one
+     * transaction: a failure part-way rolls all of them back, and only then is this request's
+     * checksum row removed. Removing it after a partial save would let a retry duplicate the
+     * committed rows; keeping it after a rollback would acknowledge a lab that was never stored.</p>
+     *
+     * @param localFile the archived upload
+     * @param checksumId the checksum row {@code addFile} created for this request
+     * @throws Exception when parsing or saving fails; nothing is stored and the checksum is removed
+     */
+    private static void storeLab(File localFile, int checksumId) throws Exception {
+        boolean stored = false;
+        try {
+            ABCDParser abc = new ABCDParser();
+            try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
+                abc.parse(in);
+            }
+            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                    .executeWithoutResult(status -> saveParsedLab(abc));
+            stored = true;
+        } finally {
+            if (!stored) {
+                forgetChecksum(checksumId);
+            }
+        }
+    }
+
+    // The parser only reads patients and providers through this connection; every row it writes
+    // goes through its DAOs, which join the surrounding transaction.
+    private static void saveParsedLab(ABCDParser abc) {
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+            abc.save(connection);
+        } catch (SQLException e) {
+            throw new IllegalStateException("CML lab save failed", e);
+        }
+    }
+
+    // Runs while the original failure propagates, so a removal failure is logged, not thrown.
+    private static void forgetChecksum(int checksumId) {
+        try {
+            FileUploadCheck.removeFile(checksumId);
+        } catch (RuntimeException removeEx) {
+            MiscUtils.getLogger().error("Could not remove the checksum of a CML upload that was not stored: {}",
+                    LogSafe.exceptionTrace(removeEx));
+        }
     }
 
     /**
