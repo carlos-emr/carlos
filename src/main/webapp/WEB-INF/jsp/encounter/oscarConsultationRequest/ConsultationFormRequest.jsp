@@ -2679,7 +2679,7 @@ if (userAgent != null) {
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/></small>: <carlos:encode value='<%= thisForm.getPatientDOB() %>' context="html"/><br>
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/></small>: <carlos:encode value='<%= thisForm.getPatientSex() %>' context="html"/><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <carlos:encode value='<%= thisForm.getPatientHealthNum() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardVersionCode() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardType() %>' context="html"/>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <carlos:encode value='<%= thisForm.getFormattedHealthCard() %>' context="html"/>
                                             </div>
                                         </div>
                                     </div>
