@@ -736,58 +736,11 @@
 
                 var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
-                // The banners describe whichever patient is linked: refresh them on every
-                // link, whether made by select or committed on blur, and hide them when the
-                // link is removed.
-                function showPatientBanners(item) {
-                    // Update patient alert banner
-                    var patientAlert = item.alert || "";
-                    var alertBanner = document.getElementById('patientAlertBanner');
-                    if (alertBanner) {
-                        document.getElementById('patientAlertText').textContent = patientAlert;
-                        alertBanner.style.display = patientAlert ? '' : 'none';
-                    }
-
-                    // Update patient status banner
-                    var rawStatus = item.status || "";
-                    var rawRoster = item.rosterStatus || "";
-                    var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
-                    var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
-                    var statusBanner = document.getElementById('patientStatusBanner');
-                    if (statusBanner) {
-                        var statusTextEl = document.getElementById('patientStatusText');
-                        if (displayStatus || displayRoster) {
-                            var rosterLabel = statusBanner.getAttribute('data-roster-label') || 'Roster Status';
-                            var parts = [];
-                            if (displayStatus) parts.push(displayStatus);
-                            if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
-                            statusTextEl.textContent = parts.join("\u00a0");
-                            statusBanner.style.display = '';
-                        } else {
-                            statusBanner.style.display = 'none';
-                        }
-                    }
-                }
-
-                function hidePatientBanners() {
-                    ['patientAlertBanner', 'patientStatusBanner'].forEach(function (id) {
-                        var banner = document.getElementById(id);
-                        if (banner) {
-                            banner.style.display = 'none';
-                        }
-                    });
-                }
-
-                // Keeps #keyword and #demographic_no/#mrp in step: commits a highlighted row
-                // on blur/submit and reconciles a hand-edited name (issue #3883). See
+                // Keeps #keyword and #demographic_no/#mrp in step and refreshes the patient
+                // banners on every link: commits a highlighted row on blur/submit and
+                // reconciles a hand-edited name (issue #3883). See
                 // js/appointmentPatientLink.js for the semantics.
-                var patientLink = CarlosAppointmentPatientLink.create({
-                    nameField: document.getElementById('keyword'),
-                    demographicField: document.getElementById('demographic_no'),
-                    providerField: document.getElementById('mrp'),
-                    onCommit: showPatientBanners,
-                    onUnlink: hidePatientBanners
-                });
+                var patientLink = CarlosAppointmentPatientLink.attach(document);
 
                 jQuery("#keyword").autocomplete({
                     source: function (req, res) {

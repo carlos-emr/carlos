@@ -314,6 +314,79 @@
         return controller;
     }
 
+    /**
+     * Show the patient alert and status banners for a linked patient. Text is
+     * set with textContent only, so autocomplete data can never become markup.
+     * AC (active) and RO (rostered) are the expected defaults and show no status
+     * banner. The roster label comes from the banner's data-roster-label, which
+     * the page renders from its message bundle.
+     */
+    function showPatientBanners(doc, item) {
+        var alertBanner = doc.getElementById('patientAlertBanner');
+        var alertText = doc.getElementById('patientAlertText');
+        if (alertBanner && alertText) {
+            var patientAlert = text(item.alert);
+            alertText.textContent = patientAlert;
+            alertBanner.style.display = patientAlert ? '' : 'none';
+        }
+
+        var statusBanner = doc.getElementById('patientStatusBanner');
+        var statusText = doc.getElementById('patientStatusText');
+        if (!statusBanner || !statusText) {
+            return;
+        }
+        var rawStatus = text(item.status);
+        var rawRoster = text(item.rosterStatus);
+        var displayStatus = rawStatus === 'AC' ? '' : rawStatus;
+        var displayRoster = rawRoster === 'RO' ? '' : rawRoster;
+        if (displayStatus || displayRoster) {
+            var parts = [];
+            if (displayStatus) {
+                parts.push(displayStatus);
+            }
+            if (displayRoster) {
+                parts.push((statusBanner.getAttribute('data-roster-label') || '') + ':\u00a0' + displayRoster);
+            }
+            statusText.textContent = parts.join('\u00a0');
+            statusBanner.style.display = '';
+        } else {
+            statusBanner.style.display = 'none';
+        }
+    }
+
+    /** Hide both patient banners, e.g. once no patient is linked. */
+    function hidePatientBanners(doc) {
+        ['patientAlertBanner', 'patientStatusBanner'].forEach(function (id) {
+            var banner = doc.getElementById(id);
+            if (banner) {
+                banner.style.display = 'none';
+            }
+        });
+    }
+
+    /**
+     * Wire the standard Add/Edit Appointment page: #keyword, #demographic_no,
+     * #mrp and the patientAlertBanner / patientStatusBanner pair. Both pages
+     * share this markup, so the banner handling lives here once rather than in
+     * each JSP.
+     *
+     * @param {Document} doc the appointment page's document
+     * @returns {Object} the controller, as create() returns it
+     */
+    function attach(doc) {
+        return create({
+            nameField: doc.getElementById('keyword'),
+            demographicField: doc.getElementById('demographic_no'),
+            providerField: doc.getElementById('mrp'),
+            onCommit: function (item) {
+                showPatientBanners(doc, item);
+            },
+            onUnlink: function () {
+                hidePatientBanners(doc);
+            }
+        });
+    }
+
     /** The controller attached to a name field, or null if none was created. */
     function forField(nameField) {
         return controllers && nameField ? (controllers.get(nameField) || null) : null;
@@ -371,6 +444,9 @@
 
     var api = {
         create: create,
+        attach: attach,
+        showPatientBanners: showPatientBanners,
+        hidePatientBanners: hidePatientBanners,
         forField: forField,
         rebase: rebase,
         unlink: unlink,

@@ -417,7 +417,7 @@ for (const page of ['addappointment.jsp', 'editappointment.jsp']) {
   test(`${page} routes the patient typeahead through appointmentPatientLink.js`, () => {
     const source = fs.readFileSync(path.join(JSP_DIR, page), 'utf8');
     assert.match(source, /<script src="\$\{pageContext\.request\.contextPath\}\/js\/appointmentPatientLink\.js"><\/script>/);
-    assert.match(source, /CarlosAppointmentPatientLink\.create\(\{/);
+    assert.match(source, /var patientLink = CarlosAppointmentPatientLink\.attach\(document\);/);
     assert.match(source, /focus: function \(event, ui\) \{\s*patientLink\.highlight\(ui\.item\);/);
     assert.match(source, /select: function \(event, ui\) \{\s*patientLink\.commit\(ui\.item\);/);
     assert.match(source, /close: function \(event\) \{\s*patientLink\.menuClosed\(event\);/);
@@ -521,4 +521,79 @@ test('the typeahead browser check routes every patient-derived value in a messag
     .map((match) => match[1].trim())
     .filter((expr) => patientDerived.test(expr) && !expr.startsWith('describe('));
   assert.deepEqual(leaks, [], 'wrap these interpolations in describe()');
+});
+
+/*
+ * attach(document) wires the markup both appointment pages share, so the banner
+ * handling that used to be copied into each JSP is pinned once here.
+ */
+function bannerPage() {
+  const elements = {};
+  const make = (id, value = '') => {
+    const el = new FakeElement(value);
+    el.style = { display: 'none' };
+    el.textContent = '';
+    el.attributes = {};
+    el.getAttribute = (name) => (name in el.attributes ? el.attributes[name] : null);
+    elements[id] = el;
+    return el;
+  };
+  const doc = new FakeElement();
+  doc.getElementById = (id) => elements[id] || null;
+  const form = new FakeElement();
+  form.ownerDocument = doc;
+  make('keyword').form = form;
+  make('demographic_no');
+  make('mrp');
+  make('patientAlertBanner');
+  make('patientAlertText');
+  make('patientStatusBanner').attributes['data-roster-label'] = 'Roster Status';
+  make('patientStatusText');
+  return { doc, elements };
+}
+
+test('attach() links the shared page fields and shows the alert and status banners', () => {
+  const { doc, elements } = bannerPage();
+  const link = PatientLink.attach(doc);
+  link.commit({ ...SMITH, status: 'IN', rosterStatus: 'TE' });
+  assert.equal(elements.demographic_no.value, '101');
+  assert.equal(elements.mrp.value, 'Dr. Who');
+  assert.equal(elements.patientAlertText.textContent, 'Latex allergy');
+  assert.equal(elements.patientAlertBanner.style.display, '');
+  assert.equal(elements.patientStatusText.textContent, 'IN Roster Status: TE');
+  assert.equal(elements.patientStatusBanner.style.display, '');
+});
+
+test('attach() hides the status banner for the AC/RO defaults and the alert banner for no alert', () => {
+  const { doc, elements } = bannerPage();
+  elements.patientAlertBanner.style.display = '';
+  elements.patientStatusBanner.style.display = '';
+  PatientLink.attach(doc).commit({ ...JONES, status: 'AC', rosterStatus: 'RO' });
+  assert.equal(elements.patientAlertBanner.style.display, 'none');
+  assert.equal(elements.patientStatusBanner.style.display, 'none');
+});
+
+test('attach() hides both banners when the link is removed', () => {
+  const { doc, elements } = bannerPage();
+  const link = PatientLink.attach(doc);
+  link.commit({ ...SMITH, status: 'IN' });
+  link.unlink();
+  assert.equal(elements.demographic_no.value, '');
+  assert.equal(elements.patientAlertBanner.style.display, 'none');
+  assert.equal(elements.patientStatusBanner.style.display, 'none');
+});
+
+test('the banner helpers tolerate a page without banner markup', () => {
+  const doc = { getElementById: () => null };
+  assert.doesNotThrow(() => PatientLink.showPatientBanners(doc, SMITH));
+  assert.doesNotThrow(() => PatientLink.hidePatientBanners(doc));
+});
+
+test('both appointment JSPs use attach() instead of their own banner copies', () => {
+  for (const page of ['addappointment', 'editappointment']) {
+    const source = fs.readFileSync(path.join(__dirname,
+      `../src/main/webapp/WEB-INF/jsp/appointment/${page}.jsp`), 'utf8');
+    assert.match(source, /CarlosAppointmentPatientLink\.attach\(document\)/, page);
+    assert.doesNotMatch(source, /function showPatientBanners/, page);
+  }
 });
