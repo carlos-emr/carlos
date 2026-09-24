@@ -33,7 +33,8 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
     configured; dpkg keeps the trigger pending if a transaction is
     interrupted. It starts the EMR only if a configure asked for it or it was
     already running, so a DrugRef-only reinstall still leaves a stopped EMR
-    alone. Outside dpkg (dpkg-reconfigure) both restart inline as before.
+    alone. DrugRef's removal uses the same trigger. Outside dpkg
+    (dpkg-reconfigure) both restart inline as before.
   * carlos-emr-drugref (Architecture: all) now depends on carlos-emr
     (>= ${source:Version}, << ${source:Version}.1~) rather than
     (= ${binary:Version}), the binNMU-safe form for an arch-all package

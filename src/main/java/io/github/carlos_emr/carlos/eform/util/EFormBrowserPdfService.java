@@ -3107,7 +3107,8 @@ public class EFormBrowserPdfService {
         if (!retiredPath.isBlank()) {
             logger.warn("eform_pdf_browser_chromedriver_path is RETIRED and ignored: CARLOS no "
                     + "longer spawns chromedriver. Run chromedriver as a service and set {} "
-                    + "instead (the .deb's carlos-emr-eform-renderer package does both).",
+                    + "instead (the carlos-emr .deb does both: it bundles the browser and runs "
+                    + "the carlos-emr-render-browser service).",
                     SERVICE_URL_PROPERTY);
         }
         try {

@@ -56,14 +56,17 @@ test('Tomcat startup invalidates only generated JSP code without following cache
 // postinst must accept the `triggered` action instead of rejecting it as an
 // unknown argument. A name mismatch silently brings back the double deploy (or
 // no restart at all), and nothing else would notice.
-test('both postinsts activate the carlos-emr-restart trigger carlos-emr declares', () => {
+test('every EMR restart point activates the carlos-emr-restart trigger carlos-emr declares', () => {
   const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
   const triggers = read('debian', 'carlos-emr.triggers')
     .split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
   assert.deepEqual(triggers, ['interest-noawait carlos-emr-restart']);
   const postinst = read('debian', 'carlos-emr.postinst');
   const drugref = read('debian', 'carlos-emr-drugref.postinst');
-  for (const script of [postinst, drugref]) {
+  // DrugRef's removal restart too: an inline restart there would deploy the
+  // application a second time when the same transaction upgrades carlos-emr.
+  const drugrefPostrm = read('debian', 'carlos-emr-drugref.postrm');
+  for (const script of [postinst, drugref, drugrefPostrm]) {
     assert.match(script, /dpkg-trigger --no-await carlos-emr-restart/);
     // Only under dpkg: dpkg-reconfigure sets no DPKG_RUNNING_VERSION and would
     // leave a trigger nobody processes.

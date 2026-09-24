@@ -75,17 +75,19 @@ case "$1" in
         # dpkg-reconfigure by hand. deb-systemd-invoke honours policy-rc.d.
         if [ -d /run/systemd/system ]; then
             deb-systemd-invoke start mariadb.service >/dev/null 2>&1 || true
-            # Wall-clock bound with a per-attempt connect timeout, so "60 seconds"
-            # in the warning below is what actually happened.
+            # Wall-clock bound, and every probe (this final one too) is capped by
+            # timeout(1) as well as --connect-timeout, so a server that accepts
+            # the socket but never answers cannot hold configure past the
+            # "60 seconds" the warning below reports.
             deadline=$(( $(uptime_s) + 60 ))
             while [ "$(uptime_s)" -lt "${deadline}" ] \
-                && ! mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+                && ! timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
                 sleep 2
             done
         fi
 
         DB_READY=0
-        if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+        if timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; then
             DB_READY=1
             # Provision the account and password (carlos-ctl handles both
             # packages' accounts in one place, and is idempotent). No `|| true`

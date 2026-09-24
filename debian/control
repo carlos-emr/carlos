@@ -145,8 +145,13 @@ Depends:
 # operator remembered to supply the transitional deb every time. (A pre-merge
 # renderer is forced out regardless by its own exact Depends on the carlos-emr
 # it shipped with.) Replaces stays ${source:Version}-relative so the file
-# takeover also works from developer snapshots of the old package; the
-# transitional package owns no files, so replacing it is a no-op.
+# takeover also works between developer snapshots built from this tree
+# (2026.09.0~snapshotN -> snapshotN+1); the transitional package owns no files,
+# so replacing it is a no-op. Going from a developer snapshot to a 2026.08
+# release is NOT covered and not supported: 2026.09.0~snapshotN sorts above
+# every 2026.08 version, so that move is a downgrade (apt refuses it without an
+# explicit downgrade) and needs a remove-then-install. Snapshots are dev builds
+# and are never published as release assets.
 Breaks:
  carlos-emr-eform-renderer (<< 2026.08.0~alpha14~)
 Replaces:
