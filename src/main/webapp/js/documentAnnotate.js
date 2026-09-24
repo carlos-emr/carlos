@@ -69,6 +69,7 @@
         saving: false,
         uncertain: false,
         moves: 0,            // marks being dragged now; pages track their own gestures
+        previews: {},        // mark id -> {dx, dy} page fractions of a drag not yet released
         refitPending: false, // the annotation font arrived mid-drag; refit notes when it ends
         fontReady: null      // settles once the annotation font has loaded or failed
     };
@@ -177,6 +178,20 @@
             el.setAttribute('data-kind', isPlaced(a) ? 'placed' : 'stroke');
             svg.appendChild(el);
             if (isEditableText(a)) { addNoteHitArea(svg, el, a.id); }
+        });
+        // A redraw during a drag (a resize, the annotation font arriving) replaces the dragged
+        // mark's elements; put its preview back so the mark stays under the pointer.
+        Object.keys(state.previews).forEach(function (id) {
+            applyPreview(svg, id, state.previews[id], w, h);
+        });
+    }
+
+    /** Shifts every element drawn for a mark by a drag preview given in page fractions. */
+    function applyPreview(svg, id, preview, w, h) {
+        var shift = 'translate(' + (preview.dx * w) + ',' + (preview.dy * h) + ')';
+        Array.prototype.forEach.call(svg.querySelectorAll('[data-id="' + id + '"]'), function (el) {
+            el.setAttribute('transform', shift);
+            el.classList.add('moving');
         });
     }
 
@@ -383,26 +398,44 @@
      * A note wider than the whole page cannot fit; it is left for the server's explicit error.
      */
     function fitNote(a) {
+        var fit = fitNoteModel(a);
+        if (fit) { redrawPage(a.page); }
+        return Boolean(fit && fit.moved);
+    }
+
+    /**
+     * The model half of fitNote: updates the note's box and reports what changed, without
+     * redrawing. null when the note is unmeasurable or already fits.
+     */
+    function fitNoteModel(a) {
         var width = noteWidth(a);
-        if (!width) { return false; }
+        if (!width) { return null; }
         var x = Math.max(0, Math.min(a.x, 1 - width - EDGE_EPSILON));
         var w = Math.min(width, 1 - x - EDGE_EPSILON);
-        if (x === a.x && w === a.w) { return false; }
+        if (x === a.x && w === a.w) { return null; }
         // The composer draws a note from its x alone (w only bounds the parser's check), so only
         // a changed x moves what a saved copy would show.
         var moved = x !== a.x;
         a.x = x;
         a.w = w;
-        redrawPage(a.page);
-        return moved;
+        return { moved: moved };
     }
 
-    /** Fits every note to its drawn width; true when any note moved. */
+    /**
+     * Fits every note to its drawn width; true when any note moved. Each page is redrawn once
+     * after all of its notes are fitted rather than once per note: a note's width does not
+     * depend on where the others sit, so nothing needs the intermediate redraws.
+     */
     function fitAllNotes() {
         var moved = false;
+        var pages = {};
         state.annotations.filter(isEditableText).forEach(function (a) {
-            if (fitNote(a)) { moved = true; }
+            var fit = fitNoteModel(a);
+            if (!fit) { return; }
+            pages[a.page] = true;
+            if (fit.moved) { moved = true; }
         });
+        Object.keys(pages).forEach(function (page) { redrawPage(Number(page)); });
         return moved;
     }
 
@@ -540,6 +573,7 @@
             // arrived (a capture lost to a window switch); drop it rather than let it hijack this one.
             if (moving || dragging) {
                 var staleMove = moving !== null;
+                if (staleMove) { delete state.previews[moving.a.id]; }
                 moving = null;
                 dragging = null;
                 redrawPage(page);
@@ -605,6 +639,7 @@
         function abandonGesture(event) {
             if (!owns(moving, event) && !owns(dragging, event)) { return; }
             var abandonedMove = moving !== null;
+            if (abandonedMove) { delete state.previews[moving.a.id]; }
             moving = null;
             dragging = null;
             redrawPage(page);
@@ -662,18 +697,16 @@
             var d = clampMove(moving.a, px / rect.width, py / rect.height, moving.bounds, moving.drawnWidth);
             moving.dx = d.dx;
             moving.dy = d.dy;
-            var shift = 'translate(' + (d.dx * rect.width) + ',' + (d.dy * rect.height) + ')';
-            // Every element drawn for the mark (a note and its hit box) moves together. Looked up
-            // each time, because a redraw mid-drag (a resize, the font arriving) replaces them.
-            Array.prototype.forEach.call(svg.querySelectorAll('[data-id="' + moving.a.id + '"]'), function (el) {
-                el.setAttribute('transform', shift);
-                el.classList.add('moving');
-            });
+            // Kept in the shared state, not just on the elements, so a redraw mid-drag can put
+            // it back; every element drawn for the mark (a note and its hit box) moves together.
+            state.previews[moving.a.id] = { dx: d.dx, dy: d.dy };
+            applyPreview(svg, moving.a.id, state.previews[moving.a.id], rect.width, rect.height);
         }
 
         function finishMove(event) {
             var done = moving;
             moving = null;
+            delete state.previews[done.a.id];
             if (svg.hasPointerCapture(event.pointerId)) { svg.releasePointerCapture(event.pointerId); }
             if (done.moved) {
                 // moveAnnotation redraws when it changes the model; otherwise clear the preview.

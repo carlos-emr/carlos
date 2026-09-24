@@ -590,6 +590,23 @@ async function main() {
     check('another pointer lifting does not end a move in progress',
       Math.abs(hlTouchAfter.y - hlTouchBefore.y - 100) < 3, JSON.stringify([hlTouchBefore, hlTouchAfter]));
 
+    // A redraw in the middle of a drag (here a resize; the annotation font arriving does the
+    // same) must not drop the preview: the mark stays where the pointer has taken it.
+    const viewport = page.viewportSize();
+    const hlRedrawBefore = await boxOf('rect.mark');
+    await page.mouse.move(hlRedrawBefore.x + 6, hlRedrawBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(hlRedrawBefore.x + 6, hlRedrawBefore.y + 66, { steps: 6 });
+    await page.setViewportSize({ width: viewport.width, height: viewport.height + 40 });
+    await page.waitForTimeout(150);
+    const hlDuringRedraw = await boxOf('rect.mark');
+    await page.mouse.up();
+    await page.setViewportSize(viewport);
+    const hlRedrawAfter = await boxOf('rect.mark');
+    check('a redraw during a drag keeps the dragged mark under the pointer',
+      Math.abs(hlDuringRedraw.y - hlRedrawBefore.y - 60) < 3 && Math.abs(hlRedrawAfter.y - hlRedrawBefore.y - 60) < 3,
+      JSON.stringify([hlRedrawBefore, hlDuringRedraw, hlRedrawAfter]));
+
     await page.locator('.swatch[data-color="black"]').click();
     await page.locator('.tool[data-tool="draw"]').click();
     await drag(400, 250, 600, 250);
