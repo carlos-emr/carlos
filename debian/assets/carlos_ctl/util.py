@@ -47,6 +47,22 @@ def render_payload_installed(chromium_dir: str = CHROMIUM_DIR) -> bool:
     """
     return all(os.access(os.path.join(chromium_dir, name), os.X_OK)
                for name in ("chrome", "chromedriver"))
+
+
+def package_ships(path: str) -> bool:
+    """Whether an installed package lists PATH (dpkg-query -S).
+
+    dpkg answers from its file lists, not the filesystem, so a file the
+    package shipped and something later deleted still counts: this is how
+    `carlos-ctl check` tells a damaged full install (the browser was shipped
+    and is gone) from a SKIP_EFORM_RENDERER build (never shipped).
+    """
+    try:
+        return run(["dpkg-query", "-S", path], capture_output=True).returncode == 0
+    except OSError:
+        return False
+
+
 STATE = "/var/lib/carlos-emr"
 
 _TTY = sys.stdout.isatty()

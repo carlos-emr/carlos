@@ -118,7 +118,8 @@ class TestFrontDoorListeners(unittest.TestCase):
 class TestRenderPayload(unittest.TestCase):
     """Only a complete, provisioned payload goes on to the service-level checks."""
 
-    def classify(self, binaries=("chrome", "chromedriver"), make_dir=True, env=True):
+    def classify(self, binaries=("chrome", "chromedriver"), make_dir=True, env=True,
+                 shipped=False):
         with tempfile.TemporaryDirectory() as directory:
             chromium = os.path.join(directory, "chromium")
             if make_dir:
@@ -135,7 +136,7 @@ class TestRenderPayload(unittest.TestCase):
             validate._failures = 0
             text = io.StringIO()
             with contextlib.redirect_stdout(text):
-                proceed = validate._check_render_payload(chromium, render_env)
+                proceed = validate._check_render_payload(chromium, render_env, shipped=shipped)
             return proceed, validate._failures, text.getvalue()
 
     def test_complete_payload_proceeds_to_service_checks(self):
@@ -152,8 +153,20 @@ class TestRenderPayload(unittest.TestCase):
         self.assertIn("missing or incomplete", text)
 
     def test_deleted_payload_with_token_left_behind_fails(self):
-        proceed, failures, _ = self.classify(make_dir=False, env=True)
+        # dpkg still lists the browser (the package shipped it): damage, not a
+        # SKIP_EFORM_RENDERER build.
+        proceed, failures, text = self.classify(make_dir=False, env=True, shipped=True)
         self.assertEqual((proceed, failures), (False, 1))
+        self.assertIn("missing or incomplete", text)
+
+    def test_skip_build_over_a_full_build_is_a_note_despite_leftover_env(self):
+        # A SKIP_EFORM_RENDERER build installed over a full one: dpkg removed the
+        # browser and no longer lists it, but renderer.env (only purge removes
+        # it) is still there. The documented NOTE, naming the leftover.
+        proceed, failures, text = self.classify(make_dir=False, env=True, shipped=False)
+        self.assertEqual((proceed, failures), (False, 0))
+        self.assertIn("SKIP_EFORM_RENDERER", text)
+        self.assertIn("left over", text)
 
     def test_skip_build_is_only_a_note(self):
         proceed, failures, text = self.classify(make_dir=False, env=False)

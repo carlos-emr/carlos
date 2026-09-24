@@ -5,13 +5,14 @@ check: prove the DEPLOYED system end to end, probing live behaviour rather
 than trusting configuration files to describe it."""
 
 import os
+from typing import Optional
 import re
 import time
 
 from . import config, dbops, provision, util
 from .util import (
     BACKUP_ENV, CHROMIUM_DIR, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RENDER_BROWSER_ENV, RESET,
-    REINSTALL_HINT, YELLOW, need_root, out, render_payload_installed, run,
+    REINSTALL_HINT, YELLOW, need_root, out, package_ships, render_payload_installed, run,
 )
 
 _failures = 0
@@ -96,13 +97,20 @@ def _check_front_door(bind_ip: str) -> None:
              "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
 
 
-def _check_render_payload(chromium_dir: str, render_env: str) -> bool:
+def _check_render_payload(chromium_dir: str, render_env: str,
+                          shipped: Optional[bool] = None) -> bool:
     """Report whether the render browser is present and provisioned.
 
     Returns True when both binaries are executable and the postinst has written
     renderer.env, i.e. when the service-level checks are meaningful. Gates
     on the BINARIES, not on renderer.env, which the postinst generates and
     only purge removes.
+
+    `shipped` is whether the installed carlos-emr lists the browser binary
+    (util.package_ships; injectable for tests). It decides what an absent
+    payload means: a full build whose browser is gone is damage, a
+    SKIP_EFORM_RENDERER build is a NOTE -- even when a renderer.env from an
+    earlier full build is still on disk.
     """
     print("\neForm render browser")
     if render_payload_installed(chromium_dir):
@@ -111,16 +119,21 @@ def _check_render_payload(chromium_dir: str, render_env: str) -> bool:
         _bad("the render browser is installed but renderer.env is missing — the "
              f"carlos-emr postinst never completed ({REINSTALL_HINT})")
         return False
-    if os.path.exists(chromium_dir) or os.path.exists(render_env):
-        # A SKIP_EFORM_RENDERER build ships no chromium_dir at all and never writes
-        # renderer.env, so either one being present means a payload that was
-        # installed and is now incomplete.
+    if shipped is None:
+        shipped = package_ships(os.path.join(chromium_dir, "chrome"))
+    if os.path.exists(chromium_dir) or shipped:
+        # Part of the tree is there, or dpkg says this package shipped the
+        # browser: a payload that was installed and is now incomplete.
         _bad(f"the render browser under {chromium_dir} is missing or incomplete (chrome and "
              "chromedriver must both be executable) — saved-eForm print, fax and archive "
              f"fail ({REINSTALL_HINT})")
         return False
+    leftover = ""
+    if os.path.exists(render_env):
+        leftover = (f"; {render_env} is left over from an earlier build that shipped the "
+                    "browser (purge removes it)")
     _note("this carlos-emr build carries no render browser (a SKIP_EFORM_RENDERER "
-          "development build); saved-eForm print, fax and archive are unavailable")
+          f"development build); saved-eForm print, fax and archive are unavailable{leftover}")
     return False
 
 
