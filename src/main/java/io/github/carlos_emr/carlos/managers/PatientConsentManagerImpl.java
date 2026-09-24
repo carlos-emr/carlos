@@ -422,7 +422,8 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * A new entry will be inserted into the table should the user change their mind again.
      */
     public void deleteConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
-        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
+        // Deleting a consent changes the chart, so it needs write, like every other consent mutation here.
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
             throw new RuntimeException("Unauthorised Access. Object[_demographic]");
         }
 
