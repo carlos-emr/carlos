@@ -47,6 +47,9 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String user_no = (String) session.getAttribute("user");
+    // URI-encoded once for the javascript:reportWindow(...) attachment links below; the
+    // encoded form is also safe inside the JS string and the surrounding HTML attribute.
+    String userNoParam = SafeEncode.forUriComponent(user_no);
     int nItems = 0;
     String strLimit1 = "0";
     String strLimit2 = "5";
@@ -976,19 +979,19 @@
                                 <%
                                     if (LabResultData.isMDS(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isCML(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isHL7TEXT(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isDocument(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isHRM(type)) {
                                 %>
@@ -996,7 +999,7 @@
                                 <%
                                 } else {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
                                 <%
                                     }
                                 %>
