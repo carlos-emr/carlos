@@ -86,8 +86,11 @@ public final class RxStash2Action extends ActionSupport {
 
         // Setup variables
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
-        // bean.setStashIndex(11);
+        // action=delete removes a staged card, so it needs the explicitly named patient's bean; the
+        // action=edit cursor move is a read and may use the active-patient fallback (#3875).
+        RxSessionBean bean = "delete".equals(this.getAction())
+                ? RxSessionBeanResolver.resolveForWrite(request)
+                : RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

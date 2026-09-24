@@ -137,7 +137,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Setup variables
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -214,7 +215,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Setup variables
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -249,7 +251,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     public String clearStash()
             throws IOException {
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -271,7 +274,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
             throws IOException {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -313,7 +317,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
     public String Discontinue() throws IOException {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return NONE;

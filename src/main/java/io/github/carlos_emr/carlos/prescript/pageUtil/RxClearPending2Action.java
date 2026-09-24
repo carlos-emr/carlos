@@ -62,7 +62,8 @@ public final class RxClearPending2Action extends ActionSupport {
 
         // Setup variables
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // Clears staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

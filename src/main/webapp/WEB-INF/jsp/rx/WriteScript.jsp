@@ -837,6 +837,8 @@
     <form id="addFavoriteWriteScriptForm" method="post" action="<%= request.getContextPath() %>/rx/addFavoriteWriteScript" style="display:none">
         <input type="hidden" name="stashId" value=""/>
         <input type="hidden" name="favoriteName" value=""/>
+        <%-- The staged card is looked up in this window's patient's stash only (#3875). --%>
+        <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
     </form>
 
     <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">

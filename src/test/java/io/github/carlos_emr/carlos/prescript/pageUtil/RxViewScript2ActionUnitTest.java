@@ -151,6 +151,37 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
                 .hasPrivilege(any(), eq("_rx"), eq("w"), isNull());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "saved={0}")
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    @DisplayName("should refuse a save/stamp POST with 409 when it names no patient, even with Rx open for the fallback patient")
+    void shouldRefuseSaveAndStamp_whenPostNamesNoPatient(boolean saved) throws Exception {
+        request.setMethod("POST");
+        liveBean.getStashList().add(saved ? savedItem(5, "789") : rePrescribedItem("123"));
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(RxViewScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("scriptId")).isNull();
+        assertThat(liveBean.getStashItem(0).getDrugId()).isEqualTo(saved ? 5 : 0);
+        verifyNoInteractions(stampService, prescriptionDao);
+    }
+
+    @Test
+    @DisplayName("should refuse a save/stamp POST with 409 when it names a different patient")
+    void shouldRefuseSaveAndStamp_whenPostNamesOtherPatient() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO + 1));
+        liveBean.getStashList().add(savedItem(5, "789"));
+
+        String result = newAction().execute();
+
+        // The other patient has no Rx open, so nothing resolves at all.
+        assertThat(result).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        verifyNoInteractions(stampService, prescriptionDao);
+    }
+
     @Test
     @DisplayName("should reject a caller without _rx read before touching the stash")
     void shouldThrow_whenCallerLacksRxRead() {
@@ -189,6 +220,8 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reuse a fully persisted stash and stamp that script without saving again")
     void shouldReusePersistedScript_whenEveryStashItemIsSaved() throws Exception {
         request.setMethod("POST");
+        // The save/print POST names its window's patient (#3875).
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         liveBean.getStashList().add(savedItem(5, "789"));
         liveBean.getStashList().add(savedItem(6, "789"));
         when(stampService.applyStampToScript(loggedInInfo, liveBean, "789")).thenReturn(77);
@@ -206,6 +239,8 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should refuse to persist an unsaved stash for a caller with only _rx read")
     void shouldThrow_whenUnsavedStashAndCallerLacksRxWrite() {
         request.setMethod("POST");
+        // The save/print POST names its window's patient (#3875).
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
         liveBean.getStashList().add(rePrescribedItem("123")); // drugId 0: not yet persisted
 
@@ -220,6 +255,8 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should not stamp when the caller has only _rx read")
     void shouldSkipStamp_whenCallerLacksRxWrite() throws Exception {
         request.setMethod("POST");
+        // The save/print POST names its window's patient (#3875).
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
         liveBean.getStashList().add(savedItem(5, "789"));
 

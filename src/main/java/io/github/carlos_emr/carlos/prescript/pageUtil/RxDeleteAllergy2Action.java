@@ -83,7 +83,12 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
         String action = request.getParameter("action");
 
-        RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
+        // Deleting or re-activating an allergy changes the chart: act only for the patient the
+        // request explicitly names, never the session's last-opened Rx patient (#3875).
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxPatientData.Patient patient = bean == null
+                ? null
+                : RxSessionBeanResolver.resolvePatient(request, bean.getDemographicNo());
         if (patient == null) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;

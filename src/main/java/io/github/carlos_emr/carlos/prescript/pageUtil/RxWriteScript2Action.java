@@ -170,7 +170,12 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         //RxWriteScriptForm frm = (RxWriteScriptForm) form;
         String fwd = "refresh";
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // update* actions rewrite the current stash item (and updateAndPrint saves it), so they
+        // need the explicitly named patient's bean, never the fallback; other actions only
+        // re-render (#3875).
+        RxSessionBean bean = this.getAction() != null && this.getAction().startsWith("update")
+                ? RxSessionBeanResolver.resolveForWrite(request)
+                : RxSessionBeanResolver.resolve(request);
 
         if (bean == null) {
             response.sendRedirect("error.html");
@@ -1441,7 +1446,8 @@ public final class RxWriteScript2Action extends ActionSupport {
 	        hm.put("success", false);
 		} else {
             int drugId = Integer.parseInt(strId);
-            RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+            // Saves and archives a chart drug: only the named patient's bean, never the fallback (#3875).
+            RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
             if (bean == null) {
                 response.sendRedirect("error.html");
                 return null;

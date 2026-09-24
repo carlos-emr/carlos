@@ -30,6 +30,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -185,6 +188,7 @@ class RxDeleteAllergy2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should return forbidden when allergy does not belong to the session patient")
     void shouldReturn403Forbidden_whenAllergyBelongsToDifferentPatient() throws Exception {
         mockRequest.setParameter("ID", "42");
+        mockRequest.setParameter("demographicNo", "123");
         openRxForPatient();
         when(mockRxPatient.getAllergy(42)).thenReturn(null);
 
@@ -196,6 +200,62 @@ class RxDeleteAllergy2ActionUnitTest extends CarlosUnitTestBase {
         verify(mockRxPatient, never()).activateAllergy(anyInt());
         logActionMock.verifyNoInteractions();
     }
+    @ParameterizedTest(name = "action={0}")
+    @NullSource
+    @ValueSource(strings = {"activate", "delete"})
+    @DisplayName("should refuse the change when the request names no patient, even with Rx open for the fallback patient")
+    void shouldReturn403Forbidden_whenRequestNamesNoPatient(String allergyAction) throws Exception {
+        // Per-patient Rx state (#3875): a delete/activate that names no patient must not land on
+        // the session's last-opened Rx patient.
+        mockRequest.setParameter("ID", "42");
+        if (allergyAction != null) {
+            mockRequest.setParameter("action", allergyAction);
+        }
+        openRxForPatient();
+        when(mockRxPatient.getAllergy(42)).thenReturn(mockAllergy);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verify(mockRxPatient, never()).getAllergy(anyInt());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        verify(mockRxPatient, never()).activateAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should refuse the change when the named patient has no Rx open in this session")
+    void shouldReturn403Forbidden_whenNamedPatientHasNoRxOpen() throws Exception {
+        mockRequest.setParameter("ID", "42");
+        mockRequest.setParameter("demographicNo", "456");
+        openRxForPatient();
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should re-activate the allergy when the request names the patient")
+    void shouldActivateAllergy_whenRequestNamesPatient() throws Exception {
+        mockRequest.setParameter("ID", "42");
+        mockRequest.setParameter("demographicNo", "123");
+        mockRequest.setParameter("action", "activate");
+        openRxForPatient();
+        when(mockRxPatient.getAllergy(42)).thenReturn(mockAllergy);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient).activateAllergy(42);
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+    }
+
     /**
      * Opens Rx for patient 123 in this session (per-patient Rx state, #3875) and seeds the
      * resolver's per-request patient cache with the mock, so no demographic lookup runs.

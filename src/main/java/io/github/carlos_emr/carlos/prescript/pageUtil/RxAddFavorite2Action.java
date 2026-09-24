@@ -68,7 +68,12 @@ public final class RxAddFavorite2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_rx)");
         }
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        // A staged card is looked up by position in the named patient's stash, never the
+        // no-patient fallback, so a stale window cannot favourite another patient's draft (#3875).
+        // A saved drug id is favourited without touching any patient's stash.
+        RxSessionBean bean = this.getDrugId() != null
+                ? RxSessionBeanResolver.resolve(request)
+                : RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -98,14 +103,17 @@ public final class RxAddFavorite2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_rx)");
         }
 
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
+        String randomId = request.getParameter("randomId");
+        String favoriteName = request.getParameter("favoriteName");
+        String drugIdStr = request.getParameter("drugId");
+        // Same rule as execute(): a staged card comes only from the named patient's stash (#3875).
+        RxSessionBean bean = drugIdStr != null
+                ? RxSessionBeanResolver.resolve(request)
+                : RxSessionBeanResolver.resolveForWrite(request);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
         }
-        String randomId = request.getParameter("randomId");
-        String favoriteName = request.getParameter("favoriteName");
-        String drugIdStr = request.getParameter("drugId");
         String providerNo = bean.getProviderNo();
 
         if (drugIdStr != null) {

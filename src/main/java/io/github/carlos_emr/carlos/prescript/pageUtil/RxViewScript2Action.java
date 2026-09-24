@@ -151,6 +151,15 @@ public final class RxViewScript2Action extends ActionSupport {
             request.setAttribute("scriptId", scriptId);
             return "viewScript";
         }
+        // From here the request may save the stash and stamp a signature. The bean above may be
+        // the active-patient fallback, which with two charts open is the other patient's draft, so
+        // a write must name the bean's patient explicitly; refuse it with 409 as the other save
+        // paths do (#3875). popForm2 posts with the window's demographicNo.
+        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, bean)) {
+            MiscUtils.getLogger().warn("Refused prescription save: request does not name the prescribing window's patient");
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
         if (scriptId == null) {
             // Persisting a prescription and its drugs rows is a write. Every path that normally
             // feeds this page (updateSaveAllDrugs, updateAndPrint) already requires _rx write, so

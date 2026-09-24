@@ -1110,6 +1110,10 @@ function renderRxStage() {
                                                         </form> <br>
                                                         <form action="${pageContext.request.contextPath}/rx/deleteRx" method="post">
                                                             <input type="hidden" name="drugList" id="drugList"/>
+                                                            <%-- rx.js Delete() submits this form programmatically, which the
+                                                                 rx-patient-context submit listener never sees; archiving
+                                                                 requires the explicitly named patient (#3875). --%>
+                                                            <input type="hidden" name="demographicNo" value="<%= demoNo %>"/>
                                                         </form></td>
 
                                                     </tr>
