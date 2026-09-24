@@ -130,6 +130,7 @@ public class PreventionDisplayConfig {
         log.debug("STARTING2");
 
         InputStream is = null;
+        boolean loaded = true;
         try {
             if (CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS") != null) {
                 String filename = CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS");
@@ -199,6 +200,7 @@ public class PreventionDisplayConfig {
 
 
         } catch (Exception e) {
+            loaded = false;
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
@@ -207,7 +209,12 @@ public class PreventionDisplayConfig {
                 log.error("Unexpected error", e);
             }
         }
-        this.preventions = new PreventionSnapshot(loadedList, loadedHash);
+        // A failed reload (XML or database error) keeps the snapshot already in use rather than
+        // replacing it with an empty or partial list; the very first load still publishes, as
+        // before, so callers never see null.
+        if (loaded || this.preventions == null) {
+            this.preventions = new PreventionSnapshot(loadedList, loadedHash);
+        }
     }
 
 

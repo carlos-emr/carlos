@@ -119,7 +119,11 @@ async function main() {
   }
 
   const sql = createSqlRunner(config.mysql);
-  const installedBefore = sql.value(`SELECT COUNT(*) FROM property WHERE name='cvc.updated'`) !== '0';
+  // Cleanup restores an EMPTY catalogue only. Any pre-existing install -- recorded by NVC
+  // bookkeeping or just present as legacy CVC rows -- is left exactly as the update leaves it.
+  const installedBefore = sql.value(`SELECT COUNT(*) FROM property WHERE name='cvc.updated'`) !== '0'
+    || sql.value(`SELECT (SELECT COUNT(*) FROM CVCImmunization) + (SELECT COUNT(*) FROM CVCMedication)
+        + (SELECT COUNT(*) FROM CVCMedicationLotNumber) + (SELECT COUNT(*) FROM CVCMedicationGTIN)`) !== '0';
   const listsBefore = sql.rows(`SELECT name FROM LookupList WHERE name IN ('AnatomicalSite','RouteOfAdmin')`)
     .map((row) => row[0]);
   const recorder = createRecorder();
