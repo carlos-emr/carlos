@@ -51,7 +51,7 @@ class AsthmaActionPlanDropdownRegressionTest {
     private static final String ASTHMA_FLOWSHEET =
             "/oscar/encounter/oscarMeasurements/flowsheets/omdAsthmaFlowsheet.xml";
     private static final Path AACP_MIGRATION = Path.of("database", "mysql", "migration", "common",
-            "V1.0.31__aacp_provided_revised_reviewed_validation.sql");
+            "V1.0.33__aacp_provided_revised_reviewed_validation.sql");
     private static final Path ADD_MEASUREMENT_JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp",
             "encounter", "oscarMeasurements", "AddMeasurementData.jsp");
 

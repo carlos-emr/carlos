@@ -47,7 +47,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const DISPLAY_NAME = 'Weight kg';
 const MEASUREMENT_TYPE = 'WT';
 // A Yes/No measurement, for the tick-or-cross the card header shows. Not AACP: that one is
-// Provided/Revised/Reviewed since V1.0.31 (issue #3893), so it no longer gets a tick or cross.
+// Provided/Revised/Reviewed since V1.0.33 (issue #3893), so it no longer gets a tick or cross.
 const YES_NO_TYPE = 'AENC';
 const YES_NO_DISPLAY_NAME = 'Asthma Environmental Control';
 // The tracker names its inputs after the measurement type, which is unique within

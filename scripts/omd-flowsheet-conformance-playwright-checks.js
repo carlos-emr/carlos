@@ -27,10 +27,10 @@
  *
  *   1. Diabetes flowsheet (DE16.066): the 10g monofilament exam (FTLS) and the 128Hz
  *      tuning-fork exam at D1 (NRTF) are separate rows, and an NRTF reading entered from the
- *      flowsheet saves. NRTF is seeded by migration V1.0.30, so this also proves the migration
+ *      flowsheet saves. NRTF is seeded by migration V1.0.32, so this also proves the migration
  *      ran on the packaged install.
  *   2. Asthma flowsheet (DE16.098): the Action Plan entry offers Provided / Revised /
- *      Reviewed (migration V1.0.31) and saves one of them.
+ *      Reviewed (migration V1.0.33) and saves one of them.
  *   3. An Action Plan reading stored before that change ("Yes") still displays when opened
  *      for editing: selected, and disabled so it cannot be chosen for a new reading.
  *

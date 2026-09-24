@@ -64,7 +64,7 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
     private static final String NRTF_LABEL = "Neurological exam: 128Hz tuning fork D1";
     private static final String FTLS_LABEL = "Neurological exam: 10g monofilament";
     private static final Path NRTF_MIGRATION = Path.of("database", "mysql", "migration", "common",
-            "V1.0.30__add_nrtf_tuning_fork_measurement_type.sql");
+            "V1.0.32__add_nrtf_tuning_fork_measurement_type.sql");
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"omdDiabetesFlowsheet.xml", "diabetesQueensFlowsheet.xml", "diabetesFlowsheet.xml"})

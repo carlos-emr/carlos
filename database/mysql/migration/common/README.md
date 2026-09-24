@@ -31,15 +31,15 @@ cleanup. It preserves all existing routing records and comments. All application
 run the updated acknowledgement code to participate in this coordination protocol.
 `V1.0.22__add_lab_routing_lock_audit_columns.sql` also supplies the standard audit
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
-`V1.0.30__add_nrtf_tuning_fork_measurement_type.sql` seeds the NRTF measurement type
+`V1.0.32__add_nrtf_tuning_fork_measurement_type.sql` seeds the NRTF measurement type
 ("Neurological exam: 128Hz tuning fork D1") used by the diabetes flowsheets for OntarioMD
 DE16.066; the insert is existence-guarded because `measurementType.type` is not unique.
-`V1.0.31__aacp_provided_revised_reviewed_validation.sql` moves the Asthma Action Plan (AACP)
+`V1.0.33__aacp_provided_revised_reviewed_validation.sql` moves the Asthma Action Plan (AACP)
 measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (OntarioMD DE16.098).
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `on/V1.0.32`
-(the highest shared one is `common/V1.0.31`), so the next free version for ANY location is `V1.0.33`
+next free number accounts for province deltas too. The highest version in use is `on/V1.0.34`
+(the highest shared one is `common/V1.0.33`), so the next free version for ANY location is `V1.0.35`
 (see `../README.md`).

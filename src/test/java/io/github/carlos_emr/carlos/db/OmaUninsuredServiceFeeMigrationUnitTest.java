@@ -55,7 +55,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OmaUninsuredServiceFeeMigrationUnitTest {
 
     private static final Path MIGRATION = Path.of("database", "mysql", "migration", "on",
-            "V1.0.32__add_oma_uninsured_service_fees.sql");
+            "V1.0.34__add_oma_uninsured_service_fees.sql");
 
     /** ('_OMA_X', 'description', '12.34', '2026-01-01') rows of the fee staging table. */
     private static final Pattern FEE_ROW = Pattern.compile(

@@ -15,7 +15,7 @@
 -- from the CARLOS seed. Resolution order: the FTLS row's rule, then the Yes/No/NA rule matched by
 -- name and pattern. No id is ever assumed: when neither exists (an adopted database whose FTLS
 -- row and Yes/No/NA rule were both removed), the Yes/No/NA rule is recreated first, the same
--- insert-if-missing pattern V1.0.31 uses for its Provided/Revised/Reviewed rule, so the lookup
+-- insert-if-missing pattern V1.0.33 uses for its Provided/Revised/Reviewed rule, so the lookup
 -- cannot come back NULL and NRTF never binds to whatever rule happens to own id 7.
 --
 -- Idempotent. measurementType has no unique key on `type` (only an auto-increment id), so an
