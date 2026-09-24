@@ -32,6 +32,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -74,7 +76,15 @@
             String drugForm = drug.getDrugForm();
 
 
-            if ("update".equals(request.getParameter("action"))) {
+            // Only a POST may change the drug (CSRFGuard does not check GET), and changing it
+            // needs _rx write, not just the read right that opens this page.
+            boolean updateRequested = "update".equals(request.getParameter("action"))
+                    && "POST".equalsIgnoreCase(request.getMethod());
+            if (updateRequested) {
+                if (!SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
+                        LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "w", null)) {
+                    throw new SecurityException("missing required sec object (_rx)");
+                }
                 drug.setDrugForm(request.getParameter("drugForm"));
                 drugDao.merge(drug);
             }
@@ -82,7 +92,7 @@
 
         <script type="text/javascript">
             <%
-            if("update".equals(request.getParameter("action"))) {
+            if (updateRequested) {
             %>
             window.opener.refresh();
             window.close();
@@ -91,7 +101,9 @@
     </head>
     <body>
 
-    <form action="" method="post">
+    <%-- A real action URL: CSRFGuard only injects its token into forms with one, and the page's
+         <base href> made action="" post to the application root instead of this page. --%>
+    <form action="<%= request.getContextPath() %>/rx/ViewUpdateForm" method="post">
 
         <h3>Current form is: <b><%=drugForm%>
         </b></h3>
