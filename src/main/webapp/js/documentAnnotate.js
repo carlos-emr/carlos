@@ -216,7 +216,9 @@
         } catch (e) { return; }
         if (!box || !width || !box.height) { return; }
         var hit = document.createElementNS(SVG_NS, 'rect');
-        hit.setAttribute('x', box.x);
+        // From the text origin, not the painted glyph bound: a note that begins with spaces paints
+        // its first glyph after them, and the box must cover the leading spaces as well.
+        hit.setAttribute('x', Number(textEl.getAttribute('x')) || box.x);
         hit.setAttribute('y', box.y);
         // The full advance, so a press on a note's trailing spaces still grabs it.
         hit.setAttribute('width', width);
@@ -1177,13 +1179,12 @@
             for (var n = 0; n < wraps.length; n++) { sizeOverlay(wraps[n]); }
         }
         window.addEventListener('resize', resizeAllOverlays);
-        // Note hit boxes are measured from the rendered text, so re-measure once the annotation
-        // font arrives; until then the text is laid out in a fallback face of different width.
+        // Notes are measured from the rendered text, so re-fit them once the annotation font
+        // arrives; until then the text is laid out in a fallback face of different width. The
+        // refit redraws each page whose notes changed, and only those: a page with no notes has
+        // nothing to re-measure, and a whole-viewer redraw here would draw each page twice.
         if (document.fonts && document.fonts.addEventListener) {
-            document.fonts.addEventListener('loadingdone', function () {
-                resizeAllOverlays();
-                refitNotes();
-            });
+            document.fonts.addEventListener('loadingdone', refitNotes);
             // Fetch the annotation face now rather than when the first note is drawn, so notes
             // are measured (hit boxes, edge clamping) in the font the composer will use. Notes
             // placed before it arrives are refitted once it has.

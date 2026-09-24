@@ -915,6 +915,64 @@ async function main() {
     await waitForSave();
     check('a note ending in spaces fits the page by its full width and saves',
       await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    // A note that begins with spaces paints its first glyph after them, but the hit box must
+    // start at the text origin, so a press on the leading spaces grabs the note rather than
+    // placing a new one.
+    page.once('dialog', dialog => dialog.accept(' '.repeat(12) + 'Synthetic note with leading spaces'));
+    await page.mouse.click(spaceBox.x + 40, spaceBox.y + 300);
+    const leadingNote = page.locator('svg.overlay').first().locator('text.mark').last();
+    const leadingOrigin = await leadingNote.evaluate(text => ({ x: Number(text.getAttribute('x')), y: text.getBBox().y + text.getBBox().height / 2 }));
+    const leadingBefore = await leadingNote.boundingBox();
+    const marksBeforeLeading = await markCount();
+    let promptedOnLeading = false;
+    const leadingPrompt = dialog => { promptedOnLeading = true; dialog.dismiss(); };
+    page.on('dialog', leadingPrompt);
+    await page.mouse.move(spaceBox.x + leadingOrigin.x + 3, spaceBox.y + leadingOrigin.y);
+    await page.mouse.down();
+    await page.mouse.move(spaceBox.x + leadingOrigin.x + 63, spaceBox.y + leadingOrigin.y + 40, { steps: 6 });
+    await page.mouse.up();
+    page.off('dialog', leadingPrompt);
+    const leadingAfter = await leadingNote.boundingBox();
+    check('a press on a note\'s leading spaces grabs the note',
+      !promptedOnLeading && await markCount() === marksBeforeLeading
+      && Math.abs(leadingAfter.x - leadingBefore.x - 60) < 3 && Math.abs(leadingAfter.y - leadingBefore.y - 40) < 3,
+      JSON.stringify([promptedOnLeading, marksBeforeLeading, await markCount(), leadingBefore, leadingAfter]));
+    await openViewer();
+
+    // The annotation font arriving redraws a page with notes once (the refit), not once for a
+    // whole-viewer redraw and again for the refit. Counted by the note elements a redraw removes.
+    let releaseCountedFont;
+    const countedFontHeld = new Promise(resolve => { releaseCountedFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await countedFontHeld;
+      await route.continue();
+    });
+    await openViewer('domcontentloaded');
+    await page.evaluate(() => {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+    const countedBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note counted through the font arrival'));
+    await page.mouse.click(countedBox.x + countedBox.width - 10, countedBox.y + 200);
+    await page.evaluate(() => {
+      window.__removedNotes = 0;
+      new MutationObserver(records => {
+        for (const record of records) {
+          for (const node of record.removedNodes) {
+            if (node.matches && node.matches('text.mark')) { window.__removedNotes += 1; }
+          }
+        }
+      }).observe(document.querySelector('svg.overlay'), { childList: true });
+    });
+    releaseCountedFont();
+    await page.waitForFunction(() => document.fonts.check('11px CarlosAnnotation'));
+    await page.waitForTimeout(500);
+    const removedNotes = await page.evaluate(() => window.__removedNotes);
+    check('the annotation font arriving redraws a page with notes once', removedNotes === 1, String(removedNotes));
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
     await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {
