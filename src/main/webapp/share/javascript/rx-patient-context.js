@@ -50,16 +50,38 @@
     }
 
     function isRxUrl(url) {
-        if (typeof url !== 'string' || url === '') {
+        if (typeof url !== 'string') {
             return false;
         }
-        var path = url.split('#')[0].split('?')[0];
-        // Absolute URLs to another origin are never tagged.
-        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path)) {
-            if (typeof location === 'undefined' || path.indexOf(location.origin + '/') !== 0) {
+        // Browsers drop leading whitespace before resolving an href.
+        var candidate = url.trim();
+        if (candidate === '') {
+            return false;
+        }
+        // The patient id must never leave this origin. A protocol-relative URL (//host/rx/...,
+        // and the /\ and \\ spellings browsers treat the same way) names another host with no
+        // scheme, so it is refused outright.
+        if (/^[\\/]{2}/.test(candidate)) {
+            return false;
+        }
+        // Any URL with a scheme is tagged only when it is http(s) on this page's own origin;
+        // javascript:, data:, mailto: and cross-origin URLs are never tagged.
+        if (/^[a-z][a-z0-9+.-]*:/i.test(candidate)) {
+            if (!/^https?:/i.test(candidate) || typeof location === 'undefined' || !location.origin
+                    || typeof URL !== 'function') {
+                return false;
+            }
+            var origin;
+            try {
+                origin = new URL(candidate).origin;
+            } catch (e) {
+                return false;
+            }
+            if (origin !== location.origin) {
                 return false;
             }
         }
+        var path = candidate.split('#')[0].split('?')[0];
         return path.indexOf('/rx/') >= 0 || path.indexOf('rx/') === 0;
     }
 

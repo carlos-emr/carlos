@@ -81,8 +81,15 @@
             boolean updateRequested = "update".equals(request.getParameter("action"))
                     && "POST".equalsIgnoreCase(request.getMethod());
             if (updateRequested) {
-                if (!SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
-                        LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "w", null)) {
+                // The drug id comes from the caller, so the write is authorised against the patient
+                // that drug actually belongs to (patient-level _rx restrictions and chart access),
+                // never a request-supplied patient.
+                SecurityInfoManager updateSecurity = SpringUtils.getBean(SecurityInfoManager.class);
+                LoggedInInfo updateLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                Integer drugDemographicNo = drug.getDemographicId();
+                if (drugDemographicNo == null
+                        || !updateSecurity.hasPrivilege(updateLoggedInInfo, "_rx", "w", drugDemographicNo.intValue())
+                        || !updateSecurity.isAllowedAccessToPatientRecord(updateLoggedInInfo, drugDemographicNo)) {
                     throw new SecurityException("missing required sec object (_rx)");
                 }
                 drug.setDrugForm(request.getParameter("drugForm"));

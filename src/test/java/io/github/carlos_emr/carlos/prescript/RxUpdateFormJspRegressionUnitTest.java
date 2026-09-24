@@ -56,12 +56,19 @@ class RxUpdateFormJspRegressionUnitTest {
     }
 
     @Test
-    @DisplayName("should only change the drug on a POST with _rx write")
-    void shouldGateDrugUpdate_onPostAndWritePrivilege() throws IOException {
+    @DisplayName("should only change the drug on a POST with _rx write for the drug's own patient")
+    void shouldGateDrugUpdate_onPostAndPatientScopedWritePrivilege() throws IOException {
         String jsp = Files.readString(UPDATE_FORM_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("\"POST\".equalsIgnoreCase(request.getMethod())");
-        assertThat(jsp).contains("\"_rx\", \"w\", null");
+        // The drug id is caller-supplied, so write access is checked against the patient the drug
+        // belongs to, not globally and not against a request-supplied patient.
+        assertThat(jsp).contains("Integer drugDemographicNo = drug.getDemographicId();");
+        assertThat(jsp).contains("\"_rx\", \"w\", drugDemographicNo.intValue())");
+        assertThat(jsp).contains("isAllowedAccessToPatientRecord(updateLoggedInInfo, drugDemographicNo)");
+        assertThat(jsp).doesNotContain("\"_rx\", \"w\", null");
         assertThat(jsp).contains("missing required sec object (_rx)");
+        // The ownership check must run before the drug row is merged.
+        assertThat(jsp.indexOf("isAllowedAccessToPatientRecord")).isLessThan(jsp.indexOf("drugDao.merge(drug)"));
     }
 }

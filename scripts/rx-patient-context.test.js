@@ -29,6 +29,70 @@ test('withPatient does not touch non-Rx or cross-origin URLs', () => {
     assert.equal(rx.withPatient('https://evil.example/rx/x'), 'https://evil.example/rx/x');
 });
 
+test('isRxUrl never classifies an off-origin or non-http URL as an Rx route', () => {
+    for (const url of [
+        '//other.example/rx/WriteScript',
+        '  //other.example/rx/WriteScript',
+        '/\\other.example/rx/WriteScript',
+        '\\\\other.example/rx/WriteScript',
+        'https://other.example/rx/WriteScript',
+        'http://other.example/carlos/rx/viewScript?scriptId=1',
+        'javascript:alert(1)//rx/x',
+        'data:text/html,/rx/x',
+        'mailto:rx/x',
+    ]) {
+        assert.equal(context.isRxUrl(url), false, url);
+    }
+});
+
+test('isRxUrl accepts relative Rx routes and absolute http(s) Rx URLs on this origin only', () => {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'location');
+    Object.defineProperty(globalThis, 'location', {
+        value: { origin: 'https://emr.example', href: 'https://emr.example/carlos/rx/searchDrug' },
+        configurable: true,
+    });
+    try {
+        assert.equal(context.isRxUrl('/carlos/rx/WriteScript'), true);
+        assert.equal(context.isRxUrl('rx/WriteScript'), true);
+        assert.equal(context.isRxUrl('https://emr.example/carlos/rx/WriteScript'), true);
+        assert.equal(context.isRxUrl('https://emr.example.evil.test/carlos/rx/WriteScript'), false);
+        assert.equal(context.isRxUrl('http://emr.example/carlos/rx/WriteScript'), false);
+        assert.equal(context.isRxUrl('//emr.example/carlos/rx/WriteScript'), false);
+        assert.equal(context.isRxUrl('/carlos/encounter/x'), false);
+
+        const rx = context.create('1001');
+        assert.equal(rx.withPatient('https://emr.example/carlos/rx/WriteScript'),
+            'https://emr.example/carlos/rx/WriteScript?demographicNo=1001');
+        assert.equal(rx.withPatient('//other.example/rx/WriteScript'), '//other.example/rx/WriteScript');
+        assert.equal(rx.withPatient('javascript:void(0)//rx/'), 'javascript:void(0)//rx/');
+    } finally {
+        if (previous) {
+            Object.defineProperty(globalThis, 'location', previous);
+        } else {
+            delete globalThis.location;
+        }
+    }
+});
+
+test('install does not tag a protocol-relative link to another host', () => {
+    const listeners = {};
+    const attrs = { href: '//other.example/rx/WriteScript' };
+    const link = {
+        getAttribute: (name) => attrs[name],
+        setAttribute: (name, value) => { attrs[name] = value; },
+        closest() { return this; },
+    };
+    const win = {
+        document: {
+            addEventListener(type, fn) { listeners[type] = fn; },
+            createElement: () => ({}),
+        },
+    };
+    context.create('1001').install(win);
+    listeners.click({ target: link });
+    assert.equal(attrs.href, '//other.example/rx/WriteScript');
+});
+
 test('without a patient nothing is rewritten', () => {
     const rx = context.create(null);
     assert.equal(rx.withPatient('/carlos/rx/WriteScript'), '/carlos/rx/WriteScript');
