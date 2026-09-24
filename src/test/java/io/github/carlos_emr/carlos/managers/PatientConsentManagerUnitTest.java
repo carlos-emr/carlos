@@ -414,5 +414,17 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             verify(mockConsentDao).merge(first);
             verify(mockConsentDao).merge(second);
         }
+
+        @Test
+        @DisplayName("should throw and change nothing when write privilege denied")
+        void shouldThrow_whenWritePrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.deleteConsent(loggedInInfo, 100, 1))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Unauthorised Access");
+            verifyNoInteractions(mockConsentDao);
+        }
     }
 }
