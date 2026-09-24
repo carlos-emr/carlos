@@ -7,8 +7,8 @@ import org.apache.cxf.phase.Phase;
 import org.apache.cxf.staxutils.StaxUtils;
 import org.apache.cxf.ws.security.wss4j.WSS4JInInterceptor;
 import org.apache.logging.log4j.Logger;
+import org.apache.wss4j.common.ConfigurationConstants;
 import org.apache.wss4j.common.WSS4JConstants;
-import org.apache.wss4j.dom.handler.WSHandlerConstants;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import javax.xml.stream.XMLStreamConstants;
@@ -44,8 +44,9 @@ import java.util.regex.Pattern;
  *       (legacy fallback, logged as a warning)</li>
  *   <li>N {@code EncryptedKey} (1 &lt;= N &lt;= {@link #MAX_ENCRYPTED_KEYS}):
  *       N {@code Encrypt} actions</li>
- *   <li>more than {@link #MAX_ENCRYPTED_KEYS}, or malformed input: the message is rejected
- *       with a {@link Fault} before WSS4J is configured</li>
+ *   <li>more than {@link #MAX_ENCRYPTED_KEYS}, or a malformed envelope or root part: the
+ *       message is rejected with a {@link Fault} before WSS4J is configured (attachment parts
+ *       after the root are left to CXF and WSS4J to validate)</li>
  * </ul>
  *
  * <h2>Why a raw-bytes StAX scan in the RECEIVE phase</h2>
@@ -57,9 +58,9 @@ import java.util.regex.Pattern;
  * is the likely reason upstream Open-O's attempt to DOM/XPath-parse the whole buffered stream
  * (fdfdd04dc2) was reverted to substring counting (eddce81dd7): a DOM parse fails on the MIME
  * framing and binary attachment parts that precede and follow the envelope. CARLOS instead
- * locates the SOAP envelope itself (the whole entity for plain SOAP, or the RFC 2387 root part of
- * a multipart package, selected by the Content-Type {@code start} parameter and delimited by
- * complete RFC 2046 delimiter lines) and runs a streaming, namespace-aware StAX scan over just
+ * locates the SOAP envelope itself (the whole entity for plain SOAP, or the first body part of a
+ * multipart package, which is the part CXF treats as the root, delimited by complete RFC 2046
+ * delimiter lines) and runs a streaming, namespace-aware StAX scan over just
  * those bytes, via CXF's hardened {@link StaxUtils} reader (external entities off, CXF depth and
  * size limits), rejecting any DOCTYPE outright. Binary attachment parts are never parsed, the
  * scan aborts as soon as the {@code EncryptedKey} bound is exceeded, and anything other than the
@@ -98,11 +99,6 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     private static final int MAX_BOUNDARY_LINE_LENGTH = 100;
     /** RFC 2046 section 5.1.1: a boundary is 1 to 70 characters. */
     private static final int MAX_BOUNDARY_LENGTH = 70;
-    /**
-     * Upper bound on MIME parts walked while looking for the {@code start} root part. An MCEDT
-     * response has one root plus at most {@link #MAX_ENCRYPTED_KEYS} attachments.
-     */
-    private static final int MAX_MIME_PARTS = MAX_ENCRYPTED_KEYS + 2;
     /** An (unfolded) {@code Content-ID} header line; the header name is case-insensitive. */
     private static final Pattern CONTENT_ID_HEADER = Pattern.compile(
             "content-id[ \\t]*:(.*)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -135,18 +131,18 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             EncryptionDetectionResult detection = detectEncryption(message);
 
             Map<String, Object> wssProps = clientBuilder.newWSSInInterceptorConfiguration();
-            wssProps.put(WSHandlerConstants.ACTION, buildAction(detection));
+            wssProps.put(ConfigurationConstants.ACTION, buildAction(detection));
 
             message.getInterceptorChain().add(new WSS4JInInterceptor(wssProps));
         } catch (IOException | XMLStreamException | RuntimeException e) {
-            throw e instanceof Fault ? (Fault) e : new Fault(e);
+            throw e instanceof Fault fault ? fault : new Fault(e);
         }
     }
 
     private static String buildAction(EncryptionDetectionResult detection) {
         StringBuilder action = new StringBuilder()
-                .append(WSHandlerConstants.TIMESTAMP).append(' ')
-                .append(WSHandlerConstants.SIGNATURE);
+                .append(ConfigurationConstants.TIMESTAMP).append(' ')
+                .append(ConfigurationConstants.SIGNATURE);
 
         int encryptionCount = detection.encryptedKeyCount;
         if (encryptionCount == 0 && detection.hasEncryptedData) {
@@ -157,7 +153,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             encryptionCount = 1;
         }
         for (int i = 0; i < encryptionCount; i++) {
-            action.append(' ').append(WSHandlerConstants.ENCRYPTION);
+            action.append(' ').append(ConfigurationConstants.ENCRYPTION);
         }
         return action.toString();
     }
@@ -213,9 +209,14 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * <p>Plain-vs-MIME is decided from the Content-Type when one is present, not by sniffing the
      * first byte, so a MIME preamble beginning with {@code <} or {@code -} cannot flip the
      * decision. For multipart content the boundary and optional {@code start} parameter come
-     * from the Content-Type; the root is the part whose {@code Content-ID} matches {@code start},
-     * or the first part when {@code start} is absent (RFC 2387). Only when no Content-Type is
-     * available is the boundary sniffed from a leading delimiter line.</p>
+     * from the Content-Type. The root is always the first body part, because that is the part
+     * CXF's {@code AttachmentDeserializer} processes as the envelope; if {@code start} is present
+     * it must match that part's {@code Content-ID}. Only when no Content-Type is available is the
+     * boundary sniffed from a leading delimiter line.</p>
+     *
+     * <p>Only the preamble, the root part's headers and the delimiter that ends the root part
+     * are validated. Later (attachment) parts are not walked: their framing is validated by CXF
+     * and their content by WSS4J, so a truncated attachment fails there, not here.</p>
      *
      * <p>If a multipart Content-Type is declared but the entity contains no delimiter line for
      * its boundary and is itself an XML document, it is treated as an already-extracted root
@@ -227,7 +228,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * @param content the buffered entity
      * @param start index of the first non-whitespace byte
      * @param contentType the message Content-Type, may be {@code null}
-     * @throws IOException if the content is neither XML nor a well-formed MIME package
+     * @throws IOException if the content is neither XML nor a MIME package whose first part is a
+     *                     delimited root part (matching {@code start}, when given)
      */
     static ByteArrayInputStream locateEnvelope(byte[] content, int start, String contentType)
             throws IOException {
@@ -270,27 +272,28 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             throw new IOException("MCEDT response MIME package has no body parts");
         }
 
-        for (int parts = 1; parts <= MAX_MIME_PARTS; parts++) {
-            PartHeaders headers = readPartHeaders(content, delimiter.next);
-            Delimiter end = findDelimiter(content, dashBoundary, headers.bodyStart);
-            if (end == null) {
-                throw new IOException("MCEDT response MIME part is not terminated by a delimiter");
-            }
-            if (rootContentId == null || rootContentId.equals(headers.contentId)) {
-                // The line break before a delimiter belongs to the delimiter (RFC 2046 5.1.1).
-                int bodyEnd = end.lineStart - 1;
-                if (bodyEnd > headers.bodyStart && content[bodyEnd - 1] == '\r') {
-                    bodyEnd--;
-                }
-                bodyEnd = Math.max(bodyEnd, headers.bodyStart);
-                return new ByteArrayInputStream(content, headers.bodyStart, bodyEnd - headers.bodyStart);
-            }
-            if (end.close) {
-                throw new IOException("MCEDT response has no MIME part matching the start parameter");
-            }
-            delimiter = end;
+        // The root is always the FIRST body part: CXF's AttachmentDeserializer (4.1.x) ignores
+        // the start parameter and hands the first part to the SOAP/WSS4J chain, so counting keys
+        // in any other part would build an action list for an envelope WSS4J never sees.
+        // A start parameter that names a later part is therefore rejected rather than followed.
+        PartHeaders headers = readPartHeaders(content, delimiter.next);
+        if (rootContentId != null && !rootContentId.equals(headers.contentId)) {
+            throw new IOException("MCEDT response root MIME part is not the first part");
         }
-        throw new IOException("MCEDT response exceeds the maximum of " + MAX_MIME_PARTS + " MIME parts");
+        Delimiter end = findDelimiter(content, dashBoundary, headers.bodyStart);
+        if (end == null) {
+            throw new IOException("MCEDT response MIME part is not terminated by a delimiter");
+        }
+        // Parts after the root are deliberately not walked: this interceptor only needs the
+        // envelope. Attachment framing (truncation, missing close delimiter) is enforced by CXF's
+        // AttachmentDeserializer and the attachment bytes by WSS4J decryption/signature checks.
+        // The line break before a delimiter belongs to the delimiter (RFC 2046 5.1.1).
+        int bodyEnd = end.lineStart - 1;
+        if (bodyEnd > headers.bodyStart && content[bodyEnd - 1] == '\r') {
+            bodyEnd--;
+        }
+        bodyEnd = Math.max(bodyEnd, headers.bodyStart);
+        return new ByteArrayInputStream(content, headers.bodyStart, bodyEnd - headers.bodyStart);
     }
 
     /** A matched delimiter line: where it starts, where the next line starts, and whether it closes. */
@@ -523,11 +526,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                     if (XENC_NS.equals(ns)) {
                         if ("EncryptedData".equals(local)) {
                             result.hasEncryptedData = true;
-                        } else if ("EncryptedKey".equals(local) && securityDepth > 0) {
-                            if (++result.encryptedKeyCount > MAX_ENCRYPTED_KEYS) {
-                                throw new IOException("MCEDT response exceeds the maximum of "
-                                        + MAX_ENCRYPTED_KEYS + " EncryptedKey elements");
-                            }
+                        } else if ("EncryptedKey".equals(local) && securityDepth > 0
+                                && ++result.encryptedKeyCount > MAX_ENCRYPTED_KEYS) {
+                            throw new IOException("MCEDT response exceeds the maximum of "
+                                    + MAX_ENCRYPTED_KEYS + " EncryptedKey elements");
                         }
                     }
                 } else if (event == XMLStreamConstants.END_ELEMENT) {
@@ -593,14 +595,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     /** Naive byte search; needles are at most ~72 bytes. */
     private static int indexOf(byte[] haystack, byte[] needle, int from, int to) {
         int limit = Math.min(to, haystack.length) - needle.length;
-        outer:
         for (int i = from; i <= limit; i++) {
-            for (int j = 0; j < needle.length; j++) {
-                if (haystack[i + j] != needle[j]) {
-                    continue outer;
-                }
+            if (Arrays.equals(haystack, i, i + needle.length, needle, 0, needle.length)) {
+                return i;
             }
-            return i;
         }
         return -1;
     }

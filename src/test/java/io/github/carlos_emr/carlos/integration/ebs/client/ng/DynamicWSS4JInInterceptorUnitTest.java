@@ -205,23 +205,26 @@ class DynamicWSS4JInInterceptorUnitTest {
     // ---------------------------------------------------------------- review follow-ups (PR #3898)
 
     @Test
-    @DisplayName("should select the part named by the start parameter when it is not the first part")
-    void shouldSelectStartPart_whenRootIsNotFirstPart() {
+    @DisplayName("should reject the message when the start parameter names a part other than the first")
+    void shouldRejectMessage_whenStartNamesLaterPart() {
+        // CXF's AttachmentDeserializer always treats the FIRST part as the envelope, so counting
+        // keys in the start-named part would configure WSS4J for an envelope it never processes.
         when(message.get(Message.CONTENT_TYPE)).thenReturn(
                 "multipart/related; boundary=b1; type=\"application/xop+xml\"; start=\"<soap-root@carlos>\"");
         givenContent("--b1\r\n"
                 + "Content-Type: application/octet-stream\r\n"
                 + "Content-ID: <attachment-1>\r\n\r\n"
-                + envelope(9, true) // a decoy envelope that must not be counted
+                + envelope(9, true)
                 + "\r\n--b1\r\n"
                 + "Content-Type: application/xop+xml\r\n"
                 + "Content-ID: <soap-root@carlos>\r\n\r\n"
                 + envelope(3, true)
                 + "\r\n--b1--");
 
-        interceptor.handleMessage(message);
-
-        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
     }
 
     @Test
@@ -230,16 +233,36 @@ class DynamicWSS4JInInterceptorUnitTest {
         when(message.get(Message.CONTENT_TYPE)).thenReturn(
                 "Multipart/Related;BOUNDARY=b1;start=soap-root@carlos");
         givenContent("--b1\r\n"
-                + "Content-ID: <other>\r\n\r\n"
-                + "binary\r\n"
-                + "--b1\r\n"
+                + "Content-Type: application/xop+xml\r\n"
                 + "content-id:\r\n <soap-root@carlos>\r\n\r\n"
                 + envelope(2, true)
-                + "\r\n--b1--\r\n");
+                + "\r\n--b1\r\n"
+                + "Content-ID: <other>\r\n\r\n"
+                + "binary\r\n"
+                + "--b1--\r\n");
 
         interceptor.handleMessage(message);
 
         assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should configure WSS4J and restore every byte when an attachment after the root is truncated")
+    void shouldLeaveAttachmentValidationToCxf_whenAttachmentAfterRootIsTruncated() throws IOException {
+        // Contract: only the root part is validated here; CXF's AttachmentDeserializer and WSS4J
+        // reject broken attachments downstream, so they must still receive the original bytes.
+        String mime = "--b1\r\nContent-Type: application/xop+xml\r\n\r\n"
+                + envelope(2, true)
+                + "\r\n--b1\r\nContent-Type: application/octet-stream\r\n\r\n<<truncated ciphertext";
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent(mime);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+        ArgumentCaptor<InputStream> restored = ArgumentCaptor.forClass(InputStream.class);
+        verify(message).setContent(eq(InputStream.class), restored.capture());
+        assertThat(restored.getValue().readAllBytes()).isEqualTo(mime.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
