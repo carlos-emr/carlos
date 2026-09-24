@@ -99,7 +99,7 @@ class SmsSendServiceUnitTest {
                 command -> SmsConsentDecisionDto.permit(),
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
-                providerType -> true,
+                providerType -> events.add("tryAcquire"),
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
@@ -109,6 +109,7 @@ class SmsSendServiceUnitTest {
         assertThat(events).containsExactly(
                 "recordOutboundAttempt",
                 "markSending",
+                "tryAcquire",
                 "providerSend",
                 "markProviderResult"
         );
@@ -120,7 +121,7 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send does not call the SMS provider when the queued row is already claimed")
+    @DisplayName("send neither calls the SMS provider nor takes a rate-limit permit when the row is already claimed")
     void shouldSkipProviderSend_whenClaimConflictOccurs() {
         List<String> events = new ArrayList<>();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events) {
@@ -135,7 +136,7 @@ class SmsSendServiceUnitTest {
                 command -> SmsConsentDecisionDto.permit(),
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
-                providerType -> true,
+                providerType -> events.add("tryAcquire"),
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
@@ -154,15 +155,16 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send leaves the message queued and skips the SMS provider when rate limited")
+    @DisplayName("send releases its claim, leaves the message queued and skips the SMS provider when rate limited")
     void shouldLeaveQueued_whenRateLimited() {
-        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
                 recorder,
-                providerType -> false,
+                providerType -> !events.add("tryAcquire"),
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
@@ -171,9 +173,45 @@ class SmsSendServiceUnitTest {
         assertThat(result.accepted()).isTrue();
         assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
         assertThat(result.providerMessageId()).isNull();
+        assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
         assertThat(recorder.transactions()).singleElement()
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
-                .containsExactly(SmsStatus.QUEUED, null);
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getProviderMessageId()).isNull();
+                    assertThat(transaction.getAttemptCount()).isZero();
+                    assertThat(transaction.getNextAttemptAt()).isNotNull();
+                });
+    }
+
+    @Test
+    @DisplayName("send releases its claim and rethrows when the rate limiter fails")
+    void shouldReleaseClaim_whenRateLimiterThrows() {
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
+        IllegalStateException limiterFailure = new IllegalStateException("rate-limit row lock timed out");
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                recorder,
+                providerType -> {
+                    events.add("tryAcquire");
+                    throw limiterFailure;
+                },
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")))
+                .isSameAs(limiterFailure);
+
+        // Nothing was sent, so the row must not be left SENDING for stale recovery to misjudge.
+        assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
+        assertThat(recorder.transactions()).singleElement()
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getAttemptCount()).isZero();
+                });
     }
 
     @Test
