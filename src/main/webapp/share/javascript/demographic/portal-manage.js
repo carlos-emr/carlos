@@ -34,6 +34,69 @@
 (function () {
     'use strict';
 
+    /**
+     * The page's decisions, free of the DOM so they can be tested in Node
+     * (scripts/portal-manage.test.js).
+     *
+     * @param messages Map of translated page text, keyed as in the JSP's #portal-messages list
+     */
+    function createLogic(messages) {
+        function message(key) {
+            return messages.has(key) ? messages.get(key) : null;
+        }
+
+        function text(key) {
+            var item = message(key);
+            return item !== null ? item : key;
+        }
+
+        /** Words a delivery attempt: its state, why it stands there, and whether a code was left live. */
+        function describe(delivery) {
+            var parts = [text('deliveries.state.' + delivery.state)];
+            if (delivery.outcome) {
+                parts.push(text('deliveries.outcome.' + delivery.outcome));
+            }
+            if (delivery.revokeFailed) {
+                parts.push(text('deliveries.revokeFailed'));
+            }
+            if (delivery.outcome === 'commit_unconfirmed' && delivery.supersededInviteId) {
+                // The portal retires the old code as it activates a replacement, so an unconfirmed
+                // replacement may have taken the old code with it.
+                parts.push(text('deliveries.replacementMayBeLost'));
+            }
+            return parts;
+        }
+
+        /** A refusal the page knows by its code is shown translated; any other keeps the server's wording. */
+        function refusal(body) {
+            if (body && body.reason && message('refusal.' + body.reason)) {
+                return text('refusal.' + body.reason);
+            }
+            return body && body.message ? body.message : text('error.generic');
+        }
+
+        /**
+         * Whether a handled request is good news. An attempt that stopped short still answers 200, and a
+         * sent invitation whose chart note failed still needs staff to act.
+         */
+        function isGoodNews(delivery) {
+            return !delivery || (delivery.state === 'sent' && delivery.outcome !== 'chart_note_failed');
+        }
+
+        /** Whether to offer withdrawing a stuck earlier attempt: asked once, never on the retry itself. */
+        function offersWithdrawal(body, params) {
+            return Boolean(body && body.reason === 'stale_attempt_exists' && !params.withdrawStale);
+        }
+
+        return {message: message, text: text, describe: describe, refusal: refusal, isGoodNews: isGoodNews,
+            offersWithdrawal: offersWithdrawal};
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {createLogic: createLogic};
+        return;
+    }
+
     var root = document.getElementById('portal-manage');
     if (!root) {
         return;
@@ -58,40 +121,11 @@
     document.querySelectorAll('#portal-messages [data-key]').forEach(function (item) {
         messages.set(item.dataset.key, item.textContent);
     });
-
-    function message(key) {
-        return messages.has(key) ? messages.get(key) : null;
-    }
-
-    function text(key) {
-        var item = message(key);
-        return item !== null ? item : key;
-    }
-
-    /** Words a delivery attempt: its state, why it stands there, and whether a code was left live. */
-    function describe(delivery) {
-        var parts = [text('deliveries.state.' + delivery.state)];
-        if (delivery.outcome) {
-            parts.push(text('deliveries.outcome.' + delivery.outcome));
-        }
-        if (delivery.revokeFailed) {
-            parts.push(text('deliveries.revokeFailed'));
-        }
-        if (delivery.outcome === 'commit_unconfirmed' && delivery.supersededInviteId) {
-            // The portal retires the old code as it activates a replacement, so an unconfirmed
-            // replacement may have taken the old code with it.
-            parts.push(text('deliveries.replacementMayBeLost'));
-        }
-        return parts;
-    }
-
-    /** A refusal the page knows by its code is shown translated; any other keeps the server's wording. */
-    function refusal(body) {
-        if (body && body.reason && message('refusal.' + body.reason)) {
-            return text('refusal.' + body.reason);
-        }
-        return body && body.message ? body.message : text('error.generic');
-    }
+    var logic = createLogic(messages);
+    var message = logic.message;
+    var text = logic.text;
+    var describe = logic.describe;
+    var refusal = logic.refusal;
 
     function element(tag, className, content) {
         var node = document.createElement(tag);
@@ -202,11 +236,9 @@
             // An attempt that stopped short still answers 200: the request was handled, the invitation was
             // not necessarily delivered. Only a sent one is good news, and its state label alone does not
             // tell staff what to do, so the attempt's own explanation is shown with it.
-            // A sent invitation whose chart note failed still needs staff to act.
             var delivery = body.delivery;
-            var sent = !delivery || (delivery.state === 'sent' && delivery.outcome !== 'chart_note_failed');
-            showStatus(delivery ? describe(delivery) : text('done'), sent);
-        } else if (body && body.reason === 'stale_attempt_exists' && !params.withdrawStale) {
+            showStatus(delivery ? describe(delivery) : text('done'), logic.isGoodNews(delivery));
+        } else if (logic.offersWithdrawal(body, params)) {
             // An earlier attempt stopped before its code was activated and may be blocking this one.
             // Nothing from it reached the patient, so withdrawing it is safe once staff agree.
             if (window.confirm(text('invites.confirmWithdrawStale'))) {
