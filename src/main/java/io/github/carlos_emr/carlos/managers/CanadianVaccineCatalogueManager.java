@@ -379,12 +379,16 @@ public class CanadianVaccineCatalogueManager {
                 item.setCreatedBy(CATALOGUE_AUTHOR);
                 item.setDateCreated(new Date());
                 lookupListManager.addLookupListItem(loggedInInfo, item);
-            } else {
+            } else if (CATALOGUE_AUTHOR.equals(item.getCreatedBy())) {
                 item.setLabel(value.label());
                 item.setDisplayOrder(order++);
                 item.setActive(true);
                 // Through the manager, not the DAO: it evicts the shared lookup-list cache.
                 lookupListManager.updateLookupListItem(loggedInInfo, item);
+            } else {
+                // A clinic already maintains this value: leave its label, order and active flag
+                // exactly as the clinic set them, and do not add an NVC duplicate beside it.
+                order++;
             }
         }
         for (LookupListItem withdrawn : existing.values()) {

@@ -257,6 +257,27 @@ class CanadianVaccineCatalogueManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldLeaveClinicItem_whenItSharesAnNvcCode() throws Exception {
+            doReturn(fixture).when(manager).fetchBundleJson(anyString());
+            LookupList sites = new LookupList();
+            sites.setId(21);
+            sites.setName("AnatomicalSite");
+            when(lookupListManager.findLookupListByName(admin, "AnatomicalSite")).thenReturn(sites);
+            LookupListItem clinicRetired = item(41, 21, "1217006009", "Clinic label", false, "999998");
+            when(lookupListItemDao.findByLookupListId(21, true)).thenReturn(new ArrayList<>());
+            when(lookupListItemDao.findByLookupListId(21, false)).thenReturn(new ArrayList<>(List.of(clinicRetired)));
+
+            manager.update(admin);
+
+            assertThat(clinicRetired.isActive()).isFalse();
+            assertThat(clinicRetired.getLabel()).isEqualTo("Clinic label");
+            verify(lookupListManager, never()).updateLookupListItem(admin, clinicRetired);
+            // No NVC duplicate is inserted beside the clinic's item for the same code.
+            verify(lookupListManager, never()).addLookupListItem(eq(admin),
+                    argThat(i -> "1217006009".equals(i.getValue())));
+        }
+
+        @Test
         void shouldLeaveCatalogueUntouched_whenDownloadFails() throws Exception {
             doThrow(new IOException("connect timed out")).when(manager).fetchBundleJson(anyString());
 
