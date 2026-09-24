@@ -46,6 +46,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -427,7 +428,19 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getId() == null) { //new consultation response
             response = responseConverter.getAsDomainObject(getLoggedInInfo(), data);
         } else {
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data, consultationManager.getResponse(getLoggedInInfo(), data.getId()));
+            ConsultationResponse existing = consultationManager.getResponse(getLoggedInInfo(), data.getId());
+            if (existing == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            // A consultation response cannot move to another patient (issue #3867), as for
+            // updateConsultation: the converter would copy the new patient onto the stored response
+            // while its attachments, verified against the original patient, stayed linked.
+            Integer submittedDemographicNo = data.getDemographic() == null ? null : data.getDemographic().getDemographicNo();
+            if (submittedDemographicNo == null || !submittedDemographicNo.equals(existing.getDemographicNo())) {
+                throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                        .entity("demographic cannot be changed on an existing consultation response").build());
+            }
+            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data, existing);
         }
         consultationManager.saveConsultationResponse(getLoggedInInfo(), response);
         if (data.getId() == null) data.setId(response.getId());

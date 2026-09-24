@@ -25,9 +25,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,6 +39,8 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,12 +48,24 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.ConsultationPreviewSignatureOutcome;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
@@ -68,6 +85,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -1030,5 +1048,59 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         ConsultationRequest consult = consultationRequest(demographicId);
         consult.setSignatureImg(signatureImg);
         return consult;
+    }
+
+    /**
+     * Issue #3867: the fax cover page listed attachment names looked up by consultation id alone, so
+     * a legacy consult_docs row could put another patient's document description or eForm name on
+     * the cover. It now lists only what the faxed packet contains.
+     */
+    @Test
+    @DisplayName("should list only the patient's own documents, eForms and HL7 labs on the fax cover")
+    void shouldOmitForeignAttachmentNames_fromFaxCoverList() {
+        CtlDocumentDao ctlDocumentDao = mock(CtlDocumentDao.class);
+        PatientLabRoutingDao patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        registerMock(AttachmentOwnershipService.class, new AttachmentOwnershipService(ctlDocumentDao,
+                patientLabRoutingDao, eFormDataDao, mock(HRMDocumentToDemographicDao.class), consultationRequestDao));
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(10));
+        when(eFormDataDao.findFdidsForDemographic(eq(1), anyCollection())).thenReturn(List.of(7));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+
+        EDoc ownDoc = mock(EDoc.class);
+        when(ownDoc.getDocId()).thenReturn("10");
+        when(ownDoc.getDescription()).thenReturn("Own referral letter");
+        EDoc foreignDoc = mock(EDoc.class);
+        when(foreignDoc.getDocId()).thenReturn("11");
+        when(foreignDoc.getDescription()).thenReturn("Foreign discharge summary");
+        EFormData ownEForm = mock(EFormData.class);
+        when(ownEForm.getId()).thenReturn(7);
+        when(ownEForm.getFormName()).thenReturn("Own eForm");
+        EFormData foreignEForm = mock(EFormData.class);
+        when(foreignEForm.getId()).thenReturn(8);
+        when(foreignEForm.getFormName()).thenReturn("Foreign eForm");
+        when(consultationManager.getAttachedEForms("9")).thenReturn(List.of(ownEForm, foreignEForm));
+        LabResultData ownLab = mock(LabResultData.class);
+        when(ownLab.getSegmentID()).thenReturn("30");
+        when(ownLab.getDisciplineDisplayString()).thenReturn("Own lab");
+        LabResultData foreignLab = mock(LabResultData.class);
+        when(foreignLab.getSegmentID()).thenReturn("31");
+        when(foreignLab.getDisciplineDisplayString()).thenReturn("Foreign lab");
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+             MockedConstruction<CommonLabResultData> labConstruction = mockConstruction(CommonLabResultData.class,
+                     (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
+                             .thenReturn(new ArrayList<>(List.of(ownLab, foreignLab))))) {
+            eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean()))
+                    .thenReturn(new ArrayList<>(List.of(ownDoc, foreignDoc)));
+
+            List<String> names = action.faxCoverDocumentNames(loggedInInfo, "9", "1");
+
+            assertThat(names).containsExactly("Own referral letter", "Own lab", "Own eForm");
+        }
     }
 }

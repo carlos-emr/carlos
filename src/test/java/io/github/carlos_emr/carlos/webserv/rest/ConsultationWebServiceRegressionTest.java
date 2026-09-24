@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
@@ -43,9 +45,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachmentTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.Date;
@@ -133,6 +137,47 @@ class ConsultationWebServiceRegressionTest {
         assertThat(existing.getDemographicId()).isEqualTo(555);
         verify(consultationManager, never()).saveConsultationRequest(any(), any());
         verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
+    }
+
+    /**
+     * Issue #3867: saving an existing consultation response with another patient moved the response
+     * while its already-verified attachments stayed linked, as updateConsultation did before.
+     */
+    @Test
+    @DisplayName("should refuse to move an existing consultation response to another patient")
+    void shouldRejectResponseSave_whenDemographicChanges() {
+        ConsultationResponse existing = new ConsultationResponse();
+        existing.setDemographicNo(555);
+        when(consultationManager.getResponse(loggedInInfo, 789)).thenReturn(existing);
+        ConsultationResponseTo1 data = new ConsultationResponseTo1();
+        data.setId(789);
+        DemographicTo1 demographic = new DemographicTo1();
+        demographic.setDemographicNo(DEMOGRAPHIC_NO);
+        data.setDemographic(demographic);
+        data.setAttachments(new ArrayList<>(List.of(existingAttachment(ConsultationAttachmentTo1.TYPE_DOC, 10))));
+
+        assertThatThrownBy(() -> service.saveResponse(data))
+                .isInstanceOfSatisfying(WebApplicationException.class,
+                        e -> assertThat(e.getResponse().getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        assertThat(existing.getDemographicNo()).isEqualTo(555);
+        verify(consultationManager, never()).saveConsultationResponse(any(), any());
+        verify(consultationManager, never()).getConsultResponseDocs(any(), any());
+        verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
+    }
+
+    @Test
+    @DisplayName("should answer 404 without saving when the consultation response does not exist")
+    void shouldReturnNotFound_whenResponseUnknown() {
+        ConsultationResponseTo1 data = new ConsultationResponseTo1();
+        data.setId(790);
+
+        assertThatThrownBy(() -> service.saveResponse(data))
+                .isInstanceOfSatisfying(WebApplicationException.class,
+                        e -> assertThat(e.getResponse().getStatus()).isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
+
+        verify(consultationManager, never()).saveConsultationResponse(any(), any());
+        verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
     }
 
     /**

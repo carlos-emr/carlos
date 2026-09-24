@@ -255,7 +255,8 @@ public class ConsultationManagerImpl implements ConsultationManager {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         ConsultationResponse response = consultationResponseDao.find(id);
-        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + response.getId());
+        // Log the requested id, not response.getId(): an unknown id returns null to the caller.
+        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + id);
 
         return response;
     }

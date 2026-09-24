@@ -475,6 +475,14 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return null for an unknown response id instead of failing while logging")
+        void shouldReturnNull_whenResponseIdUnknown() {
+            when(mockConsultResponseDao.find(TEST_RESPONSE_ID)).thenReturn(null);
+
+            assertThat(consultationManager.getResponse(mockLoggedInInfo, TEST_RESPONSE_ID)).isNull();
+        }
+
+        @Test
         @DisplayName("should throw RuntimeException when read privilege denied for response")
         void shouldThrowRuntimeException_whenReadPrivilegeDeniedForResponse() {
             // Given
