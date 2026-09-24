@@ -177,6 +177,12 @@ public class RptCheckGuideline {
                 passAllTests = false;
                 MiscUtils.getLogger().debug("fail yesno test");
             }
+        } else if (isNotApplicable(guideline)) {
+            // The seeded Yes/No/NA rule accepts both "NA" and "NotApplicable" for the same answer,
+            // so a not-applicable guideline matches either spelling, as the yes and no branches do
+            // for theirs. Legacy AACP readings recorded under that rule may hold either form.
+            passAllTests = isNotApplicable(dataEntry);
+            MiscUtils.getLogger().debug(passAllTests ? "Pass NA test" : "fail NA test");
         } else {
             // Categorical guideline: the validation rule that accepted it is case-sensitive, so
             // an exact match is the same comparison the reading itself was validated with.
@@ -184,5 +190,17 @@ public class RptCheckGuideline {
             passAllTests = !guideline.isBlank() && dataEntry != null && guideline.trim().equals(dataEntry.trim());
         }
         return passAllTests;
+    }
+
+    /**
+     * Whether a guideline or reading is one of the not-applicable spellings the seeded
+     * {@code Yes/No/NA} validation rule accepts ({@code NA} or {@code NotApplicable}).
+     */
+    private static boolean isNotApplicable(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        return trimmed.equals("NA") || trimmed.equals("NotApplicable");
     }
 }

@@ -115,6 +115,22 @@ class RptCheckGuidelineUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should match a legacy NA or NotApplicable reading for either not-applicable guideline")
+    void shouldMatchNotApplicableSpellings_forNotApplicableGuideline() {
+        // Both spellings come from the seeded Yes/No/NA rule (YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA).
+        assertThat(check.isYesNoMetGuideline("NA", "NA")).isTrue();
+        assertThat(check.isYesNoMetGuideline("NotApplicable", "NA")).isTrue();
+        assertThat(check.isYesNoMetGuideline("NA", "NotApplicable")).isTrue();
+        assertThat(check.isYesNoMetGuideline(" NotApplicable ", "NotApplicable")).isTrue();
+        assertThat(check.isYesNoMetGuideline("Yes", "NA")).isFalse();
+        assertThat(check.isYesNoMetGuideline("No", "NotApplicable")).isFalse();
+        assertThat(check.isYesNoMetGuideline(null, "NA")).isFalse();
+        // A legacy NA reading never satisfies a Provided/Revised/Reviewed guideline.
+        assertThat(check.isYesNoMetGuideline("NA", "Provided")).isFalse();
+        assertThat(check.isYesNoMetGuideline("NotApplicable", "Reviewed")).isFalse();
+    }
+
+    @Test
     @DisplayName("should not count blank readings as meeting a blank guideline")
     void shouldRejectBlankReadings_forBlankGuideline() {
         assertThat(check.isYesNoMetGuideline("", "")).isFalse();
