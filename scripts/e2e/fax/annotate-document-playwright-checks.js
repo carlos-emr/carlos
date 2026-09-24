@@ -638,6 +638,76 @@ async function main() {
       await page.locator('#status').getAttribute('class') === 'status ok',
       await page.locator('#status').textContent());
 
+    // Drawing tools never grab; an ink stroke's invisible halo does not hide the note beneath it;
+    // a date-tool click inside a signature still stamps a date; a short note reaches the right
+    // margin; an edit that lengthens a note keeps it on the page.
+    await openViewer();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const pageBox = await page.locator('svg.overlay').first().boundingBox();
+    const overlayMark = selector => page.locator('svg.overlay').first().locator(selector).first();
+    async function dragOn(x0, y0, x1, y1) {
+      await page.mouse.move(pageBox.x + x0, pageBox.y + y0);
+      await page.mouse.down();
+      await page.mouse.move(pageBox.x + x1, pageBox.y + y1, { steps: 8 });
+      await page.mouse.up();
+    }
+
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic crossed note'));
+    await page.mouse.click(pageBox.x + 100, pageBox.y + 300);
+    const crossed = await overlayMark('text.mark').boundingBox();
+    const cx = crossed.x - pageBox.x;
+    const cy = crossed.y - pageBox.y;
+    await page.locator('.tool[data-tool="highlight"]').click();
+    await dragOn(cx + 5, cy + 5, cx + 200, cy + 25);
+    const crossedAfterHighlight = await overlayMark('text.mark').boundingBox();
+    check('a highlight drag that starts on a note draws a highlight and leaves the note',
+      await markCount() === 2 && Math.abs(crossedAfterHighlight.x - crossed.x) < 1 && Math.abs(crossedAfterHighlight.y - crossed.y) < 1,
+      JSON.stringify([await markCount(), crossed, crossedAfterHighlight]));
+
+    // Drawn after the note, so the ink's hit halo sits above it in the overlay.
+    await page.locator('.swatch[data-color="black"]').click();
+    await page.locator('.tool[data-tool="draw"]').click();
+    await dragOn(cx - 10, cy + 8, cx + 150, cy + 8);
+    await page.locator('.tool[data-tool="text"]').click();
+    let promptedWith = null;
+    page.once('dialog', dialog => { promptedWith = dialog.defaultValue(); dialog.dismiss(); });
+    await page.mouse.click(crossed.x + 30, crossed.y + 8);
+    check('an ink halo over a note does not hide the note from the text tool',
+      promptedWith === 'Synthetic crossed note' && await markCount() === 3, JSON.stringify([promptedWith, await markCount()]));
+
+    await page.locator('.tool[data-tool="signature"]').click();
+    await page.mouse.click(pageBox.x + 450, pageBox.y + 150);
+    await page.locator('.tool[data-tool="date"]').click();
+    const signatureBox = await overlayMark('g.mark[data-kind="placed"]').boundingBox();
+    await page.mouse.click(signatureBox.x + 20, signatureBox.y + 20);
+    check('a date-tool click inside a signature stamps a date', await markCount() === 5, String(await markCount()));
+
+    const dateStamp = page.locator('svg.overlay').first().locator('text.mark').filter({ hasText: /^\d{4}-\d{2}-\d{2}$/ });
+    const dateBefore = await dateStamp.boundingBox();
+    await dragOn(dateBefore.x - pageBox.x + 4, dateBefore.y - pageBox.y + 4, 5000, dateBefore.y - pageBox.y + 4);
+    const dateAfter = await dateStamp.boundingBox();
+    check('a short note can be dragged to the right margin',
+      dateAfter.x + dateAfter.width <= pageBox.x + pageBox.width + 1
+      && dateAfter.x + dateAfter.width >= pageBox.x + pageBox.width - 24, JSON.stringify([dateAfter, pageBox]));
+
+    await dragOn(cx + 30, cy + 8, 5000, cy + 8);
+    page.once('dialog', dialog => dialog.accept('Synthetic crossed note, now edited to be much longer than it was'));
+    const crossedAtEdge = await overlayMark('text.mark').boundingBox();
+    await page.mouse.click(crossedAtEdge.x + 10, crossedAtEdge.y + 8);
+    const crossedEdited = await overlayMark('text.mark').boundingBox();
+    check('editing a note to longer text keeps it on the page',
+      crossedEdited.width > crossedAtEdge.width && crossedEdited.x + crossedEdited.width <= pageBox.x + pageBox.width + 1,
+      JSON.stringify([crossedAtEdge, crossedEdited, pageBox]));
+
+    // No provider stamp is guaranteed here, so the signature goes before the save.
+    await page.locator('.tool[data-tool="select"]').click();
+    await page.mouse.click(signatureBox.x + signatureBox.width - 10, signatureBox.y + signatureBox.height - 10);
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('marks moved and edited under the grab rules save', await markCount() === 4
+      && await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+
     await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {

@@ -237,6 +237,7 @@
             hit.setAttribute('stroke-linecap', 'round');
             hit.setAttribute('stroke-linejoin', 'round');
             hit.setAttribute('pointer-events', 'stroke');
+            hit.setAttribute('class', 'ink-hit');
             var poly = document.createElementNS(SVG_NS, 'polyline');
             poly.setAttribute('points', points);
             poly.setAttribute('fill', 'none');
@@ -315,10 +316,10 @@
     function removeAnnotation(id) {
         if (state.saving) { return; }
         state.saved = false;
-        var index = state.annotations.findIndex(function (a) { return a.id === id; });
-        if (index < 0) { return; }
-        var page = state.annotations[index].page;
-        state.annotations.splice(index, 1);
+        var a = findAnnotation(id);
+        if (!a) { return; }
+        var page = a.page;
+        state.annotations.splice(state.annotations.indexOf(a), 1);
         redrawPage(page);
         updateCounts();
     }
@@ -331,18 +332,16 @@
     }
 
     function findAnnotation(id) {
-        for (var i = 0; i < state.annotations.length; i++) {
-            if (state.annotations[i].id === id) { return state.annotations[i]; }
-        }
-        return null;
+        return state.annotations.find(function (a) { return a.id === id; }) || null;
     }
 
     /**
      * Text, date and signature marks are objects placed at a point. They can be picked up and
-     * moved from ANY tool, so a provider can nudge a note while still adding others. Ink and
-     * highlights cover an area that new marks are routinely drawn across (highlighting a line a
-     * note already sits on, circling a highlight), so in the drawing tools a press on one must
-     * still start a new mark; they are moved with the select tool.
+     * moved from select and from the placing tools (text, date, signature), so a provider can
+     * nudge a note while still adding others. The drawing tools (highlight, draw) never grab:
+     * strokes are routinely drawn across existing marks (highlighting the line a note sits on,
+     * circling a signature), so a press there always starts a new stroke. Ink and highlights
+     * themselves move only with the select tool.
      */
     function isPlaced(a) {
         return a.type === 'text' || a.type === 'date' || a.type === 'signature';
@@ -353,7 +352,40 @@
     }
 
     function canGrab(a) {
-        return !state.saving && (state.tool === 'select' || isPlaced(a));
+        if (state.saving) { return false; }
+        if (state.tool === 'select') { return true; }
+        return isPlaced(a) && (state.tool === 'text' || state.tool === 'date' || state.tool === 'signature');
+    }
+
+    /**
+     * Rendered width of a note's text as a fraction of its page, or 0 when it cannot be measured.
+     * The preview draws in the composer's font at its point size, so this tracks the width the
+     * server measures; the 2% margin absorbs hinting differences between the two renderers.
+     * Callers measure at the moment they need it: until the annotation font arrives the text is
+     * laid out in a narrower fallback face, and a width cached from then lets a note overrun.
+     */
+    function noteWidth(a) {
+        var svg = pagesEl.querySelector('.page[data-page="' + a.page + '"] svg');
+        var text = svg ? svg.querySelector('text[data-id="' + a.id + '"]') : null;
+        if (!text || !svg.clientWidth) { return 0; }
+        try { return (text.getBBox().width / svg.clientWidth) * 1.02; } catch (e) { return 0; }
+    }
+
+    /**
+     * Sizes a note's box to its drawn text and pulls it back onto the page if the text would run
+     * past the right edge. The composer refuses text that overruns the page, and the parser
+     * requires x + w <= 1, so a note is kept inside both after it is placed or its text changes.
+     * A note wider than the whole page cannot fit; it is left for the server's explicit error.
+     */
+    function fitNote(a) {
+        var width = noteWidth(a);
+        if (!width) { return; }
+        var x = Math.max(0, Math.min(a.x, 1 - width - EDGE_EPSILON));
+        var w = Math.min(width, 1 - x - EDGE_EPSILON);
+        if (x === a.x && w === a.w) { return; }
+        a.x = x;
+        a.w = w;
+        redrawPage(a.page);
     }
 
     /** The mark's extent in page fractions, used to keep a move on the page. */
@@ -370,20 +402,23 @@
     // against it from failing the save on floating-point rounding.
     var EDGE_EPSILON = 1e-9;
 
-    /** Limits a move so the whole mark stays on its page; the server rejects anything past the edge. */
-    function clampMove(a, dx, dy, drawnWidth) {
-        var b = markBounds(a);
-        // A note's stored w is a fixed default, not its text: a long note is wider than w, and
-        // the composer refuses text that runs off the page. Clamp by whichever is wider.
-        var w = Math.max(b.w, drawnWidth || 0);
+    /**
+     * Limits a move so the whole mark stays on its page; the server rejects anything past the
+     * edge. A note is limited by its drawn text rather than its stored box: the box starts as a
+     * fixed default, which would stop a short date stamp well short of the right margin and let a
+     * long note run off the page.
+     */
+    function clampMove(a, dx, dy, b, drawnWidth) {
+        var w = isEditableText(a) && drawnWidth > 0 ? drawnWidth : b.w;
         return {
             dx: Math.max(-b.x, Math.min(1 - b.x - w - EDGE_EPSILON, dx)),
             dy: Math.max(-b.y, Math.min(1 - b.y - b.h - EDGE_EPSILON, dy))
         };
     }
 
-    function moveAnnotation(a, dx, dy) {
-        if (state.saving || (!dx && !dy)) { return; }
+    /** Applies a finished move; returns false when nothing changed (so the caller redraws). */
+    function moveAnnotation(a, dx, dy, drawnWidth) {
+        if (state.saving || (!dx && !dy)) { return false; }
         if (a.type === 'ink') {
             a.points = a.points.map(function (p) {
                 return [clamp(p[0] + dx), clamp(p[1] + dy)];
@@ -392,8 +427,11 @@
             // dx/dy are already limited by clampMove; this only guards against a negative zero.
             a.x = Math.max(0, a.x + dx);
             a.y = Math.max(0, a.y + dy);
+            // The note was clamped by its drawn width, so that is the box it now fits.
+            if (isEditableText(a) && drawnWidth > 0) { a.w = Math.min(drawnWidth, 1 - a.x - EDGE_EPSILON); }
         }
         annotationChanged(a);
+        return true;
     }
 
     /**
@@ -410,14 +448,22 @@
         }
         a.text = value;
         annotationChanged(a);
+        fitNote(a);
     }
 
-    /** A press on a mark that was released without moving it. */
-    function markClicked(a) {
-        if (isEditableText(a)) {
+    /**
+     * A press on a mark that was released without moving it. A note opens for editing (from
+     * select, text or date); select deletes anything else. In a placing tool the click otherwise
+     * does what it did before marks could be grabbed: it places a new mark at that point, so a
+     * date can still be stamped inside a signature box.
+     */
+    function markClicked(a, page, nx, ny) {
+        if (isEditableText(a) && (state.tool === 'select' || state.tool === 'text' || state.tool === 'date')) {
             editText(a);
         } else if (state.tool === 'select') {
             removeAnnotation(a.id);
+        } else {
+            placePoint(page, nx, ny);
         }
     }
 
@@ -441,6 +487,13 @@
             // middle-click on a mark would otherwise run the click path on release, and in select
             // mode that silently deletes the mark the provider only meant to open a menu on.
             if (!event.isPrimary || event.button !== 0) { return; }
+            // A new primary press means any earlier gesture is over, even if its pointerup never
+            // arrived (a capture lost to a window switch); drop it rather than let it hijack this one.
+            if (moving || dragging) {
+                moving = null;
+                dragging = null;
+                redrawPage(page);
+            }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
                     || wrap.classList.contains('load-failed')) { return; }
@@ -487,42 +540,58 @@
                 return;
             }
             if (!owns(dragging, event)) { return; }
-            svg.releasePointerCapture(event.pointerId);
-            commitDrag(page, dragging);
+            var drag = dragging;
             dragging = null;
+            if (svg.hasPointerCapture(event.pointerId)) { svg.releasePointerCapture(event.pointerId); }
+            commitDrag(page, drag);
             redrawPage(page);
         });
 
-        svg.addEventListener('pointercancel', function (event) {
-            if (!owns(moving, event)) { return; }
+        // A gesture the browser takes over (pointercancel) or whose capture is lost without a
+        // pointerup ends with nothing committed: the moved mark snaps back, the half-drawn stroke
+        // preview is dropped. After a normal pointerup both gestures are already cleared, so the
+        // lostpointercapture that follows it is a no-op.
+        function abandonGesture(event) {
+            if (!owns(moving, event) && !owns(dragging, event)) { return; }
             moving = null;
+            dragging = null;
             redrawPage(page);
-        });
+        }
+        svg.addEventListener('pointercancel', abandonGesture);
+        svg.addEventListener('lostpointercapture', abandonGesture);
 
         // Moves are previewed with a transform on the mark's own element and written to the
         // model only on release, so a drag that is cancelled leaves the model untouched.
         function startMove(event) {
-            var target = event.target && event.target.closest ? event.target.closest('[data-id]') : null;
-            if (!target) { return false; }
-            var a = findAnnotation(Number(target.getAttribute('data-id')));
-            if (!a || !canGrab(a)) { return false; }
+            var a = grabbableAt(event.clientX, event.clientY);
+            if (!a) { return false; }
             event.preventDefault();
-            moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
+            moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0,
+                moved: false, bounds: markBounds(a), drawnWidth: 0 };
             svg.setPointerCapture(event.pointerId);
             return true;
         }
 
         /**
-         * Rendered width of a note's text as a fraction of the page, or 0 for other marks. The
-         * preview draws in the composer's font at its point size, so this tracks the width the
-         * server measures; the 2% margin absorbs hinting differences between the two renderers.
-         * Measured on every move rather than once: until the annotation font arrives the text is
-         * laid out in a narrower fallback face, and a width taken then lets the note overrun.
+         * The mark to pick up at a point: the topmost one this tool may grab, looking through
+         * marks it may not (a highlight laid over a note must not hide the note from the text
+         * tool). Visible marks win over the invisible halo that widens ink strokes, so a press on
+         * a highlight or note next to a line takes that mark, not the line.
          */
-        function noteWidth(a) {
-            var text = svg.querySelector('text[data-id="' + a.id + '"]');
-            if (!text || !svg.clientWidth) { return 0; }
-            try { return (text.getBBox().width / svg.clientWidth) * 1.02; } catch (e) { return 0; }
+        function grabbableAt(clientX, clientY) {
+            var hits = document.elementsFromPoint ? document.elementsFromPoint(clientX, clientY) : [];
+            var seen = {};
+            var visible = [];
+            var halos = [];
+            for (var i = 0; i < hits.length; i++) {
+                if (!svg.contains(hits[i]) || hits[i] === svg) { continue; }
+                var owner = hits[i].closest('[data-id]');
+                var a = owner ? findAnnotation(Number(owner.getAttribute('data-id'))) : null;
+                if (!a || !canGrab(a) || seen[a.id]) { continue; }
+                seen[a.id] = true;
+                (hits[i].classList.contains('ink-hit') ? halos : visible).push(a);
+            }
+            return visible[0] || halos[0] || null;
         }
 
         function continueMove(event) {
@@ -533,7 +602,10 @@
             // A few pixels of jitter on a click must not nudge the mark or swallow the click.
             if (!moving.moved && Math.abs(px) < MOVE_THRESHOLD_PX && Math.abs(py) < MOVE_THRESHOLD_PX) { return; }
             moving.moved = true;
-            var d = clampMove(moving.a, px / rect.width, py / rect.height, noteWidth(moving.a));
+            // Measured on every move, not once: the note may still be in the fallback face when
+            // the drag starts, and the annotation font arriving mid-drag widens it.
+            moving.drawnWidth = noteWidth(moving.a);
+            var d = clampMove(moving.a, px / rect.width, py / rect.height, moving.bounds, moving.drawnWidth);
             moving.dx = d.dx;
             moving.dy = d.dy;
             var shift = 'translate(' + (d.dx * rect.width) + ',' + (d.dy * rect.height) + ')';
@@ -550,10 +622,12 @@
             moving = null;
             if (svg.hasPointerCapture(event.pointerId)) { svg.releasePointerCapture(event.pointerId); }
             if (done.moved) {
-                moveAnnotation(done.a, done.dx, done.dy);
-                redrawPage(page);
+                // moveAnnotation redraws when it changes the model; otherwise clear the preview.
+                if (!moveAnnotation(done.a, done.dx, done.dy, done.drawnWidth)) { redrawPage(page); }
             } else {
-                markClicked(done.a);
+                var rect = svg.getBoundingClientRect();
+                markClicked(done.a, page, clamp((event.clientX - rect.left) / rect.width),
+                    clamp((event.clientY - rect.top) / rect.height));
             }
         }
     }
@@ -644,11 +718,15 @@
         var value = isDate ? todayLocal()
             : window.prompt(t('promptText', 'Note to add:'), '');
         if (!value) { return; }
-        addAnnotation({
+        var note = {
             type: isDate ? 'date' : 'text', page: page, color: state.color,
             x: clamp(nx, TEXT_W), y: clamp(ny, TEXT_H), w: TEXT_W, h: TEXT_H,
             text: value, fontSize: 11
-        });
+        };
+        addAnnotation(note);
+        // A note longer than the default box, placed near the right edge, would otherwise run
+        // off the page and fail the save.
+        fitNote(note);
     }
 
     /* ---------- snap to text ---------- */
