@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mail.javamail.JavaMailSender;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,17 +107,19 @@ class SMTPEmailSenderTransportIntegrationTest {
     }
 
     /**
-     * Drives the real transport into a 550 at RCPT TO (#3857). With one recipient, or with two
-     * where only one is refused, the transport resets before DATA, so nothing reaches the
-     * receiver and the failure must be reported as definite rather than uncertain.
+     * Drives the real transport into a refusal at RCPT TO (#3857): permanent (550) or temporary
+     * (450). With one recipient, or with two where only one is refused, the transport resets
+     * before DATA, so nothing reaches the receiver and the failure must be reported as definite
+     * rather than uncertain.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void shouldReportDefiniteFailure_whenServerRefusesRecipient(boolean alsoAcceptedRecipient) throws Exception {
+    @CsvSource({"false, 550 5.1.1 Recipient address rejected: User unknown", "true, 550 5.1.1 Recipient address rejected: User unknown",
+            "false, 450 4.2.0 Greylisted, try again later"})
+    void shouldReportDefiniteFailure_whenServerRefusesRecipient(boolean alsoAcceptedRecipient, String refusal) throws Exception {
         try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             receiver.setSoTimeout(10_000);
             CompletableFuture<Boolean> dataReceived = new CompletableFuture<>();
-            Thread.ofPlatform().daemon(true).start(() -> refuseRecipient(receiver, dataReceived));
+            Thread.ofPlatform().daemon(true).start(() -> refuseRecipient(receiver, dataReceived, refusal));
             String[] recipients = alsoAcceptedRecipient
                     ? new String[]{"accepted@example.test", "unknown@example.test"}
                     : new String[]{"unknown@example.test"};
@@ -142,8 +145,8 @@ class SMTPEmailSenderTransportIntegrationTest {
         return config;
     }
 
-    /** Accepts every command except RCPT TO for an address starting "unknown", and records whether DATA arrived. */
-    private static void refuseRecipient(ServerSocket receiver, CompletableFuture<Boolean> dataReceived) {
+    /** Answers {@code refusal} to RCPT TO for an address starting "unknown", accepts the rest, and records whether DATA arrived. */
+    private static void refuseRecipient(ServerSocket receiver, CompletableFuture<Boolean> dataReceived, String refusal) {
         try (Socket connection = receiver.accept()) {
             connection.setSoTimeout(10_000);
             var output = connection.getOutputStream();
@@ -154,7 +157,7 @@ class SMTPEmailSenderTransportIntegrationTest {
             while ((line = input.readLine()) != null) {
                 String reply;
                 if (line.startsWith("RCPT TO:<unknown")) {
-                    reply = "550 5.1.1 Recipient address rejected: User unknown";
+                    reply = refusal;
                 } else if (line.equals("DATA")) {
                     // Refuse at once so a regression fails fast instead of waiting out the I/O timeout.
                     dataReceived.complete(true);
