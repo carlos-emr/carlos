@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
+import io.github.carlos_emr.carlos.dashboard.query.RangeLowerLimit;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -161,7 +162,7 @@ class ShippedIndicatorTemplateSubstitutionUnitTest {
         if (ranges != null) {
             actual = handler.addRanges(ranges, actual);
             for (RangeInterface range : ranges) {
-                String prefix = "RangeLowerLimit".equals(range.getClass().getSimpleName())
+                String prefix = range instanceof RangeLowerLimit
                         ? IndicatorTemplateXML.RangeType.lowerLimit.name()
                         : IndicatorTemplateXML.RangeType.upperLimit.name();
                 expected = expected.replaceAll(pattern(prefix + "\\." + range.getId().trim()), range.getValue());
