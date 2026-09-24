@@ -708,7 +708,20 @@ async function main() {
     check('marks moved and edited under the grab rules save', await markCount() === 4
       && await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
 
+    // Deleting an already-saved mark is an unsaved change too: Save comes back and leaving warns.
+    // The click lands on the highlight's far end, clear of the ink stroke drawn across its start.
+    const savedHighlight = await overlayMark('rect.mark').boundingBox();
+    await page.mouse.click(savedHighlight.x + savedHighlight.width - 6, savedHighlight.y + savedHighlight.height - 4);
+    check('deleting a saved mark enables saving again', await markCount() === 3
+      && await page.locator('svg.overlay').first().locator('rect.mark').count() === 0
+      && await page.locator('#btnSave').isEnabled(), String(await markCount()));
+    let warnedAfterDelete = false;
+    const deleteLeaveWarning = dialog => { if (dialog.type() === 'beforeunload') { warnedAfterDelete = true; } };
+    page.on('dialog', deleteLeaveWarning);
+
     await openViewer();
+    page.off('dialog', deleteLeaveWarning);
+    check('leaving after deleting a saved mark warns about unsaved changes', warnedAfterDelete);
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {
       wordAttempts += 1;
@@ -737,6 +750,20 @@ async function main() {
     await mark('draw');
     check('edits cannot re-enable saving during an in-flight save',
       (await page.locator('#markCount').textContent()) === beforeMarks && await page.locator('#btnSave').isDisabled());
+    // Existing marks are frozen too: a move or a select-click delete made while the request is
+    // out would be missing from the copy being filed, yet marked saved when the response lands.
+    await page.locator('.tool[data-tool="select"]').click();
+    const inFlightBox = await page.locator('svg.overlay').first().locator('rect.mark').first().boundingBox();
+    await page.mouse.move(inFlightBox.x + 6, inFlightBox.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(inFlightBox.x + 6, inFlightBox.y + 106, { steps: 8 });
+    await page.mouse.up();
+    await page.mouse.click(inFlightBox.x + 6, inFlightBox.y + 6);
+    const inFlightAfter = await page.locator('svg.overlay').first().locator('rect.mark').first().boundingBox();
+    check('existing marks cannot be moved or deleted during an in-flight save',
+      (await page.locator('#markCount').textContent()) === beforeMarks
+      && Math.abs(inFlightAfter.y - inFlightBox.y) < 1 && await page.locator('#btnSave').isDisabled(),
+      JSON.stringify([await page.locator('#markCount').textContent(), beforeMarks, inFlightBox, inFlightAfter]));
     releaseSave();
     await waitForSave();
     await page.unroute('**/SaveAnnotatedDocument?*');

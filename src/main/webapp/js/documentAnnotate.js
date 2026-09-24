@@ -315,9 +315,11 @@
 
     function removeAnnotation(id) {
         if (state.saving) { return; }
-        state.saved = false;
         var a = findAnnotation(id);
+        // Only a real removal is an unsaved change; an id that is already gone must not re-enable
+        // Save, which would file a second copy of the marks just saved.
         if (!a) { return; }
+        state.saved = false;
         var page = a.page;
         state.annotations.splice(state.annotations.indexOf(a), 1);
         redrawPage(page);
