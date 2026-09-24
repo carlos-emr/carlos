@@ -45,6 +45,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ValidationsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDropdownOptions" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -492,11 +493,19 @@
                                 <select id="<%="inputValue-"+ctr%>"
                                         name="<%= "inputValue-" + ctr %>">
                                     <option value=""></option>
-                                    <% String[] opts = validations.getName().contains("/") ? validations.getName().split("/") : validations.getRegularExp().split("\\|");
+                                    <% List<String> opts = MeasurementDropdownOptions.forValidation(validations);
                                         for (String opt : opts) {%>
                                     <option value="<carlos:encode value='<%= opt %>' context="htmlAttribute"/>"  <%=sel(opt, val)%>><carlos:encode value='<%= opt %>' context="html"/>
                                     </option>
-                                    <% }%>
+                                    <% }
+                                        // A value recorded under an earlier validation rule (e.g. AACP "Yes"/"No"
+                                        // before Provided/Revised/Reviewed, issue #3893) matches no option. Show it
+                                        // selected so an existing reading still displays; disabled so it cannot be
+                                        // chosen for a new reading.
+                                        if (MeasurementDropdownOptions.isLegacyValue(opts, val)) { %>
+                                    <option value="<carlos:encode value='<%= val %>' context="htmlAttribute"/>" selected disabled><carlos:encode value='<%= val %>' context="html"/>
+                                    </option>
+                                    <% } %>
                                 </select>
                                 <%} else if (validations != null && validations.getName().startsWith("Integer")) { %>
                                 <select id="<%= "inputValue-" + ctr %>"
