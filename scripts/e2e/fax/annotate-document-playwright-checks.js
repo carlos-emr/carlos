@@ -622,7 +622,8 @@ async function main() {
     let saveDuringDrag = false;
     const watchDragSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { saveDuringDrag = true; } };
     page.on('request', watchDragSave);
-    const hlSaveBefore = await boxOf('rect.mark');
+    // The resize restored above redraws the page, so read the mark once it has settled.
+    const hlSaveBefore = await settledBox('rect.mark');
     await page.mouse.move(hlSaveBefore.x + 6, hlSaveBefore.y + 6);
     await page.mouse.down();
     await page.mouse.move(hlSaveBefore.x + 6, hlSaveBefore.y - 34, { steps: 6 });
@@ -630,7 +631,7 @@ async function main() {
     await page.locator('#btnSave').evaluate(button => button.click());
     await page.mouse.up();
     page.off('request', watchDragSave);
-    const hlSaveAfter = await boxOf('rect.mark');
+    const hlSaveAfter = await settledBox('rect.mark');
     check('Save is held during a drag and the drag still lands',
       saveHeldDuringDrag && !saveDuringDrag && await page.locator('#btnSave').isEnabled()
       && Math.abs(hlSaveAfter.y - hlSaveBefore.y + 40) < 3,
