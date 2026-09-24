@@ -292,7 +292,18 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\" \"serviceId\" \"urgency\" \"status\"").build();
         }
 
-        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, consultationManager.getRequest(loggedInInfo, data.getId()));
+        ConsultationRequest existing = consultationManager.getRequest(loggedInInfo, data.getId());
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        // A consultation cannot move to another patient (issue #3867). The converter would copy the
+        // new demographicId onto the stored request while its attachments, which were verified
+        // against the original patient and are kept without re-checking, stayed linked, so
+        // printing or faxing it would send one patient's records under another's name.
+        if (!data.getDemographicId().equals(existing.getDemographicId())) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("demographicId cannot be changed on an existing consultation").build();
+        }
+        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, existing);
 
         request.setProfessionalSpecialist(data.getProfessionalSpecialist() == null ? null : consultationManager.getProfessionalSpecialist(data.getProfessionalSpecialist().getId()));
         consultationManager.saveConsultationRequest(loggedInInfo, request);

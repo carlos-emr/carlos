@@ -108,7 +108,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of());
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.DOC, demographicNo, Set.of(789)))
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(789)))
                 .thenReturn(Set.of(789));
 
         manager.attachToConsult(
@@ -180,7 +180,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of());
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.DOC, demographicNo, Set.of(999)))
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(999)))
                 .thenReturn(Set.of());
 
         assertThatThrownBy(() -> manager.attachToConsult(
@@ -221,7 +221,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of(existing));
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.DOC, demographicNo, Set.of(789)))
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(789)))
                 .thenReturn(Set.of(789));
 
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999", requestId, demographicNo);
@@ -247,7 +247,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of(legacyForeign, owned));
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.DOC, demographicNo, Set.of(555, 789)))
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(555, 789)))
                 .thenReturn(Set.of(789));
         when(consultDocsDao.findByRequestIdDocNoDocType(requestId, 555, DocumentType.DOC.getType()))
                 .thenReturn(List.of(legacyForeign));
@@ -272,9 +272,9 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 .thenReturn(List.of());
         when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.LAB.getType()))
                 .thenReturn(List.of());
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.DOC, demographicNo, Set.of(789)))
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(789)))
                 .thenReturn(Set.of(789));
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.LAB, demographicNo, Set.of(999)))
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, demographicNo, Set.of(999)))
                 .thenReturn(Set.of());
 
         Map<DocumentType, String[]> submitted = new EnumMap<>(DocumentType.class);
@@ -296,7 +296,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.EFORM, demographicNo, Set.of(7)))
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.EFORM, demographicNo, Set.of(7)))
                 .thenReturn(Set.of());
 
         Map<DocumentType, String[]> submitted = new EnumMap<>(DocumentType.class);

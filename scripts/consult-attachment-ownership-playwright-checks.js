@@ -121,15 +121,18 @@ async function main() {
     const context = await h.newContext(browser, config, { viewport: { width: 1440, height: 1100 } });
     await h.login(context, config, recorder);
 
-    // 1. Another patient's document: refused before anything is written.
+    // 1. Another patient's document: refused before anything is written. Counted before and after
+    // rather than "none today", so an earlier, legitimate attachment of it cannot fail the check.
+    const foreignAttachments = () => sql.value(`SELECT COUNT(*) FROM consultdocs WHERE document_no=${foreignDoc}
+      AND doctype='D'`);
+    const foreignBefore = foreignAttachments();
     const forged = await openNewConsultation(context, config, recorder, patient, 'forged');
     await fillAndAttach(forged, `${marker}-forged`, foreignDoc);
     await h.assertNotErrorPage(forged, 'refused consultation save');
     h.assert(REFUSAL.test(await forged.locator('body').innerText()),
       'saving with another patient\'s document did not show the attachment refusal');
     h.assert(requestIds().length === 0, 'a consultation was created with another patient\'s document attached');
-    h.assert(sql.value(`SELECT COUNT(*) FROM consultdocs WHERE document_no=${foreignDoc} AND doctype='D'
-      AND attach_date=CURDATE()`) === '0', 'the other patient\'s document was attached to a consultation');
+    h.assert(foreignAttachments() === foreignBefore, 'the other patient\'s document was attached to a consultation');
     await forged.close();
 
     // 2. The patient's own document: created, attachment recorded.

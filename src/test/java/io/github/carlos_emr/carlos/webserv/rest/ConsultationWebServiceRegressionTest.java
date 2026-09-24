@@ -29,10 +29,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,7 +44,9 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -81,6 +86,9 @@ class ConsultationWebServiceRegressionTest {
     @Mock
     private AttachmentOwnershipService attachmentOwnershipService;
 
+    @Mock
+    private DemographicManager demographicManager;
+
     private ConsultationWebService service;
 
     @BeforeEach
@@ -94,6 +102,34 @@ class ConsultationWebServiceRegressionTest {
         ReflectionTestUtils.setField(service, "documentManager", documentManager);
         ReflectionTestUtils.setField(service, "consultationManager", consultationManager);
         ReflectionTestUtils.setField(service, "attachmentOwnershipService", attachmentOwnershipService);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+    }
+
+    /**
+     * Issue #3867: an update that changed demographicId moved the consultation to another patient
+     * while its already-verified attachments stayed linked without being re-checked.
+     */
+    @Test
+    @DisplayName("should refuse to move an existing consultation to another patient")
+    void shouldRejectUpdate_whenDemographicIdChanges() {
+        ConsultationRequest existing = new ConsultationRequest();
+        existing.setDemographicId(555);
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(existing);
+        when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(new Demographic());
+        ConsultationRequestTo1 data = new ConsultationRequestTo1();
+        data.setId(456);
+        data.setDemographicId(DEMOGRAPHIC_NO);
+        data.setReferralDate(new Date());
+        data.setServiceId(1);
+        data.setUrgency("1");
+        data.setStatus("1");
+
+        Response response = service.updateConsultation(data);
+
+        assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+        assertThat(existing.getDemographicId()).isEqualTo(555);
+        verify(consultationManager, never()).saveConsultationRequest(any(), any());
+        verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
     }
 
     /**

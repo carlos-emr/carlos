@@ -136,7 +136,7 @@ public class DocumentAttach {
         if (attachmentOwnershipService == null) {
             throw new SecurityException(ATTACHMENT_NOT_OWNED);
         }
-        Set<Integer> owned = attachmentOwnershipService.findOwnedIds(documentType, demographicNo, ids);
+        Set<Integer> owned = attachmentOwnershipService.findAttachableIds(documentType, demographicNo, ids);
 
         List<String> retained = new ArrayList<>();
         int dropped = 0;

@@ -196,6 +196,59 @@ class AttachmentOwnershipServiceUnitTest {
     }
 
     @Nested
+    @DisplayName("findAttachableIds")
+    class FindAttachableIds {
+
+        private AttachmentOwnershipService withLegacyLabTypes(Set<String> types) {
+            return new AttachmentOwnershipService(ctlDocumentDao, patientLabRoutingDao, eFormDataDao,
+                    hrmDocumentToDemographicDao, consultationRequestDao, () -> types);
+        }
+
+        @Test
+        @DisplayName("should accept the patient's CML lab when CML labs are enabled")
+        void shouldAcceptLegacyLab_whenLegacyLabTypeEnabled() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(20));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of(30));
+
+            assertThat(withLegacyLabTypes(Set.of("CML")).findAttachableIds(DocumentType.LAB, PATIENT, List.of(20, 30, 40)))
+                    .containsExactlyInAnyOrder(20, 30);
+        }
+
+        @Test
+        @DisplayName("should keep printing HL7-only when a CML lab is attachable")
+        void shouldLeaveFindOwnedIdsHl7Only_whenLegacyLabTypeEnabled() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of());
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of(30));
+
+            assertThat(withLegacyLabTypes(Set.of("CML")).findOwnedIds(DocumentType.LAB, PATIENT, List.of(30))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should not look at legacy lab types that are switched off")
+        void shouldRejectLegacyLab_whenNoLegacyLabTypeEnabled() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of());
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of(30));
+
+            assertThat(withLegacyLabTypes(Set.of()).findAttachableIds(DocumentType.LAB, PATIENT, List.of(30))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should never widen a non-lab type or the ids asked about")
+        void shouldMatchFindOwnedIds_forNonLabTypes() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(10, 77));
+
+            assertThat(withLegacyLabTypes(Set.of("CML")).findAttachableIds(DocumentType.DOC, PATIENT, List.of(10, 11)))
+                    .containsExactly(10);
+        }
+    }
+
+    @Nested
     @DisplayName("consultationRequestBelongsToDemographic")
     class ConsultationOwnership {
 

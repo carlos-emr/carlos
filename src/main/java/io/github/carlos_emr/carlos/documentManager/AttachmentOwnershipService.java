@@ -29,7 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
@@ -37,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -58,7 +61,9 @@ import org.springframework.stereotype.Service;
  *   <li>{@link DocumentType#LAB}: a {@code patientLabRouting} row of type
  *       {@link PatientLabRoutingDao#HL7} for the patient. Only HL7 labs are matched because the
  *       attachment picker lists HL7 segments and the lab renderer only renders HL7 segments; lab
- *       numbers from other routing types live in other tables and can collide.</li>
+ *       numbers from other routing types live in other tables and can collide. At attach time
+ *       only, {@link #findAttachableIds} also accepts labs routed to the patient under a legacy
+ *       type the install has switched on (see there).</li>
  *   <li>{@link DocumentType#EFORM}: {@code eform_data.demographic_no}.</li>
  *   <li>{@link DocumentType#HRM}: an {@code HRMDocumentToDemographic} link to the patient.</li>
  * </ul>
@@ -83,7 +88,9 @@ public class AttachmentOwnershipService {
     private final EFormDataDao eFormDataDao;
     private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     private final ConsultationRequestDao consultationRequestDao;
+    private final Supplier<Set<String>> enabledLegacyLabTypes;
 
+    @Autowired
     public AttachmentOwnershipService(CtlDocumentDao ctlDocumentDao,
                                       PatientLabRoutingDao patientLabRoutingDao,
                                       EFormDataDao eFormDataDao,
@@ -94,6 +101,46 @@ public class AttachmentOwnershipService {
         this.eFormDataDao = eFormDataDao;
         this.hrmDocumentToDemographicDao = hrmDocumentToDemographicDao;
         this.consultationRequestDao = consultationRequestDao;
+        this.enabledLegacyLabTypes = AttachmentOwnershipService::legacyLabTypesFromProperties;
+    }
+
+    /** Test constructor: fixes the legacy lab types instead of reading carlos.properties. */
+    AttachmentOwnershipService(CtlDocumentDao ctlDocumentDao,
+                               PatientLabRoutingDao patientLabRoutingDao,
+                               EFormDataDao eFormDataDao,
+                               HRMDocumentToDemographicDao hrmDocumentToDemographicDao,
+                               ConsultationRequestDao consultationRequestDao,
+                               Supplier<Set<String>> enabledLegacyLabTypes) {
+        this.ctlDocumentDao = ctlDocumentDao;
+        this.patientLabRoutingDao = patientLabRoutingDao;
+        this.eFormDataDao = eFormDataDao;
+        this.hrmDocumentToDemographicDao = hrmDocumentToDemographicDao;
+        this.consultationRequestDao = consultationRequestDao;
+        this.enabledLegacyLabTypes = enabledLegacyLabTypes;
+    }
+
+    /**
+     * The non-HL7 lab routing types whose labs the consultation form lists, mirroring
+     * {@code CommonLabResultData}: CML_LABS and Epsilon_LABS list CML-routed labs, MDS_LABS lists
+     * MDS, PATHNET_LABS lists BCP. All are off unless set to {@code yes}.
+     */
+    private static Set<String> legacyLabTypesFromProperties() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        Set<String> types = new HashSet<>();
+        if (isYes(properties.getProperty("CML_LABS")) || isYes(properties.getProperty("Epsilon_LABS"))) {
+            types.add("CML");
+        }
+        if (isYes(properties.getProperty("MDS_LABS"))) {
+            types.add("MDS");
+        }
+        if (isYes(properties.getProperty("PATHNET_LABS"))) {
+            types.add("BCP");
+        }
+        return types;
+    }
+
+    private static boolean isYes(String value) {
+        return value != null && value.trim().equals("yes");
     }
 
     /**
@@ -149,6 +196,50 @@ public class AttachmentOwnershipService {
         // Intersect with the request: the result must never widen what the caller asked about.
         Set<Integer> result = new HashSet<>(candidates);
         result.retainAll(owned == null ? Collections.emptyList() : owned);
+        return result;
+    }
+
+    /**
+     * The ids a consultation may <em>keep or newly attach</em>: {@link #findOwnedIds}, plus, for
+     * {@link DocumentType#LAB}, labs routed to the patient under a legacy lab type the install has
+     * switched on (CML, MDS, BCP).
+     *
+     * <p>The consultation form lists those labs when their property is on, so rejecting them would
+     * refuse a save the user made from the form, and an already-attached one would be detached on
+     * every save. They are accepted here only. Printing, faxing and the Ocean queue keep using
+     * {@link #findOwnedIds}: the lab renderer resolves every LAB id as an HL7 segment, so an
+     * HL7 lab of another patient whose number collides with this patient's CML/MDS lab is still
+     * never rendered for this consultation.</p>
+     *
+     * @param type attachment type
+     * @param demographicNo patient that must own the attachments
+     * @param ids candidate ids
+     * @return attachable ids; never {@code null}
+     */
+    public Set<Integer> findAttachableIds(DocumentType type, Integer demographicNo, Collection<Integer> ids) {
+        Set<Integer> result = new HashSet<>(findOwnedIds(type, demographicNo, ids));
+        if (type != DocumentType.LAB || demographicNo == null || ids == null) {
+            return result;
+        }
+        Set<Integer> remaining = new HashSet<>();
+        for (Integer id : ids) {
+            if (id != null && !result.contains(id)) {
+                remaining.add(id);
+            }
+        }
+        for (String labType : enabledLegacyLabTypes.get()) {
+            if (remaining.isEmpty()) {
+                break;
+            }
+            List<Integer> owned = patientLabRoutingDao.findLabNosForDemographic(demographicNo, labType, remaining);
+            if (owned != null) {
+                for (Integer id : owned) {
+                    if (remaining.remove(id)) {
+                        result.add(id);
+                    }
+                }
+            }
+        }
         return result;
     }
 
