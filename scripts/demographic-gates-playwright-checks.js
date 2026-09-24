@@ -17,10 +17,12 @@ const ROUTES = [
 // Same login-surface rule as anonymous-access-refused: an exact context-root action,
 // never "any same-origin path ending in /index", which would pass a redirect into
 // a protected page such as /administration/index.
-function assertProtected(status, location, baseUrl) {
+// Location resolves against the REQUESTED url (RFC 9110), so a relative ../login from
+// /demographic/X is the login page while a bare carlos/login lands under /demographic/.
+function assertProtected(status, location, requestUrl, baseUrl) {
   if (REFUSED_STATUSES.includes(status)) return;
   h.assert(status >= 300 && status < 400 && location, 'Unauthenticated demographic route did not reject or redirect');
-  const target = new URL(location, baseUrl);
+  const target = new URL(location, requestUrl);
   h.assert(target.origin === new URL(baseUrl).origin && isLoginSurface(target.href, contextPathOf(baseUrl)),
     'Unauthenticated demographic route redirected somewhere other than login');
 }
@@ -31,8 +33,9 @@ async function main() {
     for (const route of ROUTES) {
       const context = await h.newContext(browser, config);
       try {
-        const response = await context.request.get(h.appUrl(config.baseUrl, `/demographic/${route}`), { maxRedirects: 0 });
-        assertProtected(response.status(), response.headers().location, config.baseUrl);
+        const requestUrl = h.appUrl(config.baseUrl, `/demographic/${route}`);
+        const response = await context.request.get(requestUrl, { maxRedirects: 0 });
+        assertProtected(response.status(), response.headers().location, requestUrl, config.baseUrl);
         console.log(`  PASS anonymous gate: ${route}`);
       } finally { await context.close(); }
     }

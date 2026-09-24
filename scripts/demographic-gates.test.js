@@ -13,16 +13,20 @@ test('every demographic gate probe names an actual release route', () => {
 });
 test('gate assertion rejects silent success, missing routes, errors and external redirects', () => {
   const base = 'http://127.0.0.1:8080/carlos';
-  for (const status of [200, 404, 500]) assert.throws(() => assertProtected(status, null, base));
-  assert.throws(() => assertProtected(302, 'https://example.com/login', base));
-  assert.throws(() => assertProtected(302, '/carlos/demographic/ViewContact', base));
-  assert.throws(() => assertProtected(302, null, base));
+  const requestUrl = `${base}/demographic/ViewContact`;
+  for (const status of [200, 404, 500]) assert.throws(() => assertProtected(status, null, requestUrl, base));
+  assert.throws(() => assertProtected(302, 'https://example.com/login', requestUrl, base));
+  assert.throws(() => assertProtected(302, '/carlos/demographic/ViewContact', requestUrl, base));
+  assert.throws(() => assertProtected(302, null, requestUrl, base));
   // A same-origin page that merely ends in a login-surface name is not the login surface.
-  assert.throws(() => assertProtected(302, '/carlos/administration/index', base));
-  assert.throws(() => assertProtected(302, '/carlos/demographic/login', base));
-  assert.throws(() => assertProtected(302, '/other/logoutPage', base));
-  for (const status of [401, 403]) assert.doesNotThrow(() => assertProtected(status, null, base));
-  assert.doesNotThrow(() => assertProtected(302, '/carlos/login', base));
-  assert.doesNotThrow(() => assertProtected(302, '/carlos/logoutPage', base));
-  assert.doesNotThrow(() => assertProtected(302, 'http://127.0.0.1:8080/carlos/logoutPage', new URL(base)));
+  assert.throws(() => assertProtected(302, '/carlos/administration/index', requestUrl, base));
+  assert.throws(() => assertProtected(302, '/carlos/demographic/login', requestUrl, base));
+  assert.throws(() => assertProtected(302, '/other/logoutPage', requestUrl, base));
+  for (const status of [401, 403]) assert.doesNotThrow(() => assertProtected(status, null, requestUrl, base));
+  assert.doesNotThrow(() => assertProtected(302, '/carlos/login', requestUrl, base));
+  assert.doesNotThrow(() => assertProtected(302, '/carlos/logoutPage', requestUrl, base));
+  // Relative references resolve against the requested route, not the base url.
+  assert.doesNotThrow(() => assertProtected(302, '../logoutPage', requestUrl, base));
+  assert.throws(() => assertProtected(302, 'carlos/login', requestUrl, base));
+  assert.doesNotThrow(() => assertProtected(302, 'http://127.0.0.1:8080/carlos/logoutPage', requestUrl, new URL(base)));
 });
