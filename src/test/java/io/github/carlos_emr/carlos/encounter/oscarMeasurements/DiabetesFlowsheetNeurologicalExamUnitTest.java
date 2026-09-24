@@ -121,6 +121,22 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
         assertThat(sql).doesNotContainIgnoringCase("ON DUPLICATE KEY");
     }
 
+    @Test
+    @DisplayName("should resolve the NRTF validation from the FTLS row instead of a hard-coded id")
+    void shouldResolveValidationFromFtls_forNrtfMigration() throws Exception {
+        String sql = Files.readAllLines(NRTF_MIGRATION, StandardCharsets.UTF_8).stream()
+                .filter(line -> !line.stripLeading().startsWith("--"))
+                .collect(Collectors.joining("\n"));
+
+        // validations.id is auto-increment; a converted OpenO/oscar19 database may number its
+        // rules differently, so neither the insert nor the normalizing update may pin id 7.
+        assertThat(sql).contains(
+                "SELECT `validation` FROM `measurementType` WHERE `type` = 'FTLS' ORDER BY `id` LIMIT 1");
+        assertThat(sql).doesNotContain("`validation`           = '7'");
+        assertThat(sql).doesNotContain("       '7',\n");
+        assertThat(sql).contains("`validation`           = @carlos_nrtf_validation");
+    }
+
     private static Element parse(String resource) throws Exception {
         try (InputStream in = DiabetesFlowsheetNeurologicalExamUnitTest.class
                 .getResourceAsStream(FLOWSHEET_DIR + resource)) {
