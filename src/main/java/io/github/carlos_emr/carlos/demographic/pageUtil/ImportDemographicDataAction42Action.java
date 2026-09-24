@@ -2884,8 +2884,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             //CARE ELEMENTS
             CareElements[] careElems = patientRec.getCareElementsArray();
             // NRTF shares the 67536-3 neurological exam code with FTLS; CARLOS exports add a
-            // NewCategory marker per NRTF reading so it can be told apart here.
-            Map<String, Deque<String>> nrtfMarkers = CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray());
+            // NewCategory marker naming each NRTF screening by its ordinal among the record's
+            // 67536-3 screenings (document order), so it can be told apart here.
+            CdsNeurologicalExam.NrtfMarkers nrtfMarkers = CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray());
+            int neurologicalExamOrdinal = 0;
             for (int i = 0; i < careElems.length; i++) {
                 CareElements ce = careElems[i];
                 cdsDt.Height[] heights = ce.getHeightArray();
@@ -3049,7 +3051,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                             ImportExportMeasurements.saveMeasurements("FTE", demographicNo, admProviderNo, dataField, dateObserved);
                             addOneEntry(CAREELEMENTS);
                         } else if (ds.getExamCode().equals(ExamCode.X_67536_3)) {
-                            String nrtfResult = CdsNeurologicalExam.claimNrtfResult(nrtfMarkers, ds);
+                            String nrtfResult = nrtfMarkers.claim(neurologicalExamOrdinal++, ds);
                             if (nrtfResult != null) {
                                 String nrtfDataField = StringUtils.filled(nrtfResult) ? nrtfResult : dataField;
                                 ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfDataField, dateObserved);

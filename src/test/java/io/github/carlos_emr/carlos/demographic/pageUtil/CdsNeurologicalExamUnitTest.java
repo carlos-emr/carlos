@@ -28,6 +28,7 @@ import cds.OmdCdsDocument;
 import cds.PatientRecordDocument.PatientRecord;
 import cdsDt.DiabetesComplicationScreening;
 import cdsDt.DiabetesComplicationScreening.ExamCode;
+import cdsDt.ResidualInformation;
 
 import org.apache.xmlbeans.XmlCalendar;
 import org.apache.xmlbeans.XmlError;
@@ -42,9 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Deque;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,9 +53,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>The CDS {@code DiabetesComplicationsScreening} element has a single neurological exam code
  * ({@code 67536-3}) and no free-text slot, so NRTF (128 Hz tuning fork) is exported as that code
- * plus a CARLOS {@code NewCategory} marker. These tests build records the way
- * {@link DemographicExportAction42Action} does, serialise and re-parse them through XMLBeans, and
- * resolve them the way {@link ImportDemographicDataAction42Action} does.</p>
+ * plus a CARLOS {@code NewCategory} marker naming the screening's ordinal. These tests build
+ * records the way {@link DemographicExportAction42Action} does, serialise and re-parse them through
+ * XMLBeans, and resolve them the way {@link ImportDemographicDataAction42Action} does.</p>
+ *
+ * <p>Imported exams are compared <em>in screening order</em>, so a same-day FTLS/NRTF swap (the
+ * import restoring the wrong screening as NRTF) fails the assertions even when the resulting set
+ * of measurements looks the same.</p>
  *
  * @since 2026-09-24
  */
@@ -75,93 +78,136 @@ class CdsNeurologicalExamUnitTest {
     @Test
     @DisplayName("should restore an exported NRTF reading as NRTF with its recorded result")
     void shouldRestoreNrtf_whenExportedRecordIsReimported() throws Exception {
-        OmdCdsDocument doc = newDocument();
-        PatientRecord patient = doc.getOmdCds().getPatientRecord();
-        CareElements care = patient.addNewCareElements();
-        NewCategory marker = exportNrtf(patient, care, null, date(2026, 3, 14), "No");
-        assertThat(marker).isNotNull();
+        Export export = new Export();
+        export.nrtf(date(2026, 3, 14), "No");
 
-        List<ImportedExam> imported = importNeurologicalExams(reparse(doc));
-
-        assertThat(imported).containsExactly(new ImportedExam("NRTF", "No"));
+        assertThat(importNeurologicalExams(export.reparse()))
+                .containsExactly(new ImportedExam("NRTF", "No"));
     }
 
     @Test
     @DisplayName("should keep importing FTLS as FTLS with Yes, exactly as before the NRTF split")
     void shouldImportFtlsUnchanged_whenNoNrtfMarkerIsPresent() throws Exception {
-        OmdCdsDocument doc = newDocument();
-        PatientRecord patient = doc.getOmdCds().getPatientRecord();
-        CareElements care = patient.addNewCareElements();
-        exportFtls(care, date(2026, 3, 14));
+        Export export = new Export();
+        export.ftls(date(2026, 3, 14));
 
-        OmdCdsDocument reparsed = reparse(doc);
+        OmdCdsDocument reparsed = export.reparse();
 
         assertThat(reparsed.getOmdCds().getPatientRecord().getNewCategoryArray()).isEmpty();
         assertThat(importNeurologicalExams(reparsed)).containsExactly(new ImportedExam("FTLS", "Yes"));
     }
 
     @Test
-    @DisplayName("should keep FTLS and NRTF apart when both were recorded on the same day")
-    void shouldPreserveBothExams_whenFtlsAndNrtfShareADate() throws Exception {
-        OmdCdsDocument doc = newDocument();
-        PatientRecord patient = doc.getOmdCds().getPatientRecord();
-        CareElements care = patient.addNewCareElements();
+    @DisplayName("should restore the right screening as NRTF when FTLS is exported first on the same day")
+    void shouldKeepSameDayExamsApart_whenFtlsIsExportedFirst() throws Exception {
+        Export export = new Export();
         Calendar day = date(2026, 5, 2);
-        exportFtls(care, day);
-        NewCategory marker = exportNrtf(patient, care, null, day, "Yes");
-        exportNrtf(patient, care, marker, date(2025, 11, 20), "NA");
+        export.ftls(day);
+        export.nrtf(day, "No");
 
-        OmdCdsDocument reparsed = reparse(doc);
+        assertThat(importNeurologicalExams(export.reparse())).containsExactly(
+                new ImportedExam("FTLS", "Yes"),
+                new ImportedExam("NRTF", "No"));
+    }
+
+    @Test
+    @DisplayName("should restore the right screening as NRTF when NRTF is exported first on the same day")
+    void shouldKeepSameDayExamsApart_whenNrtfIsExportedFirst() throws Exception {
+        Export export = new Export();
+        Calendar day = date(2026, 5, 2);
+        export.nrtf(day, "No");
+        export.ftls(day);
+
+        assertThat(importNeurologicalExams(export.reparse())).containsExactly(
+                new ImportedExam("NRTF", "No"),
+                new ImportedExam("FTLS", "Yes"));
+    }
+
+    @Test
+    @DisplayName("should restore two NRTF readings on the same day with their own results")
+    void shouldRestoreEachNrtf_whenTwoShareADate() throws Exception {
+        Export export = new Export();
+        Calendar day = date(2026, 5, 2);
+        export.nrtf(day, "Yes");
+        export.ftls(day);
+        export.nrtf(day, "NA");
+        export.nrtf(date(2025, 11, 20), "No");
+
+        OmdCdsDocument reparsed = export.reparse();
 
         assertThat(reparsed.getOmdCds().getPatientRecord().getNewCategoryArray())
                 .as("one marker category per patient, one residual block per NRTF reading")
                 .hasSize(1)
-                .allSatisfy(c -> assertThat(c.getResidualInfoArray()).hasSize(2));
-        assertThat(importNeurologicalExams(reparsed)).containsExactlyInAnyOrder(
-                new ImportedExam("FTLS", "Yes"),
+                .allSatisfy(c -> assertThat(c.getResidualInfoArray()).hasSize(3));
+        assertThat(importNeurologicalExams(reparsed)).containsExactly(
                 new ImportedExam("NRTF", "Yes"),
-                new ImportedExam("NRTF", "NA"));
+                new ImportedExam("FTLS", "Yes"),
+                new ImportedExam("NRTF", "NA"),
+                new ImportedExam("NRTF", "No"));
+    }
+
+    @Test
+    @DisplayName("should ignore markers that name no exported screening")
+    void shouldIgnoreSurplusMarkers_whenMarkersOutnumberScreenings() throws Exception {
+        Export export = new Export();
+        Calendar day = date(2026, 5, 2);
+        export.ftls(day);
+        NewCategory marker = export.nrtf(day, "No");
+        addRawMarker(marker, "7", "2026-05-02", "Yes");
+        addRawMarker(marker, "not-a-number", "2026-05-02", "Yes");
+        addRawMarker(marker, "-1", "2026-05-02", "Yes");
+
+        assertThat(importNeurologicalExams(export.reparse())).containsExactly(
+                new ImportedExam("FTLS", "Yes"),
+                new ImportedExam("NRTF", "No"));
+    }
+
+    @Test
+    @DisplayName("should fall back to FTLS when the screening at a marker's ordinal has another date")
+    void shouldImportFtls_whenMarkerDateDoesNotMatchScreening() throws Exception {
+        Export export = new Export();
+        export.ftls(date(2026, 5, 2));
+        NewCategory marker = export.nrtf(date(2026, 6, 1), "No");
+        // Simulates another system dropping or reordering screenings: ordinal 0 is an FTLS dated
+        // 2026-05-02, so a marker for ordinal 0 dated 2026-06-01 must not claim it.
+        addRawMarker(marker, "0", "2026-06-01", "No");
+
+        assertThat(importNeurologicalExams(export.reparse())).containsExactly(
+                new ImportedExam("FTLS", "Yes"),
+                new ImportedExam("NRTF", "No"));
     }
 
     @Test
     @DisplayName("should export NRTF as a standard 67536-3 screening that validates against the CDS schema")
     void shouldProduceSchemaValidRecord_withNrtfMarker() throws Exception {
-        OmdCdsDocument doc = newDocument();
-        PatientRecord patient = doc.getOmdCds().getPatientRecord();
-        CareElements care = patient.addNewCareElements();
-        exportNrtf(patient, care, null, date(2026, 3, 14), "Yes");
+        Export export = new Export();
+        export.ftls(date(2026, 3, 14));
+        export.nrtf(date(2026, 3, 14), "Yes");
 
-        OmdCdsDocument reparsed = reparse(doc);
+        OmdCdsDocument reparsed = export.reparse();
         DiabetesComplicationScreening[] screenings = reparsed.getOmdCds().getPatientRecord()
                 .getCareElementsArray(0).getDiabetesComplicationsScreeningArray();
 
-        assertThat(screenings).singleElement()
-                .satisfies(s -> assertThat(s.getExamCode()).isEqualTo(ExamCode.X_67536_3));
+        assertThat(screenings).hasSize(2)
+                .allSatisfy(s -> assertThat(s.getExamCode()).isEqualTo(ExamCode.X_67536_3));
         assertThat(validationErrors(reparsed.getOmdCds().getPatientRecord().getNewCategoryArray(0)))
                 .as("the marker category must validate against the CDS schema")
                 .isEmpty();
-        assertThat(validationErrors(screenings[0])).isEmpty();
+        assertThat(validationErrors(screenings[1])).isEmpty();
     }
 
     @Test
     @DisplayName("should ignore NewCategory entries that are not the CARLOS NRTF marker")
     void shouldImportFtls_whenForeignNewCategoryIsPresent() throws Exception {
-        OmdCdsDocument doc = newDocument();
-        PatientRecord patient = doc.getOmdCds().getPatientRecord();
-        CareElements care = patient.addNewCareElements();
-        exportFtls(care, date(2026, 3, 14));
-        NewCategory other = patient.addNewNewCategory();
+        Export export = new Export();
+        export.ftls(date(2026, 3, 14));
+        NewCategory other = export.patient.addNewNewCategory();
         other.setCategoryName("Other EMR Data");
         other.setCategoryDescription("Unrelated");
-        cdsDt.ResidualInformation.DataElement element = other.addNewResidualInfo().addNewDataElement();
-        element.setName("MeasurementType");
-        element.setDataType("string");
-        element.setContent("NRTF");
-
-        OmdCdsDocument reparsed = reparse(doc);
+        addRawMarker(other, "0", "2026-03-14", "No");
 
         assertThat(CdsNeurologicalExam.isNrtfMarkerCategory(other)).isFalse();
-        assertThat(importNeurologicalExams(reparsed)).containsExactly(new ImportedExam("FTLS", "Yes"));
+        assertThat(importNeurologicalExams(export.reparse())).containsExactly(new ImportedExam("FTLS", "Yes"));
     }
 
     @Test
@@ -176,43 +222,50 @@ class CdsNeurologicalExamUnitTest {
                 .contains("CdsNeurologicalExam.addNrtfMarker(patientRec, nrtfMarkerCategory, dcs, meas.getDataField())");
         assertThat(importer)
                 .contains("CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray())")
-                .contains("CdsNeurologicalExam.claimNrtfResult(nrtfMarkers, ds)")
+                .contains("nrtfMarkers.claim(neurologicalExamOrdinal++, ds)")
                 .contains("CdsNeurologicalExam.isNrtfMarkerCategory(ce)");
     }
 
     // --- helpers mirroring the action code ---
 
-    private static OmdCdsDocument newDocument() {
-        OmdCdsDocument doc = OmdCdsDocument.Factory.newInstance();
-        doc.addNewOmdCds().addNewPatientRecord();
-        return doc;
+    /** Builds one patient record the way the export action's care-element loop does. */
+    private static final class Export {
+        private final OmdCdsDocument doc = OmdCdsDocument.Factory.newInstance();
+        private final PatientRecord patient = doc.addNewOmdCds().addNewPatientRecord();
+        private final CareElements care = patient.addNewCareElements();
+        private NewCategory marker;
+
+        void ftls(Calendar date) {
+            DiabetesComplicationScreening dcs = care.addNewDiabetesComplicationsScreening();
+            dcs.setDate(date);
+            dcs.setExamCode(ExamCode.X_67536_3);
+        }
+
+        NewCategory nrtf(Calendar date, String result) {
+            DiabetesComplicationScreening dcs = care.addNewDiabetesComplicationsScreening();
+            dcs.setDate(date);
+            dcs.setExamCode(ExamCode.X_67536_3);
+            marker = CdsNeurologicalExam.addNrtfMarker(patient, marker, dcs, result);
+            return marker;
+        }
+
+        OmdCdsDocument reparse() throws Exception {
+            return OmdCdsDocument.Factory.parse(doc.xmlText(new XmlOptions().setSavePrettyPrint()));
+        }
     }
 
-    private static void exportFtls(CareElements care, Calendar date) {
-        DiabetesComplicationScreening dcs = care.addNewDiabetesComplicationsScreening();
-        dcs.setDate(date);
-        dcs.setExamCode(ExamCode.X_67536_3);
-    }
-
-    private static NewCategory exportNrtf(PatientRecord patient, CareElements care, NewCategory marker,
-                                          Calendar date, String result) {
-        DiabetesComplicationScreening dcs = care.addNewDiabetesComplicationsScreening();
-        dcs.setDate(date);
-        dcs.setExamCode(ExamCode.X_67536_3);
-        return CdsNeurologicalExam.addNrtfMarker(patient, marker, dcs, result);
-    }
-
-    /** Same decision the importer makes for every 67536-3 screening. */
+    /** Same decision the importer makes for every 67536-3 screening, in document order. */
     private static List<ImportedExam> importNeurologicalExams(OmdCdsDocument doc) {
         PatientRecord patient = doc.getOmdCds().getPatientRecord();
-        Map<String, Deque<String>> markers = CdsNeurologicalExam.readNrtfMarkers(patient.getNewCategoryArray());
+        CdsNeurologicalExam.NrtfMarkers markers = CdsNeurologicalExam.readNrtfMarkers(patient.getNewCategoryArray());
+        int ordinal = 0;
         List<ImportedExam> imported = new ArrayList<>();
         for (CareElements care : patient.getCareElementsArray()) {
             for (DiabetesComplicationScreening ds : care.getDiabetesComplicationsScreeningArray()) {
                 if (!ExamCode.X_67536_3.equals(ds.getExamCode())) {
                     continue;
                 }
-                String nrtfResult = CdsNeurologicalExam.claimNrtfResult(markers, ds);
+                String nrtfResult = markers.claim(ordinal++, ds);
                 if (nrtfResult != null) {
                     imported.add(new ImportedExam(CdsNeurologicalExam.NRTF, nrtfResult.isEmpty() ? "Yes" : nrtfResult));
                 } else {
@@ -223,9 +276,19 @@ class CdsNeurologicalExamUnitTest {
         return imported;
     }
 
-    private static OmdCdsDocument reparse(OmdCdsDocument doc) throws Exception {
-        XmlOptions options = new XmlOptions().setSavePrettyPrint();
-        return OmdCdsDocument.Factory.parse(doc.xmlText(options));
+    private static void addRawMarker(NewCategory category, String ordinal, String date, String result) {
+        ResidualInformation ri = category.addNewResidualInfo();
+        addElement(ri, "MeasurementType", "NRTF");
+        addElement(ri, "ScreeningOrdinal", ordinal);
+        addElement(ri, "ExamDate", date);
+        addElement(ri, "Result", result);
+    }
+
+    private static void addElement(ResidualInformation ri, String name, String content) {
+        ResidualInformation.DataElement element = ri.addNewDataElement();
+        element.setName(name);
+        element.setDataType("string");
+        element.setContent(content);
     }
 
     private static List<String> validationErrors(XmlObject element) {

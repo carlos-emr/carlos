@@ -21,14 +21,14 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
+import cds.CareElementsDocument.CareElements;
 import cds.NewCategoryDocument.NewCategory;
 import cds.PatientRecordDocument.PatientRecord;
 import cdsDt.DiabetesComplicationScreening;
+import cdsDt.DiabetesComplicationScreening.ExamCode;
 import cdsDt.ResidualInformation;
 import cdsDt.ResidualInformation.DataElement;
 
@@ -46,15 +46,21 @@ import cdsDt.ResidualInformation.DataElement;
  *   <li>Both exams are exported as a standard {@code 67536-3} screening, so any conformant
  *       receiving EMR still sees that a neurological exam was performed on that date.</li>
  *   <li>Each NRTF reading additionally gets one {@code ResidualInfo} block in a patient-level
- *       {@code NewCategory} named {@link #CATEGORY_NAME}, carrying the measurement type, the exam
- *       date (lexical {@code yyyy-MM-dd}, as written in the screening) and the recorded result.</li>
- *   <li>On import, a {@code 67536-3} screening whose date matches an unclaimed NRTF marker is
- *       restored as NRTF with the recorded result; every other {@code 67536-3} screening is
- *       imported as FTLS with {@code "Yes"}, exactly as before. Markers are consumed one per
- *       screening, so an FTLS and an NRTF on the same day both survive the round trip.</li>
+ *       {@code NewCategory} named {@link #CATEGORY_NAME}. The block carries the measurement type,
+ *       the screening's <em>ordinal</em> (its 0-based position among the record's {@code 67536-3}
+ *       screenings, in document order), the exam date (lexical {@code yyyy-MM-dd}, as written in
+ *       the screening) and the recorded result.</li>
+ *   <li>On import, the importer counts {@code 67536-3} screenings in the same document order.
+ *       A screening is restored as NRTF only when a marker names its ordinal <em>and</em> the
+ *       marker's date matches the screening's date. Every other {@code 67536-3} screening is
+ *       imported as FTLS with {@code "Yes"}, exactly as before.</li>
  * </ul>
  *
- * <p>Files without the marker (from other EMRs or older CARLOS builds) import unchanged.</p>
+ * <p>The per-screening ordinal is what keeps an FTLS and an NRTF recorded on the same day apart,
+ * whichever order the exporter wrote them in. Requiring the date to match as well means a file
+ * whose screenings were reordered or dropped by another system falls back to FTLS rather than
+ * attaching an NRTF result to the wrong exam. Markers that match no screening are ignored, and
+ * files without the marker (from other EMRs or older CARLOS builds) import unchanged.</p>
  *
  * @since 2026-09-24
  */
@@ -73,6 +79,7 @@ public final class CdsNeurologicalExam {
             "Marks DiabetesComplicationsScreening 67536-3 entries that record the 128 Hz tuning fork test (NRTF)";
 
     static final String ELEMENT_TYPE = "MeasurementType";
+    static final String ELEMENT_ORDINAL = "ScreeningOrdinal";
     static final String ELEMENT_DATE = "ExamDate";
     static final String ELEMENT_RESULT = "Result";
     private static final String DATA_TYPE = "string";
@@ -83,14 +90,19 @@ public final class CdsNeurologicalExam {
     /**
      * Records that {@code screening} is an NRTF reading, creating the marker category on first use.
      *
+     * <p>Must be called right after {@code screening} was appended to the record and given the
+     * {@code 67536-3} exam code: its ordinal is taken as the position of the last
+     * {@code 67536-3} screening in the record.</p>
+     *
      * @param patientRec the patient record being exported
      * @param category the marker category already created for this patient, or {@code null}
-     * @param screening the {@code 67536-3} screening already added for the NRTF reading
+     * @param screening the {@code 67536-3} screening just added for the NRTF reading
      * @param result the NRTF measurement value; {@code null} is exported as empty
      * @return the marker category to pass in for the next NRTF reading of the same patient
      */
     public static NewCategory addNrtfMarker(PatientRecord patientRec, NewCategory category,
                                             DiabetesComplicationScreening screening, String result) {
+        int ordinal = countNeurologicalExams(patientRec) - 1;
         NewCategory target = category;
         if (target == null) {
             target = patientRec.addNewNewCategory();
@@ -99,6 +111,7 @@ public final class CdsNeurologicalExam {
         }
         ResidualInformation ri = target.addNewResidualInfo();
         addElement(ri, ELEMENT_TYPE, NRTF);
+        addElement(ri, ELEMENT_ORDINAL, Integer.toString(ordinal));
         addElement(ri, ELEMENT_DATE, dateKey(screening));
         addElement(ri, ELEMENT_RESULT, result == null ? "" : result.trim());
         return target;
@@ -115,13 +128,23 @@ public final class CdsNeurologicalExam {
     }
 
     /**
-     * Collects the NRTF markers of an imported patient record, keyed by exam date.
+     * Returns whether {@code screening} carries the neurological exam code shared by FTLS and NRTF.
+     *
+     * @param screening an imported or exported screening; may be {@code null}
+     * @return {@code true} for exam code {@code 67536-3}
+     */
+    public static boolean isNeurologicalExam(DiabetesComplicationScreening screening) {
+        return screening != null && ExamCode.X_67536_3.equals(screening.getExamCode());
+    }
+
+    /**
+     * Collects the NRTF markers of an imported patient record.
      *
      * @param categories the record's {@code NewCategory} array; may be {@code null}
-     * @return a mutable map from exam date to the recorded results for that date, in file order
+     * @return the markers keyed by screening ordinal; empty when the record has none
      */
-    public static Map<String, Deque<String>> readNrtfMarkers(NewCategory[] categories) {
-        Map<String, Deque<String>> markers = new HashMap<>();
+    public static NrtfMarkers readNrtfMarkers(NewCategory[] categories) {
+        NrtfMarkers markers = new NrtfMarkers();
         if (categories == null) {
             return markers;
         }
@@ -131,6 +154,7 @@ public final class CdsNeurologicalExam {
             }
             for (ResidualInformation ri : category.getResidualInfoArray()) {
                 String type = null;
+                String ordinal = null;
                 String date = "";
                 String result = "";
                 for (DataElement element : ri.getDataElementArray()) {
@@ -138,6 +162,8 @@ public final class CdsNeurologicalExam {
                     String content = element.getContent() == null ? "" : element.getContent().trim();
                     if (ELEMENT_TYPE.equals(name)) {
                         type = content;
+                    } else if (ELEMENT_ORDINAL.equals(name)) {
+                        ordinal = content;
                     } else if (ELEMENT_DATE.equals(name)) {
                         date = content;
                     } else if (ELEMENT_RESULT.equals(name)) {
@@ -145,30 +171,11 @@ public final class CdsNeurologicalExam {
                     }
                 }
                 if (NRTF.equals(type)) {
-                    markers.computeIfAbsent(date, k -> new ArrayDeque<>()).addLast(result);
+                    markers.add(ordinal, date, result);
                 }
             }
         }
         return markers;
-    }
-
-    /**
-     * Claims the NRTF marker for an imported {@code 67536-3} screening, if one is left for its date.
-     *
-     * @param markers the map returned by {@link #readNrtfMarkers}; the claimed entry is removed
-     * @param screening the imported neurological exam screening
-     * @return the recorded NRTF result (possibly empty) when the screening is an NRTF reading,
-     *         or {@code null} when it should be imported as FTLS
-     */
-    public static String claimNrtfResult(Map<String, Deque<String>> markers, DiabetesComplicationScreening screening) {
-        if (markers == null || markers.isEmpty()) {
-            return null;
-        }
-        Deque<String> results = markers.get(dateKey(screening));
-        if (results == null || results.isEmpty()) {
-            return null;
-        }
-        return results.pollFirst();
     }
 
     /**
@@ -183,10 +190,72 @@ public final class CdsNeurologicalExam {
         return lexical == null ? "" : lexical.trim();
     }
 
+    private static int countNeurologicalExams(PatientRecord patientRec) {
+        int count = 0;
+        for (CareElements care : patientRec.getCareElementsArray()) {
+            for (DiabetesComplicationScreening screening : care.getDiabetesComplicationsScreeningArray()) {
+                if (isNeurologicalExam(screening)) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
     private static void addElement(ResidualInformation ri, String name, String content) {
         DataElement element = ri.addNewDataElement();
         element.setName(name);
         element.setDataType(DATA_TYPE);
         element.setContent(content);
+    }
+
+    /**
+     * The NRTF markers of one imported patient record, consumed as the importer walks the
+     * record's {@code 67536-3} screenings in document order.
+     */
+    public static final class NrtfMarkers {
+
+        private final Map<Integer, String[]> byOrdinal = new HashMap<>();
+
+        NrtfMarkers() {
+        }
+
+        private void add(String ordinal, String date, String result) {
+            if (ordinal == null) {
+                return;
+            }
+            try {
+                int index = Integer.parseInt(ordinal);
+                if (index >= 0) {
+                    // First marker for an ordinal wins; a duplicate is ignored rather than guessed at.
+                    byOrdinal.putIfAbsent(index, new String[] {date, result});
+                }
+            } catch (NumberFormatException e) {
+                // A malformed ordinal cannot be tied to a screening, so the marker is ignored.
+            }
+        }
+
+        /**
+         * Claims the marker for the {@code ordinal}-th {@code 67536-3} screening of the record.
+         *
+         * @param ordinal the 0-based position of {@code screening} among the record's
+         *                {@code 67536-3} screenings, counted in document order
+         * @param screening the imported neurological exam screening
+         * @return the recorded NRTF result (possibly empty) when the screening is an NRTF reading,
+         *         or {@code null} when it should be imported as FTLS
+         */
+        public String claim(int ordinal, DiabetesComplicationScreening screening) {
+            String[] marker = byOrdinal.get(ordinal);
+            if (marker == null || !marker[0].equals(dateKey(screening))) {
+                return null;
+            }
+            byOrdinal.remove(ordinal);
+            return marker[1];
+        }
+
+        /** @return {@code true} when no unclaimed marker is left */
+        public boolean isEmpty() {
+            return byOrdinal.isEmpty();
+        }
     }
 }
