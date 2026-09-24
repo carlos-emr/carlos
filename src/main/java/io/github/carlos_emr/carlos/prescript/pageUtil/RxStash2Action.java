@@ -45,6 +45,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Moves the stash cursor and removes staged prescription cards from the Rx session.
+ *
+ * <p>{@code parameterValue=deletePrescribe} and the legacy {@code action=delete} form both remove
+ * a staged card, so they are POST-only (CSRFGuard only checks non-GET methods and the route name
+ * {@code rx/rxStashDelete} does not match {@code HttpMethodGuardFilter}'s mutator vocabulary).
+ * {@code setStashIndex} and the {@code action=edit} cursor move stay verb-open.</p>
+ *
+ * @since 2004-02-05
+ */
 public final class RxStash2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -60,6 +70,14 @@ public final class RxStash2Action extends ActionSupport {
 
 
         String method = request.getParameter("parameterValue");
+        boolean removesStashItem = "deletePrescribe".equals(method)
+                || (method == null && "delete".equals(request.getParameter("action")));
+        if (removesStashItem && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if ("setStashIndex".equals(method)) {
             return setStashIndex();
         } else if ("deletePrescribe".equals(method)) {
@@ -149,8 +167,14 @@ public final class RxStash2Action extends ActionSupport {
             return null;
         }
 
-        int randomId = Integer.parseInt(request.getParameter("randomId"));
-        MiscUtils.getLogger().debug("randomId=" + randomId);
+        // randomId is the card's stash key (the <rand> in set_<rand>), never a drug id.
+        int randomId;
+        try {
+            randomId = Integer.parseInt(request.getParameter("randomId"));
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         int stashId = bean.getIndexFromRx(randomId);
         if (stashId != -1) {
             bean.removeStashItem(stashId);
@@ -158,7 +182,7 @@ public final class RxStash2Action extends ActionSupport {
                 bean.setStashIndex(bean.getStashSize() - 1);
             }
         } else {
-            MiscUtils.getLogger().debug("stashId iss  -1");
+            MiscUtils.getLogger().debug("deletePrescribe: no staged card for the requested random id");
         }
 
         return SUCCESS;

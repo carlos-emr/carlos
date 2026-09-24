@@ -317,6 +317,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
         // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        // Prescription stash: deletePrescribe and the legacy action=delete remove a staged card and
+        // are POST-only; setStashIndex / action=edit cursor moves stay verb-open. Issue #3871.
+        // Covered by RxStash2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -445,7 +449,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
         // demographic slice: AddDemographicRelationship2Action is the only migrated mutator gated so
         // far; the demographic package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
-        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action"
+        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
+        // prescript slice: RxStash2Action's stash removal is POST-only; the prescript package is not
+        // in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator). Issue #3871.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

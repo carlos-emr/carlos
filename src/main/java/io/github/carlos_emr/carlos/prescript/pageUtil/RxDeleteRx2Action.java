@@ -32,9 +32,11 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.List;
+import java.util.Objects;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -76,8 +78,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * <li>Deleting single or multiple prescriptions</li>
  * <li>Discontinuing prescriptions with reason tracking</li>
  * <li>Clearing prescription stash and re-prescription lists</li>
- * <li>Deleting prescriptions when closing the prescription dialog box</li>
  * </ul>
+ * <p>
+ * Every operation that archives a saved drug first confirms the drug belongs to the patient of
+ * the caller's Rx session, so a drug id from another chart is refused with 403.
  * <p>
  * All deletion operations archive the drug record rather than performing hard deletes,
  * maintaining audit trail compliance for healthcare data.
@@ -100,7 +104,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * Routes to:
      * <ul>
      * <li>Delete2() - Single prescription deletion by ID</li>
-     * <li>DeleteRxOnCloseRxBox() - Delete prescription when closing dialog</li>
      * <li>clearStash() - Clear prescription stash</li>
      * <li>clearReRxDrugList() - Clear re-prescription list</li>
      * <li>Discontinue() - Discontinue prescription with reason</li>
@@ -124,8 +127,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
         String method = request.getParameter("parameterValue");
         if ("Delete2".equals(method)) {
             return Delete2();
-        } else if ("DeleteRxOnCloseRxBox".equals(method)) {
-            return DeleteRxOnCloseRxBox();
         } else if ("clearStash".equals(method)) {
             return clearStash();
         } else if ("clearReRxDrugList".equals(method)) {
@@ -144,10 +145,13 @@ public final class RxDeleteRx2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         try {
 
-            String[] drugArr = drugList.split(",");
+            String[] drugArr = drugList == null ? new String[0] : drugList.split(",");
             int drugId;
             int i;
 
+            // Validate every requested drug before archiving any, so a list that mixes in another
+            // patient's drug is refused as a whole rather than half-applied.
+            List<Drug> drugsToDelete = new ArrayList<>();
             for (i = 0; i < drugArr.length; i++) {
                 try {
                     drugId = Integer.parseInt(drugArr[i]);
@@ -157,9 +161,16 @@ public final class RxDeleteRx2Action extends ActionSupport {
                 }
                 // get original drug
                 Drug drug = drugDao.find(drugId);
+                if (!isOwnedBySessionPatient(drug, bean)) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return NONE;
+                }
+                drugsToDelete.add(drug);
+            }
+            for (Drug drug : drugsToDelete) {
                 setDrugDelete(drug);
                 drugDao.merge(drug);
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, String.valueOf(drug.getId()), ip, "" + bean.getDemographicNo(), drug.getAuditString());
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -213,6 +224,10 @@ public final class RxDeleteRx2Action extends ActionSupport {
             String deleteRxId = (request.getParameter("deleteRxId").split("_"))[1];
 
             Drug drug = drugDao.find(Integer.parseInt(deleteRxId));
+            if (!isOwnedBySessionPatient(drug, bean)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             setDrugDelete(drug);
             drugDao.merge(drug);
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
@@ -220,64 +235,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
         MiscUtils.getLogger().debug("===========================END Delete2 RxDeleteRx2Action========================");
-        return null;
-    }
-
-    /**
-     * Deletes a prescription when the prescription dialog box is closed.
-     * <p>
-     * Uses a random ID to look up the actual drug ID from the session's random ID mapping,
-     * then archives the prescription and returns the drug ID as JSON.
-     *
-     * Expected request parameters:
-     * <ul>
-     * <li>randomId - String random identifier mapped to the actual drug ID in the session</li>
-     * </ul>
-     *
-     * @return null (writes JSON response with drug ID directly to output stream)
-     * @throws IOException if response writing fails
-     */
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    public String DeleteRxOnCloseRxBox()
-            throws IOException {
-
-        MiscUtils.getLogger().debug("===========================DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
-        checkPrivilege(request, PRIVILEGE_UPDATE);
-
-        String randomId = request.getParameter("randomId");
-
-
-        // Setup variables
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-        if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
-        }
-        if (randomId != null) {
-            HashMap rd = bean.getRandomIdDrugIdPair();
-            Integer drugId = (Integer) rd.get(Long.parseLong(randomId));
-            MiscUtils.getLogger().debug("111drugId=" + drugId + "--randomId=" + randomId);
-            if (drugId != null) {
-                String ip = request.getRemoteAddr();
-                try {
-                    Drug drug = drugDao.find(drugId);
-                    setDrugDelete(drug);
-                    drugDao.merge(drug);
-                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString());
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
-                }
-            }
-            HashMap hm = new HashMap();
-            hm.put("drugId", drugId);
-            ObjectNode jsonObject = objectMapper.valueToTree(hm);
-            MiscUtils.getLogger().debug("jsonObject=" + jsonObject.toString());
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            response.getWriter().write(jsonObject.toString());
-        }
-        MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
         return null;
     }
 
@@ -343,11 +300,11 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * <li>drugId - Integer ID of the drug to discontinue</li>
      * <li>reason - String reason for discontinuation</li>
      * <li>comment - String additional comments (optional)</li>
-     * <li>demoNo - String demographic number</li>
      * <li>drugSpecial - String drug special instructions</li>
      * </ul>
+     * The note is filed against the Rx session's patient, never a request-supplied demographic.
      *
-     * @return null (writes JSON response directly to output stream)
+     * @return {@link #NONE} (writes JSON response directly to output stream)
      * @throws IOException if response writing fails
      */
     //STILL NEED TO SAVE REASON AND COMMENT "would like to create a summary note in the echart"
@@ -356,8 +313,20 @@ public final class RxDeleteRx2Action extends ActionSupport {
     public String Discontinue() throws IOException {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null) {
+            response.sendRedirect("error.html");
+            return NONE;
+        }
+
         String idStr = request.getParameter("drugId");
-        int id = Integer.parseInt(idStr);
+        int id;
+        try {
+            id = Integer.parseInt(idStr);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         String reason = request.getParameter("reason");
         //String comment = request.getParameter("comment"); //TODO: PUT this in a note
@@ -365,6 +334,10 @@ public final class RxDeleteRx2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
 
         Drug drug = drugDao.find(id);
+        if (!isOwnedBySessionPatient(drug, bean)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
         Date date = new Date();
         String logStatement = drug + " Changing end date to :" + date;
@@ -393,7 +366,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             MiscUtils.getLogger().debug("value="+request.getSession().getAttribute(s));
         }*/
         try {
-            createDiscontinueNote(request);
+            createDiscontinueNote(request, bean.getDemographicNo());
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -407,7 +380,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
         response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
-        return null;
+        return NONE;
     }
 
     /**
@@ -427,22 +400,22 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * Expected request parameters:
      * <ul>
      * <li>drugId - String ID of the discontinued drug</li>
-     * <li>demoNo - String demographic number of the patient</li>
      * <li>drugSpecial - String special instructions for the drug</li>
      * <li>reason - String reason for discontinuation</li>
      * <li>comment - String additional comments about discontinuation</li>
      * </ul>
      *
      * @param request HttpServletRequest containing discontinuation details
+     * @param sessionDemographicNo the Rx session's patient, already verified to own the drug
      */
-    private void createDiscontinueNote(HttpServletRequest request) {
+    private void createDiscontinueNote(HttpServletRequest request, int sessionDemographicNo) {
         //create a note and store this info in casemanagement_note table
         //note_id, update_date, observation_date, demographic_no, provider_no, note:, signed, include_issue_innote, archived, position, uuid
         //signing_provider_no, encounter_type:  billing_code:  program_no, reporter_caisi_role, reporter_program_team, history, password, locked
         CaseManagementNote cmn = new CaseManagementNote();
         //get parameter values
         Date now = EDocUtil.getDmsDateTimeAsDate();
-        String demoNo = request.getParameter("demoNo");
+        String demoNo = String.valueOf(sessionDemographicNo);
         String idStr = request.getParameter("drugId");
         String user = request.getSession().getAttribute("user").toString();
         String strNote = request.getParameter("drugSpecial") + "\nDiscontinued reason: " + request.getParameter("reason") + "\nDiscontinued comment: " + request.getParameter("comment");
@@ -483,6 +456,16 @@ public final class RxDeleteRx2Action extends ActionSupport {
 
 
         EDocUtil.addCaseMgmtNoteLink(cmnl);
+    }
+
+    /**
+     * Whether {@code drug} exists and belongs to the patient of the caller's Rx session. The
+     * {@code _rx} privilege says the caller may prescribe, not that a request-supplied drug id is
+     * theirs to archive; without this a drug id from another chart could be deleted or
+     * discontinued. {@code Drug.getDemographicId()} is a nullable {@code Integer}.
+     */
+    private static boolean isOwnedBySessionPatient(Drug drug, RxSessionBean bean) {
+        return drug != null && Objects.equals(drug.getDemographicId(), bean.getDemographicNo());
     }
 
     /**

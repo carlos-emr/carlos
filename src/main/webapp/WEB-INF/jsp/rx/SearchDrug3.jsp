@@ -855,7 +855,6 @@ function renderRxStage() {
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
 
-                                                    <input type="hidden" id="deleteOnCloseRxBox" value="false"/>
                                                     <input type="hidden" property="demographicNo" value="<%=patient.getDemographicNo()%>"/>
 
                                                 </div>
@@ -1527,47 +1526,22 @@ function renderRxStage() {
     }
 
 
+    /**
+     * Removes one staged card from the server-side stash.
+     *
+     * @param randomId the card's stash random id (the <rand> in set_<rand>), NOT a drug id.
+     *                 rx/rxStashDelete is POST-only; CarlosAjax adds the CSRF token.
+     */
     function deletePrescribe(randomId){
-        var data="randomId="+randomId;
+        var data="randomId="+encodeURIComponent(randomId);
         var url=ctx + "/rx/rxStashDelete";
         data += "&parameterValue=deletePrescribe";
         CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
-                // updateCurrentInteractions();
-                if(document.getElementById('deleteOnCloseRxBox').value=='true'){
-                    deleteRxOnCloseRxBox(randomId);
-                }
-
 						jQuery("#set_" + randomId).remove();
 						jQuery("#prescriptionMoreLessLink_" + randomId).remove();
 						jQuery("#deleteMedicationFromPrescription_" + randomId).remove();
 					}
 				});
-    }
-
-    function deleteRxOnCloseRxBox(randomId){
-
-            var data="randomId="+randomId;
-            var url=ctx + "/rx/deleteRx";
-            data += "&parameterValue=DeleteRxOnCloseRxBox";
-            CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
-                     var json = null;
-                     try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-                     if(json!=null){
-                             var id=json.drugId;
-                             var rxDate="rxDate_"+ id;
-                             var reRx="reRx_"+ id;
-                             var del="del_"+ id;
-                             var discont="discont_"+ id;
-                             var prescrip="prescrip_"+id;
-                             document.getElementById(rxDate).style.textDecoration='line-through';
-                             document.getElementById(reRx).style.textDecoration='line-through';
-                             document.getElementById(del).style.textDecoration='line-through';
-                             document.getElementById(discont).style.textDecoration='line-through';
-                             document.getElementById(prescrip).style.textDecoration='line-through';
-			     // updateCurrentInteractions();
-                    }
-                }});
-
     }
 
     skipParseInstr = false;
@@ -1786,9 +1760,6 @@ function saveCustomName(element){
 
             }});
 }
-function updateDeleteOnCloseRxBox(){
-    document.getElementById('deleteOnCloseRxBox').value='true';
-}
 function popForm2(scriptId){
         try{
             var url = ctx + "/rx/viewScript?scriptId="+scriptId;
@@ -1836,7 +1807,9 @@ function popForm2(scriptId){
             var editRxMsg = '${carlos:forJavaScript(msg_editRx)}';
             var closeBtn = document.getElementById('carlosModalCloseBtn');
             closeBtn.textContent = editRxMsg;
-            closeBtn.onclick = updateDeleteOnCloseRxBox;
+            // "Edit Rx" only closes the preview. It used to arm an archive-on-close flag that
+            // archived whichever saved drug the next closed card's random id mapped to (#3871).
+            closeBtn.onclick = null;
             var modalEl = document.getElementById('carlosModal');
             var existingModal = bootstrap.Modal.getInstance(modalEl);
             if (existingModal) existingModal.dispose();
@@ -2367,23 +2340,28 @@ function removeDrugFromReRxList(uiRefId, drugId) {
 
 /**
  * Removes a prescribing drug entry from both the UI and the backend.
- * @param cardId The id of the card from which to delete
- * @param drugId The id of the drug to remove
+ * @param cardId The card element (set_<rand>) whose X button was clicked
+ * @param drugId The database id of the source drug for a ReRx card, or 0 for a new drug
  */
 function removePrescribingDrug(cardId, drugId) {
     const uiRefId = cardId.id.split('_')[1];
-    deletePrescribingDrugFromUI(uiRefId, drugId);
-    uncheckReRxForExistingPrescribedDrug(drugId)
+    deletePrescribingDrugFromUI(uiRefId);
+    if (drugId) {
+        uncheckReRxForExistingPrescribedDrug(drugId);
+    }
 }
 
 /**
  * Deletes a prescribing drug from UI and calls deletePrescribe.
- * @param uiRefId The unique id for referencing the UI element.
- * @param drugId The id of the drug to delete.
+ *
+ * The stash is keyed by the card's random id. Passing the drug id here (as this used to) sent
+ * an id the stash never holds, so the server kept the card's prescription and saved it anyway.
+ *
+ * @param uiRefId The card's random id, which is also its stash key.
  */
-function deletePrescribingDrugFromUI(uiRefId, drugId) {
+function deletePrescribingDrugFromUI(uiRefId) {
     removeElementFromUI(getPrescribingDrugCardByUiRefId(uiRefId));
-    deletePrescribe(drugId);
+    deletePrescribe(uiRefId);
 }
 
 /**
@@ -2397,8 +2375,7 @@ function removeElementFromUI(element) {
 
 /**
  * Unchecks the "re-prescribe" checkbox for an existing prescribed drug and removes its ID from the re-prescribe list.
- * @param uiRefId The UI reference ID for the drug.
- * @param drugId The ID of the drug.
+ * @param drugId The database ID of the prescribed drug.
  */
 function uncheckReRxForExistingPrescribedDrug(drugId) {
     const checkbox = getReRxCheckboxByUiRefId(drugId);
