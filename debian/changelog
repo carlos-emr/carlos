@@ -39,6 +39,10 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
     and the render browser restart wait for the provisioning lock like
     init-config: a configure that cannot take it leaves the renderer alone
     and says to re-run dpkg-reconfigure carlos-emr.
+  * A configure that holds the EMR back (schema not ready, seeded credential
+    live) records a veto the carlos-emr-restart trigger honours while the
+    unit is down, so carlos-emr-drugref's activation of the same trigger
+    cannot restart a failed unit into a schema the boot gate refuses.
   * carlos-emr-drugref (Architecture: all) now depends on carlos-emr
     (>= ${source:Version}, << ${source:Version}.1~) rather than
     (= ${binary:Version}), the binNMU-safe form for an arch-all package

@@ -73,6 +73,15 @@ test('every EMR restart point activates the carlos-emr-restart trigger carlos-em
     assert.match(script, /DPKG_RUNNING_VERSION/);
   }
   assert.match(postinst, /^    triggered\)$/m);
+  // A configure that must not start the EMR (schema not ready, seed sentinel)
+  // records a veto the trigger honours while the unit is down, so DrugRef's
+  // activation of the same trigger cannot restart a `failed` unit into a
+  // schema the application's boot gate will refuse again.
+  assert.match(postinst, /elif \[ "\$\{MIGRATION_OK:-1\}" = 0 \]; then\n(.*\n){1,6}?.*: > "\$\{START_VETO\}"/);
+  assert.match(postinst, /elif \[ -e "\$\{START_VETO\}" \] && ! systemctl is-active --quiet carlos-emr\.service; then/);
+  const veto = postinst.indexOf('elif [ -e "${START_VETO}" ] && ! systemctl is-active');
+  const anyState = postinst.indexOf('|| systemctl is-failed --quiet carlos-emr.service; then');
+  assert.ok(veto > 0 && anyState > veto, 'the veto must be checked before the active/failed restart');
   assert.match(postinst, /if \[ "\$1" = triggered \] && \[ -d \/run\/systemd\/system \]; then/);
 });
 

@@ -34,6 +34,11 @@ SEED_SENTINEL="${STATE}/.seed-credential-live"
 # for. Runtime state: a reboot clears it, and the unit starts at boot anyway.
 RUN_DIR=/run/carlos-emr
 START_REQUEST="${RUN_DIR}/.start-requested"
+# Its opposite: a configure that must NOT bring the EMR up (schema not ready,
+# seeded credential live). The trigger otherwise restarts a unit that is
+# `failed` -- right when an earlier start spent the start-limit budget, wrong
+# when the application's own boot gate would refuse the schema again.
+START_VETO="${RUN_DIR}/.start-vetoed"
 
 # Durable record that database provisioning is OWED. Every provisioning step
 # below is non-fatal unless credential containment itself fails. An unreachable
@@ -1668,14 +1673,20 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     fi
     if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ] || [ -e "${SEED_SENTINEL}" ]; then
         rm -f "${START_REQUEST}"
+        mkdir -p "${RUN_DIR}" 2>/dev/null && : > "${START_VETO}" 2>/dev/null || true
         echo "carlos-emr: NOT starting the service — the seeded credential guard requires recovery." >&2
         echo "carlos-emr: run 'sudo carlos-ctl finish-install' (see above)." >&2
     elif [ "${MIGRATION_OK:-1}" = 0 ]; then
         rm -f "${START_REQUEST}"
+        # Recorded for the trigger: carlos-emr-drugref, configured after this
+        # package, activates it regardless, and it must not restart a unit this
+        # configure held back just because that unit is in `failed` state.
+        mkdir -p "${RUN_DIR}" 2>/dev/null && : > "${START_VETO}" 2>/dev/null || true
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
         echo "carlos-emr: start it after completing the migration." >&2
     else
+        rm -f "${START_VETO}"
         # restart rather than start when this configure generated a new render
         # token: on a dpkg-reconfigure the EMR is still running (only an
         # upgrade's preinst stops it) and would keep calling the render browser
@@ -1731,12 +1742,20 @@ fi
 # stopped, and one held back by a failed schema migration stays down.
 if [ "$1" = triggered ] && [ -d /run/systemd/system ]; then
     if [ -e "${SEED_SENTINEL}" ]; then
-        rm -f "${START_REQUEST}"
+        rm -f "${START_REQUEST}" "${START_VETO}"
         echo "carlos-emr: NOT starting the service — the seeded credential guard requires recovery." >&2
         echo "carlos-emr: run 'sudo carlos-ctl finish-install'." >&2
+    elif [ -e "${START_VETO}" ] && ! systemctl is-active --quiet carlos-emr.service; then
+        # A configure in this transaction held the EMR back (schema not ready)
+        # and it is still down: leave it down, even if the unit is `failed`. An
+        # ACTIVE unit means the operator has since completed the migration and
+        # started it by hand, so the veto is stale and the restart below (which
+        # DrugRef may need) is right.
+        rm -f "${START_REQUEST}" "${START_VETO}"
+        echo "carlos-emr: NOT starting the service — this transaction's configure held it back (see above)." >&2
     elif [ -e "${START_REQUEST}" ] || systemctl is-active --quiet carlos-emr.service \
             || systemctl is-failed --quiet carlos-emr.service; then
-        rm -f "${START_REQUEST}"
+        rm -f "${START_REQUEST}" "${START_VETO}"
         emr_start_and_wait restart
     fi
 fi
