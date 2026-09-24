@@ -25,7 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -36,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
@@ -107,6 +110,9 @@ class ConsultationWebServiceRegressionTest {
     @Mock
     private DemographicManager demographicManager;
 
+    @Mock
+    private SecurityInfoManager securityInfoManager;
+
     private ConsultationWebService service;
 
     @BeforeEach
@@ -121,6 +127,56 @@ class ConsultationWebServiceRegressionTest {
         ReflectionTestUtils.setField(service, "consultationManager", consultationManager);
         ReflectionTestUtils.setField(service, "attachmentOwnershipService", attachmentOwnershipService);
         ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+        ReflectionTestUtils.setField(service, "securityInfoManager", securityInfoManager);
+        // Patient-scoped read is allowed unless a test says otherwise. The Integer patient number
+        // binds to the int overload of hasPrivilege.
+        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), anyInt())).thenReturn(true);
+        lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
+    }
+
+    /**
+     * Copilot review on #3903: the attachment listings and getters return one patient's data, so
+     * they need patient-scoped consultation read and chart access, not only the role-level check.
+     */
+    @Test
+    @DisplayName("should refuse the request attachment listing when the caller cannot access the stored patient")
+    void shouldRefuseRequestAttachments_whenPatientRecordAccessDenied() {
+        ConsultationRequest stored = new ConsultationRequest();
+        stored.setDemographicId(DEMOGRAPHIC_NO);
+        when(consultationManager.getRequest(loggedInInfo, 77)).thenReturn(stored);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getRequestAttachments(77, 999, true))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(403));
+        verify(attachmentOwnershipService, never()).retainAttachable(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should refuse the response attachment listing without patient-scoped consultation read")
+    void shouldRefuseResponseAttachments_whenPatientConsultReadDenied() {
+        ConsultationResponse stored = new ConsultationResponse();
+        stored.setDemographicNo(DEMOGRAPHIC_NO);
+        when(consultationManager.getResponse(loggedInInfo, 88)).thenReturn(stored);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", DEMOGRAPHIC_NO.intValue())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getResponseAttachments(88, 999, true))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(403));
+        verify(attachmentOwnershipService, never()).retainAttachable(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should refuse getRequest for a stored consultation whose patient the caller cannot access")
+    void shouldRefuseGetRequest_whenPatientRecordAccessDenied() {
+        ConsultationRequest stored = new ConsultationRequest();
+        stored.setDemographicId(DEMOGRAPHIC_NO);
+        when(consultationManager.getRequest(loggedInInfo, 77)).thenReturn(stored);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getRequest(77, 999, false))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(403));
     }
 
     /**

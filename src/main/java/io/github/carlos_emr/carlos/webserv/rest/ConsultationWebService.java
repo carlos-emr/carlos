@@ -82,6 +82,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -145,6 +146,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     private AttachmentOwnershipService attachmentOwnershipService;
 
     @Autowired
+    private SecurityInfoManager securityInfoManager;
+
+    @Autowired
     ProviderDao providerDao;
 
     @Autowired
@@ -200,9 +204,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
             if (stored == null) {
                 throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
             }
+            requirePatientConsultRead(stored.getDemographicId());
             request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicId);
             request.setDemographicId(demographicId);
 
             RxInformation rx = new RxInformation();
@@ -253,6 +259,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
             ownerDemographicNo = stored.getDemographicId();
         }
+        requirePatientConsultRead(ownerDemographicNo);
         String demographicId = ownerDemographicNo.toString();
 
         List<EDoc> edocs = EDocUtil.listDocs(getLoggedInInfo(), demographicId, requestId.toString(), attached);
@@ -400,15 +407,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
             if (responseD == null) {
                 throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
             }
-            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
-
             demographicNo = responseD.getDemographicNo();
+            requirePatientConsultRead(demographicNo);
+            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
             response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             RxInformation rx = new RxInformation();
             String info = rx.getAllergies(getLoggedInInfo(), demographicNo.toString());
@@ -443,6 +451,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
             ownerDemographicNo = stored.getDemographicNo();
         }
+        requirePatientConsultRead(ownerDemographicNo);
         String demographicNo = ownerDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
@@ -994,6 +1003,25 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
         }
         return verified;
+    }
+
+    /**
+     * These endpoints return one patient's consultation and chart data, so the role-level {@code _con}
+     * read the service layer checks is not enough: the caller must also be allowed to read this
+     * patient's consultations and chart. Checked against the stored record's patient when there is
+     * one, before anything is loaded or listed.
+     *
+     * @throws WebApplicationException 400 when no patient is known, 403 when access is denied
+     */
+    private void requirePatientConsultRead(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
     }
 
     private static String attachmentKey(ConsultationAttachmentTo1 attachment) {
