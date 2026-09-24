@@ -452,7 +452,7 @@
                                         <%= provider.getClinicCity() %>&nbsp;&nbsp;<%=provider.getClinicProvince()%>&nbsp;&nbsp;
                                         <%= provider.getClinicPostal() %>
                                         <% if (provider.getPractitionerNo() != null && !provider.getPractitionerNo().equals("")) { %>
-                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
+                                        <br><fmt:message key="RxPreview.PractNo"/>:<carlos:encode value='<%= provider.getPractitionerNo() %>'/>
                                         <% } %>
                                         <br>
                                         <%
@@ -627,7 +627,7 @@
                                 &nbsp; <carlos:encode value='<%= doctorName %>' context="html"/>
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
-                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
+                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <carlos:encode value='<%= pracNo %>'/>
                                 <% } %>
                             </td>
                         </tr>
@@ -711,7 +711,8 @@
 
                         <input type="hidden" name="rx"
                                value="<carlos:encode value='<%= strRxForPdf %>' context="htmlAttribute"/>"/>
-                        <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
+                        <input type="hidden" name="rx_no_newlines"
+                               value="<carlos:encode value='<%= strRxNoNewLines.toString() %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>
                     </table>
