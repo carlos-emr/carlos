@@ -111,3 +111,41 @@ class TestFrontDoorListeners(unittest.TestCase):
     def test_an_ipv6_literal_compares_as_the_operator_wrote_it(self):
         found = self.listeners(self._ss("[::1]:80"), self._ss("[::1]:443"))
         self.assertEqual(found, [["::1"], ["::1"]])
+
+
+class TestTomcatListenerStartup(unittest.TestCase):
+    """`carlos-ctl check` straight after an install reported "nothing is listening on
+    18080" while Tomcat was still initialising, then passed the front-door probe a moment
+    later. The listener check now waits for a service that is active but not yet bound."""
+
+    def run_probe(self, emr_running, answers):
+        calls = iter(answers)
+        sleeps = []
+        text = io.StringIO()
+        with patch.object(validate, "_listeners", side_effect=lambda port: next(calls)), \
+                contextlib.redirect_stdout(text):
+            addrs = validate._tomcat_listeners(emr_running, sleep=sleeps.append, attempts=3)
+        return addrs, sleeps, text.getvalue()
+
+    def test_a_bound_connector_is_returned_without_waiting(self):
+        addrs, sleeps, text = self.run_probe(True, [["127.0.0.1:18080"]])
+        self.assertEqual(addrs, ["127.0.0.1:18080"])
+        self.assertEqual(sleeps, [])
+        self.assertEqual(text, "")
+
+    def test_a_starting_service_is_waited_for_until_it_binds(self):
+        addrs, sleeps, text = self.run_probe(True, [[], [], ["127.0.0.1:18080"]])
+        self.assertEqual(addrs, ["127.0.0.1:18080"])
+        self.assertEqual(sleeps, [10, 10])
+        self.assertIn("waiting up to 2 minutes", text)
+
+    def test_a_service_that_never_binds_still_reports_nothing_listening(self):
+        addrs, sleeps, _ = self.run_probe(True, [[], [], [], []])
+        self.assertEqual(addrs, [])
+        self.assertEqual(sleeps, [10, 10, 10])
+
+    def test_a_stopped_service_is_not_waited_for(self):
+        addrs, sleeps, text = self.run_probe(False, [[]])
+        self.assertEqual(addrs, [])
+        self.assertEqual(sleeps, [])
+        self.assertEqual(text, "")

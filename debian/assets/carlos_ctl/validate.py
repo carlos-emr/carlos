@@ -52,6 +52,28 @@ def _listeners(port: str):
     return found
 
 
+def _tomcat_listeners(emr_running: bool, sleep=time.sleep, attempts: int = 12):
+    """Listeners on Tomcat's connector port, waiting while the service is still starting.
+
+    carlos-emr.service is active as soon as the JVM starts, but Tomcat binds 18080 only once
+    it has initialised, which on a cold start (the moment after an install, when the runbook
+    says to run this check) takes most of a minute. The front-door probe below already waits
+    up to two minutes for exactly that reason; without the same wait here, the check reported
+    "nothing is listening" on a healthy install and then passed the front door a moment later.
+    A stopped service is reported at once: there is nothing to wait for.
+    """
+    addrs = _listeners("18080")
+    if addrs or not emr_running:
+        return addrs
+    _note("Tomcat has not bound 18080 yet; waiting up to 2 minutes for it to start")
+    for _ in range(attempts):
+        sleep(10)
+        addrs = _listeners("18080")
+        if addrs:
+            break
+    return addrs
+
+
 def _listener(port: str):
     """First listener on the port, for is-anything-there checks."""
     ls = _listeners(port)
@@ -167,7 +189,7 @@ def cmd_check(argv) -> int:
     # Tomcat must not be reachable except on loopback: anything else is a
     # path around the WAF — and therefore around TLS, the headers and the
     # rate limit in one step.
-    addrs = _listeners("18080")
+    addrs = _tomcat_listeners(emr_running)
     exposed = [a for a in addrs if not _is_loopback(a.rsplit(":", 1)[0])]
     if not addrs:
         _bad("nothing is listening on 18080 — is carlos-emr running?")
