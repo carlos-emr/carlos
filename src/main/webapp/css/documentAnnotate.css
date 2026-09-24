@@ -199,10 +199,8 @@ body {
 /* Placed marks (text, date, signature) can be moved from any tool; ink and highlights
    only from select, so the drawing tools keep drawing across them. */
 .pages[data-tool="select"] .mark,
-.page .mark[data-kind="placed"] { cursor: move; }
-
-/* Hit the whole line box of a note, not just its glyph outlines. */
-text.mark { pointer-events: bounding-box; }
+.page .mark[data-kind="placed"],
+.page .mark-hit { cursor: move; }
 
 .mark.moving { opacity: .7; }
 

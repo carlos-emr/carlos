@@ -173,7 +173,30 @@
             el.setAttribute('data-id', a.id);
             el.setAttribute('data-kind', isPlaced(a) ? 'placed' : 'stroke');
             svg.appendChild(el);
+            if (isEditableText(a)) { addNoteHitArea(svg, el, a.id); }
         });
+    }
+
+    /**
+     * A transparent box behind a note, over its measured text bounds. SVG text is otherwise
+     * hit-tested on glyph outlines only, so a press between two letters would miss the note
+     * and place a new one instead; pointer-events: bounding-box would fix that, but Firefox
+     * and Safari ignore it. The box carries the note's data-id, so it grabs and moves the note.
+     */
+    function addNoteHitArea(svg, textEl, id) {
+        var box;
+        try { box = textEl.getBBox(); } catch (e) { return; }
+        if (!box || !box.width || !box.height) { return; }
+        var hit = document.createElementNS(SVG_NS, 'rect');
+        hit.setAttribute('x', box.x);
+        hit.setAttribute('y', box.y);
+        hit.setAttribute('width', box.width);
+        hit.setAttribute('height', box.height);
+        // 'transparent' is still a paint, so the default visiblePainted hit-testing counts it.
+        hit.setAttribute('fill', 'transparent');
+        hit.setAttribute('class', 'mark-hit');
+        hit.setAttribute('data-id', id);
+        svg.insertBefore(hit, textEl);
     }
 
     /**
@@ -476,12 +499,14 @@
         // Moves are previewed with a transform on the mark's own element and written to the
         // model only on release, so a drag that is cancelled leaves the model untouched.
         function startMove(event) {
-            var target = event.target && event.target.closest ? event.target.closest('.mark[data-id]') : null;
+            var target = event.target && event.target.closest ? event.target.closest('[data-id]') : null;
             if (!target) { return false; }
             var a = findAnnotation(Number(target.getAttribute('data-id')));
             if (!a || !canGrab(a)) { return false; }
             event.preventDefault();
-            moving = { pointerId: event.pointerId, a: a, el: target, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
+            // Every element drawn for the mark (a note and its hit box) moves together.
+            var els = Array.prototype.slice.call(svg.querySelectorAll('[data-id="' + a.id + '"]'));
+            moving = { pointerId: event.pointerId, a: a, els: els, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
             svg.setPointerCapture(event.pointerId);
             return true;
         }
@@ -497,8 +522,11 @@
             var d = clampMove(moving.a, px / rect.width, py / rect.height);
             moving.dx = d.dx;
             moving.dy = d.dy;
-            moving.el.setAttribute('transform', 'translate(' + (d.dx * rect.width) + ',' + (d.dy * rect.height) + ')');
-            moving.el.classList.add('moving');
+            var shift = 'translate(' + (d.dx * rect.width) + ',' + (d.dy * rect.height) + ')';
+            moving.els.forEach(function (el) {
+                el.setAttribute('transform', shift);
+                el.classList.add('moving');
+            });
         }
 
         function finishMove(event) {
@@ -856,10 +884,16 @@
             loadVisiblePages();
             prefetchVisibleWordBoxes();
         }, { passive: true });
-        window.addEventListener('resize', function () {
+        function resizeAllOverlays() {
             var wraps = pagesEl.querySelectorAll('.page');
             for (var n = 0; n < wraps.length; n++) { sizeOverlay(wraps[n]); }
-        });
+        }
+        window.addEventListener('resize', resizeAllOverlays);
+        // Note hit boxes are measured from the rendered text, so re-measure once the annotation
+        // font arrives; until then the text is laid out in a fallback face of different width.
+        if (document.fonts && document.fonts.addEventListener) {
+            document.fonts.addEventListener('loadingdone', resizeAllOverlays);
+        }
         window.addEventListener('beforeunload', function (event) {
             if (state.saving || (state.annotations.length && !state.saved)) {
                 event.preventDefault();

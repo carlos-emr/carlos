@@ -502,10 +502,41 @@ async function main() {
     check('a moved and edited note saves successfully',
       await page.locator('#status').getAttribute('class') === 'status ok');
 
+    // SVG text hit-tests on glyph outlines, so the gaps between letters need the note's hit box.
+    const noteMisses = await page.evaluate(() => {
+      const note = document.querySelector('svg.overlay text.mark');
+      const id = note.getAttribute('data-id');
+      const r = note.getBoundingClientRect();
+      const misses = [];
+      for (let i = 1; i < 10; i += 1) {
+        for (let j = 1; j < 4; j += 1) {
+          const x = r.left + (r.width * i) / 10;
+          const y = r.top + (r.height * j) / 4;
+          const owner = document.elementFromPoint(x, y)?.closest('[data-id]');
+          if (!owner || owner.getAttribute('data-id') !== id) { misses.push([Math.round(x), Math.round(y)]); }
+        }
+      }
+      return misses;
+    });
+    check('every point of a note text box grabs the note', noteMisses.length === 0, JSON.stringify(noteMisses));
+
+    // Changing an already-saved mark is an unsaved edit, exactly like adding one.
+    const savedNote = await page.locator('text.mark').first().boundingBox();
+    await page.mouse.move(savedNote.x + 4, savedNote.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(savedNote.x + 44, savedNote.y + 44, { steps: 6 });
+    await page.mouse.up();
+    check('moving a saved note enables saving again', await page.locator('#btnSave').isEnabled());
+    let warnedOnLeave = false;
+    const noteLeaveWarning = dialog => { if (dialog.type() === 'beforeunload') { warnedOnLeave = true; } };
+    page.on('dialog', noteLeaveWarning);
+
     // The grab rules differ by mark kind, so each branch is pinned separately: highlights and
     // ink are drawn across in the drawing tools and move only in select; placed marks move from
     // any tool; a cancelled or non-primary press changes nothing; a move stops at the page edge.
     await openViewer();
+    page.off('dialog', noteLeaveWarning);
+    check('leaving after moving a saved note warns about unsaved changes', warnedOnLeave);
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     const ov = await page.locator('svg.overlay').first().boundingBox();
     const markCount = async () => Number(await page.locator('#markCount').textContent());
