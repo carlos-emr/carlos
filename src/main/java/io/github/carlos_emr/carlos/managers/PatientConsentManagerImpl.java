@@ -83,6 +83,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * This method sets the boolean "explicit" ( patient gave direct consent = true; patient consent was implied or assumed = false)
      * to a default TRUE.
      */
+    // Transactional here too: the call into addEditConsentRecord is inside this class, so its own
+    // annotation is bypassed by the proxy and would leave the edit and the retirements separate.
+    @Transactional
     public void setConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean consented) {
         if (consented) {
             addConsent(loggedinInfo, demographic_no, consentTypeId, consented, Boolean.FALSE);
@@ -127,6 +130,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * EXPLICIT CONSENT: patient gave direct consent. explicit = true;
      * IMPLIED CONSENT: patient consent was implied or assumed. explicit = false
      */
+    // Transactional here too: the call into addEditConsentRecord is inside this class, so its own
+    // annotation is bypassed by the proxy and would leave the edit and the retirements separate.
+    @Transactional
     public boolean addConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
