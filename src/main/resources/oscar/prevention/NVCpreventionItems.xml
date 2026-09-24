@@ -137,7 +137,7 @@
 
 	<item
 			resultDesc=""
-			desc="VDRL = VDRL screening for syphillis; pregnant women at the first prenatal visit (and 3rd trimester and delivery high-risk groups), all sex workers, in correctional facilities, diagnosed with another STD, MSM with high-risk behaviors"
+			desc="VDRL = VDRL screening for syphilis; pregnant women at the first prenatal visit (and 3rd trimester and delivery high-risk groups), all sex workers, in correctional facilities, diagnosed with another STD, MSM with high-risk behaviors"
 			name="VDRL"
 			headingName="Screenings"
 			link="https://www.cdc.gov/std/treatment/"
@@ -159,7 +159,7 @@
 
 	<item
 			resultDesc=""
-			desc= "ghonorrhea = ghonorrhea urine PCR in men with symptoms or asymptomatic women: Sexually active younger than 25 years, pregnancy, inconsistent condom use, multiple partners, partner with multiple contacts, sexual contact with partner with culture-proven STD, repeated episodes of STD, Sex work or drug use"
+			desc= "ghonorrhea PCR = gonorrhea urine PCR in men with symptoms or asymptomatic women: Sexually active younger than 25 years, pregnancy, inconsistent condom use, multiple partners, partner with multiple contacts, sexual contact with partner with culture-proven STD, repeated episodes of STD, Sex work or drug use"
 			name="ghonorrhea PCR"
 			headingName="Screenings"
 			link="https://www.cdc.gov/std/treatment/"

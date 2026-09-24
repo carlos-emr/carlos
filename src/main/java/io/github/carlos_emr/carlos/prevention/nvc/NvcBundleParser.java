@@ -87,6 +87,7 @@ public final class NvcBundleParser {
     static final String EXT_PRODUCT_STATUS = EXT + "nvc-product-status";
     static final String EXT_DIN = EXT + "nvc-din";
 
+    private static final String NVC_BUNDLE_ID = "NVC";
     private static final String LOT_CODE_SYSTEM_ID = "nvc-vaccine-lot-id";
     private static final String SNOMED_SYNONYM = "900000000000013009";
     private static final String NVC_PUBLIC_PICKLIST = "enPublicPicklist";
@@ -127,6 +128,12 @@ public final class NvcBundleParser {
      * Maps an already-parsed bundle; see {@link #parse(String)}.
      */
     static NvcCatalogue parse(Bundle bundle) throws NvcBundleException {
+        // Only the NVC collection itself may replace the catalogue; a misconfigured mirror that
+        // serves some other bundle with look-alike subsets must not.
+        if (bundle.getType() != Bundle.BundleType.COLLECTION
+                || !NVC_BUNDLE_ID.equals(bundle.getIdElement().getIdPart())) {
+            throw new NvcBundleException("Response is not the NVC Bundle/NVC collection");
+        }
         Map<String, Resource> subsets = new HashMap<>();
         for (BundleEntryComponent entry : bundle.getEntry()) {
             Resource resource = entry.getResource();
@@ -172,6 +179,10 @@ public final class NvcBundleParser {
             product.manufacturer = supplierName(firstDisplay(concept.getExtension(), EXT_MARKET_AUTH_HOLDER));
             product.status = productStatus(concept.getExtension());
             products.put(concept.getCode(), product);
+        }
+        if (tradenames.isEmpty()) {
+            // Replacing with no brands would also delete every product and lot.
+            throw new NvcBundleException("NVC Tradename ValueSet contains no active concepts");
         }
 
         CodeSystem lotSystem = subsets.get("CodeSystem/" + LOT_CODE_SYSTEM_ID) instanceof CodeSystem cs ? cs : null;
@@ -222,7 +233,8 @@ public final class NvcBundleParser {
                 String status = firstString(concept.getExtension(), EXT_CONCEPT_STATUS);
                 // A missing status is treated as active: the flag is informational in the NVC
                 // profile, and dropping unflagged concepts would silently shrink the catalogue.
-                if (status == null || "active".equalsIgnoreCase(status)) {
+                // NVC publishes the status lower-case; compare exactly rather than case-folding.
+                if (status == null || "active".equals(status)) {
                     active.add(concept);
                 }
             }

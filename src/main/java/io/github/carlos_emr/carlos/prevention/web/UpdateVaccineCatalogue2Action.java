@@ -85,7 +85,8 @@ public class UpdateVaccineCatalogue2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // Servlet containers report the method in upper case; compare exactly.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

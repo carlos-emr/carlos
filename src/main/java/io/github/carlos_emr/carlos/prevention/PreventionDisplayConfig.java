@@ -66,8 +66,16 @@ public class PreventionDisplayConfig {
     private static Logger log = MiscUtils.getLogger();
     private static PreventionDisplayConfig preventionDisplayConfig = new PreventionDisplayConfig();
 
-    private volatile HashMap<String, HashMap<String, String>> prevHash = null;
-    private volatile ArrayList<HashMap<String, String>> prevList = null;
+    /**
+     * The prevention list and its by-name index, published together so a reader never pairs a
+     * list from one load with an index from another. Replaced wholesale by loadPreventions().
+     */
+    private record PreventionSnapshot(ArrayList<HashMap<String, String>> list,
+                                      HashMap<String, HashMap<String, String>> byName) {
+    }
+
+    private volatile PreventionSnapshot preventions = null;
+    private final Object preventionLoadLock = new Object();
 
     private HashMap<String, Map<String, Object>> configHash = null;
     private ArrayList<Map<String, Object>> configList = null;
@@ -83,32 +91,40 @@ public class PreventionDisplayConfig {
     }
 
     static public PreventionDisplayConfig getInstance() {
-        if (preventionDisplayConfig.prevList == null) {
-            preventionDisplayConfig.loadPreventions();
-        }
+        preventionDisplayConfig.snapshot();
         return preventionDisplayConfig;
     }
 
-    public ArrayList<HashMap<String, String>> getPreventions() {
-        if (prevList == null) {
+    private PreventionSnapshot snapshot() {
+        PreventionSnapshot current = preventions;
+        if (current == null) {
             loadPreventions();
+            current = preventions;
         }
-        return prevList;
+        return current;
+    }
+
+    public ArrayList<HashMap<String, String>> getPreventions() {
+        return snapshot().list();
     }
 
     public HashMap<String, String> getPrevention(String s) {
-        if (prevHash == null) {
-            loadPreventions();
-        }
         log.debug("getting " + s);
-        return prevHash.get(s);
+        return snapshot().byName().get(s);
+    }
+
+    public void loadPreventions() {
+        // Serialized so an older load cannot finish after, and overwrite, the post-update one.
+        synchronized (preventionLoadLock) {
+            loadPreventionsLocked();
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public void loadPreventions() {
-        // Build into locals and publish at the end: this is re-run after a vaccine catalogue
-        // update while other requests are reading the cached list.
+    private void loadPreventionsLocked() {
+        // Build into locals and publish one snapshot at the end: this is re-run after a vaccine
+        // catalogue update while other requests read the cached list.
         ArrayList<HashMap<String, String>> loadedList = new ArrayList<HashMap<String, String>>();
         HashMap<String, HashMap<String, String>> loadedHash = new HashMap<String, HashMap<String, String>>();
         log.debug("STARTING2");
@@ -191,8 +207,7 @@ public class PreventionDisplayConfig {
                 log.error("Unexpected error", e);
             }
         }
-        this.prevHash = loadedHash;
-        this.prevList = loadedList;
+        this.preventions = new PreventionSnapshot(loadedList, loadedHash);
     }
 
 

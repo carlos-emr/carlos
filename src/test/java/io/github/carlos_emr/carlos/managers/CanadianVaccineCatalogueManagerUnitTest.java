@@ -229,9 +229,10 @@ class CanadianVaccineCatalogueManagerUnitTest extends CarlosUnitTestBase {
             sites.setId(21);
             sites.setName("AnatomicalSite");
             when(lookupListManager.findLookupListByName(admin, "AnatomicalSite")).thenReturn(sites);
-            LookupListItem previouslyRetired = item(31, 21, "1217006009", "Old label", false);
-            LookupListItem noLongerPublished = item(32, 21, "999999", "Withdrawn site", true);
-            when(lookupListItemDao.findByLookupListId(21, true)).thenReturn(new ArrayList<>(List.of(noLongerPublished)));
+            LookupListItem previouslyRetired = item(31, 21, "1217006009", "Old label", false, "NVC");
+            LookupListItem noLongerPublished = item(32, 21, "999999", "Withdrawn site", true, "NVC");
+            LookupListItem addedByClinic = item(33, 21, "local-1", "Clinic deltoid site", true, "999998");
+            when(lookupListItemDao.findByLookupListId(21, true)).thenReturn(new ArrayList<>(List.of(noLongerPublished, addedByClinic)));
             when(lookupListItemDao.findByLookupListId(21, false)).thenReturn(new ArrayList<>(List.of(previouslyRetired)));
 
             manager.update(admin);
@@ -239,6 +240,9 @@ class CanadianVaccineCatalogueManagerUnitTest extends CarlosUnitTestBase {
             assertThat(previouslyRetired.isActive()).isTrue();
             assertThat(previouslyRetired.getLabel()).isEqualTo("Right vastus lateralis muscle");
             assertThat(noLongerPublished.isActive()).isFalse();
+            // A value an administrator added locally is not NVC's to retire.
+            assertThat(addedByClinic.isActive()).isTrue();
+            verify(lookupListManager, never()).updateLookupListItem(admin, addedByClinic);
             verify(lookupListManager).updateLookupListItem(admin, previouslyRetired);
             verify(lookupListManager).updateLookupListItem(admin, noLongerPublished);
             // Only the site that did not exist yet is inserted; no duplicate rows accumulate.
@@ -378,9 +382,11 @@ class CanadianVaccineCatalogueManagerUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private static LookupListItem item(int id, int listId, String value, String label, boolean active) {
+    private static LookupListItem item(int id, int listId, String value, String label, boolean active,
+                                       String createdBy) {
         LookupListItem item = new LookupListItem();
         item.setId(id);
+        item.setCreatedBy(createdBy);
         item.setLookupListId(listId);
         item.setValue(value);
         item.setLabel(label);

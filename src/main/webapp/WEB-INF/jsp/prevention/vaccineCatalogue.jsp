@@ -45,7 +45,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${carlos:forHtmlAttribute(pageContext.response.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="${carlos:forHtmlAttribute(ctx)}/images/favicon.ico"/>

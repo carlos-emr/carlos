@@ -190,7 +190,7 @@ public class CanadianVaccineCatalogueManager {
      */
     String fetchBundleJson(String url) throws IOException {
         URI uri = URI.create(url);
-        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+        if (!"https".equals(uri.getScheme())) {
             // The catalogue feeds clinical documentation; never accept it over cleartext.
             throw new IOException("NVC catalogue URL must use https");
         }
@@ -324,8 +324,9 @@ public class CanadianVaccineCatalogueManager {
 
     /**
      * Upserts a lookup list by item value: NVC concepts are (re)activated with their current
-     * label and order, and items NVC no longer publishes are deactivated rather than deleted so
-     * that any record already referencing them still resolves.
+     * label and order, and NVC-created items NVC no longer publishes are deactivated rather than
+     * deleted so that any record already referencing them still resolves. Locally added items
+     * are never touched.
      */
     private void syncLookupList(LoggedInInfo loggedInInfo, String name, String title, String description,
                                 List<NvcCatalogue.CodedValue> values) {
@@ -374,7 +375,9 @@ public class CanadianVaccineCatalogueManager {
             }
         }
         for (LookupListItem withdrawn : existing.values()) {
-            if (withdrawn.isActive()) {
+            // Only retire values this synchronisation created. Items an administrator added
+            // through Lookup List Manager (or a clinic list that predates the catalogue) stay.
+            if (withdrawn.isActive() && CATALOGUE_AUTHOR.equals(withdrawn.getCreatedBy())) {
                 withdrawn.setActive(false);
                 lookupListManager.updateLookupListItem(loggedInInfo, withdrawn);
             }

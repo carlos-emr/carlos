@@ -164,6 +164,26 @@ class NvcBundleParserUnitTest {
                 .hasMessageContaining("Generic or Tradename");
     }
 
+    @Test
+    void shouldRejectBundle_whenTradenameValueSetHasNoActiveConcepts() {
+        String allInactive = fixtureJson.replace("\"valueString\": \"active\"", "\"valueString\": \"inactive\"");
+
+        assertThatThrownBy(() -> NvcBundleParser.parse(allInactive))
+                .isInstanceOf(NvcBundleException.class)
+                .hasMessageContaining("no active concepts");
+    }
+
+    @Test
+    void shouldRejectBundle_whenRootIsNotTheNvcCollection() {
+        String otherBundle = fixtureJson.replaceFirst("\"id\": \"NVC\"", "\"id\": \"SomethingElse\"");
+        String searchSet = fixtureJson.replaceFirst("\"type\": \"collection\"", "\"type\": \"searchset\"");
+
+        assertThatThrownBy(() -> NvcBundleParser.parse(otherBundle)).isInstanceOf(NvcBundleException.class)
+                .hasMessageContaining("Bundle/NVC");
+        assertThatThrownBy(() -> NvcBundleParser.parse(searchSet)).isInstanceOf(NvcBundleException.class)
+                .hasMessageContaining("Bundle/NVC");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"", "   ", "not json", "{\"resourceType\":\"Patient\",\"id\":\"x\"}",
             "{\"resourceType\":\"Bundle\",\"type\":\"collection\"}"})
