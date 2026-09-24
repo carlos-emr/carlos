@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -241,6 +242,52 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("emailPatientChartOption")).isEqualTo("doNotAddAsNote");
         assertThat(request.getAttribute("emailAdditionalParams")).isEqualTo("a=b");
         assertThat(request.getAttribute("isEmailAutoSend")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should refuse an overlong or malformed demographicId with 400 before parsing it")
+    void shouldRejectWithBadRequest_whenDemographicIdOverflows() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), ArgumentMatchers.<String>isNull())).thenReturn(true);
+        for (String demographicId : new String[]{"9999999999", "2147483648", "12345678901234567890", "7x", "-7"}) {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("transactionType", "DIRECT");
+            request.setParameter("method", "sendDirectEmail");
+            request.setParameter("demographicId", demographicId);
+            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
+                    emailComposeManager, demographicManager);
+            action.request = request;
+            action.response = response;
+
+            String result = action.execute();
+
+            assertThat(result).as(demographicId).isEqualTo(EmailSend2Action.NONE);
+            assertThat(response.getStatus()).as(demographicId).isEqualTo(400);
+        }
+        verifyNoInteractions(emailManager);
+        verifyNoInteractions(demographicManager);
+    }
+
+    @Test
+    @DisplayName("should treat an overlong or malformed demographicId as no patient when restoring the form")
+    void shouldParseDemographicIdOrNull_whenValueOverflowsOrIsMalformed() {
+        // The retry form restores the patient from this parse; it must never throw, and a
+        // ten-digit value that satisfies the digit pattern still has to fail the int range check.
+        assertThat(EmailSend2Action.parseDemographicId("7")).isEqualTo(7);
+        assertThat(EmailSend2Action.parseDemographicId("2147483647")).isEqualTo(Integer.MAX_VALUE);
+        assertThat(EmailSend2Action.parseDemographicId("2147483648")).isNull();
+        assertThat(EmailSend2Action.parseDemographicId("9999999999")).isNull();
+        assertThat(EmailSend2Action.parseDemographicId("12345678901234567890")).isNull();
+        assertThat(EmailSend2Action.parseDemographicId("7x")).isNull();
+        assertThat(EmailSend2Action.parseDemographicId("-7")).isNull();
+        assertThat(EmailSend2Action.parseDemographicId("")).isNull();
+        assertThat(EmailSend2Action.parseDemographicId(null)).isNull();
+        // Absent or blank means a direct email with no patient and is accepted by the routes.
+        assertThat(EmailSend2Action.isValidDemographicId(null)).isTrue();
+        assertThat(EmailSend2Action.isValidDemographicId("")).isTrue();
+        assertThat(EmailSend2Action.isValidDemographicId("9999999999")).isFalse();
     }
 
     @Test

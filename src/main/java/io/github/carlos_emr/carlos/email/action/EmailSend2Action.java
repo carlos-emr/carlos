@@ -125,6 +125,18 @@ public class EmailSend2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_email)");
         }
 
+        // Every route parses demographicId into an int (EmailData.setDemographicNo, and the retry
+        // form's consent lookup). A tampered or overlong value would surface as a
+        // NumberFormatException, i.e. a server error, instead of a refused request.
+        if (!isValidDemographicId(request.getParameter("demographicId"))) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "demographicId must be a patient number");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
+        }
+
         if ("sendDirectEmail".equals(request.getParameter("method"))) {
             return sendDirectEmail();
         } else if ("cancel".equals(request.getParameter("method"))) {
@@ -237,7 +249,10 @@ public class EmailSend2Action extends ActionSupport {
 
         TransactionType transactionType = parseTransactionType(request.getParameter("transactionType"));
         request.setAttribute("transactionType", transactionType);
-        String demographicId = numericOrNull(request.getParameter("demographicId"));
+        // Range-checked, not just digit-checked: a ten-digit id passes NUMERIC_ID but would
+        // overflow the Integer the consent lookup below needs, turning the rejection into a 500.
+        Integer demographicNo = parseDemographicId(request.getParameter("demographicId"));
+        String demographicId = demographicNo == null ? null : demographicNo.toString();
         request.setAttribute("demographicId", demographicId);
         request.setAttribute("fdid", numericOrNull(request.getParameter("fdid")));
         request.setAttribute("fid", numericOrNull(request.getParameter("fid")));
@@ -256,8 +271,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("receiverEmailList", recipients == null
                 ? Collections.emptyList() : new ArrayList<>(Arrays.asList(recipients)));
         request.setAttribute("invalidReceiverEmailList", Collections.emptyList());
-        if (demographicId != null) {
-            Integer demographicNo = Integer.valueOf(demographicId);
+        if (demographicNo != null) {
             request.setAttribute("receiverName", demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo));
             String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
             request.setAttribute("emailConsentName", emailConsent[0]);
@@ -284,6 +298,30 @@ public class EmailSend2Action extends ActionSupport {
 
     private static String numericOrNull(String value) {
         return value != null && NUMERIC_ID.matcher(value).matches() ? value : null;
+    }
+
+    /**
+     * Parses a submitted patient number, or returns {@code null} when it is absent, not all
+     * digits, or too large for an {@code int}. Never throws: the value comes from a hidden form
+     * field and may be tampered with or overlong.
+     */
+    static Integer parseDemographicId(String value) {
+        if (numericOrNull(value) == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a submitted {@code demographicId} can be sent on to the routes: absent or blank
+     * (a direct email with no patient), or a parseable patient number.
+     */
+    static boolean isValidDemographicId(String value) {
+        return value == null || value.isEmpty() || parseDemographicId(value) != null;
     }
 
     private static TransactionType parseTransactionType(String value) {
