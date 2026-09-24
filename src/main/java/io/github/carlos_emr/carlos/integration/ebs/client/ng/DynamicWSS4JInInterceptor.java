@@ -215,8 +215,9 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Caches the message stream, hands downstream interceptors a replay of it, and scans a
-     * bounded prefix for the SOAP envelope.
+     * Caches the message stream, scans a bounded prefix for the SOAP envelope and, only if the
+     * scan succeeds, hands downstream interceptors a replay of the whole entity. On any failure
+     * the replay (and any spilled temp file) is released before the exception propagates.
      *
      * <p>A missing or empty stream is treated as "no encryption" (unchanged legacy behaviour);
      * CXF reports the empty response itself.</p>
@@ -255,10 +256,28 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             closeQuietly(cache, e);
             throw e;
         }
-        // Hand the replay downstream before any parsing so CXF can still consume the entity
-        // even if the scan below throws.
+        EncryptionDetectionResult result;
+        try {
+            result = detectInPrefix(prefix, truncated, (String) message.get(Message.CONTENT_TYPE));
+        } catch (IOException | XMLStreamException | RuntimeException e) {
+            // A detection failure faults the exchange, so nothing downstream will read the
+            // replay. Close it now: for a spilled cache this is what deletes the temp file.
+            closeQuietly(replay, e);
+            throw e;
+        }
+        // Only a successfully scanned entity is handed downstream; from here CXF owns (and
+        // closes) the replay stream.
         message.setContent(InputStream.class, replay);
+        return result;
+    }
 
+    /**
+     * Scans the cached prefix: an empty (whitespace-only) entity means "no encryption",
+     * otherwise the envelope is located and its Security header counted.
+     */
+    private static EncryptionDetectionResult detectInPrefix(byte[] prefix, boolean truncated,
+                                                            String contentType)
+            throws IOException, XMLStreamException {
         int start = skipWhitespace(prefix, 0);
         if (start == prefix.length) {
             if (truncated) {
@@ -268,7 +287,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         }
 
         EncryptionDetectionResult result = scanEnvelope(
-                locateEnvelope(prefix, start, (String) message.get(Message.CONTENT_TYPE), truncated));
+                locateEnvelope(prefix, start, contentType, truncated));
         logger.debug("Encryption detection result: hasEncryptedData={}, encryptedKeyCount={}",
                 result.hasEncryptedData, result.encryptedKeyCount);
         return result;
@@ -523,7 +542,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     /**
      * Parses Content-Type parameters (RFC 2045 5.1): {@code ;}-separated {@code name=value}
      * pairs where the value is a token or a quoted-string with backslash escapes. Names are
-     * folded to ASCII lower case. Quoted {@code ;} and {@code =} do not split parameters.
+     * folded to ASCII lower case. Quoted {@code ;} and {@code =} do not split parameters; a
+     * parameter without {@code =} is skipped, and the first occurrence of a name wins.
      */
     static Map<String, String> parseContentTypeParameters(String contentType) {
         Map<String, String> params = new HashMap<>();
@@ -542,6 +562,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             }
             String name = asciiLowerCase(contentType.substring(nameStart, i).trim());
             if (i >= n || contentType.charAt(i) != '=') {
+                // A parameter without '=' (e.g. "; foo;") is skipped. This still makes
+                // progress: i is at the ';' (or n), which the separator loop above consumes.
                 continue;
             }
             i++;

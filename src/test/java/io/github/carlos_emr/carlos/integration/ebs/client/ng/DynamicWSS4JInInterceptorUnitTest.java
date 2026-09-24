@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -419,6 +421,32 @@ class DynamicWSS4JInInterceptorUnitTest {
                 .containsEntry("start", "<r>");
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "multipart/related; foo; boundary=b1",
+            "multipart/related;foo;boundary=b1",
+            "multipart/related; foo ;; bar; boundary=b1; baz",
+            "multipart/related; boundary=b1; foo"})
+    @DisplayName("should skip parameters without '=' and terminate")
+    void shouldSkipParametersWithoutAssignment_forMalformedContentType(String contentType) {
+        Map<String, String> params = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> DynamicWSS4JInInterceptor.parseContentTypeParameters(contentType));
+
+        assertThat(params).containsOnlyKeys("boundary").containsEntry("boundary", "b1");
+    }
+
+    @Test
+    @DisplayName("should detect keys when the Content-Type has a parameter without '='")
+    void shouldCountEncryptedKeys_whenContentTypeHasParameterWithoutAssignment() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; foo; boundary=b1");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n\r\n" + envelope(2, true)
+                + "\r\n--b1--\r\n");
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> interceptor.handleMessage(message));
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
     @Test
     @DisplayName("should ignore EncryptedKey text in comments, CDATA, the Body and foreign namespaces")
     void shouldIgnoreNonElementEncryptedKeyMarkers_forRobustCounting() {
@@ -677,6 +705,40 @@ class DynamicWSS4JInInterceptorUnitTest {
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
                 .hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
+        assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should close the replay and delete the spilled cache file when MIME location fails")
+    void shouldDeleteSpilledTempFile_whenEnvelopeLocationFails() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 4096, 1024);
+        // The boundary in the Content-Type never occurs in the entity, so locateEnvelope fails.
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=nomatch");
+        givenContent(mimeWithBinaryAttachment(1, 16 * 1024));
+        Set<String> before = cacheTempFiles();
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
+        assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should close the replay and delete the spilled cache file when the envelope scan fails")
+    void shouldDeleteSpilledTempFile_whenEnvelopeScanFails() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 64 * 1024, 1024);
+        // Well past the spill threshold, then an unclosed element: scanEnvelope throws.
+        String padding = "<!--" + "x".repeat(8 * 1024) + "-->";
+        givenContent(padding + "<s:Envelope xmlns:s=\"" + SOAP_NS + "\"><s:Header><unclosed></s:Header></s:Envelope>");
+        Set<String> before = cacheTempFiles();
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasCauseInstanceOf(XMLStreamException.class);
         assertNoWssInterceptorAdded();
         verify(message, never()).setContent(eq(InputStream.class), any());
         assertThat(newCacheTempFiles(before)).isEmpty();
