@@ -106,6 +106,18 @@ public final class RxRePrescribe2Action extends ActionSupport {
      * @return the reprint result, or {@code null} after a redirect
      */
     public String reprint() throws IOException {
+        // Reprinting records a print on the script and puts the patient into reprint mode: POST-only
+        // (#3908), and the script number is validated before any lookup instead of failing in
+        // parseInt. The legacy rx/rePrescribe form posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+        if (this.getDrugList() == null || !this.getDrugList().matches("\\d{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
@@ -179,7 +191,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         if (script_no == null || !script_no.matches("\\d{1,9}")) {
             logger.warn("Invalid scriptNo in reprint2");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-            return null;
+            return NONE;
         }
         long parsedScriptNo = Long.parseLong(script_no);
         if (parsedScriptNo > Integer.MAX_VALUE) {

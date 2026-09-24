@@ -194,7 +194,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
 
-        if (this.getAction().startsWith("update")) {
+        // A request without an action parameter is a plain (re)render, not an update.
+        if (this.getAction() != null && this.getAction().startsWith("update")) {
 
             RxDrugData drugData = new RxDrugData();
             // The cursor selects the item being edited; with nothing (valid) selected there is
@@ -1623,7 +1624,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         String strId = request.getParameter("ltDrugId");
         boolean isLongTerm = Boolean.parseBoolean(request.getParameter("isLongTerm"));
 
-        if (Objects.isNull(strId)) {
+        // A malformed id is answered like a missing one instead of a 500 from parseInt.
+        if (Objects.isNull(strId) || !strId.matches("\\d{1,9}")) {
 	        hm.put("success", false);
 		} else {
             int drugId = Integer.parseInt(strId);
@@ -1636,6 +1638,10 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             RxPrescriptionData rxData = new RxPrescriptionData();
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            if (oldRx == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
             if (oldRx.getDemographicNo() != bean.getDemographicNo()) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;

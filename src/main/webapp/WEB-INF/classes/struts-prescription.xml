@@ -223,6 +223,9 @@
         <action name="rx/ViewShowPreviousPrints" class="io.github.carlos_emr.carlos.prescript.gate.ViewShowPreviousPrints2Action">
             <result name="success">/WEB-INF/jsp/rx/ShowPreviousPrints.jsp</result>
         </action>
+        <action name="rx/ViewEditFavorites2" class="io.github.carlos_emr.carlos.prescript.gate.ViewEditFavorites2Action">
+            <result name="success">/WEB-INF/jsp/rx/EditFavorites2.jsp</result>
+        </action>
         <action name="rx/ViewSideLinksEditFavorites2" class="io.github.carlos_emr.carlos.prescript.gate.ViewSideLinksEditFavorites22Action">
             <result name="success">/WEB-INF/jsp/rx/SideLinksEditFavorites2.jsp</result>
         </action>

@@ -121,6 +121,11 @@ class RxPatientLinkJspRegressionUnitTest {
                 // Every Rx page authorises the patient it renders, whatever route forwarded to it:
                 // the plain resolver is never used to pick the page's bean (#3908).
                 assertThat(jsp).as(file.toString()).doesNotContain("RxSessionBeanResolver.resolve(request)");
+                // A page that opens a patient's bean itself authorises that patient first; the
+                // addFavoriteStaticScript result forwards here having checked only the drug's patient.
+                assertThat(jsp).as(file.toString()).doesNotContain("RxSessionBeanResolver.activate(request");
+                // Choosing a drug stages a card: no GET link may reach rx/chooseDrug.
+                assertThat(jsp).as(file.toString()).doesNotContain("/rx/chooseDrug?");
                 // Reprint state is per patient; the old session-wide reprint attributes rendered one
                 // patient's reprinted script in another patient's window (#3908).
                 assertThat(jsp).as(file.toString())
@@ -212,7 +217,8 @@ class RxPatientLinkJspRegressionUnitTest {
         assertThat(read("rx/WriteScript.jsp")).doesNotContain("<c:redirect url=\"/rx/searchDrug\"/>")
                 .contains("<c:param name=\"demographicNo\" value=\"${bean.demographicNo}\"/>");
         String favourites = read("rx/SideLinksEditFavorites2.jsp");
-        for (String route : new String[] {"updateFavorite", "copyFavorite"}) {
+        // "Edit" opens the read-only ViewEditFavorites2 gate, not the POST-only favourite write (#3908).
+        for (String route : new String[] {"ViewEditFavorites2", "copyFavorite"}) {
             assertThat(favourites).contains("/rx/" + route + "?demographicNo=<carlos:encode value='<%= String.valueOf(bean2.getDemographicNo()) %>'");
         }
         // An iframe src assignment is not tagged by rx-patient-context.js (medication history modal).

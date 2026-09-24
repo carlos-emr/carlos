@@ -163,6 +163,28 @@ public final class RxRequestedPatientAccess {
      * @param privilege  the privilege the page needs, e.g. {@code r}
      * @return the authorised bean, or {@code null}
      */
+    /**
+     * Opens (or reuses) the named patient's Rx bean for a JSP entry point, after authorising the caller
+     * for that patient. The bean the page renders is never activated first and checked later: an
+     * unauthorised request gets {@code null} and leaves the session's active patient untouched.
+     *
+     * @param request       the current request
+     * @param demographicNo the patient the page is opened for, already parsed and positive
+     * @param providerNo    the provider the bean is opened for
+     * @param objectName    the security object, for example {@code _rx}
+     * @param privilege     the privilege letter the page needs for that patient
+     * @return the patient's bean, or {@code null} when the caller may not access that patient
+     */
+    public static RxSessionBean activateAuthorised(HttpServletRequest request, int demographicNo, String providerNo,
+                                                   String objectName, String privilege) {
+        SecurityInfoManager securityInfoManager = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(SecurityInfoManager.class);
+        if (!mayAccessPatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, objectName, privilege)) {
+            return null;
+        }
+        return RxSessionBeanResolver.activate(request, demographicNo, providerNo);
+    }
+
     public static RxSessionBean resolveAuthorised(HttpServletRequest request, String objectName, String privilege) {
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {

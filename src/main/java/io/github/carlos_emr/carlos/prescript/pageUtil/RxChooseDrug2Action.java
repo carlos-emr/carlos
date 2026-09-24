@@ -68,6 +68,14 @@ public final class RxChooseDrug2Action extends ActionSupport {
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String execute() throws IOException, ServletException {
+        // Choosing a drug stages a card in the patient's stash: POST-only, refused before anything
+        // else, because CSRFGuard does not check GET and a cross-site link must not be able to
+        // stage medication (#3908). ChooseDrug.jsp posts its hidden chooseDrugForm.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {

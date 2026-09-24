@@ -288,7 +288,10 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
                     "_rx", "u"),
             Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
-                    "_rx", "u")
+                    "_rx", "u"),
+            // Choosing a drug stages a card in the patient's stash (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
+                    "_rx", "w")
         );
     }
 
@@ -525,7 +528,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
         "io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
-        "io.github.carlos_emr.carlos.prescript.web.RxReorder2Action"
+        "io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

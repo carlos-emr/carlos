@@ -324,8 +324,9 @@
                                                         <a href="javascript: void(0);"
                                                            onclick="setDrugRx2('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>')">
                                                                     <%}else{%>
-                                                            <a href="<%= request.getContextPath() %>/rx/chooseDrug?BN=<carlos:encode value='<%= brandName %>' context="uriComponent"/>&drugId=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>&demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>"
-                                                               title="<%=brandName %>">
+                                                            <a href="javascript:void(0);"
+                                                               onclick="chooseDrug('<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>')"
+                                                               title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>">
                                                                 <%}%>
                                                                 <%=brandName%>
                                                             </a>
@@ -354,10 +355,23 @@
                             <script language="javascript">
                                 function customWarning() {
                                     if (confirm("<fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
-                                        window.location.href = '<%= request.getContextPath() %>/rx/chooseDrug?demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>';
+                                        chooseDrug('', '');
                                     }
                                 }
+                                // Choosing a drug (or a custom drug) stages a card, so it is a POST:
+                                // rx/chooseDrug refuses GET, and CSRFGuard fills this form's token (#3908).
+                                function chooseDrug(brandName, drugId) {
+                                    var form = document.getElementById('chooseDrugForm');
+                                    form.elements['BN'].value = brandName;
+                                    form.elements['drugId'].value = drugId;
+                                    form.submit();
+                                }
                             </script>
+                            <form id="chooseDrugForm" method="post" action="<%= request.getContextPath() %>/rx/chooseDrug" style="display:none;">
+                                <input type="hidden" name="BN" value=""/>
+                                <input type="hidden" name="drugId" value=""/>
+                                <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
+                            </form>
                             <div class="LeftMargin">
                                 <%if (request.getParameter("rx2") == null || !request.getParameter("rx2").equals("true")) { %>
                                 <a href="javascript:customWarning();">

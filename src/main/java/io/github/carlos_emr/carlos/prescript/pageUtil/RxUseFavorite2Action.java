@@ -100,14 +100,15 @@ public final class RxUseFavorite2Action extends ActionSupport {
             return null;
         }
 
+        // Favourites are provider-owned: only the caller's own may be staged (400/404/403 otherwise),
+        // so another provider's dosing and instruction text cannot be copied by guessing ids (#3908).
+        RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());
+        if (fav == null) {
+            return NONE;
+        }
         try {
-            int favoriteId = Integer.parseInt(this.getFavoriteId());
             RxPrescriptionData rxData =
                     new RxPrescriptionData();
-
-            // get favorite
-            RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
 
             // create Prescription
             RxPrescriptionData.Prescription rx =
@@ -158,17 +159,16 @@ public final class RxUseFavorite2Action extends ActionSupport {
             return null;
         }
 
+        // Only the caller's own favourite may be staged; see execute() (#3908).
+        RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, request.getParameter("favoriteId"));
+        if (fav == null) {
+            return NONE;
+        }
         try {
-            int favoriteId = Integer.parseInt(request.getParameter("favoriteId"));
             String randomId = request.getParameter("randomId");
-
 
             RxPrescriptionData rxData =
                     new RxPrescriptionData();
-
-            // get favorite
-            RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
 
             // create Prescription
             RxPrescriptionData.Prescription rx =

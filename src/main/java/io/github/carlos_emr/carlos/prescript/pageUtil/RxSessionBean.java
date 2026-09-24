@@ -244,6 +244,15 @@ public class RxSessionBean implements java.io.Serializable {
      * @return the item's index in the stash
      */
     public int addStashItem(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
+        // Two windows of the same patient share this bean. Insertion runs under the bean's
+        // monitor, the same one RxStashIds allocates keys under, so a key two concurrent staging
+        // requests both saw as free cannot end up on two cards (#3908).
+        synchronized (this) {
+            return addStashItemLocked(loggedInInfo, item);
+        }
+    }
+
+    private int addStashItemLocked(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
 
         int ret = -1;
 
@@ -281,6 +290,12 @@ public class RxSessionBean implements java.io.Serializable {
 
             return ret;
         } else {
+            // A staged card is identified by its key when it is closed, edited or saved, so a key
+            // another card already carries (a draw that raced with another window) is replaced
+            // before the card is added; the caller renders the card from this same object.
+            if (RxStashIds.inUseByAnother(this, item, item.getRandomId())) {
+                item.setRandomId(RxStashIds.nextUnique(this, RxStashIds.DEFAULT_BOUND));
+            }
             stash.add(item);
             preloadInteractions();
             preloadAllergyWarnings(loggedInInfo, item.getAtcCode());
@@ -335,7 +350,7 @@ public class RxSessionBean implements java.io.Serializable {
     public void removePersistedStashItems() {
         RxPrescriptionData.Prescription selected =
                 (stashIndex >= 0 && stashIndex < stash.size()) ? stash.get(stashIndex) : null;
-        stash.removeIf(rx -> rx.getDrugId() > 0);
+        stash.removeIf(rx -> rx != null && rx.getDrugId() > 0);
         if (selected != null && stash.contains(selected)) {
             stashIndex = stash.indexOf(selected);
         } else {

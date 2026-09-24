@@ -29,7 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -86,10 +86,13 @@
             // opened Rx patient: a link without demographicNo (the eChart Prescriptions tab, the
             // drug profile) would otherwise show, and re-prescribe, another patient's medication
             // (#3875). Reuse the named patient's bean so a stash staged for them survives.
+            // The gate (ViewStaticScript2) authorises the named patient, but this page is also the
+            // result of rx/addFavoriteStaticScript, which only authorises the favourited drug's
+            // patient; so the page authorises the patient it opens itself (#3908).
             int staticScriptDemographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
             if (staticScriptDemographicNo > 0) {
-                rxBean = RxSessionBeanResolver.activate(request, staticScriptDemographicNo,
-                        (String) session.getAttribute("user"));
+                rxBean = RxRequestedPatientAccess.activateAuthorised(request, staticScriptDemographicNo,
+                        (String) session.getAttribute("user"), "_rx", "r");
                 pageContext.setAttribute("RxSessionBean", rxBean);
             }
         %>
@@ -213,6 +216,13 @@
                 if (!response || !response.ok || response.redirected) {
                     alert(staticScriptReRxRefused + ' (HTTP ' + (response ? response.status : '?') + ')');
                     return;
+                }
+                // fetch resolves on headers; read the body to completion before leaving the page,
+                // otherwise the navigation aborts the still-open response (net::ERR_ABORTED).
+                try {
+                    await response.text();
+                } catch (e) {
+                    // The stage was accepted (2xx); a truncated body changes nothing.
                 }
                 location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?demographicNo=" + staticScriptDemographicNo;
             }

@@ -71,17 +71,22 @@ public final class RxStashIds {
      *         every key in use
      */
     public static long nextUnique(RxSessionBean bean, int bound) {
-        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-            long key = next(bound);
-            if (!inUse(bean, key)) {
-                return key;
+        // Two windows of the same patient share one bean, so the stash is read under the bean's
+        // monitor; RxSessionBean#addStashItem re-keys under the same monitor, which is what makes a
+        // draw here and the later insertion safe against each other (#3908).
+        synchronized (bean) {
+            for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                long key = next(bound);
+                if (!inUse(bean, key)) {
+                    return key;
+                }
             }
+            long highest = -1;
+            for (int i = 0; i < bean.getStashSize(); i++) {
+                highest = Math.max(highest, bean.getStashItem(i).getRandomId());
+            }
+            return highest + 1;
         }
-        long highest = -1;
-        for (int i = 0; i < bean.getStashSize(); i++) {
-            highest = Math.max(highest, bean.getStashItem(i).getRandomId());
-        }
-        return highest + 1;
     }
 
     /**
@@ -96,13 +101,30 @@ public final class RxStashIds {
      * @return a key no other staged card uses
      */
     public static long acceptOrNext(RxSessionBean bean, String clientKey, int bound) {
-        if (clientKey != null && clientKey.matches("\\d{1,9}")) {
-            long key = Long.parseLong(clientKey);
-            if (!inUse(bean, key)) {
-                return key;
+        synchronized (bean) {
+            if (clientKey != null && clientKey.matches("\\d{1,9}")) {
+                long key = Long.parseLong(clientKey);
+                if (!inUse(bean, key)) {
+                    return key;
+                }
+            }
+            return nextUnique(bean, bound);
+        }
+    }
+
+    /**
+     * Whether a card other than {@code item} already carries {@code key} in {@code bean}'s stash.
+     * Called by {@link RxSessionBean#addStashItem} under the bean's monitor, so an allocation that
+     * raced with another window's insertion is caught at the moment the card is added.
+     */
+    static boolean inUseByAnother(RxSessionBean bean, RxPrescriptionData.Prescription item, long key) {
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            RxPrescriptionData.Prescription other = bean.getStashItem(i);
+            if (other != null && other != item && other.getRandomId() == key) {
+                return true;
             }
         }
-        return nextUnique(bean, bound);
+        return false;
     }
 
     private static boolean inUse(RxSessionBean bean, long key) {

@@ -150,4 +150,46 @@ class RxStashRemovalUnitTest extends CarlosUnitTestBase {
         assertThat(index).isZero();
         assertThat(bean.getStashSize()).isEqualTo(1);
     }
+    @Test
+    @DisplayName("should re-key a card whose key another staged card already carries")
+    void shouldRekeyLaterCard_whenTwoCardsCarryOneKey() {
+        // Two windows of one patient can both draw the same key before either card is added
+        // (#3908); insertion runs under the bean's monitor and replaces a taken key.
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class));
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(1);
+        RxPrescriptionData.Prescription first = staged(5, "DRUG A", "111");
+        RxPrescriptionData.Prescription second = staged(5, "DRUG B", "222");
+
+        bean.addStashItem(null, first);
+        bean.addStashItem(null, second);
+
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        assertThat(first.getRandomId()).isEqualTo(5L);
+        assertThat(second.getRandomId()).isNotEqualTo(5L);
+        assertThat(bean.getStashItem2((int) second.getRandomId())).isSameAs(second);
+    }
+
+    @Test
+    @DisplayName("should allocate keys under the bean's monitor so an insertion in progress blocks a draw")
+    void shouldBlockKeyDraw_whileBeanMonitorIsHeld() throws Exception {
+        // The allocator and RxSessionBean#addStashItem share the bean's monitor: a draw cannot
+        // interleave with another window's insertion (#3908).
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(1);
+        java.util.concurrent.CountDownLatch drawn = new java.util.concurrent.CountDownLatch(1);
+        Thread other = new Thread(() -> {
+            RxStashIds.acceptOrNext(bean, "7", 40);
+            drawn.countDown();
+        });
+        synchronized (bean) {
+            other.start();
+            assertThat(drawn.await(300, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .as("a draw must wait for the bean's monitor").isFalse();
+        }
+        assertThat(drawn.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                .as("the draw completes once the monitor is released").isTrue();
+        other.join(5000);
+    }
 }

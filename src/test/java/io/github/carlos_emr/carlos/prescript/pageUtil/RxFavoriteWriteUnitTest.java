@@ -71,6 +71,7 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private FavoriteDao favoriteDao;
+    private SecurityInfoManager securityInfoManager;
     private Favorite stored;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -79,7 +80,7 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
     void setUp() {
         request = new MockHttpServletRequest("POST", "/rx/updateFavorite2");
         response = new MockHttpServletResponse();
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
         favoriteDao = mock(FavoriteDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(FavoriteDao.class, favoriteDao);
@@ -217,5 +218,77 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         assertThat(foreign.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(403);
         verify(favoriteDao).remove(FAVORITE_ID);
+    }
+    /** Names the patient, grants patient-level Rx write, and opens that patient's bean. */
+    private RxSessionBean openRxForWrite(int demographicNo) {
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(demographicNo))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(demographicNo))).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class));
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.setProviderNo(PROVIDER_NO);
+        RxSessionBeanResolver.register(request.getSession(), bean);
+        request.setParameter("demographicNo", String.valueOf(demographicNo));
+        return bean;
+    }
+
+    private String useFav2(String favoriteId) throws Exception {
+        request.setParameter("favoriteId", favoriteId);
+        request.setParameter("randomId", "123");
+        return new RxUseFavorite2Action().useFav2();
+    }
+
+    @Test
+    @DisplayName("should stage the caller's own favourite for the named patient")
+    void shouldStageFavorite_whenFavoriteIsOwn() throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+        stored.setBn("AMOXICILLIN");
+        stored.setGcnSeqno("12345");
+
+        assertThat(useFav2(String.valueOf(FAVORITE_ID))).isEqualTo("useFav2");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(bean.getStashSize()).isEqualTo(1);
+        assertThat(bean.getStashItem(0).getRandomId()).isEqualTo(123L);
+    }
+
+    @Test
+    @DisplayName("should refuse to stage another provider's favourite")
+    void shouldReturnForbidden_whenStagingAnotherProvidersFavorite() throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+        stored.setProviderNo("someone-else");
+
+        assertThat(useFav2(String.valueOf(FAVORITE_ID))).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(bean.getStashSize()).isZero();
+    }
+
+    @Test
+    @DisplayName("should answer 404 and stage nothing when the favourite to use does not exist")
+    void shouldReturnNotFound_whenStagingMissingFavorite() throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+
+        assertThat(useFav2("99")).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(bean.getStashSize()).isZero();
+    }
+
+    @ParameterizedTest(name = "favoriteId={0}")
+    @ValueSource(strings = {"", "abc", "-1", "12345678901"})
+    @DisplayName("should answer 400 and stage nothing when the favourite id is malformed")
+    void shouldReturnBadRequest_whenStagingMalformedFavoriteId(String favoriteId) throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+
+        assertThat(useFav2(favoriteId)).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(bean.getStashSize()).isZero();
+        verify(favoriteDao, never()).find(any());
     }
 }

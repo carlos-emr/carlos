@@ -113,7 +113,7 @@ public final class RxStash2Action extends ActionSupport {
         }
 
         if (this.getStashId() >= 0 && this.getStashId() < bean.getStashSize()) {
-            if (this.getAction().equals("edit")) {
+            if ("edit".equals(this.getAction())) {
 
                 request.setAttribute("BoxNoFillFirstLoad", "true");
 

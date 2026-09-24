@@ -719,4 +719,36 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
         verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
     }
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should refuse a non-POST legacy reprint before any lookup")
+    void shouldRejectNonPost_beforeLegacyReprint(String httpMethod) throws Exception {
+        // reprint() records a print on the script and puts the patient into reprint mode (#3908).
+        request.setMethod(httpMethod);
+        request.setParameter("demographicNo", "1");
+        RxRePrescribe2Action action = new RxRePrescribe2Action();
+        action.setDrugList("12");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "drugList={0}")
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "abc", "-1", "12;drop", "1234567890"})
+    @DisplayName("should answer 400 for a malformed legacy reprint script number")
+    void shouldRejectMalformedScriptNo_beforeLegacyReprint(String drugList) throws Exception {
+        request.setParameter("demographicNo", "1");
+        RxRePrescribe2Action action = new RxRePrescribe2Action();
+        action.setDrugList(drugList);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
+    }
 }
