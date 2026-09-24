@@ -44,6 +44,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 /** The page gate refuses callers who could use none of the portal routes and says which controls to render. */
 @Tag("unit")
@@ -52,7 +53,8 @@ class PortalManage2ActionUnitTest {
 
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final EmailComposeManager compose = mock(EmailComposeManager.class);
-    private final MockHttpServletRequest request = new MockHttpServletRequest();
+    private final MockHttpServletRequest request = new MockHttpServletRequest("GET", "/demographic/portalManage");
+    private final MockHttpServletResponse response = new MockHttpServletResponse();
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
 
@@ -61,6 +63,7 @@ class PortalManage2ActionUnitTest {
         request.setParameter("demographicNo", "123");
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
         login = mockStatic(LoggedInInfo.class);
         login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(mock(LoggedInInfo.class));
         when(security.hasPrivilege(any(), eq("_demographic"), anyString(), eq("123"))).thenReturn(true);
@@ -177,5 +180,16 @@ class PortalManage2ActionUnitTest {
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(true);
         assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(true);
         assertThat(request.getAttribute(PortalManage2Action.CONSENT_STATUS_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should answer anything but GET with 405 before any check")
+    void shouldRejectPost_withMethodNotAllowed() {
+        request.setMethod("POST");
+
+        assertThat(new PortalManage2Action(security, compose).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("GET");
+        verifyNoInteractions(security, compose);
     }
 }
