@@ -1151,6 +1151,19 @@
       "env": []
     },
     {
+      "name": "cdm-measurement-report",
+      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "upstream-small-fixes",
       "script": "scripts/upstream-small-fixes-playwright-checks.js",
       "tiers": [
