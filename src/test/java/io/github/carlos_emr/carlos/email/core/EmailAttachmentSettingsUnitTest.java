@@ -227,6 +227,15 @@ class EmailAttachmentSettingsUnitTest {
         }
 
         @Test
+        @DisplayName("should keep C1 controls, matching the compose page's ASCII-only strip")
+        void shouldKeepC1Controls_forParityWithComposePage() {
+            // emailCompose.jsp withoutControlChars strips /[\x00-\x1F\x7F]/ only; the server must
+            // strip the same set so both count the stored password and clue identically.
+            assertThat(EmailAttachmentSettings.sanitizePassword("a\u0080b\u0085c\u009Fd\u007Fe\u001Ff"))
+                    .isEqualTo("a\u0080b\u0085c\u009Fdef");
+        }
+
+        @Test
         @DisplayName("should not silently shorten a long password")
         void shouldNotTruncate_whenPasswordExceedsStorageLimit() {
             String longPassword = "A".repeat(150);

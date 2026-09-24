@@ -73,8 +73,15 @@ public record EmailAttachmentSettings(
     /** Precompiled pattern matching any Unicode line break sequence. */
     private static final Pattern LINE_BREAK_PATTERN = Pattern.compile("\\R");
 
-    /** Precompiled pattern matching Unicode control characters. */
-    private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\p{Cntrl}]");
+    /**
+     * ASCII control characters only: C0 ({@code U+0000}-{@code U+001F}) and DEL ({@code U+007F}).
+     * C1 controls ({@code U+0080}-{@code U+009F}) are deliberately kept. The class is spelled out
+     * rather than written as {@code \p{Cntrl}} (which, without {@code UNICODE_CHARACTER_CLASS}, is
+     * the same set) so it visibly matches the compose page's {@code withoutControlChars}
+     * ({@code /[\x00-\x1F\x7F]/g}); the two must strip identical characters or the page's
+     * length count would disagree with what the server stores.
+     */
+    private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
 
     /** Valid values for the patient chart option, derived from {@link ChartDisplayOption} enum. */
     private static final Set<String> VALID_CHART_OPTIONS = Arrays.stream(ChartDisplayOption.values())
