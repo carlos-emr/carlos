@@ -173,7 +173,7 @@ public interface PatientConsentManager {
     /**
      * Records that the patient confirmed this consent directly: marks the deciding opt-in record
      * explicit and stamps its consent date, edit date and author. Staff must ask for this
-     * deliberately; a routine chart save never changes whether a record is explicit (#3858).
+     * deliberately; re-saving the chart never changes whether an existing record is explicit (#3858).
      *
      * @return true if the record is now explicit (including when it already was); false when there
      *         is no live opt-in record to confirm or the consent type is inactive

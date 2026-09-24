@@ -437,15 +437,14 @@ public class DemographicUpdate2Action extends ActionSupport {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     /**
      * Applies the chart's consent section for every active consent type.
      *
      * <p>Every demographic save re-posts each type's pre-checked radio, so an Opt-in here is not
-     * evidence that anyone just asked the patient. It therefore never changes whether a record is
-     * explicit. Only the separate {@code recordExplicit_<type>} checkbox, ticked with Opt-in
-     * selected, records that the patient confirmed consent directly (#3858).</p>
+     * evidence that anyone just asked the patient, and re-saving never changes whether an existing
+     * record is explicit. Only the separate {@code recordExplicit_<type>} checkbox, ticked with
+     * Opt-in selected, upgrades one (#3858). A record created here, when staff pick a choice for a
+     * type that had none, is explicit as before: that choice is the staff member's own entry.</p>
      *
      * <p>A radio value other than 0 (opt in) or 1 (opt out) leaves that type unchanged. It used to
      * default to opt-in, which recorded consent nobody gave.</p>
@@ -464,11 +463,20 @@ public class DemographicUpdate2Action extends ActionSupport {
                 }
                 patientConsentManager.addEditConsentRecord(loggedInInfo, demographicNo,
                         consentType.getId(), true, optOut);
-                if (!optOut && "1".equals(request.getParameter("recordExplicit_" + type))) {
-                    patientConsentManager.recordExplicitConsent(loggedInInfo, demographicNo, consentType.getId());
+                if (!optOut && "1".equals(request.getParameter("recordExplicit_" + type))
+                        && !patientConsentManager.recordExplicitConsent(loggedInInfo, demographicNo, consentType.getId())) {
+                    // Staff ticked the box, so they believe it happened; leave a trace when it did not.
+                    logger.warn("DemographicUpdate2Action: explicit consent was requested but not recorded for consent type id {}",
+                            consentType.getId());
                 }
-            } else if ("1".equals(request.getParameter("deleteConsent_" + type))) {
-                patientConsentManager.deleteConsent(loggedInInfo, demographicNo, consentType.getId());
+            } else {
+                String delete = request.getParameter("deleteConsent_" + type);
+                if ("1".equals(delete)) {
+                    patientConsentManager.deleteConsent(loggedInInfo, demographicNo, consentType.getId());
+                } else if (delete != null && !delete.isEmpty() && !"0".equals(delete)) {
+                    logger.warn("DemographicUpdate2Action: ignoring an unrecognised clear flag for consent type id {}",
+                            consentType.getId());
+                }
             }
         }
     }
@@ -482,6 +490,8 @@ public class DemographicUpdate2Action extends ActionSupport {
         };
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static String normalizeOptionalMiddleNames(String rawMiddleNames) {
         String middleNames = org.apache.commons.lang3.StringUtils.trimToEmpty(rawMiddleNames);
         return "null".equalsIgnoreCase(middleNames) ? "" : middleNames;

@@ -648,7 +648,7 @@
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;">Consented${ patientConsent.explicit ? '' : ' (implied)' }:${carlos:forHtml(patientConsent.consentDate)}</span>
+                                                                                                          style="color:green;">Consented<c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>:${carlos:forHtml(patientConsent.consentDate)}</span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 
