@@ -36,9 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.util.Hashtable;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -169,10 +167,11 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             when(properties.getProperty("CML_UPLOAD_KEY")).thenReturn("fixture-key");
             duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
                     .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
-            Hashtable<String, String> recorded = new Hashtable<>();
-            recorded.put("md5sum", DigestUtils.md5Hex("MSH|duplicate CML content"));
-            duplicateCheck.when(() -> FileUploadCheck.getFileInfo(DigestUtils.md5Hex("MSH|duplicate CML content")))
-                    .thenReturn(recorded);
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)))
+                    .thenAnswer(invocation -> {
+                        InputStream stream = invocation.getArgument(0);
+                        return "MSH|duplicate CML content".equals(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+                    });
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
@@ -201,8 +200,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             // addFile swallows a failed checksum insert into the same value it uses for a duplicate.
             duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
                     .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
-            duplicateCheck.when(() -> FileUploadCheck.getFileInfo(anyString()))
-                    .thenReturn(new Hashtable<String, String>());
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)))
+                    .thenReturn(false);
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 

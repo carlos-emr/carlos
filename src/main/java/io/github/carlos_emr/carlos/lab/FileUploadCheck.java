@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.lab;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 import java.util.HashMap;
@@ -38,6 +39,8 @@ import java.util.Map;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -57,6 +60,25 @@ public final class FileUploadCheck {
         FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
         List<io.github.carlos_emr.carlos.commn.model.FileUploadCheck> checks = dao.findByMd5Sum(md5sum);
         return !checks.isEmpty();
+    }
+
+    /**
+     * Reports whether a file's content is already recorded, without swallowing failures.
+     *
+     * <p>{@link #addFile} answers {@link #UNSUCCESSFUL_SAVE} both for a checksum it already holds
+     * and for any failure it catches, so a caller that must tell a real duplicate from a failed
+     * check asks this afterwards.</p>
+     *
+     * @param is the file content; read to the end but not closed
+     * @return {@code true} only when a checksum row exists for the content
+     * @throws IOException if the content cannot be read; a database failure propagates too
+     */
+    // FindSecBugs WEAK_MESSAGE_DIGEST_MD5: MD5 is this class's duplicate-detection key (addFile
+    // stores it), never a password, signature or integrity check; it must match what addFile wrote.
+    @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_MD5",
+            justification = "MD5 is the stored duplicate-detection key written by addFile, not a security control")
+    public static boolean isFileRecorded(InputStream is) throws IOException {
+        return hasFileBeenUploaded(DigestUtils.md5Hex(is));
     }
 
     public static Map<String, String> getFileInfo(Integer id) {

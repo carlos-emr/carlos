@@ -49,7 +49,6 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.codec.digest.DigestUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -190,19 +189,17 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     /**
-     * Confirms that a file's checksum is already recorded by {@link FileUploadCheck}.
+     * Confirms that a file's content is already recorded by {@link FileUploadCheck}.
      *
-     * @param localFile the archived upload whose checksum is looked up
+     * @param localFile the archived upload whose content is looked up
      * @return {@code true} only when a checksum row exists for the file's content
      * @throws IOException if the archived file cannot be read; a database failure
      *         propagates too, so neither is mistaken for a duplicate
      */
     private static boolean isRecordedUpload(File localFile) throws IOException {
-        String md5sum;
         try (InputStream in = new FileInputStream(localFile)) {
-            md5sum = DigestUtils.md5Hex(in);
+            return FileUploadCheck.isFileRecorded(in);
         }
-        return !FileUploadCheck.getFileInfo(md5sum).isEmpty();
     }
 
 
