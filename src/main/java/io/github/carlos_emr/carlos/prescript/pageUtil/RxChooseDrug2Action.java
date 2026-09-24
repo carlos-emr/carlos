@@ -60,8 +60,8 @@ public final class RxChooseDrug2Action extends ActionSupport {
     public String execute() throws IOException, ServletException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         // Extract attributes we will need
@@ -70,8 +70,9 @@ public final class RxChooseDrug2Action extends ActionSupport {
         //    p("message="+messages.toString());
         // Setup variables
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
-        // authorised for that patient at the same _rx level this action checks globally (#3908).
-        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "r");
+        // staged only by a caller with _rx write, globally and for that patient: a staged card can
+        // only ever be saved by a writer (#3908).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

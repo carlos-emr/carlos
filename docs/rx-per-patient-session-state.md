@@ -44,9 +44,12 @@ It runs before any side effect on: stash staging, editing, removal and clearing;
 delete, discontinue and long-term toggles; favourites from a staged card; the signature link
 (`saveDigitalSignature`, which also requires the script to belong to the window's patient);
 allergy add, delete, re-activate and reorder; drug reasons; and the encounter append. The Rx view
-gates use `require(...)` for the patient a request names. `RxPatientWriteAuthorizationUnitTest`
-drives every one of these paths with the patient-level privilege, and separately record access,
-denied.
+gates use `require(...)` for the patient a request names. Stash staging (`rx/chooseDrug`, `rx/useFavorite`) and drug
+reasons (`rx/RxReason` add/archive, POST-only; the popup view stays a GET at `_rx` read) need
+`_rx` **write**, globally and for the patient: a staged card can only be saved by a writer and a
+reason is persisted chart data. `RxPatientWriteAuthorizationUnitTest` drives every one of these
+paths with the patient-level privilege denied, with only its write level denied (read still
+held), and with record access denied.
 
 The no-patient fallback is for read-only compatibility only. Pages that change Rx state for a
 patient (`StaticScript2.jsp`, the staging page) are opened with an explicit `demographicNo`, and

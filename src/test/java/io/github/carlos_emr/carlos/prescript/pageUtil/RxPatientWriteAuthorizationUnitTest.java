@@ -62,8 +62,8 @@ import static org.mockito.Mockito.when;
  *
  * <p>Each write path is driven as the real UI drives it: a POST naming the open patient, with the
  * global privilege granted. Only the patient-level check is denied, either the patient-level
- * privilege ({@code _rx$demographicNo} / {@code _allergy$demographicNo}) or access to the
- * patient's record. Each path must refuse with a {@link SecurityException} before any side
+ * privilege ({@code _rx$demographicNo} / {@code _allergy$demographicNo}), only its write level
+ * (with patient-level read still held), or access to the patient's record. Each path must refuse with a {@link SecurityException} before any side
  * effect: the staged prescriptions and ReRx list are unchanged, no Spring-managed dependency
  * (DAO, manager, stamp service) is touched, and nothing is audited.</p>
  *
@@ -159,7 +159,14 @@ class RxPatientWriteAuthorizationUnitTest {
                 "reason.addDrugReason", "reason.archiveReason");
         return paths.stream().flatMap(path -> Stream.of(
                 Arguments.of(path, "patient privilege"),
+                Arguments.of(path, "patient write only"),
                 Arguments.of(path, "record access")));
+    }
+
+    /** The patient-level privilege each write path needs: delete paths need update, the rest write. */
+    private static String requiredPrivilege(String path) {
+        return path.startsWith("deleteRx.") || "deleteAllergy".equals(path) || "showAllergy.reorder".equals(path)
+                ? "u" : "w";
     }
 
     static Stream<String> writePathNames() {
@@ -186,6 +193,11 @@ class RxPatientWriteAuthorizationUnitTest {
     void shouldRefuseWrite_whenPatientLevelAccessDenied(String path, String denied) {
         if ("patient privilege".equals(denied)) {
             when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(false);
+        } else if ("patient write only".equals(denied)) {
+            // Patient-level read is held; only the write level this path needs is missing. Staging
+            // and drug reasons are writes too: a read-only caller must not reach them (#3908).
+            when(securityInfoManager.hasPrivilege(any(), anyString(), org.mockito.ArgumentMatchers.eq(requiredPrivilege(path)),
+                    anyInt())).thenReturn(false);
         } else {
             when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
         }
@@ -209,6 +221,67 @@ class RxPatientWriteAuthorizationUnitTest {
             verifyNoInteractions(dependency.getValue());
         }
         logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} method={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"GET,addDrugReason", "GET,archiveReason",
+            "HEAD,addDrugReason", "HEAD,archiveReason"})
+    @DisplayName("should refuse a drug-reason write that is not a POST before touching anything")
+    void shouldRejectReasonWrite_whenMethodIsNotPost(String httpMethod, String method) throws Exception {
+        // CSRFGuard does not check GET, so a link or image tag must not file or archive a reason.
+        request.setMethod(httpMethod);
+        request.setParameter("method", method);
+        request.setParameter("drugId", "5");
+        request.setParameter("reasonId", "3");
+        request.setParameter("jsonDxSearch", "250");
+        MockHttpServletResponse response = (MockHttpServletResponse) ServletActionContext.getResponse();
+
+        String result = new RxReason2Action().execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(securityInfoManager);
+        for (Object dependency : dependencies.values()) {
+            verifyNoInteractions(dependency);
+        }
+        logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should open the drug-reason popup by GET with patient-level read only")
+    void shouldRenderReasonPopup_whenGetNamesReadablePatient() throws Exception {
+        // SearchDrug3 opens the popup with a GET; viewing needs _rx read, not write.
+        request.setMethod("GET");
+        request.setParameter("drugId", "5");
+        io.github.carlos_emr.carlos.commn.model.Drug drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+        drug.setDemographicId(DEMOGRAPHIC_NO);
+        when(dependency(io.github.carlos_emr.carlos.commn.dao.DrugDao.class).find(5)).thenReturn(drug);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), org.mockito.ArgumentMatchers.eq("w"), anyInt()))
+                .thenReturn(false);
+
+        String result = new RxReason2Action().execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("drugId")).isEqualTo(5);
+        assertThat(request.getAttribute("demoNo")).isEqualTo(DEMOGRAPHIC_NO);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should refuse the drug-reason popup for a patient the caller may not read")
+    void shouldRefuseReasonPopup_whenPatientReadDenied() {
+        request.setMethod("GET");
+        request.setParameter("drugId", "5");
+        when(securityInfoManager.hasPrivilege(any(), anyString(), org.mockito.ArgumentMatchers.eq("r"), anyInt()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> new RxReason2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+        for (Object dependency : dependencies.values()) {
+            verifyNoInteractions(dependency);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -311,7 +384,8 @@ class RxPatientWriteAuthorizationUnitTest {
                 request.setParameter("drugId", "5");
                 request.setParameter("codingSystem", "icd9");
                 request.setParameter("jsonDxSearch", "250");
-                return () -> new RxReason2Action().addDrugReason();
+                request.setParameter("method", "addDrugReason");
+                return () -> new RxReason2Action().execute();
             case "reason.archiveReason":
                 // Archiving must read the reason to learn its patient; only that read may happen.
                 io.github.carlos_emr.carlos.commn.model.DrugReason reason = new io.github.carlos_emr.carlos.commn.model.DrugReason();
@@ -319,7 +393,8 @@ class RxPatientWriteAuthorizationUnitTest {
                 when(dependency(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class).find(3)).thenReturn(reason);
                 request.setParameter("reasonId", "3");
                 request.setParameter("archiveReason", "entered in error");
-                return () -> new RxReason2Action().archiveReason();
+                request.setParameter("method", "archiveReason");
+                return () -> new RxReason2Action().execute();
             default:
                 return writeScript(path.substring("writeScript.".length()), cardKey);
         }

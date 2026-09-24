@@ -331,6 +331,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // getInstructionsAutocomplete, ...) stay verb-open. Covered by
         // RxWriteScript2ActionWriteIsolationUnitTest.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
+        // Drug reasons: the popup view (GET, no method) stays verb-open; method=addDrugReason /
+        // archiveReason write the chart and reject GET/HEAD. Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectReasonWrite_whenMethodIsNotPost.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -468,7 +472,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
         // prescript slice: RxClearPending2Action clears the named patient's stash and is POST-only
         // (unconditional mutator, #3908).
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
+        // prescript slice: RxReason2Action's add/archive drug-reason writes are POST-only; the popup
+        // view stays GET (conditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

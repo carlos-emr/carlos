@@ -56,11 +56,85 @@ public final class RxReason2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    public String execute() {
-        if ("archiveReason".equals(request.getParameter("method"))) {
+    /**
+     * Opens the drug-reason popup for a patient's drug, or, on POST, adds or archives a reason.
+     *
+     * <p>SearchDrug3 opens the popup with a GET naming {@code demographicNo} and {@code drugId};
+     * that view needs {@code _rx} read, for the patient too. Adding and archiving reasons write
+     * the patient's chart: they are POST-only (SelectReason.jsp's forms POST, CSRFGuard does not
+     * check GET) and need {@code _rx} write, globally and for the patient (#3908). A GET that
+     * names a write ({@code method=addDrugReason} / {@code archiveReason}) is refused with 405.</p>
+     *
+     * @return {@code "success"} to render SelectReason.jsp, {@code "close"} after a reason is
+     *         added, or {@code NONE} after a 405
+     * @throws java.io.IOException when the 405 cannot be sent
+     */
+    public String execute() throws java.io.IOException {
+        String method = request.getParameter("method");
+        boolean write = "archiveReason".equals(method) || "addDrugReason".equals(method);
+        if (!"POST".equals(request.getMethod())) {
+            if (write) {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+                return NONE;
+            }
+            return view();
+        }
+        if ("archiveReason".equals(method)) {
             return archiveReason();
         }
         return addDrugReason();
+    }
+
+    /** The popup for one of the patient's drugs; reads only. */
+    private String view() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        int[] drugAndPatient = requireDrugOfPatient("r");
+        request.setAttribute("drugId", drugAndPatient[0]);
+        request.setAttribute("demoNo", drugAndPatient[1]);
+        return SUCCESS;
+    }
+
+    /**
+     * The request's drug and patient, after authorising the caller for that patient at
+     * {@code privilege} (patient-level {@code _rx} and record access) and checking that the drug
+     * is that patient's.
+     *
+     * @return {@code {drugId, demographicNo}}
+     * @throws SecurityException when the ids are malformed, the caller may not access the patient,
+     *                           or the drug is missing or another patient's
+     */
+    private int[] requireDrugOfPatient(String privilege) {
+        String drugIdStr = request.getParameter("drugId");
+        String demographicNo = request.getParameter("demographicNo");
+        if (drugIdStr == null || !drugIdStr.matches("\\d{1,9}")
+                || demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        int drugId = Integer.parseInt(drugIdStr);
+        int demographic = Integer.parseInt(demographicNo);
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographic, "_rx", privilege);
+        Drug drug = SpringUtils.getBean(DrugDao.class).find(drugId);
+        if (drug == null || drug.getDemographicId() == null || drug.getDemographicId() != demographic) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        return new int[] {drugId, demographic};
+    }
+
+    private boolean refuseUnlessPost() {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        try {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return true;
     }
 
     /*
@@ -75,9 +149,12 @@ public final class RxReason2Action extends ActionSupport {
     private Integer demographicNo = null;
      */
     public String addDrugReason() {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
+        // Files a reason on the patient's drug: _rx write, globally and for the patient (#3908).
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
@@ -92,19 +169,9 @@ public final class RxReason2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
         String providerNo = (String) request.getSession().getAttribute("user");
 
-        // The reason is filed on this patient's drug: the caller must be authorised for the patient
-        // (patient-level _rx and record access), and the drug must be that patient's (#3908).
-        if (drugIdStr == null || !drugIdStr.matches("\\d{1,9}")
-                || demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
-        RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
-                Integer.parseInt(demographicNo), "_rx", "r");
-        Drug drug = SpringUtils.getBean(DrugDao.class).find(Integer.parseInt(drugIdStr));
-        if (drug == null || drug.getDemographicId() == null
-                || drug.getDemographicId() != Integer.parseInt(demographicNo)) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
+        // The reason is filed on this patient's drug: patient-level _rx write and record access,
+        // and the drug must be that patient's (#3908).
+        requireDrugOfPatient("w");
 
         request.setAttribute("drugId", Integer.parseInt(drugIdStr));
         request.setAttribute("demoNo", Integer.parseInt(demographicNo));
@@ -158,9 +225,12 @@ public final class RxReason2Action extends ActionSupport {
      * @return "success" which will redirect back to the "SelectReason.jsp" page
      */
     public String archiveReason() {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
+        // Archiving changes the reason's patient's chart: _rx write, globally and for the patient (#3908).
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
@@ -176,7 +246,7 @@ public final class RxReason2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
         RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
-                drugReason.getDemographicNo(), "_rx", "r");
+                drugReason.getDemographicNo(), "_rx", "w");
 
         drugReason.setArchivedFlag(true);
         drugReason.setArchivedReason(archiveReason);
