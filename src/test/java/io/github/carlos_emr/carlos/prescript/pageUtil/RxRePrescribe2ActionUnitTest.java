@@ -737,6 +737,24 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should refuse a non-POST reprint2 before any lookup")
+    void shouldRejectNonPost_beforeReprint2(String httpMethod) throws Exception {
+        // reprint2() records a print on the script and puts the patient into reprint mode (#3908).
+        request.setMethod(httpMethod);
+        request.setParameter("method", "reprint2");
+        request.setParameter("demographicNo", "1");
+        request.setParameter("scriptNo", "12");
+
+        assertThat(new RxRePrescribe2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
+    }
+
     @org.junit.jupiter.params.ParameterizedTest(name = "drugList={0}")
     @org.junit.jupiter.params.provider.NullSource
     @org.junit.jupiter.params.provider.ValueSource(strings = {"", "abc", "-1", "12;drop", "1234567890"})

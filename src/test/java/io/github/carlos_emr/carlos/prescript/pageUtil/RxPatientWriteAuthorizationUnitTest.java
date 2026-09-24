@@ -145,6 +145,7 @@ class RxPatientWriteAuthorizationUnitTest {
                 "deleteRx.Delete2", "deleteRx.clearStash", "deleteRx.clearReRxDrugList", "deleteRx.Discontinue",
                 "stash.deletePrescribe",
                 "addFavorite.execute", "addFavorite.addFav2",
+                "addFavorite.savedDrug", "addFavorite.savedDrugAjax",
                 "useFavorite.execute", "useFavorite.useFav2",
                 "chooseDrug",
                 "writeScript.updateAndPrint", "writeScript.updateSaveAllDrugs", "writeScript.updateLongTermStatus",
@@ -202,6 +203,13 @@ class RxPatientWriteAuthorizationUnitTest {
             when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
         }
         String securityObject = path.contains("llergy") ? "_allergy" : "_rx";
+        boolean savedDrugFavourite = path.startsWith("addFavorite.savedDrug");
+        if (savedDrugFavourite) {
+            // The favourite path loads the drug to learn its patient before authorising that patient.
+            io.github.carlos_emr.carlos.commn.model.Drug drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+            drug.setDemographicId(DEMOGRAPHIC_NO);
+            when(dependency(io.github.carlos_emr.carlos.commn.dao.DrugDao.class).find(5)).thenReturn(drug);
+        }
 
         assertThatThrownBy(call(path))
                 .isInstanceOf(SecurityException.class)
@@ -210,6 +218,9 @@ class RxPatientWriteAuthorizationUnitTest {
         assertThat(bean.getStashSize()).isEqualTo(2);
         assertThat(bean.getReRxDrugIdList()).containsExactly("55");
         for (Map.Entry<Class<?>, Object> dependency : dependencies.entrySet()) {
+            if (savedDrugFavourite && dependency.getKey().equals(io.github.carlos_emr.carlos.commn.dao.DrugDao.class)) {
+                continue;
+            }
             if ("reason.archiveReason".equals(path)
                     && dependency.getKey().equals(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class)) {
                 io.github.carlos_emr.carlos.commn.dao.DrugReasonDao reasons =
@@ -474,7 +485,7 @@ class RxPatientWriteAuthorizationUnitTest {
         List<String> reads = List.of("rePrescribe.reprint", "rePrescribe.reprint2", "viewScript.preview",
                 "writeScript.listPreviousInstructions", "writeScript.getInstructionsAutocomplete",
                 "writeScript.checkNoStashItem", "writeScript.iterateStash", "writeScript.edit",
-                "stash.setStashIndex", "stash.edit", "addFavorite.savedDrug", "addFavorite.savedDrugAjax");
+                "stash.setStashIndex", "stash.edit");
         return reads.stream().flatMap(read -> Stream.of(
                 Arguments.of(read, "patient read"), Arguments.of(read, "record access")));
     }
@@ -519,18 +530,7 @@ class RxPatientWriteAuthorizationUnitTest {
                 action.setAction("edit");
                 action.execute();
             };
-            case "addFavorite.savedDrug" -> () -> {
-                RxAddFavorite2Action action = new RxAddFavorite2Action();
-                action.setDrugId("5");
-                action.setFavoriteName("fav");
-                action.execute();
-            };
-            default -> () -> {
-                request.setParameter("parameterValue", "addFav2");
-                request.setParameter("drugId", "5");
-                request.setParameter("favoriteName", "fav");
-                new RxAddFavorite2Action().execute();
-            };
+            default -> throw new IllegalArgumentException("unknown read path " + path);
         };
 
         assertThatThrownBy(read)
@@ -539,9 +539,6 @@ class RxPatientWriteAuthorizationUnitTest {
         assertThat(bean.getStashSize()).isEqualTo(2);
         assertThat(bean.getStashIndex()).isZero();
         for (Map.Entry<Class<?>, Object> entry : dependencies.entrySet()) {
-            if (entry.getKey().equals(io.github.carlos_emr.carlos.commn.dao.DrugDao.class)) {
-                continue; // the favourite path loads the drug to learn its patient
-            }
             verifyNoInteractions(entry.getValue());
         }
         logActionMock.verifyNoInteractions();
@@ -598,6 +595,18 @@ class RxPatientWriteAuthorizationUnitTest {
                 request.setParameter("randomId", String.valueOf(cardKey));
                 request.setParameter("favoriteName", "fav");
                 return () -> new RxAddFavorite2Action().addFav2();
+            case "addFavorite.savedDrug":
+                return () -> {
+                    RxAddFavorite2Action action = new RxAddFavorite2Action();
+                    action.setDrugId("5");
+                    action.setFavoriteName("fav");
+                    action.execute();
+                };
+            case "addFavorite.savedDrugAjax":
+                request.setParameter("parameterValue", "addFav2");
+                request.setParameter("drugId", "5");
+                request.setParameter("favoriteName", "fav");
+                return () -> new RxAddFavorite2Action().execute();
             case "useFavorite.execute":
                 request.setParameter("favoriteId", "3");
                 return () -> new RxUseFavorite2Action().execute();

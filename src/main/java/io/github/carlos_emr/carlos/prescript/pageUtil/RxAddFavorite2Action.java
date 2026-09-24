@@ -179,15 +179,16 @@ public final class RxAddFavorite2Action extends ActionSupport {
 
     /**
      * Adds a saved drug to the logged-in provider's favourites. The drug id is request input, so
-     * the drug is loaded first and the caller must be allowed to read its patient (patient-level
-     * {@code _rx} read and record access): favourites copy the drug's name, dosing and instructions.
-     * A malformed id is a 400 and an unknown drug a 404.
+     * the drug is loaded first and the caller must hold the same write scope for its patient as the
+     * staged-favourite path (patient-level {@code _rx} write and record access): favourites copy the
+     * drug's name, dosing and instructions, and the page only offers the button to writers. A
+     * malformed id is a 400 and an unknown drug a 404.
      *
      * @param rawDrugId    the request's drug id
      * @param favoriteName the favourite's name
      * @return {@code true} when the favourite was added, {@code false} after an error response
      * @throws IOException when an error response cannot be sent
-     * @throws SecurityException when the caller may not read the drug's patient
+     * @throws SecurityException when the caller may not write Rx for the drug's patient
      */
     private boolean favouriteSavedDrug(String rawDrugId, String favoriteName) throws IOException {
         if (rawDrugId == null || !rawDrugId.trim().matches("\\d{1,9}")) {
@@ -200,7 +201,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
             return false;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, drug.getDemographicId(), "_rx", "r");
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, drug.getDemographicId(), "_rx", "w");
         RxPrescriptionData.addToFavorites(loggedInInfo.getLoggedInProviderNo(), favoriteName, drug);
         return true;
     }

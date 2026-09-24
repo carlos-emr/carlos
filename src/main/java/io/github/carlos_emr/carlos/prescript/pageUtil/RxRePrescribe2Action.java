@@ -171,6 +171,13 @@ public final class RxRePrescribe2Action extends ActionSupport {
      * @return {@code null}; ViewScript2 renders the reprint
      */
     public String reprint2() throws IOException {
+        // Records a print on the script and puts the patient into reprint mode: POST-only, like
+        // reprint(), because CSRFGuard does not check GET (#3908). SearchDrug3's reprint2() posts.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
