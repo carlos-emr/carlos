@@ -262,7 +262,7 @@
             <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
-                <input type="hidden" name="fdid" value="${fdid}"/>
+                <input type="hidden" name="fdid" value="${carlos:forHtmlAttribute(fdid)}"/>
                 <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
                 <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
@@ -894,9 +894,10 @@
 
     // Open EForm again on sent
     function openEFormAfterSend() {
-        const isOpenEForm = "${isOpenEForm}" === "true";
+        // fdid and isOpenEForm are echoed from the send request on the result page, so encode them.
+        const isOpenEForm = "${carlos:forJavaScript(isOpenEForm)}" === "true";
         if (isOpenEForm) {
-            window.open("${ctx}/eform/efmshowform_data?fdid=${fdid}", "_blank", "width=800,height=600");
+            window.open("${ctx}/eform/efmshowform_data?fdid=${carlos:forJavaScript(carlos:forUriComponent(fdid))}", "_blank", "width=800,height=600");
         }
     }
 
