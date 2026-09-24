@@ -26,7 +26,9 @@ migration/
            V1.0.20__widen_fax_destination_for_international_numbers.sql
            V1.0.21__serialize_missing_lab_routing_creation.sql
            V1.0.22__add_lab_routing_lock_audit_columns.sql
+           V1.0.23.1__widen_email_config.sql
            V1.0.29__rename_placeholder_demo_clinic.sql
+           V1.0.30__enforce_provider_signature_identity.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -41,16 +43,43 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.29`
-(`common/V1.0.29`, shared by both provinces), and the next free number for ANY
-location — shared or province — is `V1.0.30`. The version line is global:
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.30`
+(`common/V1.0.30`, shared by both provinces), and the next free number for ANY
+location — shared or province — is `V1.0.31`. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.29` today on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.29`) but would silently
+run — `common/V1.0.30` today on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.30`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
-other province.
+other province. Check every active branch inventory (release and develop) before allocating a
+version, never renumber a published migration, and do not silently enable out-of-order migration
+during promotion. See [the release process](../../../docs/release-process.md) for branch promotion
+rules.
+
+### Provider signature identity repair (1.0.30)
+
+Stop all application nodes and take a database backup before upgrade. The migration
+copies signatures into a temporary table with a unique provider key before changing
+`providerExt`. Exact byte-for-byte duplicates for an assigned provider collapse;
+distinct text for that provider, including case, trailing-space
+or a NULL versus text value, produces a duplicate-key failure with the source untouched.
+Confirm the intended text with the affected provider and resolve the conflicting rows
+from the backup; do not pick an arbitrary signature. For the DEB deployment, inspect
+`sudo carlos-ctl db-info` and the migration error. Once the data conflict is resolved and
+all published migration files are unchanged, run `sudo carlos-ctl db-repair`, then
+`sudo carlos-ctl db-migrate` and `sudo carlos-ctl db-validate`. Do not use repair to accept
+a checksum mismatch or conceal an unrelated migration failure. Successful application preserves signature text
+and enforces one row per non-NULL provider identifier, matching the Hibernate entity ID.
+Every legacy unassigned NULL-provider row is preserved, including identical rows
+and rows with a NULL signature. These rows are outside the provider identity rule.
+
+The executable isolated-database regression is
+`python3 scripts/test-provider-signature-migration.py` from the repository root, using a
+disposable local MariaDB/MySQL server and a CREATE/DROP DATABASE-capable account. The
+client reads its usual option file or `MYSQL_PWD`; `MYSQL_HOST` must be local and
+`MYSQL_USER` defaults to root. The test removes only its randomly named databases.
+Both province CI jobs run it before their full Flyway migration/upgrade checks.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 

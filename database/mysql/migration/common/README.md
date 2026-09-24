@@ -32,9 +32,18 @@ run the updated acknowledgement code to participate in this coordination protoco
 `V1.0.22__add_lab_routing_lock_audit_columns.sql` also supplies the standard audit
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
 
+`V1.0.23.1__widen_email_config.sql` widens `emailConfig.configDetails` to `TEXT` to match the
+entity mapping. `V1.0.29__rename_placeholder_demo_clinic.sql` replaces the seeded placeholder
+clinic name.
+`V1.0.30__enforce_provider_signature_identity.sql` repairs exact duplicate provider
+signature rows for assigned providers and enforces the mapped provider identity.
+Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures fail
+before source changes. See the parent README for preparation and recovery instructions.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
-shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
-covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.22`
-(also the highest shared one), so the next free version for ANY location is `V1.0.23`
-(see `../README.md`).
+shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version
+number) so one migration covers both provinces. The version line is global across `common` + the
+selected province, so the next free number accounts for province deltas too. The highest version in
+use is `common/V1.0.30`, so the next free version for ANY location is `V1.0.31` (see `../README.md`).
+Consult every active branch inventory before assigning a version. Never edit a published migration or
+silently enable out-of-order application during promotion.
