@@ -112,6 +112,75 @@ class SMTPEmailSenderTransportIntegrationTest {
         }
     }
 
+    /**
+     * Drives the real transport into a 550 at RCPT TO (#3857). With one recipient, or with two
+     * where only one is refused, the transport resets before DATA, so nothing reaches the
+     * receiver and the failure must be reported as definite rather than uncertain.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldReportDefiniteFailure_whenServerRefusesRecipient(boolean alsoAcceptedRecipient) throws Exception {
+        try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            receiver.setSoTimeout(10_000);
+            CompletableFuture<Boolean> dataReceived = new CompletableFuture<>();
+            Thread.ofPlatform().daemon(true).start(() -> refuseRecipient(receiver, dataReceived));
+            String[] recipients = alsoAcceptedRecipient
+                    ? new String[]{"accepted@example.test", "unknown@example.test"}
+                    : new String[]{"unknown@example.test"};
+            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
+                    recipients, "Synthetic refused recipient", "Body", List.of());
+            sender.prepareArtifactBytes();
+
+            assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
+                    EmailSendingException.class,
+                    failure -> assertThat(failure.isDeliveryOutcomeUncertain()).isFalse());
+            assertThat(dataReceived.get(10, TimeUnit.SECONDS)).isFalse();
+        }
+    }
+
+    private static EmailConfig localConfig(int port) {
+        EmailConfig config = new EmailConfig();
+        config.setEmailType(EmailConfig.EmailType.SMTP);
+        config.setEmailProvider(EmailConfig.EmailProvider.LOCAL);
+        config.setSenderEmail("sender@example.test");
+        config.setSenderFirstName("Synthetic");
+        config.setSenderLastName("Sender");
+        config.setConfigDetailsJson("{\"host\":\"127.0.0.1\",\"port\":\"" + port + "\"}");
+        return config;
+    }
+
+    /** Accepts every command except RCPT TO for an address starting "unknown", and records whether DATA arrived. */
+    private static void refuseRecipient(ServerSocket receiver, CompletableFuture<Boolean> dataReceived) {
+        try (Socket connection = receiver.accept()) {
+            connection.setSoTimeout(10_000);
+            var output = connection.getOutputStream();
+            var input = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.US_ASCII));
+            output.write("220 synthetic SMTP ready\r\n".getBytes(StandardCharsets.US_ASCII));
+            output.flush();
+            String line;
+            while ((line = input.readLine()) != null) {
+                String reply;
+                if (line.startsWith("RCPT TO:<unknown")) {
+                    reply = "550 5.1.1 Recipient address rejected: User unknown";
+                } else if (line.equals("DATA")) {
+                    dataReceived.complete(true);
+                    return;
+                } else if (line.equals("QUIT")) {
+                    output.write("221 bye\r\n".getBytes(StandardCharsets.US_ASCII));
+                    output.flush();
+                    break;
+                } else {
+                    reply = "250 OK";
+                }
+                output.write((reply + "\r\n").getBytes(StandardCharsets.US_ASCII));
+                output.flush();
+            }
+            dataReceived.complete(false);
+        } catch (Exception failure) {
+            dataReceived.completeExceptionally(failure);
+        }
+    }
+
     private static void receive(ServerSocket receiver, CompletableFuture<byte[]> received, boolean dropAcknowledgement) {
         try (Socket connection = receiver.accept()) {
             connection.setSoTimeout(10_000);

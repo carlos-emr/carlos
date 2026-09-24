@@ -5,9 +5,13 @@
  */
 package io.github.carlos_emr.carlos.email.helpers;
 
+import java.util.Map;
 import java.util.Properties;
 
+import jakarta.mail.Address;
+import jakarta.mail.SendFailedException;
 import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 
 import org.junit.jupiter.api.DisplayName;
@@ -106,6 +110,63 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
                         exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isTrue())
                 .hasMessage("SMTP transport did not confirm whether the message was accepted.")
                 .hasMessageNotContaining("response timed out");
+    }
+
+    @Test
+    @DisplayName("should classify a server refusing every recipient as definitely unsent")
+    void shouldClassifyRefusedRecipients_asDefinitelyUnsent() throws Exception {
+        SendFailedException refused = new SendFailedException("Invalid Addresses", null,
+                null, null, new Address[] {new InternetAddress("patient@example.invalid")});
+
+        assertThatThrownBy(senderFailingWith(refused)::send)
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isFalse())
+                .hasMessage("SMTP failed before accepting the message.")
+                .hasMessageNotContaining("patient@example.invalid");
+    }
+
+    @Test
+    @DisplayName("should keep the outcome uncertain when any recipient was sent to")
+    void shouldClassifyPartialAcceptance_asUncertainOutcome() throws Exception {
+        SendFailedException partial = new SendFailedException("Invalid Addresses", null,
+                new Address[] {new InternetAddress("accepted@example.invalid")}, null,
+                new Address[] {new InternetAddress("refused@example.invalid")});
+
+        assertThatThrownBy(senderFailingWith(partial)::send)
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isTrue());
+    }
+
+    @Test
+    @DisplayName("should keep the outcome uncertain when a send failure names no refused address")
+    void shouldClassifySendFailureWithoutInvalidAddresses_asUncertainOutcome() {
+        SendFailedException noAddresses = new SendFailedException("550 rejected after DATA");
+
+        assertThatThrownBy(senderFailingWith(noAddresses)::send)
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isTrue());
+    }
+
+    /**
+     * Builds a sender whose transport fails the way Spring's JavaMailSenderImpl reports a
+     * per-message failure: a MailSendException keyed by message, with no top-level cause.
+     */
+    private SMTPEmailSender senderFailingWith(Exception messageFailure) {
+        JavaMailSender transport = mock(JavaMailSender.class);
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
+        when(transport.createMimeMessage()).thenReturn(mimeMessage);
+        doThrow(new MailSendException(Map.<Object, Exception>of(mimeMessage, messageFailure)))
+                .when(transport).send(mimeMessage);
+        EmailConfig emailConfig = new EmailConfig();
+        emailConfig.setSenderEmail("clinic@example.invalid");
+        return new SMTPEmailSender(
+                new LoggedInInfo(), emailConfig, new String[] {"patient@example.invalid"},
+                "Subject", "Body", java.util.List.of()) {
+            @Override
+            protected JavaMailSender createTLSMailSender(EmailConfig ignored) {
+                return transport;
+            }
+        };
     }
 
     @Test

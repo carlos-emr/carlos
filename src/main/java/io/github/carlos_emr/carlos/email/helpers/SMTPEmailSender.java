@@ -16,7 +16,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Properties;
 
+import jakarta.mail.Address;
 import jakarta.mail.MessagingException;
+import jakarta.mail.SendFailedException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.apache.logging.log4j.Logger;
@@ -263,8 +265,33 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         // during DATA have no top-level cause; closing an accepted connection has no failed message.
         // Do not infer the stage from a TLS/timeout exception type or from remote diagnostic text.
         Exception[] messageFailures = sendFailure.getMessageExceptions();
-        return sendFailure.getCause() != null && messageFailures.length == 1
-                && messageFailures[0] == sendFailure.getCause();
+        if (messageFailures.length != 1) {
+            return false;
+        }
+        if (sendFailure.getCause() != null && messageFailures[0] == sendFailure.getCause()) {
+            return true;
+        }
+        return isRefusedByEveryRecipient(messageFailures[0]);
+    }
+
+    /**
+     * Recognises the server refusing the recipients (#3857). Spring reports that failure with no
+     * top-level cause, so the connect-time shape above misses it.
+     *
+     * <p>The signal is the mail library's own address accounting, not the exception type or the
+     * server's text. When a recipient is refused and partial sends are off (the default, and
+     * never enabled here) the transport resets the session before DATA, so no address was sent
+     * to. It reports that as no valid-sent addresses and at least one invalid one. Any valid-sent
+     * address means some copy may have gone out, which stays uncertain.</p>
+     */
+    private static boolean isRefusedByEveryRecipient(Exception messageFailure) {
+        return messageFailure instanceof SendFailedException refused
+                && isEmpty(refused.getValidSentAddresses())
+                && !isEmpty(refused.getInvalidAddresses());
+    }
+
+    private static boolean isEmpty(Address[] addresses) {
+        return addresses == null || addresses.length == 0;
     }
 
     /**
