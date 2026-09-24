@@ -66,8 +66,8 @@ public class PreventionDisplayConfig {
     private static Logger log = MiscUtils.getLogger();
     private static PreventionDisplayConfig preventionDisplayConfig = new PreventionDisplayConfig();
 
-    private HashMap<String, HashMap<String, String>> prevHash = null;
-    private ArrayList<HashMap<String, String>> prevList = null;
+    private volatile HashMap<String, HashMap<String, String>> prevHash = null;
+    private volatile ArrayList<HashMap<String, String>> prevList = null;
 
     private HashMap<String, Map<String, Object>> configHash = null;
     private ArrayList<Map<String, Object>> configList = null;
@@ -107,8 +107,10 @@ public class PreventionDisplayConfig {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void loadPreventions() {
-        prevList = new ArrayList<HashMap<String, String>>();
-        prevHash = new HashMap<String, HashMap<String, String>>();
+        // Build into locals and publish at the end: this is re-run after a vaccine catalogue
+        // update while other requests are reading the cached list.
+        ArrayList<HashMap<String, String>> loadedList = new ArrayList<HashMap<String, String>>();
+        HashMap<String, HashMap<String, String>> loadedHash = new HashMap<String, HashMap<String, String>>();
         log.debug("STARTING2");
 
         InputStream is = null;
@@ -156,8 +158,8 @@ public class PreventionDisplayConfig {
                 }
 
                 if (h.get("name") != null) {
-                    prevList.add(h);
-                    prevHash.put(h.get("name"), h);
+                    loadedList.add(h);
+                    loadedHash.put(h.get("name"), h);
                 }
             }
 
@@ -174,8 +176,8 @@ public class PreventionDisplayConfig {
                 h.put("snomedConceptCode", imm.getSnomedConceptId());
                 h.put("ispa", String.valueOf(imm.isIspa()));
                 if (!addedSnomeds.contains(imm.getSnomedConceptId()) && imm.getPicklistName() != null) {
-                    prevList.add(h);
-                    prevHash.put(h.get("name"), h);
+                    loadedList.add(h);
+                    loadedHash.put(h.get("name"), h);
                 }
             }
 
@@ -189,6 +191,8 @@ public class PreventionDisplayConfig {
                 log.error("Unexpected error", e);
             }
         }
+        this.prevHash = loadedHash;
+        this.prevList = loadedList;
     }
 
 

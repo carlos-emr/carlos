@@ -302,7 +302,7 @@
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.r4</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.10</version>
             </dependency>
             <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
                  Fixes GHSA-reported denial-of-service issues in policy normalization:
@@ -1338,11 +1338,21 @@
             <artifactId>hapi-fhir-structures-dstu3</artifactId>
             <version>${hapifhir.version}</version>
         </dependency>
-        <!-- FHIR R4 structure definitions (NVC V2 bundle uses FHIR R4) -->
+        <!-- FHIR R4 structure definitions: the National Vaccine Catalogue (NVC) v2 bundle
+             is FHIR R4 JSON (CanadianVaccineCatalogueManager / NvcBundleParser).
+             jena-shex is excluded: it only backs RDF/ShEx validation, which CARLOS never
+             uses, and would otherwise pull Apache Jena, libthrift and a JSON-LD stack
+             (~15 jars) onto the runtime classpath for no functional gain. -->
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-structures-r4</artifactId>
             <version>${hapifhir.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.jena</groupId>
+                    <artifactId>jena-shex</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- JAX-WS RI (used at runtime for SOAP web services) -->

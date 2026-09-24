@@ -81,6 +81,7 @@
     "test:echart-note-sign-bill-playwright": "node scripts/echart-note-sign-bill-playwright-checks.js",
     "test:echart-vitals-bmi-playwright": "node scripts/echart-vitals-bmi-playwright-checks.js",
     "test:prevention-brand-picker-playwright": "node scripts/prevention-brand-picker-playwright-checks.js",
+    "test:vaccine-catalogue-update-playwright": "node scripts/vaccine-catalogue-update-playwright-checks.js",
     "test:prevention-add-data-playwright": "node scripts/prevention-add-data-playwright-checks.js",
     "test:form-rourke2017-playwright": "node scripts/form-rourke2017-playwright-checks.js",
     "test:form-labreq-practitioner-no-playwright": "node scripts/form-labreq-practitioner-no-playwright-checks.js",

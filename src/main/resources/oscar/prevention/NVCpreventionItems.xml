@@ -24,11 +24,13 @@
     Document   : NVCpreventionItems.xml
     Created on : Sept 14, 2024, 3:06 PM
     Author     : Peter Hutten-Czapski
-    Source     : src/main/resources/oscar/oscarPrevention/NVCpreventionItems.xml
+    Source     : src/main/resources/oscar/prevention/NVCpreventionItems.xml
     Updated on : September 14, 2024 by Peter Hutten-Czapski
     Description:
         Xml configuration used in the Prevention Module to set up the types of preventions available.
-        Legacy immunizations have been removed from this list as are supplanted with the NVC
+        Legacy immunizations have been removed from this list as they are supplanted by the
+        National Vaccine Catalogue (NVC) generics that PreventionDisplayConfig adds once the
+        catalogue is installed. Opt in with PREVENTION_ITEMS=classpath:oscar/prevention/NVCpreventionItems.xml
 -->
 
 <preventions>

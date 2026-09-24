@@ -217,6 +217,15 @@
         <action name="prevention/ViewPreventionListManager" class="io.github.carlos_emr.carlos.prevention.gate.ViewPreventionListManager2Action">
             <result name="success">/WEB-INF/jsp/prevention/PreventionListManager.jsp</result>
         </action>
+        <!-- National Vaccine Catalogue (NVC) administration: view is _admin r, update is POST-only _admin w. -->
+        <action name="prevention/ViewVaccineCatalogue" class="io.github.carlos_emr.carlos.prevention.web.ViewVaccineCatalogue2Action">
+            <result name="success">/WEB-INF/jsp/prevention/vaccineCatalogue.jsp</result>
+        </action>
+        <action name="prevention/UpdateVaccineCatalogue" class="io.github.carlos_emr.carlos.prevention.web.UpdateVaccineCatalogue2Action">
+            <result name="updated" type="redirect">/prevention/ViewVaccineCatalogue?result=updated</result>
+            <result name="failed" type="redirect">/prevention/ViewVaccineCatalogue?result=failed</result>
+            <result name="unavailable" type="redirect">/prevention/ViewVaccineCatalogue?result=unavailable</result>
+        </action>
 
         <!--
             encounter/ + casemgmt/ JSPs have been relocated behind

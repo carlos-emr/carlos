@@ -51,6 +51,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
@@ -849,7 +850,10 @@
                     </div>
                     <% } %>
 
-                    <%if (!StringUtils.isEmpty(CarlosProperties.getInstance().getProperty("cvc.url"))) { %>
+                    <%-- Catalogue-backed brand/generic/lot search once an NVC catalogue is installed
+                         (Administration > Integration > Update National Vaccine Catalogue);
+                         otherwise the static prevention-list picker. --%>
+                    <%if (SpringUtils.getBean(CanadianVaccineCatalogueManager.class).isCatalogueInstalled()) { %>
                                 <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
                                 <div id="lotNumberToAdd2_choices" class="autocomplete"></div>

@@ -28,8 +28,10 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
-import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -39,35 +41,20 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
-
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.Extension;
-import org.hl7.fhir.r4.model.Medication;
-import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ResourceType;
-import org.hl7.fhir.r4.model.ValueSet;
-import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
-import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceDesignationComponent;
-import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
-
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
@@ -84,64 +71,74 @@ import io.github.carlos_emr.carlos.commn.model.LookupList;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.prevention.nvc.NvcBundleException;
+import io.github.carlos_emr.carlos.prevention.nvc.NvcBundleParser;
+import io.github.carlos_emr.carlos.prevention.nvc.NvcCatalogue;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Local copy of the Canadian vaccine catalogue used by the Prevention module.
+ *
+ * <p>The catalogue is sourced from the Public Health Agency of Canada National Vaccine Catalogue
+ * (NVC) v2 FHIR R4 bundle, which replaced the retired Canadian Vaccine Catalogue (CVC) v1 DSTU3
+ * API. The local {@code CVC*} tables and this class name are kept for schema and caller
+ * compatibility.
+ *
+ * <p>{@link #update(LoggedInInfo)} downloads and fully parses the bundle <em>before</em> opening
+ * a transaction, then replaces the catalogue in a single transaction. A failed download or an
+ * unusable bundle therefore leaves the installed catalogue untouched, and a failed write rolls
+ * back to it; the (up to two-minute) download never holds a database connection.
+ */
 @Service
 public class CanadianVaccineCatalogueManager {
 
-    protected static FhirContext ctxR4 = null;
-    Logger logger = MiscUtils.getLogger();
+    /** NVC v2 FHIR base used when {@code cvc.url} is not set. */
+    public static final String NVC_DEFAULT_BASE_URL = "https://nvc-cnv.canada.ca/fhir/v2";
+    static final String NVC_BUNDLE_PATH = "/Bundle/NVC";
 
-    private static final String NVC_DEFAULT_BASE_URL = "https://nvc-cnv.canada.ca/fhir/v2";
-    private static final String CVC_FIRST_DATE_PROP = "cvc.firstdate";
-    private static final String CVC_UPDATED_PROP = "cvc.updated";
+    static final String CVC_UPDATED_PROP = "cvc.updated";
+    static final String CVC_FIRST_DATE_PROP = "cvc.firstdate";
+    static final String CVC_VERSION_PROP = "cvc.version";
 
-    // Official NVC V2 canonical URLs for FHIR extension/value-set parsing.
-    // These are fixed to the NVC canonical namespace and MUST NOT be derived from
-    // getCVCURL() — the transport endpoint may be overridden to a proxy or mirror,
-    // while FHIR canonicals embedded in the bundle always use the official base.
-    private static final String NVC_CANONICAL_BASE = "https://nvc-cnv.canada.ca/fhir/v2";
-    private static final String NVC_LINKED_GENERIC_CONCEPT_URL =
-            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-linked-generic-concept";
-    private static final String NVC_MARKET_AUTH_HOLDERS_URL =
-            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-market-authorization-holders";
-    private static final String NVC_MARKET_AUTH_HOLDER_URL =
-            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-market-authorization-holder";
-    private static final String NVC_GENERIC_VALUESET_URL =
-            NVC_CANONICAL_BASE + "/ValueSet/Generic";
-    private static final String NVC_PRODUCT_STATUS_URL =
-            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-product-status";
-    private static final String NVC_SHELF_STATUS_VALUESET_URL =
-            NVC_CANONICAL_BASE + "/ValueSet/ShelfStatus";
+    static final String ANATOMICAL_SITE_LIST = "AnatomicalSite";
+    static final String ROUTE_OF_ADMIN_LIST = "RouteOfAdmin";
+    private static final String CATALOGUE_AUTHOR = "NVC";
 
-    @Autowired
-    CVCMedicationDao medicationDao;
-    @Autowired
-    CVCMedicationLotNumberDao lotNumberDao;
-    @Autowired
-    CVCMedicationGTINDao gtinDao;
-    @Autowired
-    CVCImmunizationDao immunizationDao;
-    @Autowired
-    UserPropertyDAO userPropertyDao;
-    @Autowired
-    LookupListItemDao lookupListItemDao;
-    @Autowired
-    LookupListManager lookupListManager;
+    /** The September 2026 bundle is ~9 MB; the cap only guards against a runaway response. */
+    static final int MAX_BUNDLE_BYTES = 64 * 1024 * 1024;
 
-    static {
-        ctxR4 = FhirContext.forR4();
+    private final Logger logger = MiscUtils.getLogger();
+
+    private final CVCMedicationDao medicationDao;
+    private final CVCMedicationLotNumberDao lotNumberDao;
+    private final CVCMedicationGTINDao gtinDao;
+    private final CVCImmunizationDao immunizationDao;
+    private final UserPropertyDAO userPropertyDao;
+    private final LookupListManager lookupListManager;
+    private final LookupListItemDao lookupListItemDao;
+    private final SecurityInfoManager securityInfoManager;
+    private final TransactionTemplate transactionTemplate;
+
+    public CanadianVaccineCatalogueManager(CVCMedicationDao medicationDao,
+                                           CVCMedicationLotNumberDao lotNumberDao,
+                                           CVCMedicationGTINDao gtinDao,
+                                           CVCImmunizationDao immunizationDao,
+                                           UserPropertyDAO userPropertyDao,
+                                           LookupListManager lookupListManager,
+                                           LookupListItemDao lookupListItemDao,
+                                           SecurityInfoManager securityInfoManager,
+                                           PlatformTransactionManager transactionManager) {
+        this.medicationDao = medicationDao;
+        this.lotNumberDao = lotNumberDao;
+        this.gtinDao = gtinDao;
+        this.immunizationDao = immunizationDao;
+        this.userPropertyDao = userPropertyDao;
+        this.lookupListManager = lookupListManager;
+        this.lookupListItemDao = lookupListItemDao;
+        this.securityInfoManager = securityInfoManager;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
-
-    // Populated during updateBrandNameImmunizations, consumed by processMedicationBundle
-    private Map<String, String> dinManufactureMap = new HashMap<>();
-    private Map<String, String> dinDinMap = new HashMap<>();
 
     public List<CVCImmunization> getImmunizationList() {
         return immunizationDao.findAll(0, 1000);
@@ -166,404 +163,242 @@ public class CanadianVaccineCatalogueManager {
     }
 
     /**
-     * Downloads the NVC V2 bundle, validates connectivity, then atomically replaces all local CVC
-     * data. Aborts without clearing local data if the bundle cannot be fetched or parsed. If a DB
-     * write fails mid-update the transaction rolls back, preserving the previous catalogue state.
+     * Downloads the NVC bundle and replaces the local catalogue with it.
+     *
+     * @param loggedInInfo the administrator running the update; requires {@code _admin} write
+     * @return the catalogue that was installed
+     * @throws SecurityException   if the caller lacks {@code _admin} write
+     * @throws IOException         if the bundle could not be downloaded; nothing was changed
+     * @throws NvcBundleException  if the download is not a usable NVC bundle; nothing was changed
      */
-    @Transactional(rollbackFor = Exception.class)
-    public void update(LoggedInInfo loggedInInfo) throws IOException {
-        String jsonString;
-        Bundle bundle;
-
-        try {
-            jsonString = fetchBundleJson();
-            bundle = parseBundleJson(jsonString);
-        } catch (Exception e) {
-            logger.error("NVC V2 bundle fetch failed — aborting update, existing local data preserved", e);
-            throw e;
+    public NvcCatalogue update(LoggedInInfo loggedInInfo) throws IOException, NvcBundleException {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
         }
-
-        CarlosProperties carlosProps = CarlosProperties.getInstance();
-        if (carlosProps.hasProperty("CVC_BUNDLE_LOCAL_FILE")) {
-            try {
-                String rawPath = carlosProps.getProperty("CVC_BUNDLE_LOCAL_FILE");
-                File rawFile = new File(rawPath);
-                File parentDir = rawFile.getParentFile() != null ? rawFile.getParentFile() : new File(".");
-                File safeFile = PathValidationUtils.validatePath(rawFile.getName(), parentDir);
-                String prettyJson = ctxR4.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
-                FileUtils.writeStringToFile(safeFile, prettyJson, StandardCharsets.UTF_8);
-                logger.info("NVC bundle written to {}", safeFile.getAbsolutePath());
-            } catch (Exception e) {
-                logger.error("Failed to write NVC bundle to CVC_BUNDLE_LOCAL_FILE", e);
-            }
-        }
-
-        dinManufactureMap.clear();
-        dinDinMap.clear();
-        clearCurrentData();
-
-        for (BundleEntryComponent bec : bundle.getEntry()) {
-            Resource res = bec.getResource();
-            if (res.getResourceType() == ResourceType.ValueSet) {
-                String id = res.getIdElement().getIdPart();
-                if ("Generic".equals(id)) {
-                    updateGenericImmunizations(loggedInInfo, (ValueSet) res);
-                } else if ("Tradename".equals(id)) {
-                    updateBrandNameImmunizations(loggedInInfo, (ValueSet) res);
-                } else if ("AnatomicalSite".equals(id)) {
-                    updateAnatomicalSites(loggedInInfo, (ValueSet) res);
-                } else if ("RouteOfAdmin".equals(id)) {
-                    updateRoutes(loggedInInfo, (ValueSet) res);
-                } else {
-                    logger.debug("Skipping ValueSet: {}", id);
-                }
-            } else if (res.getResourceType() == ResourceType.Bundle) {
-                if ("Tradename".equals(res.getIdElement().getIdPart())) {
-                    updateMedications(loggedInInfo, (Bundle) res);
-                }
-            } else {
-                logger.debug("Skipping resource type: {}", res.getResourceType());
-            }
-        }
-
-        setUpdatedInPropertyTable();
-        setFirstDateInPropertyTable();
+        String url = getCVCURL() + NVC_BUNDLE_PATH;
+        NvcCatalogue catalogue = NvcBundleParser.parse(fetchBundleJson(url));
+        transactionTemplate.executeWithoutResult(status -> replaceCatalogue(loggedInInfo, catalogue));
+        logger.info("NVC catalogue {} installed: {} generics, {} tradenames, {} lots",
+                catalogue.version(), catalogue.generics().size(), catalogue.tradenames().size(),
+                catalogue.products().stream().mapToInt(p -> p.lots().size()).sum());
+        return catalogue;
     }
 
-    private String fetchBundleJson() throws IOException {
-        String baseUrl = getCVCURL();
-        String relUrl = CarlosProperties.getInstance().getProperty("NVC_BUNDLE", "/Bundle/NVC");
-        String fullUrl = baseUrl + relUrl;
-        String accept = CarlosProperties.getInstance().getProperty("NVC_ACCEPT", "application/json");
-        String xAppDesc = CarlosProperties.getInstance().getProperty("NVC_X_APP", "CARLOSEMR");
-
-        logger.debug("Fetching NVC V2 bundle from: {}", fullUrl);
-
+    /**
+     * Fetches the raw bundle. Package-private so tests can substitute a fixture without a network.
+     */
+    String fetchBundleJson(String url) throws IOException {
+        URI uri = URI.create(url);
+        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+            // The catalogue feeds clinical documentation; never accept it over cleartext.
+            throw new IOException("NVC catalogue URL must use https");
+        }
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectionRequestTimeout(Timeout.ofSeconds(30))
                 .setResponseTimeout(Timeout.ofSeconds(120))
                 .build();
-
         ConnectionConfig connectionConfig = ConnectionConfig.custom()
-                .setConnectTimeout(Timeout.ofSeconds(10))
+                .setConnectTimeout(Timeout.ofSeconds(15))
                 .build();
 
-        PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
-        connManager.setDefaultConnectionConfig(connectionConfig);
-
-        try (CloseableHttpClient httpClient = HttpClients.custom()
-                .setConnectionManager(connManager)
+        // useSystemProperties() honours https.proxyHost/proxyPort and the JVM trust store, which
+        // clinic and hospital networks commonly require for outbound HTTPS. Redirects are not
+        // followed so the https-only rule above cannot be bypassed by a downgrade redirect; a
+        // moved endpoint surfaces as an HTTP 3xx and is fixed by setting cvc.url.
+        try (CloseableHttpClient client = HttpClients.custom()
+                .useSystemProperties()
+                .disableRedirectHandling()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDefaultConnectionConfig(connectionConfig)
+                        .build())
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
-            HttpGet request = new HttpGet(fullUrl);
-            request.addHeader("Accept", accept);
-            request.addHeader("x-app-desc", xAppDesc);
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                int statusCode = response.getCode();
-                logger.debug("NVC response: {} {}", statusCode, response.getReasonPhrase());
-                if (statusCode != 200) {
-                    throw new IOException("NVC bundle fetch returned HTTP " + statusCode + " from " + fullUrl);
+            HttpGet request = new HttpGet(uri);
+            request.addHeader("Accept", "application/fhir+json, application/json");
+            request.addHeader("x-app-desc", "CARLOS EMR");
+            return client.execute(request, response -> {
+                if (response.getCode() != HttpStatus.SC_OK) {
+                    throw new IOException("NVC bundle download returned HTTP " + response.getCode());
                 }
-                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                if (body == null || body.isBlank()) {
-                    throw new IOException("NVC bundle response was empty from " + fullUrl);
-                }
-                logger.debug("NVC bundle fetched, length={}", body.length());
-                return body;
-            }
+                return readBounded(response.getEntity());
+            });
         }
     }
 
-    private Bundle parseBundleJson(String jsonString) {
-        IParser parser = ctxR4.newJsonParser();
-        return parser.parseResource(Bundle.class, jsonString);
+    private static String readBounded(HttpEntity entity) throws IOException {
+        if (entity == null) {
+            throw new IOException("NVC bundle download returned no body");
+        }
+        if (entity.getContentLength() > MAX_BUNDLE_BYTES) {
+            throw new IOException("NVC bundle exceeds " + MAX_BUNDLE_BYTES + " bytes");
+        }
+        try (InputStream in = entity.getContent()) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[64 * 1024];
+            int total = 0;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_BUNDLE_BYTES) {
+                    throw new IOException("NVC bundle exceeds " + MAX_BUNDLE_BYTES + " bytes");
+                }
+                out.write(buffer, 0, read);
+            }
+            return out.toString(StandardCharsets.UTF_8);
+        }
     }
 
-    private void clearCurrentData() {
+    /**
+     * Replaces every catalogue row with {@code catalogue}. Must run inside a transaction.
+     */
+    void replaceCatalogue(LoggedInInfo loggedInInfo, NvcCatalogue catalogue) {
+        // Children first: lots and GTINs reference CVCMedication rows.
+        lotNumberDao.removeAll();
+        gtinDao.removeAll();
         medicationDao.removeAll();
-        // lotNumberDao and gtinDao are intentionally NOT cleared here:
-        // NVC V2 no longer provides lot-number or GTIN data (removed in V2 spec).
-        // These tables are managed independently and must not be wiped during NVC refresh.
         immunizationDao.removeAll();
+
+        for (NvcCatalogue.Vaccine generic : catalogue.generics()) {
+            immunizationDao.persist(toImmunization(generic, true));
+        }
+        for (NvcCatalogue.Vaccine tradename : catalogue.tradenames()) {
+            immunizationDao.persist(toImmunization(tradename, false));
+        }
+
+        int lotCount = 0;
+        for (NvcCatalogue.Product product : catalogue.products()) {
+            CVCMedication medication = new CVCMedication();
+            medication.setBrand(true);
+            medication.setSnomedCode(product.snomedCode());
+            medication.setSnomedDisplay(product.displayName());
+            medication.setDin(product.din());
+            medication.setDinDisplayName(product.displayName());
+            medication.setManufacturerDisplay(product.manufacturer());
+            medication.setStatus(product.status());
+            medicationDao.persist(medication);
+            for (NvcCatalogue.Lot lot : product.lots()) {
+                Date expiry = lot.expiryDate() == null ? null : java.sql.Date.valueOf(lot.expiryDate());
+                lotNumberDao.persist(new CVCMedicationLotNumber(medication, lot.lotNumber(), expiry));
+                lotCount++;
+            }
+        }
+
+        syncLookupList(loggedInInfo, ANATOMICAL_SITE_LIST, "Anatomical Site",
+                "Anatomical sites of administration from the National Vaccine Catalogue", catalogue.anatomicalSites());
+        syncLookupList(loggedInInfo, ROUTE_OF_ADMIN_LIST, "Routes of Administration",
+                "Routes of administration from the National Vaccine Catalogue", catalogue.routes());
+
+        userPropertyDao.saveProp(CVC_UPDATED_PROP, new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()));
+        if (catalogue.version() != null) {
+            userPropertyDao.saveProp(CVC_VERSION_PROP, catalogue.version());
+        }
+        if (userPropertyDao.getProp(CVC_FIRST_DATE_PROP) == null) {
+            userPropertyDao.saveProp(CVC_FIRST_DATE_PROP, String.valueOf(System.currentTimeMillis()));
+        }
+
+        // One audit row per update, not one per catalogue row (~5,000 inserts).
+        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.update",
+                "version=" + catalogue.version() + " generics=" + catalogue.generics().size()
+                        + " tradenames=" + catalogue.tradenames().size() + " lots=" + lotCount);
     }
 
-    public void updateGenericImmunizations(LoggedInInfo loggedInInfo, ValueSet vs) {
-        if (!vs.hasCompose()) {
+    private static CVCImmunization toImmunization(NvcCatalogue.Vaccine vaccine, boolean generic) {
+        CVCImmunization immunization = new CVCImmunization();
+        immunization.setVersionId(0);
+        immunization.setSnomedConceptId(vaccine.snomedConceptId());
+        immunization.setDisplayName(vaccine.displayName());
+        immunization.setPicklistName(vaccine.picklistName());
+        immunization.setParentConceptId(vaccine.parentConceptId());
+        immunization.setGeneric(generic);
+        return immunization;
+    }
+
+    /**
+     * Upserts a lookup list by item value: NVC concepts are (re)activated with their current
+     * label and order, and items NVC no longer publishes are deactivated rather than deleted so
+     * that any record already referencing them still resolves.
+     */
+    private void syncLookupList(LoggedInInfo loggedInInfo, String name, String title, String description,
+                                List<NvcCatalogue.CodedValue> values) {
+        if (values.isEmpty()) {
+            // An absent subset is not evidence that every site/route was withdrawn.
             return;
         }
-        for (ConceptSetComponent c : vs.getCompose().getInclude()) {
-            for (ConceptReferenceComponent cc : c.getConcept()) {
-                CVCImmunization imm = new CVCImmunization();
-                imm.setSnomedConceptId(cc.getCode());
+        LookupList list = lookupListManager.findLookupListByName(loggedInInfo, name);
+        if (list == null) {
+            list = new LookupList();
+            list.setName(name);
+            list.setListTitle(title);
+            list.setDescription(description);
+            list.setActive(true);
+            list.setCreatedBy(CATALOGUE_AUTHOR);
+            list.setDateCreated(new Date());
+            list = lookupListManager.addLookupList(loggedInInfo, list);
+        }
 
-                String picklistTerm = null;
-                String fullySpecifiedName = null;
+        Map<String, LookupListItem> existing = new HashMap<>();
+        for (boolean active : new boolean[]{true, false}) {
+            for (LookupListItem item : lookupListItemDao.findByLookupListId(list.getId(), active)) {
+                existing.putIfAbsent(item.getValue(), item);
+            }
+        }
 
-                for (ConceptReferenceDesignationComponent cr : cc.getDesignation()) {
-                    Coding use = cr.getUse();
-                    if (use == null) continue;
-                    if ("enAbbreviation".equals(use.getCode())) {
-                        picklistTerm = cr.getValue();
-                    } else if ("900000000000003001".equals(use.getCode())
-                            || "Fully Specified Name".equals(use.getDisplay())) {
-                        fullySpecifiedName = cr.getValue();
-                    }
-                }
-
-                if (fullySpecifiedName != null) {
-                    imm.setDisplayName(fullySpecifiedName + " (generic)");
-                } else if (picklistTerm != null) {
-                    imm.setDisplayName(picklistTerm);
-                }
-                if (picklistTerm != null) {
-                    imm.setPicklistName(picklistTerm);
-                }
-
-                imm.setGeneric(true);
-                saveImmunization(loggedInInfo, imm);
+        int order = 0;
+        for (NvcCatalogue.CodedValue value : values) {
+            LookupListItem item = existing.remove(value.code());
+            if (item == null) {
+                item = new LookupListItem();
+                item.setLookupListId(list.getId());
+                item.setValue(value.code());
+                item.setLabel(value.label());
+                item.setDisplayOrder(order++);
+                item.setActive(true);
+                item.setCreatedBy(CATALOGUE_AUTHOR);
+                item.setDateCreated(new Date());
+                lookupListManager.addLookupListItem(loggedInInfo, item);
+            } else {
+                item.setLabel(value.label());
+                item.setDisplayOrder(order++);
+                item.setActive(true);
+                // Through the manager, not the DAO: it evicts the shared lookup-list cache.
+                lookupListManager.updateLookupListItem(loggedInInfo, item);
+            }
+        }
+        for (LookupListItem withdrawn : existing.values()) {
+            if (withdrawn.isActive()) {
+                withdrawn.setActive(false);
+                lookupListManager.updateLookupListItem(loggedInInfo, withdrawn);
             }
         }
     }
 
-    public void updateBrandNameImmunizations(LoggedInInfo loggedInInfo, ValueSet vs) {
-        if (!vs.hasCompose()) {
-            return;
-        }
-        for (ConceptSetComponent c : vs.getCompose().getInclude()) {
-            for (ConceptReferenceComponent cc : c.getConcept()) {
-                CVCImmunization imm = new CVCImmunization();
-                imm.setSnomedConceptId(cc.getCode());
-
-                String enAbbreviation = null;
-                String fullySpecifiedName = null;
-
-                for (ConceptReferenceDesignationComponent cr : cc.getDesignation()) {
-                    Coding use = cr.getUse();
-                    if (use == null) continue;
-                    if ("enAbbreviation".equals(use.getCode())) {
-                        enAbbreviation = cr.getValue();
-                    } else if ("900000000000003001".equals(use.getCode())
-                            || "Fully Specified Name".equals(use.getDisplay())) {
-                        fullySpecifiedName = cr.getValue();
-                    }
-                }
-
-                if (fullySpecifiedName != null) {
-                    imm.setDisplayName(fullySpecifiedName);
-                }
-                if (enAbbreviation != null && fullySpecifiedName != null) {
-                    // Brand picklist: first word of FSN + abbreviation, e.g. "Infanrix (INF)"
-                    String firstWord = fullySpecifiedName.split(" ")[0];
-                    imm.setPicklistName(firstWord + " (" + enAbbreviation + ")");
-                } else if (enAbbreviation != null) {
-                    imm.setPicklistName(enAbbreviation);
-                }
-
-                for (Extension ext : cc.getExtension()) {
-                    String extUrl = ext.getUrl();
-                    // nvc-parent-concept was renamed to nvc-linked-generic-concept in NVC V2
-                    if (NVC_LINKED_GENERIC_CONCEPT_URL.equals(extUrl)) {
-                        if (!(ext.getValue() instanceof CodeableConcept)) continue;
-                        CodeableConcept parentC = (CodeableConcept) ext.getValue();
-                        for (Coding parentCode : parentC.getCoding()) {
-                            if (NVC_GENERIC_VALUESET_URL.equals(parentCode.getSystem())) {
-                                imm.setParentConceptId(parentCode.getCode());
-                                break;
-                            }
-                        }
-                    } else if (NVC_MARKET_AUTH_HOLDERS_URL.equals(extUrl)) {
-                        for (Extension mahExt : ext.getExtension()) {
-                            if (NVC_MARKET_AUTH_HOLDER_URL.equals(mahExt.getUrl())) {
-                                if (imm.getSnomedConceptId() != null && mahExt.getValue() != null) {
-                                    dinManufactureMap.put(imm.getSnomedConceptId(),
-                                            mahExt.getValue().primitiveValue());
-                                }
-                            }
-                        }
-                    }
-                    // nvc-dins, nvc-route-of-admins, nvc-typical-dose-sizes, nvc-strengths,
-                    // nvc-product-statuses, nvc-lots, nvc-lot-number, nvc-expiry-date
-                    // are all removed in NVC V2 and not processed here.
-                }
-
-                imm.setGeneric(false);
-                saveImmunization(loggedInInfo, imm);
-            }
-        }
+    /**
+     * @return when the catalogue was last installed ({@code yyyy-MM-dd HH:mm}), or {@code null}
+     *         if it never has been
+     */
+    public String getLastUpdated() {
+        return propertyValue(CVC_UPDATED_PROP);
     }
 
-    public void updateMedications(LoggedInInfo loggedInInfo, Bundle bundle) {
-        processMedicationBundle(loggedInInfo, bundle);
+    /**
+     * @return the NVC version stamp of the installed catalogue, or {@code null}
+     */
+    public String getInstalledVersion() {
+        return propertyValue(CVC_VERSION_PROP);
     }
 
-    private void processMedicationBundle(LoggedInInfo loggedInInfo, Bundle bundle) {
-        for (BundleEntryComponent entry : bundle.getEntry()) {
-            CVCMedication cMed = new CVCMedication();
-            Medication med = (Medication) entry.getResource();
-
-            // Extract the SNOMED code first so it can be used as the map key for manufacturer
-            // lookup — keying by resource ID risks mismatch if the Medication ID differs from
-            // the SNOMED concept code used in the Tradename ValueSet.
-            String snomedCode = null;
-            for (Coding c : med.getCode().getCoding()) {
-                if ("http://snomed.info/sct".equals(c.getSystem())) {
-                    snomedCode = c.getCode();
-                    cMed.setSnomedCode(c.getCode());
-                    cMed.setSnomedDisplay(c.getDisplay());
-                }
-            }
-
-            if (snomedCode != null && dinManufactureMap.containsKey(snomedCode)) {
-                cMed.setManufacturerDisplay(dinManufactureMap.get(snomedCode));
-            }
-
-            if (med.getStatus() != null) {
-                cMed.setStatus(med.getStatus().toString());
-            }
-
-            for (Extension ext : med.getExtension()) {
-                String extUrl = ext.getUrl();
-                if (NVC_MARKET_AUTH_HOLDER_URL.equals(extUrl)) {
-                    if (ext.getValue() != null) {
-                        cMed.setManufacturerDisplay(ext.getValue().primitiveValue());
-                    }
-                } else if (NVC_PRODUCT_STATUS_URL.equals(extUrl)) {
-                    if (ext.getValue() instanceof CodeableConcept) {
-                        CodeableConcept statusConcept = (CodeableConcept) ext.getValue();
-                        for (Coding statusCode : statusConcept.getCoding()) {
-                            if (NVC_SHELF_STATUS_VALUESET_URL.equals(statusCode.getSystem())) {
-                                cMed.setStatus(statusCode.getDisplay());
-                            }
-                        }
-                    }
-                }
-                // nvc-lots, nvc-lot-number, nvc-expiry-date removed in NVC V2
-            }
-
-            cMed.setBrand(true);
-            saveMedication(loggedInInfo, cMed);
-        }
+    /**
+     * Whether a catalogue has been installed. The Prevention screen uses this to decide between
+     * the catalogue-backed brand/generic/lot search and the static prevention list.
+     */
+    public boolean isCatalogueInstalled() {
+        return getLastUpdated() != null;
     }
 
-    public void updateAnatomicalSites(LoggedInInfo loggedInInfo, ValueSet vs) {
-        LookupList ll = lookupListManager.findLookupListByName(loggedInInfo, "AnatomicalSite");
-        if (ll == null) {
-            ll = new LookupList();
-            ll.setActive(true);
-            ll.setCreatedBy("CARLOS");
-            ll.setDateCreated(new Date());
-            ll.setDescription("Anatomical Sites from NVC");
-            ll.setName("AnatomicalSite");
-            ll.setListTitle("Anatomical Site");
-            ll = lookupListManager.addLookupList(loggedInInfo, ll);
-        } else {
-            // Deactivate existing items so the list is refreshed cleanly
-            for (LookupListItem item : lookupListItemDao.findByLookupListId(ll.getId(), true)) {
-                item.setActive(false);
-                lookupListItemDao.merge(item);
-            }
-        }
-
-        if (!vs.hasCompose()) {
-            return;
-        }
-        int displayOrder = 0;
-        for (ConceptSetComponent c : vs.getCompose().getInclude()) {
-            for (ConceptReferenceComponent cc : c.getConcept()) {
-                LookupListItem lli = new LookupListItem();
-                lli.setActive(true);
-                lli.setCreatedBy("CARLOS");
-                lli.setDateCreated(new Date());
-                lli.setLabel(cc.getDisplay());
-                lli.setValue(cc.getCode());
-                lli.setLookupListId(ll.getId());
-                lli.setDisplayOrder(displayOrder++);
-                lookupListManager.addLookupListItem(loggedInInfo, lli);
-            }
-        }
-    }
-
-    public void updateRoutes(LoggedInInfo loggedInInfo, ValueSet vs) {
-        LookupList ll = lookupListManager.findLookupListByName(loggedInInfo, "RouteOfAdmin");
-        if (ll == null) {
-            ll = new LookupList();
-            ll.setActive(true);
-            ll.setCreatedBy("CARLOS");
-            ll.setDateCreated(new Date());
-            ll.setDescription("Routes of Administration from NVC");
-            ll.setName("RouteOfAdmin");
-            ll.setListTitle("Routes of Administration");
-            ll = lookupListManager.addLookupList(loggedInInfo, ll);
-        } else {
-            // Deactivate existing items so the list is refreshed cleanly
-            for (LookupListItem item : lookupListItemDao.findByLookupListId(ll.getId(), true)) {
-                item.setActive(false);
-                lookupListItemDao.merge(item);
-            }
-        }
-
-        if (!vs.hasCompose()) {
-            return;
-        }
-        int displayOrder = 0;
-        for (ConceptSetComponent c : vs.getCompose().getInclude()) {
-            for (ConceptReferenceComponent cc : c.getConcept()) {
-                LookupListItem lli = new LookupListItem();
-                lli.setActive(true);
-                lli.setCreatedBy("CARLOS");
-                lli.setDateCreated(new Date());
-                lli.setLabel(cc.getDisplay());
-                lli.setValue(cc.getCode());
-                lli.setLookupListId(ll.getId());
-                lli.setDisplayOrder(displayOrder++);
-                lookupListManager.addLookupListItem(loggedInInfo, lli);
-            }
-        }
-    }
-
-    private void setUpdatedInPropertyTable() {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-        UserProperty up = userPropertyDao.getProp(CVC_UPDATED_PROP);
-        if (up == null) {
-            up = new UserProperty();
-            up.setName(CVC_UPDATED_PROP);
-        }
-        up.setValue(formatter.format(new Date()));
-        userPropertyDao.saveProp(up);
-    }
-
-    private void setFirstDateInPropertyTable() {
-        UserProperty up = userPropertyDao.getProp(CVC_FIRST_DATE_PROP);
-        if (up == null) {
-            up = new UserProperty();
-            up.setName(CVC_FIRST_DATE_PROP);
-            up.setValue(String.valueOf(new Date().getTime()));
-            userPropertyDao.saveProp(up);
-        }
-    }
-
-    public void saveImmunization(LoggedInInfo loggedInInfo, CVCImmunization immunization) {
-        immunizationDao.saveEntity(immunization);
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.saveImmunization",
-                immunization.getId().toString());
-    }
-
-    public void saveMedication(LoggedInInfo loggedInInfo, CVCMedication medication) {
-        Set<CVCMedicationGTIN> gtins = medication.getGtinList();
-        Set<CVCMedicationLotNumber> lotNumbers = medication.getLotNumberList();
-
-        medication.setGtinList(null);
-        medication.setLotNumberList(null);
-        medicationDao.saveEntity(medication);
-
-        for (CVCMedicationGTIN g : gtins) {
-            gtinDao.saveEntity(g);
-        }
-        for (CVCMedicationLotNumber l : lotNumbers) {
-            lotNumberDao.saveEntity(l);
-        }
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.saveMedication",
-                medication.getId().toString());
+    private String propertyValue(String name) {
+        UserProperty property = userPropertyDao.getProp(name);
+        return property == null || property.getValue() == null || property.getValue().isBlank()
+                ? null : property.getValue();
     }
 
     public CVCMedicationLotNumber findByLotNumber(LoggedInInfo loggedInInfo, String lotNumber) {
@@ -615,48 +450,25 @@ public class CanadianVaccineCatalogueManager {
     }
 
     /**
-     * Returns the NVC base URL, allowing override from UserProperty then CarlosProperties.
-     * Default is the NVC V2 base URL: {@value NVC_DEFAULT_BASE_URL}.
-     * Trailing slashes are stripped so callers can safely concatenate path segments.
+     * Returns the NVC FHIR base URL: the {@code cvc.url} property when set (for a mirror or
+     * proxy), otherwise {@value #NVC_DEFAULT_BASE_URL}. Trailing slashes are stripped so callers
+     * can append a path.
      */
     public static String getCVCURL() {
-        String url = CarlosProperties.getInstance().getProperty("cvc.url", NVC_DEFAULT_BASE_URL);
-        UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty up = upDao.getProp("cvc.url");
-        if (up != null && up.getValue() != null && !up.getValue().isBlank()) {
-            url = up.getValue();
+        String url = CarlosProperties.getInstance().getProperty("cvc.url");
+        if (url == null || url.isBlank()) {
+            url = NVC_DEFAULT_BASE_URL;
         }
-        // Normalize: strip trailing slash to prevent double-slash when concatenating path segments
+        url = url.trim();
         while (url.endsWith("/")) {
             url = url.substring(0, url.length() - 1);
         }
         return url;
     }
-
-    /**
-     * Returns true if CVC data has been loaded and the given creation date falls after
-     * the first CVC load date (i.e. the record was created after CVC was first activated).
-     */
-    public static boolean getCVCActive(Date creationDate) {
-        UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty up = upDao.getProp(CVC_FIRST_DATE_PROP);
-        if (up == null || up.getValue() == null || up.getValue().isBlank()) {
-            return false;
-        }
-        if (creationDate == null) {
-            return true;
-        }
-        try {
-            Date cvcFirstDate = new Date(Long.parseLong(up.getValue()));
-            return cvcFirstDate.before(creationDate);
-        } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("CVC first-date property is not a valid long: {}", up.getValue());
-            return false;
-        }
-    }
 }
 
 class PrevalenceComparator implements Comparator<CVCImmunization> {
+    @Override
     public int compare(CVCImmunization i1, CVCImmunization i2) {
         Integer d1 = i1.getPrevalence();
         Integer d2 = i2.getPrevalence();
