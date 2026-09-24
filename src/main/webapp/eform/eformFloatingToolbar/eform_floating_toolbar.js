@@ -60,9 +60,18 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
     jQuery.post(context + "/eform/logEformError", eform);
 }
 
-function hideAdminPreviewSaveButton() {
+/**
+ * True when this eForm is open without a patient: the eForm manager's preview, which
+ * efmshowform_data.jsp renders with demographic "-1" precisely because it cannot be submitted.
+ * There is no chart to save into, so Print must not offer or attempt a chart save.
+ */
+function isAdminPreview() {
     const demographicNo = document.getElementById("demographicNo");
-    if (demographicNo?.value !== "-1") {
+    return demographicNo?.value === "-1";
+}
+
+function hideAdminPreviewSaveButton() {
+    if (!isAdminPreview()) {
         return;
     }
 
@@ -668,6 +677,12 @@ function remotePrint() {
 
     // The save follows the print, as it always has: remoteSave() submits the form and navigates this
     // window away, so it must not run before the page has been handed to the printer.
+    // The manager preview has no patient, so Print only prints there. Before #3901 an edited
+    // preview, or one without dirty detection, still reached remoteSave() and posted a
+    // patientless form; the new prompt would otherwise also offer a meaningless chart save.
+    if (isAdminPreview()) {
+        return;
+    }
     saveAfterPrint(typeof needToConfirm === 'undefined' ? undefined : needToConfirm);
 }
 

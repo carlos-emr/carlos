@@ -14,7 +14,10 @@ const source = fs.readFileSync(toolbarPath, 'utf8');
 const start = source.indexOf('function remotePrint() {');
 const end = source.indexOf('function hailMary() {');
 assert.ok(start > 0 && end > start, 'remotePrint..hailMary slice must exist');
-const printCode = source.slice(start, end);
+const previewStart = source.indexOf('function isAdminPreview() {');
+const previewEnd = source.indexOf('function hideAdminPreviewSaveButton() {');
+assert.ok(previewStart > 0 && previewEnd > previewStart, 'isAdminPreview slice must exist');
+const printCode = source.slice(previewStart, previewEnd) + source.slice(start, end);
 
 const FALLBACK = "You haven't manually edited this eForm. Would you like to save a copy to the patient's chart anyway?";
 
@@ -22,7 +25,7 @@ const FALLBACK = "You haven't manually edited this eForm. Would you like to save
  * Runs the real remotePrint()/print-save helpers against stubs.
  * dirtyDeclaration: JS declaring the eForm's dirty flag, or '' for a form without dirty detection.
  */
-function setup({dirtyDeclaration = '', confirmAnswer = true, toolbarMessage} = {}) {
+function setup({dirtyDeclaration = '', confirmAnswer = true, toolbarMessage, demographicNo = '42'} = {}) {
   const events = [];
   const toolbar = toolbarMessage === undefined ? null : {
     getAttribute: (name) => (name === 'data-print-save-unedited-confirm' ? toolbarMessage : null),
@@ -30,7 +33,11 @@ function setup({dirtyDeclaration = '', confirmAnswer = true, toolbarMessage} = {
   const context = vm.createContext({
     console: {log() {}},
     document: {
-      getElementById: (id) => (id === 'eform_floating_toolbar' ? toolbar : null),
+      getElementById: (id) => {
+        if (id === 'eform_floating_toolbar') return toolbar;
+        if (id === 'demographicNo') return demographicNo === null ? null : {value: demographicNo};
+        return null;
+      },
       getElementsByName: () => [],
     },
     confirm: (message) => { events.push(['confirm', message]); return confirmAnswer; },
@@ -109,6 +116,21 @@ test('loading-editor guard still aborts before printing, prompting or saving', (
   f.context.editorStillLoading = () => true;
   f.context.remotePrint();
   assert.deepEqual(f.kinds(), []);
+});
+
+// efmshowform_data.jsp renders the eForm manager preview with demographic "-1": there is no chart.
+test('admin preview prints without prompting or saving, whatever the dirty flag says', () => {
+  for (const dirtyDeclaration of ['var needToConfirm = false;', 'var needToConfirm = true;', '']) {
+    const f = setup({dirtyDeclaration, demographicNo: '-1'});
+    f.context.remotePrint();
+    assert.deepEqual(f.kinds(), ['clearWorkflowFlags', 'print'], dirtyDeclaration || 'no dirty detection');
+  }
+});
+
+test('a page without the demographicNo input keeps the patient print/save behaviour', () => {
+  const f = setup({dirtyDeclaration: 'var needToConfirm = true;', demographicNo: null});
+  f.context.remotePrint();
+  assert.deepEqual(f.kinds(), ['clearWorkflowFlags', 'print', 'save']);
 });
 
 test('toolbar fragment publishes the localized prompt as an encoded data attribute', () => {
