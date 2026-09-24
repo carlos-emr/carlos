@@ -79,6 +79,8 @@ public class PortalAccount2Action extends PortalJsonAction {
     static final int MAX_REASON_LENGTH = 64;
     private static final String REASON_TOO_LONG =
             "the reason must be at most " + MAX_REASON_LENGTH + " characters";
+    private static final String REASON_UNSAFE =
+            "the reason must not contain line breaks, control or formatting characters";
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient PortalStaffContextResolver staffContextResolver;
@@ -208,6 +210,12 @@ public class PortalAccount2Action extends PortalJsonAction {
         if (!reasonMissing && reason.strip().codePointCount(0, reason.strip().length()) > MAX_REASON_LENGTH) {
             return badRequest(response, REASON_TOO_LONG);
         }
+        // The portal stores the reason verbatim in its audit trail and shows it back to staff. A line break
+        // could make one audit line read as two, and an invisible formatting character (a right-to-left
+        // override, say) could make the stored text display as something else. The portal accepts both.
+        if (!reasonMissing && !isPlainText(reason.strip())) {
+            return badRequest(response, REASON_UNSAFE);
+        }
         PatientPortalAccountAcknowledgementDto account =
                 portal.setAccountAccess(
                         demographicNo,
@@ -221,5 +229,16 @@ public class PortalAccount2Action extends PortalJsonAction {
         payload.put("enabled", enabledValue);
         payload.put("forcePasswordReset", account.forcePasswordReset());
         return write(response, HttpServletResponse.SC_OK, payload);
+    }
+
+    /** Whether text has no control, line or paragraph separator, or Unicode formatting characters. */
+    static boolean isPlainText(String text) {
+        return text.codePoints().noneMatch(codePoint -> {
+            int type = Character.getType(codePoint);
+            return Character.isISOControl(codePoint)
+                    || type == Character.FORMAT
+                    || type == Character.LINE_SEPARATOR
+                    || type == Character.PARAGRAPH_SEPARATOR;
+        });
     }
 }
