@@ -411,6 +411,10 @@
         var moving = null;
 
         svg.addEventListener('pointerdown', function (event) {
+            // Only the primary button (or a first touch/pen contact) acts on the page. A right- or
+            // middle-click on a mark would otherwise run the click path on release, and in select
+            // mode that silently deletes the mark the provider only meant to open a menu on.
+            if (!event.isPrimary || event.button !== 0) { return; }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
                     || wrap.classList.contains('load-failed')) { return; }

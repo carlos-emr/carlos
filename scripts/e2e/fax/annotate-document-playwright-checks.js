@@ -502,6 +502,94 @@ async function main() {
     check('a moved and edited note saves successfully',
       await page.locator('#status').getAttribute('class') === 'status ok');
 
+    // The grab rules differ by mark kind, so each branch is pinned separately: highlights and
+    // ink are drawn across in the drawing tools and move only in select; placed marks move from
+    // any tool; a cancelled or non-primary press changes nothing; a move stops at the page edge.
+    await openViewer();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const ov = await page.locator('svg.overlay').first().boundingBox();
+    const markCount = async () => Number(await page.locator('#markCount').textContent());
+    const boxOf = selector => page.locator('svg.overlay').first().locator(selector).first().boundingBox();
+    async function drag(x0, y0, x1, y1) {
+      await page.mouse.move(ov.x + x0, ov.y + y0);
+      await page.mouse.down();
+      await page.mouse.move(ov.x + x1, ov.y + y1, { steps: 8 });
+      await page.mouse.up();
+    }
+
+    await page.locator('.tool[data-tool="highlight"]').click();
+    await drag(60, 300, 260, 330);
+    await drag(100, 315, 300, 345);
+    check('a highlight drag that starts on a highlight draws a new one', await markCount() === 2, String(await markCount()));
+
+    await page.locator('.tool[data-tool="select"]').click();
+    const hlBefore = await boxOf('rect.mark');
+    await drag(70, 305, 70, 405);
+    const hlAfter = await boxOf('rect.mark');
+    check('select moves a highlight', Math.abs(hlAfter.y - hlBefore.y - 100) < 3 && await markCount() === 2,
+      JSON.stringify([hlBefore, hlAfter]));
+
+    await page.mouse.move(ov.x + 70, ov.y + 405);
+    await page.mouse.down();
+    await page.mouse.move(ov.x + 70, ov.y + 505, { steps: 8 });
+    await page.locator('svg.overlay').first().evaluate(svg => svg.dispatchEvent(
+      new PointerEvent('pointercancel', { bubbles: true, pointerId: 1, isPrimary: true })));
+    await page.mouse.up();
+    const hlCancelled = await boxOf('rect.mark');
+    check('a cancelled drag leaves the mark where it was', Math.abs(hlCancelled.y - hlAfter.y) < 1.5,
+      JSON.stringify([hlAfter, hlCancelled]));
+
+    await page.mouse.click(ov.x + 70, ov.y + 405, { button: 'right' });
+    check('a right-click on a mark in select does not delete it', await markCount() === 2, String(await markCount()));
+
+    await page.locator('.swatch[data-color="black"]').click();
+    await page.locator('.tool[data-tool="draw"]').click();
+    await drag(400, 600, 600, 600);
+    await page.locator('.tool[data-tool="select"]').click();
+    const inkBefore = await boxOf('g.mark[data-kind="stroke"]');
+    await drag(500, 600, 500, 700);
+    const inkAfter = await boxOf('g.mark[data-kind="stroke"]');
+    check('select moves an ink stroke by its hit area', Math.abs(inkAfter.y - inkBefore.y - 100) < 3 && await markCount() === 3,
+      JSON.stringify([inkBefore, inkAfter]));
+
+    await page.locator('.tool[data-tool="signature"]').click();
+    await page.mouse.click(ov.x + 400, ov.y + 150);
+    await page.locator('.tool[data-tool="date"]').click();
+    const sigBefore = await boxOf('g.mark[data-kind="placed"]');
+    await drag(sigBefore.x - ov.x + 10, sigBefore.y - ov.y + 10, sigBefore.x - ov.x + 10, sigBefore.y - ov.y + 160);
+    const sigAfter = await boxOf('g.mark[data-kind="placed"]');
+    check('a signature can be dragged while the date tool is active',
+      Math.abs(sigAfter.y - sigBefore.y - 150) < 3 && await markCount() === 4, JSON.stringify([sigBefore, sigAfter]));
+
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic edge note'));
+    await page.mouse.click(ov.x + 200, ov.y + 200);
+    const edgeBefore = await boxOf('text.mark');
+    await drag(edgeBefore.x - ov.x + 4, edgeBefore.y - ov.y + 4, 5000, 5000);
+    const edgeAfter = await boxOf('text.mark');
+    check('a move stops at the page edge',
+      edgeAfter.x > edgeBefore.x && edgeAfter.x + edgeAfter.width <= ov.x + ov.width + 1
+      && edgeAfter.y + edgeAfter.height <= ov.y + ov.height + 1, JSON.stringify([edgeAfter, ov]));
+
+    page.once('dialog', dialog => dialog.accept('Synthetic note to clear'));
+    await page.mouse.click(ov.x + 200, ov.y + 250);
+    const clearBox = await page.locator('svg.overlay').first().locator('text.mark').nth(1).boundingBox();
+    page.once('dialog', dialog => dialog.accept(''));
+    await page.mouse.click(clearBox.x + 4, clearBox.y + 4);
+    check('clearing a note removes it', await markCount() === 5
+      && await page.locator('svg.overlay').first().locator('text.mark').count() === 1, String(await markCount()));
+
+    // Signature save needs a provider stamp this deployment may not have, so the mark is removed
+    // (which also pins that a select click still deletes a signature) before the save below.
+    await page.locator('.tool[data-tool="select"]').click();
+    await page.mouse.click(sigAfter.x + 10, sigAfter.y + 10);
+    check('a select click still deletes a signature', await markCount() === 4, String(await markCount()));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('marks moved to the page edge pass server validation',
+      await page.locator('#status').getAttribute('class') === 'status ok',
+      await page.locator('#status').textContent());
+
     await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {
