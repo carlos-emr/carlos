@@ -927,6 +927,27 @@ async function main() {
     check('text-layer HTTP failure retries on the next drag', wordAttempts >= 2);
     await page.unroute('**/DocumentTextBoxes?*');
 
+    // A stroke being drawn holds Save too: it is committed on release, and a save taken mid-stroke
+    // would refuse it then and lose it.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await page.locator('.tool[data-tool="draw"]').click();
+    const strokeBox = await page.locator('svg.overlay').first().boundingBox();
+    const marksBeforeStroke = await markCount();
+    let saveDuringStroke = false;
+    const watchStrokeSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { saveDuringStroke = true; } };
+    page.on('request', watchStrokeSave);
+    await page.mouse.move(strokeBox.x + 60, strokeBox.y + 420);
+    await page.mouse.down();
+    await page.mouse.move(strokeBox.x + 260, strokeBox.y + 440, { steps: 8 });
+    const saveHeldDuringStroke = await page.locator('#btnSave').isDisabled();
+    await page.locator('#btnSave').evaluate(button => button.click());
+    await page.mouse.up();
+    page.off('request', watchStrokeSave);
+    check('Save is held while a stroke is drawn and the stroke still lands',
+      saveHeldDuringStroke && !saveDuringStroke && await markCount() === marksBeforeStroke + 1
+      && await page.locator('#btnSave').isEnabled(),
+      JSON.stringify([saveHeldDuringStroke, saveDuringStroke, marksBeforeStroke, await markCount()]));
+
     // Hold an actual server save response; attempted edits must not re-enable duplicate submission.
     let releaseSave;
     const hold = new Promise(resolve => { releaseSave = resolve; });

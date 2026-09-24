@@ -69,6 +69,7 @@
         saving: false,
         uncertain: false,
         moves: 0,            // marks being dragged now; pages track their own gestures
+        strokes: 0,          // highlight or ink strokes being drawn now
         previews: {},        // mark id -> {dx, dy} page fractions of a drag not yet released
         refitPending: false, // the annotation font arrived mid-drag; refit notes when it ends
         fontReady: null      // settles once the annotation font has loaded or failed
@@ -481,6 +482,18 @@
      * counted rather than flagged: a mouse and a pen can drag on two pages at once, and the
      * first to finish must not release a refit under the other.
      */
+    /** Counts a highlight or ink stroke in progress, so Save is held until it is committed. */
+    function strokeStarted() {
+        state.strokes++;
+        updateCounts();
+    }
+
+    /** Called whenever a stroke ends, committed or abandoned. */
+    function strokeEnded() {
+        state.strokes = Math.max(0, state.strokes - 1);
+        updateCounts();
+    }
+
     function moveEnded() {
         state.moves = Math.max(0, state.moves - 1);
         updateCounts();
@@ -571,7 +584,10 @@
         document.getElementById('markCount').textContent = String(count);
         // Save is also held while a mark is being dragged: a save taken mid-drag would post the
         // mark where it was, and the drag could then not be applied under the in-flight save.
-        var blocked = state.uncertain || state.saving || state.saved || state.moves > 0 || count === 0;
+        // A stroke being drawn counts too: it is committed on release, and a save in flight
+        // would refuse it then, losing the stroke.
+        var blocked = state.uncertain || state.saving || state.saved || state.moves > 0
+            || state.strokes > 0 || count === 0;
         document.getElementById('btnSave').disabled = blocked;
         document.getElementById('btnSaveFax').disabled = blocked;
     }
@@ -599,11 +615,13 @@
             // arrived (a capture lost to a window switch); drop it rather than let it hijack this one.
             if (moving || dragging) {
                 var staleMove = moving !== null;
+                var staleStroke = dragging !== null;
                 if (staleMove) { delete state.previews[moving.a.id]; }
                 moving = null;
                 dragging = null;
                 redrawPage(page);
                 if (staleMove) { moveEnded(); }
+                if (staleStroke) { strokeEnded(); }
             }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
@@ -618,6 +636,7 @@
             }
             if (state.tool === 'highlight') { fetchWordBoxes(page); }
             dragging = { pointerId: event.pointerId, x0: nx, y0: ny, points: [[nx, ny]] };
+            strokeStarted();
             svg.setPointerCapture(event.pointerId);
         });
 
@@ -654,6 +673,7 @@
             var drag = dragging;
             dragging = null;
             if (svg.hasPointerCapture(event.pointerId)) { svg.releasePointerCapture(event.pointerId); }
+            strokeEnded();
             commitDrag(page, drag);
             redrawPage(page);
         });
@@ -665,11 +685,13 @@
         function abandonGesture(event) {
             if (!owns(moving, event) && !owns(dragging, event)) { return; }
             var abandonedMove = moving !== null;
+            var abandonedStroke = dragging !== null;
             if (abandonedMove) { delete state.previews[moving.a.id]; }
             moving = null;
             dragging = null;
             redrawPage(page);
             if (abandonedMove) { moveEnded(); }
+            if (abandonedStroke) { strokeEnded(); }
         }
         svg.addEventListener('pointercancel', abandonGesture);
         svg.addEventListener('lostpointercapture', abandonGesture);
@@ -990,7 +1012,8 @@
     }
 
     function save(thenFax) {
-        if (state.uncertain || state.saving || state.saved || state.moves > 0 || !state.annotations.length) { return; }
+        if (state.uncertain || state.saving || state.saved || state.moves > 0 || state.strokes > 0
+                || !state.annotations.length) { return; }
         setSaving(true);
         setStatus(t('saving', 'Saving…'), 'busy');
         document.getElementById('btnSave').disabled = true;
