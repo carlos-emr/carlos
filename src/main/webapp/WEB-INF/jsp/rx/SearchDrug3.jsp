@@ -2689,12 +2689,37 @@ function updateQty(element){
     }
 
 
+    /**
+     * Counts the medications staged on this page.
+     *
+     * Each staged card renders a drugName_<rand> input inside #drugForm; a ReRx box that was
+     * only ticked produces none. This keys on the same drugName_ marker the server uses to
+     * find staged drugs in RxWriteScript2Action.updateSaveAllDrugs(), so keep the two in sync.
+     *
+     * @returns {number} the number of staged medications
+     */
+    function countStagedMedications() {
+        const form = document.getElementById('drugForm');
+        return form ? form.querySelectorAll('input[name^="drugName_"]').length : 0;
+    }
+
+    // Nothing staged: warn instead of posting an empty save (#3869). The ReRx selection is left
+    // intact so the prescriber can still stage it; the server also refuses an empty save, and
+    // only archives a ReRx source once its replacement is actually saved.
     function updateSaveAllDrugsPrintCheckContinue() {
-            updateSaveAllDrugsPrintContinue();
+        if (countStagedMedications() === 0) {
+            alert(jsMsg.pleaseAddDrugFirst);
+            return false;
+        }
+        updateSaveAllDrugsPrintContinue();
     }
 
     function updateSaveAllDrugsCheckContinue() {
-            updateSaveAllDrugsContinue();
+        if (countStagedMedications() === 0) {
+            alert(jsMsg.pleaseAddDrugFirst);
+            return false;
+        }
+        updateSaveAllDrugsContinue();
     }
 
     const CONFIRMATION_MESSAGE = {

@@ -40,6 +40,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -240,7 +242,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                 .thenReturn(true);
 
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
-            action.archiveReRxDrugs(mockLoggedInInfo, bean, "127.0.0.1", "audit");
+            action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(foreignDrugId, ownedDrugId),
+                    "127.0.0.1", "audit");
 
             verifyNotAudited(logAction, foreignDrugId);
             verifyAudited(logAction, ownedDrugId);
@@ -267,7 +270,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                 .thenReturn(true);
 
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
-            action.archiveReRxDrugs(mockLoggedInInfo, bean, "127.0.0.1", "audit");
+            action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(firstDrugId, secondDrugId),
+                    "127.0.0.1", "audit");
 
             verifyAudited(logAction, firstDrugId);
             verifyAudited(logAction, secondDrugId);
@@ -287,7 +291,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         bean.getReRxDrugIdList().add("not-a-number");
 
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
-            action.archiveReRxDrugs(mockLoggedInInfo, bean, "127.0.0.1", "audit");
+            action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(), "127.0.0.1", "audit");
 
             // A skipped drug is never archived, so it must not appear in the audit trail either.
             logAction.verifyNoInteractions();
@@ -390,7 +394,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                 .thenReturn(true);
 
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
-            action.archiveReRxDrugs(mockLoggedInInfo, bean, "127.0.0.1", "audit");
+            action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(ownedDrugId), "127.0.0.1", "audit");
 
             verifyAudited(logAction, ownedDrugId);
         }
@@ -398,6 +402,78 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         // The null entry must be stepped over: throwing here would strand every later drug.
         verify(mockRxManager).archiveDrug(any(), eq(ownedDrugId), eq(demographicNo), eq(Drug.REPRESCRIBED));
         verify(mockDrugDao, never()).merge(any(Drug.class));
+    }
+
+    // #3869: an empty save, or a ticked-but-unstaged ReRx, must never archive the source drug.
+    @Test
+    @DisplayName("should not archive a staged re-Rx drug that was not re-prescribed in this save")
+    void shouldNotArchiveReRxDrug_whenNotRePrescribedInThisSave() {
+        int demographicNo = 1001;
+        int tickedOnlyDrugId = 3003;
+        int savedDrugId = 4004;
+
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(tickedOnlyDrugId));
+        bean.getReRxDrugIdList().add(String.valueOf(savedDrugId));
+
+        when(mockRxManager.archiveDrug(any(), anyInt(), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(savedDrugId), "127.0.0.1", "audit");
+
+            verifyNotAudited(logAction, tickedOnlyDrugId);
+            verifyAudited(logAction, savedDrugId);
+        }
+
+        verify(mockRxManager, never()).archiveDrug(any(), eq(tickedOnlyDrugId), anyInt(), any(String.class));
+        verify(mockRxManager).archiveDrug(any(), eq(savedDrugId), eq(demographicNo), eq(Drug.REPRESCRIBED));
+    }
+
+    @Test
+    @DisplayName("should keep archiving later drugs when archiveDrug throws for one of them")
+    void shouldContinueArchival_whenArchiveDrugThrows() {
+        int demographicNo = 1001;
+        int deniedDrugId = 3003;
+        int ownedDrugId = 4004;
+
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(deniedDrugId));
+        bean.getReRxDrugIdList().add(String.valueOf(ownedDrugId));
+
+        when(mockRxManager.archiveDrug(any(), eq(deniedDrugId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenThrow(new RuntimeException("denied"));
+        when(mockRxManager.archiveDrug(any(), eq(ownedDrugId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(deniedDrugId, ownedDrugId),
+                    "127.0.0.1", "audit");
+
+            verifyNotAudited(logAction, deniedDrugId);
+            verifyAudited(logAction, ownedDrugId);
+        }
+    }
+
+    @Test
+    @DisplayName("should neither save nor archive when the stash is empty")
+    void shouldSkipSaveAndArchival_whenStashEmpty() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        bean.getReRxDrugIdList().add("3003");
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            action.saveDrug(getMockRequest());
+
+            logAction.verifyNoInteractions();
+        }
+
+        verify(mockRxManager, never()).archiveDrug(any(), anyInt(), anyInt(), any(String.class));
+        verify(mockDrugDao, never()).merge(any(Drug.class));
+        assertThat(getMockRequest().getAttribute("scriptId")).isNull();
+        // The ReRx selection survives so the prescriber can still stage it.
+        assertThat(bean.getReRxDrugIdList()).containsExactly("3003");
     }
 
     /**

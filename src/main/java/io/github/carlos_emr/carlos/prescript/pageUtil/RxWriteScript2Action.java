@@ -76,6 +76,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -1440,15 +1441,31 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
 
+        // Nothing staged: do not write an empty script, and above all do not reach the re-Rx
+        // archival below. A ReRx box that was ticked but never staged would otherwise archive
+        // the patient's active medication with no replacement written (#3869). The prescribing
+        // page blocks this too, but the server must not rely on it.
+        if (bean == null || bean.getStashSize() == 0) {
+            logger.info("Skipped prescription save: no staged medications");
+            return;
+        }
+
         RxPrescriptionData.Prescription rx = null;
         RxPrescriptionData prescription = new RxPrescriptionData();
         String scriptId = prescription.saveScript(loggedInInfo, bean);
         StringBuilder auditStr = new StringBuilder();
+        // Source drug ids actually re-prescribed by this save. A staged re-prescription carries
+        // its source drug id in drugReferenceId (RxPrescriptionData.newPrescription(.., rePrescribe));
+        // only those sources may be archived as REPRESCRIBED.
+        Set<Integer> represcribedSourceIds = new HashSet<>();
         for (int i = 0; i < bean.getStashSize(); i++) {
             try {
                 rx = bean.getStashItem(i);
                 rx.Save(scriptId); // new drug id available after this line
                 rx.setScript_no(scriptId);
+                if (rx.getDrugReferenceId() > 0) {
+                    represcribedSourceIds.add(rx.getDrugReferenceId());
+                }
                 bean.addRandomIdDrugIdPair(rx.getRandomId(), rx.getDrugId());
                 auditStr.append(rx.getAuditString());
                 auditStr.append("\n");
@@ -1485,7 +1502,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // which reuses this same script row and renders the page — keeping the pad available
         // to override the stamp. Ordinary GET/HEAD preview navigation never stamps or saves.
 
-        archiveReRxDrugs(loggedInInfo, bean, ip, auditStr.toString());
+        archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, auditStr.toString());
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
@@ -1606,26 +1623,36 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     /**
-     * Archives the drugs staged for re-prescribing. More than one entry point appends to the
-     * staged list, so ownership is re-checked here rather than trusted from staging time.
+     * Archives the source drugs of the re-prescriptions this save actually wrote. More than one
+     * entry point appends to the staged list, so ownership is re-checked here rather than trusted
+     * from staging time.
+     *
+     * <p>A staged re-Rx id is archived only when a saved stash item was re-prescribed from it
+     * ({@code savedSourceIds}). Ticking a ReRx box records the id before any card is staged, and
+     * the card can then be closed or never staged at all; archiving on the staged id alone
+     * removed the patient's active medication with nothing written to replace it (#3869).</p>
      *
      * <p>A rejected drug is skipped, not fatal: the new prescription is already persisted by this
-     * point and no transaction spans the loop, so aborting would leave a half-written script.</p>
+     * point and no transaction spans the loop, so aborting would leave a half-written script.
+     * That includes an unchecked exception from {@link RxManager#archiveDrug} (a demographic-scoped
+     * authorization failure, or a row with no demographic).</p>
      *
-     * <p>A malformed, null, or refused entry is skipped individually so one bad id cannot stop the
-     * remaining staged drugs from being archived.</p>
+     * <p>A malformed, null, unsaved, or refused entry is skipped individually so one bad id cannot
+     * stop the remaining staged drugs from being archived.</p>
      *
      * <p>Package-private for the re-prescribe regression tests.</p>
      *
-     * @param loggedInInfo the provider performing the re-prescribe, used for the archival
-     *                     authorization check and the audit entries
-     * @param bean         the Rx session supplying both the staged drug ids and the demographic
-     *                     they are validated against
-     * @param ip           caller address recorded on the re-prescribe audit entry
-     * @param auditStr     audit detail string shared with the enclosing save
+     * @param loggedInInfo   the provider performing the re-prescribe, used for the archival
+     *                       authorization check and the audit entries
+     * @param bean           the Rx session supplying both the staged drug ids and the demographic
+     *                       they are validated against
+     * @param savedSourceIds source drug ids of the re-prescriptions persisted by this save
+     * @param ip             caller address recorded on the re-prescribe audit entry
+     * @param auditStr       audit detail string shared with the enclosing save
      * @since 2026-08-16
      */
-    void archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, String ip, String auditStr) {
+    void archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, Set<Integer> savedSourceIds,
+                          String ip, String auditStr) {
         for (String item : bean.getReRxDrugIdList()) {
 
             // The list permits nulls, and item.trim() would throw past the catch below, stranding
@@ -1645,9 +1672,23 @@ public final class RxWriteScript2Action extends ActionSupport {
                 continue;
             }
 
+            if (!savedSourceIds.contains(drugId)) {
+                // Ticked but never staged (or its card was closed): the source medication stays
+                // active because no replacement was written.
+                logger.info("Skipped re-Rx archival: drugId={} was not re-prescribed in this save", drugId);
+                continue;
+            }
+
             //archive drug(s)
-            boolean archived = this.rxManager.archiveDrug(loggedInInfo, drugId,
-                    bean.getDemographicNo(), Drug.REPRESCRIBED);
+            boolean archived;
+            try {
+                archived = this.rxManager.archiveDrug(loggedInInfo, drugId,
+                        bean.getDemographicNo(), Drug.REPRESCRIBED);
+            } catch (RuntimeException e) {
+                logger.warn("Skipped re-Rx archival: drugId={} could not be archived ({})",
+                        drugId, e.getClass().getSimpleName());
+                continue;
+            }
 
             if (!archived) {
                 // archiveDrug() cannot distinguish a missing row from a cross-patient one.
