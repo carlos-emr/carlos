@@ -2883,6 +2883,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
             //CARE ELEMENTS
             CareElements[] careElems = patientRec.getCareElementsArray();
+            // NRTF shares the 67536-3 neurological exam code with FTLS; CARLOS exports add a
+            // NewCategory marker per NRTF reading so it can be told apart here.
+            Map<String, Deque<String>> nrtfMarkers = CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray());
             for (int i = 0; i < careElems.length; i++) {
                 CareElements ce = careElems[i];
                 cdsDt.Height[] heights = ce.getHeightArray();
@@ -3046,7 +3049,13 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                             ImportExportMeasurements.saveMeasurements("FTE", demographicNo, admProviderNo, dataField, dateObserved);
                             addOneEntry(CAREELEMENTS);
                         } else if (ds.getExamCode().equals(ExamCode.X_67536_3)) {
-                            ImportExportMeasurements.saveMeasurements("FTLS", demographicNo, admProviderNo, dataField, dateObserved);
+                            String nrtfResult = CdsNeurologicalExam.claimNrtfResult(nrtfMarkers, ds);
+                            if (nrtfResult != null) {
+                                String nrtfDataField = StringUtils.filled(nrtfResult) ? nrtfResult : dataField;
+                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfDataField, dateObserved);
+                            } else {
+                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.FTLS, demographicNo, admProviderNo, dataField, dateObserved);
+                            }
                             addOneEntry(CAREELEMENTS);
                         }
                     }
@@ -3087,6 +3096,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             String extraCategoryData = "";
             for (int i = 0; i < newCategories.length; i++) {
                 NewCategory ce = newCategories[i];
+                if (CdsNeurologicalExam.isNrtfMarkerCategory(ce)) {
+                    // Already consumed by the care element import above; not uncategorized data.
+                    continue;
+                }
 
                 Util.addLine("Uncategorized Data: ", ce.getCategoryName() + " : " + ce.getCategoryDescription());
                 for (int x = 0; x < ce.getResidualInfoArray().length; x++) {

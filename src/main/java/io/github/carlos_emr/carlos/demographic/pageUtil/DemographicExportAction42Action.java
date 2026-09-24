@@ -148,6 +148,7 @@ import cds.FamilyHistoryDocument.FamilyHistory;
 import cds.ImmunizationsDocument.Immunizations;
 import cds.LaboratoryResultsDocument.LaboratoryResults;
 import cds.MedicationsAndTreatmentsDocument.MedicationsAndTreatments;
+import cds.NewCategoryDocument.NewCategory;
 import cds.OmdCdsDocument;
 import cds.PastHealthDocument.PastHealth;
 import cds.PatientRecordDocument.PatientRecord;
@@ -2457,6 +2458,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                             List<Measurements> measList = ImportExportMeasurements.getMeasurements(demoNo);
                             CareElements careElm = null;
                             if (measList.size() > 0) careElm = patientRec.addNewCareElements();
+                            // Created on the first NRTF reading; see CdsNeurologicalExam for why NRTF
+                            // needs a patient-level marker next to its 67536-3 screening.
+                            NewCategory nrtfMarkerCategory = null;
                             for (Measurements meas : measList) {
                                 if (meas.getType().equals("HT")) { //Height in cm
                                     cdsDt.Height height = careElm.addNewHeight();
@@ -2617,6 +2621,20 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (Util.yn(meas.getDataField()) == cdsDt.YnIndicatorsimple.N) {
                                         exportError.add("Patient " + demoNo + " didn't do Diabetes Complications Screening (Neurological Exam) on " + UtilDateUtilities.DateToString(meas.getDateObserved(), "yyyy-MM-dd"));
                                     }
+                                    addOneEntry(CAREELEMENTS);
+                                } else if (meas.getType().equals(CdsNeurologicalExam.NRTF)) { // 128 Hz Tuning Fork (Neurological Exam)
+                                    // CDS has one neurological exam code (67536-3) shared with FTLS; the
+                                    // NewCategory marker lets the CARLOS importer restore it as NRTF.
+                                    cdsDt.DiabetesComplicationScreening dcs = careElm.addNewDiabetesComplicationsScreening();
+                                    dcs.setDate(Util.calDate(meas.getDateObserved()));
+                                    if (meas.getDateObserved() == null) {
+                                        exportError.add("Error! No Date for Diabetes Complication Screening on Neurological Exam (Tuning Fork) (id=" + meas.getId() + ") for Patient " + demoNo);
+                                    }
+                                    dcs.setExamCode(cdsDt.DiabetesComplicationScreening.ExamCode.X_67536_3);
+                                    if (Util.yn(StringUtils.noNull(meas.getDataField())) == cdsDt.YnIndicatorsimple.N) {
+                                        exportError.add("Patient " + demoNo + " didn't do Diabetes Complications Screening (Neurological Exam, Tuning Fork) on " + UtilDateUtilities.DateToString(meas.getDateObserved(), "yyyy-MM-dd"));
+                                    }
+                                    nrtfMarkerCategory = CdsNeurologicalExam.addNrtfMarker(patientRec, nrtfMarkerCategory, dcs, meas.getDataField());
                                     addOneEntry(CAREELEMENTS);
                                 } else if (meas.getType().equals("CGSD")) { //Collaborative Goal Setting
                                     cdsDt.DiabetesSelfManagementCollaborative dsco = careElm.addNewDiabetesSelfManagementCollaborative();
