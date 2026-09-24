@@ -371,10 +371,13 @@
     var EDGE_EPSILON = 1e-9;
 
     /** Limits a move so the whole mark stays on its page; the server rejects anything past the edge. */
-    function clampMove(a, dx, dy) {
+    function clampMove(a, dx, dy, drawnWidth) {
         var b = markBounds(a);
+        // A note's stored w is a fixed default, not its text: a long note is wider than w, and
+        // the composer refuses text that runs off the page. Clamp by whichever is wider.
+        var w = Math.max(b.w, drawnWidth || 0);
         return {
-            dx: Math.max(-b.x, Math.min(1 - b.x - b.w - EDGE_EPSILON, dx)),
+            dx: Math.max(-b.x, Math.min(1 - b.x - w - EDGE_EPSILON, dx)),
             dy: Math.max(-b.y, Math.min(1 - b.y - b.h - EDGE_EPSILON, dy))
         };
     }
@@ -506,9 +509,21 @@
             event.preventDefault();
             // Every element drawn for the mark (a note and its hit box) moves together.
             var els = Array.prototype.slice.call(svg.querySelectorAll('[data-id="' + a.id + '"]'));
-            moving = { pointerId: event.pointerId, a: a, els: els, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
+            moving = { pointerId: event.pointerId, a: a, els: els, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0,
+                moved: false, drawnWidth: noteWidth(els) };
             svg.setPointerCapture(event.pointerId);
             return true;
+        }
+
+        /**
+         * Rendered width of a note's text as a fraction of the page, or 0 for other marks. The
+         * preview draws in the composer's font at its point size, so this tracks the width the
+         * server measures; the 2% margin absorbs hinting differences between the two renderers.
+         */
+        function noteWidth(els) {
+            var text = els.filter(function (el) { return el.tagName.toLowerCase() === 'text'; })[0];
+            if (!text || !svg.clientWidth) { return 0; }
+            try { return (text.getBBox().width / svg.clientWidth) * 1.02; } catch (e) { return 0; }
         }
 
         function continueMove(event) {
@@ -519,7 +534,7 @@
             // A few pixels of jitter on a click must not nudge the mark or swallow the click.
             if (!moving.moved && Math.abs(px) < MOVE_THRESHOLD_PX && Math.abs(py) < MOVE_THRESHOLD_PX) { return; }
             moving.moved = true;
-            var d = clampMove(moving.a, px / rect.width, py / rect.height);
+            var d = clampMove(moving.a, px / rect.width, py / rect.height, moving.drawnWidth);
             moving.dx = d.dx;
             moving.dy = d.dy;
             var shift = 'translate(' + (d.dx * rect.width) + ',' + (d.dy * rect.height) + ')';

@@ -608,7 +608,9 @@ async function main() {
       Math.abs(sigAfter.y - sigBefore.y - 150) < 3 && await markCount() === 4, JSON.stringify([sigBefore, sigAfter]));
 
     await page.locator('.tool[data-tool="text"]').click();
-    page.once('dialog', dialog => dialog.accept('Synthetic edge note'));
+    // Longer than a note's default box, so the edge clamp must use the text's drawn width or
+    // the save below is refused with "The annotation text extends beyond the page".
+    page.once('dialog', dialog => dialog.accept('Synthetic edge note, deliberately longer than the default note box'));
     await page.mouse.click(ov.x + 200, ov.y + 200);
     const edgeBefore = await boxOf('text.mark');
     await drag(edgeBefore.x - ov.x + 4, edgeBefore.y - ov.y + 4, 5000, 5000);
