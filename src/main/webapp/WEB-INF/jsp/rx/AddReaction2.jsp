@@ -149,6 +149,10 @@
                             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
                             <input type="hidden" name="formDemographicNo"
                                    value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
+                            <%-- The write target: RxAddAllergy2Action resolves the bean from this and
+                                 requires formDemographicNo to name the same patient (#3875). --%>
+                            <input type="hidden" name="demographicNo"
+                                   value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
 
                             <script type="text/javascript">
                                 function checkStartDate() {

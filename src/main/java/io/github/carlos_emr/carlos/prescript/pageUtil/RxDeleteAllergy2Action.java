@@ -80,7 +80,6 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID parameter");
             return NONE;
         }
-        String demographicNo = request.getParameter("demographicNo");
         String action = request.getParameter("action");
 
         // Deleting or re-activating an allergy changes the chart: act only for the patient the
@@ -109,9 +108,8 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
         }
 
-        if (demographicNo != null) {
-            request.setAttribute("demographicNo", demographicNo);
-        }
+        // Echo the patient actually written, not the raw request value.
+        request.setAttribute("demographicNo", String.valueOf(patient.getDemographicNo()));
 
         return SUCCESS;
     }

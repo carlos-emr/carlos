@@ -106,6 +106,8 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("type", "1");
         mockRequest.setParameter("startDate", "");
         mockRequest.setParameter("formDemographicNo", "123");
+        // The request names its patient; the write resolver refuses one that does not (#3875).
+        mockRequest.setParameter("demographicNo", "123");
         openRxForPatient();
 
         action = new RxAddAllergy2Action();
@@ -210,6 +212,41 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse when the request names one open patient and the form carries another")
+    void shouldRejectAdd_whenRequestPatientDiffersFromFormPatient() throws Exception {
+        // Both patients have Rx open: the old code wrote to whichever formDemographicNo named.
+        RxSessionBean otherBean = new RxSessionBean();
+        otherBean.setDemographicNo(456);
+        RxSessionBeanResolver.register(mockRequest.getSession(), otherBean);
+        mockRequest.setParameter("demographicNo", "123");
+        mockRequest.setParameter("formDemographicNo", "456");
+        mockRequest.setParameter("allergyToArchive", "42");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        assertThat(action.getDemographicNo()).isZero();
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should refuse when the form names an open patient but the request names none")
+    void shouldRejectAdd_whenRequestNamesNoPatient() throws Exception {
+        mockRequest.removeParameter("demographicNo");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
     @DisplayName("should reject a malformed rendered patient context before adding an allergy")
     void shouldRejectAdd_whenFormDemographicNoIsMalformed() throws Exception {
         mockRequest.setParameter("formDemographicNo", "not-a-number");
@@ -229,6 +266,8 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        // The success redirect returns to this patient's allergy page.
+        assertThat(action.getDemographicNo()).isEqualTo(123);
         verify(mockRxPatient).addAllergy(any(), any());
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),

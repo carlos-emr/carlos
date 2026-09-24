@@ -86,6 +86,20 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should post the add-allergy form for its patient and redirect back to that patient")
+    void shouldNamePatient_onAddAllergyFormAndRedirect() throws IOException {
+        String jsp = read("rx/AddReaction2.jsp");
+        assertThat(jsp).contains("name=\"formDemographicNo\"");
+        assertThat(jsp).contains("<input type=\"hidden\" name=\"demographicNo\"");
+
+        String struts = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-prescription.xml"),
+                StandardCharsets.UTF_8);
+        // The shared "Patient" session attribute is gone (#3875); the action exposes the patient.
+        assertThat(struts).doesNotContain("#session.Patient");
+        assertThat(struts).contains("/rx/showAllergy?demographicNo=${demographicNo}");
+    }
+
+    @Test
     @DisplayName("should open the static-script page only for an explicitly named patient")
     void shouldRefuseFallbackPatient_onStaticScriptPage() throws IOException {
         String jsp = read("rx/StaticScript2.jsp");

@@ -77,17 +77,15 @@ public final class RxAddAllergy2Action extends ActionSupport {
             return NONE;
         }
 
-        // The form names its patient; the allergy is only written when Rx/allergies is open for
-        // that patient in this session (per-patient state, #3875). This replaces a comparison
-        // against the shared "Patient" session attribute, which followed the last chart opened.
-        String formDemographicNo = request.getParameter("formDemographicNo");
+        // The write target is the patient the request explicitly names (demographicNo), never the
+        // session's last-opened Rx patient (per-patient state, #3875). The rendered form's own
+        // formDemographicNo must name that same patient: a request naming one patient while the
+        // form carries another is refused rather than written to either. This replaces the old
+        // equality check against the shared "Patient" session attribute.
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
         RxPatientData.Patient patient = null;
-        try {
-            if (formDemographicNo != null) {
-                patient = RxSessionBeanResolver.resolvePatient(request, Integer.parseInt(formDemographicNo));
-            }
-        } catch (NumberFormatException e) {
-            patient = null;
+        if (bean != null && isSamePatient(request.getParameter("formDemographicNo"), bean.getDemographicNo())) {
+            patient = RxSessionBeanResolver.resolvePatient(request, bean.getDemographicNo());
         }
         if (patient == null) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
@@ -163,6 +161,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
         allergy.setDemographicNo(patient.getDemographicNo());
+        demographicNo = patient.getDemographicNo();
         allergy.setArchived(false);
 
         // Add the new allergy (whether new or modified)
@@ -184,6 +183,27 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * The patient this request added the allergy for, used by the success redirect back to that
+     * patient's allergy page. Read-only: it is set from the resolved patient, never bound from
+     * request parameters.
+     *
+     * @return the patient's demographic number, or 0 before a successful write
+     */
+    public int getDemographicNo() {
+        return demographicNo;
+    }
+
+    private int demographicNo;
+
+    /** Whether {@code formValue} is a well-formed demographic number equal to {@code demographicNo}. */
+    private static boolean isSamePatient(String formValue, int demographicNo) {
+        if (formValue == null || !formValue.trim().matches("\\d{1,9}")) {
+            return false;
+        }
+        return Integer.parseInt(formValue.trim()) == demographicNo;
     }
 
     private int getCharOccur(String str, char ch) {
