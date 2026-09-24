@@ -114,8 +114,9 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                          assertThat(parserStream.readAllBytes()).isEqualTo("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
                          // Messages are stored in the transaction holding the upload's checksum row.
                          assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-                         return new ArrayList<String>();
-                     }))) {
+                         return new ArrayList<>(List.of("MSH|stored message"));
+                     }));
+             MockedConstruction<Message> messages = mockConstruction(Message.class)) {
             paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile()))
                     .thenReturn(uploaded.toFile());
             List<TrackedStream> opened = trackOpenedStreams(paths, uploaded);
@@ -142,6 +143,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("outcome")).isEqualTo("success");
             assertThat(transactions.commits).isEqualTo(1);
             assertThat(connections.constructed()).hasSize(1);
+            verify(messages.constructed().get(0)).Parse("MSH|stored message");
+            verify(messages.constructed().get(0)).ToDatabase();
             try (var children = Files.list(documentDir)) {
                 var archived = children.toList();
                 assertThat(archived).hasSize(1);
@@ -240,6 +243,36 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
             // Before, an unreadable batch kept its checksum and left the outcome empty.
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+        }
+    }
+
+    @Test
+    void shouldRollBackChecksumAndReportException_whenBatchDeclaresZeroMessages() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("zero.hl7"), "<Batch MessageCount=\"0\"/>");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             // Retrieve answers an empty list, not null, for a well-formed batch declaring no messages.
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class, (connection, context) ->
+                     when(connection.Retrieve(any(InputStream.class))).thenReturn(new ArrayList<>()));
+             MockedConstruction<Message> messages = mockConstruction(Message.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // Committing here would record a checksum for a batch that stored nothing and refuse the retry.
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            assertThat(messages.constructed()).isEmpty();
             assertThat(transactions.rollbacks).isEqualTo(1);
             assertThat(transactions.commits).isZero();
         }

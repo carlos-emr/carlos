@@ -39,6 +39,8 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -50,6 +52,8 @@ import org.hl7.fhir.dstu3.model.CodeableConcept;
 import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 
 import io.github.carlos_emr.CarlosProperties;
@@ -168,6 +172,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
                 logger.error("PDF save returned no path; not creating a document record");
                 return null;
             }
+            discardOnRollback(new File(filePath), PathValidationUtils.getRequiredDocumentDirectory());
 
             int fileNameIdx = filePath.lastIndexOf("/");
             filePath = filePath.substring(fileNameIdx + 1);
@@ -208,5 +213,38 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
         }
 
         return "success";
+    }
+
+    /**
+     * Deletes a PDF this handler wrote if the surrounding transaction rolls back.
+     *
+     * <p>Inside {@code FileUploadCheck.storeIfNew} a later failure, or this handler returning
+     * {@code null}, rolls back the document, routing and checksum rows; the file on disk is not
+     * transactional, so without this it stayed behind and every retry wrote another. A commit, a
+     * commit whose outcome is unknown (the rows may exist), or no transaction at all keeps the file,
+     * as before.</p>
+     *
+     * @param saved the PDF written by {@link Utilities#savePdfFile}
+     * @param documentDir the document directory the file must lie in before it is deleted
+     */
+    static void discardOnRollback(File saved, File documentDir) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_ROLLED_BACK) {
+                    return;
+                }
+                try {
+                    Files.deleteIfExists(PathValidationUtils.validateExistingPath(saved, documentDir).toPath());
+                } catch (IOException | RuntimeException e) {
+                    // exceptionTrace, not the throwable: the message is the path, whose name embeds the
+                    // CommunicationRequest identifier.
+                    logger.warn("Could not remove a rolled-back FHIR document PDF: {}", LogSafe.exceptionTrace(e));
+                }
+            }
+        });
     }
 }

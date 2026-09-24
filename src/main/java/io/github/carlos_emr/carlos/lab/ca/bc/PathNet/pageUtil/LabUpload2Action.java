@@ -163,7 +163,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      */
     private static boolean storeMessages(byte[] uploadContent) throws Exception {
         ArrayList<String> messages = new Connection().Retrieve(new ByteArrayInputStream(uploadContent));
-        if (messages == null) {
+        // Retrieve answers null for an unreadable batch and an empty list for one declaring zero
+        // messages; neither stored anything, so neither may commit a checksum that refuses a retry.
+        if (messages == null || messages.isEmpty()) {
             return false;
         }
         String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
