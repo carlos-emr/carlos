@@ -41,10 +41,12 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -300,6 +302,17 @@ class CanadianVaccineCatalogueManagerUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("fetchBundleJson()")
     class Fetch {
+
+        @Test
+        void shouldSendSingleAcceptMediaType_becauseNvcRejectsLists() {
+            HttpGet request = CanadianVaccineCatalogueManager.bundleRequest(
+                    URI.create("https://nvc-cnv.canada.ca/fhir/v2/Bundle/NVC"));
+
+            // A packaged install got HTTP 406 for "application/fhir+json, application/json".
+            assertThat(request.getHeaders("Accept")).hasSize(1);
+            assertThat(request.getFirstHeader("Accept").getValue()).isEqualTo("application/fhir+json");
+            assertThat(request.getMethod()).isEqualTo("GET");
+        }
 
         @Test
         void shouldRefuseCleartextUrl_beforeConnecting() {

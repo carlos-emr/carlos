@@ -96,6 +96,7 @@ public class CanadianVaccineCatalogueManager {
     /** NVC v2 FHIR base used when {@code cvc.url} is not set. */
     public static final String NVC_DEFAULT_BASE_URL = "https://nvc-cnv.canada.ca/fhir/v2";
     static final String NVC_BUNDLE_PATH = "/Bundle/NVC";
+    static final String NVC_ACCEPT = "application/fhir+json";
 
     static final String CVC_UPDATED_PROP = "cvc.updated";
     static final String CVC_FIRST_DATE_PROP = "cvc.firstdate";
@@ -213,16 +214,24 @@ public class CanadianVaccineCatalogueManager {
                         .build())
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
-            HttpGet request = new HttpGet(uri);
-            request.addHeader("Accept", "application/fhir+json, application/json");
-            request.addHeader("x-app-desc", "CARLOS EMR");
-            return client.execute(request, response -> {
+            return client.execute(bundleRequest(uri), response -> {
                 if (response.getCode() != HttpStatus.SC_OK) {
                     throw new IOException("NVC bundle download returned HTTP " + response.getCode());
                 }
                 return readBounded(response.getEntity());
             });
         }
+    }
+
+    /**
+     * The bundle GET. NVC answers {@code 406 Not Acceptable} to any Accept header that lists
+     * more than one media type (including {@code *}{@code /*}), so exactly one is sent.
+     */
+    static HttpGet bundleRequest(URI uri) {
+        HttpGet request = new HttpGet(uri);
+        request.addHeader("Accept", NVC_ACCEPT);
+        request.addHeader("x-app-desc", "CARLOS EMR");
+        return request;
     }
 
     private static String readBounded(HttpEntity entity) throws IOException {
