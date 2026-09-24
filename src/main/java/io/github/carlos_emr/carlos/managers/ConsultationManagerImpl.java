@@ -454,6 +454,14 @@ public class ConsultationManagerImpl implements ConsultationManager {
     @Override
     public List<ConsultationAttachment> getEReferAttachments(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response, Integer demographicNo) throws PDFGenerationException {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        // The patient number comes from the REST caller, so the role-level check above is not
+        // enough: the caller must also be allowed to read this patient's consultations and chart
+        // before any queued attachment is loaded or rendered.
+        if (demographicNo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
 
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR_OF_DAY, -1);

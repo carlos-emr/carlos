@@ -564,6 +564,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
             List<ConsultationAttachment> attachments = consultationManager.getEReferAttachments(getLoggedInInfo(), httpServletRequest, httpServletResponse, demographicNo);
             httpServletResponse.setContentType("application/json");
             response = Response.ok().entity(attachments).build();
+        } catch (SecurityException e) {
+            response = Response.status(Response.Status.FORBIDDEN).build();
         } catch (Exception e) {
             response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("An error occurred while generating the attachment data: " + e.getMessage()).build();
         }

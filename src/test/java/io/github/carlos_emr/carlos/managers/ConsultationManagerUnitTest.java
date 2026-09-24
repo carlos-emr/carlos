@@ -90,6 +90,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -1728,6 +1729,12 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             injectDependency(consultationManager, "eReferAttachmentDao", eReferAttachmentDao);
             injectDependency(consultationManager, "documentAttachmentManager", documentAttachmentManager);
             injectDependency(consultationManager, "attachmentOwnershipService", ownershipService);
+            // The manager passes the Integer patient number, which binds to the int overload; the
+            // class-wide stub only covers the String overload.
+            lenient().when(mockSecurityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), anyInt()))
+                    .thenReturn(true);
+            lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(TEST_DEMOGRAPHIC_NO)))
+                    .thenReturn(true);
         }
 
         private EReferAttachment queued(Integer demographicNo, Object[]... typeAndIds) {
@@ -1770,6 +1777,29 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEmpty();
             Mockito.verifyNoInteractions(documentAttachmentManager, ownershipService);
+        }
+
+        @Test
+        @DisplayName("should refuse before loading the queue when the caller cannot access the patient")
+        void shouldRefuseEReferAttachments_whenPatientRecordAccessDenied() {
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(TEST_DEMOGRAPHIC_NO))).thenReturn(false);
+
+            assertThatThrownBy(() -> consultationManager.getEReferAttachments(
+                    mockLoggedInInfo, null, null, TEST_DEMOGRAPHIC_NO))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+            Mockito.verifyNoInteractions(eReferAttachmentDao, documentAttachmentManager, ownershipService);
+        }
+
+        @Test
+        @DisplayName("should refuse before loading the queue when patient-scoped consultation read is denied")
+        void shouldRefuseEReferAttachments_whenPatientConsultationReadDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(TEST_DEMOGRAPHIC_NO.intValue()))).thenReturn(false);
+
+            assertThatThrownBy(() -> consultationManager.getEReferAttachments(
+                    mockLoggedInInfo, null, null, TEST_DEMOGRAPHIC_NO))
+                    .isInstanceOf(SecurityException.class);
+            Mockito.verifyNoInteractions(eReferAttachmentDao, documentAttachmentManager, ownershipService);
         }
     }
 }
