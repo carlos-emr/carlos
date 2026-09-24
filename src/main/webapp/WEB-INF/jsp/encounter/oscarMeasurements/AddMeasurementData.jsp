@@ -28,6 +28,31 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AddMeasurementData.jsp — flowsheet measurement entry (and single-reading edit/delete) form.
+
+    Purpose:
+      Renders one input row per requested measurement type for a patient, opened from the
+      encounter flowsheets. Posts to encounter/Measurements2 to save, or to
+      encounter/oscarMeasurements/DeleteData2 when an existing reading (id) is being deleted.
+
+    Features:
+      - Master observation date/time that applies to every row on the page.
+      - Validation-driven dropdowns: when a measurement type's validation rule is an enumerated
+        pattern (e.g. Yes/No/NA, Provided/Revised/Reviewed), MeasurementDropdownOptions turns the
+        rule into the option list instead of a free-text box.
+      - Legacy values: a stored reading that is no longer one of the rule's options (e.g. an AACP
+        "Yes" recorded before the Provided/Revised/Reviewed rule) is shown as a selected, disabled
+        option, so editing the row neither hides nor silently rewrites the historical value.
+
+    Request parameters:
+      demographic_no  patient whose flowsheet is being updated
+      measurement     one or more measurement type codes to render (repeatable)
+      id              existing measurement id when editing/deleting a single reading
+      template        flowsheet template name used to look up type definitions and customizations
+
+    @since 2006-02-14
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

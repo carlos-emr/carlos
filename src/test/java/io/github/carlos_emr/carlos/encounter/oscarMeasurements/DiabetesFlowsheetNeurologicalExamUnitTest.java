@@ -130,11 +130,32 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
 
         // validations.id is auto-increment; a converted OpenO/oscar19 database may number its
         // rules differently, so neither the insert nor the normalizing update may pin id 7.
-        assertThat(sql).contains(
-                "SELECT `validation` FROM `measurementType` WHERE `type` = 'FTLS' ORDER BY `id` LIMIT 1");
+        assertThat(sql).contains("WHERE `type` = 'FTLS' AND `validation` IS NOT NULL");
         assertThat(sql).doesNotContain("`validation`           = '7'");
         assertThat(sql).doesNotContain("       '7',\n");
         assertThat(sql).contains("`validation`           = @carlos_nrtf_validation");
+        // No last-resort fixed id either: on a double miss the rule is recreated, then resolved.
+        assertThat(sql).doesNotContain("IFNULL(@carlos_nrtf_validation, 7)");
+        assertThat(sql).doesNotContainPattern("@carlos_nrtf_validation\\s*=\\s*'?\\d+'?\\s*;");
+    }
+
+    @Test
+    @DisplayName("should recreate the Yes/No/NA rule before resolving when FTLS and the rule are both missing")
+    void shouldRecreateYesNoNaRule_whenFtlsAndRuleAreMissing() throws Exception {
+        String sql = Files.readAllLines(NRTF_MIGRATION, StandardCharsets.UTF_8).stream()
+                .filter(line -> !line.stripLeading().startsWith("--"))
+                .collect(Collectors.joining("\n"));
+
+        int ruleInsert = sql.indexOf("INSERT INTO `validations` (`name`, `regularExp`)");
+        int resolve = sql.indexOf("SET @carlos_nrtf_validation = (");
+        assertThat(ruleInsert).as("Yes/No/NA rule insert").isNotNegative();
+        assertThat(ruleInsert).as("rule is recreated before it is resolved").isLessThan(resolve);
+        String insert = sql.substring(ruleInsert, resolve);
+        assertThat(insert).contains("'Yes/No/NA', 'YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA'");
+        // Only on a double miss, and never as a duplicate of an existing rule.
+        assertThat(insert).contains("WHERE `type` = 'FTLS' AND `validation` IS NOT NULL");
+        assertThat(insert).contains("WHERE `name` = 'Yes/No/NA'");
+        assertThat(insert).doesNotContain("`id`");
     }
 
     private static Element parse(String resource) throws Exception {
