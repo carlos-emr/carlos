@@ -617,6 +617,25 @@ async function main() {
       Math.abs(hlDuringRedraw.y - hlRedrawBefore.y - 60) < 3 && Math.abs(hlRedrawAfter.y - hlRedrawBefore.y - 60) < 3,
       JSON.stringify([hlRedrawBefore, hlDuringRedraw, hlRedrawAfter]));
 
+    // Save is held while a mark is being dragged: a save taken mid-drag would post the mark
+    // where it was and the drag would then be lost under the in-flight save.
+    let saveDuringDrag = false;
+    const watchDragSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { saveDuringDrag = true; } };
+    page.on('request', watchDragSave);
+    const hlSaveBefore = await boxOf('rect.mark');
+    await page.mouse.move(hlSaveBefore.x + 6, hlSaveBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(hlSaveBefore.x + 6, hlSaveBefore.y - 34, { steps: 6 });
+    const saveHeldDuringDrag = await page.locator('#btnSave').isDisabled();
+    await page.locator('#btnSave').evaluate(button => button.click());
+    await page.mouse.up();
+    page.off('request', watchDragSave);
+    const hlSaveAfter = await boxOf('rect.mark');
+    check('Save is held during a drag and the drag still lands',
+      saveHeldDuringDrag && !saveDuringDrag && await page.locator('#btnSave').isEnabled()
+      && Math.abs(hlSaveAfter.y - hlSaveBefore.y + 40) < 3,
+      JSON.stringify([saveHeldDuringDrag, saveDuringDrag, hlSaveBefore, hlSaveAfter]));
+
     await page.locator('.swatch[data-color="black"]').click();
     await page.locator('.tool[data-tool="draw"]').click();
     await drag(400, 250, 600, 250);
@@ -905,6 +924,9 @@ async function main() {
       (await page.locator('#markCount').textContent()) === beforeMarks
       && Math.abs(inFlightAfter.y - inFlightBox.y) < 1 && await page.locator('#btnSave').isDisabled(),
       JSON.stringify([await page.locator('#markCount').textContent(), beforeMarks, inFlightBox, inFlightAfter]));
+    const inFlightCursor = await page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x, y)).cursor,
+      [inFlightAfter.x + 6, inFlightAfter.y + 6]);
+    check('marks frozen by an in-flight save do not show the move cursor', inFlightCursor !== 'move', inFlightCursor);
     releaseSave();
     await waitForSave();
     await page.unroute('**/SaveAnnotatedDocument?*');

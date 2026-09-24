@@ -213,6 +213,13 @@ body {
 .pages[data-tool="signature"] .mark[data-kind="placed"],
 .pages[data-tool="signature"] .mark-hit { cursor: move; }
 
+/* While a save is in flight every press is ignored and marks are frozen, so nothing advertises
+   a grab; placed after the move rules and at least as specific, so it wins over each. */
+.pages[data-saving] .overlay,
+.pages[data-saving] .overlay .mark,
+.pages[data-saving] .overlay .mark[data-kind],
+.pages[data-saving] .overlay .mark-hit { cursor: progress; }
+
 .mark.moving { opacity: .7; }
 
 .page-caption {

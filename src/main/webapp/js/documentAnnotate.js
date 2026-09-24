@@ -467,6 +467,7 @@
      */
     function moveEnded() {
         state.moves = Math.max(0, state.moves - 1);
+        updateCounts();
         if (state.refitPending) { refitNotes(); }
     }
 
@@ -552,8 +553,17 @@
     function updateCounts() {
         var count = state.annotations.length;
         document.getElementById('markCount').textContent = String(count);
-        document.getElementById('btnSave').disabled = state.uncertain || state.saving || state.saved || count === 0;
-        document.getElementById('btnSaveFax').disabled = state.uncertain || state.saving || state.saved || count === 0;
+        // Save is also held while a mark is being dragged: a save taken mid-drag would post the
+        // mark where it was, and the drag could then not be applied under the in-flight save.
+        var blocked = state.uncertain || state.saving || state.saved || state.moves > 0 || count === 0;
+        document.getElementById('btnSave').disabled = blocked;
+        document.getElementById('btnSaveFax').disabled = blocked;
+    }
+
+    /** Marks a save as in flight; the page attribute lets the stylesheet drop the move cursor. */
+    function setSaving(saving) {
+        state.saving = saving;
+        pagesEl.toggleAttribute('data-saving', saving);
     }
 
     /* ---------- pointer interaction ---------- */
@@ -657,6 +667,7 @@
             moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0,
                 moved: false, bounds: markBounds(a), drawnWidth: 0 };
             state.moves++;
+            updateCounts();
             svg.setPointerCapture(event.pointerId);
             return true;
         }
@@ -955,8 +966,8 @@
     }
 
     function save(thenFax) {
-        if (state.uncertain || state.saving || state.saved || !state.annotations.length) { return; }
-        state.saving = true;
+        if (state.uncertain || state.saving || state.saved || state.moves > 0 || !state.annotations.length) { return; }
+        setSaving(true);
         setStatus(t('saving', 'Saving…'), 'busy');
         document.getElementById('btnSave').disabled = true;
         document.getElementById('btnSaveFax').disabled = true;
@@ -983,7 +994,7 @@
                 return { ok: response.ok, data: data };
             });
         }).then(function (result) {
-            state.saving = false;
+            setSaving(false);
             if (!result.ok || !result.data.success) {
                 state.uncertain = result.data.retryable === false;
                 setStatus(result.data && result.data.error
@@ -1012,7 +1023,7 @@
                 document.getElementById('savedLink').appendChild(link);
             }
         }).catch(function () {
-            state.saving = false;
+            setSaving(false);
             state.uncertain = true;
             setStatus('The save could not be confirmed. Check the patient’s documents before saving another copy.', 'error');
             updateCounts();
