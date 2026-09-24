@@ -201,11 +201,17 @@ body {
 .pages[data-tool="date"] .overlay,
 .pages[data-tool="signature"] .overlay { cursor: copy; }
 
-/* Placed marks (text, date, signature) can be moved from any tool; ink and highlights
-   only from select, so the drawing tools keep drawing across them. */
+/* Placed marks (text, date, signature) can be moved from select and the placing tools; ink
+   and highlights only from select. The drawing tools grab nothing, so they keep the crosshair
+   over every mark. */
 .pages[data-tool="select"] .mark,
-.page .mark[data-kind="placed"],
-.page .mark-hit { cursor: move; }
+.pages[data-tool="select"] .mark-hit,
+.pages[data-tool="text"] .mark[data-kind="placed"],
+.pages[data-tool="text"] .mark-hit,
+.pages[data-tool="date"] .mark[data-kind="placed"],
+.pages[data-tool="date"] .mark-hit,
+.pages[data-tool="signature"] .mark[data-kind="placed"],
+.pages[data-tool="signature"] .mark-hit { cursor: move; }
 
 .mark.moving { opacity: .7; }
 

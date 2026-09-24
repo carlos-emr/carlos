@@ -68,7 +68,7 @@
         saved: false,
         saving: false,
         uncertain: false,
-        moving: false,       // a mark is being dragged on some page
+        moves: 0,            // marks being dragged now; pages track their own gestures
         refitPending: false, // the annotation font arrived mid-drag; refit notes when it ends
         fontReady: null      // settles once the annotation font has loaded or failed
     };
@@ -416,7 +416,7 @@
      * deferred refit runs when the save ends, and a note it moves makes the page unsaved again.
      */
     function refitNotes() {
-        if (state.moving || state.saving) {
+        if (state.moves > 0 || state.saving) {
             state.refitPending = true;
             return;
         }
@@ -427,9 +427,13 @@
         }
     }
 
-    /** Called whenever a move ends, however it ends, to run a refit that waited for it. */
+    /**
+     * Called whenever a move ends, however it ends, to run a refit that waited for it. Moves are
+     * counted rather than flagged: a mouse and a pen can drag on two pages at once, and the
+     * first to finish must not release a refit under the other.
+     */
     function moveEnded() {
-        state.moving = false;
+        state.moves = Math.max(0, state.moves - 1);
         if (state.refitPending) { refitNotes(); }
     }
 
@@ -535,10 +539,11 @@
             // A new primary press means any earlier gesture is over, even if its pointerup never
             // arrived (a capture lost to a window switch); drop it rather than let it hijack this one.
             if (moving || dragging) {
+                var staleMove = moving !== null;
                 moving = null;
                 dragging = null;
                 redrawPage(page);
-                moveEnded();
+                if (staleMove) { moveEnded(); }
             }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
@@ -599,10 +604,11 @@
         // lostpointercapture that follows it is a no-op.
         function abandonGesture(event) {
             if (!owns(moving, event) && !owns(dragging, event)) { return; }
+            var abandonedMove = moving !== null;
             moving = null;
             dragging = null;
             redrawPage(page);
-            moveEnded();
+            if (abandonedMove) { moveEnded(); }
         }
         svg.addEventListener('pointercancel', abandonGesture);
         svg.addEventListener('lostpointercapture', abandonGesture);
@@ -615,7 +621,7 @@
             event.preventDefault();
             moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0,
                 moved: false, bounds: markBounds(a), drawnWidth: 0 };
-            state.moving = true;
+            state.moves++;
             svg.setPointerCapture(event.pointerId);
             return true;
         }

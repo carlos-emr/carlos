@@ -660,6 +660,15 @@ async function main() {
     const crossed = await overlayMark('text.mark').boundingBox();
     const cx = crossed.x - pageBox.x;
     const cy = crossed.y - pageBox.y;
+    // The cursor must not advertise a drag the tool will not do: over a note a placing tool
+    // shows the move cursor, while the drawing tools keep the crosshair.
+    const cursorOverNote = () => page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x, y)).cursor,
+      [crossed.x + 20, crossed.y + crossed.height / 2]);
+    const textCursor = await cursorOverNote();
+    await page.locator('.tool[data-tool="highlight"]').click();
+    const highlightCursor = await cursorOverNote();
+    check('a note shows the move cursor only in tools that can grab it',
+      textCursor === 'move' && highlightCursor === 'crosshair', JSON.stringify([textCursor, highlightCursor]));
     await page.locator('.tool[data-tool="highlight"]').click();
     await dragOn(cx + 5, cy + 5, cx + 200, cy + 25);
     const crossedAfterHighlight = await overlayMark('text.mark').boundingBox();
