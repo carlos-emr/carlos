@@ -52,74 +52,59 @@
 
         <SCRIPT LANGUAGE="JavaScript">
 
-            <!--
-            Generic
-            Unit
-            Conversion
-            Program
+            // Generic Unit Conversion Program
 
             // Author    : Jonathan Weesner (jweesner@cyberstation.net)  21 Nov 95
 
             // Copyright : You want it? Take it! ... but leave the Author line intact please!
 
             function convertform(form) {
-
-                var firstvalue = 0;
-
+                var source;
                 for (var i = 1; i <= form.count; i++) {
-
-                    // Find first non-blank entry
-
-                    if (form.elements[i].value != null && form.elements[i].value.length != 0) {
-
-                        if (i == 1 && form.elements[2].value != "") return false;
-
-                        firstvalue = form.elements[i].value / form.elements[i].factor;
-
+                    if (form.elements[i].value.trim() !== "") {
+                        source = form.elements[i];
                         break;
-
                     }
-
                 }
-
-                if (firstvalue == 0) {
-
-                    clearform(form);
-
-                    return false;
-
+                if (!source) return false;
+                var value = Number(source.value);
+                var firstvalue = value / source.factor;
+                source.setCustomValidity(Number.isFinite(value) && Number.isFinite(firstvalue)
+                    ? "" : "Enter a finite number.");
+                if (!source.reportValidity()) return false;
+                for (var i = 1; i <= form.count; i++) {
+                    var converted = firstvalue * form.elements[i].factor;
+                    if (!Number.isFinite(converted)) {
+                        source.setCustomValidity("The value is too large to convert.");
+                        source.reportValidity();
+                        return false;
+                    }
                 }
-
-                for (var i = 1; i <= form.count; i++)
-
-                    form.elements[i].value = formatvalue((firstvalue * form.elements[i].factor), form.rsize);
-
+                for (var i = 1; i <= form.count; i++) {
+                    form.elements[i].value = formatvalue(firstvalue * form.elements[i].factor, form.rsize);
+                }
                 return true;
-
             }
 
             function formatvalue(input, rsize) {
+                // Significant figures preserve very small values and scientific notation.
+                return String(Number(input.toPrecision(rsize)));
+            }
 
-                var invalid = "**************************";
-
-                var nines = "999999999999999999999999";
-
-                var strin = "" + input;
-
-                var fltin = parseFloat(strin);
-
-                if (strin.length <= rsize) return strin;
-
-                if (strin.indexOf("e") != -1 ||
-
-                    fltin > parseFloat(nines.substring(0, rsize) + ".4"))
-
-                    return invalid.substring(0, rsize);
-
-                var rounded = "" + (fltin + (fltin - parseFloat(strin.substring(0, rsize))));
-
-                return rounded.substring(0, rsize);
-
+            function convertTemperature(input, outputName, toCelsius) {
+                var output = input.form.elements[outputName];
+                output.setCustomValidity("");
+                if (input.value.trim() === "") {
+                    input.setCustomValidity("");
+                    output.value = "";
+                    return;
+                }
+                var value = Number(input.value);
+                var converted = toCelsius ? (value - 32) * 5 / 9 : value * 9 / 5 + 32;
+                var valid = Number.isFinite(value) && Number.isFinite(converted);
+                input.setCustomValidity(valid ? "" : "Enter a finite number.");
+                output.value = valid ? formatvalue(converted, 10) : "";
+                input.reportValidity();
             }
 
             function resetform(form) {
@@ -136,13 +121,26 @@
 
             function clearform(form) {
 
-                for (var i = 1; i <= form.count; i++) form.elements[i].value = "";
+                for (var i = 1; i <= form.count; i++) {
+                    form.elements[i].value = "";
+                    form.elements[i].setCustomValidity("");
+                }
 
                 return true;
 
             }
 
-            <!-- done hiding from old browsers -->
+            function conversionInputChanged(input) {
+                // Editing selects the source unit. Merely focusing a field
+                // (including reportValidity focusing an error) must preserve it.
+                for (var i = 1; i <= input.form.count; i++) {
+                    var field = input.form.elements[i];
+                    if (field !== input) field.value = "";
+                    field.setCustomValidity("");
+                }
+            }
+
+            // End conversion helpers.
 
         </SCRIPT>
 
@@ -162,8 +160,8 @@
                         <td><fmt:message key="encounter.calculators.GeneralCalculators.msgTitle"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupPage(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupPage(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -199,17 +197,17 @@
                                     </TR>
                                     <TR>
                                         <TD><INPUT TYPE=TEXT NAME=val1 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val2 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val3 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val4 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val5 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val6 SIZE=7
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE="button"
                                                    VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
@@ -237,19 +235,19 @@
                                     </TR>
                                     <TR>
                                         <TD><INPUT TYPE=TEXT NAME=val1 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val2 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val3 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val4 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val5 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val6 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val7 SIZE=6
-                                                   onFocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE="button"
                                                    VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
@@ -274,15 +272,15 @@
                                     </TR>
                                     <TR>
                                         <TD><INPUT TYPE=TEXT NAME=val1 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val2 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val3 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val4 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE=TEXT NAME=val5 SIZE=6
-                                                   onfocus="clearform(this.form)"></TD>
+                                                   oninput="conversionInputChanged(this)"></TD>
                                         <TD><INPUT TYPE="button"
                                                    VALUE="<fmt:message key="encounter.calculators.GeneralCalculators.btnCalculate"/>"
                                                    onclick="convertform(this.form)"></TD>
@@ -307,10 +305,10 @@
                                     <tr>
                                         <td width="50%" style="text-align: center;" nowrap><fmt:message key="encounter.calculators.GeneralCalculators.msgFahrenheit"/>
                                             <input type="text" name="F" value="32"
-                                                   onChange="C.value = 100/(212-32) * (this.value - 32 )"></td>
+                                                   onChange="convertTemperature(this, 'C', true)"></td>
                                         <td width="50%" style="text-align: center;" nowrap><fmt:message key="encounter.calculators.GeneralCalculators.msgCelsius"/>
                                             <input type="text" name="C" value="0"
-                                                   onChange="F.value = (212-32)/100 * this.value + 32"></td>
+                                                   onChange="convertTemperature(this, 'F', false)"></td>
                                     </tr>
                                 </table>
                             </form>
@@ -334,13 +332,12 @@
     </body>
     <SCRIPT LANGUAGE="JavaScript">
 
-        <!--
-        Set
-        conversion
-        factors
-        for each item in form.All
+        // Set conversion factors for each distance unit.
 
-        // factors must convert the first item to the current item.
+        // Factors convert the base SI unit to the labelled unit, using exact definitions.
+        // Volume columns use U.S. liquid units except the explicitly Imperial gallon.
+        // Source: NIST SP 811, Appendix B.8 (conversion factors by unit name).
+        // https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8
 
         // Be sure to use the correct form index. The first form is
 
@@ -354,45 +351,42 @@
 
         document.forms[0].val1.factor = 1;            // m to m.
 
-        document.forms[0].val2.factor = 39.37007874;  // m to in.
+        document.forms[0].val2.factor = 1 / 0.0254;  // m to in.
 
-        document.forms[0].val3.factor = 3.280839895;  // m to ft.
+        document.forms[0].val3.factor = 1 / 0.3048;  // m to ft.
 
-        document.forms[0].val4.factor = 1.093613298;  // m to yards.
+        document.forms[0].val4.factor = 1 / 0.9144;  // m to yards.
 
-        document.forms[0].val5.factor = 0.00062137119; // m to mi.
+        document.forms[0].val5.factor = 1 / 1609.344; // m to mi.
 
-        document.forms[0].val6.factor = 0.000547045; // m to nm.
+        document.forms[0].val6.factor = 1 / 1852; // m to international nautical miles (NIST SP 811).
 
-        <!-- done hiding from old browsers -->
+        // End conversion helpers.
 
     </SCRIPT>
 
     <SCRIPT LANGUAGE="JavaScript">
 
-        <!--
-        Set
-        conversion
-        factors
-        for each item in form.document.forms[1].count = 7;
+        // Set conversion factors for each weight unit.
+        document.forms[1].count = 7;
 
         document.forms[1].rsize = 6;
 
         document.forms[1].val1.factor = 1;
 
-        document.forms[1].val2.factor = 35.273944;
+        document.forms[1].val2.factor = 16 / 0.45359237;
 
-        document.forms[1].val3.factor = 2.2046215;
+        document.forms[1].val3.factor = 1 / 0.45359237;
 
-        document.forms[1].val4.factor = 2.6792765;
+        document.forms[1].val4.factor = 1 / 0.3732417216;
 
-        document.forms[1].val5.factor = 0.1574731232747;
+        document.forms[1].val5.factor = 1 / (14 * 0.45359237);
 
-        document.forms[1].val6.factor = 0.00110231075;
+        document.forms[1].val6.factor = 1 / (2000 * 0.45359237);
 
-        document.forms[1].val7.factor = 0.001;
+        document.forms[1].val7.factor = 1 / (2240 * 0.45359237); // kg to long tons, not metric tonnes.
 
-        <!-- done hiding from old browsers -->
+        // End conversion helpers.
 
     </SCRIPT>
 
@@ -407,13 +401,13 @@
 
         document.forms[2].val1.factor = 1;
 
-        document.forms[2].val2.factor = 33.8239926;
+        document.forms[2].val2.factor = 1 / 0.0295735295625;
 
-        document.forms[2].val3.factor = 1.056998;
+        document.forms[2].val3.factor = 1 / 0.946352946;
 
-        document.forms[2].val4.factor = 0.2642499;
+        document.forms[2].val4.factor = 1 / 3.785411784;
 
-        document.forms[2].val5.factor = 0.2200433;
+        document.forms[2].val5.factor = 1 / 4.54609;
 
     </SCRIPT>
 

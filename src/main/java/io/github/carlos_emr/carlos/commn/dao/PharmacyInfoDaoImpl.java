@@ -140,10 +140,19 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         return pharmacyList;
     }
 
+    /**
+     * Searches active pharmacies using the legacy LIKE-pattern contract.
+     * Unlike {@link #searchFaxablePharmacies}, {@code %} and {@code _} retain
+     * their wildcard meaning; {@code !} is a literal character.
+     *
+     * @param name name or address pattern, matched as a substring
+     * @param city city pattern, matched as a substring
+     * @return matching active pharmacies ordered by name and address
+     */
     @Override
     @SuppressWarnings("unchecked")
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city) {
-        String sql = "select x from PharmacyInfo x where x.status = ?1 and (x.name like ?2 escape '!' or x.address like ?3 escape '!') and x.city like ?4 order by x.name, x.address";
+        String sql = "select x from PharmacyInfo x where x.status = ?1 and (x.name like ?2 or x.address like ?3) and x.city like ?4 order by x.name, x.address";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, PharmacyInfo.ACTIVE);
         query.setParameter(2, "%" + name + "%");

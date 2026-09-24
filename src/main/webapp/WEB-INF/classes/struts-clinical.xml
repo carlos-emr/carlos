@@ -422,6 +422,15 @@
         <action name="encounter/oscarMeasurements/ViewTemplateFlowSheet" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
         </action>
+        <!--
+            Health Tracker view. Same read gate as the other flowsheet views: the
+            action enforces _eChart r and the JSP enforces _flowsheet r. The page
+            itself is only linked from the encounter left nav when the
+            health_tracker property is on.
+        -->
+        <action name="encounter/oscarMeasurements/ViewHealthTracker" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/HealthTracker.jsp</result>
+        </action>
         <action name="encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp</result>
         </action>

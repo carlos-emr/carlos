@@ -2,9 +2,15 @@
 
 ## Executive Summary
 
-A comprehensive modern test framework has been successfully implemented for CARLOS EMR using JUnit 5 (Jupiter). The framework runs alongside existing JUnit 4 tests with zero impact on legacy code, allowing gradual migration while immediately enabling modern testing practices for new development.
+CARLOS EMR has a single modern test suite built on JUnit Jupiter, living entirely under
+`src/test/`. It was introduced alongside the legacy JUnit 4 tests in a parallel
+`src/test-modern/` tree; that migration is finished — the JUnit 4 suite has been removed and
+`src/test-modern/` was collapsed into `src/test/`. There is now one tree, one runner and one
+surefire execution.
 
-**Key Achievement**: Successfully implemented 141 comprehensive tests (129 unit + 12 integration), achieving 99% pass rate (140/141 tests passing).
+This document is the deep reference: base classes, Spring/Hibernate wiring, and the
+non-obvious pitfalls of the dual persistence context. For the short version, see
+[`test-writing-guide.md`](test-writing-guide.md).
 
 ## Table of Contents
 1. [Architecture Overview](#architecture-overview)
@@ -20,127 +26,119 @@ A comprehensive modern test framework has been successfully implemented for CARL
 ## Architecture Overview
 
 ### Technology Stack
-- **Test Framework**: JUnit 5 (Jupiter) 5.10.1
-- **Assertions**: AssertJ 3.24.2 for fluent assertions
-- **Mocking**: Mockito 5.x (Java 21 compatible)
+- **Test Framework**: JUnit 6 (Jupiter) 6.1.3
+- **Assertions**: AssertJ 3.27.7 for fluent assertions
+- **Mocking**: Mockito 5.23.0 (Java 25 compatible)
 - **Database**: H2 in-memory database (MySQL mode)
-- **Spring**: Spring Test with Spring 5.3.39
+- **Spring**: Spring Test with Spring 7.0.8
 - **Transactions**: Full transaction support with rollback
 
 ### Design Principles
-1. **Zero Impact**: Legacy tests remain untouched
-2. **Parallel Structure**: Modern tests in separate directory
-3. **Real Testing**: Tests actual implementations, not mocks
-4. **Fast Execution**: In-memory database, sub-second test execution
-5. **Modern Features**: Leverages JUnit 5 capabilities fully
+1. **Real Testing**: Tests actual implementations, not mocks
+2. **Fast Execution**: In-memory database, sub-second test execution
+3. **Modern Features**: Leverages JUnit Jupiter capabilities fully
+4. **One Tree**: All tests live under `src/test/` — no parallel suite to keep in sync
 
 ## Directory Structure
 
 ```
 workspace/
-├── src/
-│   ├── test/                        # Original tests (unchanged)
-│   │   ├── java/                    # JUnit 4 tests
-│   │   └── resources/               # Legacy test resources
-│   └── test-modern/                 # Modern test framework
-│       ├── java/
-│       │   └── io/github/carlos_emr/carlos/
-│       │       ├── test/
-│       │       │   ├── base/        # Base test classes
-│       │       │   │   ├── CarlosTestBase.java
-│       │       │   │   ├── CarlosDaoTestBase.java
-│       │       │   │   └── CarlosWebTestBase.java
-│       │       │   ├── unit/        # Unit test base classes
-│       │       │   │   └── CarlosUnitTestBase.java
-│       │       │   ├── examples/    # Example tests
-│       │       │   ├── mocks/       # Mock implementations
-│       │       │   │   └── MockSecurityInfoManager.java
-│       │       │   └── simple/      # Framework validation tests
-│       │       ├── managers/        # Manager layer unit tests
-│       │       │   ├── DemographicUnitTestBase.java    # Base with test data builders
-│       │       │   └── DemographicManagerUnitTest.java # 117 tests, 18 @Nested classes
-│       │       └── tickler/         # Domain-specific tests
-│       │           ├── dao/
-│       │           │   └── Multiple test files (11 integration + 3 unit tests)
-│       │           ├── manager/
-│       │           │   └── TicklerManagerUnitTest.java
-│       │           └── TicklerUnitTestBase.java
-│       └── resources/
-│           ├── META-INF/
-│           │   └── persistence.xml   # JPA configuration
-│           └── test-context-*.xml    # Spring configurations
-└── docs/test/
-    ├── README.md                          # Test documentation index
-    ├── modern-test-framework-guide.md     # Main framework guide
-    ├── test-writing-best-practices.md     # Best practices guide
-    └── modern-test-framework-complete.md  # This file
+└── src/
+    └── test/
+        ├── java/
+        │   └── io/github/carlos_emr/carlos/
+        │       ├── test/
+        │       │   ├── base/        # Base test classes
+        │       │   │   ├── CarlosTestBase.java
+        │       │   │   ├── CarlosDaoTestBase.java
+        │       │   │   └── CarlosWebTestBase.java
+        │       │   ├── unit/        # Unit test base classes
+        │       │   │   └── CarlosUnitTestBase.java
+        │       │   ├── builders/    # Test data builders
+        │       │   ├── logging/     # LogCapture, for Log4j2 assertions
+        │       │   ├── mocks/       # Mock implementations
+        │       │   │   └── MockSecurityInfoManager.java
+        │       │   ├── support/     # Shared test support
+        │       │   ├── examples/    # Example tests
+        │       │   └── simple/      # Framework validation tests
+        │       ├── managers/        # Manager layer unit tests
+        │       │   ├── DemographicUnitTestBase.java    # Base with test data builders
+        │       │   └── DemographicManagerUnitTest.java # 117 tests, 18 @Nested classes
+        │       └── <domain>/        # Per-domain tests, mirroring the main tree
+        │           └── tickler/
+        │               ├── dao/     # Multiple test files (integration + unit)
+        │               ├── manager/
+        │               │   └── TicklerManagerUnitTest.java
+        │               └── TicklerUnitTestBase.java
+        └── resources/
+            ├── test-context-*.xml           # Spring contexts (full, complete, mock-security)
+            ├── test-applicationContext*.xml # Narrower / legacy contexts
+            ├── test.properties              # @TestPropertySource values
+            └── log4j2.xml                   # Test logging config
+```
+
+Docs live beside this file:
+
+```
+docs/test/
+├── README.md                          # Test documentation index
+├── modern-test-framework-guide.md     # Main framework guide
+├── test-writing-guide.md              # Patterns and static mocking
+├── claude-test-context.md             # Context guide (auto-injected by hooks)
+└── modern-test-framework-complete.md  # This file
 ```
 
 ## Maven Configuration
 
 ### Build Configuration (pom.xml)
 
-The framework is integrated into the default build process:
+There is one surefire execution over the single `src/test/java` tree — no
+`build-helper` source injection and no second test source directory. The parts
+that matter when a test misbehaves:
 
 ```xml
-<!-- Modern test sources added automatically -->
-<plugin>
-    <groupId>org.codehaus.mojo</groupId>
-    <artifactId>build-helper-maven-plugin</artifactId>
-    <version>3.6.0</version>
-    <executions>
-        <execution>
-            <id>add-modern-test-source</id>
-            <phase>generate-test-sources</phase>
-            <goals>
-                <goal>add-test-source</goal>
-            </goals>
-            <configuration>
-                <sources>
-                    <source>src/test-modern/java</source>
-                </sources>
-            </configuration>
-        </execution>
-    </executions>
-</plugin>
-
-<!-- Surefire plugin configured for dual execution -->
 <plugin>
     <groupId>org.apache.maven.plugins</groupId>
     <artifactId>maven-surefire-plugin</artifactId>
-    <version>3.2.5</version>
-    <executions>
-        <!-- Modern tests run first -->
-        <execution>
-            <id>modern-tests</id>
-            <phase>test</phase>
-            <configuration>
-                <testSourceDirectory>src/test-modern/java</testSourceDirectory>
-                <reportsDirectory>${project.build.directory}/surefire-reports-modern</reportsDirectory>
-            </configuration>
-        </execution>
-        <!-- Original tests run second -->
-        <execution>
-            <id>default-test</id>
-            <phase>test</phase>
-            <configuration>
-                <testSourceDirectory>src/test/java</testSourceDirectory>
-            </configuration>
-        </execution>
-    </executions>
+    <version>3.5.5</version>
+    <configuration>
+        <!-- Each fork is a separate JVM with its own H2 mem:testdb, so forks
+             are isolated and safe to run in parallel. Classes stay sequential
+             WITHIN a fork: some Spring integration tests share context caches
+             or fixed seed data. -->
+        <forkCount>${test.forkCount}</forkCount>
+        <reuseForks>true</reuseForks>
+        <perCoreThreadCount>false</perCoreThreadCount>
+        <includes>
+            <include>**/test/**/*Test.java</include>
+            <include>**/*IntegrationTest.java</include>
+            <include>**/*UnitTest.java</include>
+            <!-- ...plus per-slice and legacy-name includes; see pom.xml -->
+        </includes>
+        <argLine>
+           @{argLine}                          <!-- carries the JaCoCo agent -->
+           -Xmx2048m
+           -Dnet.bytebuddy.experimental=true   <!-- Mockito on a new JDK -->
+           --add-opens java.base/java.lang=ALL-UNNAMED
+           --add-opens java.base/java.util=ALL-UNNAMED
+           -Djdk.attach.allowAttachSelf=true
+           -XX:+EnableDynamicAgentLoading
+           -Djava.awt.headless=true
+        </argLine>
+        <groups>${groups}</groups>          <!-- -Dgroups="unit" etc. -->
+    </configuration>
 </plugin>
 ```
 
-### Test Execution Order
-1. Modern tests execute first (JUnit 5)
-2. Original tests execute second (JUnit 4)
-3. Both must pass for successful build
+Note that the `<includes>` list is an allowlist, not a convention: a test class
+whose name and package match none of those patterns is silently never run. Name
+new tests `*UnitTest` / `*IntegrationTest`, or put them under a `test/` package.
 
 ## Core Components
 
 ### 1. CarlosTestBase - Foundation Class
 
-**Location**: `src/test-modern/java/io/github/carlos_emr/carlos/test/base/CarlosTestBase.java`
+**Location**: `src/test/java/io/github/carlos_emr/carlos/test/base/CarlosTestBase.java`
 
 **Purpose**: Base class for all modern tests, handles Spring context and SpringUtils anti-pattern
 
@@ -163,7 +161,7 @@ public abstract class CarlosTestBase {
 
 ### 2. Spring Test Configuration
 
-**Location**: `src/test-modern/resources/test-context-full.xml`
+**Location**: `src/test/resources/test-context-full.xml`
 
 **Key Configurations**:
 - H2 in-memory database with MySQL compatibility mode
@@ -198,7 +196,7 @@ public abstract class CarlosTestBase {
 
 ### 3. MockSecurityInfoManager
 
-**Location**: `src/test-modern/java/io/github/carlos_emr/carlos/test/mocks/MockSecurityInfoManager.java`
+**Location**: `src/test/java/io/github/carlos_emr/carlos/test/mocks/MockSecurityInfoManager.java`
 
 **Purpose**: Bypasses security checks in test environment
 
@@ -214,25 +212,47 @@ public class MockSecurityInfoManager implements SecurityInfoManager {
 
 ### 4. JPA Persistence Configuration
 
-**Location**: `src/test-modern/resources/META-INF/persistence.xml`
+There is **no test `persistence.xml`**. The test contexts build the
+`EntityManagerFactory` in Spring instead, so the set of entities a test sees is
+decided by `packagesToScan` in whichever context it loads — not by a
+`<class>` list.
 
-**Features**:
-- Explicit entity listing (no scanning)
-- Mixed mapping support (.hbm.xml and @Entity)
-- H2 dialect configuration
+**Location**: `src/test/resources/test-context-full.xml` (the context
+`CarlosTestBase` loads)
 
 ```xml
-<persistence-unit name="testPersistenceUnit" transaction-type="RESOURCE_LOCAL">
-    <!-- XML Mappings -->
-    <mapping-file>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</mapping-file>
-
-    <!-- JPA Entities -->
-    <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
-    <class>io.github.carlos_emr.carlos.commn.model.TicklerComment</class>
-
-    <exclude-unlisted-classes>true</exclude-unlisted-classes>
-</persistence-unit>
+<bean id="entityManagerFactory" primary="true"
+      class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+    <property name="dataSource" ref="dataSource" />
+    <property name="persistenceProvider">
+        <bean class="org.hibernate.jpa.HibernatePersistenceProvider" />
+    </property>
+    <!-- Annotated entities are discovered from here; there is no <class> list -->
+    <property name="packagesToScan">
+        <list><value>io.github.carlos_emr.carlos</value></list>
+    </property>
+    <property name="jpaVendorAdapter">
+        <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+            <property name="database" value="H2" />
+            <property name="generateDdl" value="true" />
+        </bean>
+    </property>
+</bean>
 ```
+
+Narrower contexts (`test-context-complete.xml`,
+`test-applicationContext-working.xml`) scan a shortlist of model packages and
+name the unit `testPersistenceUnit` — which is the name to use when injecting
+the `EntityManager`:
+
+```java
+@PersistenceContext(unitName = "testPersistenceUnit")
+private EntityManager entityManager;
+```
+
+An entity in a package the loaded context does not scan fails at runtime as
+"Unknown entity", not at startup. If a test sees that, widen `packagesToScan`
+in the context it uses rather than adding a mapping file.
 
 ## Writing Tests
 
@@ -286,7 +306,7 @@ class ExampleDaoTest extends CarlosTestBase {
 5. **Create helper methods** for test data
 6. **Test real implementations**, not mocks
 
-### JUnit 5 Features Available
+### JUnit Jupiter Features Available
 
 - **Parameterized Tests**: `@ParameterizedTest`, `@ValueSource`
 - **Nested Tests**: `@Nested` for grouping related tests
@@ -321,21 +341,20 @@ make install --run-tests
 
 ### IDE Integration
 
-- **IntelliJ IDEA**: Full JUnit 5 support out of the box
-- **Eclipse**: Requires JUnit 5 platform launcher
-- **VS Code**: Java Test Runner extension supports JUnit 5
+- **IntelliJ IDEA**: Full JUnit Jupiter support out of the box
+- **Eclipse**: Requires the JUnit Platform launcher
+- **VS Code**: Java Test Runner extension supports JUnit Jupiter
 
 ### Test Reports
 
-- **Modern Tests**: `target/surefire-reports-modern/`
-- **Original Tests**: `target/surefire-reports/`
-- **Coverage Reports**: Compatible with JaCoCo
+- **Surefire**: `target/surefire-reports/`
+- **Coverage Reports**: JaCoCo (surefire's `@{argLine}` carries the agent)
 
 ## Proven Capabilities
 
 ### Successfully Demonstrated Features
 
-Based on the 141 implemented tests (129 unit + 12 integration):
+Exercised across the suite:
 
 #### ✅ Database Operations
 - CRUD operations (Create, Read, Update, Delete)
@@ -369,21 +388,19 @@ Based on the 141 implemented tests (129 unit + 12 integration):
 From actual test execution:
 - **Setup Time**: ~2 seconds for Spring context
 - **Test Execution**: < 300ms per test average
-- **Total Time**: < 30 seconds for all 141 tests
-- **Memory Usage**: < 512MB heap
-- **Success Rate**: 99% (140/141 passing)
+- **Memory Usage**: 2048MB heap per fork (`-Xmx2048m` in the surefire `argLine`)
+
+Wall-clock time scales with `test.forkCount`; run the suite to get a current figure rather
+than trusting a number recorded here.
 
 ## Current Implementation Status
 
-- ✅ Modern framework operational with JUnit 5
-- ✅ Both test suites (modern JUnit 5 and legacy JUnit 4) run independently
-- ✅ No impact on existing tests
-- ✅ 140 of 141 tests passing (99% pass rate)
-- ✅ Full Java 21 compatibility with ByteBuddy experimental flag
+- ✅ Single JUnit Jupiter suite under `src/test/`; the legacy JUnit 4 suite is gone
+- ✅ Full Java 25 compatibility with the ByteBuddy experimental flag
 - ✅ Manager unit test patterns proven with 117-test DemographicManagerUnitTest
 - ✅ Domain-specific base classes demonstrated (DemographicUnitTestBase, TicklerUnitTestBase)
 
-## Required Configurations for OpenO
+## Required Configurations for CARLOS
 
 ### SpringUtils Configuration
 
@@ -548,27 +565,26 @@ void performanceTest() {
 
 The modern test framework is fully operational with:
 
-- ✅ JUnit 5 with Java 21 support
+- ✅ JUnit 6 with Java 25 support
 - ✅ Better test organization with @Nested and @DisplayName
 - ✅ AssertJ fluent assertions
 - ✅ Fast execution with H2 in-memory database
-- ✅ No impact on existing JUnit 4 tests
 - ✅ Handles complex domain objects and database operations
 - ✅ Full Spring dependency injection support
 - ✅ Transaction management with automatic rollback
 - ✅ Mixed Hibernate XML and JPA annotation support
 
-New tests should be written in `src/test-modern/` using JUnit 5 and the established patterns.
+New tests belong in `src/test/`, using JUnit Jupiter and the established patterns.
 
 ## References
 
-- [JUnit 5 User Guide](https://junit.org/junit5/docs/current/user-guide/)
+- [JUnit 5 User Guide](https://junit.org/junit5/docs/current/user-guide/) (Jupiter programming model; still the reference for JUnit 6)
 - [AssertJ Documentation](https://assertj.github.io/doc/)
-- [Spring Test Documentation](https://docs.spring.io/spring-framework/docs/5.3.x/reference/html/testing.html)
+- [Spring Test Documentation](https://docs.spring.io/spring-framework/reference/testing.html)
 - [H2 Database Documentation](https://www.h2database.com/html/main.html)
 
 ---
 
-*Last Updated: January 2026*
-*Version: 1.1*
+*Last Updated: September 2026*
+*Version: 1.2*
 *Status: Production Ready*

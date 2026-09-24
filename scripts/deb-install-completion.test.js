@@ -353,3 +353,124 @@ ${block}
     }
   });
 }
+
+// Execute the shipped nginx decision block with isolated service commands.
+// A syntax or service failure must survive the earlier clear_incomplete call.
+test('postinst records terminal nginx failures and accepts a successful rebind', () => {
+  const start = postinst.indexOf('        if nginx -t >/dev/null 2>&1; then');
+  assert.ok(start >= 0);
+  const end = postinst.indexOf('\n        ;;', start);
+  assert.ok(end > start);
+  const block = postinst.slice(start, end).replaceAll('/run/systemd/system', '/tmp');
+  for (const [syntax, reload, restart, bound, incomplete] of [
+    [1, 0, 0, 0, true], [0, 1, 0, 0, true],
+    [0, 0, 1, 1, true], [0, 0, 0, 1, true],
+    [0, 0, 0, 0, false], [0, 0, 0, 2, false],
+    [0, 0, 0, 3, true], [0, 0, 0, 4, true],
+  ]) {
+    const script = `set -eu
+nginx() { return ${syntax}; }
+sd_invoke() { echo "service:$1"; if [ "$1" = reload ]; then return ${reload}; else return ${restart}; fi; }
+calls=0
+front_door_listening() { calls=$((calls + 1)); if [ ${bound} = 2 ]; then [ "$calls" -gt 1 ]; elif [ ${bound} = 3 ]; then return 2; elif [ ${bound} = 4 ]; then if [ "$calls" -gt 1 ]; then return 2; else return 1; fi; else return ${bound}; fi; }
+mark_incomplete() { echo "incomplete:$1"; }
+${block}
+`;
+    const result = spawnSync('sh', ['-c', script], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.includes('incomplete:'), incomplete, JSON.stringify({ syntax, reload, restart, bound, result }));
+    if (syntax || reload) assert.ok(!result.stdout.includes('service:restart'));
+    if (bound === 2 || bound === 4) assert.ok(result.stdout.includes('service:restart'));
+    if (bound === 3) assert.ok(!result.stdout.includes('service:restart'));
+    if (bound === 3 || bound === 4) assert.match(result.stdout, /probe error/);
+  }
+});
+
+test('postinst listener proof requires nginx ownership, both ports and the last configured address', () => {
+  const fn = postinst.match(/front_door_listening\(\) \{[\s\S]*?\n\}/)[0];
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-listeners-'));
+  try {
+    const envFile = path.join(root, 'env');
+    for (const [ip, addresses, owner, expected, processes = '123 nginx: worker process', ssStatus = 0, psStatus = 0] of [
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx', 0],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'python3', 1],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx-other', 1],
+      ['127.0.0.1', ['127.0.0.1:443'], 'nginx', 1],
+      ['127.0.0.1', ['0.0.0.0:80', '127.0.0.1:443'], 'nginx', 1],
+      ['::1', ['[::1]:80', '[::1]:443'], 'nginx', 0],
+      [' [::1] ', ['[::1]:80', '[::1]:443'], 'nginx', 0],
+      [' 127.0.0.1 ', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx', 0],
+      ['0.0.0.0', ['0.0.0.0:80', '0.0.0.0:443'], 'nginx', 0],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], '', 1],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx', 1, '123 nginx: master process /usr/sbin/nginx'],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx', 1, '123 nginx: worker process is shutting down'],
+      ['127.0.0.1', ['127.0.0.1:80', '127.0.0.1:443'], 'nginx', 1, '124 nginx: worker process'],
+      ['127.0.0.1', [], 'nginx', 1, '', 0, 1],
+      ['127.0.0.1', [], 'nginx', 2, '123 nginx: worker process', 2],
+      ['127.0.0.1', [], 'nginx', 2, 'ps: permission denied', 0, 1],
+
+    ]) {
+      fs.writeFileSync(envFile, `CARLOS_BIND_IP=192.0.2.1\nCARLOS_BIND_IP="${ip}"\n`);
+      const sockets = addresses.map(a => `LISTEN 0 511 ${a} 0.0.0.0:* ${owner ? `users:(("${owner}",pid=123,fd=6))` : ''}`).join('\n');
+      const result = spawnSync('sh', ['-c', `
+ENV_FILE='${envFile}'
+ss() { [ "$1" = '-ltnpH' ] || return 2; cat <<'SOCKETS'
+${sockets}
+SOCKETS
+return ${ssStatus}
+}
+ps() { cat <<'PROCESSES'
+${processes}
+PROCESSES
+return ${psStatus}
+}
+sleep() { :; }
+${fn}
+front_door_listening
+`], { encoding: 'utf8' });
+      assert.equal(result.status, expected, JSON.stringify({ ip, addresses, owner, result }));
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('postinst HTTP probe uses the last overrides and the matching wildcard address family', () => {
+  const start = postinst.indexOf('        PROBE_NAME="$(sed');
+  const end = postinst.indexOf('        i=0', start);
+  assert.ok(start >= 0 && end > start);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-probe-'));
+  try {
+    const envFile = path.join(root, 'env');
+    for (const [ip, expected] of [['0.0.0.0', '127.0.0.1'], ['::', '::1'], ['::1', '::1'], [' [::] ', '::1'], [' [::1] ', '::1'], [' 192.0.2.8 ', '192.0.2.8']]) {
+      fs.writeFileSync(envFile, `CARLOS_SERVER_NAME=old.invalid\nCARLOS_SERVER_NAME="clinic.test"\nCARLOS_BIND_IP=192.0.2.1\nCARLOS_BIND_IP="${ip}"\n`);
+      const result = spawnSync('sh', ['-c', `ENV_FILE='${envFile}'\n${postinst.slice(start, end)}\nprintf '%s %s' "$PROBE_NAME" "$PROBE_IP"`], { encoding: 'utf8' });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout, `clinic.test ${expected}`);
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('reconfigure preserves the last deployed overrides, including a reduced heap and bind address', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-debconf-overrides-'));
+  try {
+    fs.writeFileSync(path.join(root, 'carlos-emr.env'), [
+      'CARLOS_SERVER_NAME=old.invalid', 'CARLOS_BIND_IP=0.0.0.0',
+      'CARLOS_PROVINCE=on', 'CARLOS_JAVA_XMX=8g',
+      'CARLOS_SERVER_NAME="clinic.test"', 'CARLOS_BIND_IP="127.0.0.1"',
+      'CARLOS_PROVINCE="bc"', 'CARLOS_JAVA_XMX="2g"', '',
+    ].join('\n'));
+    const stubs = `db_set() { printf '%s=%s\\n' "$1" "$2"; }
+db_fget() { RET=true; }
+db_input() { :; }
+db_go() { :; }
+db_get() { RET=selfsigned; }`;
+    const script = read('debian', 'carlos-emr.config')
+      .replace('. /usr/share/debconf/confmodule', stubs)
+      .replace('CONF_DIR=/etc/carlos-emr', `CONF_DIR='${root}'`);
+    const result = spawnSync('sh', ['-c', script], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.stdout.trim().split('\n'), [
+      'carlos-emr/server-name=clinic.test', 'carlos-emr/bind-ip=127.0.0.1',
+      'carlos-emr/province=bc', 'carlos-emr/java-heap=2g',
+    ]);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

@@ -155,7 +155,7 @@ const SURFACES = [
     // Icon-only control in #userSettings; its title is its accessible name.
     entry: { title: /Scratch\s*Pad/i, popup: true },
     // This editor has form controls, not a catalogue of navigation links.
-    controls: ['textarea#thetext', 'input#savebutton', 'select[onchange*="showVersion"]'],
+    controls: ['textarea#thetext', '#savebutton', 'select[onchange*="showVersion"]'],
     province: 'all',
   },
 ];

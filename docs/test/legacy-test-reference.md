@@ -1,5 +1,10 @@
 # Legacy Test Framework Reference
 
+> **HISTORICAL DOCUMENT.** The JUnit 4 suite described here has been removed. All tests
+> now live in the single JUnit Jupiter suite under `src/test/`. Kept for pre-migration
+> context only — do not follow its guidance for new work. See
+> [`README.md`](README.md) for the current framework.
+
 ## Overview
 
 This document describes the existing legacy test suite that continues to run alongside the modern JUnit 5 tests. These tests remain functional and provide critical coverage while new development uses the modern framework.

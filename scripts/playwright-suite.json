@@ -35,6 +35,32 @@
   ],
   "checks": [
     {
+      "name": "provider-quick-links",
+      "script": "scripts/provider-quick-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "pharmacy-editor-workflow",
+      "script": "scripts/pharmacy-editor-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "add-login-account",
       "script": "scripts/add-login-account-playwright-checks.js",
       "tiers": [
@@ -149,6 +175,23 @@
         "all"
       ],
       "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_DAYS_AHEAD",
+        "APPOINTMENT_DEMOGRAPHIC_NO",
+        "APPOINTMENT_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "appointment-recurrence",
+      "script": "scripts/appointment-recurrence-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
       "env": [
         "APPOINTMENT_DAYS_AHEAD",
         "APPOINTMENT_DEMOGRAPHIC_NO",
@@ -414,6 +457,36 @@
       ]
     },
     {
+      "name": "document-pagination",
+      "script": "scripts/document-pagination-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_PAGINATION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "incoming-pdf-extraction",
+      "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "INCOMINGDOCUMENT_DIR"
+      ]
+    },
+    {
       "name": "document-upload",
       "script": "scripts/document-upload-playwright-checks.js",
       "tiers": [
@@ -445,26 +518,6 @@
         "DRUG_SEARCH_TERM",
         "PRESCRIPTION_DEMOGRAPHIC_NO"
       ]
-    },
-    {
-      "name": "inactive-drug-status",
-      "script": "scripts/inactive-drug-status-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "provinces": [
-        "ON"
-      ],
-      "timeoutSec": 240,
-      "assertsDatabase": true,
-      "env": [
-        "TEST_PASSWORD",
-        "TEST_PIN",
-        "MYSQL_PASSWORD",
-        "DRUGREF_TEST_DATABASE",
-        "INACTIVE_DRUG_DIN"
-      ],
-      "fixtures": "Creates and removes an owned patient; reads a real inactive DrugRef product (default DIN 02245547) and never saves a prescription."
     },
     {
       "name": "drugref-update",
@@ -653,6 +706,19 @@
       ]
     },
     {
+      "name": "eform-image-delete",
+      "script": "scripts/eform-image-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "eform-consultation-acceptance",
       "script": "scripts/eform-consultation-acceptance-playwright-checks.js",
       "tiers": [
@@ -817,6 +883,24 @@
       "timeoutSec": 300
     },
     {
+      "name": "eform-apcache-renderer",
+      "script": "scripts/eform-apcache-renderer-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "APCACHE_DEMOGRAPHIC_NO",
+        "APCACHE_JOURNAL_UNIT",
+        "APCACHE_PROBE_URL",
+        "APCACHE_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "eform-saved-render",
       "script": "scripts/eform-saved-render-playwright-checks.js",
       "tiers": [
@@ -929,6 +1013,22 @@
       "timeoutSec": 300
     },
     {
+      "name": "form-labreq-practitioner-no",
+      "script": "scripts/form-labreq-practitioner-no-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LABREQ_DEMOGRAPHIC_NO",
+        "LABREQ_PROVIDER_NO"
+      ]
+    },
+    {
       "name": "form-rourke2017",
       "script": "scripts/form-rourke2017-playwright-checks.js",
       "tiers": [
@@ -957,6 +1057,52 @@
       "timeoutSec": 600,
       "env": [
         "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "inbox-preview-acknowledge",
+      "script": "scripts/inbox-preview-acknowledge-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "lab-pdf-footer",
+      "script": "scripts/lab-pdf-footer-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_PDF_DEMOGRAPHIC_NO",
+        "LAB_PDF_EXPECTED_NOTICE"
+      ]
+    },
+    {
+      "name": "lab-requisition-links",
+      "script": "scripts/lab-requisition-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_LINK_DEMOGRAPHIC_NO"
       ]
     },
     {
@@ -1100,6 +1246,21 @@
         "MEASUREMENT_DEMOGRAPHIC_NO",
         "MEASUREMENT_GROUP",
         "MEASUREMENT_TYPE"
+      ]
+    },
+    {
+      "name": "patient-messenger-context",
+      "script": "scripts/patient-messenger-context-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MESSENGER_CONTEXT_DEMOGRAPHICS"
       ]
     },
     {
@@ -1891,6 +2052,24 @@
       ]
     },
     {
+      "name": "health-tracker",
+      "script": "scripts/health-tracker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only."
+    },
+    {
       "name": "measurement-history",
       "script": "scripts/measurement-history-playwright-checks.js",
       "tiers": [
@@ -1943,6 +2122,24 @@
       ]
     },
     {
+      "name": "encounter-header-i18n",
+      "script": "scripts/encounter-header-i18n-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "HEADER_I18N_SEARCH",
+        "HEADER_I18N_DEMOGRAPHIC_NO",
+        "HEADER_I18N_TIMEOUT_MS"
+      ],
+      "notes": "Walks the chart four times sequentially on one server: English, French, unsupported-only German (English fallback), and German followed by French. Checks all rendered identity labels, calculator uniqueness, and configured template-search bundle values."
+    },
+    {
       "name": "echart-note-editor",
       "script": "scripts/echart-note-editor-playwright-checks.js",
       "tiers": [
@@ -1957,6 +2154,275 @@
         "NOTE_EDITOR_SEARCH",
         "NOTE_EDITOR_DEMOGRAPHIC_NO",
         "NOTE_EDITOR_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "csrf-xhr-token",
+      "script": "scripts/csrf-xhr-token-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CSRF_XHR_SEARCH",
+        "CSRF_XHR_DEMOGRAPHIC_NO",
+        "CSRF_XHR_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "edit-appointment-direct-link",
+      "script": "scripts/edit-appointment-direct-link-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_NO",
+        "APPOINTMENT_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "prevention-add-data",
+      "script": "scripts/prevention-add-data-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PREVENTION_DEMOGRAPHIC_NO",
+        "PREVENTION_UNRESOLVED",
+        "PREVENTION_RESOLVED"
+      ]
+    },
+    {
+      "name": "tickler-demo-main",
+      "script": "scripts/tickler-demo-main-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TICKLER_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "registry-ichppc-lifecycle",
+      "script": "scripts/registry-ichppc-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "about-licence",
+      "script": "scripts/about-licence-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECTED_BUILD_VERSION"
+      ]
+    },
+    {
+      "name": "pharmacy-search",
+      "script": "scripts/pharmacy-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": []
+    },
+    {
+      "name": "pharmacy-list-filters",
+      "script": "scripts/pharmacy-list-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "admin-report-validation",
+      "script": "scripts/admin-report-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "consultation-null-booking",
+      "script": "scripts/consultation-null-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "inactive-drug-status",
+      "script": "scripts/inactive-drug-status-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "INACTIVE_DRUG_DIN",
+        "INACTIVE_DRUG_DATE",
+        "DRUGREF_TEST_DATABASE"
+      ],
+      "fixtures": "Creates and removes an owned patient; reads a known inactive DrugRef product and selects it into the unsaved Rx editor; never saves a prescription."
+    },
+    {
+      "name": "referral-labels",
+      "script": "scripts/referral-labels-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "billing-payment-types",
+      "script": "scripts/billing-payment-types-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "scratchpad-workflow",
+      "script": "scripts/scratchpad-workflow-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "rh-form-workflow",
+      "script": "scripts/rh-form-workflow-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "billing-bc-associations",
+      "script": "scripts/billing-bc-associations-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "facility-selection",
+      "script": "scripts/facility-selection-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "health-care-team",
+      "script": "scripts/health-care-team-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "hrm-window",
+      "script": "scripts/hrm-window-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "CHROME_BIN"
       ]
     }
   ]

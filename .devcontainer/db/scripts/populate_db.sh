@@ -115,6 +115,12 @@ $SQL carlos < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
 # the eform-rtl-attachment-* Playwright checks pin this.
 echo 'Rewiring Rich Text Letter attachment routes...'
 $SQL carlos < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# Also after the modernize update, and for the same reason: it adds the hidden
+# user_id / user_ohip_no / doctor_provider_no inputs that editControl2.js reads to
+# pick consult_sig_<provider_no>.png for the Stamp and Closing Salutation buttons.
+# Without it the RTL falls back to the single shared stamp.png for every provider.
+echo 'Adding Rich Text Letter provider stamp fields...'
+$SQL carlos < /database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql
 # The snapshot's HRM rows name report files that never shipped, so every HRM
 # list is empty. Point one demographic-1 report at the fixture that
 # seed_data.sh copies into the document store (deb parity: carlos-ctl demo-data
@@ -128,4 +134,19 @@ $SQL carlos < /scripts/demo-hrm-report.sql
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
 $SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# Same shape of problem: development.sql truncate-reloads `clinic` with the snapshot's
+# placeholder ('MHI Org '), undoing V1.0.24 applied above. clinic_name is what the eForm AP of
+# that name returns, so it is the letterhead the Rich Text Letter's ##letterhead## button prints
+# on every demo letter. Re-assert the migration's value, matching either placeholder so a
+# refreshed snapshot cannot quietly reintroduce the other one. (The deb demo load needs no
+# equivalent: demo-additive-exclude.txt drops `clinic`, so the Flyway value stands there.)
+echo 'Renaming the demo clinic away from the upstream placeholder...'
+$SQL carlos -e "UPDATE clinic SET clinic_name = 'CARLOS Demo Clinic' WHERE TRIM(clinic_name) IN ('MHI Org', 'McMaster Hospital');"
+# Administration fixtures for the data-backed Administration screens the demo
+# snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
+# (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only
+# `locktest` login and must follow it (it attaches to provider 999996).
+echo 'Loading Administration test fixtures...'
+$SQL carlos < /scripts/admin_test_data.sql
+$SQL carlos < /scripts/admin_test_account.sql
 echo 'Database initialization complete!'

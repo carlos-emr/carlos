@@ -129,6 +129,51 @@ sd_invoke() {
     deb-systemd-invoke "$@"
 }
 
+# NGINX has bound the front-door listeners the rendered configuration asks for
+# — CARLOS_BIND_IP on 80 and 443. Polled briefly: nginx binds them a moment
+# after the reload signal is delivered, and asking too early would restart a
+# front door that was about to come up on its own. An IPv6 literal shows
+# bracketed in ss.
+#
+# -p, and the nginx match on it, are the point: "something is listening there"
+# is the question that reported a healthy front door on the tester's broken
+# host, and another daemon holding both ports would read exactly the same. The
+# postinst runs as root, so the owner column is populated.
+front_door_listening() {
+    # Match Settings: use the last value, without surrounding space/brackets.
+    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
+    [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        # The master can briefly bind sockets during a reload that later
+        # fails. Only workers can serve them; refresh PIDs on every poll.
+        # Capture each command before any pipeline, so a failed visibility
+        # probe is distinct from a successful probe finding no listeners.
+        sockets="$(ss -ltnpH 2>/dev/null)" || return 2
+        if processes="$(ps -C nginx -o pid=,args= 2>&1)"; then
+            :
+        else
+            probe_rc=$?
+            # procps returns 1 with no output when there are no nginx PIDs.
+            [ "${probe_rc}" = 1 ] && [ -z "${processes}" ] || return 2
+        fi
+        worker_pids="$(printf '%s\n' "${processes}" | awk '
+            NF == 4 && $1 ~ /^[0-9]+$/ && $2 == "nginx:" && $3 == "worker" && $4 == "process" {
+                printf "%s%s", separator, $1; separator="|"
+            }')"
+        if [ -n "${worker_pids}" ] && printf '%s\n' "${sockets}" \
+            | grep -E "\\(\"nginx\",pid=(${worker_pids}),fd=[0-9]+\\)" \
+            | awk -v ip="${bind_ip}" \
+            '/\("nginx",pid=[0-9]+,fd=[0-9]+\)/ {
+             if ($4 == ip ":80" || $4 == "[" ip "]:80") a=1
+             if ($4 == ip ":443" || $4 == "[" ip "]:443") b=1
+             } END {exit !(a && b)}'; then
+            return 0
+        fi
+        sleep 0.2
+    done
+    return 1
+}
+
 # Clear carlos-emr.service's start rate-limit counter before a package-driven
 # lifecycle action. The unit carries StartLimitBurst=6/StartLimitIntervalSec=30min
 # to catch a genuine crash loop, but THREE packages (carlos-emr, -drugref,
@@ -575,6 +620,24 @@ case "$1" in
             rm -f "${ENV_FILE}.tmp"
         }
         set_env_key CARLOS_SERVER_NAME "${SERVER_NAME}"
+        # ss reports a bound IPv6 literal bracketed AND canonicalised, so the
+        # equally valid 0:0:0:0:0:0:0:1 comes back as ::1 and a textual proof
+        # would declare a healthy front door missing. Canonicalise the answer
+        # once, here, so the env file every later shell and Python read shares
+        # carries the spelling those proofs will see. python3 is a hard
+        # dependency (carlos-ctl is written in it); if it cannot parse the
+        # value, keep what the operator wrote so carlos-ctl rejects it with
+        # an actionable error before rendering; the failed apply is recorded.
+        BIND_IP="$(printf '%s' "${BIND_IP}" | python3 -c '
+import ipaddress, sys
+raw = sys.stdin.read().strip()
+if raw.startswith("[") and raw.endswith("]"):
+    raw = raw[1:-1]
+try:
+    sys.stdout.write(ipaddress.ip_address(raw).compressed)
+except ValueError:
+    sys.stdout.write(raw)
+' 2>/dev/null || printf '%s' "${BIND_IP}")"
         set_env_key CARLOS_BIND_IP "${BIND_IP}"
         # The single debconf heap answer round-trips through CARLOS_JAVA_XMX
         # only (the config script seeds the question from Xmx), so Xms has no
@@ -827,6 +890,11 @@ case "$1" in
         # vhost's broken config). Front-door trouble is loud but must never
         # leave the package half-configured and block the apt transaction;
         # the same tolerance the nginx section below has always had.
+        # The site symlink goes in further down, with the certificates, so the
+        # front door is not this run's to prove yet. Say so explicitly: run by
+        # hand later, a missing symlink is a real fault and init-config must
+        # not report success over it.
+        [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             carlos-ctl init-config || {
                 echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
@@ -835,6 +903,7 @@ case "$1" in
                 mark_incomplete "the configuration could not be applied"
             }
         fi
+        unset CARLOS_CONFIGURE_FIRST_RUN
 
         # (The mariadb start + wait that used to sit here is hoisted above
         # the db-name migration check — see the comment there.)
@@ -1136,14 +1205,54 @@ case "$1" in
         fi
         if nginx -t >/dev/null 2>&1; then
             if [ -d /run/systemd/system ]; then
-                sd_invoke reload nginx.service 2>/dev/null || sd_invoke restart nginx.service || \
-                    echo "carlos-emr: WARNING: nginx did not reload — the front door may be serving stale configuration (systemctl status nginx)" >&2
+                # A successful `reload` proves nothing: it only delivers a
+                # signal, and the master then fails to bind the NEW listen
+                # sockets whenever the old ones block them. On every fresh
+                # install the distribution's nginx is already up on
+                # 0.0.0.0:80 with its default site, and a wildcard listener
+                # in LISTEN state makes bind(127.0.0.1:80) fail with
+                # EADDRINUSE — nginx logs an [emerg], keeps serving the OLD
+                # configuration, and reports success. A tester's install
+                # "succeeded" with nothing answering on 443. So prove the
+                # configured listeners are bound and restart when they are
+                # not (a restart closes every old socket before binding
+                # anew). carlos-ctl init-config does the same.
+                if ! sd_invoke reload nginx.service 2>/dev/null; then
+                    echo "carlos-emr: WARNING: nginx reload failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
+                    mark_incomplete "nginx could not reload the rendered front-door configuration"
+                elif front_door_listening; then
+                    :
+                else
+                    probe_rc=$?
+                    if [ "${probe_rc}" = 2 ]; then
+                        echo "carlos-emr: WARNING: cannot verify nginx listeners: ss or ps probe failed; nginx was not restarted" >&2
+                        mark_incomplete "nginx listener verification failed (ss or ps probe error)"
+                    elif ! sd_invoke restart nginx.service; then
+                        echo "carlos-emr: WARNING: nginx restart failed (systemctl status nginx; journalctl -u nginx)" >&2
+                        mark_incomplete "nginx could not restart the rendered front-door configuration"
+                    elif front_door_listening; then
+                        :
+                    else
+                        probe_rc=$?
+                        if [ "${probe_rc}" = 2 ]; then
+                            echo "carlos-emr: WARNING: cannot verify nginx listeners after restart: ss or ps probe failed" >&2
+                            mark_incomplete "nginx listener verification failed after restart (ss or ps probe error)"
+                        else
+                            echo "carlos-emr: WARNING: nginx is not listening on the configured front-door address — it may be serving stale configuration (systemctl status nginx; journalctl -u nginx)" >&2
+                            mark_incomplete "nginx did not bind the configured front-door listeners"
+                        fi
+                    fi
+                fi
             fi
         else
             echo "carlos-emr: the nginx configuration test FAILED; the front door was not reloaded." >&2
             # Re-run purely to SHOW the failure detail; the || true keeps this
             # diagnostic from aborting configure a second time.
             nginx -t || true
+            # This runs after clear_incomplete(), so without recording it an
+            # invalid site or certificate would leave the front door down with
+            # no marker and nothing for finish-install to retry.
+            mark_incomplete "the nginx configuration test failed"
         fi
         ;;
 
@@ -1278,14 +1387,21 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # writes: a raw read would hand curl --resolve a quoted host/addr and
         # every healthy install would sit out the whole loop before wrongly
         # reporting the front door dead. Same idiom as the XMS/XMX reads above.
-        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
         PROBE_NAME="${PROBE_NAME:-localhost}"
         # Probe the address nginx actually listens on: with a non-default
         # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
         # healthy install used to sit through the whole five-minute loop and
         # then blame the application.
-        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
-        case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
+        # LAST assignment, matching env_get and systemd EnvironmentFile: an
+        # operator who appends an override gets nginx rendered for that
+        # address, and probing the first one would blame the application for
+        # an address nothing was ever meant to answer on.
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
+        case "${PROBE_IP}" in
+            ""|0.0.0.0) PROBE_IP=127.0.0.1 ;;
+            ::) PROBE_IP=::1 ;;
+        esac
         i=0
         while [ "${i}" -lt 60 ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \

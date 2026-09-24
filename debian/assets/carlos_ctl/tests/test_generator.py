@@ -446,19 +446,24 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
     def test_a_password_in_argv_is_named_back_to_the_operator(self):
         # the message quotes what it refuses, so a bare --password must
         # come back as --password and not as the first two characters
-        self.assertEqual(self.mod.reject_password_args(
+        self.assertEqual(self.mod.reject_credential_args(
             ["--password"]), ["--password"])
-        self.assertEqual(self.mod.reject_password_args(
+        self.assertEqual(self.mod.reject_credential_args(
             ["--password=hunter2"]), ["--password"])
-        self.assertEqual(self.mod.reject_password_args(["-phunter2"]), ["-p"])
+        self.assertEqual(self.mod.reject_credential_args(["-phunter2"]), ["-p"])
         # the BARE form is the one that makes the client PROMPT, which in
         # a scripted oracle run means an indefinite wait on stdin
-        self.assertEqual(self.mod.reject_password_args(["-p"]), ["-p"])
+        self.assertEqual(self.mod.reject_credential_args(["-p"]), ["-p"])
+
+    def test_passwords_containing_equals_are_not_reflected(self):
+        self.assertEqual(self.mod.reject_credential_args([
+            "-pSECRET=tail", "--passwordSECRET=tail", "--password=SECRET=tail",
+        ]), ["-p", "--password", "--password"])
 
     def test_an_innocent_client_argument_is_left_alone(self):
         # --protocol starts with "-p" too; refusing it would block a
         # legitimate invocation
-        self.assertEqual(self.mod.reject_password_args(
+        self.assertEqual(self.mod.reject_credential_args(
             ["-uroot", "--protocol=tcp", "--socket=/run/m.sock"]), [])
 
     def test_the_scaffold_preserves_column_order_and_quotes_names(self):
@@ -627,6 +632,12 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
             GEN.parent / "verify_sql_semantics.py")
         cls.mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.mod)
+
+    def test_password_refusals_contain_only_constant_flag_names(self):
+        self.assertEqual(self.mod.reject_credential_args([
+            "-pSECRET=tail", "--passwordSECRET=tail", "--password=SECRET=tail",
+            "--password", "-p", "--protocol=tcp",
+        ]), ["-p", "--password", "--password", "--password", "-p"])
 
     def test_it_drives_a_table_the_manifest_still_calls_merge(self):
         # if consultationServices ever stops being merge-class, or loses

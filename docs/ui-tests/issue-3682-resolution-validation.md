@@ -5,6 +5,16 @@ This follow-up addresses the remaining application and test findings from
 [test expansion](release-2026.08-workflow-validation.md) is historical evidence;
 the focused PRs below carry the follow-up fixes. No PR is merged by this validation.
 
+**Status after the 2026-09-24 release merge.** #3684–#3691, #3699 and DrugRef
+[#14](https://github.com/carlos-emr/drugref2026/pull/14) are merged, so this branch
+now carries every application fix its workflows exercise except #3694. #3694 is
+still open, and its `V1.0.23.1` signature migration now collides with
+`common/V1.0.23.1__widen_email_config.sql`, which #3782 added to release/2026.08;
+#3694 needs a new, unused version before it can merge. The deployment-order notes
+below describe the plan as written on September 17 and should be read with that
+collision in mind. The workflows in this PR do not depend on the #3694 migration:
+`provider-preferences` owns and restores the test provider's `providerExt` rows.
+
 All CARLOS branches start at release/2026.08 `71d4528eddd9e10e6b8027fd83ccd59831c89e34`
 and target that release. Develop was fetched only to check migration allocation.
 
@@ -18,7 +28,7 @@ and target that release. Develop was fetched only to check migration allocation.
 | [3689](https://github.com/carlos-emr/carlos/pull/3689) | Printer/signature/document-description preferences | Final package retest pending, including both printer-feature settings |
 | [3690](https://github.com/carlos-emr/carlos/pull/3690) | Explicit inactive-drug status and visible lookup failure | Actual inactive DIN returns its stored calendar date; malformed response shows warning and recovery, without saving a prescription |
 | [3691](https://github.com/carlos-emr/carlos/pull/3691) | Admin/chart navigation, calculator entry/styles, Row Display and lot search | Chart module audit and repeated lot search pass; 101-item administration sweep exposed OHIP handler and duplicated AJAX-header failures; both corrected, final package retest pending |
-| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 114 named checks / 105 scripts registered after merging #3699; 658 standalone branch Node regressions pass (695 in the earlier combined-fix checkout) |
+| [3693](https://github.com/carlos-emr/carlos/pull/3693) | Shared live workflows and this evidence | 146 named checks / 137 scripts after the 2026-09-24 release merge (114 / 105 when #3699 merged); 942 Node script regressions pass. The release already carried an `inactive-drug-status` check from #3766, so the two were merged into one manifest entry: the release's configured-fixture lookup and four malformed-response cases, plus this PR's real Rx search-and-select step |
 | [3694](https://github.com/carlos-emr/carlos/pull/3694) | Signature identity migration | Nine real MariaDB cases and both province fresh/adopted Flyway CI jobs pass, including preservation of duplicate unassigned rows; application upgrade pending |
 | [DrugRef 14](https://github.com/carlos-emr/drugref2026/pull/14) | JDBC calendar dates and explicit lookup faults | 69 tests and WAR pass at 1941e142; earlier installed-DEB calendar-date lookup passes, latest query-failure follow-up installation pending |
 
@@ -48,8 +58,9 @@ The migration removes only byte-identical signature duplicates for assigned prov
 and rejects conflicting values before changing source data; it never selects an arbitrary
 signature. Every NULL-provider row is preserved, including identical rows and NULL
 signatures. Follow the migration README for backup and conflict recovery.
-Version 1.0.23.1 follows this release's 1.0.23 and does not collide with develop's
-1.0.24–1.0.28. Promotion into an already-upgraded develop database needs explicit
+Version 1.0.23.1 followed this release's 1.0.23 and did not collide with develop's
+1.0.24–1.0.28 when written; it now collides with #3782's email-configuration
+migration (see the status note at the top). Promotion into an already-upgraded develop database needs explicit
 upgrade planning; do not rename a published migration or enable out-of-order
 execution implicitly.
 

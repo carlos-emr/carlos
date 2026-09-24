@@ -41,6 +41,9 @@
  * The same shape is applied to the review-status filter (New / Acknowledged /
  * Filed against All), which submits the form for real rather than re-fetching
  * over AJAX -- a different code path, and the one a clinician uses most.
+ * HRM has two states: Acknowledged/Filed both mean signed off. Their HRM sets
+ * must agree, and New versus signed-off still forms a strict partition.
+ * Category totals and the HRM badge must also match the returned rows.
  *
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, then the schedule's Inbox
  * control. Never by navigating to the Inboxhub URL.
@@ -328,6 +331,52 @@ async function checkTypeFilters(page, timeout) {
   return { whole: whole.length, parts: parts.map((part) => `${part.title}=${part.rows.length}`), skipped };
 }
 
+/**
+ * Verifies strict document/lab partitions and HRM New versus signed-off coverage.
+ * HRM Acknowledged and Filed are aliases and must contain the same rows.
+ * @param {string[]} whole identities shown under All
+ * @param {{title: string, rows: string[]}[]} parts identities from each status view
+ * @throws {Error} when a row is missing, duplicated or placed in inconsistent views
+ */
+function assertReviewStatusCoverage(whole, parts) {
+  const hrm = row => row.startsWith('HRM:');
+  const select = (title, predicate) => ({title, rows: parts.find(part => part.title === title).rows.filter(predicate)});
+  assertPartitions(whole.filter(row => !hrm(row)), parts.map(part => ({
+    title: part.title, rows: part.rows.filter(row => !hrm(row)),
+  })), 'Document/lab review status');
+  const acknowledged = select('Acknowledged', hrm);
+  const filed = select('Filed', hrm);
+  const filedRows = [...filed.rows].sort();
+  assert(acknowledged.rows.length === filedRows.length
+    && [...acknowledged.rows].sort().every((row, index) => row === filedRows[index]),
+  'HRM Acknowledged and Filed must contain the same signed-off results');
+  assertPartitions(whole.filter(hrm), [select('New', hrm), acknowledged], 'HRM review status');
+}
+
+/**
+ * Requires the HRM category total and optional badge to match displayed HRM rows.
+ * @param {import('playwright').Page} page settled inbox page
+ * @param {string[]} rows visible result identities
+ * @returns {Promise<void>} resolves when both available counts agree
+ */
+async function assertHrmCount(page, rows) {
+  const expected = rows.filter(row => row.startsWith('HRM:')).length;
+  const count = await page.locator('#totalHRMCount').inputValue();
+  assert(/^\d+$/.test(count) && Number(count) === expected,
+    `HRM category total ${count} does not match ${expected} result rows`);
+  const badge = page.locator('#totalHRMsCountStat');
+  if (await badge.count()) {
+    assert(Number(await badge.innerText()) === expected, 'HRM badge does not match its result rows');
+  }
+}
+
+/**
+ * Submits every review-status filter and checks coverage and HRM totals.
+ * @param {import('playwright').Page} page authenticated inbox page
+ * @param {number} timeout maximum wait per filter in milliseconds
+ * @returns {Promise<object>} whole-row count and per-status count summaries
+ * @throws {SkipCheck} when the selected dataset contains no results
+ */
 async function checkStatusFilters(page, timeout) {
   // "All" first, so the whole set is measured under the same form submission
   // path as the parts -- not against the AJAX-loaded initial list.
@@ -342,11 +391,14 @@ async function checkStatusFilters(page, timeout) {
     throw new SkipCheck('no results at any review status on this dataset');
   }
 
+  await assertHrmCount(page, whole);
   const parts = [];
   for (const filter of STATUS_FILTERS) {
-    parts.push({ title: filter.title, rows: await applyStatusFilter(page, filter, timeout) });
+    const rows = await applyStatusFilter(page, filter, timeout);
+    await assertHrmCount(page, rows);
+    parts.push({ title: filter.title, rows });
   }
-  assertPartitions(whole, parts, 'Review status');
+  assertReviewStatusCoverage(whole, parts);
   return { whole: whole.length, parts: parts.map((part) => `${part.title}=${part.rows.length}`) };
 }
 
@@ -396,7 +448,7 @@ async function main() {
       console.log(`  type filters partition ${types.whole} row(s): ${types.parts.join(', ')}`);
     }
     if (statuses) {
-      console.log(`  status filters partition ${statuses.whole} row(s): ${statuses.parts.join(', ')}`);
+      console.log(`  status filters cover ${statuses.whole} row(s): ${statuses.parts.join(', ')}`);
     }
     return { types, statuses, skipped };
   } finally {
@@ -409,5 +461,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  STATUS_FILTERS, TYPE_FILTERS, assertPartitions, main, settle, shownRows,
+  STATUS_FILTERS, TYPE_FILTERS, assertPartitions, assertReviewStatusCoverage, assertHrmCount, main, settle, shownRows,
 };

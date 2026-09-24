@@ -95,7 +95,7 @@
         - Ticklers: io.github.carlos_emr.carlos.managers.TicklerManager
         - Macros: Jackson ObjectMapper for JSON parsing
         - Security: OWASP Encoder, SecurityInfoManager
-        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js (jQuery UI removed)
+        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js, jQuery UI dialog/autocomplete
 
     @since 2003 (Macro and Tickler improvements 2026-02)
 --%>
@@ -314,6 +314,9 @@
         </script>
         <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%-- Forward loads its dialog by AJAX; scripts in that response are not loaded. --%>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/js/carlosAutocomplete.js"></script>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
 
@@ -580,7 +583,7 @@
     <table class="docTable">
         <tr>
             <td class="pdfPreviewColumn" style="vertical-align: top;">
-                <div style="text-align: right;font-weight: bold">
+                <div class="document-pagination" style="text-align: right; font-weight: bold; position: sticky; top: 0; background: white; z-index: 1;">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
                     <a id="firstP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
                        onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
@@ -598,16 +601,6 @@
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
-                <div style="text-align: right;font-weight: bold">
-                    <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></a>
-                    <%} %>
-                </div>
             </td>
 
             <td class="pdfAssignmentToolsColumn" style="vertical-align: top;">

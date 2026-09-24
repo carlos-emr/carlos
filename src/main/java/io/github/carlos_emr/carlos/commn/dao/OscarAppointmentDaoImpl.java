@@ -64,6 +64,28 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public List<Appointment> findRecurringSeries(Appointment anchor, Date endDate) {
+        return entityManager.createQuery("SELECT a FROM Appointment a WHERE a.providerNo=:provider "
+                + "AND a.appointmentDate BETWEEN :start AND :end "
+                + "AND a.startTime=:startTime AND a.endTime=:endTime "
+                + "AND a.demographicNo=:demographic AND a.programId=:program "
+                + "AND COALESCE(a.name,'')=COALESCE(:name,'') "
+                + "AND COALESCE(a.notes,'')=COALESCE(:notes,'') "
+                + "AND COALESCE(a.reason,'')=COALESCE(:reason,'') "
+                + "AND COALESCE(a.creator,'')=COALESCE(:creator,'') "
+                + "AND (a.createDateTime=:created OR (a.createDateTime IS NULL AND :created IS NULL)) "
+                + "ORDER BY a.appointmentDate, a.id", Appointment.class)
+                .setParameter("provider", anchor.getProviderNo())
+                .setParameter("start", anchor.getAppointmentDate()).setParameter("end", endDate)
+                .setParameter("startTime", anchor.getStartTime()).setParameter("endTime", anchor.getEndTime())
+                .setParameter("demographic", anchor.getDemographicNo()).setParameter("program", anchor.getProgramId())
+                .setParameter("name", anchor.getName()).setParameter("notes", anchor.getNotes())
+                .setParameter("reason", anchor.getReason()).setParameter("creator", anchor.getCreator())
+                .setParameter("created", anchor.getCreateDateTime()).setMaxResults(367)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
+    @Override
     public Appointment findForUpdate(Integer appointmentNo) {
         if (appointmentNo == null) {
             return null;

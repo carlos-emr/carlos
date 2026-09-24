@@ -154,3 +154,32 @@ test('only a non-interactive DataTables empty placeholder may lack a result iden
     else assert.deepEqual(await shownRows(page), []);
   }
 });
+
+
+const {assertReviewStatusCoverage, assertHrmCount} = require('./inboxhub-filters-playwright-checks');
+const reviewParts = (fresh, ack, filed) => [
+  {title: 'New', rows: fresh}, {title: 'Acknowledged', rows: ack}, {title: 'Filed', rows: filed},
+];
+test('HRM signed-off aliases coexist with strict document/lab status partitions', () => {
+  assertReviewStatusCoverage(['HRM:1', 'HRM:2', 'DOC:3', 'HL7:4'],
+    reviewParts(['HRM:1', 'DOC:3'], ['HRM:2', 'HL7:4'], ['HRM:2']));
+});
+for (const [name, parts] of [
+  ['missing HRM', reviewParts([], [], [])],
+  ['ignored HRM filter', reviewParts(['HRM:1'], ['HRM:1'], ['HRM:1'])],
+  ['inconsistent signed-off aliases', reviewParts([], ['HRM:1'], [])],
+  ['duplicate document', reviewParts(['DOC:2'], ['HRM:1', 'DOC:2'], ['HRM:1'])],
+]) {
+  test(`review coverage still rejects ${name}`, () => {
+    const whole = name === 'duplicate document' ? ['HRM:1', 'DOC:2'] : ['HRM:1'];
+    assert.throws(() => assertReviewStatusCoverage(whole, parts));
+  });
+}
+for (const [value, badge, success] of [['1', '1', true], ['0', '1', false], ['1', '0', false]]) {
+  test(`HRM totals and badge must match returned rows (${value}/${badge})`, async () => {
+    const page = {locator: () => ({inputValue: async () => value, count: async () => 1, innerText: async () => badge})};
+    const result = assertHrmCount(page, ['DOC:2', 'HRM:1']);
+    if (success) await result;
+    else await assert.rejects(result, /HRM/);
+  });
+}

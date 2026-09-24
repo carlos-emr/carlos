@@ -63,6 +63,38 @@ def _curl(args, timeout=20):
     return cp
 
 
+def _check_process_ownership():
+    """Check this unit's process, never an unrelated JVM on the host."""
+    main_pid = out(["systemctl", "show", "-p", "MainPID", "--value", "carlos-emr"])
+    if not main_pid or main_pid == "0":
+        _bad("carlos-emr is not running — the application JVM's user cannot be verified")
+    else:
+        # user:32 so a long account name is not silently truncated into a
+        # mismatch against the expected value.
+        owner = out(["ps", "-o", "user:32=", "-p", main_pid])
+        if not owner:
+            _bad(f"the carlos-emr main process ({main_pid}) exited while it was being probed")
+        elif owner == "root":
+            _bad(f"the application JVM is running as ROOT (pid {main_pid})")
+        elif owner != "carlos":
+            _bad(f"the application JVM runs as {owner!r}, expected 'carlos' (pid {main_pid})")
+        else:
+            _ok(f"application JVM runs as: {owner}")
+
+
+def _check_front_door(bind_ip: str) -> None:
+    try:
+        missing = config._front_door_missing(bind_ip, wait=0)
+    except config.FrontDoorProbeError as exc:
+        _bad(f"cannot verify nginx front-door listeners: {exc}")
+        return
+    if not missing:
+        _ok(f"nginx is listening on {bind_ip}:80 and {bind_ip}:443")
+    else:
+        _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
+             "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
+
+
 def cmd_check(argv) -> int:
     global _failures
     _failures = 0
@@ -129,15 +161,7 @@ def cmd_check(argv) -> int:
             _bad(f"{unit} is NOT enabled")
 
     print("\nprocess ownership")
-    # The whole point of the user split — prove it at runtime rather than
-    # trusting that the unit files still say what they said at install time.
-    owners = set(out(["ps", "-o", "user=", "-C", "java"]).split())
-    if not owners:
-        _bad("no java process found")
-    elif "root" in owners:
-        _bad(f"a java process is running as ROOT: {' '.join(owners)}")
-    else:
-        _ok(f"application JVM runs as: {' '.join(owners)}")
+    _check_process_ownership()
 
     print("\nnetwork exposure")
     # Tomcat must not be reachable except on loopback: anything else is a
@@ -158,10 +182,12 @@ def cmd_check(argv) -> int:
              "/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
     elif addrs:
         _ok(f"MariaDB listens on loopback only ({', '.join(addrs)})")
-    if _listener("443"):
-        _ok("nginx is listening on 443")
-    else:
-        _bad("nothing is listening on 443")
+    # The front door must be bound where the configuration says, on BOTH
+    # ports. A reload whose bind failed leaves the master holding a half-set
+    # (443 without 80, or the old wildcard 80) while every worker still serves
+    # the previous configuration — and "something is on 443" was green on
+    # exactly that broken host.
+    _check_front_door(s.bind_ip)
     # The MariaDB drop-in leans on AppArmor as the file-access control (it is
     # why secure_file_priv is not set there), so this check asserts the
     # profile is actually loaded and enforcing rather than assuming it.
@@ -284,7 +310,7 @@ def cmd_check(argv) -> int:
     # Probe the address nginx actually listens on: with a non-default
     # CARLOS_BIND_IP nothing answers on loopback and every front-door check
     # would false-fail on a healthy install.
-    probe_ip = s.bind_ip if s.bind_ip not in ("", "0.0.0.0", "::") else "127.0.0.1"
+    probe_ip = {"": "127.0.0.1", "0.0.0.0": "127.0.0.1", "::": "::1"}.get(s.bind_ip, s.bind_ip)
     resolve = ["--resolve", f"{s.server_name}:443:{probe_ip}"]
     url = f"https://{s.server_name}/carlos/"
     # Retry a while before calling it down: deploying this webapp takes about

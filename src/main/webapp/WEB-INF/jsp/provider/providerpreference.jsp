@@ -1355,7 +1355,7 @@
                 <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
-                <a href="${pageContext.request.contextPath}/EnterSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
                 <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
@@ -1395,6 +1395,14 @@
     </button>
 </div>
 
+</form>
+
+<%-- Keep this POST form in the initial DOM so CSRFGuard injects its token before
+     either quick-link action submits. Do not nest it in UPDATEPRE. --%>
+<form id="quickLinkActionForm" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks">
+    <input type="hidden" name="action" value="">
+    <input type="hidden" name="name" value="">
+    <input type="hidden" name="url" value="">
 </form>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
@@ -1501,22 +1509,13 @@ function checkTypeInAll() {
  * Submits a quick link action (add/remove) via POST form.
  * @param {string} action - The action to perform ('add' or 'remove')
  * @param {string} name - The quick link name
- * @param {string} url - The quick link URL; omitted from form when falsy (e.g., for 'remove')
+ * @param {string} url - The quick link URL; always submitted, or an empty string when falsy
  */
 function submitQuickLinkAction(action, name, url) {
-    var form = document.createElement('form');
-    form.method = 'post';
-    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks';
-    var fields = {action: action, name: name};
-    if (url) { fields.url = url; }
-    for (var key in fields) {
-        var input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = fields[key];
-        form.appendChild(input);
-    }
-    document.body.appendChild(form);
+    var form = document.getElementById('quickLinkActionForm');
+    form.elements.namedItem('action').value = action;
+    form.elements.namedItem('name').value = name;
+    form.elements.namedItem('url').value = url || '';
     form.submit();
 }
 
