@@ -49,6 +49,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -244,11 +245,6 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     }
 
     /**
-     * A consult_docs row written before attach-time ownership checks existed (or a document deleted
-     * or re-filed since) must not survive a re-save, but it must not block the save either: the
-     * user cannot remove it from the form. It is detached and the save continues.
-     */
-    /**
      * Issue #3867 review: detaching a legacy foreign row on an Ocean edit must only touch this
      * patient's Ocean queue, never another patient's queue row for the same document id.
      */
@@ -280,6 +276,11 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
         assertThat(legacyForeign.getDeleted()).isEqualTo("Y");
     }
 
+    /**
+     * A consult_docs row written before attach-time ownership checks existed (or a document deleted
+     * or re-filed since) must not survive a re-save, but it must not block the save either: the
+     * user cannot remove it from the form. It is detached and the save continues.
+     */
     @Test
     @DisplayName("should detach an already attached id that no longer belongs to the patient without failing the save")
     void shouldDetachExistingAttachment_whenNoLongerOwnedByPatient() {
@@ -375,11 +376,11 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     @Test
     @DisplayName("should omit attachments not owned by the consultation patient when rendering")
     void shouldOmitForeignAttachments_whenRenderingConsultation() {
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.DOC, 123, Set.of(1, 2)))
-                .thenReturn(Set.of(1));
+        List<String> attachments = List.of("1", "2", "not-a-number");
+        when(attachmentOwnershipService.retainOwned(eq(DocumentType.DOC), eq(123), eq(attachments), any()))
+                .thenReturn(List.of("1"));
 
-        List<String> retained = manager.retainOwnedAttachments(DocumentType.DOC, 123,
-                List.of("1", "2", "not-a-number"), id -> id);
+        List<String> retained = manager.retainOwnedAttachments(DocumentType.DOC, 123, attachments, id -> id);
 
         assertThat(retained).containsExactly("1");
     }
@@ -387,8 +388,8 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     @Test
     @DisplayName("should omit every attachment when the consultation patient is unknown")
     void shouldOmitAllAttachments_whenDemographicUnknown() {
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.EFORM, null, Set.of(5)))
-                .thenReturn(Set.of());
+        when(attachmentOwnershipService.retainOwned(eq(DocumentType.EFORM), eq((Integer) null), eq(List.of("5")), any()))
+                .thenReturn(List.of());
 
         assertThat(manager.retainOwnedAttachments(DocumentType.EFORM, null, List.of("5"), id -> id)).isEmpty();
     }
@@ -499,5 +500,63 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
         ArgumentCaptor<ConsultDocs> persisted = ArgumentCaptor.forClass(ConsultDocs.class);
         verify(consultDocsDao, org.mockito.Mockito.times(2)).persist(persisted.capture());
         assertThat(persisted.getAllValues()).extracting(ConsultDocs::getDocumentNo).containsExactly(30, 40);
+    }
+    private org.springframework.mock.web.MockHttpServletRequest renderRequest(String reqId) {
+        org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
+        org.springframework.mock.web.MockHttpSession session = new org.springframework.mock.web.MockHttpSession();
+        LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+        request.setSession(session);
+        request.setAttribute("reqId", reqId);
+        request.setAttribute("demographicId", "123");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, 123)).thenReturn(true);
+        return request;
+    }
+
+    /**
+     * CodeRabbit on #3903: the render guard authorized the demographicId patient, but
+     * ConsultationPDFCreator renders by reqId, so a mismatched pair rendered another patient's
+     * consultation under this patient's authorization.
+     */
+    @Test
+    @DisplayName("should refuse to render a consultation that belongs to another patient")
+    void shouldDenyRenderConsultationForm_whenConsultationBelongsToAnotherPatient() throws Exception {
+        org.springframework.mock.web.MockHttpServletRequest request = renderRequest("456");
+        io.github.carlos_emr.carlos.commn.model.ConsultationRequest foreign = new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        foreign.setDemographicId(999);
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(foreign);
+
+        assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request,
+                new org.springframework.mock.web.MockHttpServletResponse()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(consultationManager, never()).renderConsultationForm(any());
+        verifyNoInteractions(attachmentOwnershipService);
+    }
+
+    @Test
+    @DisplayName("should refuse to render when the consultation is unknown")
+    void shouldDenyRenderConsultationForm_whenConsultationUnknown() throws Exception {
+        org.springframework.mock.web.MockHttpServletRequest request = renderRequest("456");
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(null);
+
+        assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request,
+                new org.springframework.mock.web.MockHttpServletResponse()))
+                .isInstanceOf(SecurityException.class);
+
+        verify(consultationManager, never()).renderConsultationForm(any());
+    }
+
+    @Test
+    @DisplayName("should refuse to render when a reqId parameter names a different consultation than the verified one")
+    void shouldDenyRenderConsultationForm_whenReqIdParameterConflicts() throws Exception {
+        org.springframework.mock.web.MockHttpServletRequest request = renderRequest("456");
+        request.setParameter("reqId", "457");
+
+        assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request,
+                new org.springframework.mock.web.MockHttpServletResponse()))
+                .isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(consultationManager, attachmentOwnershipService);
     }
 }

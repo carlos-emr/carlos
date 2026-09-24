@@ -44,9 +44,6 @@ import io.github.carlos_emr.carlos.commn.dao.LabTestResultsDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsMSHDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
-import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
-import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import io.github.carlos_emr.carlos.commn.model.MdsMSH;
 import io.github.carlos_emr.carlos.commn.model.MdsZRG;
@@ -86,50 +83,27 @@ public class MDSResultsData {
      */
     //Consult Request list labs
     public ArrayList<LabResultData> populateCMLResultsData(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] co : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs cd = (ConsultDocs) co[0];
-            LabResultData lbData = new LabResultData(LabResultData.CML);
-            lbData.labType = LabResultData.CML;
-            lbData.labPatientId = String.valueOf(cd.getDocumentNo());
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         return populateCMLResultsData(demographicNo, attached, attachedLabs);
     }
 
     public ArrayList<LabResultData> populateCMLResultsDataEForm(String demographicNo, String fdid, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] co : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
-            EFormDocs cd = (EFormDocs) co[0];
-            LabResultData lbData = new LabResultData(LabResultData.CML);
-            lbData.labType = LabResultData.CML;
-            lbData.labPatientId = String.valueOf(cd.getDocumentNo());
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid)), demographicNo);
         return populateCMLResultsData(demographicNo, attached, attachedLabs);
     }
 
     //Consult Response list labs
     public ArrayList<LabResultData> populateCMLResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] co : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultResponseDoc cd = (ConsultResponseDoc) co[0];
-            LabResultData lbData = new LabResultData(LabResultData.CML);
-            lbData.labType = LabResultData.CML;
-            lbData.labPatientId = String.valueOf(cd.getDocumentNo());
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         return populateCMLResultsData(demographicNo, attached, attachedLabs);
     }
 
 
     //Consult List Labs private shared method
-    private ArrayList<LabResultData> populateCMLResultsData(String demographicNo, boolean attached, List<LabResultData> attachedLabs) {
+    private ArrayList<LabResultData> populateCMLResultsData(String demographicNo, boolean attached, java.util.Set<String> attachedLabs) {
         labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lbData = new LabResultData(LabResultData.CML);
-            // Match on the lab number, which is what document_no stores (see LabResultData#attachedLabNumbers).
-            java.util.Set<String> attachedLabNumbers = LabResultData.attachedLabNumbers(attachedLabs);
             for (Object[] o : labPPIDao.findRoutings(ConversionUtils.fromIntString(demographicNo), "CML")) {
                 LabPatientPhysicianInfo lpp = (LabPatientPhysicianInfo) o[0];
                 PatientLabRouting r = (PatientLabRouting) o[1];
@@ -140,9 +114,9 @@ public class MDSResultsData {
                 lbData.dateTime = lpp.getCollectionDate();
                 lbData.setDateObj(UtilDateUtilities.getDateFromString(lbData.dateTime, "dd-MMM-yy"));
 
-                if (attached && attachedLabNumbers.contains(lbData.segmentID))
+                if (attached && attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID)))
                     labResults.add(lbData);
-                else if (!attached && !attachedLabNumbers.contains(lbData.segmentID))
+                else if (!attached && !attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID)))
                     labResults.add(lbData);
 
                 lbData = new LabResultData(LabResultData.CML);
@@ -358,25 +332,13 @@ public class MDSResultsData {
      */
     //Consult Request list labs
     public ArrayList<LabResultData> populateMDSResultsData(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs cd = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + cd.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsMDS = PLRDao.findResultsByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "MDS");
         return populateMDSResultsData(attachedLabs, labsMDS, attached);
     }
 
     public ArrayList<LabResultData> populateMDSResultsDataEForm(String demographicNo, String fdid, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
-            EFormDocs cd = (EFormDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + cd.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid)), demographicNo);
         List<Object[]> labsMDS = PLRDao.findResultsByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "MDS");
         return populateMDSResultsData(attachedLabs, labsMDS, attached);
     }
@@ -384,24 +346,16 @@ public class MDSResultsData {
 
     //Consult Response list labs
     public ArrayList<LabResultData> populateMDSResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs cd = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + cd.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsMDS = PLRDao.findResultsByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "MDS");
         return populateMDSResultsData(attachedLabs, labsMDS, attached);
     }
 
     //Consult list labs private shared method
-    private ArrayList<LabResultData> populateMDSResultsData(List<LabResultData> attachedLabs, List<Object[]> labsMDS, boolean attached) {
+    private ArrayList<LabResultData> populateMDSResultsData(java.util.Set<String> attachedLabs, List<Object[]> labsMDS, boolean attached) {
         labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lData = new LabResultData(LabResultData.MDS);
-            // Match on the lab number, which is what document_no stores (see LabResultData#attachedLabNumbers).
-            java.util.Set<String> attachedLabNumbers = LabResultData.attachedLabNumbers(attachedLabs);
 
             for (Object[] o : labsMDS) {
                 PatientLabRouting p = (PatientLabRouting) o[0];
@@ -423,9 +377,9 @@ public class MDSResultsData {
                     lData.discipline = "Hem/Chem/Other";
                 }
 
-                if (attached && attachedLabNumbers.contains(lData.segmentID))
+                if (attached && attachedLabs.contains(LabResultData.labKey(lData.labType, lData.segmentID)))
                     labResults.add(lData);
-                else if (!attached && !attachedLabNumbers.contains(lData.segmentID))
+                else if (!attached && !attachedLabs.contains(LabResultData.labKey(lData.labType, lData.segmentID)))
                     labResults.add(lData);
 
                 lData = new LabResultData(LabResultData.MDS);

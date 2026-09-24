@@ -9,6 +9,7 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
@@ -410,30 +411,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     /**
-     * Keeps the attachments whose id belongs to {@code demographicNo}, with one batched ownership
-     * lookup; everything else (foreign, deleted, unparseable) is dropped and only the count logged.
+     * Keeps the attachments whose id belongs to {@code demographicNo}, via
+     * {@link AttachmentOwnershipService#retainOwned} (one batched lookup); everything else (foreign,
+     * deleted, unparseable, {@code null}) is dropped and only the count logged.
      */
     <T> List<T> retainOwnedAttachments(DocumentType documentType, Integer demographicNo, List<T> attachments,
                                        java.util.function.Function<T, String> idOf) {
-        if (attachments == null || attachments.isEmpty()) {
-            return attachments;
-        }
-        Map<T, Integer> idByAttachment = new IdentityHashMap<>();
-        for (T attachment : attachments) {
-            Integer id = parseAttachmentId(idOf.apply(attachment));
-            if (id != null) {
-                idByAttachment.put(attachment, id);
-            }
-        }
-        Set<Integer> owned = attachmentOwnershipService.findOwnedIds(documentType, demographicNo, new HashSet<>(idByAttachment.values()));
-        List<T> retained = new ArrayList<>(attachments.size());
-        for (T attachment : attachments) {
-            Integer id = idByAttachment.get(attachment);
-            if (id != null && owned.contains(id)) {
-                retained.add(attachment);
-            }
-        }
-        int dropped = attachments.size() - retained.size();
+        List<T> retained = attachmentOwnershipService.retainOwned(documentType, demographicNo, attachments, idOf);
+        int dropped = (attachments == null ? 0 : attachments.size()) - retained.size();
         if (dropped > 0) {
             logger.warn("Omitted {} consultation attachment(s) of type {} not owned by the consultation patient", dropped, documentType.getType());
         }
@@ -647,6 +632,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, ownerDemographicNo)) {
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
+        requireConsultationOfPatient(loggedInInfo, request, requestId, ownerDemographicNo);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
 
         // Defence in depth for issue #3867: the eForm and document lookups below resolve attachments
@@ -675,6 +661,28 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         Path result = concatPDF(pdfDocumentList, demographicId);
         cleanupRenderedTempInputs(pdfDocumentList, result);
         return result;
+    }
+
+    /**
+     * The check above authorizes the patient named by {@code demographicId}, but
+     * {@code ConsultationPDFCreator} renders the consultation named by {@code reqId} (a raw
+     * {@code reqId} request parameter taking precedence over the attribute). Tie the two together
+     * before anything is rendered: the consultation must exist and belong to that patient, and a
+     * {@code reqId} parameter, if present, must name the same consultation. Otherwise a mismatched
+     * pair would render another patient's consultation under this patient's authorization.
+     */
+    private void requireConsultationOfPatient(LoggedInInfo loggedInInfo, HttpServletRequest request, String requestId,
+                                              Integer ownerDemographicNo) {
+        Integer consultationRequestId = parseAttachmentId(requestId);
+        String requestIdParameter = request.getParameter("reqId");
+        if (consultationRequestId == null
+                || (requestIdParameter != null && !requestIdParameter.trim().equals(consultationRequestId.toString()))) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+        ConsultationRequest consultation = consultationManager.getRequest(loggedInInfo, consultationRequestId);
+        if (consultation == null || !ownerDemographicNo.equals(consultation.getDemographicId())) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
     }
 
     /**

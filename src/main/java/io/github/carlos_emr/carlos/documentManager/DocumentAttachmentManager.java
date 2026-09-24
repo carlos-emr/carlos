@@ -286,7 +286,8 @@ public interface DocumentAttachmentManager {
      * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process
      * @throws SecurityException if the {@code demographicId} attribute is missing or malformed, or the
      *                           user lacks {@code _con} read for that patient or access to the
-     *                           patient's record
+     *                           patient's record, or the {@code reqId} consultation is missing, is
+     *                           not that patient's, or conflicts with a {@code reqId} parameter
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 

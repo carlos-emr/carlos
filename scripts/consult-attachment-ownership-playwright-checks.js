@@ -36,8 +36,8 @@
  *   2. saves with one of the patient's own documents: created, and the attachment recorded.
  *
  * Every consultation row it creates is removed afterwards. Uses the demo dataset's documents:
- * the patient is the one with the most active documents, the foreign document any other
- * patient's.
+ * the patient is the one with the most active documents among the patients TEST_USER can open
+ * (see accessiblePatientSql), the foreign document any other patient's.
  *
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*
@@ -53,6 +53,20 @@ function activeDocumentsSql(where) {
     // Same liveness rule as CtlDocumentDao's ownership lookup: the document is not deleted and the
     // patient link is not either (legacy links may carry a NULL status and are live).
     + `WHERE c.module = 'demographic' AND d.status <> 'D' AND (c.status IS NULL OR c.status <> 'D') AND ${where}`;
+}
+
+/**
+ * Patients TEST_USER can open a consultation for. Role-level _con/_demographic/_eChart rights apply
+ * to every patient alike and the login step already exercises them; what varies per patient are
+ * the patient-specific secObjPrivilege overrides (_demographic$N, _eChart$N, _con$N) that the
+ * consultation page's patient-scoped _con check and chart-access check (isAllowedAccessToPatientRecord)
+ * evaluate. Excluding every patient with such an override, for any role, keeps the pick inside
+ * TEST_USER's scope without depending on which roles the user holds.
+ */
+function accessiblePatientSql(column) {
+  return `EXISTS (SELECT 1 FROM demographic dm WHERE dm.demographic_no = ${column})
+    AND NOT EXISTS (SELECT 1 FROM secObjPrivilege s WHERE s.objectName IN (
+      CONCAT('_demographic$', ${column}), CONCAT('_eChart$', ${column}), CONCAT('_con$', ${column})))`;
 }
 
 async function pickFirstAutocomplete(page, inputSelector) {
@@ -110,10 +124,10 @@ async function main() {
     WHERE reason LIKE ${h.sqlString(`${marker}%`)}`).map(([id]) => id);
   let browser;
   try {
-    const [patient, ownDoc] = sql.rows(`${activeDocumentsSql('1=1')}
+    const [patient, ownDoc] = sql.rows(`${activeDocumentsSql(accessiblePatientSql('c.module_id'))}
       ORDER BY (SELECT COUNT(*) FROM ctl_document x WHERE x.module='demographic' AND x.module_id=c.module_id) DESC,
       c.document_no LIMIT 1`)[0] || [];
-    if (!patient) throw new h.SkipCheck('no patient has an active document to attach');
+    if (!patient) throw new h.SkipCheck('no patient TEST_USER can open has an active document to attach');
     const [, foreignDoc] = sql.rows(`${activeDocumentsSql(`c.module_id <> ${patient}`)}
       AND c.document_no NOT IN (SELECT document_no FROM ctl_document WHERE module='demographic' AND module_id=${patient})
       ORDER BY c.document_no LIMIT 1`)[0] || [];

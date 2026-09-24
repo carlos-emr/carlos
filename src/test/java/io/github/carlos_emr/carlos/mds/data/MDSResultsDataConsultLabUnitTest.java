@@ -49,7 +49,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Lab identifier consistency for the legacy CML and MDS consultation attachment listings.
+ * Lab identifier consistency for the legacy CML and MDS consultation attachment listings: an
+ * attachment matches a candidate only on the same lab number and the same lab type.
  *
  * <p>consult_docs.document_no holds a lab number ({@code ConsultDocsDao.findLabs} joins it to
  * {@code patient_lab_routing.lab_no}), and the attachment window, Ocean and the ownership check all
@@ -82,19 +83,30 @@ class MDSResultsDataConsultLabUnitTest extends CarlosUnitTestBase {
         registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
         registerMock(OscarLogDao.class, mock(OscarLogDao.class));
-        // Lab 30 is attached. Its routing row id is 9001; lab 31's routing row id happens to be 30.
+    }
+
+    /** Lab {@code labNo} is attached, and findLabs joins it to these routings of {@code labNo}. */
+    private void attach(int labNo, PatientLabRouting... routings) {
         List<Object[]> attachedRows = new ArrayList<>();
-        attachedRows.add(new Object[] {new ConsultDocs(456, 30, "L", "999998"), new PatientLabRouting()});
+        for (PatientLabRouting routing : routings) {
+            attachedRows.add(new Object[] {new ConsultDocs(456, labNo, "L", "999998"), routing});
+        }
         when(consultDocsDao.findLabs(456)).thenReturn(attachedRows);
+    }
+
+    private void cmlRoutings() {
+        // Lab 30's routing row id is 9001; lab 31's routing row id happens to be 30.
+        List<Object[]> routings = new ArrayList<>();
+        routings.add(new Object[] {cmlInfo(30), routing(9001, 30)});
+        routings.add(new Object[] {cmlInfo(31), routing(30, 31)});
+        when(labPatientPhysicianInfoDao.findRoutings(123, "CML")).thenReturn(routings);
     }
 
     @Test
     @DisplayName("should list the CML lab whose lab number is stored, not the one whose routing id equals it")
     void shouldMatchCmlLabByLabNumber_whenListingAttachedLabs() {
-        List<Object[]> routings = new ArrayList<>();
-        routings.add(new Object[] {cmlInfo(30), routing(9001, 30)});
-        routings.add(new Object[] {cmlInfo(31), routing(30, 31)});
-        when(labPatientPhysicianInfoDao.findRoutings(123, "CML")).thenReturn(routings);
+        attach(30, typedRouting(9001, 30, "CML", 123));
+        cmlRoutings();
 
         List<LabResultData> attached = new MDSResultsData().populateCMLResultsData(DEMOGRAPHIC_NO, CONSULT_ID, true);
         List<LabResultData> notAttached = new MDSResultsData().populateCMLResultsData(DEMOGRAPHIC_NO, CONSULT_ID, false);
@@ -106,6 +118,7 @@ class MDSResultsDataConsultLabUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should list the MDS lab whose lab number is stored, not the one whose routing id equals it")
     void shouldMatchMdsLabByLabNumber_whenListingAttachedLabs() {
+        attach(30, typedRouting(9001, 30, "MDS", 123));
         List<Object[]> routings = new ArrayList<>();
         routings.add(mdsRow(9001, 30));
         routings.add(mdsRow(30, 31));
@@ -114,6 +127,41 @@ class MDSResultsDataConsultLabUnitTest extends CarlosUnitTestBase {
         List<LabResultData> attached = new MDSResultsData().populateMDSResultsData(DEMOGRAPHIC_NO, CONSULT_ID, true);
 
         assertThat(attached).extracting(LabResultData::getSegmentID).containsExactly("30");
+    }
+
+    @Test
+    @DisplayName("should not report a CML lab as attached when the attached number is the patient's MDS lab")
+    void shouldNotMatchAcrossLabTypes_whenAttachedNumberIsAnotherType() {
+        attach(30, typedRouting(7001, 30, "MDS", 123));
+        cmlRoutings();
+
+        assertThat(new MDSResultsData().populateCMLResultsData(DEMOGRAPHIC_NO, CONSULT_ID, true)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should treat a number routed to the patient under two lab types as ambiguous")
+    void shouldTreatAttachmentAsAmbiguous_whenNumberHasTwoLabTypesForPatient() {
+        attach(30, typedRouting(9001, 30, "CML", 123), typedRouting(7001, 30, "MDS", 123));
+        cmlRoutings();
+
+        assertThat(new MDSResultsData().populateCMLResultsData(DEMOGRAPHIC_NO, CONSULT_ID, true)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should ignore other patients' and document routings when recovering the lab type")
+    void shouldIgnoreForeignAndDocumentRoutings_whenRecoveringLabType() {
+        attach(30, typedRouting(9001, 30, "CML", 123), typedRouting(8001, 30, "MDS", 999),
+                typedRouting(6001, 30, "DOC", 123));
+        cmlRoutings();
+
+        assertThat(new MDSResultsData().populateCMLResultsData(DEMOGRAPHIC_NO, CONSULT_ID, true))
+                .extracting(LabResultData::getSegmentID).containsExactly("30");
+    }
+
+    private static PatientLabRouting typedRouting(int routingId, int labNo, String labType, int demographicNo) {
+        PatientLabRouting routing = new PatientLabRouting(labNo, labType, demographicNo);
+        ReflectionTestUtils.setField(routing, "id", routingId);
+        return routing;
     }
 
     private static LabPatientPhysicianInfo cmlInfo(int labNo) {
