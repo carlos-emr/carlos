@@ -21,7 +21,10 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -29,6 +32,7 @@ import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.E
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.DateUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -154,7 +158,7 @@ class EctDisplayConsult2ActionUnitTest {
                          rows.ids = List.of("201", "202");
                          rows.service = List.of(longService, "Cardiology");
                          rows.vSpecialist = List.of("FAKE-Smith, Anne", "<b>FAKE-O'Neil</b>");
-                         rows.date = List.of("2099-01-01", "2099-01-01");
+                         rows.date = List.of("2099-01-01", "2098-02-02");
                          rows.status = List.of("1", "1");
                      })) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
@@ -165,14 +169,22 @@ class EctDisplayConsult2ActionUnitTest {
 
             assertThat(action.getInfo(session, request, panel)).isTrue();
 
+            // Distinct row dates, so each hover title must carry its own row's date.
+            String cardiologyDate = DateUtils.formatDate(dateOf(2098, 2, 2), request.getLocale());
+            String longServiceDate = DateUtils.formatDate(dateOf(2099, 1, 1), request.getLocale());
+
             NavBarDisplayDAO.Item encoded = panel.getItem(0);
             assertThat(encoded.getTitle()).isEqualTo("Cardiology - &lt;b&gt;FAKE-O'Neil&lt;/b&gt;");
-            assertThat(encoded.getLinkTitle()).startsWith("Cardiology - <b>FAKE-O'Neil</b> ");
+            assertThat(encoded.getLinkTitle()).isEqualTo("Cardiology - <b>FAKE-O'Neil</b> " + cardiologyDate);
 
             NavBarDisplayDAO.Item truncated = panel.getItem(1);
             String fullLabel = longService + " - FAKE-Smith, Anne";
             assertThat(truncated.getTitle()).isEqualTo(fullLabel.substring(0, 45) + "...");
-            assertThat(truncated.getLinkTitle()).startsWith(fullLabel + " ");
+            assertThat(truncated.getLinkTitle()).isEqualTo(fullLabel + " " + longServiceDate);
         }
+    }
+
+    private static Date dateOf(int year, int month, int day) {
+        return Date.from(LocalDate.of(year, month, day).atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 }
