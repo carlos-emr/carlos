@@ -127,10 +127,16 @@ async function main() {
       AND doctype='D'`);
     const foreignBefore = foreignAttachments();
     const forged = await openNewConsultation(context, config, recorder, patient, 'forged');
-    await fillAndAttach(forged, `${marker}-forged`, foreignDoc);
+    // The form reports the refusal with an alert() on the re-rendered page, not in the body text.
+    const dialogs = await h.withExpectedDialogs(forged, () => fillAndAttach(forged, `${marker}-forged`, foreignDoc));
     await h.assertNotErrorPage(forged, 'refused consultation save');
-    h.assert(REFUSAL.test(await forged.locator('body').innerText()),
-      'saving with another patient\'s document did not show the attachment refusal');
+    h.assert(dialogs.some((dialog) => REFUSAL.test(dialog.text)),
+      `saving with another patient's document did not show the attachment refusal (dialogs: ${dialogs.length})`);
+    // The re-rendered form must still be this patient's, not a blank "null, null" form.
+    h.assert(await forged.locator('#demographicNo').inputValue() === String(patient),
+      'the refused save re-rendered the form without the consultation patient');
+    h.assert(!/^\s*null, null/m.test(await forged.locator('body').innerText()),
+      'the refused save re-rendered the patient name as "null, null"');
     h.assert(requestIds().length === 0, 'a consultation was created with another patient\'s document attached');
     h.assert(foreignAttachments() === foreignBefore, 'the other patient\'s document was attached to a consultation');
     await forged.close();

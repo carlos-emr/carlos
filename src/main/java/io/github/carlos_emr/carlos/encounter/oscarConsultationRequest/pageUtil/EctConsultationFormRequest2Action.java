@@ -234,6 +234,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             return true;
         } catch (SecurityException e) {
             logger.warn("Rejected consultation save: attachments could not be verified for the consultation patient");
+            // The input result forwards to ViewRequest, which reads the patient from "de" or this
+            // attribute. Without it the retry form rendered as "null, null" with every patient
+            // field blank. The form re-runs its own patient-scoped _con check on this value.
+            request.setAttribute("demographicId", String.valueOf(demographicId));
+            if (requestId != null) {
+                request.setAttribute("reqId", String.valueOf(requestId));
+            }
             rejectInput(ATTACHMENTS_NOT_VERIFIED);
             return false;
         }

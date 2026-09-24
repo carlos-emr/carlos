@@ -977,6 +977,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("errorMessage")).asString()
                 .startsWith("One or more attachments could not be verified for this patient.")
                 .doesNotContain("999");
+        // The retry form must render for the consultation patient, not as a blank "null, null".
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(request.getAttribute("reqId")).isNull();
         verify(consultationRequestDao, never()).persist(any());
         verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(digitalSignatureManager);
@@ -998,6 +1001,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(request.getAttribute("reqId")).isEqualTo("9");
         verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
         verify(consultationRequestDao, never()).merge(any());
         verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any());
