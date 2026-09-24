@@ -78,6 +78,8 @@
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
         %>
+        <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"></script>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 
@@ -142,6 +144,8 @@
         <input type="hidden" name="ID" value=""/>
         <input type="hidden" name="type" value=""/>
         <input type="hidden" name="name" value=""/>
+        <%-- form.submit() skips the submit listener, so the patient is carried explicitly (#3875). --%>
+        <input type="hidden" name="demographicNo" value="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"/>
     </form>
 
     <table border="0" cellpadding="0" cellspacing="0"
