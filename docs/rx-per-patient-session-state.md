@@ -36,7 +36,9 @@ every link into them names it.
 `jQuery.ajax`, `popupWindow()`, form submission and followed links, so the no-patient fallback is only a
 compatibility path. It tags only relative URLs and absolute http(s) URLs on the page's own origin;
 protocol-relative (`//host/...`), cross-origin and non-http (`javascript:`, `data:`) URLs are never
-tagged, so the patient id cannot leak to another host. A form submitted programmatically
+tagged, so the patient id cannot leak to another host. The wrappers are installed once per window
+but read the patient at call time from a per-window holder that each page's `install()` updates, so
+wrapped globals that outlive a page never keep tagging with the previous page's patient. A form submitted programmatically
 (`form.submit()`) fires no submit event, so such forms carry their own hidden `demographicNo`. `RxPatientContext.withPatient(url)` tags URLs built by hand (the print-preview
 POST). Pages that post with `fetch` (for example `ViewScript2.jsp`) put `demographicNo` in the body.
 

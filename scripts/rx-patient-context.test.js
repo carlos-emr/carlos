@@ -151,6 +151,55 @@ test('install tags Oscar.js popup2 popups, keeping the six-argument signature', 
     ]);
 });
 
+test('wrappers installed for one patient follow the context when a later page installs another', () => {
+    const seen = [];
+    const listeners = {};
+    const appended = [];
+    const win = {
+        CarlosAjax: {
+            request(url) { seen.push(['request', url]); },
+            updater(container, url) { seen.push(['updater', url]); },
+        },
+        jQuery: { ajaxPrefilter(fn) { this.filter = fn; } },
+        popupWindow(h, w, url) { seen.push(['popupWindow', url]); },
+        popup2(h, w, t, l, url) { seen.push(['popup2', url]); },
+        document: {
+            addEventListener(type, fn) { listeners[type] = fn; },
+            createElement: () => ({}),
+        },
+    };
+    context.create('1001').install(win);
+    // Same window, next Rx page for another patient; the wrapped globals were not recreated.
+    context.create('2002').install(win);
+
+    win.CarlosAjax.request('/carlos/rx/WriteScript', {});
+    win.CarlosAjax.updater('rxText', '/carlos/rx/rePrescribe2', {});
+    win.popupWindow(1, 1, '/carlos/rx/ViewShowPreviousPrints?scriptNo=3', 'x');
+    win.popup2(1, 1, 0, 0, '/carlos/rx/searchDrug?rx2=true', 'n');
+    const options = { url: '/carlos/rx/drugInfo' };
+    win.jQuery.filter(options);
+    listeners.submit({ target: {
+        getAttribute: () => '/carlos/rx/deleteRx',
+        querySelector: () => null,
+        appendChild: (el) => appended.push(el),
+    } });
+
+    assert.deepEqual(seen, [
+        ['request', '/carlos/rx/WriteScript?demographicNo=2002'],
+        ['updater', '/carlos/rx/rePrescribe2?demographicNo=2002'],
+        ['popupWindow', '/carlos/rx/ViewShowPreviousPrints?scriptNo=3&demographicNo=2002'],
+        ['popup2', '/carlos/rx/searchDrug?rx2=true&demographicNo=2002'],
+    ]);
+    assert.equal(options.url, '/carlos/rx/drugInfo?demographicNo=2002');
+    assert.equal(appended[0].value, '2002');
+
+    // A later page with no patient must not keep tagging with the previous one.
+    context.create(null).install(win);
+    seen.length = 0;
+    win.CarlosAjax.request('/carlos/rx/WriteScript', {});
+    assert.deepEqual(seen, [['request', '/carlos/rx/WriteScript']]);
+});
+
 test('install tags followed Rx links and form submissions with the page patient', () => {
     const listeners = {};
     const makeLink = (href) => {

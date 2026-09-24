@@ -85,49 +85,79 @@
         return path.indexOf('/rx/') >= 0 || path.indexOf('rx/') === 0;
     }
 
+    /** Adds demographicNo to an Rx URL that does not already name a patient. */
+    function tag(url, demographicNo) {
+        if (!demographicNo || !isRxUrl(url)) {
+            return url;
+        }
+        var hashIndex = url.indexOf('#');
+        var hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
+        var base = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+        var query = base.indexOf('?') >= 0 ? base.slice(base.indexOf('?') + 1) : '';
+        if (PATIENT_PARAMETER.test(query)) {
+            return url;
+        }
+        var separator = base.indexOf('?') >= 0 ? (base.endsWith('?') || base.endsWith('&') ? '' : '&') : '?';
+        return base + separator + 'demographicNo=' + encodeURIComponent(demographicNo) + hash;
+    }
+
+    /**
+     * The per-window holder of the patient to tag with. The wrappers are installed once per
+     * window (their globals may outlive a page, e.g. a CarlosAjax or jQuery shared across frames),
+     * so they read the patient from here at call time instead of closing over the patient of the
+     * page that installed them; every install() then points them at the current page's patient.
+     */
+    function stateFor(win) {
+        var state = win.__rxPatientContextState;
+        if (!state || typeof state !== 'object') {
+            state = {demographicNo: null};
+            win.__rxPatientContextState = state;
+        }
+        return state;
+    }
+
     function create(demographicNo) {
         function withPatient(url) {
-            if (!demographicNo || !isRxUrl(url)) {
-                return url;
-            }
-            var hashIndex = url.indexOf('#');
-            var hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
-            var base = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
-            var query = base.indexOf('?') >= 0 ? base.slice(base.indexOf('?') + 1) : '';
-            if (PATIENT_PARAMETER.test(query)) {
-                return url;
-            }
-            var separator = base.indexOf('?') >= 0 ? (base.endsWith('?') || base.endsWith('&') ? '' : '&') : '?';
-            return base + separator + 'demographicNo=' + encodeURIComponent(demographicNo) + hash;
+            return tag(url, demographicNo);
         }
 
         function install(win) {
-            if (!demographicNo || !win) {
+            if (!win) {
                 return;
+            }
+            var state = stateFor(win);
+            // The latest page wins, including a page with no patient: its calls must not carry
+            // the previous page's patient.
+            state.demographicNo = demographicNo;
+            if (!demographicNo) {
+                return;
+            }
+            function current(url) {
+                return tag(url, state.demographicNo);
             }
             var ajax = win.CarlosAjax;
             if (ajax && !ajax.__rxPatientContext) {
                 var request = ajax.request;
                 var updater = ajax.updater;
                 ajax.request = function (url, options) {
-                    return request.call(this, withPatient(url), options);
+                    return request.call(this, current(url), options);
                 };
                 ajax.updater = function (container, url, options) {
-                    return updater.call(this, container, withPatient(url), options);
+                    return updater.call(this, container, current(url), options);
                 };
                 ajax.__rxPatientContext = true;
             }
             var jq = win.jQuery;
             if (jq && typeof jq.ajaxPrefilter === 'function' && !jq.__rxPatientContext) {
                 jq.ajaxPrefilter(function (options) {
-                    options.url = withPatient(options.url);
+                    options.url = current(options.url);
                 });
                 jq.__rxPatientContext = true;
             }
             if (typeof win.popupWindow === 'function' && !win.popupWindow.__rxPatientContext) {
                 var popup = win.popupWindow;
                 win.popupWindow = function (height, width, url, name) {
-                    return popup.call(this, height, width, withPatient(url), name);
+                    return popup.call(this, height, width, current(url), name);
                 };
                 win.popupWindow.__rxPatientContext = true;
             }
@@ -138,7 +168,7 @@
             if (typeof win.popup2 === 'function' && !win.popup2.__rxPatientContext) {
                 var popup2 = win.popup2;
                 win.popup2 = function (height, width, top, left, url, name) {
-                    return popup2.call(this, height, width, top, left, withPatient(url), name);
+                    return popup2.call(this, height, width, top, left, current(url), name);
                 };
                 win.popup2.__rxPatientContext = true;
             }
@@ -146,7 +176,8 @@
                 win.document.__rxPatientContext = true;
                 win.document.addEventListener('submit', function (event) {
                     var form = event.target;
-                    if (!form || !form.getAttribute || !isRxUrl(form.getAttribute('action') || '')) {
+                    if (!state.demographicNo || !form || !form.getAttribute
+                            || !isRxUrl(form.getAttribute('action') || '')) {
                         return;
                     }
                     if (form.querySelector('[name="demographicNo"], [name="demographic_no"]')) {
@@ -155,7 +186,7 @@
                     var input = win.document.createElement('input');
                     input.type = 'hidden';
                     input.name = 'demographicNo';
-                    input.value = demographicNo;
+                    input.value = state.demographicNo;
                     form.appendChild(input);
                 }, true);
                 // Plain links (drug profile, breadcrumbs, the static-script view) are navigations,
@@ -167,7 +198,7 @@
                         return;
                     }
                     var href = link.getAttribute('href');
-                    var tagged = withPatient(href);
+                    var tagged = current(href);
                     if (tagged !== href) {
                         link.setAttribute('href', tagged);
                     }
