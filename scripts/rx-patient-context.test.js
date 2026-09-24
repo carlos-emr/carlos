@@ -200,6 +200,49 @@ test('wrappers installed for one patient follow the context when a later page in
     assert.deepEqual(seen, [['request', '/carlos/rx/WriteScript']]);
 });
 
+test('a request whose body already names its patient is not tagged again on the URL', () => {
+    // SearchDrug3's Save posts the drug form, which carries demographicNo, through CarlosAjax.
+    // Tagging the URL too sent demographicNo twice; Struts bound both values into the action's
+    // int demographicNo, failed the conversion and answered 404 (the save was refused).
+    const seen = [];
+    const win = {
+        CarlosAjax: {
+            request(url, options) { seen.push(['request', url, options]); },
+            updater(container, url, options) { seen.push(['updater', url, options]); },
+        },
+        jQuery: { ajaxPrefilter(fn) { this.filter = fn; } },
+    };
+    context.create('1001').install(win);
+
+    win.CarlosAjax.request('/carlos/rx/WriteScript?parameterValue=updateSaveAllDrugs',
+        { method: 'post', postBody: 'drugName_1=X&demographicNo=1001&repeats_1=0' });
+    win.CarlosAjax.request('/carlos/rx/WriteScript', { parameters: 'demographic_no=1001&x=1' });
+    win.CarlosAjax.request('/carlos/rx/WriteScript', { parameters: { demographicNo: '1001' } });
+    win.CarlosAjax.request('/carlos/rx/WriteScript',
+        { parameters: new URLSearchParams('demographicNo=1001') });
+    win.CarlosAjax.updater('rxText', '/carlos/rx/rePrescribe2', { parameters: 'demographicNo=1001' });
+    // A body that does not name the patient still gets the URL tag; "xdemographicNo" is not one.
+    win.CarlosAjax.request('/carlos/rx/WriteScript', { postBody: 'xdemographicNo=5&a=1' });
+    win.CarlosAjax.request('/carlos/rx/WriteScript');
+
+    assert.deepEqual(seen.map((entry) => entry[1]), [
+        '/carlos/rx/WriteScript?parameterValue=updateSaveAllDrugs',
+        '/carlos/rx/WriteScript',
+        '/carlos/rx/WriteScript',
+        '/carlos/rx/WriteScript',
+        '/carlos/rx/rePrescribe2',
+        '/carlos/rx/WriteScript?demographicNo=1001',
+        '/carlos/rx/WriteScript?demographicNo=1001',
+    ]);
+
+    const withBody = { url: '/carlos/rx/drugInfo', data: 'a=1&demographicNo=1001' };
+    win.jQuery.filter(withBody);
+    assert.equal(withBody.url, '/carlos/rx/drugInfo');
+    const withoutBody = { url: '/carlos/rx/drugInfo', data: 'a=1' };
+    win.jQuery.filter(withoutBody);
+    assert.equal(withoutBody.url, '/carlos/rx/drugInfo?demographicNo=1001');
+});
+
 test('install tags followed Rx links and form submissions with the page patient', () => {
     const listeners = {};
     const makeLink = (href) => {

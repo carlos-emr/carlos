@@ -102,6 +102,39 @@
     }
 
     /**
+     * Whether a request body already names a patient. The server resolves the patient from every
+     * demographicNo value it receives, so naming it in both the URL and the body is harmless there,
+     * but Struts binds a repeated parameter into a typed action property as an array; that is a
+     * conversion error, and the action answers with its missing "input" result (HTTP 404). So a
+     * request whose body names its patient is never tagged a second time on the URL.
+     */
+    function bodyNamesPatient(data) {
+        if (data == null) {
+            return false;
+        }
+        if (typeof data === 'string') {
+            return PATIENT_PARAMETER.test(data);
+        }
+        if ((typeof URLSearchParams !== 'undefined' && data instanceof URLSearchParams)
+                || (typeof FormData !== 'undefined' && data instanceof FormData)) {
+            return data.has('demographicNo') || data.has('demographic_no');
+        }
+        if (typeof data === 'object') {
+            return Object.prototype.hasOwnProperty.call(data, 'demographicNo')
+                || Object.prototype.hasOwnProperty.call(data, 'demographic_no');
+        }
+        return false;
+    }
+
+    /** The data a CarlosAjax call sends: postBody wins over parameters, as in carlos-ajax.js. */
+    function carlosAjaxData(options) {
+        if (!options) {
+            return null;
+        }
+        return options.postBody != null ? options.postBody : options.parameters;
+    }
+
+    /**
      * The per-window holder of the patient to tag with. The wrappers are installed once per
      * window (their globals may outlive a page, e.g. a CarlosAjax or jQuery shared across frames),
      * so they read the patient from here at call time instead of closing over the patient of the
@@ -140,17 +173,21 @@
                 var request = ajax.request;
                 var updater = ajax.updater;
                 ajax.request = function (url, options) {
-                    return request.call(this, current(url), options);
+                    return request.call(this,
+                            bodyNamesPatient(carlosAjaxData(options)) ? url : current(url), options);
                 };
                 ajax.updater = function (container, url, options) {
-                    return updater.call(this, container, current(url), options);
+                    return updater.call(this, container,
+                            bodyNamesPatient(carlosAjaxData(options)) ? url : current(url), options);
                 };
                 ajax.__rxPatientContext = true;
             }
             var jq = win.jQuery;
             if (jq && typeof jq.ajaxPrefilter === 'function' && !jq.__rxPatientContext) {
                 jq.ajaxPrefilter(function (options) {
-                    options.url = current(options.url);
+                    if (!bodyNamesPatient(options.data)) {
+                        options.url = current(options.url);
+                    }
                 });
                 jq.__rxPatientContext = true;
             }
@@ -209,7 +246,7 @@
         return {demographicNo: demographicNo, withPatient: withPatient, install: install};
     }
 
-    var api = {create: create, isRxUrl: isRxUrl};
+    var api = {create: create, isRxUrl: isRxUrl, bodyNamesPatient: bodyNamesPatient};
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;
     }

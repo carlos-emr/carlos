@@ -38,7 +38,14 @@ compatibility path. It tags only relative URLs and absolute http(s) URLs on the 
 protocol-relative (`//host/...`), cross-origin and non-http (`javascript:`, `data:`) URLs are never
 tagged, so the patient id cannot leak to another host. The wrappers are installed once per window
 but read the patient at call time from a per-window holder that each page's `install()` updates, so
-wrapped globals that outlive a page never keep tagging with the previous page's patient. A form submitted programmatically
+wrapped globals that outlive a page never keep tagging with the previous page's patient.
+A CarlosAjax or jQuery call whose body already names the patient is not tagged again on the URL.
+The resolver accepts a repeated, equal `demographicNo`, but Struts binds a repeated parameter into a
+typed action property as an array: that is a conversion error, and the action answers with its
+unmapped `input` result (HTTP 404). So Rx actions resolve the patient through the resolver and must
+not declare `demographicNo` as a typed `@StrutsParameter` property
+(`RxWriteScript2ActionStrutsBindingIntegrationTest` drives the real interceptor stack with the
+repeated shape). A form submitted programmatically
 (`form.submit()`) fires no submit event, so such forms carry their own hidden `demographicNo`. `RxPatientContext.withPatient(url)` tags URLs built by hand (the print-preview
 POST). Pages that post with `fetch` (for example `ViewScript2.jsp`) put `demographicNo` in the body.
 

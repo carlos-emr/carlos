@@ -1915,7 +1915,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.demographicNo;
     }
 
-    @StrutsParameter
+    /**
+     * Not a Struts parameter. The patient is resolved from the request by
+     * {@link RxSessionBeanResolver}, which accepts the same demographicNo repeated in the URL and
+     * the form body. Binding it here turned that repeat into an int conversion error, and the
+     * workflow interceptor answered every such save with the unmapped {@code input} result
+     * (HTTP 404, the prescription was not saved).
+     */
     public void setDemographicNo(int RHS) {
         this.demographicNo = RHS;
     }
