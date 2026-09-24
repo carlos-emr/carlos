@@ -62,15 +62,24 @@ public class SmsSendService {
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
 
-        if (!rateLimiter.tryAcquire(providerType)) {
-            // The row is already persisted as QUEUED (due now), so leave it for the queue
-            // scheduler/worker to drain rather than exceeding the SMS provider rate limit here.
-            return SmsSendResultDto.queued();
-        }
-
         try {
             transaction = transactionRecorder.markSending(transaction, new Date());
         } catch (SmsTransactionClaimConflictException e) {
+            return SmsSendResultDto.queued();
+        }
+
+        // Claim before taking a permit, as the queue worker does, so a claim conflict never burns one. Nothing
+        // has been sent yet, so anything short of a permit hands the row back as QUEUED (due now) for the queue
+        // scheduler/worker; a row left SENDING would go to stale recovery as if its outcome were unknown.
+        boolean permitted;
+        try {
+            permitted = rateLimiter.tryAcquire(providerType);
+        } catch (RuntimeException e) {
+            releaseClaimAfterFailure(transaction, e);
+            throw e;
+        }
+        if (!permitted) {
+            transactionRecorder.releaseClaim(transaction, new Date());
             return SmsSendResultDto.queued();
         }
 
@@ -84,6 +93,15 @@ public class SmsSendService {
         }
         SmsTransaction recorded = transactionRecorder.markProviderResult(transaction, providerResult);
         return SmsSendResultDto.fromTransaction(recorded);
+    }
+
+    private void releaseClaimAfterFailure(SmsTransaction transaction, RuntimeException failure) {
+        try {
+            transactionRecorder.releaseClaim(transaction, new Date());
+        } catch (RuntimeException releaseFailure) {
+            // Keep the original failure as the one reported; stale recovery still covers the row.
+            failure.addSuppressed(releaseFailure);
+        }
     }
 
     private String clientReferenceId(SmsTransaction transaction) {
