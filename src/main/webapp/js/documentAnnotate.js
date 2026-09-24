@@ -427,16 +427,23 @@
                 return;
             }
             if (state.tool === 'highlight') { fetchWordBoxes(page); }
-            dragging = { x0: nx, y0: ny, points: [[nx, ny]] };
+            dragging = { pointerId: event.pointerId, x0: nx, y0: ny, points: [[nx, ny]] };
             svg.setPointerCapture(event.pointerId);
         });
 
+        // Each gesture belongs to the pointer that started it. A second finger on a touch screen
+        // is not primary, so it never starts one, but its move and up events still reach this
+        // overlay; without this check they would drag, then commit, the first finger's gesture.
+        function owns(gesture, event) {
+            return gesture !== null && gesture.pointerId === event.pointerId;
+        }
+
         svg.addEventListener('pointermove', function (event) {
             if (moving) {
-                continueMove(event);
+                if (owns(moving, event)) { continueMove(event); }
                 return;
             }
-            if (!dragging) { return; }
+            if (!owns(dragging, event)) { return; }
             var rect = svg.getBoundingClientRect();
             var nx = clamp((event.clientX - rect.left) / rect.width);
             var ny = clamp((event.clientY - rect.top) / rect.height);
@@ -450,18 +457,18 @@
 
         svg.addEventListener('pointerup', function (event) {
             if (moving) {
-                finishMove(event);
+                if (owns(moving, event)) { finishMove(event); }
                 return;
             }
-            if (!dragging) { return; }
+            if (!owns(dragging, event)) { return; }
             svg.releasePointerCapture(event.pointerId);
             commitDrag(page, dragging);
             dragging = null;
             redrawPage(page);
         });
 
-        svg.addEventListener('pointercancel', function () {
-            if (!moving) { return; }
+        svg.addEventListener('pointercancel', function (event) {
+            if (!owns(moving, event)) { return; }
             moving = null;
             redrawPage(page);
         });
@@ -474,7 +481,7 @@
             var a = findAnnotation(Number(target.getAttribute('data-id')));
             if (!a || !canGrab(a)) { return false; }
             event.preventDefault();
-            moving = { a: a, el: target, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
+            moving = { pointerId: event.pointerId, a: a, el: target, x0: event.clientX, y0: event.clientY, dx: 0, dy: 0, moved: false };
             svg.setPointerCapture(event.pointerId);
             return true;
         }

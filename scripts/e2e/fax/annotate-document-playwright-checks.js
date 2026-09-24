@@ -544,6 +544,19 @@ async function main() {
     await page.mouse.click(ov.x + 70, ov.y + 405, { button: 'right' });
     check('a right-click on a mark in select does not delete it', await markCount() === 2, String(await markCount()));
 
+    // A second touch lifting mid-drag must not commit (or cut short) the first pointer's move.
+    const hlTouchBefore = await boxOf('rect.mark');
+    await page.mouse.move(ov.x + 70, ov.y + 405);
+    await page.mouse.down();
+    await page.mouse.move(ov.x + 70, ov.y + 445, { steps: 5 });
+    await page.locator('svg.overlay').first().evaluate(svg => svg.dispatchEvent(new PointerEvent('pointerup',
+      { bubbles: true, pointerId: 99, isPrimary: false, pointerType: 'touch' })));
+    await page.mouse.move(ov.x + 70, ov.y + 505, { steps: 5 });
+    await page.mouse.up();
+    const hlTouchAfter = await boxOf('rect.mark');
+    check('another pointer lifting does not end a move in progress',
+      Math.abs(hlTouchAfter.y - hlTouchBefore.y - 100) < 3, JSON.stringify([hlTouchBefore, hlTouchAfter]));
+
     await page.locator('.swatch[data-color="black"]').click();
     await page.locator('.tool[data-tool="draw"]').click();
     await drag(400, 250, 600, 250);
