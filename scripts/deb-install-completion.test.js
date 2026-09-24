@@ -440,7 +440,7 @@ front_door_listening
 
 test('postinst HTTP probe uses the last overrides and the matching wildcard address family', () => {
   const start = postinst.indexOf('        PROBE_NAME="$(sed');
-  const end = postinst.indexOf('        i=0', start);
+  const end = postinst.indexOf('        deadline=', start);
   assert.ok(start >= 0 && end > start);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-probe-'));
   try {
