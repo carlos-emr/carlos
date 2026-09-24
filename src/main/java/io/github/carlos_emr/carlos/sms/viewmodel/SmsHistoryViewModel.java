@@ -54,9 +54,9 @@ public record SmsHistoryViewModel(String demographicNo, String patientDisplayNam
      *
      * @param id            the {@code sms_transaction} id, used by the "Show message" form
      * @param createdAt     when the row was created, {@code yyyy-MM-dd HH:mm}
-     * @param direction     {@code Outbound} or {@code Inbound}
-     * @param purpose       for example {@code Patient message}
-     * @param status        for example {@code Sent} or {@code Consent blocked}
+     * @param direction     {@code SmsDirection} name, shown through the {@code sms.direction.*} labels
+     * @param purpose       {@code SmsMessagePurpose} name, shown through the {@code sms.purpose.*} labels
+     * @param status        {@code SmsStatus} name, shown through the {@code sms.status.*} labels
      * @param phone         last four digits only, for example {@code ***1212}
      * @param consentReason consent reason code when consent blocked the send, otherwise empty
      * @param errorCode     provider or queue error code, otherwise empty

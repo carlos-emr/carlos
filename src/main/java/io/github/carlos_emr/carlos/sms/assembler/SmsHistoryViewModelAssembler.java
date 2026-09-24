@@ -111,9 +111,9 @@ public class SmsHistoryViewModelAssembler {
         return new SmsHistoryViewModel.Row(
                 String.valueOf(transaction.getId()),
                 format(transaction.getCreatedAt()),
-                humanize(transaction.getDirection()),
-                humanize(transaction.getMessagePurpose()),
-                humanize(transaction.getStatus()),
+                code(transaction.getDirection()),
+                code(transaction.getMessagePurpose()),
+                code(transaction.getStatus()),
                 lastFourDigits(inbound ? transaction.getFromPhoneNumber() : transaction.getToPhoneNumber()),
                 nullToEmpty(transaction.getConsentReasonCode()),
                 nullToEmpty(transaction.getErrorCode()),
@@ -139,13 +139,9 @@ public class SmsHistoryViewModelAssembler {
         return digits.length() < 4 ? "" : "***" + digits.substring(digits.length() - 4);
     }
 
-    /** {@code CONSENT_BLOCKED} becomes {@code Consent blocked}. */
-    private static String humanize(Enum<?> value) {
-        if (value == null) {
-            return "";
-        }
-        String words = value.name().replace('_', ' ').toLowerCase(Locale.ROOT);
-        return Character.toUpperCase(words.charAt(0)) + words.substring(1);
+    /** The enum name; the page translates it through {@code sms.status.*}, {@code sms.direction.*} and so on. */
+    private static String code(Enum<?> value) {
+        return value == null ? "" : value.name();
     }
 
     private static String format(Date date) {
