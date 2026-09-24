@@ -35,7 +35,11 @@ async function firstLibraryFid(context, config, recorder) {
   const page = await context.newPage();
   h.wirePage(page, 'eform-manager', recorder);
   await h.gotoApp(page, config.baseUrl, '/eform/efmformmanager');
-  const link = page.locator('#eformTbl a[onclick*="efmshowform_data?fid="]').first();
+  // Other checks leave "Playwright ..." probe eForms in the library; those are minimal fixtures
+  // without the floating toolbar, so pick a real library form.
+  const link = page.locator('#eformTbl tr')
+    .filter({ hasNot: page.getByText(/^Playwright /) })
+    .locator('a[onclick*="efmshowform_data?fid="]').first();
   if (await link.count() === 0) {
     await page.close();
     throw new h.SkipCheck('the eForm manager lists no eForms; set EFORM_PRINT_SAVE_FID');
@@ -71,6 +75,11 @@ async function openEform(context, config, recorder, appPath, label, answer) {
   await h.assertNotErrorPage(page, label);
   // The toolbar is fetched by XHR after DOMContentLoaded (includeHTML in eform_floating_toolbar.js).
   await page.locator('#remotePrintButton').waitFor({ state: 'visible', timeout: 20000 });
+  // A letter eForm (the Rich Text Letter) loads measurement history after the toolbar appears, and
+  // the toolbar refuses to print or save until it settles ("Measurements are still loading"). Wait
+  // for the same condition the toolbar checks, so Print is clicked on a ready form.
+  await page.waitForFunction(() => typeof window.measurementHistoryStillLoading !== 'function'
+    || !window.measurementHistoryStillLoading(), null, { timeout: 20000 });
   return { page, events, kinds: () => events.map((event) => event.kind) };
 }
 
