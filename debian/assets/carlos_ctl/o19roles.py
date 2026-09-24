@@ -107,8 +107,15 @@ RTL_SEED_SCRIPT = "update-2012-07-12.sql"
 RTL_ENABLE_SCRIPT = "update-2026-03-12-rtl-enable-direct.sql"
 RTL_MODERNIZE_SCRIPT = "update-2026-03-22-rtl-2026.3.0-modernize.sql"
 RTL_ROUTE_FIX_SCRIPT = "update-2026-06-29-rtl-attachment-route-fix.sql"
+RTL_STAMP_FIELDS_SCRIPT = "update-2026-09-20-rtl-provider-stamp-fields.sql"
+#: the hidden input that script adds. Its absence from an otherwise current
+#: form_html means the stamp fixup is still due, the same way RTL_DEAD_ROUTES
+#: means the route fix is: a form modernised before the fixup existed carries
+#: the 2026.3.0 marker and is still missing the provider identity the Stamp
+#: and Closing Salutation buttons need.
+RTL_STAMP_FIELD_MARKER = 'id="user_ohip_no"'
 RTL_FIXUP_SCRIPTS = (RTL_ENABLE_SCRIPT, RTL_MODERNIZE_SCRIPT,
-                     RTL_ROUTE_FIX_SCRIPT)
+                     RTL_ROUTE_FIX_SCRIPT, RTL_STAMP_FIELDS_SCRIPT)
 
 LEDGER_KEY = "roles"
 
@@ -895,11 +902,15 @@ def rtl_rows_sql(dst_schema: str) -> str:
     # ignored) so the planner and the scripts agree on "canonical"
     # 8th column: calls the RptByExample.do sink (what makes a legacy
     # copy unsafe, as opposed to merely RTL-derived)
+    # 9th column: lacks the provider stamp fields (NOT LIKE, so 1 means the
+    # fixup is still due -- same polarity as the dead-route column)
     return ("SELECT fid, form_name, status, subject, "
-            "form_html LIKE '%{1}%', ({3}), ({4}), form_html LIKE '%{5}%' "
+            "form_html LIKE '%{1}%', ({3}), ({4}), form_html LIKE '%{5}%', "
+            "form_html NOT LIKE '%{6}%' "
             "FROM `{0}`.eform WHERE form_html LIKE '%{2}%' OR ({4}) ORDER BY "
             "fid".format(dst_schema, RTL_VERSION_MARKER, RTL_TITLE_MARKER,
-                         dead, RTL_CANONICAL_PREDICATE, RTL_SINK_MARKER))
+                         dead, RTL_CANONICAL_PREDICATE, RTL_SINK_MARKER,
+                         _sql_str(RTL_STAMP_FIELD_MARKER)))
 
 
 def rtl_disable_statement(dst_schema: str, fid: str) -> str:
@@ -924,17 +935,27 @@ def is_rtl_canonical(row: Sequence[str]) -> bool:
 def fixup_scripts_needed(rows: Sequence[Sequence[str]]) -> List[str]:
     """The packaged scripts to run, in order, from the live rows: the v1
     seed when no canonical row exists, the three fixups when the canonical
-    row lacks the 2026.3.0 marker, only the route fix when a marked row
-    still calls a dead route (a crash between modernize and the route fix,
-    or a form modernised before that fix existed). Empty when current."""
+    row lacks the 2026.3.0 marker, and the individual later fixups when a
+    marked row is missing only what one of them adds (a crash part way
+    through, or a form modernised before that fixup existed). Empty when
+    current.
+
+    The per-fixup checks read columns the query may not have produced --
+    a caller holding rows from an older `rtl_rows_sql` passes shorter
+    tuples -- so each is length-guarded and treats a missing column as
+    "nothing to do" rather than assuming the worst and rewriting a form
+    that is already correct."""
     canonical = [r for r in rows if is_rtl_canonical(r)]
     if not canonical:
         return [RTL_SEED_SCRIPT] + list(RTL_FIXUP_SCRIPTS)
     if any(str(r[4]) != "1" for r in canonical):
         return list(RTL_FIXUP_SCRIPTS)
+    needed = []
     if any(len(r) > 5 and str(r[5]) == "1" for r in canonical):
-        return [RTL_ROUTE_FIX_SCRIPT]
-    return []
+        needed.append(RTL_ROUTE_FIX_SCRIPT)
+    if any(len(r) > 8 and str(r[8]) == "1" for r in canonical):
+        needed.append(RTL_STAMP_FIELDS_SCRIPT)
+    return needed
 
 
 def rtl_plan(rows: Sequence[Sequence[str]]
@@ -1006,10 +1027,12 @@ def rtl_plan(rows: Sequence[Sequence[str]]
 
 
 def rtl_current(rows: Sequence[Sequence[str]]) -> bool:
-    """True when a canonical row exists, carries the marker and calls no
-    dead route — what the fixups must leave behind."""
+    """True when a canonical row exists, carries the marker, calls no
+    dead route and has the provider stamp fields — what the fixups must
+    leave behind."""
     return any(is_rtl_canonical(r) and str(r[4]) == "1"
-               and not (len(r) > 5 and str(r[5]) == "1") for r in rows)
+               and not (len(r) > 5 and str(r[5]) == "1")
+               and not (len(r) > 8 and str(r[8]) == "1") for r in rows)
 
 
 # --- verification -----------------------------------------------------------

@@ -103,12 +103,8 @@ public class AnnotateDocument2Action extends ActionSupport {
         }
 
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
-        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
+        if (doc == null) {
             return unavailable("The document could not be found.");
-        }
-
-        if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(doc.getContentType()))) {
-            return unavailable("Only PDF documents can be annotated.");
         }
 
         // module_id is only a demographic number when module is "demographic"; on a
@@ -118,6 +114,14 @@ public class AnnotateDocument2Action extends ActionSupport {
         if (demographicNo > 0
                 && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("Unauthorized access to patient record");
+        }
+
+        if (StringUtils.isBlank(doc.getFileName())) {
+            return unavailable("The document could not be found.");
+        }
+
+        if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(doc.getContentType()))) {
+            return unavailable("Only PDF documents can be annotated.");
         }
 
         // The stored count is metadata: legacy rows carry zero and a row can drift from the file

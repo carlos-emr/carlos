@@ -47,6 +47,7 @@ import java.util.List;
  * Example test demonstrating modern JUnit 5 features with the CARLOS EMR test framework.
  * This shows how to test DAOs while handling the SpringUtils anti-pattern.
  */
+@Tag("integration")
 @DisplayName("Demographic DAO Modern Test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Transactional

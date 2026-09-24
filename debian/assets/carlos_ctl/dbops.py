@@ -440,27 +440,27 @@ def cmd_rotate(argv) -> int:
 
 # --- Flyway (verbs: db-migrate / db-info / db-validate / db-baseline / db-repair)
 
-def _is_java_21(home: str) -> bool:
+def _is_java_25(home: str) -> bool:
     """The JDK's own release file names the version without spawning a JVM."""
     try:
         with open(os.path.join(home, "release"), encoding="utf-8") as fh:
-            return any(line.startswith('JAVA_VERSION="21') for line in fh)
+            return any(line.startswith('JAVA_VERSION="25') for line in fh)
     except OSError:
         return False
 
 
 def _find_java() -> str:
-    """Java 21, VERIFIED, not merely a java binary: the migration engine and
-    JDBC driver come out of the deployed WAR (class file version 65) and a
-    default-java pointing at 17 or 25 fails in class-loading shapes rather
-    than with a clean message."""
-    candidates = (sorted(glob.glob("/usr/lib/jvm/java-21-openjdk-*"))
-                  + ["/usr/lib/jvm/java-21-openjdk",
+    """Java 25, VERIFIED, not merely a java binary: the migration engine and
+    JDBC driver come out of the deployed WAR (class file version 69), so an
+    older default-java cannot load them at all, and a newer one fails in
+    class-loading shapes rather than with a clean message."""
+    candidates = (sorted(glob.glob("/usr/lib/jvm/java-25-openjdk-*"))
+                  + ["/usr/lib/jvm/java-25-openjdk",
                      "/usr/lib/jvm/default-java"])
     for d in candidates:
-        if _is_java_21(d) and os.access(os.path.join(d, "bin", "java"), os.X_OK):
+        if _is_java_25(d) and os.access(os.path.join(d, "bin", "java"), os.X_OK):
             return os.path.join(d, "bin", "java")
-    die("no Java 21 runtime found; install openjdk-21-jre-headless")
+    die("no Java 25 runtime found; install openjdk-25-jre-headless")
 
 
 def run_flyway(command: str) -> int:
@@ -968,6 +968,10 @@ def cmd_demo_data(argv) -> int:
         # file in the devcontainer flow; the eform-rtl-attachment-* Playwright
         # checks pin this).
         os.path.join(DEMO_DIR, "update-2026-06-29-rtl-attachment-route-fix.sql"),
+        # Also after the modernize update: adds the hidden user_id / user_ohip_no /
+        # doctor_provider_no inputs editControl2.js reads to stamp a letter with
+        # consult_sig_<provider_no>.png instead of the single shared stamp.png.
+        os.path.join(DEMO_DIR, "update-2026-09-20-rtl-provider-stamp-fields.sql"),
         # The snapshot's HRM rows name report files that never shipped, so
         # every HRM list is empty. Point one demographic-1 report at the
         # fixture _demo_seed_document_files() copies in after the load.

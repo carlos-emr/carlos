@@ -771,6 +771,35 @@ class TestRichTextLetter(unittest.TestCase):
                          [o19roles.RTL_ROUTE_FIX_SCRIPT])
         self.assertFalse(o19roles.rtl_current([row]))
 
+    def test_marked_row_without_stamp_fields_gets_only_the_stamp_fixup(self):
+        # a form modernised before the provider stamp fields existed: marked,
+        # routes fixed, but pickStamp() has no provider number to work from so
+        # every letter is signed with the shared stamp.png
+        row = ("12", "Rich Text Letter", "1",
+               "Rich Text Letter Generator 2026.3.0", "1", "0", "1", "0", "1")
+        self.assertEqual(o19roles.fixup_scripts_needed([row]),
+                         [o19roles.RTL_STAMP_FIELDS_SCRIPT])
+        self.assertFalse(o19roles.rtl_current([row]))
+
+    def test_a_row_missing_both_later_fixups_gets_both_in_order(self):
+        row = ("12", "Rich Text Letter", "1",
+               "Rich Text Letter Generator 2026.3.0", "1", "1", "1", "0", "1")
+        self.assertEqual(o19roles.fixup_scripts_needed([row]),
+                         [o19roles.RTL_ROUTE_FIX_SCRIPT,
+                          o19roles.RTL_STAMP_FIELDS_SCRIPT])
+
+    def test_a_fully_current_row_needs_nothing(self):
+        row = ("12", "Rich Text Letter", "1",
+               "Rich Text Letter Generator 2026.3.0", "1", "0", "1", "0", "0")
+        self.assertEqual(o19roles.fixup_scripts_needed([row]), [])
+        self.assertTrue(o19roles.rtl_current([row]))
+
+    def test_the_stamp_field_column_is_asked_for_by_the_row_query(self):
+        # NOT LIKE, so the column answers "still due" the same way the
+        # dead-route column does; the planner reads both with one polarity
+        self.assertIn("form_html NOT LIKE '%id=\"user_ohip_no\"%'",
+                      o19roles.rtl_rows_sql("carlos"))
+
     def test_edited_subject_is_out_of_reach_and_reported(self):
         row = ("12", "Rich Text Letter", "1", "Our clinic letter", "0", "1",
                "0")

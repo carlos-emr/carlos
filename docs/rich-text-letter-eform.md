@@ -11,6 +11,11 @@ clinicians to compose formatted letters with one-click insertion of patient data
 allergies, prescriptions, lab results, vitals, preventions) and supports attachments, faxing,
 emailing, and PDF export.
 
+The font-size dropdown displays approximate CSS pixel sizes (≈10px through ≈48px).
+It retains the legacy HTML font-size levels 1–7 used by the editor and saved letters; browser
+font preferences and template styles can affect their rendered size. The release and packaged
+editor assets must remain identical.
+
 The RTL is the only eForm shipped by default with CARLOS. All other eForms are uploaded by clinic
 administrators through the eForm Manager UI.
 
@@ -45,20 +50,48 @@ exist on disk. Tags referencing files that don't exist are **removed from the DO
 
 ### 2. Static Asset Files (deployed by `EFormAssetDeployer`)
 
-Three files are bundled in the WAR at `WEB-INF/eform-assets/` and deployed to the eForm images
+These files are bundled in the WAR at `WEB-INF/eform-assets/` and deployed to the eForm images
 directory on Tomcat startup:
 
 | File | Purpose | Size |
 |------|---------|------|
 | `editControl2.js` | WYSIWYG editor engine (toolbar, iframe, formatting commands) | ~62 KB |
 | `blank.rtl` | Default blank letter template | ~500 B |
+| `clinic_letter.rtl` | Starter template: letterhead, date, addressee, closing salutation | ~600 B |
+| `consultation_letter.rtl` | Starter template: referring block, Re: line, History/Examination/Impression/Plan headings | ~800 B |
+| `patient_letter.rtl` | Starter template: letter addressed to the patient | ~600 B |
 | `editor_help.html` | Help popup for the editor toolbar | ~5 KB |
 
+The template dropdown is built by `efmformrtl_templates`, which lists every `*.rtl` file it finds
+in the eForm images directory — so a template that is not deployed does not exist as far as a
+clinician is concerned. That is why the starter templates ship here rather than being left for an
+administrator to upload. Every one of them declares the same print block:
+
+```html
+<style type="text/css" media="print">
+* { color: #000000; }
+.DoNotPrint { display: none; }
+@page { margin: 2cm; }
+</style>
+```
+
+See [Print and PDF](#print-and-pdf) for how that `@page` rule survives to the PDF — the editor does
+not store it.
+
+**Authoring rule for templates.** `populateTemplate()` in `editControl2.js` falls back to a browser
+`prompt()` for any `##placeholder##` whose cached value is empty, so a template may only use
+placeholders that are *always* populated for a real patient. `##_ReferringBlock##` is the trap — it
+is empty for any patient with no referring doctor on file, which is most of them, and a template
+carrying it pops a dialog on every new letter. Conditional content belongs on a sidebar button, not
+in a template. `RichTextLetterTemplateRegressionTest` pins the allowed set.
+
 **Not auto-deployed**: `stamps.js` (clinic-specific doctor signature mappings) is intentionally
-excluded. Clinics create this file themselves.
+excluded. Clinics create this file themselves; see [Signature stamps](#signature-stamps).
 
 Files are only deployed if they **do not already exist** in the target directory. This prevents
-overwriting clinic-customized versions.
+overwriting clinic-customized versions. `editControl2.js` is the exception — it is a *managed*
+asset, replaced on startup whenever the shipped bytes differ, because it is application code
+rather than configuration.
 
 ### 3. Server-Side Endpoints
 
@@ -87,6 +120,25 @@ stands and only then saves, when the letter is dirty.
 | Toolbar **Print** (`remotePrint()` in `eform_floating_toolbar.js`) | Clicks the form's hidden `PrintButton`, which calls `print()` on the **editor iframe** (so only the letter prints, not the sidebar), then saves through `remoteSave()` when the letter is dirty (`needToConfirm`). |
 | Toolbar **Download** (`remoteDownload()`) | Posts `saveAndDownloadEForm=true`; `AddEForm2Action` saves, renders the PDF, and hands it back base64-encoded on `efmshowform_data.jsp`, which triggers the browser download. |
 | Form **PDF** / **Submit & PDF** buttons (injected by `library/eforms/printControl.js`) | Post `print=true`. `AddEForm2Action` treats that flag as the legacy alias of `saveAndDownloadEForm=true`. Before 2026.09 these buttons were a plain Save with no PDF: `printControl.js` guarded its hidden inputs on a jQuery object's truthiness (never false), so the flag was never posted — and had it been, the action returned a `print` result that `struts-eform.xml` never mapped. `skipSave` is advisory only, but it still tells the two buttons apart: **Submit & PDF** is a submission, so the result page starts the download, shows the saved alert and then closes the window (the action sets `isSuccess_Autoclose`, exactly as a plain Submit does; if the completeness gate refuses the render first, the approval page carries the intent as a hidden `autoClose` input so the approved download still closes), while **PDF** leaves the window open. The eForm Generator and Visual Editor emit `printControl.js` into generated clinic eForms too, so the alias covers them as well. |
+
+### Page margins in the generated PDF
+
+The editor stores `body.innerHTML` and nothing else (`editControlContents()`), so a template's
+`<head>` — and with it the `@media print` block above — is gone by the time the letter is saved.
+The PDF renderer then applies its own baseline print stylesheet, which zeroes `@page { margin }`
+because scanned-background eForms depend on that. The combination is why a letter written on a
+2cm-margin template used to print flush to the paper edge with a wide blank gutter on the right.
+
+`EFormRenderPdfHtmlComposer.wrapLetterHtmlForPrint()` re-declares the template's print rules on the
+render surface and publishes the margin as `data-carlos-page-margin` on `<body>`.
+`EFormBrowserPdfService.PREPARE_PRINT_JS` reads that attribute and appends a matching `@page` rule
+**after** its own baseline (cascade order is load-bearing: the baseline is injected into `<head>` at
+print time and beats any earlier rule on a specificity tie). Forms that publish no attribute keep
+the zero margin unchanged.
+
+The margin defaults to `2cm` and is overridable with the `eform_rtl_letter_page_margin` property.
+The value is written into a stylesheet, so it is validated as a CSS length on both sides and an
+unparseable override falls back to the default rather than being emitted.
 
 Two invariants keep these working:
 
@@ -191,7 +243,18 @@ mysql ... < database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
 
 # 3. Enable the eForm (set status=1)
 mysql ... < database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+
+# 4. Rewire the attachment routes to the gated Struts actions
+mysql ... < database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+
+# 5. Add the hidden provider fields the signature stamp is chosen from
+mysql ... < database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql
 ```
+
+Steps 4 and 5 must run **after** step 2, which replaces `form_html` wholesale. `carlos-ctl`'s O19
+importer applies the same chain from its packaged copies (`o19roles.RTL_FIXUP_SCRIPTS`), deciding
+per install which ones are still due by inspecting the live `form_html` — a row that already
+carries the 2026.3.0 marker but is missing `id="user_ohip_no"` gets step 5 alone.
 
 ### Migration from v2.1
 
@@ -236,6 +299,45 @@ before any eForm is rendered.
 
 ---
 
+## Signature stamps
+
+The **Stamp** and **Closing Salutation** sidebar buttons both resolve a signature image through
+`pickStamp()` in `editControl2.js`. It prefers the provider's own stored signature —
+`consult_sig_<provider_no>.png` in the eForm images directory, the same file the consultation
+module and the Visual eForm Editor stamp with — and falls back to the legacy sources only when no
+such file exists.
+
+Which provider signs is a delegation rule, mirroring `sign()` in `visualEformEditor.jsp`:
+
+| `user_ohip_no` | Signed by | Rationale |
+|---|---|---|
+| `> 1000` | the logged-in user (`user_id`) | a billing practitioner (MD / NP / RMW) signs their own letters |
+| otherwise | the patient's MRP (`doctor_provider_no`) | a non-billing account — resident, nurse, clerical, or a room/resource pseudo-provider that exists only to hold a schedule — is writing under the MRP's direction |
+
+> The Visual eForm Editor uses a threshold of `100` for the same decision. The RTL uses `1000`, which
+> leaves a wider band of numbers available for non-billing providers who need a schedule.
+
+The three values arrive as hidden inputs the eForm framework populates server-side from their
+`oscarDB=` attributes (added by `update-2026-09-20-rtl-provider-stamp-fields.sql`):
+
+| Input | AP key |
+|---|---|
+| `user_id` | `current_user_id` |
+| `user_ohip_no` | `current_user_ohip_no` |
+| `doctor_provider_no` | `doctor_provider_no` |
+
+The same AP keys are listed on the `stamp` and `_ClosingSalutation` cache mappings, so an install
+whose stored `form_html` predates those inputs — a clinic that customized the Rich Text Letter row,
+or one that has not run the migration — still resolves them over APCache.
+
+**Fallbacks.** `Start()` probes the per-provider file once at load. If it is absent, `pickStamp()`
+falls back to `stamps.js` (a clinic-authored `ImgArray` of `"doctor|SignatureFile.png"` pairs in
+the eForm images directory, matched against `current_user` first and then the MRP) and finally to a
+single shared `stamp.png`. Those two were the *only* sources before 2026.09, which is why a
+multi-provider clinic without a `stamps.js` signed every letter with the same image.
+
+---
+
 ## Token System
 
 The form_html uses custom tokens that are replaced server-side by `EForm.java` before rendering:
@@ -269,6 +371,13 @@ Implements `InitializingBean` and `ServletContextAware`. On Spring context start
 
 This ensures clinics get the default assets on first deployment without overwriting any
 customized versions on subsequent restarts.
+
+The letter templates (`blank.rtl` and the three starter templates) are *seeded* this way: a clinic
+is expected to edit them, and an edit must survive the next redeploy. `editControl2.js` is
+*managed* instead — it is compared against the shipped bytes on every startup and replaced when it
+differs, because a stale copy of the editor engine is a defect that would otherwise follow the
+install forever. `MANAGED_ASSETS` in the deployer is the list; adding a filename to it declares
+that clinic edits to that file are unsupported.
 
 ---
 
@@ -315,6 +424,9 @@ src/main/java/io/github/carlos_emr/carlos/eform/EFormAssetDeployer.java
 src/main/java/io/github/carlos_emr/carlos/eform/actions/RtlPreventions2Action.java
 src/main/webapp/WEB-INF/eform-assets/editControl2.js
 src/main/webapp/WEB-INF/eform-assets/blank.rtl
+src/main/webapp/WEB-INF/eform-assets/clinic_letter.rtl
+src/main/webapp/WEB-INF/eform-assets/consultation_letter.rtl
+src/main/webapp/WEB-INF/eform-assets/patient_letter.rtl
 src/main/webapp/WEB-INF/eform-assets/editor_help.html
 src/main/webapp/eform/efmformrtl_templates.jsp
 src/main/webapp/eform/attachEform.jsp
@@ -332,6 +444,9 @@ src/main/webapp/WEB-INF/classes/struts-eform.xml    (actions: eform/rtlPreventio
 database/mysql/updates/update-2012-07-12.sql        (v1.0 seed)
 database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql  (enable/disable)
 database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql  (2026.3.0 full replacement)
+database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql  (gated attachment routes)
+database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql (provider fields for the signature stamp)
+database/mysql/migration/common/V1.0.29__rename_placeholder_demo_clinic.sql  (##letterhead## clinic name)
 ```
 
 ### Release

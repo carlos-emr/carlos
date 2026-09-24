@@ -83,6 +83,15 @@ test('readConfig supplies the devcontainer defaults and the documented aliases',
   assert.equal(aliased.chromePath, '/x/chrome');
 });
 
+test('context locale options cannot override the configured TLS verification policy', async () => {
+  let actual;
+  const browser = { newContext: async (options) => { actual = options; return options; } };
+  const config = readConfig({ env: { BASE_URL: 'https://carlos.example.org/carlos', ALLOW_NON_LOCAL_BASE_URL: 'true' } });
+  await harness.newContext(browser, config, { locale: 'fr-CA', ignoreHTTPSErrors: true });
+  assert.equal(actual.locale, 'fr-CA');
+  assert.equal(actual.ignoreHTTPSErrors, false);
+});
+
 test('a missing required variable is a SkipCheck, not a failure (issue #3313)', () => {
   assert.throws(
     () => readConfig({ env: {}, require: ['EFORM_CORPUS_DIR'] }),
