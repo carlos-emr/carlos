@@ -1,0 +1,545 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+"""Site settings (carlos-emr.env) and the init-config apply step.
+
+Counterpart of carlos-podman carlos_ctl/config.py: there, configuration is
+rendered by Ansible from host_vars; here, the single source of site truth is
+/etc/carlos-emr/carlos-emr.env and this module derives everything else from it
+— and APPLIES it, so the operator loop is "edit the file, run
+carlos-ctl init-config" with nothing further to remember.
+"""
+
+import hashlib
+import ipaddress
+import os
+import re
+import time
+
+from . import util
+from .util import (
+    CHROMIUM_DIR, CONF_DIR, ENV_FILE, LIB, PROPERTIES, RENDER_BROWSER_ENV, SHARE, STATE,
+    die, env_get, log, prop_comment, prop_get, prop_set, run, warn,
+)
+
+
+# CARLOS_PROVINCE answer -> the migration/billing province it resolves to.
+# 'other' is a deliberate ALIAS for Ontario, not a third jurisdiction: the WAR
+# ships only common/on/bc migration locations, and the application recognises
+# only ON and BC. Rendering billregion=OTHER would not give a neutral install,
+# it would give a broken one — Billing2Action is
+# `return "ON".equals(region) ? "ON" : "BC";`, so the Billing tab would chain
+# into the BC screens against tables the on migrations never create; ~40 JSP
+# and Java sites do an exact .equals("ON"); and FlywaySchemaValidator
+# normalises only ON/BC, so its boot-time cross-check of
+# carlos.flyway.locations against billregion would stop covering this
+# deployment. So the operator's answer is kept verbatim in carlos-emr.env for
+# the record, and everything derived from it goes through schema_province.
+PROVINCE_SCHEMA = {"on": "on", "bc": "bc", "other": "on"}
+
+
+_LEGACY_PROXY_PARAMS_SHA256 = "2afb77a7ee504c3fe37f1714b0b5584551511351d32acc6611a14e302df79837"
+
+
+def _install_proxy_params(target: str, template: str) -> None:
+    """Upgrade the old stock CSP-stripping fragment; preserve operator edits."""
+    if os.path.exists(target):
+        with open(target, "rb") as stream:
+            current = stream.read()
+        if hashlib.sha256(current).hexdigest() != _LEGACY_PROXY_PARAMS_SHA256:
+            if re.search(rb"(?m)^\s*proxy_hide_header\s+Content-Security-Policy\s*;", current):
+                warn("custom nginx proxy-params.conf hides application Content-Security-Policy; "
+                     "remove that proxy_hide_header directive, then run nginx -t and reload nginx "
+                     "before using document annotation")
+            return
+        log("upgrading stock nginx proxy parameters to preserve application CSP")
+    import shutil
+    shutil.copy(template, target)
+    os.chmod(target, 0o644)
+
+
+def _canonical_bind_ip(raw: str) -> str:
+    """CARLOS_BIND_IP as everything downstream compares it.
+
+    Unbracketed and in the address family's own canonical spelling, because
+    that is what the proofs see: ss reports a bound IPv6 literal bracketed
+    AND canonicalised, so `0:0:0:0:0:0:0:1` — which nginx binds happily —
+    comes back as `::1`. Comparing the operator's spelling verbatim declared
+    a healthy front door missing, restarted nginx, and recorded the install
+    incomplete; `[::1]`, the spelling nginx itself uses, failed the same way.
+
+    Only the nginx `listen` directive wants brackets, and
+    _listen_directive_address puts them back. Hostnames are rejected before
+    any rendering or service action: nginx can resolve them, but a numeric
+    socket cannot prove which address a changing DNS name was intended to bind.
+    """
+    value = raw.strip()
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+    try:
+        return ipaddress.ip_address(value).compressed
+    except ValueError:
+        die("CARLOS_BIND_IP must be an IPv4 or IPv6 address "
+            "(for example 127.0.0.1 or ::1); hostnames are not supported")
+
+
+class Settings:
+    """The carlos-emr.env values every verb needs, validated once."""
+
+    def __init__(self) -> None:
+        self.server_name = env_get(ENV_FILE, "CARLOS_SERVER_NAME") or "localhost"
+        # 0.0.0.0 is the documented default for a clinic server (see the
+        # skeleton env file); the flag below tells scanners it is deliberate.
+        # Canonical form is UNBRACKETED, because that is the form everything
+        # downstream compares: ss reports a bound IPv6 literal bracketed and
+        # the listener proof strips those brackets, the check verb's curl
+        # --resolve takes the bare address, and the postinst helper compares
+        # both spellings. Only the nginx `listen` directive needs brackets,
+        # and _listen_directive_address puts them back. An operator who
+        # writes the bracketed form in carlos-emr.env — the spelling nginx
+        # itself uses — otherwise rendered a working front door that every
+        # proof then declared missing, restarting nginx and failing.
+        self.bind_ip = _canonical_bind_ip(  # nosec B104
+            env_get(ENV_FILE, "CARLOS_BIND_IP") or "0.0.0.0")
+        self.province = (env_get(ENV_FILE, "CARLOS_PROVINCE") or "on").lower()
+        self.db_host = env_get(ENV_FILE, "CARLOS_DB_HOST") or "127.0.0.1"
+        self.db_port = env_get(ENV_FILE, "CARLOS_DB_PORT") or "3306"
+        self.db_name = env_get(ENV_FILE, "CARLOS_DB_NAME") or "carlos"
+        # The database name is interpolated into backtick-quoted DDL run as
+        # database root (db-users, destroy-data). The file it comes from is
+        # root-owned, so this is hardening rather than a live injection path —
+        # but the blast radius of a stray backtick there is a DROP on a PHI
+        # host, so refuse anything that is not a plain identifier, once, for
+        # every command.
+        if not re.fullmatch(r"[A-Za-z0-9_]+", self.db_name):
+            die(f"CARLOS_DB_NAME ('{self.db_name}') must be a plain identifier (A-Za-z0-9_)")
+        if self.province not in PROVINCE_SCHEMA:
+            die(f"CARLOS_PROVINCE ('{self.province}') must be 'on', 'bc' or 'other'")
+        # The province whose migrations and billregion this install actually
+        # gets; identical to self.province except for the 'other' alias above.
+        self.schema_province = PROVINCE_SCHEMA[self.province]
+
+    @property
+    def flyway_locations(self) -> str:
+        return f"classpath:db/migration/common,classpath:db/migration/{self.schema_province}"
+
+
+def load() -> Settings:
+    return Settings()
+
+
+def _listen_directive_address(bind_ip: str) -> str:
+    """The address as an nginx `listen` directive must spell it.
+
+    `listen ::1:80;` is not valid nginx: an IPv6 literal has to be bracketed
+    or the address and the port run together and the configuration is
+    rejected — so CARLOS_BIND_IP=::1 rendered a front door that could never
+    start. CARLOS_BIND_IP holds the bare literal, which is what the operator
+    writes and what ss reports (the listener proof strips brackets for the
+    same reason); the brackets belong to this directive alone.
+    """
+    if ":" not in bind_ip or bind_ip.startswith("["):
+        return bind_ip
+    return f"[{bind_ip}]"
+
+
+def cmd_init_config(argv) -> int:
+    util.need_root("init-config")
+    s = load()
+    if not os.path.isfile(PROPERTIES):
+        die(f"{PROPERTIES} does not exist; reinstall the package")
+
+    doc = f"{STATE}/CarlosDocument/carlos"
+    province_uc = s.schema_province.upper()
+
+    # JDBC parameters, and why each one is here:
+    #   zeroDateTimeBehavior=round        the OSCAR-lineage schema contains
+    #       0000-00-00 dates; the driver's default throws on read, which makes
+    #       whole clinical screens fail. `round` returns 0001-01-01 — a
+    #       FABRICATED date, not a null; it is upstream's long-standing choice
+    #       and the application expects it.
+    #   useOldAliasMetadataBehavior=true  legacy DAOs read columns by their
+    #       pre-alias names.
+    #   jdbcCompliantTruncation=false     matches the server's non-strict
+    #       sql_mode; without it the driver rejects what the server accepts.
+    #   characterEncoding/connectionCollation  keep the connection utf8mb4 so
+    #       the server-side default is not silently downgraded.
+    prop_set(PROPERTIES, "db_name",
+             f"{s.db_name}?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true"
+             f"&jdbcCompliantTruncation=false&characterEncoding=UTF-8"
+             f"&connectionCollation=utf8mb4_general_ci")
+    prop_set(PROPERTIES, "db_uri", f"jdbc:mysql://{s.db_host}:{s.db_port}/")
+    prop_set(PROPERTIES, "db_type", "mysql")
+    prop_set(PROPERTIES, "db_driver", "com.mysql.cj.jdbc.Driver")
+
+    # Document storage. 2750 carlos:carlos with the backup user reading
+    # through group membership; see debian/carlos-emr.tmpfiles.
+    prop_set(PROPERTIES, "BASE_DOCUMENT_DIR", f"{STATE}/CarlosDocument/")
+    prop_set(PROPERTIES, "DOCUMENT_DIR", f"{doc}/document/")
+    prop_set(PROPERTIES, "INCOMINGDOCUMENT_DIR", f"{doc}/incomingdocs")
+    prop_set(PROPERTIES, "INVOICE_DIR", f"{doc}/billing/invoices")
+    prop_set(PROPERTIES, "FAX_INCOMING_DIR", f"{doc}/fax-incoming")
+    prop_set(PROPERTIES, "tomcat_path", f"{STATE}/catalina/")
+
+    prop_set(PROPERTIES, "billregion", province_uc)
+    prop_set(PROPERTIES, "buildtag", "carlos-emr-deb")
+    # project_home is a legacy OSCAR name used two ways: as the CarlosDocument
+    # subdirectory, and as a fallback URL context prefix when the eForm PDF
+    # composer and the MOH billing views cannot see a real context path. Both
+    # are "carlos" in this layout; the upstream default of "oscar_mcmaster"
+    # would send both down a path that does not exist here.
+    prop_set(PROPERTIES, "project_home", "carlos")
+
+    # Build identity (the build stamp shown on the authenticated About page,
+    # in REST response headers and in HL7 SFT segments; deliberately never on
+    # the login page) is NOT a carlos.properties
+    # key any more: the application reads it from carlos-build.properties
+    # inside the WAR (BuildInfo), so it follows every package upgrade on its
+    # own. Earlier packages seeded buildDate/buildVersion into THIS override
+    # file — where, because the override is loaded on top of the in-WAR copy,
+    # the value written at first install shadowed every later WAR's stamp
+    # ("it does NOT update the buildVersion", reported on the alpha line).
+    # The application ignores the keys now; comment them out so an operator
+    # reading the file is not misled into thinking they do something.
+    # Idempotent: prop_get does not see a commented line.
+    for key in ("buildDate", "buildVersion"):
+        if prop_get(PROPERTIES, key) is not None:
+            prop_comment(PROPERTIES, key)
+
+    # The schema gate. `validate` is the production posture: the application
+    # refuses to start against a schema it was not built for, instead of
+    # failing later with a column-not-found error mid-consultation.
+    # Migrations are applied by the explicit `carlos-ctl db-migrate`.
+    prop_set(PROPERTIES, "carlos.flyway.onBoot", "validate")
+    prop_set(PROPERTIES, "carlos.flyway.locations", s.flyway_locations)
+
+    # DrugRef is co-deployed in this Tomcat, loopback-only.
+    prop_set(PROPERTIES, "drugref_url", "http://127.0.0.1:18080/drugref2/DrugrefService")
+
+    # eForm-to-PDF renderer. carlos-emr-eform-renderer ships a pinned Chromium
+    # and a chromedriver built from the same revision, run as the dedicated
+    # carlos-emr-chromedriver service; the application CONNECTS to that service
+    # (eform_pdf_browser_service_url) and never spawns or downloads a driver.
+    #
+    # The probe follows the browser rather than being hard-off: with no browser
+    # installed it could only fail and log an error burst on every boot, but
+    # once one IS installed a silent probe is worse than none — a broken
+    # renderer then surfaces as a failed print mid-consultation instead of one
+    # WARN at startup. "warn" is the application's own documented default; it
+    # logs and continues, and never blocks deployment.
+    chromium = f"{CHROMIUM_DIR}/chrome"
+    chromedriver = f"{CHROMIUM_DIR}/chromedriver"
+    if os.path.exists(chromium) and os.path.exists(chromedriver):
+        prop_set(PROPERTIES, "eform_pdf_browser_chromium_path", chromium)
+        # The application CONNECTS to chromedriver; it no longer spawns one. The
+        # url-base is a bearer credential generated into render-browser.env at
+        # install, and the two files are read by two accounts that deliberately
+        # cannot read each other's — hence the value is composed here rather than
+        # shared. A missing/empty url-base is tolerated HERE so init-config never
+        # blocks, but the chromedriver unit itself refuses to start on an empty
+        # CARLOS_RENDER_URL_BASE (its ExecStartPre guard): a bare-root endpoint
+        # would silently drop the capability-token defence, and everything else in
+        # this design fails closed. The renderer package's postinst generates the
+        # token, so this branch only matters mid-install or after manual edits.
+        port, url_base = _render_browser_endpoint()
+        service_url = f"http://127.0.0.1:{port}"
+        if url_base:
+            service_url = f"{service_url}/{url_base}"
+        prop_set(PROPERTIES, "eform_pdf_browser_service_url", service_url)
+        # Retired with the spawning code path. Comment out rather than delete so
+        # an operator can see it was deliberately retired, not silently dropped.
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromedriver_path")
+        prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "warn")
+    else:
+        # No browser installed. Comment the endpoint out rather than leaving it
+        # pointing at a service that is no longer running — the renderer fails
+        # closed, so a stale value would turn every eForm print into an error
+        # naming a URL the operator just deliberately removed. The binary paths
+        # are retracted for the same reason: they would otherwise keep naming
+        # files the renderer package's removal just deleted.
+        prop_comment(PROPERTIES, "eform_pdf_browser_service_url")
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromium_path")
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromedriver_path")
+        prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "off")
+
+    # --- paths the upstream skeleton still aims at the OLD FHS location -----
+    # The stock carlos.properties predates this packaging and carries several
+    # path defaults under /var/lib/CarlosDocument, which does not exist here.
+    # Each of the following is READ by live code (verified in the source), so
+    # a stale value is a runtime failure in that feature, not cosmetics.
+    prop_set(PROPERTIES, "log.purge.outputdir", f"{doc}/document/")
+    prop_set(PROPERTIES, "ONEDT_INBOX", f"{doc}/onEDTDocs/inbox/")
+    prop_set(PROPERTIES, "ONEDT_OUTBOX", f"{doc}/onEDTDocs/outbox/")
+    prop_set(PROPERTIES, "ONEDT_SENT", f"{doc}/onEDTDocs/sent/")
+    prop_set(PROPERTIES, "ONEDT_ARCHIVE", f"{doc}/onEDTDocs/archive/")
+
+    # The two clinic-logo examples point at an image that exists on no system.
+    # The code paths guard on the property being UNSET (ConsultationPDFCreator
+    # checks != null before touching the file), so a present-but-bogus value
+    # is strictly worse than no value. Guarded so a value an operator has
+    # customised is never touched. Both prefixes stay matched: a properties
+    # file written by a pre-rename package still carries the OscarDocument
+    # spelling (the file is not a conffile and is never rewritten wholesale).
+    for logo in ("clinicLetterheadLogo", "faxLogoInConsultation"):
+        cur = prop_get(PROPERTIES, logo) or ""
+        if cur.startswith(("/var/lib/CarlosDocument/", "/var/lib/OscarDocument/")):
+            prop_comment(PROPERTIES, logo)
+
+    # AES-256 key for credentials the app encrypts at rest (fax provider
+    # passwords). Generated once and NEVER rotated automatically: rotating it
+    # orphans everything already encrypted under the old key. It is inside
+    # the backup; escrow it off-host too.
+    if not (prop_get(PROPERTIES, "encryption.util.secret.key") or "").strip():
+        prop_set(PROPERTIES, "encryption.util.secret.key",
+                 util.out(["openssl", "rand", "-base64", "32"]))
+        log("generated encryption.util.secret.key — it is in the backup; escrow it off-host too")
+
+    os.chmod(PROPERTIES, 0o640)
+    import grp
+    os.chown(PROPERTIES, 0, grp.getgrnam("carlos").gr_gid)
+
+    # nginx site fragments: generated, not conffiles, so changing the host
+    # name or listen address is one edit plus this verb, with no conffile
+    # prompt on the next upgrade.
+    ngx = os.path.join(CONF_DIR, "nginx")
+    os.makedirs(ngx, exist_ok=True)
+    # World-readable on purpose: this is a DIRECTORY of nginx include
+    # fragments holding listen addresses and a server_name — public facts
+    # nginx serves — and the www-data worker must traverse it; nothing secret
+    # ever lands here (the 0644-file advice the scanners give does not apply
+    # to a directory, where 0644 would break traversal outright).
+    # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
+    os.chmod(ngx, 0o755)  # nosec B103
+    # The [::] wildcard is emitted only when the host actually has an IPv6
+    # stack. A bare `listen [::]:80;` makes nginx REFUSE TO START on a kernel
+    # where IPv6 is disabled (ipv6.disable=1, or a build without it) — and
+    # because both listen fragments carry it, that takes the entire front door
+    # down, HTTP and HTTPS alike, on the next init-config of a host that never
+    # had IPv6. /proc/net/if_inet6 is present iff the IPv6 stack is loaded, so
+    # its absence is the kernel's own authoritative "no IPv6 here".
+    ipv6_available = os.path.exists("/proc/net/if_inet6")
+    listen_ip = _listen_directive_address(s.bind_ip)
+    listen6_http = "listen [::]:80;" if s.bind_ip == "0.0.0.0" and ipv6_available else ""  # nosec B104
+    listen6_https = "listen [::]:443 ssl;" if s.bind_ip == "0.0.0.0" and ipv6_available else ""  # nosec B104
+    _write(os.path.join(ngx, "server-name.conf"),
+           f"# Generated by carlos-ctl from CARLOS_SERVER_NAME in {ENV_FILE}. Do not edit.\n"
+           f"server_name {s.server_name};\n")
+    _write(os.path.join(ngx, "listen-http.conf"),
+           f"# Generated by carlos-ctl from CARLOS_BIND_IP in {ENV_FILE}. Do not edit.\n"
+           "# Plain HTTP exists only to redirect to HTTPS and to answer ACME challenges.\n"
+           f"listen {listen_ip}:80;\n{listen6_http}\n")
+    _write(os.path.join(ngx, "listen-https.conf"),
+           f"# Generated by carlos-ctl from CARLOS_BIND_IP in {ENV_FILE}. Do not edit.\n"
+           f"listen {listen_ip}:443 ssl;\n{listen6_https}\nhttp2 on;\n")
+    _install_proxy_params(os.path.join(ngx, "proxy-params.conf"),
+                          os.path.join(SHARE, "skel", "proxy-params.conf"))
+    if not os.path.exists(os.path.join(ngx, "stapling.conf")):
+        _write(os.path.join(ngx, "stapling.conf"), "# Managed by carlos-emr-cert.\n")
+    # Report the declared answer alongside what it resolved to: an operator who
+    # answered 'other' would otherwise find billregion=ON with nothing saying why.
+    province_note = (province_uc if s.province == s.schema_province
+                     else f"{s.province} -> {province_uc}")
+    log(f"configuration rendered for {s.server_name} (province {province_note})")
+
+    # RENDERING IS NOT APPLYING — finish the job so the operator loop is
+    # simply "edit carlos-emr.env, run carlos-ctl init-config":
+    #  * selfsigned mode regenerates the certificate when the host name
+    #    changed (carlos-emr-cert's own guards keep operator-placed and ACME
+    #    certificates untouched; no-op when nothing changed);
+    #  * nginx is config-tested and reloaded so front-door changes serve now;
+    #  * the one thing that needs a restart — application-side settings — is
+    #    called out explicitly instead of left for the operator to discover.
+    cert = os.path.join(LIB, "carlos-emr-cert")
+    mode = ""
+    st = run([cert, "status"], capture_output=True)
+    for line in st.stdout.splitlines():
+        if line.startswith("mode:"):
+            mode = line.split(":", 1)[1].strip()
+    if mode == "selfsigned":
+        if run([cert, "selfsigned"]).returncode != 0:
+            warn("certificate refresh failed; run 'carlos-ctl cert status'")
+    rc = apply_nginx(s.bind_ip)
+    if rc != 0:
+        return rc
+    if run(["systemctl", "is-active", "--quiet", "carlos-emr.service"]).returncode == 0:
+        log("application-side settings (heap, timezone, database) need: carlos-ctl restart")
+    return 0
+
+
+
+class FrontDoorProbeError(RuntimeError):
+    """Listener visibility failed; this does not prove nginx needs a restart."""
+
+
+def _probe_output(cmd: list) -> str:
+    try:
+        cp = util.run(cmd, capture_output=True)
+    except OSError as exc:
+        raise FrontDoorProbeError(f"{cmd[0]} listener probe failed: {exc}") from exc
+    # procps exits 1, without diagnostics, when no nginx processes exist.
+    if cmd[0] == "ps" and cp.returncode == 1 and not cp.stdout and not cp.stderr:
+        return ""
+    if cp.returncode != 0:
+        raise FrontDoorProbeError(
+            f"{cmd[0]} listener probe failed (exit {cp.returncode}): {cp.stderr.strip()}")
+    return cp.stdout
+
+
+def _nginx_workers() -> set:
+    """Only accepting workers, excluding the master and retiring workers."""
+    workers = set()
+    for line in _probe_output(["ps", "-C", "nginx", "-o", "pid=,args="]).splitlines():
+        parts = line.split(None, 1)
+        if (len(parts) == 2 and parts[0].isdigit()
+                and parts[1].strip() == "nginx: worker process"):
+            workers.add(parts[0])
+    return workers
+
+
+def _listeners(port: str) -> list:
+    """Addresses whose listener is held by an nginx worker on this port.
+
+    During a failed reload the master can temporarily bind a new socket
+    before a later bind fails. No worker inherits it, so it cannot serve
+    traffic even though ss names nginx as its owner. Require a serving worker.
+    """
+    workers = _nginx_workers()
+    found = []
+    for line in _probe_output(["ss", "-ltnpH"]).splitlines():
+        owners = set(re.findall(r'\("nginx",pid=([0-9]+),fd=[0-9]+\)', line))
+        if not owners.intersection(workers):
+            continue
+        cols = line.split()
+        if len(cols) < 4 or cols[3].rsplit(":", 1)[-1] != port:
+            continue
+        found.append(cols[3].rsplit(":", 1)[0].lstrip("[").rstrip("]"))
+    return found
+
+
+def _front_door_missing(bind_ip: str, wait: float = 3.0) -> list:
+    """The front-door listeners the rendered configuration asks for —
+    CARLOS_BIND_IP on 80 and 443 — that are NOT bound, polled for up to
+    `wait` seconds: nginx binds them a moment after the reload signal is
+    delivered, and asking too early would restart a front door that was
+    about to come up on its own."""
+    deadline = time.monotonic() + wait
+    while True:
+        missing = [f"{bind_ip}:{port}" for port in ("80", "443")
+                   if bind_ip not in _listeners(port)]
+        if not missing or time.monotonic() >= deadline:
+            return missing
+        time.sleep(0.2)
+
+
+# The site symlink the package creates in postinst. Its absence means the
+# front door is not this package's to prove yet (see apply_nginx).
+NGINX_SITE_ENABLED = "/etc/nginx/sites-enabled/carlos-emr"
+
+
+def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
+    """Make the rendered front-door configuration the one nginx serves.
+
+    A reload alone is not proof of anything. `systemctl reload nginx` only
+    delivers a signal; the master then tries to bind the NEW listen sockets
+    while its old workers still hold the previous ones, and the job reports
+    success either way. When the listen address narrows from the wildcard to
+    a specific one — every fresh install, because the distribution's nginx is
+    already up on 0.0.0.0:80 with its default site before this package
+    configures it; or an operator narrowing CARLOS_BIND_IP — bind(127.0.0.1:80)
+    fails with EADDRINUSE against the still-listening 0.0.0.0:80, nginx logs
+    an [emerg] and keeps serving the OLD configuration, and both the reload
+    and this verb said everything was fine. A tester's install "succeeded"
+    with the front door answering nothing on 443.
+
+    So: config-test, reload, then PROVE the configured listeners are bound;
+    when they are not, restart (which closes every old socket before binding
+    anew) and prove it again. Returns 1 when the rendered configuration fails
+    its test (the running one keeps serving); dies when nginx cannot be
+    brought to the rendered configuration at all. Install recovery explicitly
+    requests start_if_inactive; init-config preserves an operator-stopped nginx.
+    """
+    if not os.path.isdir("/run/systemd/system"):
+        return 0
+    active = run(["systemctl", "is-active", "--quiet", "nginx.service"]).returncode == 0
+    if run(["nginx", "-t"], capture_output=True).returncode != 0:
+        warn("the rendered nginx configuration FAILS its test; nginx was NOT reloaded")
+        warn("(the running config keeps serving). Details:")
+        run(["nginx", "-t"])
+        return 1
+    site_enabled = os.path.exists(NGINX_SITE_ENABLED)
+    if not site_enabled and (start_if_inactive or
+                             os.environ.get("CARLOS_CONFIGURE_FIRST_RUN") != "1"):
+        die(f"{NGINX_SITE_ENABLED} is missing; restore the symlink to "
+            "/etc/nginx/sites-available/carlos-emr (or run "
+            "'dpkg-reconfigure carlos-emr') before applying configuration")
+    if not active and not start_if_inactive:
+        # The package's own nginx step starts it during configure; an operator
+        # who stopped it on purpose keeps it stopped. The test above still ran:
+        # a stopped service is no reason to accept a configuration that cannot
+        # parse, which would otherwise surface only at some later start.
+        log("nginx is not running; the rendered configuration serves when it starts")
+        return 0
+    action = "reload" if active else "start"
+    if run(["systemctl", action, "nginx.service"]).returncode != 0:
+        die(f"nginx {action} FAILED — front-door changes are NOT live; "
+            "run 'systemctl status nginx'")
+    if not site_enabled:
+        # First install: postinst runs init-config BEFORE it enables the site
+        # (the symlink comes later, with the certificates), so nginx is still
+        # serving only the distribution's default. Listeners the CARLOS site
+        # asks for cannot be bound by a configuration nginx has not been given
+        # yet; demanding them here would restart the default site and then
+        # fail an install that the postinst nginx step goes on to complete
+        # correctly, leaving .install-incomplete behind on a healthy host.
+        # Reload what is rendered (other fragments this verb wrote are live
+        # immediately) and leave the proof to whoever enables the site.
+        #
+        # The preflight above allows this only during the package configure.
+        # Manual application fails before reloading or returning success for
+        # an inactive service, preserving any still-working in-memory config.
+        log("the CARLOS site is not enabled in nginx yet; the rendered front "
+            "door serves once the package enables it")
+        return 0
+    try:
+        missing = _front_door_missing(bind_ip)
+        if not missing:
+            log(f"nginx {action} succeeded — front-door listeners are bound")
+            return 0
+        warn(f"nginx {action} succeeded but is not listening on {', '.join(missing)}; "
+             "restarting nginx to release any previous listeners")
+        if run(["systemctl", "restart", "nginx.service"]).returncode != 0:
+            die("nginx restart FAILED — front-door changes are NOT live; "
+                "run 'systemctl status nginx'")
+        missing = _front_door_missing(bind_ip)
+        if missing:
+            die(f"nginx restarted but is still not listening on {', '.join(missing)}; "
+                "run 'systemctl status nginx' and 'journalctl -u nginx'")
+        log("nginx restarted — front-door changes are live")
+        return 0
+    except FrontDoorProbeError as exc:
+        die(f"cannot verify nginx front-door listeners: {exc}")
+
+
+def _render_browser_endpoint() -> tuple:
+    """Port and url-base the render browser service is configured with.
+
+    Read from /etc/carlos-emr/render-browser.env, which the renderer package's
+    postinst generates. Returns the documented default port and an empty prefix
+    when the file is absent, so a partially-installed system still produces a
+    usable URL rather than a crash.
+    """
+    port, url_base = "9515", ""
+    try:
+        with open(RENDER_BROWSER_ENV, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("CARLOS_RENDER_PORT="):
+                    port = line.split("=", 1)[1].strip() or port
+                elif line.startswith("CARLOS_RENDER_URL_BASE="):
+                    url_base = line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return port, url_base
+def _write(path: str, content: str) -> None:
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(content)
+    os.chmod(path, 0o644)

@@ -28,6 +28,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+  Purpose: Display and manage images used by eForm templates.
+  Features: Image previews, upload/delete controls and full-page or fragment
+  rendering that preserves the administration shell's jQuery and plugins.
+  Parameters: No direct page query parameters are read. X-Requested-With selects
+  fragment behavior; upload/delete forms submit their image fields to paired actions.
+  @since 2026-09-17
+--%>
 <%@page import="java.net.URLEncoder" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
@@ -63,7 +72,22 @@
             }
         </script>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
-    <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
+<%-- AJAX fragments reuse the administration shell's jQuery and its registered plugins. --%>
+<%
+    // jQuery and CSRFGuard can each append the AJAX marker to this header.
+    String eformRequestedWith = request.getHeader("X-Requested-With");
+    boolean eformAjaxFragment = eformRequestedWith != null
+            && java.util.Arrays.stream(eformRequestedWith.split(","))
+                    .anyMatch(value -> "XMLHttpRequest".equalsIgnoreCase(value.trim()));
+    if (!eformAjaxFragment) {
+%>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<% } %>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
+<%@ include file="eformBootstrapScript.jspf" %>
     </head>
 
     <body topmargin="0" leftmargin="0" rightmargin="0">

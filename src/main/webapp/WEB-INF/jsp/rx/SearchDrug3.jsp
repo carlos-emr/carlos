@@ -220,6 +220,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
+        <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
 
@@ -783,7 +784,7 @@ function renderRxStage() {
           padding-left: 20px;
 
         }
-        #statusDisplay {
+        #statusDisplay, #drugrefHeaderMetadata:not([hidden]) {
           font-size: x-small;
           display: flex;
           flex-direction: row;
@@ -891,13 +892,18 @@ function renderRxStage() {
                                                             <label for="naturalRemedy"><fmt:message key="SearchDrug.drugCategory.natural"/></label>
                                                         </fieldset>
                                                         <fieldset id="searchParamSet">
+                                                            <%-- The default is deliberately "Any" (wildcard=false: each word matched
+                                                                 anywhere, so "ramip 10" finds RAMIPRIL 10MG). "Exact" (wildcard=true)
+                                                                 anchors the query to the start of the drug name. A prior label/i18n
+                                                                 rework left checked on the Exact radio, regressing partial-name
+                                                                 searches. --%>
                                                             <input type="radio" id="wildCardRight" name="wildcard"
-                                                                   value="true" checked="checked" />
+                                                                   value="true" />
                                                             <label title="<fmt:message key="SearchDrug.searchParam.exactTitle"/>"
                                                                    for="wildCardRight"><fmt:message key="SearchDrug.searchParam.exact"/></label>
 
                                                             <input type="radio" id="wildCardBoth" name="wildcard"
-                                                                   value="false" />
+                                                                   value="false" checked="checked" />
                                                             <label title="<fmt:message key="SearchDrug.searchParam.anyTitle"/>"
                                                                    for="wildCardBoth"><fmt:message key="SearchDrug.searchParam.any"/></label>
                                                         </fieldset>
@@ -1616,52 +1622,50 @@ function renderRxStage() {
     }
 
    function checkAllergy(id,atcCode){
-        const url = ctx + "/rx/showAllergy"
-        const data="method=allergyData&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
-     CarlosAjax.request(url,{method: 'post',postBody:data,
-       requestHeaders: { 'Accept': 'application/json' },
-       onSuccess:function(transport){
-         if (!transport.responseText) return;
-         var json = null;
-         try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-         if (json != null && json.results && json.results.length > 0) {
-           // Pick the first allergy warning found
-           var allergy = json.results[0];
-           var allegEl = document.getElementById('alleg_' + json.id);
-           allegEl.textContent = '';
-           var allergyLabel = document.createElement('label');
-           allergyLabel.style.color = 'red';
-           allergyLabel.textContent = ' Allergy:';
-           var descText = document.createTextNode(' ' + allergy.DESCRIPTION + ' ');
-           var reactionLabel = document.createElement('label');
-           reactionLabel.style.color = 'red';
-           reactionLabel.textContent = 'Reaction:';
-           var reactionText = document.createTextNode(' ' + allergy.reaction);
-           allegEl.appendChild(allergyLabel);
-           allegEl.appendChild(descText);
-           allegEl.appendChild(reactionLabel);
-           allegEl.appendChild(reactionText);
-           document.getElementById('alleg_tbl_' + json.id).style.display = 'block';
-         }
-       }
+     const url = ctx + "/rx/showAllergy";
+     const data="method=allergyData&demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
+     CarlosAllergyAlert.render(document, id, {pending: true});
+     CarlosAjax.request(url, {method: 'post', postBody: data,
+       requestHeaders: {'Accept': 'application/json'},
+       onSuccess: function(transport) {
+         var result = null;
+         try { result = JSON.parse(transport.responseText); } catch (error) { /* show unavailable below */ }
+         CarlosAllergyAlert.render(document, id, result);
+       },
+       onFailure: function() { CarlosAllergyAlert.render(document, id, null); }
      });
    }
    function checkIfInactive(id,dinNumber){
-        var url=ctx + "/rx/searchDrug";
-         var data="method=inactiveDate&din="+dinNumber+"&id="+id +"&rand=" +  Math.floor(Math.random()*10001);
-         CarlosAjax.request(url,{method: 'post',postBody:data,
-           onSuccess:function(transport){
-                 if (!transport.responseText) return;
-                 var json = null;
-                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-
-                if(json!=null && json.results && json.results.length > 0 && json.results[0].time != null){
-                    document.getElementById('inactive_'+id).textContent = "Inactive Drug Since: "+new Date(json.results[0].time).toDateString();
-                } else {
-                    document.getElementById('inactive_'+id).textContent = '';
+        var target = document.getElementById('inactive_' + id);
+        if (!target) return;
+        target.setAttribute('role', 'status');
+        target.textContent = 'Checking drug status…';
+        var unavailable = function() { target.textContent = 'Drug status could not be checked. Please verify before prescribing.'; };
+        var data = 'method=inactiveDate&din=' + encodeURIComponent(dinNumber) + '&id=' + encodeURIComponent(id);
+        CarlosAjax.request(ctx + '/rx/searchDrug', {method: 'post', postBody: data,
+            onSuccess: function(transport) {
+                var result;
+                try { result = JSON.parse(transport.responseText); } catch (error) { unavailable(); return; }
+                if (!result || result.checked !== true) { unavailable(); return; }
+                if (result.inactiveDate === null) { target.textContent = ''; return; }
+                // A database DATE is a calendar date, not a browser-local instant.
+                var parts = typeof result.inactiveDate === 'string'
+                    ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(result.inactiveDate) : null;
+                if (!parts) { unavailable(); return; }
+                var year = Number(parts[1]);
+                var month = Number(parts[2]);
+                var day = Number(parts[3]);
+                var leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+                var monthDays = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                if (month < 1 || month > 12 || day < 1 || day > monthDays[month - 1]) {
+                    unavailable(); return;
                 }
-            }});
+                target.textContent = 'Inactive Drug Since: ' + result.inactiveDate;
+            },
+            onFailure: unavailable
+        });
    }
+
 
 
     function Discontinue(event,element){
@@ -1800,11 +1804,33 @@ function popForm2(scriptId){
                 }
             }
             var modalBody = document.getElementById('carlosModalBody');
+            var csrfToken = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (!csrfToken || !csrfToken.value) {
+                throw new Error('Prescription preview requires a valid CSRF token; reload the prescription page.');
+            }
             modalBody.textContent = '';
             var iframe = document.createElement('iframe');
             iframe.style.cssText = 'width:100%;height:890px;border:none;display:block;';
-            iframe.src = url;
+            iframe.name = 'carlosPrescriptionPreview';
             modalBody.appendChild(iframe);
+            // The explicit save/print action may apply a signature stamp. Submit it as
+            // POST with this session's token; ordinary GET preview/reload stays read-only.
+            var previewRequest = document.createElement('form');
+            previewRequest.method = 'post';
+            previewRequest.action = url;
+            previewRequest.target = iframe.name;
+            previewRequest.hidden = true;
+            var previewToken = document.createElement('input');
+            previewToken.type = 'hidden';
+            previewToken.name = 'CSRF-TOKEN';
+            previewToken.value = csrfToken.value;
+            previewRequest.appendChild(previewToken);
+            modalBody.appendChild(previewRequest);
+            try {
+                previewRequest.submit();
+            } finally {
+                previewRequest.remove();
+            }
             var modalDialog = document.querySelector('#carlosModal .modal-dialog');
             modalDialog.style.maxWidth = '980px';
             var editRxMsg = '${carlos:forJavaScript(msg_editRx)}';
@@ -1894,6 +1920,42 @@ function popForm2(scriptId){
 					}
 				});
 
+				// Show or clear a drug-search failure notice.
+				//
+				// #statusDisplay is the CONTAINER of the DrugRef name/version/date
+				// spans (TopLinks2.jspf), so assigning to its innerHTML deletes all
+				// three -- and since getDrugRefStatus() only runs on DOMContentLoaded,
+				// nothing ever puts them back short of a full page reload. Append a
+				// dedicated node instead, reuse it on repeated failures, and remove it
+				// once a search succeeds.
+				function setDrugSearchAlert(text) {
+					var panel = document.getElementById('statusDisplay');
+					if (!panel) {
+						return;
+					}
+					var alertNode = document.getElementById('drugSearchAlert');
+					if (!text) {
+						if (alertNode) {
+							alertNode.remove();
+						}
+						return;
+					}
+					if (!alertNode) {
+						alertNode = document.createElement('div');
+						alertNode.id = 'drugSearchAlert';
+						alertNode.style.color = 'red';
+						alertNode.style.fontWeight = 'bold';
+						// #statusDisplay is a right-aligned flex ROW holding the
+						// database/version/date items. Without a full-width basis the
+						// message becomes a fourth column and squeezes them; this makes
+						// it wrap onto its own line and read as an alert.
+						alertNode.style.flexBasis = '100%';
+						alertNode.style.textAlign = 'right';
+						panel.appendChild(alertNode);
+					}
+					alertNode.textContent = text;
+				}
+
 				var cache = {};
 				jQuery("#searchString").autocomplete({
 					source: function (request, response) {
@@ -1920,6 +1982,10 @@ function popForm2(scriptId){
 						});
 
 						if (foundInCache) {
+							// A cache hit is a successful search too, so clear any
+							// alert left by an earlier failure -- otherwise it stays
+							// on screen while results are being returned normally.
+							setDrugSearchAlert(null);
 							return;
 						}
 
@@ -1936,6 +2002,7 @@ function popForm2(scriptId){
 							success: function (data) {
 								cache[term] = data;
 								element.data('autocompleteCache', cache);
+								setDrugSearchAlert(null);
 
 								response(jQuery.map(data.results, function (item) {
 									return {
@@ -1946,6 +2013,30 @@ function popForm2(scriptId){
 										keyword: request.term
 									};
 								}))
+							},
+							// Without this the search failed silently: dataType "json" means any
+							// non-JSON reply -- a 502 from nginx, the 500.jsp this action forwards
+							// to on a DrugRef error, a WAF block, a session-expiry redirect -- is a
+							// parse failure that never reaches success(), so the autocomplete list
+							// simply never opened. A tester reported it as "it posts but nothing
+							// returns", with no way to tell a failure from a drug that genuinely
+							// has no matches.
+							error: function (xhr, textStatus) {
+								// Close the pending autocomplete request so the widget is not left
+								// spinning, then say so where the user is already looking for
+								// DrugRef status. msgDrugrefUnavailableContact and #statusDisplay
+								// both come from TopLinks2.jspf, included by this page, so the
+								// wording is the already-translated oscarRx.drugrefUnavailableContact
+								// rather than a new hardcoded English string.
+								response([]);
+								console.error('drug search failed', xhr.status, textStatus);
+								// An aborted request is the page being navigated away from or the
+								// widget superseding an in-flight search; nothing failed, so do not
+								// accuse DrugRef of being down.
+								if (xhr.statusText === 'abort' || (xhr.status === 0 && textStatus === 'abort')) {
+									return;
+								}
+								setDrugSearchAlert(msgDrugrefUnavailableContact);
 							}
 						})
 					},

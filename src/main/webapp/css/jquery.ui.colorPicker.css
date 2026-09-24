@@ -15,7 +15,8 @@ div.colorpicker div.circle {
 }
 
 div.colorpicker div.circle.alpha {
-    background-image: url('../images/transparent.gif');
+    background-image: conic-gradient(#d9d9d9 25%, #fff 0 50%, #d9d9d9 0 75%, #fff 0);
+    background-size: 12px 12px;
     opacity: 0.0;
 }
 
@@ -62,9 +63,11 @@ div.colorpicker div.slider.lightness {
 }
 
 div.colorpicker div.slider.alpha {
-    background: -webkit-linear-gradient(top, rgba(255, 255, 255, 1.0), rgba(255, 255, 255, 0.6)), url('../images/transparent.gif') center;
-    background: -moz-linear-gradient(top, rgba(255, 255, 255, 1.0), rgba(255, 255, 255, 0.6)), url('../images/transparent.gif') center;
-    background: linear-gradient(top, rgba(255, 255, 255, 1.0), rgba(255, 255, 255, 0.6)), url('../images/transparent.gif') center;
+    background-color: #d9d9d9;
+    background-image:
+            linear-gradient(to bottom, rgba(255, 255, 255, 1.0), rgba(255, 255, 255, 0.6)),
+            conic-gradient(#d9d9d9 25%, #fff 0 50%, #d9d9d9 0 75%, #fff 0);
+    background-size: auto, 12px 12px;
 }
 
 div.colorpicker input.colorInput {

@@ -46,16 +46,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Assembles {@link BillingReportFragmentViewModel} for the four ON billing
- * report JSPF fragments (billed / unsettled / billob / flu). Owns the inline
- * DAO calls and date-range / status / row-color logic the fragments used to
- * compute in scriptlet bodies.
+ * Assembles {@link BillingReportFragmentViewModel} for the five ON billing
+ * report JSPF fragments (billed / unsettled / billob / flu / unbilled). Owns
+ * the inline DAO calls and date-range / status / row-color logic the fragments
+ * used to compute in scriptlet bodies.
  *
  * <p>Pure read: privilege gating is performed by the parent JSP's
  * {@code ViewBillingReportControl2Action}; this assembler runs after the
  * gate to populate the row lists. It chooses which row list(s) to populate
  * based on {@code reportAction}, leaving the others as empty lists so the
- * single view-model object covers all four templates.</p>
+ * single view-model object covers all five templates.</p>
  *
  * @since 2026-04-26
  */
@@ -79,7 +79,14 @@ public class BillingReportFragmentViewModelAssembler {
      *
      * @param request live request — supplies {@code xml_vdate},
      *                {@code xml_appointment_date}, {@code providerview}
-     * @param reportAction one of "billed" / "unsettled" / "billob" / "flu"
+     * @param reportAction which fragment to populate: one of "billed",
+     *                     "unsettled", "billob", "flu" or "unbilled". Any
+     *                     other value — including {@code null} — yields an
+     *                     empty model and a report that renders no rows.
+     *                     "unbilled" is the action behind the report's "Bill"
+     *                     links, so omitting it from this list has previously
+     *                     led callers to believe the unbilled report could not
+     *                     be requested at all.
      * @return populated view model
      */
     public BillingReportFragmentViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo, String reportAction) {
@@ -148,7 +155,15 @@ public class BillingReportFragmentViewModelAssembler {
             String apptTime = ConversionUtils.toDateString(a.getStartTime());
             String reason = nullToEmpty(a.getReason());
 
-            String popupUrl = "/billing?billForm="
+            // The .jspf hands popupUrl straight to popupPage() without adding the
+            // context path, so it has to be baked in here — CARLOS deploys under
+            // /carlos and a root-relative URL 404s at the host root.
+            // billRegion pins the cross-province router (Billing2Action) to the
+            // Ontario branch. Without it the router falls back to the
+            // deployment-wide `billregion` property, and an install that never
+            // set it lands on billingBC.jsp — which queries BC-only tables the
+            // Ontario schema does not have, producing "CARLOS Error: 500".
+            String popupUrl = request.getContextPath() + "/billing?billRegion=ON&billForm="
                     + java.net.URLEncoder.encode(defaultView, java.nio.charset.StandardCharsets.UTF_8)
                     + "&hotclick=&appointment_no=" + apptNo
                     + "&demographic_name="

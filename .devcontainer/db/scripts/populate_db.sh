@@ -1,45 +1,138 @@
 #!/usr/bin/env sh
 set -e
 echo 'Setting up all databases...'
-cd /database/mysql || exit 1
 
-# Use MYSQL_ROOT_PASSWORD environment variable, fallback to 'password' for development
-DB_PASSWORD="${MYSQL_ROOT_PASSWORD:-password}"
+MIG=/database/mysql/migration
+# Use the MariaDB image's native root-password variable, with MYSQL_ROOT_PASSWORD retained
+# as a compatibility fallback for older local.env files. The password travels via MYSQL_PWD
+# (off-argv: -p<pw> would be visible in the process list).
+export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
+# MariaDB 11.x dropped the mysql* client symlinks (mysql/mysqladmin/mysqldump); use mariadb.
+SQL="mariadb -u root"
 
-echo 'Creating development database...'
-./createdatabase_on.sh root "$DB_PASSWORD" oscar suppressPwdGen
-echo 'Creating test database...'
-./createdatabase_on.sh root "$DB_PASSWORD" oscar_test suppressPwdGen
+# Build carlos + carlos_test from the Flyway migration set — the SAME files production applies via
+# `carlos-ctl db migrate` (common + Ontario locations): a complete, dead-pruned schema + reference
+# data. Loaded here with the mariadb CLI (not the Flyway CLI) because the MariaDB initdb temp server
+# is socket-only and Flyway needs TCP; dev databases are disposable, so a flyway_schema_history is
+# not required.
+# Forward migrations (V1.0.N, N>=3) are DISCOVERED from the common + on locations and applied in
+# version order — mirroring Flyway's scan — so a newly added migration can never be silently
+# missed here. V1.0.1/V1.0.2 are the Ontario genesis files, loaded explicitly after V1 below.
+# (Filenames contain no whitespace — the repo's migration hook enforces V1.0.N__desc.sql.)
+FORWARD=$(for f in "${MIG}/common/"V*.sql "${MIG}/on/"V*.sql; do
+    [ -f "$f" ] || continue
+    case "$f" in
+      */V1__*|*/V1.0.1__*|*/V1.0.2__*) continue ;;
+    esac
+    printf '%s\n' "$f"
+  done \
+  | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
+  | sort -n | cut -f2)
+if [ -z "${FORWARD}" ]; then
+  echo "No forward migrations (V1.0.3+) discovered under ${MIG}; loading genesis baseline only." >&2
+fi
+# Flyway rejects duplicate versions across co-applied locations (common + on); fail fast the same
+# way instead of silently loading both files. The repo's migration hook blocks duplicates at
+# authoring time — this guards files that bypass the hook (plain git add, external tools).
+if [ -n "${FORWARD}" ]; then
+  DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | sort -n | uniq -d)
+  if [ -n "${DUP_VERSIONS}" ]; then
+    echo "ERROR: duplicate forward migration version(s) across common+on: $(printf '%s\n' "${DUP_VERSIONS}" | sed 's/^/V1.0./')" >&2
+    exit 1
+  fi
+fi
+# Assemble the load into a temp file first: /bin/sh has no pipefail, so `cat ... | mariadb`
+# would mask a missing migration file (mariadb exits 0 on the truncated stream) — a redirect
+# from a fully-assembled file makes any cat failure abort under set -e instead.
+LOAD_SQL=$(mktemp)
+trap 'rm -f "${LOAD_SQL}"' EXIT
+{
+  echo "SET FOREIGN_KEY_CHECKS=0;"
+  cat "${MIG}/common/V1__baseline_schema.sql" \
+      "${MIG}/on/V1.0.1__on_schema.sql" \
+      "${MIG}/on/V1.0.2__on_data.sql"
+  # The genesis files issue a bare SET NAMES utf8mb4, whose default collation is
+  # uca1400 on current MariaDB images. Re-pin the connection before the forward
+  # chain so the checksum-frozen V1.0.7 migration can compare against its
+  # utf8mb4_general_ci table and the later repair migration remains reachable.
+  echo "SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;"
+  if [ -n "${FORWARD}" ]; then
+    for f in ${FORWARD}; do
+      echo "-- including $(basename "$f")" >&2
+      cat "$f"
+    done
+  fi
+  echo "SET FOREIGN_KEY_CHECKS=1;"
+} > "${LOAD_SQL}"
+for DB in carlos carlos_test; do
+  echo "Creating ${DB} from the Flyway baseline (common + on)..."
+  # Explicit charset so the DATABASE default matches the fully-utf8mb4 schema even if the
+  # server default ever changes (all baseline tables also set it per-table).
+  $SQL -e "CREATE DATABASE IF NOT EXISTS ${DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+  $SQL "${DB}" < "${LOAD_SQL}"
+done
+
+# drugref2 is a separate database (not part of the carlos schema).
 echo 'Creating drugref2 database...'
-mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS drugref2;"
-mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/development-drugref.sql
+$SQL -e "CREATE DATABASE IF NOT EXISTS drugref2;"
+$SQL drugref2 < /database/mysql/development-drugref.sql
 echo 'Applying drugref2 schema patches...'
-mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
-echo 'Applying schema updates...'
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-01-29.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-02-27.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-05-27.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-08-14-study-removal.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-12-16-provider-module-singular.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-01-02-add-flowsheet-admin-privilege.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-01-26-tickler-indexes.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-10-fax-provider-type.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-25-security-mfa-default.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-04-30-sec-obj-missing-privileges.sql
-# CAUTION: This migration drops deprecated form tables (formONAR, formIntakeHx, etc.)
-# and deletes their encounterForm entries. Run manually only after verifying no patient
-# data exists in these tables: mysql oscar < /database/mysql/updates/update-2026-03-25-remove-deprecated-form-tables.sql
+$SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
+
+# --- Development-only demo data (carlos only; never applied to a production database) ---
+# development.sql is a full demo snapshot (truncate+reload) filtered to the live schema. It replaces
+# the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
-mysql -u root -p"$DB_PASSWORD" oscar < /scripts/development.sql
-echo 'Preparing demographic names for development environment...'
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
-echo 'Creating eForm images directory for RTL asset deployment...'
-mkdir -p /var/lib/OscarDocument/oscar/eform/images/
+$SQL carlos < /scripts/development.sql
+echo 'Restoring current Administration privileges...'
+$SQL carlos < /scripts/development_privileges.sql
+echo 'Seeding fake referral specialists and provider links...'
+$SQL carlos < /scripts/demo-provider-links.sql
+# Guarded no-ops here (development.sql truncate-reloads both tables with
+# these rows), kept for parity with the deb's carlos-ctl demo-data flow,
+# where the additive transform excludes the raw statements and these files
+# are the only source of the program-10034 enrolments and the ExternalNote
+# issue row. See scripts/demo-additive-exclude.txt (SPECIAL section).
+$SQL carlos < /scripts/demo-program-links.sql
+$SQL carlos < /scripts/demo-issue-codes.sql
+$SQL carlos < /scripts/demo-specialists.sql
+# Name sanitization v2: FAKE- prefixes across all person-name tables plus
+# replacement of known real names. The -on supplement covers Ontario-only
+# form tables; this devcontainer loads the Ontario schema, so both apply.
+echo 'Preparing demographic and provider names for development environment...'
+$SQL carlos < /scripts/demo-name-sanitization.sql
+$SQL carlos < /scripts/demo-name-sanitization-on.sql
 echo 'Seeding Rich Text Letter eForm...'
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2012-07-12.sql
+$SQL carlos < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
-cd ../../
+$SQL carlos < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
+$SQL carlos < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+# Must run AFTER the modernize update above: it string-replaces the dead
+# public-JSP attachment paths (attachEform.jsp / displayAttachedFiles.jsp)
+# that 2026.3.0 still carries with the gated Struts routes, and switches
+# fid/demographic_no lookup to the hidden inputs the saved-instance render
+# provides. Without it the seeded RTL's Attach flow 404s on every install -
+# the eform-rtl-attachment-* Playwright checks pin this.
+echo 'Rewiring Rich Text Letter attachment routes...'
+$SQL carlos < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# The snapshot's HRM rows name report files that never shipped, so every HRM
+# list is empty. Point one demographic-1 report at the fixture that
+# seed_data.sh copies into the document store (deb parity: carlos-ctl demo-data
+# applies the same file and copies the same fixture).
+echo 'Pointing a demo HRM report at the shipped fixture...'
+$SQL carlos < /scripts/demo-hrm-report.sql
+# development.sql truncate-reloads Facility with the old snapshot's
+# enableDigitalSignatures=0, undoing the V1.0.17 migration applied above.
+# Re-assert the product default so the demo environment exercises the
+# signature workflows (consultation stamps, signature pad) like a stock
+# install does.
+echo 'Enabling digital signatures on the demo facility...'
+$SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# Administration fixtures for the data-backed Administration screens the demo
+# snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
+# (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only
+# `locktest` login and must follow it (it attaches to provider 999996).
+echo 'Loading Administration test fixtures...'
+$SQL carlos < /scripts/admin_test_data.sql
+$SQL carlos < /scripts/admin_test_account.sql
 echo 'Database initialization complete!'

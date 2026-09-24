@@ -50,6 +50,7 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -95,8 +96,17 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
 
     private Date lastUpdateDate = null;
 
-    // This is a bi-directional relationship
-    @OneToMany(mappedBy = "prevention", fetch = FetchType.EAGER)
+    // This is a bi-directional relationship.
+    //
+    // LAZY: bulk Prevention queries (chart print, RTL eForm lookups, FHIR bundles, REST lists)
+    // must not pay one extension SELECT per row. Entities leave the DAO transaction detached,
+    // so consumers that need the extensions must obtain them through a DAO/manager path that
+    // initializes this collection in-transaction (see PreventionDao#findUniqueByDemographicId)
+    // or read PreventionExt rows directly; touching this collection on a detached entity throws
+    // LazyInitializationException. @BatchSize lets an in-transaction initialization of a list
+    // load extensions for up to 25 preventions per SELECT instead of one SELECT per prevention.
+    @OneToMany(mappedBy = "prevention", fetch = FetchType.LAZY)
+    @BatchSize(size = 25)
     private List<PreventionExt> preventionExts;
 
     @Transient
@@ -297,6 +307,12 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
      * There is no listener for this method.
      * This method needs to be invoked "manually" after this entity is instantiated and loaded
      * ie: Prevention.setPreventionExtendedProperties()
+     *
+     * <p>{@code preventionExts} is lazily fetched. On an entity that has left its loading
+     * transaction this only works when the collection was initialized before the entity was
+     * detached (for example via {@code PreventionDao#findUniqueByDemographicId}) or was replaced
+     * with {@link #setPreventionExts(List)}; otherwise Hibernate throws
+     * {@code LazyInitializationException}.</p>
      */
     public void setPreventionExtendedProperties() {
         if (this.getPreventionExts() != null) {

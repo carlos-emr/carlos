@@ -77,6 +77,18 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         return info;
     }
 
+    @Test
+    @DisplayName("should match literal metacharacters and exclude pharmacies without fax numbers")
+    void shouldMatchLiteralMetacharacters_whenSearchingFaxablePharmacies() {
+        PharmacyInfo exact = createPharmacy("Review!_% Pharmacy", "Ottawa", '1');
+        createPharmacy("Review!ABC Pharmacy", "Ottawa", '1');
+        PharmacyInfo unavailable = createPharmacy("Review!_% No Fax", "Ottawa", '1');
+        unavailable.setFax("");
+        pharmacyInfoDao.merge(unavailable);
+        assertThat(pharmacyInfoDao.searchFaxablePharmacies("Review!_%", "", 20))
+                .extracting(PharmacyInfo::getId).containsExactly(exact.getId());
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -172,6 +184,17 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
             assertThat(results).hasSize(1);
             assertThat(results.get(0).getName()).isEqualTo("Downtown Pharmacy");
             assertThat(results.get(0).getCity()).isEqualTo("Ottawa");
+        }
+
+        @Test
+        @DisplayName("legacy pharmacy search preserves literal exclamation marks and wildcard callers")
+        void shouldPreserveLegacySearchPatternSemantics_whenUsingLegacySearchPatterns() {
+            PharmacyInfo exact = createPharmacy("Release! Pharmacy", "Ottawa", '1');
+            createPharmacy("Release Pharmacy", "Ottawa", '1');
+            assertThat(pharmacyInfoDao.searchPharmacyByNameAddressCity("Release!", "Ottawa"))
+                    .extracting(PharmacyInfo::getId).containsExactly(exact.getId());
+            assertThat(pharmacyInfoDao.searchPharmacyByNameAddressCity("Release%Pharmacy", "Ottawa"))
+                    .hasSize(2);
         }
 
         @Test

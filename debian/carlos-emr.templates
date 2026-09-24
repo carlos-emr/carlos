@@ -1,0 +1,166 @@
+Template: carlos-emr/server-name
+Type: string
+Default: localhost
+Description: Host name clinicians will use to reach CARLOS EMR:
+ Enter the fully qualified host name this server will be reached at, for
+ example emr.myclinic.ca.
+ .
+ It becomes the nginx server_name and the subject of the TLS certificate. If
+ you intend to use a Let's Encrypt certificate, this name must resolve in
+ public DNS to this machine before you run "carlos-ctl cert acme".
+ .
+ Reaching this server by IP address instead of by name is supported for
+ clients on the practice LAN, and the packaged firewall rules allow for it.
+ It is NOT suitable from outside that network: a client arriving from a public
+ address starts every request part-way to the firewall's blocking threshold,
+ and clinicians will see occasional unexplained 403 errors on ordinary work
+ with nothing in the application log. If people will reach this server from
+ outside the practice network, give it a DNS name and have them use the name.
+ .
+ You can change it later in /etc/carlos-emr/carlos-emr.env followed by
+ "carlos-ctl init-config".
+
+Template: carlos-emr/bind-ip
+Type: string
+Default: 0.0.0.0
+Description: Address the CARLOS EMR front door should listen on:
+ Enter an IPv4 or IPv6 address, not a host name. For IPv6 loopback use ::1.
+ .
+ 0.0.0.0 serves every network interface, which is what a clinic server
+ normally needs.
+ .
+ Use 127.0.0.1 to keep the EMR reachable only from this machine — appropriate
+ while you are staging a migration, or when a separate reverse proxy in front
+ of this host terminates client connections.
+ .
+ The application server and the database always listen on the loopback
+ interface only, whatever you choose here.
+
+Template: carlos-emr/province
+Type: select
+Choices: on, bc, other
+Default: on
+Description: Billing province:
+ CARLOS implements provincial billing for Ontario (on) and British Columbia
+ (bc). This choice selects which database migrations are applied and which
+ billing behaviour the application uses. A clinic anywhere else answers other
+ (the third choice): that installs the Ontario schema and billing
+ configuration, which is the supported deployment for a province CARLOS does
+ not implement natively.
+ .
+ It CANNOT be changed afterwards: on and bc create different tables, and
+ switching means starting again from an empty database.
+
+Template: carlos-emr/tls-mode
+Type: select
+Choices: selfsigned, acme, manual
+Default: selfsigned
+Description: TLS certificate for the front door:
+ selfsigned generates a certificate now, so the EMR is served over HTTPS from
+ the first minute. Browsers will warn until you replace it. This is the safe
+ default because it never leaves a deployment sitting on plain HTTP.
+ .
+ acme obtains a free Let's Encrypt certificate with certbot. It requires that
+ the host name above already resolves to this machine in public DNS and that
+ port 80 is reachable from the internet.
+ .
+ manual leaves the certificate to you: place the chain and key at
+ /etc/carlos-emr/tls/fullchain.pem and privkey.pem and run
+ "carlos-ctl cert manual". Until you do, the front door serves a self-signed
+ placeholder certificate (generated so nginx can start), which browsers will
+ warn about.
+
+Template: carlos-emr/acme-email
+Type: string
+Default:
+Description: Email address for Let's Encrypt registration:
+ Let's Encrypt uses this address to warn you if a certificate is about to
+ expire and has not renewed. It is not published.
+ .
+ Leave it empty to skip requesting a certificate now; you can run
+ "carlos-ctl cert acme <email>" at any time.
+
+Template: carlos-emr/java-heap
+Type: string
+Default: 2g
+Description: Java heap size for the CARLOS application server:
+ CARLOS is a large application and will not run well below 2g. On a dedicated
+ server give it roughly half of physical memory, leaving room for MariaDB's
+ buffer pool and about 1 GB for the operating system.
+ .
+ On a fresh install the value offered is sized from this machine's memory
+ (half of RAM, between 2g and 8g); on reconfiguration or upgrade it is the
+ currently configured value. Accept it unless the host is shared with other
+ services or the database runs elsewhere.
+ .
+ Use the JVM's own notation, for example 4g or 6144m.
+
+Template: carlos-emr/reset-seed-admin
+Type: boolean
+Default: true
+Description: Replace the seeded administrator password with a random one?
+ The database migrations seed one administrator account, "carlosdoc", with a
+ password hash that is published in the CARLOS source repository — it is the
+ credential the project's own test suite uses. Every installation created from
+ those migrations therefore starts with the same publicly-known password and
+ PIN.
+ .
+ Accepting this replaces both with random values and writes them to
+ /etc/carlos-emr/initial-admin.txt, readable only by root.
+ .
+ Decline ONLY on a disposable development machine that will never hold real
+ patient information.
+
+Template: carlos-emr/install-demo-data
+Type: boolean
+Default: false
+Description: Load the FICTITIOUS demonstration dataset into the new database?
+ This fills an EMPTY CARLOS database with a fictitious practice for
+ evaluation, training and development: about 3000 fake patients (every name
+ carries a FAKE- prefix), demonstration providers, appointments, clinical
+ notes, labs, prescriptions, and 60 clearly-fake referral specialists.
+ .
+ The load refuses to run against a database that already contains patients,
+ and it only adds to the reference data the schema migrations install — with
+ one exception: on a British Columbia install it REPLACES the seeded
+ provincial specialist directory with the fake demonstration list.
+ .
+ A system holding this dataset contains publicly-known demonstration content
+ and known development credentials, and must NEVER hold real patient
+ information. There is no supported way to remove the demonstration data
+ short of destroying the database (carlos-ctl destroy-data). Decline on any
+ machine that will ever be a production system.
+
+Template: carlos-emr/initial-credentials
+Type: note
+Description: CARLOS EMR is installed
+ The initial administrator password and PIN have been written to
+ /etc/carlos-emr/initial-admin.txt (readable only by root). Log in, change the
+ password, create real accounts, disable the seeded one, and then delete that
+ file.
+ .
+ Run "sudo carlos-ctl check" to verify the deployment, and read
+ /usr/share/doc/carlos-emr/README.Debian before putting patient data on this
+ system — in particular the sections on backups, which are stored on this host
+ only until you configure an offsite repository.
+
+Template: carlos-emr/install-incomplete
+Type: error
+Description: CARLOS EMR is installed but is NOT ready to use
+ The package could not finish all requested database provisioning steps.
+ The schema, administrator credential, database settings or requested demo data
+ may be incomplete. The EMR and prescribing lookups may be unavailable.
+ .
+ Read the installation output for the failed step. When the filesystem is
+ writable, it is also recorded in /var/lib/carlos-emr/.install-incomplete.
+ Existing data is preserved; do not delete databases to retry this repair.
+ .
+ Fix the reported cause, then finish the install with:
+ .
+ sudo carlos-ctl finish-install
+ .
+ It checks database settings, accounts, the schema, the administrator credential
+ and the demonstration dataset if requested. A failed step returns an error and
+ keeps the install pending. Boot retries require the marker and never migrate
+ a populated schema that fails validation. Check the result with
+ "sudo carlos-ctl check"; follow any separate DrugRef recovery instructions.

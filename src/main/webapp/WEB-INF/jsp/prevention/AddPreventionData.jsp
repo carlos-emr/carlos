@@ -97,6 +97,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -352,23 +353,47 @@
                 document.getElementById(id).style.display = 'none';
             }
 
+            // The "next date" fieldset, its "never warn" checkbox and the legend that
+            // toggles them all live inside the prevHash != null branch, so a request whose
+            // prevention type does not resolve renders "prevention not found" and none of
+            // them.
+            //
+            // disableifchecked is the one #3732 was reported on: body onload calls it on
+            // every load, including that page, where getElementById returns null and the
+            // handler threw before the user touched anything.
+            //
+            // showHideNextDate cannot be reached on that page at all -- its only caller is
+            // the legend's onclick, which is not rendered there. Its guards are defensive:
+            // they keep a future caller, or a layout that renders the legend without the
+            // fieldset, from reintroducing the same class of failure.
             function showHideNextDate(id, nextDate, neverWarn) {
-                if (document.getElementById(id).style.display == 'none') {
+                var container = document.getElementById(id);
+                if (!container) {
+                    return;
+                }
+                if (container.style.display == 'none') {
                     showItem(id);
                 } else {
                     hideItem(id);
-                    document.getElementById(nextDate).value = "";
-                    document.getElementById(neverWarn).checked = false;
-
+                    var nextDateField = document.getElementById(nextDate);
+                    if (nextDateField) {
+                        nextDateField.value = "";
+                    }
+                    var neverWarnBox = document.getElementById(neverWarn);
+                    if (neverWarnBox) {
+                        neverWarnBox.checked = false;
+                    }
                 }
             }
 
             function disableifchecked(ele, nextDate) {
-                if (ele.checked == true) {
-                    document.getElementById(nextDate).disabled = true;
-                } else {
-                    document.getElementById(nextDate).disabled = false;
+                var nextDateField = document.getElementById(nextDate);
+                if (!nextDateField) {
+                    return;
                 }
+                // The unresolved page has no "never warn" checkbox, so ele is null here;
+                // that is the same as unchecked, so the next-date field stays enabled.
+                nextDateField.disabled = !!(ele && ele.checked);
             }
 
         </SCRIPT>
@@ -403,6 +428,7 @@
         </script>
         <script type="text/javascript">
             function hideLotDrop(elem) {
+                if (!elem) return; // The CVC layout uses cvcLot instead of lotDrop.
                 var bFound = 0;
                 var LotNr = document.getElementById('lot').value;
                 var summary = document.getElementById('summary');
@@ -484,11 +510,15 @@
 
             var lots;
             var startup = false, startup2 = false;
+            var cvcLookupSequence = 0;
 
             function changeCVCName() {
+                var cvcName = document.getElementById('cvcName');
+                if (!cvcName) return; // A generic without catalogue brands uses manual entry.
+                var lookupSequence = ++cvcLookupSequence;
                 lots = null;
 
-                var snomedId = document.getElementById('cvcName').value;
+                var snomedId = cvcName.value;
                 var lot = document.getElementById('lot');
                 var cvcLot = document.getElementById('cvcLot');
                 var expiryDate = document.getElementById('expiryDate');
@@ -504,16 +534,35 @@
                     if (name) name.style.display = '';
                 } else {
                     if (unknownName) unknownName.style.display = 'none';
+                    // Capture restoration state for this request. A later vaccine change must
+                    // neither reuse the previous vaccine's lot nor consume its pending response.
+                    var initialLot = startup2
+                        ? '<carlos:encode value='<%= addByLotNbr != null ? addByLotNbr : "" %>' context="javaScriptBlock"/>'
+                        : startup ? '<carlos:encode value='<%= extraData.get("lot") != null ? extraData.get("lot") : "" %>' context="javaScriptBlock"/>' : '';
+                    var initialExpiry = startup
+                        ? '<carlos:encode value='<%= extraData.get("expiryDate") != null ? extraData.get("expiryDate") : "" %>' context="javaScriptBlock"/>' : '';
+                    startup = startup2 = false;
+                    lot.value = initialLot;
+                    if (expiryDate) expiryDate.value = initialExpiry;
+                    cvcLot.style.display = 'none';
+                    cvcLot.innerHTML = '';
+                    lot.style.display = '';
                     var formData = new URLSearchParams();
                     formData.append('method', 'getLotNumberAndExpiryDates');
                     formData.append('snomedConceptId', snomedId);
                     fetch('<%=request.getContextPath()%>/cvc', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'CSRF-TOKEN': (document.querySelector('input[name="CSRF-TOKEN"]') || {}).value || ''},
                         body: formData.toString()
                     })
-                    .then(function(response) { return response.json(); })
+                    .then(function(response) {
+                        if (!response.ok) throw new Error('Vaccine lot lookup failed: HTTP ' + response.status);
+                        return response.json();
+                    })
                     .then(function(data) {
+                        if (lookupSequence !== cvcLookupSequence) return;
                         if (data != null && Array.isArray(data) && data.length > 0) {
                             lot.style.display = 'none';
                             cvcLot.style.display = '';
@@ -522,24 +571,28 @@
 
                             for (var x = 0; x < data.length; x++) {
                                 var item = data[x];
-                                var d = new Date(data[x].expiryDate.time);
-                                var month = ((d.getMonth() + 1) > 9) ? (d.getMonth() + 1) : ("0" + (d.getMonth() + 1));
-                                var day = ((d.getDate()) > 9) ? (d.getDate()) : ("0" + (d.getDate()));
-                                var output = d.getFullYear() + "-" + month + "-" + day;
+                                var output = '';
+                                if (item.expiryDate && item.expiryDate.time != null) {
+                                    var d = new Date(item.expiryDate.time);
+                                    var month = String(d.getMonth() + 1).padStart(2, '0');
+                                    var day = String(d.getDate()).padStart(2, '0');
+                                    output = d.getFullYear() + '-' + month + '-' + day;
+                                }
 
                                 var opt = document.createElement('option');
                                 opt.value = item.lotNumber;
                                 opt.setAttribute('expiryDate', output);
                                 opt.text = item.lotNumber;
 
-                                if (startup2 && item.lotNumber == '<carlos:encode value='<%= addByLotNbr != null ? addByLotNbr : "" %>' context="javaScriptBlock"/>') {
-                                    opt.selected = true;
-                                    startup2 = false;
-                                } else if (startup && item.lotNumber == '<carlos:encode value='<%= existingPrevention != null && existingPrevention.get("lot") != null ? (String)existingPrevention.get("lot") : "" %>' context="javaScriptBlock"/>') {
-                                    opt.selected = true;
-                                    startup = false;
-                                }
+                                if (item.lotNumber === initialLot) opt.selected = true;
                                 cvcLot.appendChild(opt);
+                            }
+                            if (initialLot && cvcLot.value !== initialLot) {
+                                // A recorded historical lot can disappear from the refreshed
+                                // catalogue. Keep its stored value instead of erasing it on save.
+                                cvcLot.style.display = 'none';
+                                lot.style.display = '';
+                            } else {
                                 updateCvcLot();
                             }
                         } else {
@@ -547,6 +600,12 @@
                             cvcLot.innerHTML = '';
                             lot.style.display = '';
                         }
+                    }).catch(function(error) {
+                        if (lookupSequence !== cvcLookupSequence) return;
+                        cvcLot.style.display = 'none';
+                        cvcLot.innerHTML = '';
+                        lot.style.display = '';
+                        console.error(error.message);
                     });
                 }
             }
@@ -594,8 +653,11 @@
             <% if(existingPrevention != null && snomedId != null && existingPrevention.get("brandSnomedId") != null) { %>
             document.addEventListener('DOMContentLoaded', function () {
                 startup = true;
-                document.getElementById('cvcName').value = '<carlos:encode value='<%= (String)existingPrevention.get("brandSnomedId") %>' context="javaScriptBlock"/>';
-                changeCVCName();
+                var cvcName = document.getElementById('cvcName');
+                if (cvcName) {
+                    cvcName.value = '<carlos:encode value='<%= (String)existingPrevention.get("brandSnomedId") %>' context="javaScriptBlock"/>';
+                    changeCVCName();
+                }
             });
             <% } %>
 
@@ -671,6 +733,8 @@
                 <h3 class="alert alert-danger"><fmt:message key="oscarprevention.addpreventiondata.preventionNotFound"/></h3>
                 <%} else { %>
                 <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return handleFormSubmission()">
+                    <%-- Startup lot lookup runs before CSRFGuard's asynchronous form injection. --%>
+                    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
                     <input type="hidden" name="prevention" value="<carlos:encode value='<%= prevention != null ? prevention : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="providerNo" value="<carlos:encode value='<%= provider != null ? provider : "" %>' context="htmlAttribute"/>"/>
@@ -684,7 +748,10 @@
                     <div class="prevention">
                         <fieldset>
                             <legend><fmt:message key="oscarprevention.addpreventiondata.summary"/></legend>
-                            <textarea class="form-control form-control-sm" name="summary" readonly><carlos:encode value='<%= summary != null ? summary : "" %>' context="html"/></textarea>
+                            <%-- Derived display text is not an input to AddPrevention. Reposting its
+                                 multiline Location: label also triggers response-splitting WAF rules. --%>
+                            <label for="summary" class="visually-hidden"><fmt:message key="oscarprevention.addpreventiondata.summary"/></label>
+                            <textarea class="form-control form-control-sm" id="summary" readonly><carlos:encode value='<%= summary != null ? summary : "" %>' context="html"/></textarea>
 
                         </fieldset>
                     </div>
@@ -766,7 +833,7 @@
                                                 selected = "selected=\"selected\"";
                                             }
                                         }
-                                        if (foundByLotNumber) {
+                                        if (foundByLotNumber && brandName != null) {
                                             String brandSnomedId = brandName.getSnomedConceptId();
                                             if (brandSnomedId != null && brandSnomedId.equals(tn.getSnomedConceptId())) {
                                                 selected = "selected=\"selected\"";

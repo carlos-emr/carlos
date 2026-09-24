@@ -188,8 +188,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
         }
 
         //Create the document we are going to write to
-        document = new Document();
-        PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
+        document = new Document(PageSize.LETTER);
+        PdfWriter writer = PdfWriterFactory.newInstanceWithWrappedFooter(document, os, FontSettings.HELVETICA_10PT);
 
         try {
             // Add this class's onEndPage handler to the factory-installed PdfPageEventForwarder
@@ -201,7 +201,6 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 writer.setPageEvent(this);
             }
 
-            document.setPageSize(PageSize.LETTER);
             document.addTitle("CARLOS Laboratory Report");
             document.addCreator("CARLOS EMR");
             document.open();
@@ -280,7 +279,17 @@ public class LabPDFCreator extends PdfPageEventHelper {
         os.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream flush
     }
 
-    public void addEmbeddedDocuments(File currentPDF, OutputStream os) {
+    /**
+     * Writes {@code currentPDF} followed by the lab's embedded documents to {@code os}.
+     *
+     * <p>{@code currentPDF} must live in an allowed temp directory (see
+     * {@link PathValidationUtils#validateUpload(File)}); every caller renders the lab into a
+     * secure temp file first. A source anywhere else is refused and nothing is written, and the
+     * failure is reported to the caller without patient filenames or exception messages.</p>
+     *
+     * @throws IOException if any required PDF cannot be included
+     */
+    public void addEmbeddedDocuments(File currentPDF, OutputStream os) throws IOException {
         List<Object> alist = new ArrayList<Object>();
 
         try {
@@ -293,12 +302,13 @@ public class LabPDFCreator extends PdfPageEventHelper {
                     alist.add(tmp);
                 }
 
-                ConcatPDF.concat(alist, os);
+                ConcatPDF.concatRequired(alist, os);
             }
-        } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Security violation: PDF temp file path rejected: {}", currentPDF, e);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            // A missing or invalid lab/attachment must not become a successful partial PDF.
+            // Causes can contain patient filenames; callers often log the exception they receive.
+            MiscUtils.getLogger().error("Lab PDF source rejected or assembly failed ({})", e.getClass().getSimpleName());
+            throw new IOException("Lab PDF could not be assembled completely");
         }
     }
 

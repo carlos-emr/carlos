@@ -37,7 +37,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Objects;
 
@@ -46,68 +47,12 @@ public final class EncryptionUtils {
     private static final int AES_128_KEY_BYTES = 16;
     private static final int AES_192_KEY_BYTES = 24;
     private static final int AES_256_KEY_BYTES = 32;
-    private static final QueueCacheValueCloner<byte[]> byteArrayCloner = new QueueCacheValueCloner<byte[]>() {
-        public byte[] cloneBean(byte[] original) {
-            return (byte[]) original.clone();
-        }
-    };
     private static Logger logger = MiscUtils.getLogger();
-    private static final MessageDigest messageDigest = initMessageDigest();
-    private static final QueueCache<String, byte[]> sha1Cache;
-    private static final int MAX_SHA_KEY_CACHE_SIZE = 2048;
     public static final String SECRET_KEY_ENV_VAR = "encryption.util.secret.key";
     private static volatile SecretKeySpec SECRET_KEY_SPEC;
     private static final String ENCRYPTION_PREFIX = "{ENC}";
 
     public EncryptionUtils() {
-    }
-
-    private static MessageDigest initMessageDigest() {
-        try {
-            return MessageDigest.getInstance("SHA-1");
-        } catch (NoSuchAlgorithmException var1) {
-            logger.error("Error", var1);
-            return null;
-        }
-    }
-
-    /**
-     * @deprecated
-     * weak: do not use for generating password hashes.
-     * use the hash(String password) method below.
-     */
-    @Deprecated
-    public static byte[] getSha1(String s) {
-        byte[] b = (byte[]) sha1Cache.get(s);
-        if (b == null) {
-            b = getSha1NoCache(s);
-            if (s.length() < 2048) {
-                sha1Cache.put(s, b);
-            }
-        }
-
-        return b;
-    }
-
-    /**
-     * @deprecated
-     * weak: do not use for generating password hashes.
-     * use the hash(String password) method below.
-     */
-    @Deprecated
-    private static byte[] getSha1NoCache(String s) {
-        if (s == null) {
-            return null;
-        } else {
-            try {
-                synchronized (Objects.requireNonNull(messageDigest)) {
-                    return messageDigest.digest(s.getBytes("UTF-8"));
-                }
-            } catch (Exception var4) {
-                logger.error("Unexpected error.", var4);
-                return null;
-            }
-        }
     }
 
     /**
@@ -358,7 +303,6 @@ public final class EncryptionUtils {
     }
 
     static {
-        sha1Cache = new QueueCache(4, 2048, byteArrayCloner);
         /*
          * EncryptionUtils is frequently class-loaded before application properties are read, so
          * the key may be absent (or, after a bad edit, invalid) at this point. Never let key
@@ -381,4 +325,3 @@ public final class EncryptionUtils {
         }
     }
 }
-

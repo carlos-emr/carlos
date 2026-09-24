@@ -66,20 +66,18 @@
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=defaultPrinterName%>
+    <carlos:encode value='<%= defaultPrinterName %>' context="html"/>
     <%}%>
     <br>
 
 
-    <object id="pdf" type="application/pdf"
-            data="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demos")) %>' context="uriComponent"/>"
-            height="80%" width="100%" standby="Loading pdf...">
-
-        Sorry the pdf failed to load...<a
-            href="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demos")) %>' context="uriComponent"/>">click here to download the
-        PDF</a>.
-
-    </object>
+    <%-- The packaged CSP intentionally blocks object/embed (object-src 'none').
+         A same-origin frame allows the browser's PDF viewer without weakening it.
+         The download link stays as the fallback the <object> body used to provide. --%>
+    <p><a id="envelopePdfLink"
+          href="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demos")) %>' context="uriComponent"/>">Download the envelopes (PDF)</a></p>
+    <iframe id="pdf" title="Envelopes"
+            src="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demos")) %>' context="uriComponent"/>"
+            style="width: 100%; height: 80vh; min-height: 240px; border: 0;"></iframe>
     </body>
 </html>
-

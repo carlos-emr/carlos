@@ -61,13 +61,24 @@ public interface PreventionDao extends AbstractDao<Prevention> {
 
     List<Prevention> findActiveByDemoId(Integer demoId);
 
+    /**
+     * Returns the most recent non-deleted prevention of each type for a demographic, newest
+     * first, with the lazy {@code preventionExts} collection initialized before the DAO
+     * transaction ends. Callers such as the immunization REST endpoint and the FHIR
+     * Immunization mapper receive these entities detached and call
+     * {@code Prevention#setPreventionExtendedProperties()}, which iterates that collection.
+     *
+     * @param demographicId Integer the patient demographic number
+     * @return List of Prevention entities safe to use for extension lookups after detachment
+     */
     List<Prevention> findUniqueByDemographicId(Integer demographicId);
 
     List<Integer> findNewPreventionsSinceDemoKey(String keyName);
 
     /**
-     * Returns lightweight prevention DTOs for a demographic, bypassing the EAGER
-     * PreventionExt collection load. Uses JPQL constructor expression projection.
+     * Returns lightweight prevention DTOs for a demographic without materializing
+     * Prevention entities or their lazy PreventionExt collection. Uses JPQL constructor
+     * expression projection.
      *
      * @param demographicId Integer the patient demographic number
      * @return List of PreventionListItemDTO for the patient's immunizations

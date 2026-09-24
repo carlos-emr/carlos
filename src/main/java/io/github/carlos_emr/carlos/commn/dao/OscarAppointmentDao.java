@@ -31,9 +31,14 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
+
+import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
@@ -43,6 +48,19 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public boolean checkForConflict(Appointment appt);
+
+    /**
+     * Loads an appointment while acquiring a database write lock. Callers must
+     * invoke this method inside the transaction that performs the corresponding
+     * mutation so the lock remains held through validation and commit.
+     *
+     * @param appointmentNo appointment primary key
+     * @return the locked appointment, or {@code null} when it does not exist
+     */
+    Appointment findForUpdate(Integer appointmentNo);
+
+    /** Existing legacy-series members from the anchor date through endDate; bounded at 367 rows. */
+    List<Appointment> findRecurringSeries(Appointment anchor, Date endDate);
 
     public List<Appointment> getAppointmentHistory(Integer demographicNo, Integer offset, Integer limit);
 
@@ -91,6 +109,20 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public Appointment findNextAppointment(Integer demographicId);
 
+    /**
+     * Resolves the next appointment DATE for many patients in one query, for callers that would
+     * otherwise call {@link #findNextAppointment(Integer)} once per row (the patient search returns
+     * up to 100).
+     *
+     * <p>"Next" is the same selection {@link #findNextAppointment(Integer)} makes -- the earliest
+     * uncancelled appointment that has not started yet -- so the two must be kept in step.</p>
+     *
+     * @param demographicIds patients to resolve; null or empty returns an empty map
+     * @return a map from demographic number to that patient's next appointment date, holding no
+     *         entry for a patient with no such appointment
+     */
+    public Map<Integer, Date> findNextAppointmentDates(Collection<Integer> demographicIds);
+
     public Appointment findDemoAppointmentToday(Integer demographicNo);
 
     public List<Appointment> findByProviderAndDate(String providerNo, Date appointmentDate);
@@ -98,6 +130,18 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
     public List<Object[]> findAppointments(Date sDate, Date eDate);
 
     public List<Object[]> findPatientAppointments(String providerNo, Date from, Date to);
+
+    /**
+     * Streams patient appointment rows through a transaction-scoped cursor so
+     * large report exports do not materialize the complete result set in memory.
+     *
+     * @param providerNo provider filter, or {@code null} for all providers
+     * @param from inclusive start date, or {@code null}
+     * @param to inclusive end date, or {@code null}
+     * @param rowConsumer invoked once for each projected export row
+     */
+    void streamPatientAppointments(String providerNo, Date from, Date to,
+                                   Consumer<PatientAppointmentExportRow> rowConsumer);
 
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate);
 

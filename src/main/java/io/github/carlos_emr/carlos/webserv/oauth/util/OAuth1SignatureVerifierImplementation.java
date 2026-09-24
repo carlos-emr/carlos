@@ -35,6 +35,7 @@
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
 import java.util.Map;
+import java.util.Objects;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
@@ -49,11 +50,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVerifier {
+    private final OscarOAuthDataProvider dataProvider;
+
     @Autowired
-    private OscarOAuthDataProvider dataProvider;
+    public OAuth1SignatureVerifierImplementation(OscarOAuthDataProvider dataProvider) {
+        this.dataProvider = Objects.requireNonNull(dataProvider, "dataProvider");
+    }
 
     // ★ NEW: configurable clock skew (seconds)
     private static final long ALLOWED_SKEW_SECONDS = 300L;
+
+    /** Media type whose body params join the OAuth1 signature base string (RFC 5849 s3.4.1.3.1). */
+    private static final String FORM_URLENCODED = "application/x-www-form-urlencoded";
 
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
@@ -87,7 +95,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         final boolean hasVerifier = oauth.containsKey("oauth_verifier");
 
         String tokenSecret = "";
-        if (!isInitiate && token != null && !token.isEmpty() && dataProvider != null) {
+        if (!isInitiate && token != null && !token.isEmpty()) {
             if (isAccessEndpoint || hasVerifier) {
                 tokenSecret = dataProvider.getRequestTokenSecret(token);
             } else {
@@ -99,8 +107,8 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         }
 
         // --- 3) Base URL
-        final String scheme = req.getScheme().toLowerCase();
-        final String host   = req.getServerName().toLowerCase();
+        final String scheme = req.getScheme().toLowerCase(Locale.ROOT);
+        final String host   = req.getServerName().toLowerCase(Locale.ROOT);
         final int    port   = req.getServerPort();
         final boolean defaultPort =
                 ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
@@ -132,7 +140,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // c) Body params (x-www-form-urlencoded)
         String ctype = req.getContentType();
-        if (ctype != null && ctype.toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+        if (ctype != null && ctype.regionMatches(true, 0, FORM_URLENCODED, 0, FORM_URLENCODED.length())) {
             req.getParameterMap().forEach((k, vals) -> {
                 if (!k.startsWith("oauth_")) for (String v : vals) all.add(new NameValue(k, v));
             });
@@ -151,7 +159,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // --- 6) Base string & HMAC-SHA1 ---
         final String baseString =
-                req.getMethod().toUpperCase() + '&' + pct(baseUrl) + '&' + pct(norm.toString());
+                req.getMethod().toUpperCase(Locale.ROOT) + '&' + pct(baseUrl) + '&' + pct(norm.toString());
         final String signingKey =
                 pct(cfg.getConsumerSecret()) + '&' + pct(tokenSecret == null ? "" : tokenSecret);
         final String computed = base64(hmacSha1(baseString, signingKey));
@@ -161,6 +169,26 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         if (!constantTimeEquals(incoming, computed)) {
             throw new IllegalArgumentException("Invalid OAuth1 signature");
         }
+
+        // --- 8) Anti-replay: reject a re-used nonce within the freshness window.
+        // Done only after the signature is verified so an unauthenticated caller
+        // cannot pre-seed nonces and lock out a legitimate client. The nonce key
+        // is built from the same percent-decoded values that feed the signature
+        // base string, so a replay cannot evade detection by re-encoding a
+        // parameter (e.g. "abc" vs "%61bc") into the same valid signature.
+        final String nonce = oauth.get("oauth_nonce");
+        if (nonce == null || nonce.isEmpty()) {
+            throw new IllegalArgumentException("Missing oauth_nonce");
+        }
+        final String consumerKey = oauth.get("oauth_consumer_key");
+        if (consumerKey == null || consumerKey.isEmpty()) {
+            throw new IllegalArgumentException("Missing oauth_consumer_key");
+        }
+        // Always enforced (no null-guard) so replay protection cannot silently
+        // fail open if the dependency is ever unset.
+        dataProvider.consumeNonce(pctDecode(consumerKey),
+                token == null ? null : pctDecode(token), pctDecode(nonce),
+                ts, 2L * ALLOWED_SKEW_SECONDS);
 
         return token; // unchanged contract
     }
@@ -182,7 +210,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
                 out.append((char) c);
             } else {
                 out.append('%');
-                String hex = Integer.toHexString(c).toUpperCase();
+                String hex = Integer.toHexString(c).toUpperCase(Locale.ROOT);
                 if (hex.length() == 1) out.append('0');
                 out.append(hex);
             }
@@ -217,6 +245,15 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         return r == 0 && a.length() == b.length();
     }
 
+    // NOTE: this decodes each %XX as one char (byte-as-char), so a multi-byte
+    // UTF-8 escape such as %C3%A9 yields "Ã©" rather than "é". This is a
+    // pre-existing trait of the signature base-string normalisation, not added
+    // by the nonce-replay work. Replay protection stays correct regardless: the
+    // nonce key is decoded with this same function, and pct() (the re-encoder)
+    // is injective, so the replay-key equivalence classes match the signature's
+    // exactly. Making this RFC 3986 UTF-8-aware would change the base string for
+    // every OAuth1 client and so is deferred to a dedicated, signature-tested
+    // change rather than bundled here.
     private static String pctDecode(String s) {
         if (s == null || s.isEmpty()) return s;
         int n = s.length(); StringBuilder out = new StringBuilder(n);

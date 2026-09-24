@@ -52,7 +52,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 	<div class="accordion" id="adminNav">
 
 		<div class="p-2" style="margin-bottom:0px;color:#000">
-		<a href="${ctx}/administration"><i class="fa-solid fa-gear"></i> <fmt:message key="admin.admin.page.title"/></a>
+		<a href="${ctx}/administration${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"><i class="fa-solid fa-gear"></i> <fmt:message key="admin.admin.page.title"/></a>
 		</div>
 
 <!-- #USER MANAGEMENT -->
@@ -263,7 +263,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/insideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/ViewInsideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
 					<li><a href="${ctx}/lab/labUpload" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
@@ -296,7 +296,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<li><a href="${ctx}/form/formXmlUpload" class="contentLink"><fmt:message key="admin.admin.btnImportFormData"/></a></li>
 						</security:oscarSec>
 					
-					<li><a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms">
+					<li><a href="${ctx}/eform/efmformmanager${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}" class="contentLink defaultForms">
 						<fmt:message key="eform.showmyform.msgManageEFrm"/>
 					</a></li>
 
@@ -470,7 +470,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 								
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate" rights="w" reverse="<%=false%>">
 						<li><a href="javascript:void(0);"
-							class="xlink" rel="${ctx}/admin/AdminNewGroup?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+							class="xlink" rel="${ctx}/admin/AdminNewGroup"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
 					</security:oscarSec>
 					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup"><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
@@ -907,6 +907,10 @@ $(document).ready(function(){
 		var source = $(this).attr('rel');
 		var submitForm = $(this).data('submit-form');
 		var iframeTitle = $(this).data('frame-title') || $.trim($(this).text()) || "Administration page";
+		if (typeof resetFrameSizing === 'function') {
+			// Start from the CSS aspect box; the previous section may have grown it.
+			resetFrameSizing();
+		}
 		$("#dynamic-content").addClass("dynamic-iframe-content");
 		$("#dynamic-content").empty().append($("<iframe>", {
 			id: "myFrame",
@@ -916,6 +920,21 @@ $(document).ready(function(){
 			role: "region",
 			"aria-live": "polite"
 		}).css("border", "0"));
+		// Every document the frame loads — the first one AND every in-frame
+		// navigation after it (a link, a form post, a wizard's "Next") — has to
+		// bring the shell back to the top of the new page. Without this, a reader
+		// who scrolled the SHELL down to reach a control near the bottom of the
+		// frame stays parked at that offset while the frame swaps in a new
+		// document, and sees the middle of it: the schedule week-setting "Next"
+		// saved the schedule and loaded the calendar step, and the reader
+		// reported that clicking it did nothing (alpha10). Only a handful of
+		// legacy pages call parent.parent.resizeIframe() themselves, so this has
+		// to be driven from the shell to cover the rest.
+		$("#myFrame").on("load", function () {
+			if (typeof scrollFramedContentIntoView === 'function') {
+				scrollFramedContentIntoView(this);
+			}
+		});
 		if (submitForm) {
 			var form = document.getElementById(submitForm);
 			if (form) {
@@ -924,7 +943,17 @@ $(document).ready(function(){
 		} else {
 			$("#myFrame").attr("src", source);
 		}
-		$("html, body").animate({ scrollTop: 0 }, "slow");
+		// Immediate feedback: a section whose page takes a moment to arrive would
+		// otherwise leave the reader at their old offset until it does. The load
+		// handler above then owns the final position once the real content height
+		// is known. Go through the shell's helper so this scroll clears the
+		// animation queue too — two clicks in quick succession would otherwise
+		// queue and extend each other.
+		if (typeof scrollShellToTop === 'function') {
+			scrollShellToTop();
+		} else {
+			$("html, body").stop(true).animate({ scrollTop: 0 }, "slow");
+		}
 	});
 
 

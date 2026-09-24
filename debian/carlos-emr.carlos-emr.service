@@ -1,0 +1,137 @@
+[Unit]
+# Bound a crash loop: with 15s restart spacing the default 5-in-10s limiter
+# never trips, and an OOM loop (each crash writing an Xmx-sized PHI heap
+# dump) ran forever. Six failures inside half an hour is a broken
+# deployment — stop, stay failed, page whoever watches the unit. These are
+# [Unit]-section options: in [Service], systemd 259 rejects the key and the
+# bound silently did not exist (live-verified with systemd-analyze).
+StartLimitIntervalSec=30min
+StartLimitBurst=6
+Description=CARLOS EMR application server (Tomcat 11)
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+Documentation=https://github.com/carlos-emr/carlos
+# The database is on this host and the application cannot serve a single page
+# without it. Wants+After rather than Requires: a Requires would tear CARLOS
+# down every time MariaDB was restarted for maintenance, and the start wrapper
+# already waits for the database to answer before handing off to Tomcat.
+Wants=mariadb.service network-online.target
+After=mariadb.service network-online.target
+# An installation whose database provisioning did not run leaves a marker and
+# no schema; carlos-emr-provision.service finishes the job and is ordered
+# before this unit. Wants, so it is pulled in by a manual `systemctl start`
+# too, and so that a provisioning run that cannot finish never stops the EMR
+# from starting. The unit is skipped in microseconds when there is no marker.
+Wants=carlos-emr-provision.service
+After=carlos-emr-provision.service
+
+# Disabling does not prevent a queued or manual start. Enforce the credential
+# guard on every start, including after a failed boot-time repair.
+ConditionPathExists=!/var/lib/carlos-emr/.seed-credential-live
+
+[Service]
+Type=exec
+User=carlos
+Group=carlos
+UMask=0027
+
+# Site knobs (heap size, timezone, DB host). Rendered by the package on first
+# install and never overwritten afterwards — it is operator-owned.
+EnvironmentFile=-/etc/carlos-emr/carlos-emr.env
+Environment=LANG=C.UTF-8
+Environment=LC_ALL=C.UTF-8
+# No HOME override: the JVM reads user.home from passwd, and this unit no longer
+# launches a browser (the render Chromium runs under carlos-emr-chromedriver as
+# carlos-render with its own writable HOME). The old HOME=/var/lib/carlos-emr/browser
+# existed solely for the abandoned in-JVM browser spawn.
+# EFORM_RENDER_SANDBOX is NOT set here — it is set by
+# /usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf, shipped by
+# carlos-emr-eform-renderer, so that the flag cannot outlive the browser unit that
+# satisfies it. Edit that file, not this one.
+#
+# Chromium's OS sandbox is the right posture for this component: the renderer
+# opens clinic-authored eForm HTML, the least trustworthy input this application
+# handles. The browser does NOT run under this unit. It runs sandboxed under
+# carlos-emr-chromedriver.service as the data-less carlos-render account, and
+# the JVM connects to it over loopback — so this unit's confinement
+# (RestrictNamespaces=yes, ProtectProc=invisible below) never has to be loosened
+# for rendering, and MUST NOT be: loosening it trades the PHI-handling Tomcat's
+# confinement for nothing, because no browser is spawned here any more. The
+# earlier in-JVM spawn architecture (and the failed attempts to make the sandbox
+# work under this unit's hardening) is recorded in PR #3543 and
+# docs/eform-browser-pdf-renderer.md; do not re-derive drop-ins that relax
+# RestrictNamespaces or ProtectProc from old revisions of this file.
+
+# Never start into a half-copied schema. While `carlos-ctl import-o19` is
+# mid-run the application must stay down: its startup listener writes rows
+# the import's row-parity gate rejects, and a live session could read a
+# half-copied chart. `carlos-ctl stop` leaves the unit ENABLED, so a reboot
+# during an import -- or a colleague's `systemctl start` -- would otherwise
+# start it as if nothing were happening (seen on the Ubuntu 26.04
+# rehearsal). ExecCondition= makes such a start a clean "condition failed"
+# skip, not a failure; the guard explains itself in the journal. The `+`
+# runs it with full privileges, outside this unit's sandbox: the ledger it
+# reads is root-only, and the guard reads one file and runs python3 on it.
+# The postinst consults the same file, so the two cannot drift apart.
+ExecCondition=+/usr/lib/carlos-emr/carlos-emr-o19-guard
+ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
+# catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and
+# Tomcat performs its normal shutdown. 143 is 128+SIGTERM, which is what a JVM
+# exits with when it is asked to stop; without this systemd records every clean
+# stop as a failure.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=15s
+# A cold start explodes no WARs but does deploy a very large application and
+# runs the Flyway boot validation against the database. Ten minutes is
+# generous on purpose; the alternative is systemd killing a healthy start.
+TimeoutStartSec=600
+# Give in-flight clinical requests time to finish before the JVM is killed.
+TimeoutStopSec=120
+
+# --- sandboxing -------------------------------------------------------------
+# The application handles PHI and parses untrusted input from the internet
+# (through the WAF). Everything below narrows what a successful code-execution
+# bug can reach. The four ReadWritePaths are the only writable locations:
+# Tomcat's work/temp/logs and the document store.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateUsers=no
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+# ProcSubset=pid is deliberately NOT set. It would hide /proc/meminfo and
+# /proc/cpuinfo, which the JVM reads to size the heap and the GC thread pool;
+# with them gone HotSpot either misconfigures itself or refuses to start.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+# MemoryDenyWriteExecute is deliberately NOT set: the HotSpot JIT maps its
+# code cache writable and then executable, and enabling it stops the JVM from
+# starting at all. This is a known, accepted gap in the sandbox for any Java
+# service.
+# AF_NETLINK is needed alongside the obvious three: the JVM enumerates network
+# interfaces through a netlink socket, and without it NetworkInterface calls
+# fail in ways that surface as unrelated integration errors.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/var/lib/carlos-emr /var/log/carlos-emr /run/carlos-emr
+
+# A large webapp with a 200-connection Tomcat pool and a JDBC pool opens a lot
+# of descriptors; the 1024 default is not enough and the failure looks like
+# random request errors rather than a resource limit.
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
