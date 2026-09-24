@@ -44,8 +44,8 @@ published WAR byte for byte.
 Fetching them from a shell (a server has no browser; from WSL this is far
 easier than copying files across): on the release page, right-click each
 asset and copy its link address, or build the URLs from the tag. <tag> is the
-release tag as GitHub shows it (2026.08.0-alpha12); <version> is that tag as
-it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha12):
+release tag as GitHub shows it (2026.08.0-alpha14); <version> is that tag as
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha14):
 
   R=https://github.com/carlos-emr/carlos/releases/download/<tag>
   wget $R/carlos-emr_<version>_amd64.deb $R/carlos-emr_<version>_amd64.deb.sha256 \
