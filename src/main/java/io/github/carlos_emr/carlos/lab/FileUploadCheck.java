@@ -73,23 +73,38 @@ public final class FileUploadCheck {
      * @return {@code true} only when a checksum row exists for the content
      * @throws IOException if the content cannot be read; a database failure propagates too
      */
+    public static boolean isFileRecorded(InputStream is) throws IOException {
+        return hasFileBeenUploaded(contentKey(is));
+    }
+
+    /**
+     * Records a file's checksum, without the duplicate check or failure swallowing of
+     * {@link #addFile}.
+     *
+     * <p>For a caller that has already confirmed the content is new and records it inside its own
+     * transaction, so the checksum commits or rolls back together with what the file produced.</p>
+     *
+     * @param name the file name to record
+     * @param is the file content; read to the end but not closed
+     * @param provider the uploading provider number
+     * @throws IOException if the content cannot be read; a database failure propagates too
+     */
+    public static void recordFile(String name, InputStream is, String provider) throws IOException {
+        io.github.carlos_emr.carlos.commn.model.FileUploadCheck f = new io.github.carlos_emr.carlos.commn.model.FileUploadCheck();
+        f.setProviderNo(provider);
+        f.setFilename(name);
+        f.setMd5sum(contentKey(is));
+        f.setDateTime(new Date());
+        SpringUtils.getBean(FileUploadCheckDao.class).persist(f);
+    }
+
     // FindSecBugs WEAK_MESSAGE_DIGEST_MD5: MD5 is this class's duplicate-detection key (addFile
     // stores it), never a password, signature or integrity check; it must match what addFile wrote.
     @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_MD5",
             justification = "MD5 is the stored duplicate-detection key written by addFile, not a security control")
     @SuppressWarnings("java:S4790") // Sonar: same MD5 duplicate-detection key as addFile, not a security control.
-    public static boolean isFileRecorded(InputStream is) throws IOException {
-        return hasFileBeenUploaded(DigestUtils.md5Hex(is));
-    }
-
-    /**
-     * Removes a checksum row, so content whose processing failed after {@link #addFile} is not
-     * treated as a duplicate when it is sent again.
-     *
-     * @param id the id {@link #addFile} returned for the row
-     */
-    public static void removeFile(int id) {
-        SpringUtils.getBean(FileUploadCheckDao.class).remove(id);
+    private static String contentKey(InputStream is) throws IOException {
+        return DigestUtils.md5Hex(is);
     }
 
     public static Map<String, String> getFileInfo(Integer id) {

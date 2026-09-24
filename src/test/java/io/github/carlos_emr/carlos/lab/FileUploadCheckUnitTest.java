@@ -30,10 +30,13 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,10 +73,24 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRemoveChecksumRow_byIdReturnedFromAddFile() {
-        FileUploadCheck.removeFile(7);
+    void shouldPersistChecksumRow_whenRecordingFile() throws Exception {
+        FileUploadCheck.recordFile("lab.hl7", new ByteArrayInputStream(CONTENT), "999998");
 
-        verify(dao).remove(7);
+        var row = ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.FileUploadCheck.class);
+        verify(dao).persist(row.capture());
+        assertThat(row.getValue().getMd5sum()).isEqualTo(DigestUtils.md5Hex(CONTENT));
+        assertThat(row.getValue().getFilename()).isEqualTo("lab.hl7");
+        assertThat(row.getValue().getProviderNo()).isEqualTo("999998");
+        assertThat(row.getValue().getDateTime()).isNotNull();
+    }
+
+    @Test
+    void shouldPropagatePersistFailure_whenRecordingFile() {
+        doThrow(new IllegalStateException("database unavailable")).when(dao).persist(any());
+
+        // Unlike addFile, the failure reaches the caller's transaction so it rolls back.
+        assertThatThrownBy(() -> FileUploadCheck.recordFile("lab.hl7", new ByteArrayInputStream(CONTENT), "999998"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

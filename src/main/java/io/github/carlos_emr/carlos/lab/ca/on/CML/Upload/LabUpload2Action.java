@@ -51,8 +51,6 @@ import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -63,7 +61,6 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
@@ -144,40 +141,26 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         return SUCCESS;
                     }
 
-                    // addFile is static synchronized, so it holds this monitor. Keep holding it until
-                    // the lab is stored or its checksum removed: otherwise a concurrent upload of the
-                    // same bytes could see this request's in-flight checksum, be told
-                    // uploadedPreviously, and stop retrying a lab that then rolls back. The other lab
-                    // uploaders go through addFile too, so they wait here rather than race. This is a
-                    // lock within one application instance, not across servers.
+                    // FileUploadCheck.addFile is static synchronized, and every lab uploader claims
+                    // checksums through it. Holding the same monitor from the duplicate check until
+                    // the lab and its checksum have committed or rolled back means no other upload
+                    // in this application instance can see, or claim, this content in between.
+                    // It is a lock within one instance, not across servers.
                     synchronized (FileUploadCheck.class) {
-                        int check;
-                        try (InputStream fis = new FileInputStream(localFile)) {
-                            check = FileUploadCheck.addFile(filename, fis, proNo);
-                        } catch (Exception addFileEx) {
-                            MiscUtils.getLogger().error("Error", addFileEx);
+                        boolean recorded;
+                        try {
+                            recorded = isRecordedUpload(localFile);
+                        } catch (IOException | RuntimeException lookupEx) {
+                            // Nothing is known about this content, so the client may retry.
+                            _logger.error("Could not check a CML upload's checksum: {}",
+                                    LogSafe.exceptionTrace(lookupEx));
                             request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_DATABASE_NOT_STARTED);
                             return SUCCESS;
                         }
-                        if (check == FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                            // addFile answers UNSUCCESSFUL_SAVE both for a checksum it already
-                            // holds and for any failure reading the file or reaching the database,
-                            // which it swallows. Acknowledge a duplicate only when the checksum is
-                            // really on record: a false "uploadedPreviously" tells the XML client
-                            // not to retry a lab that was never stored.
-                            // A lookup that fails confirms nothing either, so it is the same
-                            // retryable failure rather than a generic exception.
-                            try {
-                                outcome = isRecordedUpload(localFile)
-                                        ? OUTCOME_UPLOADED_PREVIOUSLY
-                                        : OUTCOME_DATABASE_NOT_STARTED;
-                            } catch (IOException | RuntimeException lookupEx) {
-                                _logger.error("Could not confirm a rejected CML upload's checksum: {}",
-                                        LogSafe.exceptionTrace(lookupEx));
-                                outcome = OUTCOME_DATABASE_NOT_STARTED;
-                            }
+                        if (recorded) {
+                            outcome = OUTCOME_UPLOADED_PREVIOUSLY;
                         } else {
-                            storeLab(localFile, check);
+                            storeLab(localFile, filename, proNo);
                             outcome = "uploaded";
                         }
                     }
@@ -204,60 +187,37 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     /**
-     * Parses and stores a newly recorded lab, or leaves it retryable.
+     * Parses a new lab, then records its checksum and stores it in one transaction.
      *
-     * <p>{@link FileUploadCheck#addFile} has already recorded the file's checksum, and every later
-     * upload of the same bytes is answered {@code uploadedPreviously}. The parser writes the
-     * report, patient, routing and result rows through separate DAOs, so they share one
-     * transaction: a failure part-way rolls all of them back. This request's checksum row is
-     * removed only when nothing can have been stored: the parse failed, the transaction could not
-     * start, or it rolled back before its commit began. If the commit started and then failed, the rows may have been
-     * committed, so the checksum is kept and a retry is refused rather than stored twice.</p>
+     * <p>The checksum is what later uploads of the same bytes are refused by, so it must exist
+     * exactly when the lab does. The parser writes the report, patient, routing and result rows
+     * through separate DAOs; they and the checksum row all join this transaction. A failure
+     * part-way rolls every one of them back, so a retry stores the lab, and a commit whose outcome
+     * is unknown left either all of them or none. Parsing only reads the file, so a parse failure
+     * records nothing.</p>
      *
      * @param localFile the archived upload
-     * @param checksumId the checksum row {@code addFile} created for this request
-     * @throws Exception when parsing or saving fails, or the commit cannot be confirmed
+     * @param filename the file name recorded with the checksum
+     * @param providerNo the uploading provider number
+     * @throws Exception when parsing or storing fails; nothing is left recorded
      */
-    private static void storeLab(File localFile, int checksumId) throws Exception {
-        AtomicBoolean bodyEntered = new AtomicBoolean();
-        AtomicBoolean commitStarted = new AtomicBoolean();
-        AtomicBoolean rolledBackBeforeCommit = new AtomicBoolean();
-        boolean parsed = false;
-        boolean stored = false;
-        try {
-            ABCDParser abc = new ABCDParser();
-            try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
-                abc.parse(in);
-            }
-            parsed = true;
-            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
-                    .executeWithoutResult(status -> {
-                        bodyEntered.set(true);
-                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                            @Override
-                            public void beforeCommit(boolean readOnly) {
-                                commitStarted.set(true);
-                            }
+    private static void storeLab(File localFile, String filename, String providerNo) throws Exception {
+        ABCDParser abc = new ABCDParser();
+        try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
+            abc.parse(in);
+        }
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                .executeWithoutResult(status -> {
+                    recordChecksum(localFile, filename, providerNo);
+                    saveParsedLab(abc);
+                });
+    }
 
-                            @Override
-                            public void afterCompletion(int completion) {
-                                if (completion == STATUS_ROLLED_BACK && !commitStarted.get()) {
-                                    rolledBackBeforeCommit.set(true);
-                                }
-                            }
-                        });
-                        saveParsedLab(abc);
-                    });
-            stored = true;
-        } finally {
-            if (!stored) {
-                // A transaction that never started wrote nothing, so its checksum goes too.
-                if (!parsed || !bodyEntered.get() || rolledBackBeforeCommit.get()) {
-                    forgetChecksum(checksumId);
-                } else {
-                    MiscUtils.getLogger().error("CML lab commit could not be confirmed; its checksum is kept so a retry is not stored twice");
-                }
-            }
+    private static void recordChecksum(File localFile, String filename, String providerNo) {
+        try (InputStream in = new FileInputStream(localFile)) {
+            FileUploadCheck.recordFile(filename, in, providerNo);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -268,16 +228,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             abc.save(connection);
         } catch (SQLException e) {
             throw new IllegalStateException("CML lab save failed", e);
-        }
-    }
-
-    // Runs while the original failure propagates, so a removal failure is logged, not thrown.
-    private static void forgetChecksum(int checksumId) {
-        try {
-            FileUploadCheck.removeFile(checksumId);
-        } catch (RuntimeException removeEx) {
-            MiscUtils.getLogger().error("Could not remove the checksum of a CML upload that was not stored: {}",
-                    LogSafe.exceptionTrace(removeEx));
         }
     }
 
