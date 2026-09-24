@@ -113,3 +113,15 @@ test('has English text in the bundle for every key the page lists', () => {
     assert.match(bundle, new RegExp(`^demographic\\.portal\\.${key.replace(/\./g, '\\.')}=.+$`, 'm'), key);
   }
 });
+
+test('has text in every bundle for every label the page prints directly', () => {
+  const jsp = read('src/main/webapp/WEB-INF/jsp/demographic/portalManage.jsp');
+  const keys = [...new Set([...jsp.matchAll(/<fmt:message key="([A-Za-z0-9_.]+)"/g)].map(m => m[1]))];
+  assert.ok(keys.length >= 20, 'the labels were read');
+  for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
+    const bundle = read(`src/main/resources/oscarResources_${locale}.properties`);
+    for (const key of keys) {
+      assert.match(bundle, new RegExp(`^${key.replace(/\./g, '\\.')}=.+$`, 'm'), `${locale}: ${key}`);
+    }
+  }
+});

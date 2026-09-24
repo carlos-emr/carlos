@@ -1188,13 +1188,13 @@
                             </td>
                         </tr>
                         <%-- Patient portal (issue #3854): shown only where a portal is configured and the user can
-                             read invitations or accounts; the page's gate and JSON routes re-check both. --%>
+                             read invitations or accounts; the page's gate and JSON routes re-check both. It opens in
+                             this window, like Appointment History, and links back to this record. --%>
                         <% if (io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings.isConfigured()) { %>
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_portal.invite,_portal.account" rights="r">
                             <tr>
                                 <td>
-                                    <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(700,960,'<%= request.getContextPath() %>/demographic/portalManage?demographicNo=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>');return false;">
+                                    <a href="<%= request.getContextPath() %>/demographic/portalManage?demographicNo=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>">
                                         <fmt:message key="demographic.portal.link"/></a>
                                 </td>
                             </tr>

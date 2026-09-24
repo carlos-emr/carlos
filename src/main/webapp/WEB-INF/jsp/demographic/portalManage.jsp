@@ -23,6 +23,9 @@
 <%--
     Patient portal: the staff page for one patient's portal access (issue #3854).
 
+    Laid out like the demographic screen it is opened from, in the same window: a patient header, the
+    patient's navigation down the left (Master Record, Appointment History, this page), and panels.
+
     Reached through demographic/portalManage, whose gate (PortalManage2Action) requires demographic
     read access plus portal invite or account read rights, and sets which controls to render. The page
     holds no patient data itself: portal-manage.js loads demographic/portalPanel and performs every
@@ -43,70 +46,105 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
+<c:set var="demographicRecord" value="${ctx}/demographic/DemographicEdit?demographic_no=${portalDemographicNo}"/>
+<%-- As text: a number parameter would be formatted with digit grouping ("#1,234"). --%>
+<c:set var="demographicText">${portalDemographicNo}</c:set>
+<fmt:message key="demographic.portal.patientNumber" var="patientNumber">
+    <fmt:param value="${demographicText}"/>
+</fmt:message>
 <html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="demographic.portal.title"/></title>
-    <link href="${carlos:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <link href="${carlos:forHtmlAttribute(ctx)}/share/css/portal-manage.css" rel="stylesheet">
 </head>
-<body class="p-3">
+<body class="portal-page">
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
-<main id="portal-manage"
-      data-context="${carlos:forHtmlAttribute(ctx)}"
-      data-demographic-no="${carlos:forHtmlAttribute(portalDemographicNo)}"
-      data-can-invite="${portalCanInvite ? 'true' : 'false'}"
-      data-can-recover="${portalCanRecover ? 'true' : 'false'}"
-      data-can-revoke="${portalCanRevoke ? 'true' : 'false'}"
-      data-can-set-access="${portalCanSetAccess ? 'true' : 'false'}"
-      data-can-unlock="${portalCanUnlock ? 'true' : 'false'}">
-    <h1 class="h4"><fmt:message key="demographic.portal.title"/></h1>
-    <div id="portal-status" class="alert d-none" role="status" aria-live="polite"></div>
+<div id="portal-manage"
+     data-context="${carlos:forHtmlAttribute(ctx)}"
+     data-demographic-no="${carlos:forHtmlAttribute(portalDemographicNo)}"
+     data-can-invite="${portalCanInvite ? 'true' : 'false'}"
+     data-can-recover="${portalCanRecover ? 'true' : 'false'}"
+     data-can-revoke="${portalCanRevoke ? 'true' : 'false'}"
+     data-can-set-access="${portalCanSetAccess ? 'true' : 'false'}"
+     data-can-unlock="${portalCanUnlock ? 'true' : 'false'}">
+    <header class="portal-header">
+        <span class="portal-header__title"><fmt:message key="demographic.portal.title"/></span>
+        <span class="portal-header__details"><carlos:encode value="${patientNumber}"/></span>
+    </header>
 
-    <section class="mb-4" aria-labelledby="portal-account-heading">
-        <h2 id="portal-account-heading" class="h5"><fmt:message key="demographic.portal.account.heading"/></h2>
-        <div id="portal-account"><fmt:message key="demographic.portal.loading"/></div>
-    </section>
+    <div class="portal-layout">
+        <nav class="portal-sidebar" aria-label="<fmt:message key="demographic.portal.navigation"/>">
+            <a href="${carlos:forHtmlAttribute(demographicRecord)}"><fmt:message key="encounter.Index.masterFile"/></a>
+            <a href="${carlos:forHtmlAttribute(ctx)}/demographic/DemographicApptHistory?demographic_no=${carlos:forUriComponent(portalDemographicNo)}&amp;orderby=appttime&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25"><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
+            <span class="portal-sidebar__current" aria-current="page"><fmt:message key="demographic.portal.link"/></span>
+        </nav>
 
-    <section class="mb-4" aria-labelledby="portal-invites-heading">
-        <h2 id="portal-invites-heading" class="h5"><fmt:message key="demographic.portal.invites.heading"/></h2>
-        <form id="portal-invite-form" class="row g-2 align-items-end mb-3 d-none">
-            <div class="col-auto">
-                <label class="form-label" for="portal-channel"><fmt:message key="demographic.portal.invites.channel"/></label>
-                <select id="portal-channel" name="channel" class="form-select form-select-sm">
-                    <option value="email"><fmt:message key="demographic.portal.invites.channel.email"/></option>
-                    <option value="sms" disabled><fmt:message key="demographic.portal.invites.channel.sms"/></option>
-                </select>
-            </div>
-            <div class="col-auto">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="portal-consent-override" name="consentOverride" value="true">
-                    <label class="form-check-label" for="portal-consent-override"><fmt:message key="demographic.portal.invites.consentOverride"/></label>
+        <main class="portal-content">
+            <div class="portal-toolbar">
+                <strong><carlos:encode value="${patientNumber}"/></strong>
+                <div class="portal-toolbar__actions">
+                    <button type="button" id="portal-refresh" class="portal-button portal-button--secondary"><fmt:message key="demographic.portal.refresh"/></button>
+                    <a class="portal-button portal-button--primary" href="${carlos:forHtmlAttribute(demographicRecord)}"><fmt:message key="demographic.portal.back"/></a>
                 </div>
-                <fmt:message key="demographic.portal.invites.consentReason" var="consentReasonLabel"/>
-                <input class="form-control form-control-sm mt-1 d-none" type="text" id="portal-consent-reason"
-                       name="consentOverrideReason" maxlength="255"
-                       placeholder="${carlos:forHtmlAttribute(consentReasonLabel)}"
-                       aria-label="${carlos:forHtmlAttribute(consentReasonLabel)}">
             </div>
-            <div class="col-auto">
-                <button type="submit" id="portal-invite" class="btn btn-primary btn-sm"><fmt:message key="demographic.portal.invites.invite"/></button>
-            </div>
-        </form>
-        <div id="portal-invites"><fmt:message key="demographic.portal.loading"/></div>
-    </section>
 
-    <section class="mb-4" aria-labelledby="portal-deliveries-heading">
-        <h2 id="portal-deliveries-heading" class="h5"><fmt:message key="demographic.portal.deliveries.heading"/></h2>
-        <div id="portal-deliveries"><fmt:message key="demographic.portal.loading"/></div>
-    </section>
+            <div class="portal-intro">
+                <h1><fmt:message key="demographic.portal.intro.heading"/></h1>
+                <p><fmt:message key="demographic.portal.intro.text"/></p>
+            </div>
+
+            <div id="portal-status" class="portal-status" role="status" aria-live="polite" hidden></div>
+
+            <section class="portal-card" aria-labelledby="portal-account-heading">
+                <h2 id="portal-account-heading"><fmt:message key="demographic.portal.account.heading"/></h2>
+                <div class="portal-card__body" id="portal-account"><fmt:message key="demographic.portal.loading"/></div>
+            </section>
+
+            <section class="portal-card" aria-labelledby="portal-invites-heading">
+                <h2 id="portal-invites-heading"><fmt:message key="demographic.portal.invites.heading"/></h2>
+                <div class="portal-card__body">
+                    <form id="portal-invite-form" class="portal-invite-form" hidden>
+                        <div>
+                            <label for="portal-channel"><fmt:message key="demographic.portal.invites.channel"/></label>
+                            <select id="portal-channel" name="channel">
+                                <option value="email"><fmt:message key="demographic.portal.invites.channel.email"/></option>
+                                <option value="sms" disabled><fmt:message key="demographic.portal.invites.channel.sms"/></option>
+                            </select>
+                        </div>
+                        <div class="portal-check">
+                            <input type="checkbox" id="portal-consent-override" name="consentOverride" value="true">
+                            <label for="portal-consent-override"><fmt:message key="demographic.portal.invites.consentOverride"/></label>
+                            <fmt:message key="demographic.portal.invites.consentReason" var="consentReasonLabel"/>
+                            <input type="text" id="portal-consent-reason" name="consentOverrideReason" maxlength="255" hidden
+                                   placeholder="${carlos:forHtmlAttribute(consentReasonLabel)}"
+                                   aria-label="${carlos:forHtmlAttribute(consentReasonLabel)}">
+                        </div>
+                        <div>
+                            <button type="submit" id="portal-invite" class="portal-button portal-button--primary"><fmt:message key="demographic.portal.invites.invite"/></button>
+                        </div>
+                    </form>
+                    <div id="portal-invites"><fmt:message key="demographic.portal.loading"/></div>
+                </div>
+            </section>
+
+            <section class="portal-card" aria-labelledby="portal-deliveries-heading">
+                <h2 id="portal-deliveries-heading"><fmt:message key="demographic.portal.deliveries.heading"/></h2>
+                <div class="portal-card__body" id="portal-deliveries"><fmt:message key="demographic.portal.loading"/></div>
+            </section>
+        </main>
+    </div>
 
     <ul id="portal-messages" hidden>
         <%-- page --%>
+        <li data-key="yes"><fmt:message key="global.yes"/></li>
+        <li data-key="no"><fmt:message key="global.no"/></li>
         <c:forTokens var="key" delims="," items="done,error.generic,loading">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- account --%>
-        <c:forTokens var="key" delims="," items="account.active,account.disable,account.disableReason,account.disabled,account.enable,account.locked,account.none,account.resetRequired,account.unlock">
+        <c:forTokens var="key" delims="," items="account.active,account.confirmDisable,account.confirmEnable,account.confirmUnlock,account.disable,account.disableReason,account.disabled,account.enable,account.field.disabledAt,account.field.disabledReason,account.field.locked,account.field.resetRequired,account.field.status,account.none,account.reasonRequired,account.unlock">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- invitations --%>
@@ -134,7 +172,7 @@
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
     </ul>
-</main>
+</div>
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/portal-manage.js"></script>
 </body>
 </html>
