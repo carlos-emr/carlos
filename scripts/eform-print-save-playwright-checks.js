@@ -164,16 +164,32 @@ async function main() {
       const fid = requestedFid || await firstLibraryFid(context, config, recorder);
       // Installed after login so the login POST is real. From here on no form POST reaches the app.
       const saves = [];
+      // Kept apart from `saves`, which counts the toolbar's own form-submit save exactly.
+      const blockedAsync = [];
       await context.route('**/*', async (route) => {
         const request = route.request();
-        if (request.method() === 'POST' && request.isNavigationRequest()) {
-          saves.push(h.pathOnly(request.url()));
-          await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>save intercepted</title>' });
-          return;
+        if (request.method() === 'POST') {
+          const target = h.pathOnly(request.url());
+          if (request.isNavigationRequest()) {
+            saves.push(target);
+            await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>save intercepted</title>' });
+            return;
+          }
+          // A library eForm can save over fetch/XHR (for example to /eform/addEForm), which is not a
+          // navigation. Abort every such POST so the no-write guarantee holds for any form; only
+          // CSRFGuard's token exchange, which writes nothing, is let through.
+          if (!/\/csrfguard$/i.test(target)) {
+            blockedAsync.push(target);
+            await route.abort('blockedbyclient');
+            return;
+          }
         }
         await route.continue();
       });
       await workflow({ config, context, recorder, saves, fid });
+      if (blockedAsync.length) {
+        console.log(`  NOTE blocked ${blockedAsync.length} background POST(s) the eForm sent: ${[...new Set(blockedAsync)].join(', ')}`);
+      }
       // Library eForms carry their own legacy script errors; only the toolbar's own are findings here.
       const toolbarErrors = recorder.pageErrors.filter((entry) => /eform_floating_toolbar/.test(entry.text));
       h.assert(toolbarErrors.length === 0,
