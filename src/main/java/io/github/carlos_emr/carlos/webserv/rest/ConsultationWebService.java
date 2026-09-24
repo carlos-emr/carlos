@@ -118,6 +118,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ConsultationWebService extends AbstractServiceImpl {
 
+    /** Generic on purpose: must not reveal whether the id exists for another patient. */
+    private static final String UNVERIFIED_ATTACHMENT = "Attachment could not be verified for this patient";
+
     Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
 
     @Autowired
@@ -793,6 +796,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
             doc.setDeleted(ConsultDocs.DELETED);
         }
 
+        // Issue #3867, same policy as the consultation form (DocumentAttach): a new attachment must
+        // belong to the patient or it is refused, and an already-attached one that no longer
+        // verifies (a legacy row written before ownership checks existed) is detached, not kept.
+        // Refusals are reported per attachment through validationError, the service's existing
+        // contract for attachments it could not save; the rest of the save goes ahead.
+        int detachedUnverified = 0;
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
@@ -804,22 +813,32 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
             uniqueAttachments.add(newAtth.getDocumentType() + newAtth.getDocumentNo());
 
-            boolean isNew = true;
+            ConsultDocs existing = null;
             for (ConsultDocs doc : currentDocs) {
                 if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()) {
-                    currentDocs.remove(doc);
-                    isNew = false;
+                    existing = doc;
                     break;
                 }
             }
-            if (isNew) { //save the new attachment
-                if (!isAttachmentOwnedBy(request.getDemographicId(), newAtth)) {
-                    markUnverifiedAttachment(newAtth);
-                    continue;
+            if (existing != null) {
+                // Already attached: keep it only while it still verifies. Otherwise it stays in
+                // currentDocs, which the loop below saves as detached.
+                if (isAttachmentOwnedBy(request.getDemographicId(), newAtth)) {
+                    currentDocs.remove(existing);
+                } else {
+                    newAtth.setValidationError(UNVERIFIED_ATTACHMENT);
+                    detachedUnverified++;
                 }
-                consultationManager.saveConsultRequestDoc(getLoggedInInfo(), new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
+                continue;
             }
+            //save the new attachment
+            if (!isAttachmentOwnedBy(request.getDemographicId(), newAtth)) {
+                markUnverifiedAttachment(newAtth);
+                continue;
+            }
+            consultationManager.saveConsultRequestDoc(getLoggedInInfo(), new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
         }
+        logDetachedUnverified(detachedUnverified);
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultDocs doc : currentDocs) {
@@ -837,24 +856,34 @@ public class ConsultationWebService extends AbstractServiceImpl {
             doc.setDeleted(ConsultResponseDoc.DELETED);
         }
 
+        // Same ownership policy as saveRequestAttachments (issue #3867).
+        int detachedUnverified = 0;
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
-            boolean isNew = true;
+            ConsultResponseDoc existing = null;
             for (ConsultResponseDoc doc : currentDocs) {
                 if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()) {
-                    currentDocs.remove(doc);
-                    isNew = false;
+                    existing = doc;
                     break;
                 }
             }
-            if (isNew) { //save the new attachment
-                if (!isAttachmentOwnedBy(demographicNo, newAtth)) {
-                    markUnverifiedAttachment(newAtth);
-                    continue;
+            if (existing != null) {
+                if (isAttachmentOwnedBy(demographicNo, newAtth)) {
+                    currentDocs.remove(existing);
+                } else {
+                    newAtth.setValidationError(UNVERIFIED_ATTACHMENT);
+                    detachedUnverified++;
                 }
-                consultationManager.saveConsultResponseDoc(getLoggedInInfo(), new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
+                continue;
             }
+            //save the new attachment
+            if (!isAttachmentOwnedBy(demographicNo, newAtth)) {
+                markUnverifiedAttachment(newAtth);
+                continue;
+            }
+            consultationManager.saveConsultResponseDoc(getLoggedInInfo(), new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
         }
+        logDetachedUnverified(detachedUnverified);
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
@@ -882,14 +911,23 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (!AttachmentOwnershipService.isVerifiable(type)) {
             return true;
         }
-        return attachmentOwnershipService.allBelongToDemographic(type, demographicNo,
-                Collections.singletonList(attachment.getDocumentNo()));
+        // Attach-time policy, as on the consultation form: an enabled legacy (CML/MDS/BCP) lab of
+        // the patient is attachable, and the renderers still print HL7 labs only.
+        return attachmentOwnershipService.findAttachableIds(type, demographicNo,
+                Collections.singletonList(attachment.getDocumentNo())).contains(attachment.getDocumentNo());
     }
 
     private void markUnverifiedAttachment(ConsultationAttachmentTo1 attachment) {
         // Generic on purpose: the response must not reveal whether the id exists for another patient.
         MiscUtils.getLogger().warn("saveAttachments: rejected an attachment not owned by the consultation patient");
-        attachment.setValidationError("Attachment could not be verified for this patient");
+        attachment.setValidationError(UNVERIFIED_ATTACHMENT);
+    }
+
+    private static void logDetachedUnverified(int detached) {
+        if (detached > 0) {
+            // Count only: attachment ids and the patient are PHI-correlating identifiers.
+            MiscUtils.getLogger().warn("saveAttachments: detached {} existing attachment(s) that no longer verify for the consultation patient", detached);
+        }
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,

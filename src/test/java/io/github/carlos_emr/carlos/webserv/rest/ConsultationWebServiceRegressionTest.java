@@ -29,6 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -41,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachmentTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +50,7 @@ import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -147,8 +150,8 @@ class ConsultationWebServiceRegressionTest {
         request.setAttachments(new ArrayList<>(List.of(owned, foreign)));
         when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(new ArrayList<>());
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
-        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.DOC, DEMOGRAPHIC_NO, List.of(10))).thenReturn(true);
-        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.LAB, DEMOGRAPHIC_NO, List.of(999))).thenReturn(false);
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, DEMOGRAPHIC_NO, List.of(10))).thenReturn(Set.of(10));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, DEMOGRAPHIC_NO, List.of(999))).thenReturn(Set.of());
 
         ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
 
@@ -159,11 +162,93 @@ class ConsultationWebServiceRegressionTest {
         assertThat(owned.getValidationError()).isNull();
     }
 
+    /**
+     * Review follow-up for issue #3867: refusing a foreign new attachment must not detach the
+     * consultation's existing attachments. Only rows the caller left out of the list are detached.
+     */
+    @Test
+    @DisplayName("should keep resubmitted attachments and detach only omitted ones when a new foreign attachment is refused")
+    void shouldKeepResubmittedAttachments_whenForeignNewAttachmentRefused() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        ConsultationAttachmentTo1 kept = existingAttachment(ConsultationAttachmentTo1.TYPE_DOC, 10);
+        ConsultationAttachmentTo1 foreign = existingAttachment(ConsultationAttachmentTo1.TYPE_LAB, 999);
+        request.setAttachments(new ArrayList<>(List.of(kept, foreign)));
+        ConsultDocs keptRow = new ConsultDocs(456, 10, ConsultationAttachmentTo1.TYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(keptRow, "id", 1);
+        ConsultDocs omittedRow = new ConsultDocs(456, 20, ConsultationAttachmentTo1.TYPE_EFORM, PROVIDER_NO);
+        ReflectionTestUtils.setField(omittedRow, "id", 2);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(new ArrayList<>(List.of(keptRow, omittedRow)));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, DEMOGRAPHIC_NO, List.of(10))).thenReturn(Set.of(10));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, DEMOGRAPHIC_NO, List.of(999))).thenReturn(Set.of());
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        ArgumentCaptor<ConsultDocs> saved = ArgumentCaptor.forClass(ConsultDocs.class);
+        verify(consultationManager).saveConsultRequestDoc(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getAllValues()).containsExactly(omittedRow);
+        assertThat(omittedRow.getDeleted()).isEqualTo(ConsultDocs.DELETED);
+        assertThat(foreign.getValidationError()).isEqualTo("Attachment could not be verified for this patient");
+        assertThat(kept.getValidationError()).isNull();
+    }
+
+    /**
+     * Issue #3867, same policy as the consultation form: an already-attached row that no longer
+     * verifies (a legacy foreign row) is detached on save instead of being kept because the caller
+     * resubmitted its id.
+     */
+    @Test
+    @DisplayName("should detach a resubmitted existing request attachment that is not the patient's")
+    void shouldDetachExistingRequestAttachment_whenNotOwnedByPatient() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        ConsultationAttachmentTo1 legacyForeign = existingAttachment(ConsultationAttachmentTo1.TYPE_LAB, 999);
+        request.setAttachments(new ArrayList<>(List.of(legacyForeign)));
+        ConsultDocs legacyRow = new ConsultDocs(456, 999, ConsultationAttachmentTo1.TYPE_LAB, PROVIDER_NO);
+        ReflectionTestUtils.setField(legacyRow, "id", 3);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(new ArrayList<>(List.of(legacyRow)));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, DEMOGRAPHIC_NO, List.of(999))).thenReturn(Set.of());
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        verify(consultationManager).saveConsultRequestDoc(loggedInInfo, legacyRow);
+        assertThat(legacyRow.getDeleted()).isEqualTo(ConsultDocs.DELETED);
+        assertThat(legacyForeign.getValidationError()).isEqualTo("Attachment could not be verified for this patient");
+    }
+
+    @Test
+    @DisplayName("should detach a resubmitted existing response attachment that is not the patient's and keep an owned one")
+    void shouldDetachExistingResponseAttachment_whenNotOwnedByPatient() {
+        ConsultationResponseTo1 response = new ConsultationResponseTo1();
+        response.setId(789);
+        ConsultationAttachmentTo1 owned = existingAttachment(ConsultationAttachmentTo1.TYPE_DOC, 10);
+        ConsultationAttachmentTo1 legacyForeign = existingAttachment(ConsultationAttachmentTo1.TYPE_EFORM, 999);
+        response.setAttachments(new ArrayList<>(List.of(owned, legacyForeign)));
+        ConsultResponseDoc ownedRow = new ConsultResponseDoc(789, 10, ConsultationAttachmentTo1.TYPE_DOC, PROVIDER_NO);
+        ReflectionTestUtils.setField(ownedRow, "id", 4);
+        ConsultResponseDoc legacyRow = new ConsultResponseDoc(789, 999, ConsultationAttachmentTo1.TYPE_EFORM, PROVIDER_NO);
+        ReflectionTestUtils.setField(legacyRow, "id", 3);
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 789)).thenReturn(new ArrayList<>(List.of(ownedRow, legacyRow)));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, DEMOGRAPHIC_NO, List.of(10))).thenReturn(Set.of(10));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.EFORM, DEMOGRAPHIC_NO, List.of(999))).thenReturn(Set.of());
+
+        ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response, DEMOGRAPHIC_NO);
+
+        ArgumentCaptor<ConsultResponseDoc> saved = ArgumentCaptor.forClass(ConsultResponseDoc.class);
+        verify(consultationManager).saveConsultResponseDoc(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getAllValues()).containsExactly(legacyRow);
+        assertThat(legacyRow.getDeleted()).isEqualTo(ConsultResponseDoc.DELETED);
+        assertThat(legacyForeign.getValidationError()).isEqualTo("Attachment could not be verified for this patient");
+        assertThat(owned.getValidationError()).isNull();
+    }
+
     @Test
     @DisplayName("should refuse an attachment with an unknown type code")
     void shouldRefuseAttachment_whenTypeCodeUnknown() {
         assertThat(service.isAttachmentOwnedBy(DEMOGRAPHIC_NO, existingAttachment("Z", 1))).isFalse();
-        verify(attachmentOwnershipService, never()).allBelongToDemographic(any(DocumentType.class), any(), any());
+        verify(attachmentOwnershipService, never()).findAttachableIds(any(DocumentType.class), any(), any());
     }
 
     private static ConsultationAttachmentTo1 existingAttachment(String type, int documentNo) {

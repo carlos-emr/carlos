@@ -21,14 +21,17 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -197,6 +200,53 @@ public class AttachmentOwnershipService {
         Set<Integer> result = new HashSet<>(candidates);
         result.retainAll(owned == null ? Collections.emptyList() : owned);
         return result;
+    }
+
+    /**
+     * Keeps the attachments whose id belongs to the patient, in their original order, with one
+     * batched {@link #findOwnedIds} lookup. This is the rendering-side filter: foreign, deleted and
+     * unparseable ids are dropped, and for {@link DocumentType#LAB} only HL7 labs are kept because
+     * the lab renderer resolves every LAB id as an HL7 segment.
+     *
+     * @param type attachment type
+     * @param demographicNo patient that must own the attachments; {@code null} keeps nothing
+     * @param attachments attachments as loaded for a consultation; {@code null} yields an empty list
+     * @param idOf extracts the attachment id as text
+     * @param <T> attachment representation
+     * @return the owned attachments; never {@code null}
+     */
+    public <T> List<T> retainOwned(DocumentType type, Integer demographicNo, List<T> attachments,
+                                   Function<T, String> idOf) {
+        if (attachments == null || attachments.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Map<T, Integer> idByAttachment = new IdentityHashMap<>();
+        for (T attachment : attachments) {
+            Integer id = parseId(attachment == null ? null : idOf.apply(attachment));
+            if (id != null) {
+                idByAttachment.put(attachment, id);
+            }
+        }
+        Set<Integer> owned = findOwnedIds(type, demographicNo, idByAttachment.values());
+        List<T> retained = new ArrayList<>(attachments.size());
+        for (T attachment : attachments) {
+            Integer id = attachment == null ? null : idByAttachment.get(attachment);
+            if (id != null && owned.contains(id)) {
+                retained.add(attachment);
+            }
+        }
+        return retained;
+    }
+
+    private static Integer parseId(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

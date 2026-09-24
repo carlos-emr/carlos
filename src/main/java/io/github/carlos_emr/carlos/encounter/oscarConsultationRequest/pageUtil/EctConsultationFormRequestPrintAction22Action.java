@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.function.Function;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,7 +41,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.openpdf.text.DocumentException;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMPDFCreator;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
@@ -103,7 +108,14 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
+    private final AttachmentOwnershipService attachmentOwnershipService;
+
+    private final ConsultationRequestDao consultationRequestDao;
+
     public EctConsultationFormRequestPrintAction22Action() {
+        // Struts creates this legacy action with a no-arg constructor.
+        this.attachmentOwnershipService = SpringUtils.getBean(AttachmentOwnershipService.class);
+        this.consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
     }
 
     /**
@@ -128,8 +140,21 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         String reqId = (String) request.getAttribute("reqId");
         if (request.getParameter("reqId") != null) reqId = request.getParameter("reqId");
 
-        String demoNo = request.getParameter("demographicNo");
-        ArrayList<EDoc> docs = EDocUtil.listDocs(loggedInInfo, demoNo, reqId, EDocUtil.ATTACHED);
+        // Issue #3867: this route is reachable directly, so neither the demographicNo parameter nor
+        // the consult_docs rows can be trusted. The patient comes from the stored consultation, and
+        // every attachment looked up by consultation id is kept only when it is that patient's own:
+        // a row written before attach-time ownership checks existed must not print another
+        // patient's record. Labs are kept only as HL7 labs because LabPDFCreator resolves every
+        // lab id as an HL7 segment. HRMs and forms below are already looked up per patient.
+        Integer ownerDemographicNo = findConsultationDemographicNo(reqId);
+        if (ownerDemographicNo == null) {
+            logger.warn("Consultation print refused: the consultation request id is missing, malformed or unknown");
+            request.setAttribute("printError", Boolean.TRUE);
+            return "error";
+        }
+        String demoNo = String.valueOf(ownerDemographicNo);
+        List<EDoc> docs = retainOwned(DocumentType.DOC, ownerDemographicNo,
+                EDocUtil.listDocs(loggedInInfo, demoNo, reqId, EDocUtil.ATTACHED), EDoc::getDocId);
         String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!path.endsWith(File.separator)) {
             path = path + File.separator;
@@ -141,7 +166,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         CommonLabResultData consultLabs = new CommonLabResultData();
         ArrayList<InputStream> streams = new ArrayList<InputStream>();
 
-        ArrayList<LabResultData> labs = consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED);
+        List<LabResultData> labs = retainOwned(DocumentType.LAB, ownerDemographicNo,
+                consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED),
+                LabResultData::getSegmentID);
         String error = "";
         Exception exception = null;
         try {
@@ -157,7 +184,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             alist.add(bis);
 
             // attached eForms
-            List<EFormData> eForms = consultationManager.getAttachedEForms(reqId);
+            List<EFormData> eForms = retainOwned(DocumentType.EFORM, ownerDemographicNo,
+                    consultationManager.getAttachedEForms(reqId),
+                    eForm -> eForm.getId() == null ? null : String.valueOf(eForm.getId()));
 
             for (EFormData eFormItem : eForms) {
                 Path attachedForm;
@@ -247,7 +276,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             }
 
             // attached forms
-            List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId), Integer.parseInt(demoNo));
+            List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId.trim()), ownerDemographicNo);
 
             for (EctFormData.PatientForm formItem : forms) {
                 InputStream attachedFormStream = renderFormAttachment(
@@ -317,6 +346,36 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         // result or bare null) stops Struts from resolving a view into the binary response.
         return NONE;
 
+    }
+
+    /**
+     * The patient the stored consultation request was written for, or {@code null} when the id is
+     * missing, not a number or does not name a consultation.
+     */
+    private Integer findConsultationDemographicNo(String reqId) {
+        if (reqId == null) {
+            return null;
+        }
+        int requestId;
+        try {
+            requestId = Integer.parseInt(reqId.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        ConsultationRequest consultationRequest = consultationRequestDao.find(requestId);
+        return consultationRequest == null ? null : consultationRequest.getDemographicId();
+    }
+
+    /** Keeps the patient's own attachments; logs only how many were omitted, never ids. */
+    private <T> List<T> retainOwned(DocumentType type, Integer demographicNo, List<T> attachments,
+                                    Function<T, String> idOf) {
+        List<T> retained = attachmentOwnershipService.retainOwned(type, demographicNo, attachments, idOf);
+        int omitted = (attachments == null ? 0 : attachments.size()) - retained.size();
+        if (omitted > 0) {
+            logger.warn("Omitted {} consultation attachment(s) of type {} not owned by the consultation patient",
+                    omitted, type.getType());
+        }
+        return retained;
     }
 
     private InputStream renderFormAttachment(

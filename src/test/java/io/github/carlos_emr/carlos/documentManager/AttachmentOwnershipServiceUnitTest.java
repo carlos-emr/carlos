@@ -196,6 +196,44 @@ class AttachmentOwnershipServiceUnitTest {
     }
 
     @Nested
+    @DisplayName("retainOwned")
+    class RetainOwned {
+
+        @Test
+        @DisplayName("should keep only the patient's attachments in their original order")
+        void shouldKeepOwnedAttachmentsInOrder_whenForeignAndMalformedIdsMixed() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(12, 10));
+
+            List<String> retained = service.retainOwned(DocumentType.DOC, PATIENT,
+                    Arrays.asList("12", "11", "abc", null, "10"), id -> id);
+
+            assertThat(retained).containsExactly("12", "10");
+        }
+
+        @Test
+        @DisplayName("should keep a CML lab out of rendering even when CML labs are attachable")
+        void shouldDropLegacyLab_forRendering() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(20));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of(30));
+
+            AttachmentOwnershipService cmlEnabled = new AttachmentOwnershipService(ctlDocumentDao, patientLabRoutingDao,
+                    eFormDataDao, hrmDocumentToDemographicDao, consultationRequestDao, () -> Set.of("CML"));
+
+            assertThat(cmlEnabled.retainOwned(DocumentType.LAB, PATIENT, List.of("20", "30"), id -> id))
+                    .containsExactly("20");
+        }
+
+        @Test
+        @DisplayName("should keep nothing when the patient is unknown")
+        void shouldReturnEmptyList_whenDemographicNull() {
+            assertThat(service.retainOwned(DocumentType.DOC, null, List.of("10"), id -> id)).isEmpty();
+            assertThat(service.<String>retainOwned(DocumentType.DOC, PATIENT, null, id -> id)).isEmpty();
+        }
+    }
+
+    @Nested
     @DisplayName("findAttachableIds")
     class FindAttachableIds {
 
