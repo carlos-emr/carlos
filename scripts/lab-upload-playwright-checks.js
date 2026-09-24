@@ -42,7 +42,7 @@
  * FIXTURE SAFETY: the synthetic patient, and every hl7TextMessage,
  * hl7TextInfo, patientLabRouting, providerLabRouting, measurement and
  * fileUploadCheck row the upload creates, are removed in cleanup by this run's
- * accession and MD5, pass or fail. The uploaders also ARCHIVE the file under
+ * accession and stamped file name, pass or fail. The uploaders also ARCHIVE the file under
  * DOCUMENT_DIR (LabUpload.<name>.<millis>); a browser cannot remove that, so a
  * run leaves one or two small synthetic .hl7 files there. Harmless on a
  * throwaway VM.
@@ -142,13 +142,15 @@ async function workflow(session) {
   const accession = `LU${stamp}`;
   const fileName = `lab-upload-probe-${stamp}.hl7`;
   const content = Buffer.from(syntheticCmlLab(accession, marker), 'latin1');
-  const md5 = crypto.createHash('md5').update(content).digest('hex');
+  // The uploader records the saved file's name (LabUpload.<name>.<millis>), which carries the
+  // run's random stamp, so the check finds its own fileUploadCheck row without hashing.
+  const ownUpload = `filename LIKE ${h.sqlString(`%${fileName}%`)}`;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-upload-'));
   // fileName is built from a fixed prefix and random hex, never from input.
   const filePath = path.join(workDir, fileName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
   fs.writeFileSync(filePath, content);
-  h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE md5sum=${h.sqlString(md5)}`) === '0',
-    'The synthetic lab is already recorded; its content must be unique to this run');
+  h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '0',
+    'A fileUploadCheck row already carries this run\'s stamp');
 
   cleanup(async () => {
     fs.rmSync(workDir, { recursive: true, force: true });
@@ -169,10 +171,10 @@ async function workflow(session) {
         DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
     }
-    sql.execute(`DELETE FROM fileUploadCheck WHERE md5sum=${h.sqlString(md5)}`);
+    sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
     h.assert(sql.value(`SELECT
         (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
-      + (SELECT COUNT(*) FROM fileUploadCheck WHERE md5sum=${h.sqlString(md5)})`) === '0',
+      + (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})`) === '0',
     'The synthetic lab rows were not all removed');
   });
 
@@ -181,7 +183,7 @@ async function workflow(session) {
     h.assert(status === 'Uploaded successfully', `First upload reported "${status}"`);
     await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`, '1',
       'The uploaded lab did not reach hl7TextInfo under its accession');
-    await expectValue(sql, `SELECT COUNT(*) FROM fileUploadCheck WHERE md5sum=${h.sqlString(md5)}`, '1',
+    await expectValue(sql, `SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`, '1',
       'The upload recorded no fileUploadCheck row for its content');
     const matched = sql.value(`SELECT COUNT(*) FROM patientLabRouting pl JOIN hl7TextInfo h
       ON h.lab_no=pl.lab_no AND pl.lab_type='HL7'
