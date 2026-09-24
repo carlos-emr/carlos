@@ -109,48 +109,54 @@ public final class RxChooseDrug2Action extends ActionSupport {
             String BN = request.getParameter("BN");
             String drugId = request.getParameter("drugId");
             rx.setBrandName(BN);
-            try {
+            // The results page's "drug not found" link chooses a custom drug with a blank id. Decide
+            // that here: DrugRef refuses a blank id before the NumberFormatException fallback below
+            // could see it (the failure crosses XML-RPC as "no record"), so the link staged nothing
+            // and sent the prescriber straight back to the Rx page (#3908).
+            if (drugId == null || drugId.isBlank()) {
+                stageCustom(rx);
+            } else {
+                try {
 
-                RxDrugData.DrugMonograph f = drugData.getDrug(drugId);
-                // Same key createNewRx stores: RxSessionBean.addStashItem de-dupes on brand
-                // name + GCN_SEQNO, so leaving it null collapsed different products that share
-                // a brand name into one stash entry.
-                rx.setGCN_SEQNO(drugId);
-                String genName = "";
-                genName = f.name;
-                rx.setAtcCode(f.atc);
-                rx.setBrandName(f.product);
-                rx.setRegionalIdentifier(f.regionalIdentifier);
+                    RxDrugData.DrugMonograph f = drugData.getDrug(drugId);
+                    // Same key createNewRx stores: RxSessionBean.addStashItem de-dupes on brand
+                    // name + GCN_SEQNO, so leaving it null collapsed different products that share
+                    // a brand name into one stash entry.
+                    rx.setGCN_SEQNO(drugId);
+                    String genName = "";
+                    genName = f.name;
+                    rx.setAtcCode(f.atc);
+                    rx.setBrandName(f.product);
+                    rx.setRegionalIdentifier(f.regionalIdentifier);
 
-                request.setAttribute("components", f.components);
-                String dosage = "";
-                for (int c = 0; c < f.components.size(); c++) {
-                    RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
-                    if (c == (f.components.size() - 1)) {
-                        dosage += dc.strength + " " + dc.unit;
-                    } else {
-                        dosage += dc.strength + " " + dc.unit + " / ";
-                    }
-                }
-                rx.setDosage(dosage);
-                StringBuilder compString = null;
-                if (f.components != null) {
-                    compString = new StringBuilder();
+                    request.setAttribute("components", f.components);
+                    String dosage = "";
                     for (int c = 0; c < f.components.size(); c++) {
                         RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
-                        compString.append(dc.name + " " + dc.strength + " " + dc.unit + " ");
+                        if (c == (f.components.size() - 1)) {
+                            dosage += dc.strength + " " + dc.unit;
+                        } else {
+                            dosage += dc.strength + " " + dc.unit + " / ";
+                        }
                     }
-                }
+                    rx.setDosage(dosage);
+                    StringBuilder compString = null;
+                    if (f.components != null) {
+                        compString = new StringBuilder();
+                        for (int c = 0; c < f.components.size(); c++) {
+                            RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
+                            compString.append(dc.name + " " + dc.strength + " " + dc.unit + " ");
+                        }
+                    }
 
-                if (compString != null) {
-                    rx.setGenericName(compString.toString());
-                } else {
-                    rx.setGenericName(genName);
+                    if (compString != null) {
+                        rx.setGenericName(compString.toString());
+                    } else {
+                        rx.setGenericName(genName);
+                    }
+                } catch (java.lang.NumberFormatException numEx) {          // Custom
+                    stageCustom(rx);
                 }
-            } catch (java.lang.NumberFormatException numEx) {          // Custom
-                rx.setBrandName(null);
-                rx.setCustomName("");
-                    rx.setGCN_SEQNO("0");
             }
 
             rx.setRxDate(RxUtil.Today());
@@ -167,5 +173,12 @@ public final class RxChooseDrug2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    /** Marks the card as a custom drug the prescriber names on the write-script page. */
+    private static void stageCustom(RxPrescriptionData.Prescription rx) {
+        rx.setBrandName(null);
+        rx.setCustomName("");
+        rx.setGCN_SEQNO("0");
     }
 }

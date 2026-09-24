@@ -157,6 +157,12 @@ class RxStashRemovalUnitTest extends CarlosUnitTestBase {
         // (#3908); insertion runs under the bean's monitor and replaces a taken key.
         registerMock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class,
                 mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class));
+        // addStashItem also preloads allergy warnings through RxPatientData, whose static
+        // DemographicManager lookup is a class-init Error the bean does not catch.
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class,
+                mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.AllergyDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.AllergyDao.class));
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(1);
         RxPrescriptionData.Prescription first = staged(5, "DRUG A", "111");

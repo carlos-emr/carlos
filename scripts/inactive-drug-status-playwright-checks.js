@@ -46,7 +46,9 @@ async function workflow(s) {
     assert(result.checked === true && result.inactiveDate === date, 'Inactive lookup lost its checked calendar date');
     await target.filter({ hasText: `Inactive Drug Since: ${date}` }).waitFor();
   });
-  const pattern = '**/rx/searchDrug';
+  // The lookup URL carries the patient (rx/searchDrug?demographicNo=...), so match the path, not
+  // the whole URL.
+  const pattern = /\/rx\/searchDrug(\?|$)/;
   for (const body of ['{}', '{"checked":false}', '{"checked":true,"inactiveDate":"2026-02-31"}', '<html>failure</html>']) {
     await s.step(`unusable response is visibly unchecked: ${body}`, async () => {
       const handler = route => new URLSearchParams(route.request().postData() || '').get('method') === 'inactiveDate'
