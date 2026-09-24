@@ -187,6 +187,11 @@ body {
     /* Marks are hit-tested for moving, editing and (select mode) deletion; empty
        overlay space draws in every mode except select. */
     touch-action: none;
+    /* Notes are SVG text, which the browser would otherwise select during a highlight or ink
+       drag that starts on them. A press on that selection then begins a native drag, which
+       cancels the pointer and silently drops the next stroke. */
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .pages[data-tool="select"] .overlay { cursor: default; }
