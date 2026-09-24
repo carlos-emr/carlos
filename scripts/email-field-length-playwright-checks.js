@@ -39,8 +39,8 @@
  *   2. the same form submitted with the page script bypassed is refused by the server, which
  *      renders its own message, and no emailLog row is written.
  *
- * Fixtures, all removed afterwards: a synthetic patient (runWorkflow) with an email address,
- * one active sender account on an unroutable .invalid domain, and one logged email to resend.
+ * Fixtures, all removed afterwards: a synthetic patient (runWorkflow) with an example.com email
+ * address, one active sender account on an unroutable .invalid domain, and one logged email to resend.
  * No SMTP server is needed: nothing reaches the send step.
  *
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
@@ -54,7 +54,10 @@ const OVERSIZE_SUBJECT = 'S'.repeat(1100);
 
 async function workflow(session) {
   const { sql, patient, provider, marker, context, config } = session;
-  const patientEmail = `${marker.toLowerCase()}@example.invalid`;
+  // The compose page validates recipients with Commons EmailValidator, which checks the TLD against
+  // the IANA list and rejects the reserved .invalid, so the patient uses the reserved documentation
+  // domain example.com. A rejected recipient disables the whole form.
+  const patientEmail = `${marker.toLowerCase()}@example.com`;
   sql.execute(`UPDATE demographic SET email=${h.sqlString(patientEmail)} WHERE demographic_no=${patient}`);
 
   const configId = sql.value(`INSERT INTO emailConfig (emailType, emailProvider, active, senderFirstName,
