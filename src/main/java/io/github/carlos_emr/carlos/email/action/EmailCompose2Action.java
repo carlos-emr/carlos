@@ -15,7 +15,6 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -229,10 +228,8 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            if (logger.isWarnEnabled()) {
-                String sanitizedFid = LogSafe.sanitize(fid);
-                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
-            }
+            // The rejected value is request text and adds nothing to the log, so it is not echoed.
+            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
             fid = null;
         }
 
