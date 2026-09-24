@@ -107,12 +107,17 @@ function assertBothInstructions(choices, screen) {
     `${screen} does not offer the legacy AACP "${LEGACY_INSTRUCTION}" instruction; it offers ${JSON.stringify(values)}`);
 }
 
-/** "(met/total)" from the report line for one AACP instruction and guideline. */
+/**
+ * "(met/total)" from the report line for one AACP instruction and guideline. The prefix is
+ * matched as a plain string (the instruction is data and may contain markup); only the fixed
+ * count suffix is parsed with a literal pattern.
+ */
 function reportCounts(text, instruction, guideline) {
-  const escape = (value) => value.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-  const line = new RegExp(`AACP ${escape(instruction)} -> ${escape(guideline)} \\((\\d+(?:\\.\\d+)?)/(\\d+(?:\\.\\d+)?)\\)`);
-  const match = line.exec(text);
-  h.assert(match, `the CDM report has no line for AACP ${instruction} with guideline ${guideline}`);
+  const prefix = `AACP ${instruction} -> ${guideline} (`;
+  const start = text.indexOf(prefix);
+  h.assert(start >= 0, `the CDM report has no line for AACP ${instruction} with guideline ${guideline}`);
+  const match = /^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)\)/.exec(text.slice(start + prefix.length));
+  h.assert(match, `the CDM report line for AACP ${instruction} has no (met/total) counts`);
   return { met: Number(match[1]), total: Number(match[2]) };
 }
 
