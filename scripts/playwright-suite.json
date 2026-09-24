@@ -494,11 +494,12 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [
-        "CML_UPLOAD_KEY"
+        "CML_UPLOAD_KEY",
+        "LAB_UPLOAD_DOCUMENT_STORE"
       ]
     },
     {

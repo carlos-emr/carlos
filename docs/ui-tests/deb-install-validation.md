@@ -516,6 +516,8 @@ export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=
 # using explicit local database access and the mounted server document directory.
 export PRESCRIPTION_SIGNATURE_CLEANUP=true
 export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# lab-upload-playwright-checks.js deletes its own archived LabUpload.lab-upload-probe-* files here.
+export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
 # login-playwright-checks mutates and restores this account; give it the hash of

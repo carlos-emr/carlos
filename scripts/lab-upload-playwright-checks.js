@@ -19,7 +19,7 @@
  * plan listed with no script behind it (issue #3774).
  *
  * The lab is a SYNTHETIC CML HL7 v2.3 message built here, with a per-run
- * accession number and the run's FAKE- patient in PID, so its MD5 is unique and
+ * accession number and the run's FAKE- patient in PID, so its content is unique and
  * every row it creates can be found and removed. It is never a real result.
  *
  * Steps:
@@ -43,13 +43,18 @@
  * hl7TextInfo, patientLabRouting, providerLabRouting, measurement and
  * fileUploadCheck row the upload creates, are removed in cleanup by this run's
  * accession and stamped file name, pass or fail. The uploaders also ARCHIVE the file under
- * DOCUMENT_DIR (LabUpload.<name>.<millis>); a browser cannot remove that, so a
- * run leaves one or two small synthetic .hl7 files there. Harmless on a
- * throwaway VM.
+ * DOCUMENT_DIR as LabUpload.lab-upload-probe-<stamp>.hl7.<millis>. With
+ * LAB_UPLOAD_DOCUMENT_STORE pointing at that directory as this process sees it,
+ * cleanup deletes exactly the files carrying this run's stamp and asserts none
+ * remain. Without it a browser cannot reach them, so they are kept and the
+ * check says so; remove them later by that prefix.
  *
  * Environment (beyond the common contract in lib/playwright-harness.js):
- *   CML_UPLOAD_KEY  the server's CML_UPLOAD_KEY; enables the uploadedPreviously
- *                   half of step 3. Unset: that half is skipped.
+ *   CML_UPLOAD_KEY             the server's CML_UPLOAD_KEY; enables the
+ *                              uploadedPreviously half of step 3. Unset: that
+ *                              half is skipped.
+ *   LAB_UPLOAD_DOCUMENT_STORE  the server's DOCUMENT_DIR, mounted or local;
+ *                              enables removal of this run's archived files.
  */
 
 const crypto = require('node:crypto');
@@ -138,6 +143,29 @@ async function postCml(page, contextPath, bytes, fileName, key) {
   return match[1] || '';
 }
 
+/**
+ * Deletes this run's archived uploads from LAB_UPLOAD_DOCUMENT_STORE. Only names built entirely
+ * from the fixed probe prefix, this run's random stamp and the uploader's millisecond suffix match,
+ * so no other document in the store can be touched.
+ */
+function removeArchivedUploads(stamp) {
+  const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
+  if (!store) {
+    console.warn(`    archived uploads retained: set LAB_UPLOAD_DOCUMENT_STORE to remove LabUpload.lab-upload-probe-${stamp}.hl7.*`);
+    return;
+  }
+  const root = fs.realpathSync(store);
+  const owned = new RegExp(`^LabUpload\\.lab-upload-probe-${stamp}\\.hl7\\.\\d+$`);
+  const ownFiles = () => fs.readdirSync(root).filter((name) => owned.test(name));
+  // name matched the fixed pattern above and is joined to the resolved store root.
+  const found = ownFiles();
+  for (const name of found) fs.unlinkSync(path.join(root, name)); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+  // Every run archives at least the first upload; finding none means the store or the archive
+  // name no longer matches, and cleanup would otherwise pass while leaving the files behind.
+  h.assert(found.length > 0, `No archived LabUpload.lab-upload-probe-${stamp}.hl7.* file was found in LAB_UPLOAD_DOCUMENT_STORE`);
+  h.assert(ownFiles().length === 0, 'The archived synthetic lab uploads were not all removed');
+}
+
 async function workflow(session) {
   const { sql, patient, marker, cleanup, config } = session;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -174,6 +202,7 @@ async function workflow(session) {
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
     }
     sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
+    removeArchivedUploads(stamp);
     h.assert(sql.value(`SELECT
         (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
       + (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})`) === '0',
