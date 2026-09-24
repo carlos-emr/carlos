@@ -32,18 +32,21 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
  * active" flag, with no database, and counts what happened.
  *
  * <p>Register it as the {@code PlatformTransactionManager} bean for code that opens its own
- * {@code TransactionTemplate}. {@link #failBegin} and {@link #failCommit} simulate a transaction that
- * cannot start and a commit whose outcome is unknown.</p>
+ * {@code TransactionTemplate}. {@link #failBegin}, {@link #failCommit} and {@link #rollBackOnCommit} simulate
+ * a transaction that cannot start, a commit whose outcome is unknown, and a commit that fails with
+ * a confirmed rollback.</p>
  *
  * @since 2026-09-24
  */
 public final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
-    public int begun;
-    public int commits;
-    public int rollbacks;
-    public Integer lastIsolationLevel;
-    public boolean failBegin;
-    public boolean failCommit;
+    // Volatile, with synchronized updates below: concurrency tests run transactions on worker threads.
+    public volatile int begun;
+    public volatile int commits;
+    public volatile int rollbacks;
+    public volatile Integer lastIsolationLevel;
+    public volatile boolean failBegin;
+    public volatile boolean failCommit;
+    public volatile boolean rollBackOnCommit;
 
     @Override
     protected Object doGetTransaction() {
@@ -51,7 +54,7 @@ public final class RecordingTransactionManager extends AbstractPlatformTransacti
     }
 
     @Override
-    protected void doBegin(Object transaction, TransactionDefinition definition) {
+    protected synchronized void doBegin(Object transaction, TransactionDefinition definition) {
         if (failBegin) {
             throw new CannotCreateTransactionException("database unavailable");
         }
@@ -60,15 +63,20 @@ public final class RecordingTransactionManager extends AbstractPlatformTransacti
     }
 
     @Override
-    protected void doCommit(DefaultTransactionStatus status) {
+    protected synchronized void doCommit(DefaultTransactionStatus status) {
         if (failCommit) {
             throw new TransactionSystemException("commit acknowledgement lost");
+        }
+        if (rollBackOnCommit) {
+            // A non-transaction exception from doCommit makes Spring roll back and report
+            // STATUS_ROLLED_BACK, i.e. a commit that failed with a confirmed rollback.
+            throw new IllegalStateException("commit refused; rolled back");
         }
         commits++;
     }
 
     @Override
-    protected void doRollback(DefaultTransactionStatus status) {
+    protected synchronized void doRollback(DefaultTransactionStatus status) {
         rollbacks++;
     }
 }

@@ -220,8 +220,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
-                    if (status == STATUS_ROLLED_BACK) {
-                        deletePartialOutput(archived);
+                    // Cleared only once the file is really gone: if the delete fails the archive is
+                    // still on disk, and the failure path must not write a second copy beside it.
+                    if (status == STATUS_ROLLED_BACK && deletePartialOutput(archived)) {
                         kept.set(null);
                     }
                 }
@@ -279,16 +280,19 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * invocation created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
      *
      * @param outputFile the destination to remove, or {@code null} if none was created
+     * @return {@code true} when no such file remains
      */
-    private static void deletePartialOutput(File outputFile) {
+    private static boolean deletePartialOutput(File outputFile) {
         if (outputFile == null) {
-            return;
+            return true;
         }
         try {
             Files.deleteIfExists(outputFile.toPath());
+            return true;
         } catch (IOException deleteException) {
             MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
                     deleteException.getClass().getSimpleName());
+            return false;
         }
     }
 
