@@ -44,9 +44,12 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
-async function xhr(page, method, path, body) {
-  return page.evaluate(({ method: verb, path: target, body: payload }) => new Promise((resolve) => {
-    const context = window.location.pathname.split('/').slice(0, 2).join('/');
+// The REST root is under the deployment's context path, taken from BASE_URL (as the rest of the
+// suite does) rather than guessed from the current page's URL, so a root-context install works too.
+const contextPathOf = (baseUrl) => new URL(baseUrl).pathname.replace(/\/+$/, '');
+
+async function xhr(page, context, method, path, body) {
+  return page.evaluate(({ context, method: verb, path: target, body: payload }) => new Promise((resolve) => {
     const request = new XMLHttpRequest();
     request.open(verb, `${context}${target}`);
     request.setRequestHeader('Accept', 'application/json');
@@ -54,7 +57,7 @@ async function xhr(page, method, path, body) {
     request.onload = () => resolve({ status: request.status, text: request.responseText });
     request.onerror = () => resolve({ status: 0, text: '' });
     request.send(payload === undefined ? null : JSON.stringify(payload));
-  }), { method, path, body });
+  }), { context, method, path, body });
 }
 
 function parse(result, label) {
@@ -68,6 +71,7 @@ function parse(result, label) {
 
 async function workflow(session) {
   const { sql, patient, provider, schedule } = session;
+  const context = contextPathOf(session.config.baseUrl);
   const other = sql.value(`SELECT provider_no FROM provider WHERE status='1' AND provider_no <> ${h.sqlString(provider)}
     AND provider_no REGEXP '^[0-9]+$' ORDER BY provider_no LIMIT 1`);
   if (!other) throw new h.SkipCheck('needs a second active provider to re-enrol the patient to');
@@ -76,19 +80,19 @@ async function workflow(session) {
 
   let record;
   await session.step('GET returns the stored rosterEnrolledTo', async () => {
-    record = parse(await xhr(schedule, 'GET', `/ws/rs/demographics/${patient}`), 'GET /ws/rs/demographics/{id}');
+    record = parse(await xhr(schedule, context, 'GET', `/ws/rs/demographics/${patient}`), 'GET /ws/rs/demographics/{id}');
     h.assert(String(record.demographicNo) === String(patient), 'the API returned a different patient');
     h.assert(record.rosterEnrolledTo === provider,
       `rosterEnrolledTo is ${JSON.stringify(record.rosterEnrolledTo)}, expected the enrolled provider`);
   });
 
   await session.step('PUT with a changed rosterEnrolledTo persists it', async () => {
-    const updated = parse(await xhr(schedule, 'PUT', '/ws/rs/demographics', { ...record, rosterEnrolledTo: other }),
+    const updated = parse(await xhr(schedule, context, 'PUT', '/ws/rs/demographics', { ...record, rosterEnrolledTo: other }),
       'PUT /ws/rs/demographics');
     h.assert(updated.rosterEnrolledTo === other, 'the PUT response does not carry the new rosterEnrolledTo');
     await expectValue(sql, `SELECT roster_enrolled_to FROM demographic WHERE demographic_no=${patient}`, other,
       'the PUT did not persist rosterEnrolledTo');
-    const reread = parse(await xhr(schedule, 'GET', `/ws/rs/demographics/${patient}`), 'GET after PUT');
+    const reread = parse(await xhr(schedule, context, 'GET', `/ws/rs/demographics/${patient}`), 'GET after PUT');
     h.assert(reread.rosterEnrolledTo === other, 'a fresh GET does not return the updated rosterEnrolledTo');
   });
 }
