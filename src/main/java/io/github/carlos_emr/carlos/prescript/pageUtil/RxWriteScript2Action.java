@@ -1395,6 +1395,16 @@ public final class RxWriteScript2Action extends ActionSupport {
                 continue;
             }
         }
+        // A submission that names no staged card (no drugName_* field, or only stale random ids)
+        // is an empty save. Refuse it BEFORE pruning: removeClosedStashItems() treats every stash
+        // item missing from the form as closed, so pruning first would wipe the whole stash and
+        // only then have saveDrug() skip the save (#3869). The page blocks this too; a direct or
+        // stale POST must not be able to clear the prescriber's drafts.
+        if (existingIndex.isEmpty()) {
+            logger.info("Refused prescription save: the submission names no staged medication");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         removeClosedStashItems(bean, existingIndex);
 
         saveDrug(request);
@@ -1699,13 +1709,18 @@ public final class RxWriteScript2Action extends ActionSupport {
      */
     void archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, Set<Integer> savedSourceIds,
                           String ip, String auditStr) {
+        // Drug ids and demographic numbers correlate to patient records (CLAUDE.md PHI policy), so
+        // skipped entries are only counted by reason and summarised once below.
+        int malformed = 0;
+        int notReprescribed = 0;
+        int failed = 0;
+        int refused = 0;
         for (String item : bean.getReRxDrugIdList()) {
 
             // The list permits nulls, and item.trim() would throw past the catch below, stranding
             // every later entry after the new script is already persisted.
             if (item == null) {
-                logger.warn("Skipped re-Rx archival: null staged drug id, demographicNo={}",
-                        bean.getDemographicNo());
+                malformed++;
                 continue;
             }
 
@@ -1713,15 +1728,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             try {
                 drugId = Integer.parseInt(item.trim());
             } catch (NumberFormatException e) {
-                logger.warn("Skipped re-Rx archival: malformed staged drug id, demographicNo={}",
-                        bean.getDemographicNo());
+                malformed++;
                 continue;
             }
 
             if (!savedSourceIds.contains(drugId)) {
                 // Ticked but never staged (or its card was closed): the source medication stays
                 // active because no replacement was written.
-                logger.info("Skipped re-Rx archival: drugId={} was not re-prescribed in this save", drugId);
+                notReprescribed++;
                 continue;
             }
 
@@ -1731,15 +1745,13 @@ public final class RxWriteScript2Action extends ActionSupport {
                 archived = this.rxManager.archiveDrug(loggedInInfo, drugId,
                         bean.getDemographicNo(), Drug.REPRESCRIBED);
             } catch (RuntimeException e) {
-                logger.warn("Skipped re-Rx archival: drugId={} could not be archived ({})",
-                        drugId, e.getClass().getSimpleName());
+                failed++;
                 continue;
             }
 
             if (!archived) {
                 // archiveDrug() cannot distinguish a missing row from a cross-patient one.
-                logger.warn("Skipped re-Rx archival: drugId={} not found or not owned by demographicNo={}",
-                        drugId, bean.getDemographicNo());
+                refused++;
                 continue;
             }
 
@@ -1748,6 +1760,13 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             //log that the med is being discontinued buy the system
             LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + drugId, "", "" + bean.getDemographicNo(), auditStr);
+        }
+        if (malformed + failed + refused > 0) {
+            logger.warn("Skipped re-Rx archival: {} malformed staged id(s), {} archive failure(s), "
+                    + "{} not found or not owned by the Rx patient", malformed, failed, refused);
+        }
+        if (notReprescribed > 0) {
+            logger.info("Skipped re-Rx archival: {} staged source(s) not re-prescribed in this save", notReprescribed);
         }
     }
 
@@ -1760,7 +1779,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      */
     private boolean isDrugOwnedByDemographic(String drugIdParam, int sessionDemographicNo) {
         if (drugIdParam == null || drugIdParam.trim().isEmpty()) {
-            logger.warn("Blocked re-Rx staging: no drug id supplied, sessionDemographicNo={}", sessionDemographicNo);
+            logger.warn("Blocked re-Rx staging: no drug id supplied");
             return false;
         }
 
@@ -1768,22 +1787,21 @@ public final class RxWriteScript2Action extends ActionSupport {
         try {
             drugId = Integer.parseInt(drugIdParam.trim());
         } catch (NumberFormatException e) {
-            logger.warn("Blocked re-Rx staging: malformed drug id, sessionDemographicNo={}", sessionDemographicNo);
+            logger.warn("Blocked re-Rx staging: malformed drug id");
             return false;
         }
 
         DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
         Drug drug = drugDao.find(drugId);
         if (drug == null) {
-            logger.warn("Blocked re-Rx staging: drugId={} not found, sessionDemographicNo={}",
-                    drugId, sessionDemographicNo);
+            logger.warn("Blocked re-Rx staging: drug not found");
             return false;
         }
 
         // getDemographicId() is a nullable Integer -- '!=' would unbox to an NPE on a null demographic_no.
         if (!Objects.equals(drug.getDemographicId(), sessionDemographicNo)) {
-            logger.warn("Blocked cross-patient re-Rx staging: drugId={} drugDemographicNo={} sessionDemographicNo={}",
-                    drugId, drug.getDemographicId(), sessionDemographicNo);
+            // No ids: drug and demographic numbers correlate to patient records.
+            logger.warn("Blocked cross-patient re-Rx staging: drug does not belong to the Rx session's patient");
             return false;
         }
 

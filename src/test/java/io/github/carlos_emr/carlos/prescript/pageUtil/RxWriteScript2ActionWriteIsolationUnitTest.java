@@ -191,6 +191,40 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse an empty save without pruning the staged medications")
+    void shouldKeepStash_whenSaveSubmitsNoStagedMedication() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("parameterValue", "updateSaveAllDrugs");
+        RxPrescriptionData.Prescription second = mock(RxPrescriptionData.Prescription.class);
+        bean.getStashList().add(second);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(bean.getStashList()).containsExactly(stagedCard, second);
+        verifyNoInteractions(stagedCard, second, mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should refuse a save whose cards are all stale without pruning the staged medications")
+    void shouldKeepStash_whenSaveNamesOnlyStaleCards() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("parameterValue", "updateSaveAllDrugs");
+        request.setParameter("drugName_999999", "STALE CARD");
+        when(stagedCard.getRandomId()).thenReturn(111111L);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(bean.getStashList()).containsExactly(stagedCard);
+        verifyNoInteractions(mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
     @DisplayName("should not change a drug's long-term status when the request names no patient")
     void shouldNotArchive_whenLongTermToggleNamesNoPatient() throws Exception {
         request.setParameter("parameterValue", "updateLongTermStatus");
