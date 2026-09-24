@@ -308,15 +308,14 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should neither save nor stamp the live stash while the session is in reprint mode")
     void shouldSkipSaveAndStamp_whenSessionIsInReprintMode() throws Exception {
-        // reprint2 leaves the reprinted script in tmpBeanRX and rePrint=true; the live stash still
-        // holds an UNSAVED re-prescription carrying the historical script number 123.
+        // reprint2 leaves the reprinted script in this patient's reprint workspace; the live stash
+        // still holds an UNSAVED re-prescription carrying the historical script number 123.
         liveBean.getStashList().add(rePrescribedItem("123"));
         RxSessionBean reprinted = new RxSessionBean();
         reprinted.setProviderNo(PROVIDER_NO);
         reprinted.setDemographicNo(DEMOGRAPHIC_NO);
         reprinted.getStashList().add(savedItem(9, "456"));
-        request.getSession().setAttribute("tmpBeanRX", reprinted);
-        request.getSession().setAttribute("rePrint", "true");
+        RxReprintWorkspace.store(request.getSession(), reprinted, "");
 
         String result = newAction().execute();
 
@@ -329,33 +328,47 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should clear a stale reprint marker and bail out when the reprinted stash is missing")
-    void shouldRedirectAndClearMarker_whenReprintModeHasNoReprintedStash() throws Exception {
-        // rePrint=true without tmpBeanRX: the view would dereference the missing bean, and the
-        // live (unsaved) stash must still not be saved or stamped on the way out.
-        liveBean.getStashList().add(rePrescribedItem("123"));
-        request.getSession().setAttribute("rePrint", "true");
+    @DisplayName("should render this patient's own script when only another patient is being reprinted")
+    void shouldIgnoreReprint_whenItBelongsToAnotherPatient() throws Exception {
+        // Two Rx windows: a reprint loaded in patient 43's window used to switch every window of the
+        // session into reprint mode and render 43's script here (#3908).
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        liveBean.getStashList().add(savedItem(5, "789"));
+        RxSessionBean otherPatientsReprint = new RxSessionBean();
+        otherPatientsReprint.setProviderNo(PROVIDER_NO);
+        otherPatientsReprint.setDemographicNo(DEMOGRAPHIC_NO + 1);
+        otherPatientsReprint.getStashList().add(savedItem(9, "456"));
+        RxReprintWorkspace.store(request.getSession(), otherPatientsReprint, "other patient's comment");
 
         String result = newAction().execute();
 
-        assertThat(result).isNull();
-        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
-        assertThat(request.getSession().getAttribute("rePrint")).isNull();
-        assertThat(request.getAttribute("scriptId")).isNull();
-        verifyNoInteractions(stampService, prescriptionDao);
+        assertThat(result).isEqualTo("viewScript");
+        assertThat(request.getAttribute("scriptId")).isEqualTo("789");
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO + 1)).isNotNull();
     }
 
     @Test
-    @DisplayName("should treat a cleared rePrint flag as a normal view")
-    void shouldNotEnterReprintMode_whenFlagCleared() {
-        request.getSession().setAttribute("rePrint", null);
-        assertThat(RxViewScript2Action.isReprintMode(request.getSession())).isFalse();
+    @DisplayName("should keep each patient's reprint separate and clear only the named patient")
+    void shouldScopeReprintState_perPatient() {
+        RxSessionBean first = new RxSessionBean();
+        first.setDemographicNo(DEMOGRAPHIC_NO);
+        RxSessionBean second = new RxSessionBean();
+        second.setDemographicNo(DEMOGRAPHIC_NO + 1);
 
-        request.getSession().setAttribute("rePrint", "false");
-        assertThat(RxViewScript2Action.isReprintMode(request.getSession())).isFalse();
+        RxReprintWorkspace.store(request.getSession(), first, "first");
+        RxReprintWorkspace.store(request.getSession(), second, null);
 
-        request.getSession().setAttribute("rePrint", "true");
-        assertThat(RxViewScript2Action.isReprintMode(request.getSession())).isTrue();
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO).bean()).isSameAs(first);
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO).comment()).isEqualTo("first");
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO + 1).comment()).isEmpty();
+
+        RxReprintWorkspace.clear(request.getSession(), DEMOGRAPHIC_NO);
+
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), DEMOGRAPHIC_NO)).isFalse();
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), DEMOGRAPHIC_NO + 1)).isTrue();
+        assertThat(RxReprintWorkspace.isReprinting(null, DEMOGRAPHIC_NO + 1)).isFalse();
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), null)).isFalse();
     }
 
     @Test

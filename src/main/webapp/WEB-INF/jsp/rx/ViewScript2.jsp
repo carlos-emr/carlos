@@ -31,6 +31,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -159,13 +160,15 @@
             vecPageSizeValues.add("PageSize.A6");
             vecPageSizeValues.add("PageSize.Letter");
 //are we printing in the past?
-//String reprint = (String)request.getAttribute("rePrint") != null ? (String)request.getAttribute("rePrint") : "false";
 
-            String reprint = (String) request.getSession().getAttribute("rePrint") != null ? (String) request.getSession().getAttribute("rePrint") : "false";
+            // Reprint state is per patient (#3908): only a reprint loaded for THIS window's patient
+            // switches the page into reprint mode, and only that patient's reprinted script renders.
+            RxReprintWorkspace.Entry reprintEntry = RxReprintWorkspace.find(session, viewScriptDemographicNo);
+            String reprint = reprintEntry != null ? "true" : "false";
 
             String createAnewRx;
-            if (reprint.equalsIgnoreCase("true")) {
-                bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
+            if (reprintEntry != null) {
+                bean = reprintEntry.bean();
                 createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug?demographicNo=" + bean.getDemographicNo() + "'";
             } else {
                 createAnewRx = "javascript:clearPending('')";
@@ -278,8 +281,8 @@
                     vecAddress.add(addressHtml);
                 }
             }
-            String comment = request.getSession().getAttribute("comment") != null ? request.getSession().getAttribute("comment").toString() : "";
-            request.getSession().removeAttribute("comment");
+            // The script comment belongs to this patient's reprint, never to another window's.
+            String comment = reprintEntry != null ? reprintEntry.comment() : "";
             String pharmacyId = request.getParameter("pharmacyId");
             RxPharmacyData pharmacyData = new RxPharmacyData();
             PharmacyInfo pharmacy = null;
@@ -1652,7 +1655,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             </td>
                                         </tr>
                                         <%
-                                            if (request.getSession().getAttribute("rePrint") == null) {%>
+                                            if (reprintEntry == null) {%>
 
                                         <tr>
                                             <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgAddNotesRx"/></span></td>

@@ -282,6 +282,12 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
                     "_rx", "u"),
             Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
+                    "_rx", "u"),
+            // Hiding a drug from the CPP list and swapping two drugs' display positions change the
+            // chart; both reject non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
                     "_rx", "u")
         );
     }
@@ -348,6 +354,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // Drug-form editor gate: GET renders it for a readable patient; action=update changes the
         // drug and rejects GET/HEAD (#3908). Covered by ViewUpdateForm2ActionUnitTest.
         "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
+        // Allergy display: the page and allergyData stay GET-compatible; method=reorder rewrites
+        // allergy positions and rejects non-POST with 405 (#3908). Covered by
+        // RxShowAllergy2ActionTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
         // Prescription stash: deletePrescribe and the legacy action=delete remove a staged card and
         // are POST-only; setStashIndex / action=edit cursor moves stay verb-open. Issue #3871.
         // Covered by RxStash2ActionUnitTest.
@@ -512,7 +522,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
-        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action"
+        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
+        "io.github.carlos_emr.carlos.prescript.web.RxReorder2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

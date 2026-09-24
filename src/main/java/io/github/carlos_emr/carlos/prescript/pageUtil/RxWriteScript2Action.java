@@ -126,9 +126,9 @@ public final class RxWriteScript2Action extends ActionSupport {
     /**
      * Dispatches to the Rx write operation named by the {@code parameterValue} request parameter.
      *
-     * <p>On the save-and-print path the script is persisted, any stale {@code rePrint} session
-     * state is cleared so a subsequent view is not mistaken for a reprint, and the prescriber's
-     * signature stamp is applied when one is configured. (Reuse of an already-persisted script
+     * <p>On the save-and-print path the script is persisted, the patient's stale reprint state
+     * ({@link RxReprintWorkspace}) is cleared so a subsequent view is not mistaken for a reprint,
+     * and the prescriber's signature stamp is applied when one is configured. (Reuse of an already-persisted script
      * number happens in {@link RxViewScript2Action}, not here.)</p>
      *
      * @return the Struts result for the dispatched operation
@@ -292,16 +292,16 @@ public final class RxWriteScript2Action extends ActionSupport {
                     rx = null;
                 }
                 fwd = "viewScript";
-                // A reprint earlier in this session leaves rePrint=true behind; ViewScript2.jsp
-                // would then render the reprinted tmpBeanRX instead of the script just written.
-                // nosemgrep: tainted-session-from-http-request -- value is null literal (clearing session attribute), not user input
-                request.getSession().setAttribute("rePrint", null);
+                // A reprint earlier for this patient leaves its RxReprintWorkspace entry behind;
+                // ViewScript2.jsp would then render the reprinted script instead of the one just
+                // written. Only this patient's entry is cleared (#3908).
+                RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
                 // Same stamp-on-write as RxViewScript2Action: a stamp on file signs the freshly
                 // written script so it can be faxed without the pad. This action already runs under
                 // _rx write (checkPrivilege above). Eligibility is decided inside the service from
-                // the persisted row, so no session rePrint guard is needed here.
+                // the persisted row, so no reprint-state guard is needed here.
                 if (signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
                     request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
                 }
@@ -1277,8 +1277,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // patient being saved, not only the global _rx write checked above (#3908).
         RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
                 bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
-        // nosemgrep: tainted-session-from-http-request -- value is null literal (clearing session attribute), not user input
-        request.getSession().setAttribute("rePrint", null); // set to print.
+        // Saving this patient's drugs ends that patient's reprint, not another window's (#3908).
+        RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
         List<String> paramList = new ArrayList<String>();
         Enumeration em = request.getParameterNames();
         List<String> randNum = new ArrayList<String>();

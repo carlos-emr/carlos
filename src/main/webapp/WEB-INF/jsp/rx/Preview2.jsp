@@ -54,6 +54,7 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
@@ -168,7 +169,6 @@
             %>
         </c:if>
 
-            <%--<link rel="stylesheet" type="text/css" href="styles.css">--%>
             <%--<script type="text/javascript" language="Javascript">--%>
             <%--	--%>
 
@@ -187,16 +187,17 @@
     <%
         Date rxDate = RxUtil.Today();
 //String rePrint = request.getParameter("rePrint");
-        String rePrint = (String) request.getSession().getAttribute("rePrint");
-//String rePrint = (String)request.getSession().getAttribute("rePrint");
+        // Reprint state is per patient (#3908): only a reprint loaded for the patient this request
+        // resolved to renders here, never another open window's reprint.
+        RxReprintWorkspace.Entry reprintEntry = RxReprintWorkspace.find(session, bean == null ? null : bean.getDemographicNo());
+        String rePrint = reprintEntry != null ? "true" : null;
         RxProviderData.Provider provider;
         String signingProvider;
-        if (rePrint != null && rePrint.equalsIgnoreCase("true")) {
-            bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
+        if (reprintEntry != null) {
+            bean = reprintEntry.bean();
             signingProvider = bean.getStashItem(0).getProviderNo();
             rxDate = bean.getStashItem(0).getRxDate();
             provider = new RxProviderData().getProvider(signingProvider);
-//    session.setAttribute("tmpBeanRX", null);
             String ip = request.getRemoteAddr();
             //LogAction.addLog((String) session.getAttribute("user"), LogConst.UPDATE, LogConst.CON_PRESCRIPTION, String.valueOf(bean.getDemographicNo()), ip);
         } else {

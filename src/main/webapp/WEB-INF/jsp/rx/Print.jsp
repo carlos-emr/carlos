@@ -59,7 +59,7 @@
 <%-- This is the Rx patient chooser (ViewPrint and searchPatient): it runs before any patient is
      chosen and shows only search results, so it must not depend on per-patient Rx state. Resolving
      a bean here sent a session with no open Rx patient to the error page before the search form (#3908). --%>
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <table border="0" cellpadding="0" cellspacing="0"

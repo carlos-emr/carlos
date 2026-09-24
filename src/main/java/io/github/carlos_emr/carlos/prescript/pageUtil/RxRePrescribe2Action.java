@@ -141,8 +141,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         String comment = rxData.getScriptComment(script_no);
 
-        // script_no passed through Integer.parseInt() before DB lookup; beanRX data sourced from database prescriptions
-        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The reprint is kept per patient, never session-wide, so another patient's window cannot
+        // render it (#3908). beanRX holds database prescriptions of the resolved patient only.
+        RxReprintWorkspace.store(request.getSession(), beanRX, comment);
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
@@ -152,8 +153,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
     }
 
     /**
-     * Loads a saved script of the resolved patient into the reprint bean ({@code tmpBeanRX}) and flags
-     * the session for reprint; the script is looked up for that patient only ({@code _rx} read).
+     * Loads a saved script of the resolved patient into that patient's {@link RxReprintWorkspace}
+     * entry; the script is looked up for that patient only ({@code _rx} read).
      *
      * @return {@code null}; ViewScript2 renders the reprint
      */
@@ -202,10 +203,11 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         String comment = rxData.getScriptComment(script_no);
-        // script_no passed through Integer.parseInt() before DB lookup; beanRX and comment data sourced from database
-        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("rePrint", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - constant string literal
-        request.getSession().setAttribute("comment", comment); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The reprinted script, its comment and the "reprinting" state are kept per patient: the
+        // old session-wide tmpBeanRX / rePrint / comment put every other open Rx window into
+        // reprint mode showing this patient's script (#3908). beanRX and comment come from the
+        // database for the resolved patient only.
+        RxReprintWorkspace.store(request.getSession(), beanRX, comment);
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
 
         return null;

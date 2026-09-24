@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxSatelliteClinicAddress;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
@@ -1077,8 +1078,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *       ({@link RxSatelliteClinicAddress#blocksFor}); anything else falls back to the main
      *       clinic and is logged, because {@code parseSCAddress} would otherwise print whatever the
      *       caller sent as the clinic.</li>
-     *   <li>Reprint annotation: present only when this session is reprinting (the same session flag
-     *       the preview keys on) and the record has a print history, with the record's own first
+     *   <li>Reprint annotation: present only when this session is reprinting this record's patient
+     *       (the same per-patient reprint state the preview keys on) and the record has a print history, with the record's own first
      *       print date and count; blank otherwise.</li>
      * </ul>
      */
@@ -1135,10 +1136,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         bound.put("useSC", offeredBlock != null ? "true" : "false");
         bound.put("scAddress", offeredBlock != null ? offeredBlock : "");
 
-        // Reprint annotation. The preview decides "is this a reprint" from the session flag the
-        // reprint action sets, and prints the first drug's stored print date and count.
-        // RxRePrescribe2Action stores the literal "true"; an exact compare needs no case fold.
-        boolean reprinting = session != null && "true".equals(session.getAttribute("rePrint"));
+        // Reprint annotation. The preview decides "is this a reprint" from the reprint the
+        // reprint action recorded for THIS prescription's patient (per patient, #3908: a reprint
+        // open in another patient's window must not annotate this fax), and prints the first
+        // drug's stored print date and count.
+        boolean reprinting = RxReprintWorkspace.isReprinting(session, prescription.getDemographicId());
         RxPrescriptionData.Prescription first = recordDrugs.isEmpty() ? null : recordDrugs.get(0);
         if (reprinting && first != null && first.getPrintDate() != null) {
             bound.put("rxReprint", "true");

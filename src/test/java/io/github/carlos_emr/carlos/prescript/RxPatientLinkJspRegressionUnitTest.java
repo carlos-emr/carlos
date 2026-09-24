@@ -121,6 +121,15 @@ class RxPatientLinkJspRegressionUnitTest {
                 // Every Rx page authorises the patient it renders, whatever route forwarded to it:
                 // the plain resolver is never used to pick the page's bean (#3908).
                 assertThat(jsp).as(file.toString()).doesNotContain("RxSessionBeanResolver.resolve(request)");
+                // Reprint state is per patient; the old session-wide reprint attributes rendered one
+                // patient's reprinted script in another patient's window (#3908).
+                assertThat(jsp).as(file.toString())
+                        .doesNotContain("\"tmpBeanRX\"")
+                        .doesNotContain("getAttribute(\"rePrint\")")
+                        .doesNotContain("getAttribute(\"comment\")");
+                // Rx pages set <base href=".../carlos/">, so a relative styles.css resolves to the
+                // missing /carlos/styles.css (an HTML 404 the browser refuses as a stylesheet).
+                assertThat(jsp).as(file.toString()).doesNotContain("href=\"styles.css\"");
             }
         }
         assertThat(pages).isGreaterThanOrEqualTo(16);

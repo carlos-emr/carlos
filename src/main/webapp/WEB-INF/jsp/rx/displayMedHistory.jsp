@@ -63,7 +63,7 @@
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <link rel="stylesheet" type="text/css" href="styles.css">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 </head>
 <body>
 <%

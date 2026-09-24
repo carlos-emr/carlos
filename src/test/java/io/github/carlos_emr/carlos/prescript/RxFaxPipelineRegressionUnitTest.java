@@ -152,7 +152,7 @@ class RxFaxPipelineRegressionUnitTest {
         String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
         int selectionStart = viewScript2.indexOf("String scriptIdForFax = firstValidScriptId(");
         int selectionEnd = viewScript2.indexOf(';', selectionStart);
-        assertThat(selectionStart).isGreaterThan(viewScript2.indexOf("bean = (RxSessionBean) session.getAttribute(\"tmpBeanRX\")"));
+        assertThat(selectionStart).isGreaterThan(viewScript2.indexOf("bean = reprintEntry.bean();"));
         assertThat(selectionEnd).isLessThan(viewScript2.indexOf("function addNotes()"));
         // The attribute is set on fresh writes and /rx/viewScript; direct reprints
         // have the displayed saved stash instead. Neither may be overridden by a URL.

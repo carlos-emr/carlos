@@ -94,12 +94,24 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * <li>direction - String direction to move ("up" or "down")</li>
      * </ul>
      *
-     * @return String NONE (redirect handled manually)
+     * @return String NONE (redirect handled manually, or 405 for a non-POST request)
      * @throws RuntimeException if redirect fails
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String reorder() {
+        // Reordering rewrites the patient's allergy positions, so it is POST-only: CSRFGuard does not
+        // check GET, and a link or image tag must not be able to reorder a chart (#3908). The
+        // display and allergyData paths of this action stay GET-compatible.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
             throw new SecurityException("missing required sec object (_allergy)");

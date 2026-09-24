@@ -241,6 +241,49 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(bean.getStashSize()).isEqualTo(2);
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"77,not-an-id", "not-an-id,77", "77,,78", "77,-1", "77,1234567890"})
+        @DisplayName("should refuse the whole bulk delete when any drug id is malformed")
+        void shouldRefuseWholeBulkDelete_whenAnyDrugIdMalformed(String drugList) throws Exception {
+            // A malformed id used to stop validation early and still archive the ids before it (#3908).
+            namePatient();
+            RxDeleteRx2Action action = new RxDeleteRx2Action();
+            action.setDrugList(drugList);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockDrugDao);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should archive every drug in a well-formed bulk delete")
+        void shouldArchiveEveryDrug_whenBulkDeleteWellFormed() throws Exception {
+            namePatient();
+            // Distinct ids: Drug#equals is field-based, so two blank drugs would be one to Mockito.
+            io.github.carlos_emr.carlos.commn.model.Drug first = new io.github.carlos_emr.carlos.commn.model.Drug();
+            first.setId(77);
+            first.setDemographicId(DEMOGRAPHIC_NO);
+            io.github.carlos_emr.carlos.commn.model.Drug second = new io.github.carlos_emr.carlos.commn.model.Drug();
+            second.setId(78);
+            second.setDemographicId(DEMOGRAPHIC_NO);
+            when(mockDrugDao.find(77)).thenReturn(first);
+            when(mockDrugDao.find(78)).thenReturn(second);
+            RxDeleteRx2Action action = new RxDeleteRx2Action();
+            action.setDrugList("77, 78");
+
+            String result = action.execute();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(first.isArchived()).isTrue();
+            assertThat(second.isArchived()).isTrue();
+            verify(mockDrugDao).merge(first);
+            verify(mockDrugDao).merge(second);
+        }
+
         @Test
         @DisplayName("should clear the named patient's re-prescribe list")
         void shouldClearReRxList_whenRequestNamesPatient() throws Exception {

@@ -134,6 +134,7 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject reorder when only read allergy privilege is granted")
     void shouldRejectReorder_whenOnlyReadAllergyPrivilegeIsGranted() {
+        mockRequest.setMethod("POST");
         mockRequest.setParameter("method", "reorder");
         mockRequest.setParameter("demographicNo", "123");
         mockRequest.setParameter("allergyId", "456");
@@ -147,6 +148,28 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
         verify(mockAllergyDao, never()).merge(any(AbstractModel.class));
     }
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should refuse a non-POST reorder before any privilege check or allergy write")
+    void shouldRejectReorder_whenMethodIsNotPost(String httpMethod) throws Exception {
+        // Reorder rewrites allergy positions; CSRFGuard does not check GET (#3908).
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod(httpMethod);
+        mockRequest.setParameter("method", "reorder");
+        mockRequest.setParameter("demographicNo", "123");
+        mockRequest.setParameter("allergyId", "456");
+        mockRequest.setParameter("direction", "up");
+
+        String result = action.execute();
+
+        org.assertj.core.api.Assertions.assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        org.assertj.core.api.Assertions.assertThat(mockResponse.getStatus()).isEqualTo(405);
+        org.assertj.core.api.Assertions.assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
+        verify(mockAllergyDao, never()).merge(any(AbstractModel.class));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
     @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-3", "abc", "1234567890123"})
     @DisplayName("should answer 400 without opening Rx for a malformed or non-positive patient")

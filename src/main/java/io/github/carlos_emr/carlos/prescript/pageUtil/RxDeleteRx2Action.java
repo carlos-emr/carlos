@@ -153,21 +153,24 @@ public final class RxDeleteRx2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         try {
 
-            String[] drugArr = drugList == null ? new String[0] : drugList.split(",");
-            int drugId;
-            int i;
+            String[] drugArr = drugList == null || drugList.isBlank() ? new String[0] : drugList.split(",");
 
             // Validate every requested drug before archiving any, so a list that mixes in another
-            // patient's drug is refused as a whole rather than half-applied.
-            List<Drug> drugsToDelete = new ArrayList<>();
-            for (i = 0; i < drugArr.length; i++) {
-                try {
-                    drugId = Integer.parseInt(drugArr[i]);
-
-                } catch (Exception e) {
-                    break;
+            // patient's drug, or a malformed id, is refused as a whole rather than half-applied.
+            // A malformed id used to end the loop early and still archive the ids before it (#3908).
+            List<Integer> drugIds = new ArrayList<>();
+            for (String rawId : drugArr) {
+                String trimmed = rawId.trim();
+                if (!trimmed.matches("\\d{1,9}")) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
                 }
-                // get original drug
+                drugIds.add(Integer.valueOf(trimmed));
+            }
+            List<Drug> drugsToDelete = new ArrayList<>();
+            for (int drugId : drugIds) {
+                // get original drug; the primitive keeps the AbstractDao#find(int) overload this
+                // path has always used (a boxed id would silently pick find(Object)).
                 Drug drug = drugDao.find(drugId);
                 if (!isOwnedBySessionPatient(drug, bean)) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN);
