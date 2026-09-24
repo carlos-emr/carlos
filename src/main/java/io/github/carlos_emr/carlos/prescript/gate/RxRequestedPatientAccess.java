@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.prescript.gate;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -28,6 +29,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * {@code _object$demographicNo} restrictions) and be allowed to open that patient's record. A
  * request that names no patient is left to the page, which falls back to the Rx patient already
  * opened (and authorised) in this session or refuses to render.</p>
+ *
+ * <p>It is also the one patient-level check for every Rx write (stash edits, saves, stamps,
+ * re-prescribing, deletes, allergies, pharmacies, encounter text). Those actions check the
+ * global privilege first, which only says the caller may use the Rx module; before any side
+ * effect they must also pass {@link #requirePatient} for the patient whose data changes, usually
+ * through {@link #resolveForWrite}. A patient-level {@code _rx$demographicNo} restriction or a
+ * record the caller may not open (program/facility access) otherwise did not stop a write
+ * (#3908).</p>
  *
  * @since 2026-09-24
  */
@@ -55,10 +64,60 @@ public final class RxRequestedPatientAccess {
         if (demographicNo == RxSessionBeanResolver.INVALID) {
             throw new SecurityException("missing required sec object (" + objectName + ")");
         }
-        if (demographicNo > 0
-                && (!securityInfoManager.hasPrivilege(loggedInInfo, objectName, privilege, demographicNo)
-                    || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo))) {
+        if (demographicNo > 0) {
+            requirePatient(securityInfoManager, loggedInInfo, demographicNo, objectName, privilege);
+        }
+    }
+
+    /**
+     * Whether the caller holds {@code privilege} on {@code objectName} for this specific patient
+     * and may open the patient's record.
+     *
+     * @param securityInfoManager the authorisation service
+     * @param loggedInInfo        the logged-in provider; {@code null} is never allowed
+     * @param demographicNo       the patient whose data is read or changed; non-positive is never allowed
+     * @param objectName          the security object, e.g. {@code _rx} or {@code _allergy}
+     * @param privilege           the privilege level, e.g. {@code w}
+     * @return {@code true} only when both the patient-level privilege and record access hold
+     */
+    public static boolean mayAccessPatient(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
+                                           int demographicNo, String objectName, String privilege) {
+        return loggedInInfo != null && demographicNo > 0
+                && securityInfoManager.hasPrivilege(loggedInInfo, objectName, privilege, demographicNo)
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo);
+    }
+
+    /**
+     * Refuses the request unless {@link #mayAccessPatient} holds for this patient.
+     *
+     * @throws SecurityException when the caller may not access this patient at this privilege
+     */
+    public static void requirePatient(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
+                                      int demographicNo, String objectName, String privilege) {
+        if (!mayAccessPatient(securityInfoManager, loggedInInfo, demographicNo, objectName, privilege)) {
             throw new SecurityException("missing required sec object (" + objectName + ")");
         }
+    }
+
+    /**
+     * The explicitly named patient's Rx bean for a write ({@link RxSessionBeanResolver#resolveForWrite}),
+     * after authorising the caller for that patient.
+     *
+     * @param securityInfoManager the authorisation service
+     * @param request             the current request
+     * @param objectName          the security object the write changes, e.g. {@code _rx}
+     * @param privilege           the privilege the write needs, e.g. {@code w}
+     * @return the bean, or {@code null} when the request names no open Rx patient (callers keep
+     *         their existing refusal for that case)
+     * @throws SecurityException when the caller may not change that patient's data
+     */
+    public static RxSessionBean resolveForWrite(SecurityInfoManager securityInfoManager, HttpServletRequest request,
+                                                String objectName, String privilege) {
+        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        if (bean != null) {
+            requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    bean.getDemographicNo(), objectName, privilege);
+        }
+        return bean;
     }
 }

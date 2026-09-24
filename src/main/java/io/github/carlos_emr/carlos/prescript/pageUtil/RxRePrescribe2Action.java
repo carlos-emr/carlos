@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -195,7 +197,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
-        RxSessionBean beanRX = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -271,20 +273,16 @@ public String saveDigitalSignature() throws IOException {
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-    // Retrieve and validate the prescription session bean
+    // The window's patient, named explicitly (ViewScript2 posts demographicNo) and authorised at
+    // patient level; never the active-patient fallback, which with two charts open is the other
+    // patient (#3908). The script below must belong to this patient.
     RxSessionBean sessionBeanRX =
-        RxSessionBeanResolver.resolve(request);
+        RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_WRITE);
     if (sessionBeanRX == null) {
-        response.sendRedirect("error.html");
-        return null;
+        response.sendError(HttpServletResponse.SC_CONFLICT);
+        return NONE;
     }
-    
-    // Create a new session bean with current demographic and providers info
-    // This ensures we're working with the correct patient/providers context
-    RxSessionBean beanRX = new RxSessionBean();
-    beanRX.setDemographicNo(sessionBeanRX.getDemographicNo());
-    beanRX.setProviderNo(sessionBeanRX.getProviderNo());
-    
+
     // Extract and validate digital signature ID from request (can be null to remove signature)
     String digitalSignatureIdParam = request.getParameter("digitalSignatureId");
     // A null parameter is legitimate: it CLEARS the link. A present one must name a real signature,
@@ -337,10 +335,14 @@ public String saveDigitalSignature() throws IOException {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
         return NONE;
     }
-    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
-            String.valueOf(targetPrescription.getDemographicId()))) {
-        throw new SecurityException("missing required sec object (_rx)");
+    if (targetPrescription.getDemographicId() != sessionBeanRX.getDemographicNo()) {
+        // A script of another patient than the window's: refuse before any change.
+        logger.warn("Digital signature not linked: prescription does not belong to the window's patient");
+        response.sendError(HttpServletResponse.SC_CONFLICT);
+        return NONE;
     }
+    RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+            targetPrescription.getDemographicId(), "_rx", PRIVILEGE_WRITE);
     // Signing and clearing are prescriber acts, not merely patient-chart mutations. A covering
     // provider with patient Rx write must not replay this prescriber's existing signature onto a
     // different script, or clear the prescriber's signed link, even when the patient is the same.
@@ -393,7 +395,7 @@ public String saveDigitalSignature() throws IOException {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -458,7 +460,7 @@ public String saveDigitalSignature() throws IOException {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
-        RxSessionBean beanRX = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -529,7 +531,7 @@ public String saveDigitalSignature() throws IOException {
         CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
 
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
-        RxSessionBean beanRX = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -619,7 +621,7 @@ public String saveDigitalSignature() throws IOException {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

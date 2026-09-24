@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
@@ -306,6 +308,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
             MiscUtils.getLogger().warn("Invalid demographicNo for allergy reorder");
             return;
         }
+        // Reordering changes this patient's allergy list: patient-level _allergy update and record
+        // access, not only the global check above (#3908).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                Integer.parseInt(demographicNo), "_allergy", "u");
         String allergyIdParam = request.getParameter("allergyId");
         if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
             MiscUtils.getLogger().warn("Invalid allergyId for allergy reorder");

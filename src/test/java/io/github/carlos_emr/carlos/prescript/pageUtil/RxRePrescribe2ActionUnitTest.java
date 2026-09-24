@@ -48,6 +48,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -97,6 +98,13 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         request.setMethod("POST");
         request.setRemoteAddr("127.0.0.1");
 
+        // The signature window's patient has its own open Rx bean; patient 1 is opened last, so it
+        // is the active (fallback) patient.
+        RxSessionBean signatureWindowBean = new RxSessionBean();
+        signatureWindowBean.setDemographicNo(SIGNATURE_DEMOGRAPHIC_NO);
+        signatureWindowBean.setProviderNo("999998");
+        RxSessionBeanResolver.register(request.getSession(), signatureWindowBean);
+
         RxSessionBean rxSessionBean = new RxSessionBean();
         rxSessionBean.setDemographicNo(1);
         rxSessionBean.setProviderNo("999998");
@@ -107,6 +115,9 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(DigitalSignatureManager.class, mockDigitalSignatureManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         // By default the prescription row exists and the link persists.
         when(mockPrescriptionManager.setPrescriptionSignature(any(), any(Integer.class), any())).thenReturn(true);
@@ -322,6 +333,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should associate a saved digital signature with a prescription")
     void shouldAssociateSavedDigitalSignature_withPrescription() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 
@@ -331,18 +343,37 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
-        verify(mockSecurityInfoManager)
-                .hasPrivilege(mockLoggedInInfo, "_rx", "w", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
+        // Patient-level _rx write and record access for the window's (and the script's) patient.
+        verify(mockSecurityInfoManager, org.mockito.Mockito.atLeastOnce())
+                .hasPrivilege(mockLoggedInInfo, "_rx", "w", SIGNATURE_DEMOGRAPHIC_NO);
+        verify(mockSecurityInfoManager, org.mockito.Mockito.atLeastOnce())
+                .isAllowedAccessToPatientRecord(mockLoggedInInfo, SIGNATURE_DEMOGRAPHIC_NO);
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, SIGNATURE_ID);
     }
 
     @Test
-    @DisplayName("should audit the persisted prescription's patient, not the open chart's")
-    void shouldAuditPersistedPatient_whenSessionBeanHoldsAnotherChart() throws Exception {
-        // scriptId is request-supplied and authorized against the row it resolves to, so the signed
-        // prescription can belong to a different patient than the chart the session has open (the
-        // fixture's bean holds demographic 1; the target row is SIGNATURE_DEMOGRAPHIC_NO). Auditing
-        // the bean would file the signature event under whichever chart happened to be open.
+    @DisplayName("should refuse a script of another patient than the signing window's")
+    void shouldRefuseSignature_whenScriptBelongsToAnotherPatientThanWindow() throws Exception {
+        // The window names patient 1 (its own open Rx bean); the script resolves to
+        // SIGNATURE_DEMOGRAPHIC_NO. Linking it would sign another chart's prescription from this
+        // window, so it is refused before any write or audit (#3908).
+        request.setParameter("demographicNo", "1");
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+
+        try (MockedStatic<LogAction> logActionMock = mockStatic(LogAction.class)) {
+            assertThat(action.saveDigitalSignature()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+            logActionMock.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    @DisplayName("should audit the signed prescription's patient")
+    void shouldAuditPersistedPatient_whenSignatureLinked() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 
@@ -358,6 +389,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should accept a 10-digit script id the page is able to emit")
     void shouldAcceptScriptId_withTenDigits() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         // ViewScript2's firstValidScriptId emits any 1-10 digit id that parses to a positive int, so
         // a 9-digit cap here would reject a legitimate high script number and silently leave the
         // drawn signature unlinked while the page reported success.
@@ -392,6 +424,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
                         : ModuleType.PRESCRIPTION);
         when(mockDigitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID))
                 .thenReturn("missing".equals(scenario) ? null : signature);
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
         assertThat(action.saveDigitalSignature()).isEqualTo(ActionSupport.NONE);
@@ -403,6 +436,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject a 10-digit script id that overflows an int")
     void shouldRejectScriptId_whenTenDigitsOverflowInt() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         // 9999999999 matches the widened digit pattern but does not fit an int; it must be a 400
         // like any other malformed id, never a NumberFormatException escaping as a 500.
         request.setParameter("scriptId", "9999999999");
@@ -418,6 +452,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should accept the maximum signed-int digital signature id")
     void shouldAcceptDigitalSignatureId_atSignedIntMaximum() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         int tenDigitSignatureId = Integer.MAX_VALUE;
         DigitalSignature signature = new DigitalSignature();
         signature.setProviderNo("999998");
@@ -439,6 +474,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject the first digital signature id above the signed-int range")
     void shouldRejectDigitalSignatureId_aboveSignedIntMaximum() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", "2147483648");
 
@@ -453,6 +489,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should report not found when the prescription row does not exist")
     void shouldReturnNotFound_whenPrescriptionMissing() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
         when(mockPrescriptionManager.setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, SIGNATURE_ID)).thenReturn(false);
@@ -466,6 +503,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should clear the prescription signature when signature id is absent")
     void shouldClearPrescriptionSignature_whenSignatureIdIsAbsent() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
 
         String result = action.saveDigitalSignature();
@@ -479,13 +517,14 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should refuse to touch a prescription belonging to a patient the caller cannot write")
     void shouldRefuseSignatureUpdate_whenPrescriptionBelongsToAnotherPatient() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
         // Global _rx write is held (stubbed in setUp) but the right for THIS prescription's patient
         // is not: script ids are small sequential integers, so without the patient-scoped re-check a
         // caller could walk them and sign any patient's prescription.
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"),
-                eq(String.valueOf(SIGNATURE_DEMOGRAPHIC_NO)))).thenReturn(false);
+                eq(SIGNATURE_DEMOGRAPHIC_NO))).thenReturn(false);
 
         assertThatThrownBy(() -> action.saveDigitalSignature())
                 .isInstanceOf(SecurityException.class)
@@ -497,6 +536,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject a signature captured by another provider")
     void shouldRejectSignature_whenItBelongsToAnotherProvider() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
         DigitalSignature foreignSignature = new DigitalSignature();
@@ -515,6 +555,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject signature replay by a covering provider")
     void shouldRejectSignatureReplay_whenCallerIsNotPrescriber() {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
         io.github.carlos_emr.carlos.commn.model.Prescription target =
@@ -534,6 +575,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject clearing another prescriber's signature")
     void shouldRejectSignatureClear_whenCallerIsNotPrescriber() {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         io.github.carlos_emr.carlos.commn.model.Prescription target =
                 new io.github.carlos_emr.carlos.commn.model.Prescription();
@@ -551,6 +593,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should report not found when the script id resolves to no prescription")
     void shouldReturnNotFound_whenScriptIdResolvesToNothing() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
         when(mockPrescriptionManager.getPrescription(any(), eq(SCRIPT_ID))).thenReturn(null);
@@ -565,6 +608,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject malformed digital signature ids")
     void shouldRejectMalformedDigitalSignature_whenIdIsMalformed() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", "7<script>");
 
@@ -578,6 +622,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should reject malformed prescription script ids")
     void shouldRejectMalformedScriptId_whenIdIsMalformed() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", "../123");
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 
@@ -589,16 +634,17 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should redirect when prescription session is missing")
-    void shouldRedirect_whenPrescriptionSessionIsMissing() throws Exception {
+    @DisplayName("should refuse the signature when the window's patient has no open Rx session")
+    void shouldReturnConflict_whenPrescriptionSessionIsMissing() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
-        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
         verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
     }
 }

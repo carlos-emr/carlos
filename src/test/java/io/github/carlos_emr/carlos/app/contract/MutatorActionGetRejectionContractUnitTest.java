@@ -261,7 +261,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
-                    "_form", "w")
+                    "_form", "w"),
+            // --- prescription ---
+            // Clears the named patient's staged prescriptions. Unconditional: it rejects non-POST
+            // before resolving any bean; ViewScript2's form POSTs (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
+                    "_rx", "w")
         );
     }
 
@@ -460,7 +465,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
         // prescript slice: RxWriteScript2Action's save and update dispatches are POST-only
         // (conditional mutator, #3908).
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
+        // prescript slice: RxClearPending2Action clears the named patient's stash and is POST-only
+        // (unconditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

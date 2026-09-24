@@ -36,6 +36,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.HashMap;
@@ -226,9 +228,9 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         if (demographicNo <= 0) {
             return null;
         }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", demographicNo)
-                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+        // The shared patient-level Rx write check (#3908).
+        if (!RxRequestedPatientAccess.mayAccessPatient(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "_rx", "w")) {
             return null;
         }
         return String.valueOf(demographicNo);

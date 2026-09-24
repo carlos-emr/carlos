@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
@@ -185,7 +187,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // need the explicitly named patient's bean, never the fallback; other actions only
         // re-render (#3875).
         RxSessionBean bean = this.getAction() != null && this.getAction().startsWith("update")
-                ? RxSessionBeanResolver.resolveForWrite(request)
+                ? RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w")
                 : RxSessionBeanResolver.resolve(request);
 
         if (bean == null) {
@@ -344,7 +346,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -400,7 +402,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -465,7 +467,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -577,7 +579,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         setDefaultQuantity(request);
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -643,7 +645,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -701,7 +703,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // set default quantity
         setDefaultQuantity(request);
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -922,7 +924,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -1086,7 +1088,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         String randomId = request.getParameter("randomId");
         String specialInstruction = request.getParameter("specialInstruction");
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
@@ -1110,7 +1112,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
@@ -1173,6 +1175,10 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        // Before pruning or saving anything: patient-level _rx write and record access for the
+        // patient being saved, not only the global _rx write checked above (#3908).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
         // nosemgrep: tainted-session-from-http-request -- value is null literal (clearing session attribute), not user input
         request.getSession().setAttribute("rePrint", null); // set to print.
         List<String> paramList = new ArrayList<String>();
@@ -1513,7 +1519,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 		} else {
             int drugId = Integer.parseInt(strId);
             // Saves and archives a chart drug: only the named patient's bean, never the fallback (#3875).
-            RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+            RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
             if (bean == null) {
                 response.sendRedirect("error.html");
                 return null;
@@ -1551,6 +1557,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.warn("Skipped prescription save: request does not name the prescribing window's patient");
             return;
         }
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
 
         // Nothing staged: do not write an empty script, and above all do not reach the re-Rx
         // archival below. A ReRx box that was ticked but never staged would otherwise archive

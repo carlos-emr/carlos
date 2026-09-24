@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -138,7 +140,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
 
         // Setup variables
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -216,7 +218,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
 
         // Setup variables
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -254,7 +256,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         // The other write paths of this action check _rx update; clearing the stash is a write too.
         checkPrivilege(request, PRIVILEGE_UPDATE);
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -277,7 +279,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -320,7 +322,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
             response.sendRedirect("error.html");
             return NONE;

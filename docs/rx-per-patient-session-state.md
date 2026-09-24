@@ -25,6 +25,29 @@ dropped; only when every bean holds drafts or a ReRx selection is the least rece
 dropped anyway (logged), and the patient being opened is never the one dropped. The active patient
 is `RxActiveDemographicNo`.
 
+### Patient-level authorisation of writes
+
+A write's global privilege check (`_rx` or `_allergy` with no patient) only admits the caller to
+the Rx module. Every Rx write also authorises the specific patient it changes through
+`io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess`:
+
+- `resolveForWrite(securityInfoManager, request, object, privilege)` resolves the named patient's
+  bean exactly like `RxSessionBeanResolver.resolveForWrite` and then calls `requirePatient`;
+- `requirePatient(...)` throws `SecurityException("missing required sec object (<object>)")`
+  unless the caller holds the privilege for that patient (`hasPrivilege(..., demographicNo)`)
+  **and** may open the patient's record (`isAllowedAccessToPatientRecord`);
+- `mayAccessPatient(...)` is the same test as a boolean, for branches that skip rather than
+  refuse (the `rx/viewScript` signature stamp).
+
+It runs before any side effect on: stash staging, editing, removal and clearing; saves
+(`updateSaveAllDrugs`, `updateAndPrint`, the `rx/viewScript` save/stamp POST); re-prescribing;
+delete, discontinue and long-term toggles; favourites from a staged card; the signature link
+(`saveDigitalSignature`, which also requires the script to belong to the window's patient);
+allergy add, delete, re-activate and reorder; drug reasons; and the encounter append. The Rx view
+gates use `require(...)` for the patient a request names. `RxPatientWriteAuthorizationUnitTest`
+drives every one of these paths with the patient-level privilege, and separately record access,
+denied.
+
 The no-patient fallback is for read-only compatibility only. Pages that change Rx state for a
 patient (`StaticScript2.jsp`, the staging page) are opened with an explicit `demographicNo`, and
 every link into them names it.

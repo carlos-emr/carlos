@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -160,12 +162,17 @@ public final class RxViewScript2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        // The global _rx check above only admits the caller to the Rx module. Saving the stash and
+        // stamping a signature change THIS patient's chart, so they need patient-level _rx write
+        // and access to the patient's record (#3908).
+        boolean patientWrite = RxRequestedPatientAccess.mayAccessPatient(securityInfoManager, loggedInInfo,
+                bean.getDemographicNo(), "_rx", "w");
         if (scriptId == null) {
             // Persisting a prescription and its drugs rows is a write. Every path that normally
             // feeds this page (updateSaveAllDrugs, updateAndPrint) already requires _rx write, so
             // only a caller who arrived here with an unsaved stash under read-only privilege can
             // reach this branch, and they must not create a script the write paths would refuse.
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null) || !patientWrite) {
                 throw new SecurityException("missing required sec object (_rx)");
             }
             // persistedScriptId() answers null for BOTH "not yet saved" and "malformed stash", so a
@@ -199,7 +206,7 @@ public final class RxViewScript2Action extends ActionSupport {
         // trigger it, matching the manual signature-save path. Eligibility ("is this row already
         // signed, and did the logged-in provider write it?") is decided inside the service from the
         // PERSISTED prescription row.
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)
+        if (securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null) && patientWrite
                 && signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
             request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
         }

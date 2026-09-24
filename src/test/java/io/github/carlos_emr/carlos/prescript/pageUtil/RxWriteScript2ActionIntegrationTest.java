@@ -42,6 +42,7 @@ import org.mockito.MockedStatic;
 
 import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -76,6 +77,9 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     void setUp() {
         replaceSpringUtilsBean(DrugDao.class, mockDrugDao);
         replaceSpringUtilsBean(RxManager.class, mockRxManager);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         // MockHttpServletRequest defaults to no method; the mutating entry points require POST.
         mockRequest.setMethod("POST");
         action = new RxWriteScript2Action();

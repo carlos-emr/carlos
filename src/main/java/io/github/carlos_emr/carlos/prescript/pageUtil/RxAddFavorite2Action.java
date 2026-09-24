@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -73,7 +75,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
         // A saved drug id is favourited without touching any patient's stash.
         RxSessionBean bean = this.getDrugId() != null
                 ? RxSessionBeanResolver.resolve(request)
-                : RxSessionBeanResolver.resolveForWrite(request);
+                : RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -119,7 +121,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
         // Same rule as execute(): a staged card comes only from the named patient's stash (#3875).
         RxSessionBean bean = drugIdStr != null
                 ? RxSessionBeanResolver.resolve(request)
-                : RxSessionBeanResolver.resolveForWrite(request);
+                : RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

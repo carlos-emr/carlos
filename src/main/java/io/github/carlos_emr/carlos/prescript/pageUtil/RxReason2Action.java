@@ -32,13 +32,15 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
+import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
 import io.github.carlos_emr.carlos.commn.model.DrugReason;
 import io.github.carlos_emr.carlos.commn.model.Icd9;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -90,6 +92,20 @@ public final class RxReason2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
         String providerNo = (String) request.getSession().getAttribute("user");
 
+        // The reason is filed on this patient's drug: the caller must be authorised for the patient
+        // (patient-level _rx and record access), and the drug must be that patient's (#3908).
+        if (drugIdStr == null || !drugIdStr.matches("\\d{1,9}")
+                || demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                Integer.parseInt(demographicNo), "_rx", "r");
+        Drug drug = SpringUtils.getBean(DrugDao.class).find(Integer.parseInt(drugIdStr));
+        if (drug == null || drug.getDemographicId() == null
+                || drug.getDemographicId() != Integer.parseInt(demographicNo)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         request.setAttribute("drugId", Integer.parseInt(drugIdStr));
         request.setAttribute("demoNo", Integer.parseInt(demographicNo));
 
@@ -108,8 +124,6 @@ public final class RxReason2Action extends ActionSupport {
             request.setAttribute("message", getText("SelectReason.error.duplicateCode"));
             return SUCCESS;
         }
-
-        MiscUtils.getLogger().debug("addDrugReasonCalled codingSystem " + codingSystem + " code " + code + " drugIdStr " + drugIdStr);
 
 
         boolean primaryReasonFlag = true;
@@ -153,7 +167,16 @@ public final class RxReason2Action extends ActionSupport {
         String reasonId = request.getParameter("reasonId");
         String archiveReason = request.getParameter("archiveReason");
 
+        if (reasonId == null || !reasonId.matches("\\d{1,9}")) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
         DrugReason drugReason = drugReasonDao.find(Integer.parseInt(reasonId));
+        // Archiving changes the reason's patient's chart: authorise that patient (#3908).
+        if (drugReason == null || drugReason.getDemographicNo() == null) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                drugReason.getDemographicNo(), "_rx", "r");
 
         drugReason.setArchivedFlag(true);
         drugReason.setArchivedReason(archiveReason);

@@ -41,6 +41,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -92,6 +93,9 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(PrescriptionSignatureStampService.class, stampService);
         registerMock(PrescriptionDao.class, prescriptionDao);
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), isNull())).thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
 
         liveBean = new RxSessionBean();
         liveBean.setProviderNo(PROVIDER_NO);
@@ -249,6 +253,27 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("missing required sec object (_rx)");
         verifyNoInteractions(stampService, prescriptionDao);
         assertThat(request.getAttribute("scriptId")).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} denied")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"patient privilege", "record access"})
+    @DisplayName("should not stamp a saved script when the caller may not write this patient")
+    void shouldSkipStamp_whenPatientLevelWriteDenied(String denied) throws Exception {
+        // Global _rx write is held; the patient-level check for this chart is not (#3908).
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        if ("patient privilege".equals(denied)) {
+            when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(DEMOGRAPHIC_NO))).thenReturn(false);
+        } else {
+            when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
+        }
+        liveBean.getStashList().add(savedItem(5, "789"));
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("viewScript");
+        assertThat(request.getAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED)).isNull();
+        verifyNoInteractions(stampService, prescriptionDao);
     }
 
     @Test

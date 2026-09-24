@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,9 +73,10 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
 
         // Setup variables
-        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
+        // authorised for that patient at the same _rx level this action checks globally (#3908).
         RxSessionBean bean =
-                RxSessionBeanResolver.resolveForWrite(request);
+                RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -110,9 +113,10 @@ public final class RxUseFavorite2Action extends ActionSupport {
         }
 
         // Setup variables
-        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
+        // authorised for that patient at the same _rx level this action checks globally (#3908).
         RxSessionBean bean =
-                RxSessionBeanResolver.resolveForWrite(request);
+                RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

@@ -1316,7 +1316,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 		method: 'POST',
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 		credentials: 'same-origin',
+		// Names the window's patient: the server refuses a script of any other patient (#3908).
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
+			+ '&demographicNo=<%= viewScriptDemographicNo %>'
 	}).then(function (response) {
 		if (!response.ok || response.redirected || response.headers.get('X-Carlos-Signature-Write') !== 'written') {
             throw new Error('Signature association was not confirmed');

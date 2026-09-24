@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -82,7 +84,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         // formDemographicNo must name that same patient: a request naming one patient while the
         // form carries another is refused rather than written to either. This replaces the old
         // equality check against the shared "Patient" session attribute.
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_allergy", "w");
         RxPatientData.Patient patient = null;
         if (bean != null && isSamePatient(request.getParameter("formDemographicNo"), bean.getDemographicNo())) {
             patient = RxSessionBeanResolver.resolvePatient(request, bean.getDemographicNo());

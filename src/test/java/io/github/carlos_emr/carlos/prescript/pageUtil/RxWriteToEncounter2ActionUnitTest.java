@@ -59,6 +59,9 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(eq(login), eq("_rx"), eq("w"), nullable(String.class))).thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(security.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         registerMock(SecurityInfoManager.class, security);
         registerMock(CaseManagementManager.class, notes);
         registerMock(CaseManagementTmpSaveDao.class, tmpDao);
@@ -145,7 +148,15 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRejectBeforeNoteAccess_whenPatientWriteIsDenied() {
-        when(security.hasPrivilege(login, "_rx", "w", "42")).thenReturn(false);
+        when(security.hasPrivilege(login, "_rx", "w", 42)).thenReturn(false);
+        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
+    void shouldRejectBeforeNoteAccess_whenPatientRecordAccessIsDenied() {
+        // Patient-level _rx write alone is not enough: the caller must be allowed to open the record.
+        when(security.isAllowedAccessToPatientRecord(login, 42)).thenReturn(false);
         assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(notes, tmpDao);
     }

@@ -35,6 +35,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -93,6 +94,9 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
                 .thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))

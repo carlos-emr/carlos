@@ -43,6 +43,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -96,6 +97,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(DrugDao.class, mockDrugDao);
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), isNull())).thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
 
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
@@ -142,6 +146,26 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("RxClearPending2Action")
     class ClearPending {
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should refuse a non-POST clear before resolving or clearing anything")
+        void shouldRejectClear_whenMethodIsNotPost(String httpMethod) throws Exception {
+            // CSRFGuard does not check GET, so a link or image tag must not clear the stash (#3908).
+            request.setMethod(httpMethod);
+            namePatient();
+            RxClearPending2Action action = new RxClearPending2Action();
+            action.setAction("");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(bean.getStashSize()).isEqualTo(2);
+            verifyNoInteractions(mockSecurityInfoManager, mockDrugDao, stagedCard);
+            logActionMock.verifyNoInteractions();
+        }
 
         @Test
         @DisplayName("should keep the stash when the request names no patient")

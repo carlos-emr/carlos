@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -84,7 +86,7 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
 
         // Deleting or re-activating an allergy changes the chart: act only for the patient the
         // request explicitly names, never the session's last-opened Rx patient (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_allergy", "u");
         RxPatientData.Patient patient = bean == null
                 ? null
                 : RxSessionBeanResolver.resolvePatient(request, bean.getDemographicNo());

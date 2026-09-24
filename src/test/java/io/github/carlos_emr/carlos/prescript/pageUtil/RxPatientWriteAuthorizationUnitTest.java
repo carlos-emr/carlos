@@ -1,0 +1,343 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.prescript.pageUtil;
+
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import jakarta.servlet.http.HttpServletRequest;
+import org.apache.struts2.ServletActionContext;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+/**
+ * Every Rx write authorises the specific patient it changes (#3908).
+ *
+ * <p>Each write path is driven as the real UI drives it: a POST naming the open patient, with the
+ * global privilege granted. Only the patient-level check is denied, either the patient-level
+ * privilege ({@code _rx$demographicNo} / {@code _allergy$demographicNo}) or access to the
+ * patient's record. Each path must refuse with a {@link SecurityException} before any side
+ * effect: the staged prescriptions and ReRx list are unchanged, no Spring-managed dependency
+ * (DAO, manager, stamp service) is touched, and nothing is audited.</p>
+ *
+ * @since 2026-09-24
+ */
+@DisplayName("Rx writes: patient-level authorisation")
+@Tag("unit")
+@Tag("prescript")
+@Tag("security")
+class RxPatientWriteAuthorizationUnitTest {
+
+    private static final int DEMOGRAPHIC_NO = 1001;
+    private static final String PROVIDER_NO = "999998";
+
+    private MockedStatic<SpringUtils> springUtilsMock;
+    private MockedStatic<LogAction> logActionMock;
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private final Map<Class<?>, Object> dependencies = new HashMap<>();
+
+    private SecurityInfoManager securityInfoManager;
+    private LoggedInInfo loggedInInfo;
+    private MockHttpServletRequest request;
+    private RxSessionBean bean;
+
+    @BeforeEach
+    void setUp() {
+        securityInfoManager = mock(SecurityInfoManager.class);
+        loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
+        // Global privileges (null target) are granted: only the patient-level check is under test.
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
+
+        // Every other bean is an auto-mock the refusal must never touch.
+        springUtilsMock = mockStatic(SpringUtils.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(any(Class.class))).thenAnswer(invocation -> {
+            Class<?> type = invocation.getArgument(0);
+            return type.equals(SecurityInfoManager.class)
+                    ? securityInfoManager
+                    : dependencies.computeIfAbsent(type, Mockito::mock);
+        });
+        logActionMock = mockStatic(LogAction.class);
+
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(loggedInInfo);
+
+        // The patient's Rx is open with two unsaved staged prescriptions and one ReRx source.
+        bean = new RxSessionBean();
+        bean.setDemographicNo(DEMOGRAPHIC_NO);
+        bean.setProviderNo(PROVIDER_NO);
+        bean.getStashList().add(new RxPrescriptionData.Prescription(0, PROVIDER_NO, DEMOGRAPHIC_NO));
+        bean.getStashList().add(new RxPrescriptionData.Prescription(0, PROVIDER_NO, DEMOGRAPHIC_NO));
+        bean.setStashIndex(0);
+        bean.addReRxDrugIdList("55");
+        RxSessionBeanResolver.register(request.getSession(), bean);
+    }
+
+    @AfterEach
+    void tearDown() {
+        loggedInInfoMock.close();
+        servletActionContextMock.close();
+        logActionMock.close();
+        springUtilsMock.close();
+    }
+
+    static Stream<Arguments> writePaths() {
+        List<String> paths = List.of(
+                "clearPending",
+                "deleteRx.Delete2", "deleteRx.clearStash", "deleteRx.clearReRxDrugList", "deleteRx.Discontinue",
+                "stash.deletePrescribe",
+                "addFavorite.execute", "addFavorite.addFav2",
+                "useFavorite.execute", "useFavorite.useFav2",
+                "chooseDrug",
+                "writeScript.updateAndPrint", "writeScript.updateSaveAllDrugs", "writeScript.updateLongTermStatus",
+                "writeScript.updateReRxDrug", "writeScript.saveCustomName", "writeScript.newCustomNote",
+                "writeScript.newCustomDrug", "writeScript.normalDrugSetCustom", "writeScript.createNewRx",
+                "writeScript.updateDrug", "writeScript.updateSpecialInstruction", "writeScript.updateProperty",
+                "rePrescribe.represcribe", "rePrescribe.represcribe2", "rePrescribe.represcribeMultiple",
+                "rePrescribe.saveReRxDrugIdToStash", "rePrescribe.repcbAllLongTerm",
+                "rePrescribe.saveDigitalSignature",
+                "viewScript.save",
+                "addAllergy", "deleteAllergy", "showAllergy.reorder",
+                "reason.addDrugReason", "reason.archiveReason");
+        return paths.stream().flatMap(path -> Stream.of(
+                Arguments.of(path, "patient privilege"),
+                Arguments.of(path, "record access")));
+    }
+
+    static Stream<String> writePathNames() {
+        return writePaths().map(arguments -> (String) arguments.get()[0]).distinct();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("writePathNames")
+    @DisplayName("should get past the patient check when the patient is authorised (control)")
+    void shouldPassPatientCheck_whenPatientAuthorised(String path) {
+        // Proves the refusals above come from the patient-level check and not from the fixture:
+        // with it granted, the path continues (into auto-mocked dependencies that may then fail
+        // in other ways) instead of being refused as unauthorised.
+        Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(call(path));
+
+        assertThat(thrown instanceof SecurityException)
+                .as("%s refused an authorised patient: %s", path, thrown)
+                .isFalse();
+    }
+
+    @ParameterizedTest(name = "{0} ({1} denied)")
+    @MethodSource("writePaths")
+    @DisplayName("should refuse the write before any side effect when the patient is not authorised")
+    void shouldRefuseWrite_whenPatientLevelAccessDenied(String path, String denied) {
+        if ("patient privilege".equals(denied)) {
+            when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(false);
+        } else {
+            when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
+        }
+        String securityObject = path.contains("llergy") ? "_allergy" : "_rx";
+
+        assertThatThrownBy(call(path))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (" + securityObject + ")");
+
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+        for (Map.Entry<Class<?>, Object> dependency : dependencies.entrySet()) {
+            if ("reason.archiveReason".equals(path)
+                    && dependency.getKey().equals(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class)) {
+                io.github.carlos_emr.carlos.commn.dao.DrugReasonDao reasons =
+                        (io.github.carlos_emr.carlos.commn.dao.DrugReasonDao) dependency.getValue();
+                Mockito.verify(reasons).find(3);
+                Mockito.verifyNoMoreInteractions(reasons);
+                continue;
+            }
+            verifyNoInteractions(dependency.getValue());
+        }
+        logActionMock.verifyNoInteractions();
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T dependency(Class<T> type) {
+        return (T) dependencies.computeIfAbsent(type, Mockito::mock);
+    }
+
+    private ThrowingCallable call(String path) {
+        long cardKey = bean.getStashItem(0).getRandomId();
+        switch (path) {
+            case "clearPending":
+                return () -> {
+                    RxClearPending2Action action = new RxClearPending2Action();
+                    action.setAction("");
+                    action.execute();
+                };
+            case "deleteRx.Delete2":
+                request.setParameter("deleteRxId", "prefix_77");
+                return () -> new RxDeleteRx2Action().Delete2();
+            case "deleteRx.clearStash":
+                return () -> new RxDeleteRx2Action().clearStash();
+            case "deleteRx.clearReRxDrugList":
+                return () -> new RxDeleteRx2Action().clearReRxDrugList();
+            case "deleteRx.Discontinue":
+                request.setParameter("drugId", "77");
+                request.setParameter("reason", "other");
+                return () -> new RxDeleteRx2Action().Discontinue();
+            case "stash.deletePrescribe":
+                request.setParameter("randomId", String.valueOf(cardKey));
+                return () -> new RxStash2Action().deletePrescribe();
+            case "addFavorite.execute":
+                return () -> {
+                    RxAddFavorite2Action action = new RxAddFavorite2Action();
+                    action.setStashId("0");
+                    action.setFavoriteName("fav");
+                    action.execute();
+                };
+            case "addFavorite.addFav2":
+                request.setParameter("randomId", String.valueOf(cardKey));
+                request.setParameter("favoriteName", "fav");
+                return () -> new RxAddFavorite2Action().addFav2();
+            case "useFavorite.execute":
+                request.setParameter("favoriteId", "3");
+                return () -> new RxUseFavorite2Action().execute();
+            case "useFavorite.useFav2":
+                request.setParameter("favoriteId", "3");
+                request.setParameter("randomId", "4242");
+                return () -> new RxUseFavorite2Action().useFav2();
+            case "chooseDrug":
+                return () -> new RxChooseDrug2Action().execute();
+            case "writeScript.updateAndPrint":
+                return () -> {
+                    RxWriteScript2Action action = new RxWriteScript2Action();
+                    action.setAction("updateAndPrint");
+                    action.execute();
+                };
+            case "rePrescribe.represcribe":
+                return () -> {
+                    RxRePrescribe2Action action = new RxRePrescribe2Action();
+                    action.setDrugList("5");
+                    action.represcribe();
+                };
+            case "rePrescribe.represcribe2":
+            case "rePrescribe.saveReRxDrugIdToStash":
+                request.setParameter("drugId", "5");
+                return path.endsWith("2")
+                        ? () -> new RxRePrescribe2Action().represcribe2()
+                        : () -> new RxRePrescribe2Action().saveReRxDrugIdToStash();
+            case "rePrescribe.represcribeMultiple":
+                request.setParameter("drugIds", "5");
+                return () -> new RxRePrescribe2Action().represcribeMultiple();
+            case "rePrescribe.repcbAllLongTerm":
+                return () -> new RxRePrescribe2Action().repcbAllLongTerm();
+            case "rePrescribe.saveDigitalSignature":
+                request.setParameter("scriptId", "1234");
+                request.setParameter("digitalSignatureId", "77");
+                return () -> new RxRePrescribe2Action().saveDigitalSignature();
+            case "viewScript.save":
+                return () -> new RxViewScript2Action(mock(io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class))
+                        .execute();
+            case "addAllergy":
+                request.setParameter("formDemographicNo", String.valueOf(DEMOGRAPHIC_NO));
+                request.setParameter("ID", "1");
+                request.setParameter("name", "Penicillin");
+                request.setParameter("type", "8");
+                return () -> new RxAddAllergy2Action().execute();
+            case "deleteAllergy":
+                request.setParameter("ID", "9");
+                request.setParameter("action", "delete");
+                return () -> new RxDeleteAllergy2Action().execute();
+            case "showAllergy.reorder":
+                request.setParameter("method", "reorder");
+                request.setParameter("direction", "up");
+                request.setParameter("allergyId", "5");
+                return () -> new RxShowAllergy2Action().reorder();
+            case "reason.addDrugReason":
+                io.github.carlos_emr.carlos.commn.model.Drug drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+                drug.setDemographicId(DEMOGRAPHIC_NO);
+                when(dependency(io.github.carlos_emr.carlos.commn.dao.DrugDao.class).find(5)).thenReturn(drug);
+                request.setParameter("drugId", "5");
+                request.setParameter("codingSystem", "icd9");
+                request.setParameter("jsonDxSearch", "250");
+                return () -> new RxReason2Action().addDrugReason();
+            case "reason.archiveReason":
+                // Archiving must read the reason to learn its patient; only that read may happen.
+                io.github.carlos_emr.carlos.commn.model.DrugReason reason = new io.github.carlos_emr.carlos.commn.model.DrugReason();
+                reason.setDemographicNo(DEMOGRAPHIC_NO);
+                when(dependency(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class).find(3)).thenReturn(reason);
+                request.setParameter("reasonId", "3");
+                request.setParameter("archiveReason", "entered in error");
+                return () -> new RxReason2Action().archiveReason();
+            default:
+                return writeScript(path.substring("writeScript.".length()), cardKey);
+        }
+    }
+
+    private ThrowingCallable writeScript(String dispatch, long cardKey) {
+        request.setParameter("parameterValue", dispatch);
+        request.setParameter("randomId", String.valueOf(cardKey));
+        request.setParameter("ltDrugId", "77");
+        request.setParameter("isLongTerm", "true");
+        request.setParameter("reRxDrugId", "55");
+        request.setParameter("action", "removeFromReRxDrugIdList");
+        request.setParameter("customName", "custom");
+        request.setParameter("name", "custom");
+        request.setParameter("drugId", "5");
+        request.setParameter("specialInstruction", "take with food");
+        request.setParameter("elementId", "repeats_" + cardKey);
+        request.setParameter("propertyValue", "1");
+        return () -> new RxWriteScript2Action().execute();
+    }
+}

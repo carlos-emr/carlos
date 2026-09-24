@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -67,8 +69,9 @@ public final class RxChooseDrug2Action extends ActionSupport {
         //     p("locale="+locale.toString());
         //    p("message="+messages.toString());
         // Setup variables
-        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
+        // authorised for that patient at the same _rx level this action checks globally (#3908).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;

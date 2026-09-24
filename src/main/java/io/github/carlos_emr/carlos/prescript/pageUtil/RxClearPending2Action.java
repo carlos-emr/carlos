@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -53,6 +55,13 @@ public final class RxClearPending2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException {
+        // Clearing the stash discards the patient's staged prescriptions. CSRFGuard does not check
+        // GET, so a link or image tag could otherwise clear it; ViewScript2's form POSTs (#3908).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
             throw new SecurityException("missing required sec object (_rx)");
@@ -63,7 +72,7 @@ public final class RxClearPending2Action extends ActionSupport {
         // Setup variables
 
         // Clears staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -72,7 +81,7 @@ public final class RxClearPending2Action extends ActionSupport {
 
         bean.clearStash();
 
-        if (action.equals("close")) {
+        if ("close".equals(action)) {
             return "close";
         }
 

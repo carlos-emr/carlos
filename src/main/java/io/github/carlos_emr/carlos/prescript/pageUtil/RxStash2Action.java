@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -95,7 +97,7 @@ public final class RxStash2Action extends ActionSupport {
         // action=delete removes a staged card, so it needs the explicitly named patient's bean; the
         // action=edit cursor move is a read and may use the active-patient fallback (#3875).
         RxSessionBean bean = "delete".equals(this.getAction())
-                ? RxSessionBeanResolver.resolveForWrite(request)
+                ? RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w")
                 : RxSessionBeanResolver.resolve(request);
         if (bean == null) {
             response.sendRedirect("error.html");
@@ -170,7 +172,7 @@ public final class RxStash2Action extends ActionSupport {
 
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
-        RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
 
         if (bean == null) {
             response.sendRedirect("error.html");
