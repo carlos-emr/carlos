@@ -11,7 +11,7 @@ import time
 from . import config, dbops, provision, util
 from .util import (
     BACKUP_ENV, CHROMIUM_DIR, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RENDER_BROWSER_ENV, RESET,
-    YELLOW, need_root, out, run,
+    REINSTALL_HINT, YELLOW, need_root, out, render_payload_installed, run,
 )
 
 _failures = 0
@@ -113,21 +113,16 @@ def _check_stale_renderer_package() -> None:
     state = out(["dpkg-query", "-W", "-f=${db:Status-Status}", "carlos-emr-eform-renderer"])
     if state != "config-files":
         return
-    postrm = out(["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"])
-    if not postrm:
-        return
-    try:
-        with open(postrm, encoding="utf-8", errors="replace") as fh:
-            stale = "render-browser.env" in fh.read()
-    except OSError:
-        return
-    if stale:
+    # --control-show, dpkg's supported interface to a package's maintainer
+    # scripts (rather than --control-path plus opening the info-db file).
+    if "render-browser.env" in out(["dpkg-query", "--control-show",
+                                     "carlos-emr-eform-renderer", "postrm"]):
         print("\neForm render browser (package state)")
         _bad("the pre-2026.08.0-alpha14 carlos-emr-eform-renderer package was removed instead "
              "of upgraded, and purging it would delete the render browser's token and disable "
              "its service. Do not purge it; install the transitional package from this release "
              "first (sudo apt install ./carlos-emr-eform-renderer_<version>_all.deb). If it "
-             "was already purged: sudo apt install --reinstall carlos-emr")
+             f"was already purged: {REINSTALL_HINT}")
 
 
 def _check_render_payload(chromium_dir: str, render_env: str) -> bool:
@@ -139,13 +134,11 @@ def _check_render_payload(chromium_dir: str, render_env: str) -> bool:
     only purge removes.
     """
     print("\neForm render browser")
-    chrome = os.path.join(chromium_dir, "chrome")
-    driver = os.path.join(chromium_dir, "chromedriver")
-    if os.access(chrome, os.X_OK) and os.access(driver, os.X_OK):
+    if render_payload_installed(chromium_dir):
         if os.path.exists(render_env):
             return True
         _bad("the render browser is installed but render-browser.env is missing — the "
-             "carlos-emr postinst never completed (sudo apt install --reinstall carlos-emr)")
+             f"carlos-emr postinst never completed ({REINSTALL_HINT})")
         return False
     if os.path.exists(chromium_dir) or os.path.exists(render_env):
         # A SKIP_EFORM_RENDERER build ships no chromium_dir at all and never writes
@@ -153,7 +146,7 @@ def _check_render_payload(chromium_dir: str, render_env: str) -> bool:
         # installed and is now incomplete.
         _bad(f"the render browser under {chromium_dir} is missing or incomplete (chrome and "
              "chromedriver must both be executable) — saved-eForm print, fax and archive "
-             "fail (sudo apt install --reinstall carlos-emr)")
+             f"fail ({REINSTALL_HINT})")
         return False
     _note("this carlos-emr build carries no render browser (a SKIP_EFORM_RENDERER "
           "development build); saved-eForm print, fax and archive are unavailable")
@@ -337,7 +330,7 @@ def cmd_check(argv) -> int:
             else:
                 _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
                      "unit refuses to start without the token; the carlos-emr postinst "
-                     "regenerates it: sudo apt install --reinstall carlos-emr")
+                     f"regenerates it: {REINSTALL_HINT}")
         elif prop_url is None:
             _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
                  "reach the render browser (sudo carlos-ctl init-config)")

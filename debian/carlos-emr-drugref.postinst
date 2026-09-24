@@ -30,6 +30,13 @@ acquire_provision_lock() {
     flock -w 300 9
 }
 
+# Whole seconds on the monotonic clock, for the bounded waits below: date +%s
+# moves with NTP steps, which would end a wait early (skipping provisioning
+# while MariaDB is still restarting) or hold dpkg past its stated bound.
+uptime_s() {
+    cut -d. -f1 /proc/uptime
+}
+
 # carlos-emr.service is running or on its way up. is-active alone is false while a
 # unit is still `activating`, which would end a readiness wait before it began.
 emr_alive() {
@@ -70,8 +77,8 @@ case "$1" in
             deb-systemd-invoke start mariadb.service >/dev/null 2>&1 || true
             # Wall-clock bound with a per-attempt connect timeout, so "60 seconds"
             # in the warning below is what actually happened.
-            deadline=$(( $(date +%s) + 60 ))
-            while [ "$(date +%s)" -lt "${deadline}" ] \
+            deadline=$(( $(uptime_s) + 60 ))
+            while [ "$(uptime_s)" -lt "${deadline}" ] \
                 && ! mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
                 sleep 2
             done
@@ -225,14 +232,14 @@ case "$1" in
                 # deployed: the service answers a GET with 405 once DrugRef is
                 # up (200 is accepted too), and 000 / 404 / 503 until then.
                 echo "carlos-emr-drugref: waiting for the EMR to redeploy with DrugRef (a couple of minutes)..."
-                # A wall-clock deadline, not an attempt count: each probe can take
+                # A deadline (monotonic, see uptime_s), not an attempt count: each probe can take
                 # its full 10-second --max-time, so 60 attempts plus a 5-second sleep
                 # could hold dpkg for 15 minutes behind a "five minutes" message.
                 # The last probe may start just before the deadline, so the true
                 # bound is ~5 min + 10 s.
-                deadline=$(( $(date +%s) + 300 ))
+                deadline=$(( $(uptime_s) + 300 ))
                 code=""
-                while [ "$(date +%s)" -lt "${deadline}" ] && emr_alive; do
+                while [ "$(uptime_s)" -lt "${deadline}" ] && emr_alive; do
                     # Match READY positively. curl already prints 000 when it
                     # cannot connect, so an `|| echo 000` fallback turned that
                     # into 000000, which a list of not-ready codes let through:

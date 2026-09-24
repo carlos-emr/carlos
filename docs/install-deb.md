@@ -350,7 +350,7 @@ its service, the AppArmor profile and the existing render token move into
 transitional one rather than removed. A removed old renderer keeps its old
 cleanup script registered, and purging it later would delete the render
 browser's token and disable its service (`carlos-ctl check` flags that state;
-`sudo apt install --reinstall carlos-emr` repairs it). With `--no-remove`,
+`sudo apt install --reinstall ./carlos-emr_<version>_amd64.deb` repairs it). With `--no-remove`,
 leaving the file out makes apt stop instead of removing anything. After the upgrade,
 `sudo apt remove carlos-emr-eform-renderer` is safe (or `apt autoremove`
 takes it if it was installed as a recommendation).

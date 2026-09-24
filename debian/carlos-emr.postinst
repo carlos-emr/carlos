@@ -1,11 +1,12 @@
 #!/bin/sh
 # postinst for carlos-emr.
 #
-# THIS IS THE ONLY PLACE THE PACKAGE USES ROOT. It creates the two system
+# THIS IS THE ONLY PLACE THE PACKAGE USES ROOT. It creates the three system
 # accounts, lays out the directories, provisions the database, renders the
 # configuration and wires nginx. Everything it installs then runs unprivileged:
-# the application as `carlos`, backups as `carlos-backup`, the front door as
-# `www-data`, the database as `mysql`.
+# the application as `carlos`, backups as `carlos-backup`, the eForm render
+# browser as `carlos-render`, the front door as `www-data`, the database as
+# `mysql`.
 #
 # The provisioning work itself lives in carlos-ctl, not here, so that what an
 # install does and what an administrator can re-run by hand are the same code.
@@ -130,6 +131,13 @@ clear_incomplete() {
 # database-backed EMR inside a build container. It comes from
 # init-system-helpers, which the package depends on explicitly, so there is no
 # fallback path to get wrong.
+# Whole seconds on the monotonic clock, for bounded waits: date +%s moves with
+# NTP steps (a snapshot-restored VM, a bad RTC), which would end a wait early or
+# hold dpkg past its stated bound.
+uptime_s() {
+    cut -d. -f1 /proc/uptime
+}
+
 sd_invoke() {
     if [ ! -d /run/systemd/system ]; then
         return 0
@@ -919,6 +927,10 @@ except ValueError:
         RENDER_DIR=/usr/lib/carlos-emr/chromium
         RENDER_ENV="${CONF_DIR}/render-browser.env"
         RENDER_PAYLOAD=0
+        # Set when this configure writes a NEW url-base token. The running JVM
+        # read the old one into eform_pdf_browser_service_url at startup, so the
+        # EMR must then be RESTARTED, not merely started (see the tail below).
+        RENDER_TOKEN_NEW=0
         if [ -x "${RENDER_DIR}/chrome" ] && [ -x "${RENDER_DIR}/chromedriver" ]; then
             RENDER_PAYLOAD=1
         elif [ -e "${RENDER_DIR}" ]; then
@@ -927,7 +939,8 @@ except ValueError:
             # failed print weeks later.
             echo "carlos-emr: ERROR: ${RENDER_DIR}/chrome or chromedriver is missing or not" >&2
             echo "carlos-emr: ERROR: executable; eForm print/fax/archive will not work." >&2
-            echo "carlos-emr: ERROR: Reinstall: sudo apt install --reinstall carlos-emr" >&2
+            echo "carlos-emr: ERROR: Reinstall from the release file:" >&2
+            echo "carlos-emr: ERROR:   sudo apt install --reinstall ./carlos-emr_<version>_amd64.deb" >&2
             echo "carlos-emr: ERROR: ('sudo carlos-ctl check' keeps reporting this until fixed)" >&2
         else
             echo "carlos-emr: NOTE: this build carries no eForm render browser (SKIP_EFORM_RENDERER);" >&2
@@ -947,9 +960,9 @@ except ValueError:
         # (e.g. deconfigured mid-transaction) is about to be upgraded or removed by
         # this very transaction, and saying "was removed" about it would be false.
         old_renderer_state="$(dpkg-query -W -f='${db:Status-Status}' carlos-emr-eform-renderer 2>/dev/null || true)"
-        old_renderer_postrm="$(dpkg-query --control-path carlos-emr-eform-renderer postrm 2>/dev/null || true)"
-        if [ "${old_renderer_state}" = config-files ] && [ -n "${old_renderer_postrm}" ] \
-            && grep -qs 'render-browser.env' "${old_renderer_postrm}"; then
+        if [ "${old_renderer_state}" = config-files ] \
+            && dpkg-query --control-show carlos-emr-eform-renderer postrm 2>/dev/null \
+                | grep -q 'render-browser.env'; then
             echo "carlos-emr: WARNING: the old carlos-emr-eform-renderer package was removed but" >&2
             echo "carlos-emr: WARNING: not upgraded, and its removal script is still registered." >&2
             echo "carlos-emr: WARNING: Do NOT purge it: that would delete the render browser's token" >&2
@@ -1018,6 +1031,7 @@ except ValueError:
                 # would re-append on every configure.
                 [ ! -s "${RENDER_ENV}" ] || [ -z "$(tail -c1 "${RENDER_ENV}")" ] || echo >> "${RENDER_ENV}"
                 printf 'CARLOS_RENDER_URL_BASE=%s\n' "$(openssl rand -hex 16)" >> "${RENDER_ENV}"
+                RENDER_TOKEN_NEW=1
             elif ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
                 # chromedriver has no authentication and any local uid can reach
                 # a loopback port, so this prefix is what stops another local
@@ -1029,6 +1043,7 @@ except ValueError:
                 sed "s|^CARLOS_RENDER_URL_BASE=.*|CARLOS_RENDER_URL_BASE=${url_base}|" \
                     "${RENDER_ENV}" > "${tmp}"
                 mv "${tmp}" "${RENDER_ENV}"
+                RENDER_TOKEN_NEW=1
             fi
         fi
 
@@ -1539,7 +1554,13 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
         echo "carlos-emr: start it after completing the migration." >&2
-    elif sd_reset_start_limit; sd_invoke start carlos-emr.service; then
+    # restart rather than start when this configure generated a new render
+    # token: on a dpkg-reconfigure the EMR is still running (only an upgrade's
+    # preinst stops it) and would keep calling chromedriver -- just restarted
+    # above under the new url-base -- at the old one, failing every eForm render.
+    # The separate renderer package used to restart the EMR for the same reason.
+    elif emr_verb=start; [ "${RENDER_TOKEN_NEW:-0}" = 1 ] && emr_verb=restart; \
+         sd_reset_start_limit; sd_invoke "${emr_verb}" carlos-emr.service; then
         # Deploying this webapp takes around two minutes on a small VM
         # (measured: 119 s), and postinst returning before it answers makes a
         # perfectly good install look broken — the operator runs
@@ -1570,13 +1591,15 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
             ""|0.0.0.0) PROBE_IP=127.0.0.1 ;;
             ::) PROBE_IP=::1 ;;
         esac
-        # A wall-clock deadline, not an attempt count: each probe can itself take
-        # its 10-second --max-time, so 60 attempts with a 5-second sleep could hold
-        # dpkg for 15 minutes behind a message that says five. The last probe may
-        # start just before the deadline, so the true bound is ~5 min + 10 s.
-        deadline=$(( $(date +%s) + 300 ))
+        # A deadline, not an attempt count: each probe can itself take its
+        # 10-second --max-time, so 60 attempts with a 5-second sleep could hold
+        # dpkg for 15 minutes behind a message that says five. Measured on the
+        # MONOTONIC clock (seconds since boot), so an NTP step during the wait
+        # neither cuts it short nor stretches it. The last probe may start just
+        # before the deadline, so the true bound is ~5 min + 10 s.
+        deadline=$(( $(uptime_s) + 300 ))
         code=""
-        while [ "$(date +%s)" -lt "${deadline}" ]; do
+        while [ "$(uptime_s)" -lt "${deadline}" ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
                     --resolve "${PROBE_NAME}:443:${PROBE_IP}" \
                     "https://${PROBE_NAME}/carlos/" 2>/dev/null || true)"

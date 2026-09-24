@@ -119,22 +119,18 @@ class TestStaleRendererPackage(unittest.TestCase):
     """A pre-merge renderer left in config-files state must be reported before a purge."""
 
     STATUS = ["dpkg-query", "-W", "-f=${db:Status-Status}", "carlos-emr-eform-renderer"]
-    CONTROL = ["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"]
+    CONTROL = ["dpkg-query", "--control-show", "carlos-emr-eform-renderer", "postrm"]
 
-    def run_check(self, postrm_text=None, control_path=None, status="config-files"):
-        with tempfile.TemporaryDirectory() as directory:
-            path = control_path
-            if postrm_text is not None:
-                path = os.path.join(directory, "carlos-emr-eform-renderer.postrm")
-                with open(path, "w", encoding="utf-8") as fh:
-                    fh.write(postrm_text)
-            answers = {tuple(self.STATUS): status, tuple(self.CONTROL): path or ""}
-            validate._failures = 0
-            text = io.StringIO()
-            with patch.object(validate, "out", side_effect=lambda cmd: answers[tuple(cmd)]), \
-                    contextlib.redirect_stdout(text):
-                validate._check_stale_renderer_package()
-            return validate._failures, text.getvalue()
+    def run_check(self, postrm_text=None, status="config-files"):
+        # out() returns "" on a failed command, which is what dpkg-query does for a
+        # package with no postrm (the transitional one) or no record at all.
+        answers = {tuple(self.STATUS): status, tuple(self.CONTROL): postrm_text or ""}
+        validate._failures = 0
+        text = io.StringIO()
+        with patch.object(validate, "out", side_effect=lambda cmd: answers[tuple(cmd)]), \
+                contextlib.redirect_stdout(text):
+            validate._check_stale_renderer_package()
+        return validate._failures, text.getvalue()
 
     LEGACY = "#!/bin/sh\ncase \"$1\" in purge) rm -f /etc/carlos-emr/render-browser.env ;; esac\n"
 
@@ -150,7 +146,7 @@ class TestStaleRendererPackage(unittest.TestCase):
         self.assertEqual(failures, 1)
         self.assertIn("Do not purge it", text)
         self.assertIn("carlos-emr-eform-renderer_<version>_all.deb", text)
-        self.assertIn("apt install --reinstall carlos-emr", text)
+        self.assertIn("apt install --reinstall ./carlos-emr_<version>_amd64.deb", text)
 
     def test_transitional_package_without_postrm_passes_silently(self):
         self.assertEqual(self.run_check(), (0, ""))
@@ -158,8 +154,6 @@ class TestStaleRendererPackage(unittest.TestCase):
     def test_unrelated_postrm_passes_silently(self):
         self.assertEqual(self.run_check("#!/bin/sh\nexit 0\n"), (0, ""))
 
-    def test_unreadable_control_path_is_not_a_crash(self):
-        self.assertEqual(self.run_check(control_path="/nonexistent/renderer.postrm"), (0, ""))
 
 
 class TestRenderPayload(unittest.TestCase):

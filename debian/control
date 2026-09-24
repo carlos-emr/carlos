@@ -133,12 +133,20 @@ Depends:
 # files (the Chromium tree, the carlos-emr-chromedriver unit, the AppArmor
 # profile, the carlos-emr.service drop-in) now belong to this package, so every
 # pre-merge version has to hand them over (Replaces) and must not stay
-# configured beside it (Breaks). ${source:Version} rather than a fixed version:
-# the transitional package below is built from this same source at this same
-# version, so any older carlos-emr-eform-renderer -- a released alpha or a
-# developer snapshot -- is exactly the set that still owns those paths.
+# configured beside it (Breaks).
+#
+# Breaks is a FIXED version: the last pre-merge release was 2026.08.0~alpha13,
+# and the first to ship the transitional package sorts at or above
+# 2026.08.0~alpha14~ (alpha14, an rc, or the final). A ${source:Version}-relative
+# Breaks would also break the PREVIOUS release's transitional package, so an
+# install that kept it could no longer be upgraded with --no-remove unless the
+# operator remembered to supply the transitional deb every time. (A pre-merge
+# renderer is forced out regardless by its own exact Depends on the carlos-emr
+# it shipped with.) Replaces stays ${source:Version}-relative so the file
+# takeover also works from developer snapshots of the old package; the
+# transitional package owns no files, so replacing it is a no-op.
 Breaks:
- carlos-emr-eform-renderer (<< ${source:Version})
+ carlos-emr-eform-renderer (<< 2026.08.0~alpha14~)
 Replaces:
  carlos-emr-eform-renderer (<< ${source:Version})
 Recommends:
@@ -244,7 +252,8 @@ Description: DrugRef2 drug reference service for CARLOS EMR
 
 Package: carlos-emr-eform-renderer
 # Transitional. The renderer now ships inside carlos-emr itself (see the
-# Breaks/Replaces there). This empty package exists so that an installed
+# Breaks/Replaces there). It depends on carlos-emr with >= so a copy left
+# installed keeps satisfying later carlos-emr releases. This empty package exists so that an installed
 # pre-merge renderer is UPGRADED rather than removed. A removed one stays in
 # dpkg's config-files state with its old postrm registered, and purging it later
 # runs that script, which deletes /etc/carlos-emr/render-browser.env and the

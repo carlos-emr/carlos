@@ -178,6 +178,14 @@ upgrade, compare them against the current reference copies in
                   repository, its passphrase, or the backup credential. A
                   compromise of the EMR therefore cannot destroy or decrypt
                   the backups you would recover from.
+  carlos-render   the eForm render browser (carlos-emr-chromedriver.service):
+                  chromedriver and the Chromium it launches, on loopback only.
+                  A member of NO group, including `carlos`: it owns nothing
+                  but a scratch home (/var/lib/carlos-emr/render) and cannot
+                  read patient documents or any credential. Its unit is the
+                  only one on the host allowed to create namespaces, which is
+                  what lets Chromium keep its own sandbox; see
+                  /usr/lib/sysusers.d/carlos-emr.conf for the full reasoning.
   www-data        nginx, the only process listening on a public interface.
   mysql           MariaDB, listening on loopback only.
 
