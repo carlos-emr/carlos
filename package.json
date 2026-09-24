@@ -17,6 +17,7 @@
     "test:playwright-list": "node scripts/run-playwright-suite.js --list",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
     "test:email-field-length-playwright": "node scripts/email-field-length-playwright-checks.js",
+    "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
     "test:add-login-account-playwright": "node scripts/add-login-account-playwright-checks.js",
