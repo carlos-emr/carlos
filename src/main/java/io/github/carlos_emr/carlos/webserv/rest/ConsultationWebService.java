@@ -33,7 +33,12 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -857,6 +862,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         // Refusals are reported per attachment through validationError, the service's existing
         // contract for attachments it could not save; the rest of the save goes ahead.
         int detachedUnverified = 0;
+        // One ownership lookup per attachment type for the whole save, not one per attachment.
+        Set<String> verifiedKeys = verifiedAttachmentKeys(request.getDemographicId(), newAttachments);
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
@@ -878,7 +885,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             if (existing != null) {
                 // Already attached: keep it only while it still verifies. Otherwise it stays in
                 // currentDocs, which the loop below saves as detached.
-                if (isAttachmentOwnedBy(request.getDemographicId(), newAtth)) {
+                if (verifiedKeys.contains(attachmentKey(newAtth))) {
                     currentDocs.remove(existing);
                 } else {
                     newAtth.setValidationError(UNVERIFIED_ATTACHMENT);
@@ -887,7 +894,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 continue;
             }
             //save the new attachment
-            if (!isAttachmentOwnedBy(request.getDemographicId(), newAtth)) {
+            if (!verifiedKeys.contains(attachmentKey(newAtth))) {
                 markUnverifiedAttachment(newAtth);
                 continue;
             }
@@ -911,8 +918,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
             doc.setDeleted(ConsultResponseDoc.DELETED);
         }
 
-        // Same ownership policy as saveRequestAttachments (issue #3867).
+        // Same ownership policy as saveRequestAttachments (issue #3867), batched the same way.
         int detachedUnverified = 0;
+        Set<String> verifiedKeys = verifiedAttachmentKeys(demographicNo, newAttachments);
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
             ConsultResponseDoc existing = null;
@@ -923,7 +931,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 }
             }
             if (existing != null) {
-                if (isAttachmentOwnedBy(demographicNo, newAtth)) {
+                if (verifiedKeys.contains(attachmentKey(newAtth))) {
                     currentDocs.remove(existing);
                 } else {
                     newAtth.setValidationError(UNVERIFIED_ATTACHMENT);
@@ -932,7 +940,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 continue;
             }
             //save the new attachment
-            if (!isAttachmentOwnedBy(demographicNo, newAtth)) {
+            if (!verifiedKeys.contains(attachmentKey(newAtth))) {
                 markUnverifiedAttachment(newAtth);
                 continue;
             }
@@ -953,23 +961,52 @@ public class ConsultationWebService extends AbstractServiceImpl {
      * owner column and are accepted as before; unknown type codes are refused.
      */
     boolean isAttachmentOwnedBy(Integer demographicNo, ConsultationAttachmentTo1 attachment) {
-        DocumentType type = null;
-        for (DocumentType candidate : DocumentType.values()) {
-            if (candidate.getType().equals(attachment.getDocumentType())) {
-                type = candidate;
-                break;
+        return verifiedAttachmentKeys(demographicNo, Collections.singletonList(attachment))
+                .contains(attachmentKey(attachment));
+    }
+
+    /**
+     * Keys ({@link #attachmentKey}) of the attachments that verify for the patient, using one
+     * batched ownership lookup per attachment type. An unknown type code never verifies; a type
+     * with no common owner column (forms) is accepted as before.
+     */
+    Set<String> verifiedAttachmentKeys(Integer demographicNo, List<ConsultationAttachmentTo1> attachments) {
+        Set<String> verified = new HashSet<>();
+        Map<DocumentType, Set<Integer>> idsByType = new EnumMap<>(DocumentType.class);
+        for (ConsultationAttachmentTo1 attachment : attachments) {
+            DocumentType type = documentTypeOf(attachment);
+            if (type == null) {
+                continue;
+            }
+            if (!AttachmentOwnershipService.isVerifiable(type)) {
+                verified.add(attachmentKey(attachment));
+                continue;
+            }
+            idsByType.computeIfAbsent(type, t -> new LinkedHashSet<>()).add(attachment.getDocumentNo());
+        }
+        for (Map.Entry<DocumentType, Set<Integer>> entry : idsByType.entrySet()) {
+            // Attach-time policy, as on the consultation form: an enabled legacy (CML/MDS/BCP) lab of
+            // the patient is attachable, and the renderers still print HL7 labs only.
+            Set<Integer> owned = attachmentOwnershipService.findAttachableIds(entry.getKey(), demographicNo,
+                    new ArrayList<>(entry.getValue()));
+            for (Integer id : owned) {
+                verified.add(entry.getKey().getType() + ":" + id);
             }
         }
-        if (type == null) {
-            return false;
+        return verified;
+    }
+
+    private static String attachmentKey(ConsultationAttachmentTo1 attachment) {
+        return attachment.getDocumentType() + ":" + attachment.getDocumentNo();
+    }
+
+    private static DocumentType documentTypeOf(ConsultationAttachmentTo1 attachment) {
+        for (DocumentType candidate : DocumentType.values()) {
+            if (candidate.getType().equals(attachment.getDocumentType())) {
+                return candidate;
+            }
         }
-        if (!AttachmentOwnershipService.isVerifiable(type)) {
-            return true;
-        }
-        // Attach-time policy, as on the consultation form: an enabled legacy (CML/MDS/BCP) lab of
-        // the patient is attachable, and the renderers still print HL7 labs only.
-        return attachmentOwnershipService.findAttachableIds(type, demographicNo,
-                Collections.singletonList(attachment.getDocumentNo())).contains(attachment.getDocumentNo());
+        return null;
     }
 
     private void markUnverifiedAttachment(ConsultationAttachmentTo1 attachment) {

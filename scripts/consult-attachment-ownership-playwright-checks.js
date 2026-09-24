@@ -50,7 +50,9 @@ const REFUSAL = /attachments could not be verified for this patient/i;
 
 function activeDocumentsSql(where) {
   return 'SELECT c.module_id, c.document_no FROM ctl_document c JOIN document d ON d.document_no = c.document_no '
-    + `WHERE c.module = 'demographic' AND d.status <> 'D' AND ${where}`;
+    // Same liveness rule as CtlDocumentDao's ownership lookup: the document is not deleted and the
+    // patient link is not either (legacy links may carry a NULL status and are live).
+    + `WHERE c.module = 'demographic' AND d.status <> 'D' AND (c.status IS NULL OR c.status <> 'D') AND ${where}`;
 }
 
 async function pickFirstAutocomplete(page, inputSelector) {

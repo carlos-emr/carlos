@@ -352,6 +352,35 @@ class ConsultationWebServiceRegressionTest {
     }
 
     /**
+     * Review follow-up for issue #3867: ownership is looked up once per attachment type for the
+     * whole save, not once per attachment.
+     */
+    @Test
+    @DisplayName("should verify several attachments of one type with a single ownership lookup")
+    void shouldBatchOwnershipLookup_whenSavingSeveralAttachmentsOfOneType() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        ConsultationAttachmentTo1 first = existingAttachment(ConsultationAttachmentTo1.TYPE_DOC, 10);
+        ConsultationAttachmentTo1 second = existingAttachment(ConsultationAttachmentTo1.TYPE_DOC, 11);
+        ConsultationAttachmentTo1 foreign = existingAttachment(ConsultationAttachmentTo1.TYPE_DOC, 999);
+        request.setAttachments(new ArrayList<>(List.of(first, second, foreign)));
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(new ArrayList<>());
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, DEMOGRAPHIC_NO, List.of(10, 11, 999)))
+                .thenReturn(Set.of(10, 11));
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        verify(attachmentOwnershipService, org.mockito.Mockito.times(1))
+                .findAttachableIds(any(DocumentType.class), any(), any());
+        ArgumentCaptor<ConsultDocs> saved = ArgumentCaptor.forClass(ConsultDocs.class);
+        verify(consultationManager, org.mockito.Mockito.times(2)).saveConsultRequestDoc(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getAllValues()).extracting(ConsultDocs::getDocumentNo).containsExactly(10, 11);
+        assertThat(foreign.getValidationError()).isEqualTo("Attachment could not be verified for this patient");
+    }
+
+    /**
      * Review follow-up for issue #3867: refusing a foreign new attachment must not detach the
      * consultation's existing attachments. Only rows the caller left out of the list are detached.
      */
