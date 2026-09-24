@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import org.apache.cxf.attachment.AttachmentDeserializer;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.io.CachedOutputStream;
 import org.apache.cxf.message.Message;
@@ -18,6 +19,7 @@ import javax.xml.stream.XMLStreamReader;
 
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -73,13 +75,23 @@ import java.util.regex.Pattern;
  * <p>Because this runs before CXF's attachment handling, the stream it sees is the whole HTTP
  * entity, attachments included, and a multi-file download can be large. The entity is therefore
  * copied into a CXF {@link CachedOutputStream}, which keeps small messages in memory and spills
- * larger ones to a temporary file (CXF's threshold and temp-directory bus properties apply), and
- * downstream interceptors receive a replay stream over that cache. Only a bounded prefix of at
+ * larger ones to a temporary file, and downstream interceptors receive a replay stream over that
+ * cache. The cache honours the same spill settings CXF's attachment handling uses for this
+ * message: {@code attachment-directory} and {@code attachment-memory-threshold}, looked up as
+ * contextual properties (message, exchange, endpoint, then bus); when they are not set, CXF's
+ * {@code CachedOutputStream} threshold and temp-directory defaults apply. The per-attachment
+ * {@code attachment-max-size} limit is deliberately not applied: this cache holds the whole
+ * entity (every attachment together), so applying it here would cap the total size of a
+ * multi-file download. CXF's {@code AttachmentDeserializer} still enforces it per attachment
+ * downstream. Only a bounded prefix of at
  * most {@link #DEFAULT_MAX_SCAN_BYTES} bytes is read into memory for the scan: it must contain
  * the whole plain SOAP envelope, or the MIME preamble, the root part and the delimiter that ends
  * it. Otherwise the message is rejected. Attachment bytes beyond the prefix are never held in
- * the heap by this class. The temporary file is deleted when the replay stream is closed (or, as
- * a backstop, by CXF's {@code CachedOutputStreamCleaner}), and immediately if the copy fails.</p>
+ * the heap by this class. The replay is handed to the message only after the WSS4J interceptor
+ * has been configured and added to the chain; if anything before that fails (the copy, the scan,
+ * loading the WSS4J configuration, or adding the interceptor), the replay is closed at once, so
+ * any spilled temporary file is deleted rather than left for CXF's
+ * {@code CachedOutputStreamCleaner}. After hand-off, closing the replay deletes the file.</p>
  *
  * <p>Message content is never logged or placed in fault messages: MCEDT payloads can contain
  * claims and patient data.</p>
@@ -131,7 +143,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
 
     private final EdtClientBuilder clientBuilder;
     private final int maxScanBytes;
-    /** In-memory threshold for the replay cache; {@code <= 0} means CXF's configured default. */
+    /**
+     * Test override for the replay cache's in-memory threshold; {@code <= 0} means the message's
+     * {@code attachment-memory-threshold}, or CXF's configured default when that is not set.
+     */
     private final long cacheThreshold;
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -149,7 +164,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * @param clientBuilder supplies the base inbound WSS4J property map for each message
      * @param maxScanBytes maximum prefix, in bytes, read into memory and scanned; must be positive
      * @param cacheThreshold bytes kept in memory before the replay cache spills to a temporary
-     *                       file; {@code <= 0} uses CXF's configured default
+     *                       file, overriding {@code attachment-memory-threshold}; {@code <= 0}
+     *                       uses that property, or CXF's configured default when it is not set
      */
     DynamicWSS4JInInterceptor(EdtClientBuilder clientBuilder, int maxScanBytes, long cacheThreshold) {
         super(Phase.RECEIVE);
@@ -173,18 +189,39 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      */
     @Override
     public void handleMessage(Message message) {
+        Detection detection = null;
         try {
             // Fail fast: a guessed action list would only surface later as an opaque
             // WSS4J "actions mismatch" or decryption error.
-            EncryptionDetectionResult detection = detectEncryption(message);
+            detection = detectEncryption(message);
 
             Map<String, Object> wssProps = clientBuilder.newWSSInInterceptorConfiguration();
-            wssProps.put(ConfigurationConstants.ACTION, buildAction(detection));
+            wssProps.put(ConfigurationConstants.ACTION, buildAction(detection.result()));
 
             message.getInterceptorChain().add(new WSS4JInInterceptor(wssProps));
+            // Hand-off is last: until here this method owns the replay. Once it is the
+            // message's content, CXF reads and closes it (deleting any spilled temp file).
+            if (detection.replay() != null) {
+                message.setContent(InputStream.class, detection.replay());
+            }
         } catch (IOException | XMLStreamException | RuntimeException e) {
+            // The exchange faults, so nothing downstream will read the replay. Close it now
+            // (for a spilled cache this deletes the temp file) instead of leaving it to the
+            // delayed cleaner; this covers keystore/configuration and chain failures too.
+            if (detection != null) {
+                closeQuietly(detection.replay(), e);
+            }
             throw e instanceof Fault fault ? fault : new Fault(e);
         }
+    }
+
+    /**
+     * Scan result plus the replay of the entity that is still owned by this interceptor.
+     *
+     * @param result the encryption detection result
+     * @param replay stream over the cached entity, or {@code null} when the message had no stream
+     */
+    private record Detection(EncryptionDetectionResult result, InputStream replay) {
     }
 
     private static String buildAction(EncryptionDetectionResult detection) {
@@ -215,27 +252,28 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Caches the message stream, scans a bounded prefix for the SOAP envelope and, only if the
-     * scan succeeds, hands downstream interceptors a replay of the whole entity. On any failure
-     * the replay (and any spilled temp file) is released before the exception propagates.
+     * Caches the message stream and scans a bounded prefix for the SOAP envelope. On success the
+     * replay of the whole entity is returned to the caller, which owns it until it is handed to
+     * the message; on any failure here the replay (and any spilled temp file) is released before
+     * the exception propagates.
      *
      * <p>A missing or empty stream is treated as "no encryption" (unchanged legacy behaviour);
      * CXF reports the empty response itself.</p>
      */
-    private EncryptionDetectionResult detectEncryption(Message message)
+    private Detection detectEncryption(Message message)
             throws IOException, XMLStreamException {
         InputStream is = message.getContent(InputStream.class);
         if (is == null) {
             logger.warn("No InputStream found in message when detecting encryption.");
-            return new EncryptionDetectionResult();
+            return new Detection(new EncryptionDetectionResult(), null);
         }
 
-        CachedOutputStream cache = cacheThreshold > 0
-                ? new CachedOutputStream(cacheThreshold) : new CachedOutputStream();
+        CachedOutputStream cache = new CachedOutputStream();
         byte[] prefix;
         boolean truncated;
         InputStream replay = null;
         try {
+            applyCacheSettings(message, cache);
             is.transferTo(cache);
             cache.flush();
             long size = cache.size();
@@ -265,10 +303,46 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             closeQuietly(replay, e);
             throw e;
         }
-        // Only a successfully scanned entity is handed downstream; from here CXF owns (and
-        // closes) the replay stream.
-        message.setContent(InputStream.class, replay);
-        return result;
+        return new Detection(result, replay);
+    }
+
+    /**
+     * Applies CXF's attachment spill settings for this message to the replay cache, so a large
+     * MCEDT download spills to the configured directory at the configured threshold exactly as
+     * CXF's own attachment caching would. Mirrors the directory and threshold handling of CXF's
+     * {@code AttachmentUtil.setStreamedAttachmentProperties}; {@code attachment-max-size} is
+     * intentionally skipped (see the class Javadoc). The package-private test threshold, when
+     * set, takes precedence.
+     *
+     * @throws IOException if a configured value has the wrong type or is not a number; the text
+     *                     is fixed and carries no message content
+     */
+    private void applyCacheSettings(Message message, CachedOutputStream cache) throws IOException {
+        Object directory = message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY);
+        if (directory instanceof File dir) {
+            cache.setOutputDir(dir);
+        } else if (directory instanceof String dir) {
+            cache.setOutputDir(new File(dir));
+        } else if (directory != null) {
+            throw new IOException("attachment-directory must be a File or a String");
+        }
+
+        Object threshold = message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MEMORY_THRESHOLD);
+        if (threshold instanceof Number number) {
+            cache.setThreshold(number.longValue());
+        } else if (threshold instanceof String text) {
+            try {
+                cache.setThreshold(Long.parseLong(text.trim()));
+            } catch (NumberFormatException e) {
+                throw new IOException("attachment-memory-threshold is not a number", e);
+            }
+        } else if (threshold != null) {
+            throw new IOException("attachment-memory-threshold must be a Number or a String");
+        }
+
+        if (cacheThreshold > 0) {
+            cache.setThreshold(cacheThreshold);
+        }
     }
 
     /**

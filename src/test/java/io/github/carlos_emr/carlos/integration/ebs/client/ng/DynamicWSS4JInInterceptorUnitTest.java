@@ -27,11 +27,13 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
@@ -46,6 +48,7 @@ import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
 
+import org.apache.cxf.attachment.AttachmentDeserializer;
 import org.apache.cxf.helpers.FileUtils;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.interceptor.Interceptor;
@@ -57,6 +60,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -742,6 +746,115 @@ class DynamicWSS4JInInterceptorUnitTest {
         assertNoWssInterceptorAdded();
         verify(message, never()).setContent(eq(InputStream.class), any());
         assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should close the replay and delete the spilled cache file when WSS4J configuration fails")
+    void shouldDeleteSpilledTempFile_whenWssConfigurationThrows() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 4096, 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent(mimeWithBinaryAttachment(2, 64 * 1024));
+        when(clientBuilder.newWSSInInterceptorConfiguration())
+                .thenThrow(new IllegalStateException("keystore unavailable"));
+        Set<String> before = cacheTempFiles();
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
+        assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should close the replay and delete the spilled cache file when adding the WSS4J interceptor fails")
+    void shouldDeleteSpilledTempFile_whenChainAddThrows() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 4096, 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent(mimeWithBinaryAttachment(2, 64 * 1024));
+        doThrow(new IllegalStateException("chain rejected")).when(chain).add(any(Interceptor.class));
+        Set<String> before = cacheTempFiles();
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        verify(message, never()).setContent(eq(InputStream.class), any());
+        assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
+    // ---------------------------------------------------------------- CXF attachment cache settings
+
+    @Test
+    @DisplayName("should spill the replay into attachment-directory at attachment-memory-threshold")
+    void shouldSpillToAttachmentDirectory_whenAttachmentSettingsConfigured(@TempDir File dir) throws IOException {
+        byte[] mime = mimeWithBinaryAttachment(2, 64 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY))
+                .thenReturn(dir.getAbsolutePath());
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MEMORY_THRESHOLD))
+                .thenReturn("1024");
+        givenContent(mime);
+
+        interceptor.handleMessage(message);
+
+        InputStream replay = capturedReplay();
+        assertThat(dir.list()).as("entity above the configured threshold spills to the configured directory")
+                .isNotEmpty();
+        assertThat(replay.readAllBytes()).isEqualTo(mime);
+        replay.close();
+        assertThat(dir.list()).isEmpty();
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should keep the replay in memory when attachment-memory-threshold exceeds the entity")
+    void shouldKeepReplayInMemory_whenAttachmentThresholdExceedsEntity(@TempDir File dir) throws IOException {
+        // Larger than CXF's 128 KiB default threshold, so only the configured value keeps it in memory.
+        byte[] mime = mimeWithBinaryAttachment(1, 256 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY)).thenReturn(dir);
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MEMORY_THRESHOLD))
+                .thenReturn(1024L * 1024L);
+        givenContent(mime);
+        Set<String> before = cacheTempFiles();
+
+        interceptor.handleMessage(message);
+
+        assertThat(dir.list()).isEmpty();
+        assertThat(newCacheTempFiles(before)).as("nothing spilled to CXF's default temp directory").isEmpty();
+        try (InputStream replay = capturedReplay()) {
+            assertThat(replay.readAllBytes()).isEqualTo(mime);
+        }
+    }
+
+    @Test
+    @DisplayName("should not apply the per-attachment attachment-max-size to the whole entity")
+    void shouldAcceptEntityLargerThanAttachmentMaxSize_forMultiFileDownload() throws IOException {
+        byte[] mime = mimeWithBinaryAttachment(3, 64 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MAX_SIZE)).thenReturn(1024L);
+        givenContent(mime);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+        try (InputStream replay = capturedReplay()) {
+            assertThat(replay.readAllBytes()).isEqualTo(mime);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject the message when attachment-memory-threshold is not a number")
+    void shouldRejectMessage_whenAttachmentThresholdIsNotNumeric() {
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MEMORY_THRESHOLD))
+                .thenReturn("lots");
+        givenContent(envelope(1, true));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(NumberFormatException.class);
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
     }
 
     // ---------------------------------------------------------------- helpers
