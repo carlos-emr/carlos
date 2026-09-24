@@ -93,6 +93,15 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         return ct;
     }
 
+    private Consent consent(int id, boolean optout, java.util.Date editDate) {
+        Consent consent = new Consent();
+        setConsentId(consent, id);
+        consent.setDemographicNo(100);
+        consent.setOptout(optout);
+        consent.setEditDate(editDate);
+        return consent;
+    }
+
     private void setConsentId(Consent consent, Integer id) {
         try {
             java.lang.reflect.Field idField = Consent.class.getDeclaredField("id");
@@ -116,7 +125,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldCreateNewConsent_whenNoneExists() {
             ConsentType ct = createActiveConsentType(1, "PROVIDER_CONSENT_FILTER");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(null);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(java.util.List.of());
 
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
 
@@ -134,12 +143,47 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             existing.setDemographicNo(100);
             existing.setOptout(false);
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(existing);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(java.util.List.of(existing));
 
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, true);
 
             assertThat(result).isTrue();
             verify(mockConsentDao).merge(existing);
+        }
+
+        @Test
+        @DisplayName("should edit the deciding record and retire the other live duplicates")
+        void shouldRetireOtherLiveDuplicates_whenSavingConsent() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent newerOptIn = consent(11, false, new java.util.Date(2_000L));
+            Consent olderOptOut = consent(12, true, new java.util.Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1))
+                    .thenReturn(new java.util.ArrayList<>(java.util.List.of(newerOptIn, olderOptOut)));
+
+            // Staff opt the patient in. The opt-out decided (and was shown), so it is the one edited.
+            boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+
+            assertThat(result).isTrue();
+            assertThat(olderOptOut.isOptout()).isFalse();
+            assertThat(olderOptOut.isDeleted()).isFalse();
+            assertThat(newerOptIn.isDeleted()).isTrue();
+            verify(mockConsentDao).merge(olderOptOut);
+            verify(mockConsentDao).merge(newerOptIn);
+        }
+
+        @Test
+        @DisplayName("should retire nothing when the patient has a single live record")
+        void shouldNotRetireAnything_whenOnlyOneLiveRecordExists() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent only = consent(11, false, new java.util.Date(2_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(only));
+
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, true);
+
+            assertThat(only.isDeleted()).isFalse();
+            verify(mockConsentDao, org.mockito.Mockito.times(1)).merge(any(Consent.class));
         }
 
         @Test
@@ -189,7 +233,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldCallAddConsent_whenConsenting() {
             ConsentType ct = createActiveConsentType(1, "TEST");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(null);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(java.util.List.of());
 
             manager.setConsent(loggedInInfo, 100, 1, true);
 
@@ -347,6 +391,28 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isSameAs(ct);
             verify(mockConsentTypeDao).persist(ct);
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteConsent")
+    class DeleteConsent {
+
+        @Test
+        @DisplayName("should delete every live record, not just one, so no duplicate keeps deciding")
+        void shouldDeleteEveryLiveRecord_whenDuplicatesExist() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent first = consent(11, false, new java.util.Date(2_000L));
+            Consent second = consent(12, true, new java.util.Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(first, second));
+
+            manager.deleteConsent(loggedInInfo, 100, 1);
+
+            assertThat(first.isDeleted()).isTrue();
+            assertThat(second.isDeleted()).isTrue();
+            verify(mockConsentDao).merge(first);
+            verify(mockConsentDao).merge(second);
         }
     }
 }
