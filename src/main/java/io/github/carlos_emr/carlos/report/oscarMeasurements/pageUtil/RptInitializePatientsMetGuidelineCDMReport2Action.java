@@ -166,6 +166,36 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return valid;
     }
 
+    private static final String ABOVE = ">";
+    private static final String BELOW = "<";
+    private static final String SQL_MET_WITH_INSTRUCTION_PREFIX = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered"
+            + " AND demographicNo = :demographicNo AND type = :measurementType AND measuringInstruction = :measuringInstruction AND dataField";
+    private static final String SQL_MET_PREFIX = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered"
+            + " AND demographicNo = :demographicNo AND type = :measurementType AND dataField";
+    // Constant SQL per operator: the operator can't be a bind parameter, and request data must
+    // never be concatenated into the statement.
+    static final String SQL_MET_ABOVE_WITH_INSTRUCTION = SQL_MET_WITH_INSTRUCTION_PREFIX + " > :guideline";
+    static final String SQL_MET_BELOW_WITH_INSTRUCTION = SQL_MET_WITH_INSTRUCTION_PREFIX + " < :guideline";
+    static final String SQL_MET_ABOVE = SQL_MET_PREFIX + " > :guideline";
+    static final String SQL_MET_BELOW = SQL_MET_PREFIX + " < :guideline";
+
+    /**
+     * Maps the submitted "above/below" radio value to the only two comparison operators the
+     * met-guideline form offers.
+     *
+     * @param raw the submitted {@code value(aboveBelowN)} field
+     * @return {@code ">"} or {@code "<"}, or {@code null} for any other value
+     */
+    static String guidelineComparator(String raw) {
+        if (ABOVE.equals(raw)) {
+            return ABOVE;
+        }
+        if (BELOW.equals(raw)) {
+            return BELOW;
+        }
+        return null;
+    }
+
     /*****************************************************************************************
      * get the number of Patient met the specific guideline during aspecific time period
      *
@@ -193,7 +223,13 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
             String endDate = endDateB[ctr];
             String guideline = guidelineB[ctr];
             String measurementType = (String) this.getValue("measurementType" + ctr);
-            String aboveBelow = (String) this.getValue("aboveBelow" + ctr);
+            // The comparison operator is spliced into SQL below, so only the two operators the
+            // form offers are accepted; anything else (a tampered request) skips this row.
+            String aboveBelow = guidelineComparator((String) this.getValue("aboveBelow" + ctr));
+            if (aboveBelow == null) {
+                MiscUtils.getLogger().warn("CDM met-guideline report: rejected an unsupported guideline comparator");
+                continue;
+            }
             String sNumMInstrc = (String) this.getValue("mNbInstrcs" + ctr);
             int iNumMInstrc = Integer.parseInt(sNumMInstrc);
             double metGLPercentage = 0;
@@ -232,7 +268,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                             Integer demographicNo = (Integer) o[0];
                             Date maxDateEntered = (Date) o[1];
 
-                            String sql = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered AND demographicNo = :demographicNo AND type = :measurementType AND measuringInstruction = :measuringInstruction AND dataField" + aboveBelow + ":guideline";
+                            String sql = ABOVE.equals(aboveBelow) ? SQL_MET_ABOVE_WITH_INSTRUCTION : SQL_MET_BELOW_WITH_INSTRUCTION;
                             List<Object[]> rs = fDao.runParameterizedNativeQuery(sql, 
                                 "dateEntered", ConversionUtils.toDateString(maxDateEntered),
                                 "demographicNo", demographicNo,
@@ -312,7 +348,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                     Integer demographicNo = (Integer) o[0];
                     Date maxDateEntered = (Date) o[1];
 
-                    String sql = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered AND demographicNo = :demographicNo AND type = :measurementType AND dataField" + aboveBelow + ":guideline";
+                    String sql = ABOVE.equals(aboveBelow) ? SQL_MET_ABOVE : SQL_MET_BELOW;
                     List<Object[]> rs = fDao.runParameterizedNativeQuery(sql,
                         "dateEntered", ConversionUtils.toDateString(maxDateEntered),
                         "demographicNo", demographicNo,
