@@ -312,13 +312,13 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "[{index}] last={0}, first={1} -> \"{2}\"")
     @CsvSource(value = {
-            "Smith,Jane,'Smith, Jane'",
-            "Smith,NULL,Smith",
-            "NULL,Jane,Jane",
-            "NULL,NULL,''",
-            "'  ','  ',''",
-            "' Smith ',' Jane ','Smith, Jane'"
-    }, nullValues = "NULL")
+            "Smith     | Jane     | Smith, Jane",
+            "Smith     | NULL     | Smith",
+            "NULL      | Jane     | Jane",
+            "NULL      | NULL     | ''",
+            "'  '      | '  '     | ''",
+            "' Smith ' | ' Jane ' | Smith, Jane"
+    }, delimiter = '|', nullValues = "NULL")
     @DisplayName("should omit missing specialist name parts")
     void shouldOmitMissingParts_whenFormattingSpecialistName(String last, String first, String expected) {
         assertThat(

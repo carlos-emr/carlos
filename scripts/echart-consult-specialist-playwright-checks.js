@@ -61,38 +61,36 @@ function insertReturningId(sql, statement, what) {
 }
 
 /**
- * Finds the one Consultations entry for a request. The id is matched as a whole number
- * (requestId=12 must not match requestId=123), and the entry must be unique and belong to the
- * Consultations module's list, so the assertions below read that exact row and nothing else.
+ * Finds the one Consultations row for a request and its title link.
+ *
+ * LeftNavBarDisplay.jsp renders a dated item as one <li> holding two a.links that open the
+ * same request: the title, then a "...<date>" suffix. So the row is the unit that must be
+ * unique, and the title is the row's first a.links. The request id is matched with its
+ * closing quote (the popup URL ends "requestId=<id>'); return false;"), so 12 never matches
+ * 123 -- a plain attribute-substring selector, with no pattern built from input.
  */
 async function consultEntry(chart, requestId) {
-  const pattern = new RegExp(`[?&]requestId=${requestId}(?!\\d)`);
-  const links = chart.locator('#leftNavBar a.links');
-  await chart.waitForFunction((source) => {
-    const re = new RegExp(source);
-    return [...document.querySelectorAll('#leftNavBar a.links')]
-      .some((a) => re.test(`${a.getAttribute('href') || ''} ${a.getAttribute('onclick') || ''}`));
-  }, pattern.source, { timeout: 20000 }).catch(() => {});
+  h.assert(/^[1-9]\d*$/.test(requestId), 'the fixture request id is not a positive integer');
+  const target = `requestId=${requestId}'`;
+  const opens = `a.links[onclick*="${target}"], a.links[href*="${target}"]`;
+  const rows = chart.locator('#leftNavBar li').filter({ has: chart.locator(opens) });
+  await rows.first().waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
+  const count = await rows.count();
+  h.assert(count === 1, `expected exactly one eChart row for the fixture consultation, found ${count}`);
 
-  const matches = [];
-  const total = await links.count();
-  for (let i = 0; i < total; i += 1) {
-    const link = links.nth(i);
-    const target = `${await link.getAttribute('href') || ''} ${await link.getAttribute('onclick') || ''}`;
-    if (pattern.test(target)) matches.push(link);
-  }
-  h.assert(matches.length === 1,
-    `expected exactly one eChart entry for the fixture consultation, found ${matches.length}`);
-  const [link] = matches;
-  const listId = await link.evaluate((a) => (a.closest('ul') || {}).id || '');
-  h.assert(/consultation/i.test(listId),
-    'the fixture consultation entry is not in the eChart Consultations box');
+  const row = rows.first();
+  const link = row.locator('a.links').first();
+  h.assert(await link.evaluate((a, t) => `${a.getAttribute('onclick') || ''} ${a.getAttribute('href') || ''}`
+    .includes(t), target), 'the fixture row\'s title link does not open the fixture consultation');
+  const listId = await row.evaluate((li) => (li.closest('ul') || {}).id || '');
+  h.assert(listId.toLowerCase().includes('consultation'),
+    'the fixture consultation row is not in the eChart Consultations box');
   h.assert(await link.isVisible(), 'the fixture consultation entry is not visible in the Consultations box');
   return {
     link,
     visible: (await link.innerText()).replace(/\s+/g, ' ').trim(),
     tooltip: (await link.getAttribute('title')) || '',
-    rowText: (await link.evaluate((a) => (a.closest('li') || a).textContent || '')).replace(/\s+/g, ' ').trim(),
+    rowText: (await row.textContent() || '').replace(/\s+/g, ' ').trim(),
   };
 }
 
