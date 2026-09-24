@@ -36,7 +36,8 @@
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  * Optional: BILLING_DEMOGRAPHIC_NO (1), BILLING_PROVIDER_NO (999998),
- *   BILLING_SUBMIT_DATE (2024-05-06), BILLING_OHIP_CODE (A007A),
+ *   BILLING_SUBMIT_DATE (2024-05-06), BILLING_OHIP_CODE (A007A; a private code such as
+ *   _OMA_A003 with BILLING_FORM_NAME=PRIVATE also works),
  *   BILLING_BONUS_CODE (Q040A), BILLING_DX_CODE (250),
  *   BILLING_FORM_NAME (General Practice) -- the entry in the "Billing form"
  *   chooser whose favourite grid carries BILLING_OHIP_CODE. The grid stays
@@ -81,16 +82,20 @@ function digits(name, raw, fallback) {
   assert(/^\d+$/.test(value), `${name} must be numeric, got ${value}`);
   return value;
 }
-function code(name, raw, fallback) {
+// An OHIP code (A007A) or a clinic private code. Private codes are stored with a leading "_"
+// (ServiceCodePersister), e.g. the OMA uninsured fees _OMA_A003 on the PRIVATE form; the review
+// page used to reject every one of them (#3894), so they are worth submitting too.
+function code(name, raw, fallback, { allowPrivate = false } = {}) {
   const value = (raw === undefined || raw === '' ? fallback : raw).toUpperCase();
-  assert(/^[A-Z]\d{3}[A-Z]$/.test(value), `${name} must be an Ontario service code like A007A, got ${value}`);
+  const ok = /^[A-Z]\d{3}[A-Z]$/.test(value) || (allowPrivate && /^_[A-Z0-9_]{1,9}$/.test(value));
+  assert(ok, `${name} must be an Ontario service code like A007A${allowPrivate ? ' or a private code like _OMA_A003' : ''}, got ${value}`);
   return value;
 }
 const demographicNo = digits('BILLING_DEMOGRAPHIC_NO', process.env.BILLING_DEMOGRAPHIC_NO, '1');
 const providerNo = digits('BILLING_PROVIDER_NO', process.env.BILLING_PROVIDER_NO, '999998');
 const billingDate = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
 assert(/^\d{4}-\d{2}-\d{2}$/.test(billingDate), 'BILLING_SUBMIT_DATE must be YYYY-MM-DD');
-const ohipCode = code('BILLING_OHIP_CODE', process.env.BILLING_OHIP_CODE, 'A007A');
+const ohipCode = code('BILLING_OHIP_CODE', process.env.BILLING_OHIP_CODE, 'A007A', { allowPrivate: true });
 const bonusCode = code('BILLING_BONUS_CODE', process.env.BILLING_BONUS_CODE, 'Q040A');
 const dxCode = process.env.BILLING_DX_CODE || '250';
 assert(/^\d{3,4}$/.test(dxCode), 'BILLING_DX_CODE must be a 3-4 digit diagnostic code');
