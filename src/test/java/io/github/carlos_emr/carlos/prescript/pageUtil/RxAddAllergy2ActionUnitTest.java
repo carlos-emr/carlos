@@ -58,7 +58,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("RxAddAllergy2Action Unit Tests")
 @Tag("unit")
 @Tag("rx")
-class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
+class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;

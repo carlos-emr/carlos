@@ -102,10 +102,7 @@ io.github.carlos_emr.carlos.lab.gate.ViewInsideLabUpload2ActionTest
 io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2ActionTest
 io.github.carlos_emr.carlos.oscarWorkflow.gate.ViewWorkFlowList2ActionTest
 io.github.carlos_emr.carlos.PMmodule.web.admin.PmmoduleJspMigrationActionRoutingTest
-io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2ActionTest
-io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2ActionTest
 io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2ActionTest
-io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2ActionTest
 io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchPatient2ActionTest
 io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2ActionTest
 io.github.carlos_emr.carlos.prescript.util.SimpleXmlRpcClientTest

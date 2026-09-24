@@ -62,7 +62,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("RxRePrescribe2Action prescription signature tests")
 @Tag("integration")
 @Tag("prescript")
-class RxRePrescribe2ActionTest extends CarlosWebTestBase {
+class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
     /** The patient the fixture prescription belongs to; the patient-scoped _rx check targets this. */
     private static final int SIGNATURE_DEMOGRAPHIC_NO = 4242;
