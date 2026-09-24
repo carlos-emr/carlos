@@ -222,7 +222,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
      * {@code null}, rolls back the document, routing and checksum rows; the file on disk is not
      * transactional, so without this it stayed behind and every retry wrote another. A commit, a
      * commit whose outcome is unknown (the rows may exist), or no transaction at all keeps the file,
-     * as before.</p>
+     * as before. A delete that fails is retried when the JVM shuts down.</p>
      *
      * @param saved the PDF written by {@link Utilities#savePdfFile}
      * @param documentDir the document directory the file must lie in before it is deleted
@@ -237,12 +237,24 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
                 if (status != STATUS_ROLLED_BACK) {
                     return;
                 }
+                File target;
                 try {
-                    Files.deleteIfExists(PathValidationUtils.validateExistingPath(saved, documentDir).toPath());
+                    target = PathValidationUtils.validateExistingPath(saved, documentDir);
+                } catch (RuntimeException outsideDocumentDir) {
+                    logger.warn("Not removing a rolled-back FHIR document PDF outside DOCUMENT_DIR: {}",
+                            LogSafe.exceptionTrace(outsideDocumentDir));
+                    return;
+                }
+                try {
+                    Files.deleteIfExists(target.toPath());
                 } catch (IOException | RuntimeException e) {
-                    // exceptionTrace, not the throwable: the message is the path, whose name embeds the
-                    // CommunicationRequest identifier.
-                    logger.warn("Could not remove a rolled-back FHIR document PDF: {}", LogSafe.exceptionTrace(e));
+                    // No row references this file any more. Retry the delete when the JVM shuts down
+                    // rather than forget it; there is no persistent cleanup queue for uploads to hand
+                    // it to. exceptionTrace, not the throwable: the message is the path, whose name
+                    // embeds the CommunicationRequest identifier.
+                    logger.warn("Could not remove a rolled-back FHIR document PDF; retrying at shutdown: {}",
+                            LogSafe.exceptionTrace(e));
+                    target.deleteOnExit();
                 }
             }
         });

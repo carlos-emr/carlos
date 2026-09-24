@@ -59,6 +59,22 @@ class FHIRCommunicationRequestHandlerUnitTest {
     }
 
     @Test
+    void shouldCompleteRollback_whenSavedPdfCannotBeDeleted() throws Exception {
+        // A non-empty directory in the PDF's place makes the delete fail even for a privileged user.
+        Path stuck = Files.createDirectory(documentDir.resolve("DocUpload.request.5.pdf"));
+        Files.writeString(stuck.resolve("keep"), "x");
+
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            FHIRCommunicationRequestHandler.discardOnRollback(stuck.toFile(), documentDir.toFile());
+            status.setRollbackOnly();
+        });
+
+        // The failure is logged and the delete deferred to shutdown; it never escapes the rollback.
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(stuck).exists();
+    }
+
+    @Test
     void shouldKeepSavedPdf_whenTransactionCommits() throws Exception {
         Path pdf = Files.writeString(documentDir.resolve("DocUpload.request.2.pdf"), "%PDF-1.4");
 
