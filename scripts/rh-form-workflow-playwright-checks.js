@@ -52,10 +52,11 @@ async function workflow(s) {
     h.assert(row[2] === s.marker && await page.locator('[name="comments"]').inputValue() === s.marker, 'Saved comments were lost in persistence or rendering');
     h.assert(await page.locator('[name="formId"]').inputValue() === row[0], 'Success page reopened a different form record');
   });
-  await s.step('reopen through the patient saved forms list and update the existing pregnancy', async () => {
+  await s.step('reopen through the chart saved forms list and update the existing pregnancy', async () => {
     await page.close();
-    const list = await s.context.newPage();
-    await list.goto(h.appUrl(s.config.baseUrl, `/encounter/ViewFormlist?demographic_no=${s.patient}`));
+    // The Forms module heading is the chart's own control for the saved forms list;
+    // the per-form shortcut anchors are not rendered for a freshly saved record.
+    const list = await s.popup(chart, chart.locator('h3[onclick*="/encounter/ViewFormlist"]').first(), 'rh-form-list');
     const savedLinks = list.locator('a').filter({ hasText: formName });
     h.assert(await savedLinks.count() === 1, 'Patient saved forms list did not show exactly one owned RH form');
     page = await s.popup(list, savedLinks.first(), 'rh-reopen');
@@ -83,8 +84,12 @@ async function workflow(s) {
     for (const operation of ['INSERT', 'UPDATE']) {
       const name = `rh_rollback_${operation.toLowerCase()}_${suffix}`;
       rollbackTriggers.push(name);
-      s.sql.execute(`CREATE TRIGGER ${name} BEFORE ${operation} ON formRhImmuneGlobulin
-        FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='RH rollback probe'`);
+      // Scoped to the owned patient so a concurrent save, or a trigger stranded by an
+      // interrupted run, never blocks RH writes for anyone else.
+      s.sql.execute(`DELIMITER //
+        CREATE TRIGGER ${name} BEFORE ${operation} ON formRhImmuneGlobulin
+        FOR EACH ROW IF NEW.demographic_no=${s.patient} THEN
+          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='RH rollback probe'; END IF//`);
     }
     const count = s.sql.value(formCount);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
