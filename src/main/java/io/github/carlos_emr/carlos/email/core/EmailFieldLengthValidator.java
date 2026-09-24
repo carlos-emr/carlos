@@ -48,8 +48,10 @@ import java.util.List;
  *       (4 * ceil(49,149 / 3) = 65,532).</li>
  * </ul>
  *
- * <p>SMTP imposes no tighter limit: Jakarta Mail folds long subject headers and chooses a
- * transfer encoding for body lines over 998 octets, and the SendGrid API carries both as JSON.</p>
+ * <p>SMTP imposes no tighter limit. Jakarta Mail folds a subject only at whitespace, so
+ * {@code SMTPEmailSender.setSubject} writes a subject with an unbroken run too long for the RFC 5322
+ * 998-character line as RFC 2047 encoded-words, which fold safely. Jakarta Mail chooses a transfer
+ * encoding for body lines over 998 octets, and the SendGrid API carries both as JSON.</p>
  *
  * <p>The compose page mirrors these limits in JavaScript so providers see the problem before
  * submitting; this class is the authoritative server-side check.</p>
@@ -80,7 +82,10 @@ public final class EmailFieldLengthValidator {
     }
 
     /**
-     * Returns every field of {@code emailData} that would not fit its {@code emailLog} column.
+     * Returns every provider-entered text field of {@code emailData} that would not fit its
+     * {@code emailLog} column. Recipients ({@code toEmail varchar(255)}, joined with {@code ;}) are
+     * not checked here: they are validated addresses chosen from the chart, and that column's
+     * limit predates issue #3905.
      *
      * <p>Call this after {@code EmailManager} has cleared fields that will not be stored (for
      * example the password when encryption is off), so unused fields are not reported.</p>
