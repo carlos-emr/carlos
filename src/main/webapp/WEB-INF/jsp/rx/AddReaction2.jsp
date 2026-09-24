@@ -135,7 +135,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
+                                    href="<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<carlos:encode value='<%= String.valueOf(bean.getDemographicNo()) %>' context="uriComponent"/>"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -340,7 +340,9 @@
                     <tr>
                         <td>
                             <%
-                                String sBack = request.getContextPath() + "/rx/showAllergy";
+                                // The patient is an int, so appending it needs no encoding; showAllergy refuses a request
+                                // that names no patient (#3908).
+                                String sBack = request.getContextPath() + "/rx/showAllergy?demographicNo=" + bean.getDemographicNo();
                             %> <input type=button class="ControlPushButton"
                                       onclick="window.location.href='<%=sBack%>';"
                                       value="Back to View Allergies"/></td>

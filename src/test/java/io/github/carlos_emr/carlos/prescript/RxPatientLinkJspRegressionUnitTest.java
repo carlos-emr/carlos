@@ -169,4 +169,35 @@ class RxPatientLinkJspRegressionUnitTest {
                 .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/searchDrug\");")
                 .contains("onFailure: reportRefusedSave");
     }
+
+    @Test
+    @DisplayName("should name the patient on every allergy-page link back to the allergy list")
+    void shouldNamePatient_onAllergyBackLinks() throws IOException {
+        String breadcrumb = "/rx/showAllergy?demographicNo=<carlos:encode value='<%= String.valueOf(bean.getDemographicNo()) %>'"
+                + " context=\"uriComponent\"/>\">";
+        for (String jsp : new String[] {"rx/AddReaction2.jsp", "rx/ChooseAllergy2.jsp"}) {
+            String page = read(jsp);
+            // showAllergy refuses a request that names no patient (#3908).
+            assertThat(page).as(jsp).doesNotContain("/rx/showAllergy\">", "getContextPath() + \"/rx/showAllergy\";")
+                    .contains(breadcrumb)
+                    .contains("\"/rx/showAllergy?demographicNo=\" + bean.getDemographicNo();");
+        }
+        // submitAddReaction() calls form.submit(), which the patient-context submit listener never sees.
+        assertThat(read("rx/ChooseAllergy2.jsp")).contains(
+                "<input type=\"hidden\" name=\"demographicNo\" value=\"<%= bean == null ? \"\" : String.valueOf(bean.getDemographicNo()) %>\"/>");
+    }
+
+    @Test
+    @DisplayName("should keep programmatic Rx navigations on the page's patient")
+    void shouldNamePatient_onProgrammaticNavigations() throws IOException {
+        assertThat(read("rx/WriteScript.jsp")).doesNotContain("<c:redirect url=\"/rx/searchDrug\"/>")
+                .contains("<c:param name=\"demographicNo\" value=\"${bean.demographicNo}\"/>");
+        String favourites = read("rx/SideLinksEditFavorites2.jsp");
+        for (String route : new String[] {"updateFavorite", "copyFavorite"}) {
+            assertThat(favourites).contains("/rx/" + route + "?demographicNo=<carlos:encode value='<%= String.valueOf(bean2.getDemographicNo()) %>'");
+        }
+        // An iframe src assignment is not tagged by rx-patient-context.js (medication history modal).
+        assertThat(read("rx/SearchDrug3.jsp")).contains(
+                "this.waitifrm.setAttribute(\"src\",RxPatientContext.withPatient(displaySRC+\"?randomId=\"+encodeURIComponent(randomId)));");
+    }
 }

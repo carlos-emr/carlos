@@ -256,6 +256,30 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         logActionMock.verifyNoInteractions();
     }
 
+    @ParameterizedTest(name = "{0} {1}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "GET,updateLongTermStatus", "HEAD,updateLongTermStatus", "GET,saveCustomName", "GET,newCustomNote",
+            "GET,newCustomDrug", "GET,normalDrugSetCustom", "GET,createNewRx", "GET,updateDrug",
+            "GET,updateSpecialInstruction", "HEAD,updateProperty"})
+    @DisplayName("should reject a non-POST stash or chart write dispatch before touching anything")
+    void shouldRejectWriteDispatch_whenMethodIsNotPost(String httpMethod, String dispatch) throws Exception {
+        request.setMethod(httpMethod);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("parameterValue", dispatch);
+        request.setParameter("ltDrugId", "77");
+        request.setParameter("isLongTerm", "true");
+        request.setParameter("randomId", "111111");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(bean.getStashList()).containsExactly(stagedCard);
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
     @Test
     @DisplayName("should still allow a GET re-render that is not an update")
     void shouldAllowGet_forNonUpdateRender() throws Exception {

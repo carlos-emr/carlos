@@ -1370,7 +1370,8 @@ function renderRxStage() {
            }
            this.waitifrm=document.getElementById("xmaskframe");
 
-           this.waitifrm.setAttribute("src",displaySRC+"?randomId="+randomId);
+           // An iframe src is not tagged by rx-patient-context.js, so name the patient here (#3908).
+           this.waitifrm.setAttribute("src",RxPatientContext.withPatient(displaySRC+"?randomId="+encodeURIComponent(randomId)));
            this.waitifrm.style.display="block";
            this.waitifrm.style.height=H;
 

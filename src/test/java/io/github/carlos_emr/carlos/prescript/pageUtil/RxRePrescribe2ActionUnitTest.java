@@ -230,7 +230,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"saveReRxDrugIdToStash", "represcribe2"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"saveReRxDrugIdToStash", "represcribe2", "represcribe"})
     @DisplayName("should record the ReRx source in the same request that stages its copy")
     void shouldRecordReRxSource_whenStagingSingleReprescription(String method) throws Exception {
         // StaticScript2 used to send addToReRxDrugIdList as a separate, un-awaited request; losing
@@ -243,6 +243,10 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = stagingData(ownSource)) {
             if ("represcribe2".equals(method)) {
                 action.represcribe2();
+            } else if ("represcribe".equals(method)) {
+                // The legacy rx/rePrescribe form path stages the ids posted in drugList.
+                action.setDrugList("5");
+                action.represcribe();
             } else {
                 action.saveReRxDrugIdToStash();
             }

@@ -47,6 +47,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -165,7 +166,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="ChooseAllergy.title"/></b></div>
+                                    href="<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<carlos:encode value='<%= String.valueOf(bean.getDemographicNo()) %>' context="uriComponent"/>"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="ChooseAllergy.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -325,7 +326,9 @@
                                         </div>
 
                                         <%
-                                            String sBack = request.getContextPath() + "/rx/showAllergy";
+                                            // The patient is an int, so appending it needs no encoding; showAllergy
+                                            // refuses a request that names no patient (#3908).
+                                            String sBack = request.getContextPath() + "/rx/showAllergy?demographicNo=" + bean.getDemographicNo();
                                         %> <input type=button class="ControlPushButton"
                                                   onclick="javascript:window.location.href='<%=sBack%>';"
                                                   value="Back to View Allergies"/></td>

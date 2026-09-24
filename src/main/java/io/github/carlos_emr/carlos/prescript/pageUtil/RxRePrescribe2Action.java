@@ -225,6 +225,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
                     logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
                     continue;
                 }
+                // Record the source for ReRx archival, as the other staging paths do: without it
+                // saveDrug() saved the replacement and left the source active (#3908).
+                recordReRxSource(beanRX, drugId);
 
                 // create copy of Prescription
                 RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
@@ -570,8 +573,6 @@ public String saveDigitalSignature() throws IOException {
         // The same bean as beanRX: this request's explicitly named patient.
         RxSessionBean bean = beanRX;
 
-        List<String> reRxDrugIdList = bean.getReRxDrugIdList();
-
         List<RxPrescriptionData.Prescription> listLongTerm = new ArrayList<Prescription>();
         for (int i = 0; i < listLongTermMed.size(); i++) {
             Long rand = Math.round(Math.random() * 1000000);
@@ -579,8 +580,8 @@ public String saveDigitalSignature() throws IOException {
             // loop this
             int drugId = listLongTermMed.get(i);
 
-            //add drug to re-prescribe drug list
-            reRxDrugIdList.add(Integer.toString(drugId));
+            //add drug to re-prescribe drug list, once (a repeat would be archived twice)
+            recordReRxSource(bean, drugId);
 
             // get original drug
             RxPrescriptionData rxData = new RxPrescriptionData();

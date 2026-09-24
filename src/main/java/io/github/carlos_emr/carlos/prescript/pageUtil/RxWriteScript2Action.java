@@ -396,6 +396,9 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     public String saveCustomName() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
@@ -458,6 +461,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         logger.debug("=============Start newCustomNote RxWriteScript2Action.java===============");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
@@ -564,6 +570,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         logger.debug("=============Start newCustomDrug RxWriteScript2Action.java===============");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         // set default quantity;
         setDefaultQuantity(request);
@@ -630,6 +639,9 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     public String normalDrugSetCustom() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
@@ -682,6 +694,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         logger.debug("=============Start createNewRx RxWriteScript2Action.java===============");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         response.setContentType("application/json");
         String success = "newRx";
         // set default quantity
@@ -903,6 +918,9 @@ public final class RxWriteScript2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String updateDrug() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
@@ -1061,6 +1079,9 @@ public final class RxWriteScript2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateSpecialInstruction() throws Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         // get special instruction from parameter
         // get prescript from random Id
@@ -1087,6 +1108,9 @@ public final class RxWriteScript2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateProperty() throws Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxSessionBeanResolver.resolveForWrite(request);
@@ -1479,6 +1503,9 @@ public final class RxWriteScript2Action extends ActionSupport {
     public String updateLongTermStatus() throws IOException, Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         HashMap<String, Object> hm = new HashMap<>();
         String strId = request.getParameter("ltDrugId");
@@ -1703,6 +1730,24 @@ public final class RxWriteScript2Action extends ActionSupport {
         return null;
     }
 
+
+    /**
+     * Refuses a non-POST request to a dispatch that changes staged Rx state or the chart (stash
+     * edits, custom drugs, new staged items, property and long-term updates): CSRFGuard does not
+     * check GET, so a cross-origin GET could otherwise drive the write. Every UI caller POSTs.
+     * Callers must return {@link #NONE} when this answers {@code true}; it runs after the privilege
+     * check and before any state is resolved or changed.
+     *
+     * @return {@code true} when the request was refused with 405
+     */
+    private boolean refuseUnlessPost() throws IOException {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return true;
+    }
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {

@@ -149,8 +149,8 @@
     </security:oscarSec>
 
     <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/>
-        <a href="${pageContext.request.contextPath}/rx/updateFavorite"><fmt:message key="oscarRx.sideLinks.EditFavorites"/></a>
-        <a href="${pageContext.request.contextPath}/rx/copyFavorite"><fmt:message key="oscarRx.sideLinks.CopyFavorites"/></a>
+        <a href="${pageContext.request.contextPath}/rx/updateFavorite?demographicNo=<carlos:encode value='<%= String.valueOf(bean2.getDemographicNo()) %>' context="uriComponent"/>"><fmt:message key="oscarRx.sideLinks.EditFavorites"/></a>
+        <a href="${pageContext.request.contextPath}/rx/copyFavorite?demographicNo=<carlos:encode value='<%= String.valueOf(bean2.getDemographicNo()) %>' context="uriComponent"/>"><fmt:message key="oscarRx.sideLinks.CopyFavorites"/></a>
     </p>
     <p class="PropSheetMenuItemLevel1">
             <%
