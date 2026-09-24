@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.codec.digest.DigestUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -147,11 +148,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         return SUCCESS;
                     }
                     if (check == FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        // addFile answers UNSUCCESSFUL_SAVE when the file's MD5 is already
-                        // recorded (it also swallows its own insert failures into the same
-                        // value, which PathNet and inside-lab read the same way). The XML
-                        // client needs a distinct outcome for a duplicate, not an empty one.
-                        outcome = OUTCOME_UPLOADED_PREVIOUSLY;
+                        // addFile answers UNSUCCESSFUL_SAVE both for a checksum it already
+                        // holds and for any failure reading the file or reaching the database,
+                        // which it swallows. Acknowledge a duplicate only when the checksum is
+                        // really on record: a false "uploadedPreviously" tells the XML client
+                        // not to retry a lab that was never stored.
+                        outcome = isRecordedUpload(localFile)
+                                ? OUTCOME_UPLOADED_PREVIOUSLY
+                                : OUTCOME_DATABASE_NOT_STARTED;
                     } else {
                         ABCDParser abc = new ABCDParser();
                         try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
@@ -183,6 +187,22 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
 
     public LabUpload2Action() {
+    }
+
+    /**
+     * Confirms that a file's checksum is already recorded by {@link FileUploadCheck}.
+     *
+     * @param localFile the archived upload whose checksum is looked up
+     * @return {@code true} only when a checksum row exists for the file's content
+     * @throws IOException if the archived file cannot be read; a database failure
+     *         propagates too, so neither is mistaken for a duplicate
+     */
+    private static boolean isRecordedUpload(File localFile) throws IOException {
+        String md5sum;
+        try (InputStream in = new FileInputStream(localFile)) {
+            md5sum = DigestUtils.md5Hex(in);
+        }
+        return !FileUploadCheck.getFileInfo(md5sum).isEmpty();
     }
 
 

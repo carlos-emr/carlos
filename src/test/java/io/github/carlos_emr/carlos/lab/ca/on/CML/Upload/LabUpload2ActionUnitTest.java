@@ -36,7 +36,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.Hashtable;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -167,11 +169,45 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             when(properties.getProperty("CML_UPLOAD_KEY")).thenReturn("fixture-key");
             duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
                     .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
+            Hashtable<String, String> recorded = new Hashtable<>();
+            recorded.put("md5sum", DigestUtils.md5Hex("MSH|duplicate CML content"));
+            duplicateCheck.when(() -> FileUploadCheck.getFileInfo(DigestUtils.md5Hex("MSH|duplicate CML content")))
+                    .thenReturn(recorded);
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
             // Before the fix a duplicate left the outcome empty, so the XML client saw <outcome/>.
             assertThat(request.getAttribute("outcome")).isEqualTo("uploadedPreviously");
+            assertThat(parsers.constructed()).isEmpty();
+            jdbc.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldReportRetryableFailure_whenDuplicateCheckFailsWithoutRecordedChecksum() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("new.hl7"), "MSH|new CML content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile()))
+                    .thenReturn(uploaded.toFile());
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            when(properties.getProperty("CML_UPLOAD_KEY")).thenReturn("fixture-key");
+            // addFile swallows a failed checksum insert into the same value it uses for a duplicate.
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
+            duplicateCheck.when(() -> FileUploadCheck.getFileInfo(anyString()))
+                    .thenReturn(new Hashtable<String, String>());
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // A new lab whose check failed must not be acknowledged as already uploaded.
+            assertThat(request.getAttribute("outcome")).isEqualTo("databaseNotStarted");
             assertThat(parsers.constructed()).isEmpty();
             jdbc.verifyNoInteractions();
         }
