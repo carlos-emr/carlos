@@ -1138,6 +1138,19 @@
       ]
     },
     {
+      "name": "omd-flowsheet-conformance",
+      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "login",
       "script": "scripts/login-playwright-checks.js",
       "tiers": [
