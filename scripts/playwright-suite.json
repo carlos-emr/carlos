@@ -1138,6 +1138,19 @@
       ]
     },
     {
+      "name": "echart-consult-specialist",
+      "script": "scripts/echart-consult-specialist-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "login",
       "script": "scripts/login-playwright-checks.js",
       "tiers": [
