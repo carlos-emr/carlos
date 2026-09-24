@@ -92,7 +92,8 @@ $SQL carlos < /scripts/development.sql
 echo 'Re-applying reference-data migrations undone by the demo snapshot...'
 for REF_MIGRATION in \
     "${MIG}/common/V1.0.30__add_nrtf_tuning_fork_measurement_type.sql" \
-    "${MIG}/common/V1.0.31__aacp_provided_revised_reviewed_validation.sql"; do
+    "${MIG}/common/V1.0.31__aacp_provided_revised_reviewed_validation.sql" \
+    "${MIG}/on/V1.0.32__add_oma_uninsured_service_fees.sql"; do
   $SQL carlos < "${REF_MIGRATION}"
 done
 echo 'Restoring current Administration privileges...'
