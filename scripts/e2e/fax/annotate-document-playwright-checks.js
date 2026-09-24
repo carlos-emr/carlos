@@ -649,7 +649,9 @@ async function main() {
     await page.mouse.up();
     const scrollOverlayAfter = await page.locator('svg.overlay').first().boundingBox();
     const hlScrollAfter = await settledBox('rect.mark');
-    const pointerOnPage = 47 + (scrollOverlayBefore.y - scrollOverlayAfter.y);
+    // The press was 6 px into the mark and the last move 47 px, so the pointer travelled 41 px
+    // on screen, plus however far the page scrolled up under it.
+    const pointerOnPage = 41 + (scrollOverlayBefore.y - scrollOverlayAfter.y);
     const markOnPage = (hlScrollAfter.y - scrollOverlayAfter.y) - (hlScrollBefore.y - scrollOverlayBefore.y);
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     check('a drag keeps the mark under the pointer when the page scrolls mid-drag',
