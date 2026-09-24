@@ -29,14 +29,14 @@
 
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
-import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
-import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Lists the measuring instructions the CDM reports offer for one measurement type.
@@ -48,41 +48,31 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * #3893). The list therefore holds the {@code measurementType} rows' current instructions first,
  * followed by any other instruction still stored on existing readings of the same type, so
  * legacy readings stay reportable next to the new ones.</p>
+ *
+ * <p>Stored instructions are user-entered text (the entry form's {@code inputMInstrc-*} field),
+ * so every page that renders them must encode them for its context.</p>
+ *
+ * <p>Built by {@link RptMeasurementTypesBeanHandler}, which looks up the stored instructions of
+ * every listed type in one query and passes the result in.</p>
  */
 public class RptMeasuringInstructionBeanHandler {
 
     Vector<RptMeasuringInstructionBean> measuringInstrcVector = new Vector<RptMeasuringInstructionBean>();
 
-    private final MeasurementTypeDao measurementTypeDao;
-    private final MeasurementDao measurementDao;
-
-    public RptMeasuringInstructionBeanHandler(String measurementType) {
-        // Created per request by RptMeasurementTypesBeanHandler, not by Spring.
-        this(measurementType, SpringUtils.getBean(MeasurementTypeDao.class), SpringUtils.getBean(MeasurementDao.class));
-    }
-
-    RptMeasuringInstructionBeanHandler(String measurementType, MeasurementTypeDao measurementTypeDao,
-                                       MeasurementDao measurementDao) {
-        this.measurementTypeDao = measurementTypeDao;
-        this.measurementDao = measurementDao;
-        init(measurementType);
-    }
-
     /**
-     * Loads the instructions for the measurement type with this display name.
-     *
-     * @param measurementType the measurement type's display name (as stored in {@code measurementGroup})
-     * @return always {@code true}
+     * @param typesForDisplayName the {@code measurementType} rows sharing one display name
+     * @param storedInstructionsByType the instructions stored on existing readings, keyed by type
+     *                                 code, as returned by
+     *                                 {@code MeasurementDao.findDistinctMeasuringInstructionsByTypes}
      */
-    public boolean init(String measurementType) {
+    public RptMeasuringInstructionBeanHandler(List<MeasurementType> typesForDisplayName,
+                                              Map<String, List<String>> storedInstructionsByType) {
         Set<String> instructions = new LinkedHashSet<>();
-        Set<String> types = new LinkedHashSet<>();
-        for (MeasurementType mt : measurementTypeDao.findByTypeDisplayName(measurementType)) {
+        for (MeasurementType mt : typesForDisplayName) {
             instructions.add(mt.getMeasuringInstruction());
-            types.add(mt.getType());
         }
-        for (String type : types) {
-            for (String stored : measurementDao.findDistinctMeasuringInstructionsByType(type)) {
+        for (MeasurementType mt : typesForDisplayName) {
+            for (String stored : storedInstructionsByType.getOrDefault(mt.getType(), Collections.emptyList())) {
                 if (stored != null && !stored.isBlank()) {
                     instructions.add(stored);
                 }
@@ -91,7 +81,6 @@ public class RptMeasuringInstructionBeanHandler {
         for (String instruction : instructions) {
             measuringInstrcVector.add(new RptMeasuringInstructionBean(instruction));
         }
-        return true;
     }
 
     public Vector<RptMeasuringInstructionBean> getMeasuringInstrcVector() {

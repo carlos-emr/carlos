@@ -145,8 +145,10 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
                         if (!vs.isEmpty()) {
                             Validations v = vs.iterator().next();
-                            dMax = v.getMaxValue();
-                            dMin = v.getMinValue();
+                            // A non-numeric rule (Yes/No/NA, Provided/Revised/Reviewed) stores no bounds; unboxing
+                            // its NULL max/min into a double threw before any report line was produced.
+                            dMax = v.getMaxValue() != null ? v.getMaxValue() : 0;
+                            dMin = v.getMinValue() != null ? v.getMinValue() : 0;
                             regExp = v.getRegularExp();
                         }
 

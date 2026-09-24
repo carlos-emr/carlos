@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -725,10 +726,17 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<String> findDistinctMeasuringInstructionsByType(String type) {
-        Query query = createQuery("SELECT DISTINCT m.measuringInstruction", "m", "m.type = ?1");
-        query.setParameter(1, type);
-        return query.getResultList();
+    public Map<String, List<String>> findDistinctMeasuringInstructionsByTypes(Collection<String> types) {
+        Map<String, List<String>> byType = new HashMap<>();
+        if (types == null || types.isEmpty()) {
+            return byType;
+        }
+        Query query = createQuery("SELECT DISTINCT m.type, m.measuringInstruction", "m", "m.type IN (?1)");
+        query.setParameter(1, types);
+        for (Object[] row : (List<Object[]>) query.getResultList()) {
+            byType.computeIfAbsent((String) row[0], k -> new ArrayList<>()).add((String) row[1]);
+        }
+        return byType;
     }
 
     @Override

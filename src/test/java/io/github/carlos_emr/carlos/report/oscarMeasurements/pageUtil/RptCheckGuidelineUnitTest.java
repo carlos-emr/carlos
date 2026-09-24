@@ -22,11 +22,22 @@
 
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Pins how the CDM "patients met guideline" and "abnormal range" reports judge non-numeric
@@ -38,9 +49,45 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("fast")
 @Tag("measurement")
-class RptCheckGuidelineUnitTest {
+class RptCheckGuidelineUnitTest extends CarlosUnitTestBase {
 
     private final RptCheckGuideline check = new RptCheckGuideline();
+    private final MeasurementTypeDao measurementTypeDao = mock(MeasurementTypeDao.class);
+    private final ValidationsDao validationsDao = mock(ValidationsDao.class);
+
+    @BeforeEach
+    void registerDaos() {
+        registerMock(MeasurementTypeDao.class, measurementTypeDao);
+        registerMock(ValidationsDao.class, validationsDao);
+    }
+
+    @Test
+    @DisplayName("should treat a rule with no isNumeric flag as non-numeric instead of throwing")
+    void shouldReturnZero_whenValidationHasNoNumericFlag() {
+        when(measurementTypeDao.findByType("AACP")).thenReturn(List.of(type("12")));
+        Validations rule = new Validations();
+        rule.setNumeric(null);
+        when(validationsDao.find((Object) Integer.valueOf(12))).thenReturn(rule);
+
+        assertThat(check.getValidation("AACP")).isZero();
+    }
+
+    @Test
+    @DisplayName("should report a numeric rule as numeric")
+    void shouldReturnOne_whenValidationIsNumeric() {
+        when(measurementTypeDao.findByType("WT")).thenReturn(List.of(type("3")));
+        Validations rule = new Validations();
+        rule.setNumeric(Boolean.TRUE);
+        when(validationsDao.find((Object) Integer.valueOf(3))).thenReturn(rule);
+
+        assertThat(check.getValidation("WT")).isEqualTo(1);
+    }
+
+    private static MeasurementType type(String validation) {
+        MeasurementType mt = new MeasurementType();
+        mt.setValidation(validation);
+        return mt;
+    }
 
     @Test
     @DisplayName("should keep the yes/no matching for legacy Yes/No readings")

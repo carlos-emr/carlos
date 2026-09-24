@@ -40,6 +40,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -985,13 +986,13 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
     }
 
     // ========================================================================
-    // findDistinctMeasuringInstructionsByType
+    // findDistinctMeasuringInstructionsByTypes
     // ========================================================================
 
     @Nested
-    @DisplayName("findDistinctMeasuringInstructionsByType")
+    @DisplayName("findDistinctMeasuringInstructionsByTypes")
     @Tag("read")
-    class FindDistinctMeasuringInstructionsByType {
+    class FindDistinctMeasuringInstructionsByTypes {
 
         @Test
         @DisplayName("should return each stored instruction of the type once, including legacy ones")
@@ -1012,16 +1013,20 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             // When
-            List<String> result = measurementDao.findDistinctMeasuringInstructionsByType("AACP");
+            Map<String, List<String>> result = measurementDao.findDistinctMeasuringInstructionsByTypes(
+                    List.of("AACP", "SKST", "NOPE"));
 
-            // Then
-            assertThat(result).containsExactlyInAnyOrder("Yes/No", "Provided/Revised/Reviewed");
+            // Then: one query answers every type; a type without readings has no entry
+            assertThat(result).containsOnlyKeys("AACP", "SKST");
+            assertThat(result.get("AACP")).containsExactlyInAnyOrder("Yes/No", "Provided/Revised/Reviewed");
+            assertThat(result.get("SKST")).containsExactly("Smoking status");
         }
 
         @Test
-        @DisplayName("should return an empty list when no reading of the type exists")
-        void shouldReturnEmpty_whenTypeHasNoReadings() {
-            assertThat(measurementDao.findDistinctMeasuringInstructionsByType("NOPE")).isEmpty();
+        @DisplayName("should return an empty map for no types or types without readings")
+        void shouldReturnEmpty_whenTypesHaveNoReadings() {
+            assertThat(measurementDao.findDistinctMeasuringInstructionsByTypes(List.of())).isEmpty();
+            assertThat(measurementDao.findDistinctMeasuringInstructionsByTypes(List.of("NOPE"))).isEmpty();
         }
     }
 }

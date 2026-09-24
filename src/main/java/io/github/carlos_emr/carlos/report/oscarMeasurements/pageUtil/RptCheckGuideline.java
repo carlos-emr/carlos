@@ -56,7 +56,9 @@ public class RptCheckGuideline {
             String validation = mt.getValidation();
 
             Validations v = vDao.find(ConversionUtils.fromIntString(validation));
-            if (v != null && v.isNumeric()) {
+            // isNumeric is NULL on non-numeric rules (Yes/No/NA, Provided/Revised/Reviewed); unboxing
+            // it threw and aborted the whole CDM report.
+            if (v != null && Boolean.TRUE.equals(v.isNumeric())) {
                 return 1;
             } else {
                 return 0;

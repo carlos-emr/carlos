@@ -31,9 +31,11 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -269,16 +271,19 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
     public List<Object[]> findTypesAndMeasuringInstructionByDemographicId(Integer demoNo);
 
     /**
-     * Returns every measuring instruction stored on readings of one measurement type.
+     * Returns every measuring instruction stored on readings of the given measurement types, in
+     * one query.
      *
      * <p>Readings keep the instruction that was current when they were saved, so this can include
      * instructions the {@code measurementType} row no longer carries (for example AACP readings
-     * saved as {@code Yes/No} before it moved to {@code Provided/Revised/Reviewed}).</p>
+     * saved as {@code Yes/No} before it moved to {@code Provided/Revised/Reviewed}). The CDM
+     * reports call this once per request for all the types they list.</p>
      *
-     * @param type the measurement type code, for example {@code AACP}
-     * @return the distinct stored instructions, in no particular order; empty when none
+     * @param types the measurement type codes, for example {@code AACP}; may be empty
+     * @return the distinct stored instructions keyed by type code, in no particular order; a type
+     *         with no readings has no entry
      */
-    public List<String> findDistinctMeasuringInstructionsByType(String type);
+    public Map<String, List<String>> findDistinctMeasuringInstructionsByTypes(Collection<String> types);
 
     public List<Object[]> findByCreateDate(Date from, Date to);
 
