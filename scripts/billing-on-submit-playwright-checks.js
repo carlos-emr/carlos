@@ -198,7 +198,9 @@ async function openBillForm(context, recorder, label, appointmentNo, startTime) 
       && sql("SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype='MFP'") !== '0') {
     assert((await page.locator('#billForm').inputValue()) === 'MFP',
       `${label}: missing GP default did not fall back to the available MFP form`);
-    assert(await page.locator(`input[name="xml_${ohipCode}"]:visible`).count(),
+    // The default form's grid carries OHIP codes; a private code lives on its own form.
+    const defaultGridCode = ohipCode.startsWith('_') ? 'A007A' : ohipCode;
+    assert(await page.locator(`input[name="xml_${defaultGridCode}"]:visible`).count(),
       `${label}: default favourite-code grid was not visible`);
   }
   return page;
