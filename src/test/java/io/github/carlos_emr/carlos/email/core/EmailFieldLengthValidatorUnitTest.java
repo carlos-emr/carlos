@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.tuple;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailFieldLengthValidator")
-class EmailFieldLengthValidatorTest {
+class EmailFieldLengthValidatorUnitTest {
 
     private static EmailData emailData() {
         EmailData data = new EmailData();

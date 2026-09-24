@@ -420,6 +420,7 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
+                                    <label class="visually-hidden" for="bodyEmail">${emailComposeBodyLabel}</label>
                                     <textarea class="form-control" name="bodyEmail" id="bodyEmail" rows="7"
                                               placeholder="${emailComposeBodyPlaceholder}">${carlos:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
                                     <div class="error-message" id="bodyError"></div>
@@ -454,7 +455,7 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12 mb-3">
-                                    <label>${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
+                                    <label for="encryptedMessage">${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
                                                                    data-bs-toggle="tooltip" data-bs-placement="right"
                                                                    title="${emailComposeEncryptedMessageTooltip}"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
