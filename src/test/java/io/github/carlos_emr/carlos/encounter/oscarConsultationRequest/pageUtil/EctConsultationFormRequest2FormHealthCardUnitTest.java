@@ -21,6 +21,13 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.io.IOException;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -78,5 +85,29 @@ class EctConsultationFormRequest2FormHealthCardUnitTest {
     @DisplayName("should return empty text when nothing is on file")
     void shouldReturnEmpty_whenNothingOnFile() {
         assertThat(formWith(null, null, null).getFormattedHealthCard()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should keep markup in health card parts inert once HTML-encoded")
+    void shouldEncodeMarkup_whenHealthCardPartsContainHtml() {
+        String formatted = formWith("<img src=x onerror=alert(1)>", "\"&'", "<b>ON</b>").getFormattedHealthCard();
+
+        String rendered = SafeEncode.forHtmlContent(formatted);
+
+        assertThat(rendered)
+                .doesNotContain("<img", "<b>")
+                .contains("&lt;img", "&lt;b&gt;ON&lt;/b&gt;", "&amp;");
+    }
+
+    @Test
+    @DisplayName("should render the formatted health card through the CARLOS HTML encoder")
+    void shouldEncodeFormattedHealthCard_inConsultationFormRequestJsp() throws IOException {
+        String jsp = Files.readString(Path.of(
+                "src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"),
+                StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains(
+                "<carlos:encode value='<%= thisForm.getFormattedHealthCard() %>' context=\"html\"/>");
+        assertThat(jsp.split("getFormattedHealthCard\\(\\)", -1)).hasSize(2);
     }
 }
