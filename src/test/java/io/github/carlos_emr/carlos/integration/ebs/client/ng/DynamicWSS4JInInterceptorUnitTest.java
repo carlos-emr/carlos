@@ -180,7 +180,8 @@ class DynamicWSS4JInInterceptorUnitTest {
                         + "start=\"<root>\"; start-info=\"text/xml\"");
         givenContent("This is a multi-part message in MIME format.\r\n"
                 + "--MIMEBoundary_abc\r\n"
-                + "Content-Type: application/xop+xml\r\n\r\n"
+                + "Content-Type: application/xop+xml\r\n"
+                + "Content-ID: <root>\r\n\r\n"
                 + envelope(4, true)
                 + "\r\n--MIMEBoundary_abc--\r\n");
 
@@ -199,6 +200,193 @@ class DynamicWSS4JInInterceptorUnitTest {
         interceptor.handleMessage(message);
 
         assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    // ---------------------------------------------------------------- review follow-ups (PR #3898)
+
+    @Test
+    @DisplayName("should select the part named by the start parameter when it is not the first part")
+    void shouldSelectStartPart_whenRootIsNotFirstPart() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn(
+                "multipart/related; boundary=b1; type=\"application/xop+xml\"; start=\"<soap-root@carlos>\"");
+        givenContent("--b1\r\n"
+                + "Content-Type: application/octet-stream\r\n"
+                + "Content-ID: <attachment-1>\r\n\r\n"
+                + envelope(9, true) // a decoy envelope that must not be counted
+                + "\r\n--b1\r\n"
+                + "Content-Type: application/xop+xml\r\n"
+                + "Content-ID: <soap-root@carlos>\r\n\r\n"
+                + envelope(3, true)
+                + "\r\n--b1--");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+    }
+
+    @Test
+    @DisplayName("should match an unquoted start parameter against a bracketed, folded Content-ID")
+    void shouldMatchStartParameter_withUnquotedStartAndBracketedContentId() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn(
+                "Multipart/Related;BOUNDARY=b1;start=soap-root@carlos");
+        givenContent("--b1\r\n"
+                + "Content-ID: <other>\r\n\r\n"
+                + "binary\r\n"
+                + "--b1\r\n"
+                + "content-id:\r\n <soap-root@carlos>\r\n\r\n"
+                + envelope(2, true)
+                + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should use the first part when the start parameter is absent")
+    void shouldUseFirstPart_whenStartParameterAbsent() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=\"b1\"");
+        givenContent("--b1\r\nContent-ID: <x>\r\n\r\n"
+                + envelope(1, true)
+                + "\r\n--b1\r\nContent-ID: <y>\r\n\r\n"
+                + envelope(5, true)
+                + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
+    }
+
+    @Test
+    @DisplayName("should reject the message when no part matches the start parameter")
+    void shouldRejectMessage_whenNoPartMatchesStartParameter() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1; start=\"<missing>\"");
+        givenContent("--b1\r\nContent-ID: <root>\r\n\r\n" + envelope(1, true) + "\r\n--b1--\r\n");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should not treat a line that only starts with the delimiter as a delimiter")
+    void shouldKeepRootPartIntact_whenLineOnlyStartsWithDelimiter() {
+        String rootWithLookalikes = envelope(2, true).replace("<s:Body>",
+                "<s:Body><note>\r\n--b1-not-a-delimiter\r\n--b1--x\r\n--b1 x\r\n</note>");
+        givenContent("--b1-preamble-lookalike\r\n"
+                + "--b1\r\nContent-Type: application/xop+xml\r\n\r\n"
+                + rootWithLookalikes
+                + "\r\n--b1 \t\r\n"
+                + "Content-Type: application/octet-stream\r\n\r\n<<binary>>\r\n--b1--");
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should reject non-whitespace content after a plain SOAP Envelope")
+    void shouldRejectMessage_whenContentFollowsPlainEnvelope() {
+        givenContent(envelope(1, true) + "\r\ntrailing-garbage");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should reject a second element after a plain SOAP Envelope")
+    void shouldRejectMessage_whenElementFollowsPlainEnvelope() {
+        givenContent(envelope(1, true) + "<extra/>");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should accept whitespace and comments after a plain SOAP Envelope")
+    void shouldAcceptXmlEpilog_afterPlainEnvelope() {
+        givenContent(envelope(2, true) + "\r\n  <!-- epilog -->\r\n<?pi data?>\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should use the Content-Type boundary when the MIME preamble starts with an angle bracket")
+    void shouldParseMime_whenPreambleStartsWithAngleBracket() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent("<not the envelope, just a preamble>\r\n"
+                + "--b1\r\nContent-Type: application/xop+xml\r\n\r\n"
+                + envelope(3, true)
+                + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+    }
+
+    @Test
+    @DisplayName("should use the Content-Type boundary when the MIME preamble starts with dashes")
+    void shouldParseMime_whenPreambleStartsWithDashes() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent("--- preamble text ---\r\n"
+                + "--b1\r\nContent-Type: application/xop+xml\r\n\r\n"
+                + envelope(2, true)
+                + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should not sniff MIME when the Content-Type says plain XML")
+    void shouldRejectMessage_whenPlainContentTypeBodyLooksLikeMime() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("text/xml; charset=UTF-8");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n\r\n" + envelope(1, true) + "\r\n--b1--\r\n");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should treat XML content as the already-extracted root when a multipart type has no delimiter")
+    void shouldScanXml_whenMultipartTypeButStreamIsAlreadyRootPart() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1; start=\"<root>\"");
+        givenContent(envelope(2, true));
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should reject a multipart Content-Type without a boundary")
+    void shouldRejectMessage_whenMultipartContentTypeHasNoBoundary() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; type=\"application/xop+xml\"");
+        givenContent("--b1\r\n\r\n" + envelope(1, true) + "\r\n--b1--\r\n");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should not split Content-Type parameters on quoted separators")
+    void shouldParseQuotedParameters_withEmbeddedSeparators() {
+        Map<String, String> params = DynamicWSS4JInInterceptor.parseContentTypeParameters(
+                "multipart/related; type=\"a; boundary=wrong\"; Boundary=\"right\\\"q\"; start=<r>");
+
+        assertThat(params)
+                .containsEntry("type", "a; boundary=wrong")
+                .containsEntry("boundary", "right\"q")
+                .containsEntry("start", "<r>");
     }
 
     @Test

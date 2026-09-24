@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,13 +56,14 @@ import java.util.regex.Pattern;
  * downloads) that stream is a {@code multipart/related} MIME package, not an XML document; this
  * is the likely reason upstream Open-O's attempt to DOM/XPath-parse the whole buffered stream
  * (fdfdd04dc2) was reverted to substring counting (eddce81dd7): a DOM parse fails on the MIME
- * framing and binary attachment parts that precede and follow the envelope. CARLOS instead locates the
- * XML root part itself (the first MIME part, or the whole entity for plain SOAP) and runs a
- * streaming, namespace-aware StAX scan over just that part, via CXF's hardened
- * {@link StaxUtils} reader (external entities off, CXF depth and size limits), rejecting any
- * DOCTYPE outright. The scan
- * stops at the end of the envelope, so the binary attachment parts are never parsed, and it
- * aborts as soon as the {@code EncryptedKey} bound is exceeded. Unlike substring matching it is
+ * framing and binary attachment parts that precede and follow the envelope. CARLOS instead
+ * locates the SOAP envelope itself (the whole entity for plain SOAP, or the RFC 2387 root part of
+ * a multipart package, selected by the Content-Type {@code start} parameter and delimited by
+ * complete RFC 2046 delimiter lines) and runs a streaming, namespace-aware StAX scan over just
+ * those bytes, via CXF's hardened {@link StaxUtils} reader (external entities off, CXF depth and
+ * size limits), rejecting any DOCTYPE outright. Binary attachment parts are never parsed, the
+ * scan aborts as soon as the {@code EncryptedKey} bound is exceeded, and anything other than the
+ * XML epilog after the envelope is rejected. Unlike substring matching it is
  * not fooled by comments, CDATA, closing tags, or a different namespace prefix.</p>
  *
  * <p>Message content is never logged or placed in fault messages: MCEDT payloads can contain
@@ -94,10 +96,16 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * prefix, transport padding and CRLF before declaring the delimiter line malformed.
      */
     private static final int MAX_BOUNDARY_LINE_LENGTH = 100;
-    /** RFC 2046 boundary parameter, quoted or token form, at most 70 characters. */
-    private static final Pattern BOUNDARY_PARAM = Pattern.compile(
-            "(?:^|;)\\s*boundary\\s*=\\s*(?:\"([^\"]{1,70})\"|([^;\\s\"]{1,70}))",
-            Pattern.CASE_INSENSITIVE);
+    /** RFC 2046 section 5.1.1: a boundary is 1 to 70 characters. */
+    private static final int MAX_BOUNDARY_LENGTH = 70;
+    /**
+     * Upper bound on MIME parts walked while looking for the {@code start} root part. An MCEDT
+     * response has one root plus at most {@link #MAX_ENCRYPTED_KEYS} attachments.
+     */
+    private static final int MAX_MIME_PARTS = MAX_ENCRYPTED_KEYS + 2;
+    /** An (unfolded) {@code Content-ID} header line; the header name is case-insensitive. */
+    private static final Pattern CONTENT_ID_HEADER = Pattern.compile(
+            "content-id[ \\t]*:(.*)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final EdtClientBuilder clientBuilder;
     private static final Logger logger = MiscUtils.getLogger();
@@ -192,121 +200,298 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         }
 
         EncryptionDetectionResult result = scanEnvelope(
-                locateRootPart(content, start, (String) message.get(Message.CONTENT_TYPE)));
+                locateEnvelope(content, start, (String) message.get(Message.CONTENT_TYPE)));
         logger.debug("Encryption detection result: hasEncryptedData={}, encryptedKeyCount={}",
                 result.hasEncryptedData, result.encryptedKeyCount);
         return result;
     }
 
     /**
-     * Returns the bytes of the XML envelope: the whole entity for plain SOAP, or the first
-     * (root) part of an MTOM/SwA {@code multipart/related} package.
+     * Returns the bytes of the XML envelope: the whole entity for plain SOAP, or the SOAP root
+     * part of an MTOM/SwA {@code multipart/related} package.
      *
-     * <p>When the entity starts with a delimiter line the boundary is taken from that line, so
-     * this works whether or not CXF's attachment handling has already replaced the stream with
-     * the root part at this point in the RECEIVE phase. Otherwise (a MIME preamble precedes the
-     * first delimiter) the boundary comes from the message Content-Type. Bare-LF line endings
-     * are tolerated alongside the RFC 2046 CRLF.</p>
+     * <p>Plain-vs-MIME is decided from the Content-Type when one is present, not by sniffing the
+     * first byte, so a MIME preamble beginning with {@code <} or {@code -} cannot flip the
+     * decision. For multipart content the boundary and optional {@code start} parameter come
+     * from the Content-Type; the root is the part whose {@code Content-ID} matches {@code start},
+     * or the first part when {@code start} is absent (RFC 2387). Only when no Content-Type is
+     * available is the boundary sniffed from a leading delimiter line.</p>
+     *
+     * <p>If a multipart Content-Type is declared but the entity contains no delimiter line for
+     * its boundary and is itself an XML document, it is treated as an already-extracted root
+     * part. CXF's {@code AttachmentInInterceptor} (binding interceptor, ordered after this
+     * endpoint interceptor in RECEIVE) does that replacement; the fallback keeps detection
+     * correct if the ordering ever changes, and cannot be triggered by a genuine MIME package
+     * because such a package always has a delimiter line.</p>
      *
      * @param content the buffered entity
      * @param start index of the first non-whitespace byte
      * @param contentType the message Content-Type, may be {@code null}
      * @throws IOException if the content is neither XML nor a well-formed MIME package
      */
-    static ByteArrayInputStream locateRootPart(byte[] content, int start, String contentType)
+    static ByteArrayInputStream locateEnvelope(byte[] content, int start, String contentType)
             throws IOException {
-        if (content[start] == '<' || startsWithUtf8Bom(content, start)) {
+        boolean xmlStart = content[start] == '<' || startsWithUtf8Bom(content, start);
+        boolean hasContentType = contentType != null && !contentType.isBlank();
+        boolean multipart = hasContentType ? isMultipart(contentType) : !xmlStart;
+
+        if (!multipart) {
+            if (!xmlStart) {
+                throw new IOException("MCEDT response is not an XML SOAP envelope");
+            }
             return new ByteArrayInputStream(content, start, content.length - start);
         }
 
         byte[] dashBoundary;
-        int delimiterStart;
-        if (start + 1 < content.length && content[start] == '-' && content[start + 1] == '-') {
-            int lineEnd = indexOf(content, LF, start, start + MAX_BOUNDARY_LINE_LENGTH);
-            if (lineEnd < 0) {
-                throw new IOException("MCEDT response has a malformed MIME boundary line");
+        String rootContentId = null;
+        if (hasContentType) {
+            Map<String, String> params = parseContentTypeParameters(contentType);
+            String boundary = params.get("boundary");
+            if (boundary == null || boundary.isEmpty() || boundary.length() > MAX_BOUNDARY_LENGTH) {
+                throw new IOException("MCEDT response multipart Content-Type has no valid boundary");
             }
-            // Strip CR and any transport padding (spaces/tabs) permitted after the delimiter.
-            int boundaryEnd = lineEnd;
-            while (boundaryEnd > start + 2 && (content[boundaryEnd - 1] == '\r'
-                    || content[boundaryEnd - 1] == ' ' || content[boundaryEnd - 1] == '\t')) {
-                boundaryEnd--;
+            dashBoundary = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
+            String startParam = params.get("start");
+            if (startParam != null) {
+                rootContentId = normalizeContentId(startParam);
             }
-            if (boundaryEnd == start + 2) {
-                throw new IOException("MCEDT response has an empty MIME boundary");
-            }
-            dashBoundary = Arrays.copyOfRange(content, start, boundaryEnd);
-            delimiterStart = start;
         } else {
-            String boundary = boundaryFromContentType(contentType);
-            if (boundary == null) {
-                throw new IOException("MCEDT response is neither XML nor a MIME multipart package");
-            }
-            dashBoundary = ("--" + boundary).getBytes(StandardCharsets.US_ASCII);
-            int found = indexOf(content, lfPrefixed(dashBoundary), start, content.length);
-            if (found < 0) {
-                throw new IOException("MCEDT response has no MIME delimiter for its declared boundary");
-            }
-            delimiterStart = found + 1;
+            dashBoundary = sniffDashBoundary(content, start);
         }
 
-        // Skip the delimiter line, then the root part's MIME headers up to the first empty line.
-        int lineStart = indexOf(content, LF, delimiterStart, content.length);
-        int bodyStart = -1;
-        while (lineStart >= 0) {
-            lineStart++;
-            int next = indexOf(content, LF, lineStart, content.length);
-            if (next < 0) {
-                break;
+        Delimiter delimiter = findDelimiter(content, dashBoundary, 0);
+        if (delimiter == null) {
+            if (hasContentType && xmlStart) {
+                return new ByteArrayInputStream(content, start, content.length - start);
             }
-            int lineEnd = next > lineStart && content[next - 1] == '\r' ? next - 1 : next;
+            throw new IOException("MCEDT response has no MIME delimiter for its boundary");
+        }
+        if (delimiter.close) {
+            throw new IOException("MCEDT response MIME package has no body parts");
+        }
+
+        for (int parts = 1; parts <= MAX_MIME_PARTS; parts++) {
+            PartHeaders headers = readPartHeaders(content, delimiter.next);
+            Delimiter end = findDelimiter(content, dashBoundary, headers.bodyStart);
+            if (end == null) {
+                throw new IOException("MCEDT response MIME part is not terminated by a delimiter");
+            }
+            if (rootContentId == null || rootContentId.equals(headers.contentId)) {
+                // The line break before a delimiter belongs to the delimiter (RFC 2046 5.1.1).
+                int bodyEnd = end.lineStart - 1;
+                if (bodyEnd > headers.bodyStart && content[bodyEnd - 1] == '\r') {
+                    bodyEnd--;
+                }
+                bodyEnd = Math.max(bodyEnd, headers.bodyStart);
+                return new ByteArrayInputStream(content, headers.bodyStart, bodyEnd - headers.bodyStart);
+            }
+            if (end.close) {
+                throw new IOException("MCEDT response has no MIME part matching the start parameter");
+            }
+            delimiter = end;
+        }
+        throw new IOException("MCEDT response exceeds the maximum of " + MAX_MIME_PARTS + " MIME parts");
+    }
+
+    /** A matched delimiter line: where it starts, where the next line starts, and whether it closes. */
+    private record Delimiter(int lineStart, int next, boolean close) { }
+
+    /** Headers of one body part that this class needs, plus where the part body begins. */
+    private record PartHeaders(int bodyStart, String contentId) { }
+
+    /**
+     * Finds the first complete RFC 2046 delimiter line at or after {@code from}: at the start of
+     * a line, {@code --boundary}, an optional {@code --} (close delimiter), optional transport
+     * padding (SP/HT), then CRLF or LF, or end of stream for a close delimiter. A line that
+     * merely begins with {@code --boundary} (for example {@code --boundary-not-a-delimiter}) is
+     * not a delimiter.
+     */
+    private static Delimiter findDelimiter(byte[] content, byte[] dashBoundary, int from) {
+        int i = from;
+        while ((i = indexOf(content, dashBoundary, i, content.length)) >= 0) {
+            if (i == 0 || content[i - 1] == '\n') {
+                Delimiter d = matchDelimiterLine(content, i, dashBoundary.length);
+                if (d != null) {
+                    return d;
+                }
+            }
+            i++;
+        }
+        return null;
+    }
+
+    private static Delimiter matchDelimiterLine(byte[] content, int lineStart, int dashBoundaryLength) {
+        int j = lineStart + dashBoundaryLength;
+        boolean close = false;
+        if (j + 1 < content.length && content[j] == '-' && content[j + 1] == '-') {
+            close = true;
+            j += 2;
+        }
+        while (j < content.length && (content[j] == ' ' || content[j] == '\t')) {
+            j++;
+        }
+        if (j == content.length) {
+            return close ? new Delimiter(lineStart, j, true) : null;
+        }
+        if (content[j] == '\n') {
+            return new Delimiter(lineStart, j + 1, close);
+        }
+        if (content[j] == '\r' && j + 1 < content.length && content[j + 1] == '\n') {
+            return new Delimiter(lineStart, j + 2, close);
+        }
+        return null;
+    }
+
+    /**
+     * Reads a body part's header block (up to the first empty line), unfolding continuation
+     * lines, and returns the body start and the normalized {@code Content-ID}, if any.
+     */
+    private static PartHeaders readPartHeaders(byte[] content, int from) throws IOException {
+        String contentId = null;
+        StringBuilder current = null;
+        int lineStart = from;
+        while (true) {
+            int lf = indexOf(content, LF, lineStart, content.length);
+            if (lf < 0) {
+                throw new IOException("MCEDT response MIME part has no header terminator");
+            }
+            int lineEnd = lf > lineStart && content[lf - 1] == '\r' ? lf - 1 : lf;
             if (lineEnd == lineStart) {
-                bodyStart = next + 1;
-                break;
+                if (current != null) {
+                    contentId = contentIdOrDefault(current, contentId);
+                }
+                return new PartHeaders(lf + 1, contentId);
             }
-            lineStart = next;
+            String line = new String(content, lineStart, lineEnd - lineStart, StandardCharsets.ISO_8859_1);
+            if (current != null && (line.charAt(0) == ' ' || line.charAt(0) == '\t')) {
+                current.append(line);
+            } else {
+                if (current != null) {
+                    contentId = contentIdOrDefault(current, contentId);
+                }
+                current = new StringBuilder(line);
+            }
+            lineStart = lf + 1;
         }
-        if (bodyStart < 0) {
-            throw new IOException("MCEDT response root MIME part has no header terminator");
-        }
-
-        int bodyEnd = indexOf(content, lfPrefixed(dashBoundary), bodyStart, content.length);
-        if (bodyEnd < 0) {
-            throw new IOException("MCEDT response root MIME part is not terminated by a boundary");
-        }
-        if (bodyEnd > bodyStart && content[bodyEnd - 1] == '\r') {
-            bodyEnd--;
-        }
-        return new ByteArrayInputStream(content, bodyStart, bodyEnd - bodyStart);
     }
 
-    /** Extracts the {@code boundary} parameter from a multipart Content-Type, or {@code null}. */
-    static String boundaryFromContentType(String contentType) {
-        if (contentType == null) {
-            return null;
-        }
-        Matcher m = BOUNDARY_PARAM.matcher(contentType);
-        if (!m.find()) {
-            return null;
-        }
-        return m.group(1) != null ? m.group(1) : m.group(2);
+    private static String contentIdOrDefault(CharSequence header, String existing) {
+        Matcher m = CONTENT_ID_HEADER.matcher(header);
+        return m.matches() ? normalizeContentId(m.group(1)) : existing;
     }
 
-    private static byte[] lfPrefixed(byte[] dashBoundary) {
-        byte[] needle = new byte[dashBoundary.length + 1];
-        needle[0] = '\n';
-        System.arraycopy(dashBoundary, 0, needle, 1, dashBoundary.length);
-        return needle;
+    /** Strips whitespace and one pair of surrounding angle brackets from a Content-ID value. */
+    static String normalizeContentId(String id) {
+        String trimmed = id.trim();
+        if (trimmed.length() >= 2 && trimmed.charAt(0) == '<' && trimmed.charAt(trimmed.length() - 1) == '>') {
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        return trimmed;
+    }
+
+    /** Derives {@code --boundary} from a leading delimiter line when no Content-Type is known. */
+    private static byte[] sniffDashBoundary(byte[] content, int start) throws IOException {
+        if (start + 1 >= content.length || content[start] != '-' || content[start + 1] != '-') {
+            throw new IOException("MCEDT response is neither XML nor a MIME multipart package");
+        }
+        int lineEnd = indexOf(content, LF, start, start + MAX_BOUNDARY_LINE_LENGTH);
+        if (lineEnd < 0) {
+            throw new IOException("MCEDT response has a malformed MIME boundary line");
+        }
+        // Strip CR and any transport padding (spaces/tabs) permitted after the delimiter.
+        int boundaryEnd = lineEnd;
+        while (boundaryEnd > start + 2 && (content[boundaryEnd - 1] == '\r'
+                || content[boundaryEnd - 1] == ' ' || content[boundaryEnd - 1] == '\t')) {
+            boundaryEnd--;
+        }
+        if (boundaryEnd == start + 2 || boundaryEnd - start - 2 > MAX_BOUNDARY_LENGTH) {
+            throw new IOException("MCEDT response has an invalid MIME boundary");
+        }
+        return Arrays.copyOfRange(content, start, boundaryEnd);
+    }
+
+    private static boolean isMultipart(String contentType) {
+        int semi = contentType.indexOf(';');
+        String mediaType = (semi < 0 ? contentType : contentType.substring(0, semi)).trim();
+        return asciiLowerCase(mediaType).startsWith("multipart/");
+    }
+
+    /**
+     * Parses Content-Type parameters (RFC 2045 5.1): {@code ;}-separated {@code name=value}
+     * pairs where the value is a token or a quoted-string with backslash escapes. Names are
+     * folded to ASCII lower case. Quoted {@code ;} and {@code =} do not split parameters.
+     */
+    static Map<String, String> parseContentTypeParameters(String contentType) {
+        Map<String, String> params = new HashMap<>();
+        int n = contentType.length();
+        int i = contentType.indexOf(';');
+        if (i < 0) {
+            return params;
+        }
+        while (i < n) {
+            while (i < n && (contentType.charAt(i) == ';' || Character.isWhitespace(contentType.charAt(i)))) {
+                i++;
+            }
+            int nameStart = i;
+            while (i < n && contentType.charAt(i) != '=' && contentType.charAt(i) != ';') {
+                i++;
+            }
+            String name = asciiLowerCase(contentType.substring(nameStart, i).trim());
+            if (i >= n || contentType.charAt(i) != '=') {
+                continue;
+            }
+            i++;
+            while (i < n && Character.isWhitespace(contentType.charAt(i))) {
+                i++;
+            }
+            StringBuilder value = new StringBuilder();
+            if (i < n && contentType.charAt(i) == '"') {
+                i++;
+                while (i < n && contentType.charAt(i) != '"') {
+                    char c = contentType.charAt(i);
+                    if (c == '\\' && i + 1 < n) {
+                        c = contentType.charAt(++i);
+                    }
+                    value.append(c);
+                    i++;
+                }
+                i++;
+                while (i < n && contentType.charAt(i) != ';') {
+                    i++;
+                }
+            } else {
+                while (i < n && contentType.charAt(i) != ';') {
+                    value.append(contentType.charAt(i));
+                    i++;
+                }
+            }
+            if (!name.isEmpty()) {
+                params.putIfAbsent(name, value.toString().trim());
+            }
+        }
+        return params;
+    }
+
+    /** ASCII-only lower-casing for protocol tokens (locale-independent, no Unicode folding). */
+    private static String asciiLowerCase(String s) {
+        char[] chars = s.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            if (chars[i] >= 'A' && chars[i] <= 'Z') {
+                chars[i] = (char) (chars[i] + ('a' - 'A'));
+            }
+        }
+        return new String(chars);
     }
 
     /**
      * Streams the envelope and counts {@code xenc:EncryptedKey} elements at any depth inside a
      * {@code wsse:Security} header block ({@code Envelope/Header/Security}), and notes whether
-     * any {@code xenc:EncryptedData} is present. Stops at the end of the envelope.
+     * any {@code xenc:EncryptedData} is present. After the envelope only the XML epilog
+     * (whitespace, comments, processing instructions) is accepted.
      *
      * @throws XMLStreamException if the XML is not well-formed or contains a DTD
-     * @throws IOException if the document is not a SOAP envelope or exceeds
-     *                     {@link #MAX_ENCRYPTED_KEYS}
+     * @throws IOException if the document is not a SOAP envelope, has trailing content, or
+     *                     exceeds {@link #MAX_ENCRYPTED_KEYS}
      */
     static EncryptionDetectionResult scanEnvelope(InputStream xml)
             throws XMLStreamException, IOException {
@@ -351,7 +536,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                     }
                     depth--;
                     if (depth == 0) {
-                        // End of Envelope: do not read past it (trailing MIME parts are binary).
+                        requireOnlyMiscAfterRoot(reader);
                         return result;
                     }
                 }
@@ -359,6 +544,31 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             throw new XMLStreamException("MCEDT response SOAP Envelope is not closed");
         } finally {
             StaxUtils.close(reader);
+        }
+    }
+
+    /**
+     * After the Envelope closes, allows only what XML permits after a root element (whitespace,
+     * comments, processing instructions). The input here is already just the envelope bytes
+     * (whole entity, or the root MIME part sliced at its delimiter), so anything else is trailing
+     * garbage that CXF/WSS4J would choke on later; reject it now with a clear error.
+     */
+    private static void requireOnlyMiscAfterRoot(XMLStreamReader reader)
+            throws XMLStreamException, IOException {
+        while (reader.hasNext()) {
+            int event = reader.next();
+            switch (event) {
+                case XMLStreamConstants.SPACE, XMLStreamConstants.CHARACTERS -> {
+                    if (!reader.isWhiteSpace()) {
+                        throw new IOException("MCEDT response has content after the SOAP Envelope");
+                    }
+                }
+                case XMLStreamConstants.COMMENT, XMLStreamConstants.PROCESSING_INSTRUCTION,
+                        XMLStreamConstants.END_DOCUMENT -> {
+                    // permitted epilog
+                }
+                default -> throw new IOException("MCEDT response has content after the SOAP Envelope");
+            }
         }
     }
 
