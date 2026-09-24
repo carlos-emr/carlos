@@ -956,6 +956,22 @@ except ValueError:
             echo "carlos-emr: NOTE: this build carries no eForm render browser (SKIP_EFORM_RENDERER);" >&2
             echo "carlos-emr: NOTE: saved-eForm print, fax and archive are unavailable." >&2
         fi
+        # A SKIP_EFORM_RENDERER build installed over one that shipped the browser:
+        # dpkg removed the unit file with the payload, but the enablement the full
+        # build's debhelper snippet recorded stays behind -- a dangling
+        # multi-user.target.wants symlink and a deb-systemd-helper state entry
+        # nothing else would ever purge. Same cleanup as for the pre-alpha14 unit
+        # above. Guarded on the unit FILE being gone: a partial payload (the ERROR
+        # case above) still ships the unit and keeps its enablement.
+        if [ "${RENDER_PAYLOAD}" = 0 ] \
+            && [ ! -e /usr/lib/systemd/system/carlos-emr-render-browser.service ] \
+            && [ ! -e /lib/systemd/system/carlos-emr-render-browser.service ]; then
+            if [ -d /run/systemd/system ]; then
+                deb-systemd-invoke stop carlos-emr-render-browser.service >/dev/null 2>&1 || true
+            fi
+            deb-systemd-helper purge carlos-emr-render-browser.service >/dev/null 2>&1 || true
+            rm -f /etc/systemd/system/multi-user.target.wants/carlos-emr-render-browser.service
+        fi
 
         # The renderer state this configure writes -- the one-time move and the
         # url-base token below -- and the browser restart near the end are

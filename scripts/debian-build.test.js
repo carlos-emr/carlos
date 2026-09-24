@@ -108,6 +108,19 @@ test('renderer provisioning and restart are gated on the provisioning lock', () 
   assert.match(postinst, /if \[ "\$\{RENDER_PAYLOAD:-0\}" = 1 \] && \[ "\$\{RENDER_PROVISION:-1\}" = 1 \]; then\n        sd_invoke restart carlos-emr-render-browser\.service/);
 });
 
+// A SKIP_EFORM_RENDERER build over a full one removes the render browser's unit
+// with the payload; the postinst must purge the enablement the full build
+// recorded (dangling wants symlink, deb-systemd-helper state), guarded on the
+// unit file being absent so a partial payload keeps its unit enabled.
+test('postinst purges a stale render-browser enablement when the unit is no longer shipped', () => {
+  const postinst = fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8');
+  const guard = postinst.indexOf('if [ "${RENDER_PAYLOAD}" = 0 ] \\\n            && [ ! -e /usr/lib/systemd/system/carlos-emr-render-browser.service ]');
+  assert.ok(guard > 0, 'guard on RENDER_PAYLOAD=0 and the unit file being absent');
+  const block = postinst.slice(guard, postinst.indexOf('\n        fi\n', guard));
+  assert.match(block, /deb-systemd-helper purge carlos-emr-render-browser\.service/);
+  assert.match(block, /rm -f \/etc\/systemd\/system\/multi-user\.target\.wants\/carlos-emr-render-browser\.service/);
+});
+
 // The render browser must not reuse any name the pre-2026.08.0~alpha14
 // carlos-emr-eform-renderer postrm deletes or disables on purge.
 test('render browser names avoid everything the old renderer purge touches', () => {

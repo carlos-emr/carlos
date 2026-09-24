@@ -46,7 +46,9 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
   * carlos-ctl check asks dpkg whether the installed carlos-emr ships the
     browser, so a SKIP_EFORM_RENDERER build installed over a full one is
     reported as the documented NOTE (naming the leftover renderer.env)
-    rather than as a damaged payload.
+    rather than as a damaged payload. That upgrade also purges the render
+    browser's now-unitless enablement (wants symlink, deb-systemd-helper
+    state) that the full build's debhelper snippet had recorded.
   * carlos-emr-drugref (Architecture: all) now depends on carlos-emr
     (>= ${source:Version}, << ${source:Version}.1~) rather than
     (= ${binary:Version}), the binNMU-safe form for an arch-all package
