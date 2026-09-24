@@ -49,7 +49,8 @@
  *   npm run test:demographic-edit-update-playwright
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
- *   DEMOGRAPHIC_EDIT_SEARCH=FAKE-        surname prefix to search for
+ *   DEMOGRAPHIC_EDIT_SEARCH              surname prefix to search for (default: the
+ *                                        preferred patient's surname, else FAKE-)
  *   DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO=2    prefer this patient from the results
  *   DEMOGRAPHIC_EDIT_TIMEOUT_MS=20000
  *
@@ -176,13 +177,25 @@ async function auditRows(context, masterPage, recorder, timeout) {
 
 async function main() {
   const config = readConfig();
-  const searchTerm = process.env.DEMOGRAPHIC_EDIT_SEARCH || 'FAKE-';
   const preferredDemographicNo = process.env.DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO || '2';
+  assert(/^[1-9]\d*$/.test(preferredDemographicNo), 'DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO must be a positive integer');
   const timeout = Number(process.env.DEMOGRAPHIC_EDIT_TIMEOUT_MS || '20000');
   const marker = `EDIT${Date.now()}`;
 
   const recorder = createRecorder();
   const sql = createSqlRunner(config.mysql);
+  // Without an explicit search, search for the preferred patient's own surname. A bare "FAKE-"
+  // prefix matches every demo patient (3,000 on a packaged install), so the preferred one is not
+  // on the first page of results and the check refuses to run.
+  let searchTerm = process.env.DEMOGRAPHIC_EDIT_SEARCH;
+  if (!searchTerm) {
+    try {
+      searchTerm = sql.value(`SELECT last_name FROM demographic WHERE demographic_no=${preferredDemographicNo}`) || 'FAKE-';
+    } catch (error) {
+      sql.dispose();
+      throw error;
+    }
+  }
   // The runner has already written a 0600 option file holding MYSQL_PASSWORD, so
   // the browser launch has to be inside its cleanup boundary: a Chromium that is
   // missing or fails to start would otherwise leave that file in the temp
