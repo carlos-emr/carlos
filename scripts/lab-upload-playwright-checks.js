@@ -68,7 +68,9 @@ function syntheticCmlLab(accession, patientLast) {
   const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
     + `${pad(now.getHours())}${pad(now.getMinutes())}`;
   return [
-    `MSH|^~|Reports|CML|||${ts}-500||ORU||1|2.3`,
+    // The backslash is doubled so the template literal emits MSH-2 as the four HL7 encoding
+    // characters ^~\&; HAPI rejects anything shorter before the CML handler sees the message.
+    `MSH|^~\\&|Reports|CML|||${ts}-500||ORU^R01||1|2.3`,
     `PID|1|||^^ON|${patientLast}^Workflow||19800102|F`,
     `ORC|NW|${accession}|||F|||||||999998^DR. PROBE|||${ts.slice(0, 8)}`,
     `OBR|1|${accession}||ML70^SYNTHETIC PANEL||${ts.slice(0, 8)}|${ts.slice(0, 8)}|||||||||999998^DR. PROBE|||||||||F`,
