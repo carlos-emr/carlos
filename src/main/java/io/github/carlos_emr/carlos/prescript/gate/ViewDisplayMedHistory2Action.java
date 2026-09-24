@@ -41,6 +41,8 @@ public final class ViewDisplayMedHistory2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
+        // The JSP renders the patient the request names; authorise that patient too (#3875).
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
 
         return SUCCESS;
     }

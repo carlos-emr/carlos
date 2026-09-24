@@ -15,7 +15,6 @@ package io.github.carlos_emr.carlos.prescript.gate;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -49,12 +48,7 @@ public final class ViewStaticScript2Action extends ActionSupport {
         // The JSP activates and renders the requested patient's Rx. Global _rx read alone must not
         // let a caller pick any patient by URL: authorise the named patient first. A request that
         // names no valid patient is left to the JSP, which refuses it without rendering anything.
-        int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
-        if (demographicNo > 0
-                && (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", demographicNo)
-                    || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo))) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
 
         return SUCCESS;
     }

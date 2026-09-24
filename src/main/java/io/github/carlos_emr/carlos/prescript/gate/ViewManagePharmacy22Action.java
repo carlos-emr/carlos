@@ -41,6 +41,8 @@ public final class ViewManagePharmacy22Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
+        // The JSP renders the patient the request names; authorise that patient too (#3875).
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "w");
 
         return SUCCESS;
     }

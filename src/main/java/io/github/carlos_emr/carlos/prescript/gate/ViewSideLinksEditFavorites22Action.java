@@ -41,6 +41,8 @@ public final class ViewSideLinksEditFavorites22Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
             throw new SecurityException("missing required sec object (_allergy)");
         }
+        // The JSP renders the patient the request names; authorise that patient too (#3875).
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_allergy", "r");
 
         return SUCCESS;
     }
