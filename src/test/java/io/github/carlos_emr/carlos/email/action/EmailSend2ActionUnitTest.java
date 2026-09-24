@@ -26,11 +26,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
@@ -45,6 +47,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -163,12 +166,64 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("transactionType", "EFORM");
         request.setParameter("fdid", "42");
+        request.setParameter("demographicId", "7");
         List<EmailAttachment> attachments = new ArrayList<>(List.of(new EmailAttachment()));
-        request.getSession().setAttribute("emailAttachmentList", attachments);
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY, attachments);
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
         EmailSend2Action action = overLengthAction(request);
 
         action.sendEFormEmail();
 
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
+        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isSameAs(attachments);
+        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY)).isEqualTo("7");
+    }
+
+    @Test
+    @DisplayName("should not send attachments prepared for another patient")
+    void shouldDropAttachments_whenPreparedForAnotherPatient() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "8");
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY,
+                new ArrayList<>(List.of(new EmailAttachment())));
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
+        EmailSend2Action action = sendingAction(request);
+
+        action.sendDirectEmail();
+
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        verify(emailManager).sendEmail(any(), sent.capture());
+        assertThat(sent.getValue().getAttachments()).isEmpty();
+        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isNull();
+        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY)).isNull();
+    }
+
+    @Test
+    @DisplayName("should send attachments prepared for the same patient")
+    void shouldKeepAttachments_whenPreparedForSamePatient() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "7");
+        List<EmailAttachment> attachments = new ArrayList<>(List.of(new EmailAttachment()));
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY, attachments);
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
+        EmailSend2Action action = sendingAction(request);
+
+        action.sendDirectEmail();
+
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        verify(emailManager).sendEmail(any(), sent.capture());
+        assertThat(sent.getValue().getAttachments()).isSameAs(attachments);
+    }
+
+    private EmailSend2Action sendingAction(MockHttpServletRequest request) {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        EmailLog log = new EmailLog();
+        log.setStatus(EmailLog.EmailStatus.FAILED);
+        when(emailManager.sendEmail(any(), any())).thenReturn(log);
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+        return action;
     }
 }

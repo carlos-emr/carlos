@@ -55,6 +55,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see io.github.carlos_emr.carlos.email.core.EmailData
  */
 public class EmailSend2Action extends ActionSupport {
+
+    /** Session key of the prepared attachment list consumed by the next send. */
+    public static final String ATTACHMENT_LIST_SESSION_KEY = "emailAttachmentList";
+    /**
+     * Session key of the patient the prepared attachment list was built for. The list is shared by
+     * every email window in the session, so a send uses it only for that same patient.
+     */
+    public static final String ATTACHMENT_OWNER_SESSION_KEY = "emailAttachmentDemographicNo";
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -234,7 +242,8 @@ public class EmailSend2Action extends ActionSupport {
             // session, so put them back: otherwise shortening the field and sending again would
             // silently send the email without its PDFs.
             if (emailData.getAttachments() != null && !emailData.getAttachments().isEmpty()) {
-                request.getSession().setAttribute("emailAttachmentList", emailData.getAttachments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.getSession().setAttribute(ATTACHMENT_LIST_SESSION_KEY, emailData.getAttachments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                request.getSession().setAttribute(ATTACHMENT_OWNER_SESSION_KEY, request.getParameter("demographicId")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- only compared with the next request's patient, never used for lookups
             }
             throw e;
         }
@@ -277,7 +286,16 @@ public class EmailSend2Action extends ActionSupport {
         String transactionType = request.getParameter("transactionType");
         String demographicNo = request.getParameter("demographicId");
         String additionalParams = request.getParameter("additionalURLParams");
-        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute("emailAttachmentList");
+        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute(ATTACHMENT_LIST_SESSION_KEY);
+        Object attachmentOwner = request.getSession().getAttribute(ATTACHMENT_OWNER_SESSION_KEY);
+        if (emailAttachmentList != null && !emailAttachmentList.isEmpty()
+                && (demographicNo == null || !demographicNo.equals(attachmentOwner == null ? null : String.valueOf(attachmentOwner)))) {
+            // The list was prepared for another patient (or for no known patient) in another email
+            // window of this session. Sending it would attach one patient's documents to another
+            // patient's email, so it is dropped. Count only: ids and the patient are PHI-correlating.
+            logger.warn("Discarded {} prepared email attachment(s) that were not prepared for this patient", emailAttachmentList.size());
+            emailAttachmentList = null;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -300,7 +318,8 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
 
-        request.getSession().removeAttribute("emailAttachmentList");
+        request.getSession().removeAttribute(ATTACHMENT_LIST_SESSION_KEY);
+        request.getSession().removeAttribute(ATTACHMENT_OWNER_SESSION_KEY);
 
         return emailData;
     }
