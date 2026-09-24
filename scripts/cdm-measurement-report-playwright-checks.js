@@ -165,6 +165,15 @@ async function workflow(session) {
     h.assert(position >= 0, 'the AACP line has no selection checkbox');
     await guidelineRows.nth(position).check();
     await page.locator('input[name="guidelineB"]').nth(position).fill('Provided');
+    // The markup-bearing fixture instruction has already proven the screen encodes stored
+    // instructions. Submitting it would post that markup back as a form value, which the
+    // packaged install's ModSecurity/CRS front door rightly refuses (941100/941120/941160,
+    // 403), so it is unticked here; the report must still run for the other instructions.
+    const rowChoices = page.locator(`input[type="checkbox"][name^="value(mInstrcsCheckbox${row}"]`);
+    const hostileIndex = await rowChoices.evaluateAll(
+      (inputs, value) => inputs.findIndex((input) => input.value === value), HOSTILE_INSTRUCTION);
+    h.assert(hostileIndex >= 0, 'the markup-bearing AACP instruction has no selection checkbox');
+    await rowChoices.nth(hostileIndex).uncheck();
     await Promise.all([
       page.waitForURL(/\/oscarReport\/oscarMeasurements\/InitializePatientsMetGuidelineCDMReport(?:$|[?#])/),
       page.locator('input[type="submit"][name="submitBtn"]').click(),
@@ -176,7 +185,6 @@ async function workflow(session) {
       `a guideline of Provided counted ${current.met} of ${current.total} current AACP readings; the fixture reading is Provided`);
     const legacy = reportCounts(text, LEGACY_INSTRUCTION, 'Provided');
     h.assert(legacy.total >= 1, 'the legacy Yes/No AACP reading is missing from its report line');
-    h.assert(text.includes(HOSTILE_INSTRUCTION), 'the report does not show the stored instruction containing markup as text');
     await assertNoInjectedScript(page, 'the met-guideline report');
     await page.close();
   });
