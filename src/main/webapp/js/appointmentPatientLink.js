@@ -325,6 +325,7 @@
         var alertBanner = doc.getElementById('patientAlertBanner');
         var alertText = doc.getElementById('patientAlertText');
         if (alertBanner && alertText) {
+            revealPatientBanner(alertBanner);
             var patientAlert = text(item.alert);
             alertText.textContent = patientAlert;
             alertBanner.style.display = patientAlert ? '' : 'none';
@@ -335,6 +336,7 @@
         if (!statusBanner || !statusText) {
             return;
         }
+        revealPatientBanner(statusBanner);
         var rawStatus = text(item.status);
         var rawRoster = text(item.rosterStatus);
         var displayStatus = rawStatus === 'AC' ? '' : rawStatus;
@@ -354,14 +356,33 @@
         }
     }
 
-    /** Hide both patient banners, e.g. once no patient is linked. */
+    /**
+     * Hide both patient banners, e.g. once no patient is linked.
+     *
+     * A shown banner is hidden with visibility, not display, so it keeps its space. The unlink
+     * that calls this usually runs on the name field's blur, and the mouse-down that causes that
+     * blur is often on the Add/Update button below the banners: collapsing them moved the button
+     * up (by ~75px on Add Appointment) before the mouse was released, so the click landed on
+     * nothing and the clinician's first click on Add/Update did nothing at all.
+     */
     function hidePatientBanners(doc) {
         ['patientAlertBanner', 'patientStatusBanner'].forEach(function (id) {
             var banner = doc.getElementById(id);
-            if (banner) {
-                banner.style.display = 'none';
+            if (banner && banner.style.display !== 'none') {
+                banner.style.visibility = 'hidden';
+                if (typeof banner.setAttribute === 'function') {
+                    banner.setAttribute('aria-hidden', 'true');
+                }
             }
         });
+    }
+
+    /** Undo hidePatientBanners() before a banner is shown or hidden for a newly linked patient. */
+    function revealPatientBanner(banner) {
+        banner.style.visibility = '';
+        if (typeof banner.removeAttribute === 'function') {
+            banner.removeAttribute('aria-hidden');
+        }
     }
 
     /**

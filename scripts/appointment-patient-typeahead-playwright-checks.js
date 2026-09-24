@@ -182,9 +182,13 @@ async function highlightFirstResult(page, label) {
   return { value: String(first.value), provider: String(first.provider || ''), name: first.formattedName };
 }
 
-/** Leaves #keyword the way a user does, by clicking another field. */
+/**
+ * Leaves #keyword the way a user does, by clicking another field. The field is Duration, which
+ * sits ABOVE the patient name on both pages: the open result menu drops down over the fields
+ * below it (on Edit Appointment it covers Notes), and a click there lands on a menu row instead.
+ */
 async function blurKeyword(page) {
-  await page.locator('textarea[name="notes"]').first().click();
+  await page.locator('input[name="duration"]').first().click();
 }
 
 /** Links a patient through the widget's own select (arrow + Enter). */

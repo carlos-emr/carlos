@@ -573,14 +573,36 @@ test('attach() hides the status banner for the AC/RO defaults and the alert bann
   assert.equal(elements.patientStatusBanner.style.display, 'none');
 });
 
-test('attach() hides both banners when the link is removed', () => {
+test('attach() hides both banners when the link is removed, without moving the layout', () => {
   const { doc, elements } = bannerPage();
   const link = PatientLink.attach(doc);
   link.commit({ ...SMITH, status: 'IN' });
   link.unlink();
   assert.equal(elements.demographic_no.value, '');
+  // The unlink runs on the name field's blur, i.e. on the mouse-down of a click on Add/Update
+  // below the banners: collapsing them (display none) moved the button out from under the click.
+  for (const id of ['patientAlertBanner', 'patientStatusBanner']) {
+    assert.equal(elements[id].style.visibility, 'hidden', `${id} must be hidden`);
+    assert.equal(elements[id].style.display, '', `${id} must keep its space`);
+  }
+});
+
+test('relinking after an unlink shows the banners again', () => {
+  const { doc, elements } = bannerPage();
+  const link = PatientLink.attach(doc);
+  link.commit({ ...SMITH, status: 'IN' });
+  link.unlink();
+  link.commit({ ...SMITH, status: 'IN' });
+  assert.equal(elements.patientAlertBanner.style.visibility, '');
+  assert.equal(elements.patientStatusBanner.style.visibility, '');
+  assert.equal(elements.patientStatusBanner.style.display, '');
+});
+
+test('hiding leaves a banner that was never shown collapsed', () => {
+  const { doc, elements } = bannerPage();
+  PatientLink.hidePatientBanners(doc);
   assert.equal(elements.patientAlertBanner.style.display, 'none');
-  assert.equal(elements.patientStatusBanner.style.display, 'none');
+  assert.notEqual(elements.patientAlertBanner.style.visibility, 'hidden');
 });
 
 test('the banner helpers tolerate a page without banner markup', () => {
