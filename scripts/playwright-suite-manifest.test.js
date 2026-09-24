@@ -190,3 +190,13 @@ test('unknown selection exits before starting any browser check', () => {
   assert.match(messages.join(' '), /Unknown check name/);
   assert.doesNotMatch(messages.join(' '), /--- tickler-crud/);
 });
+
+// Queue ownership and Poppler are opt-in deployment prerequisites.
+test('core runs exclude incoming PDF fixtures while explicit selection retains them', () => {
+  const core = selectChecks(checks, parseArguments(['--tier', 'core']));
+  assert.ok(!core.some((check) => check.name === 'incoming-pdf-extraction'));
+  const extended = selectChecks(checks, parseArguments(['--tier', 'extended']));
+  assert.ok(extended.some((check) => check.name === 'incoming-pdf-extraction'));
+  const explicit = selectChecks(checks, parseArguments(['--only', 'incoming-pdf-extraction']));
+  assert.deepEqual(explicit.map((check) => check.name), ['incoming-pdf-extraction']);
+});

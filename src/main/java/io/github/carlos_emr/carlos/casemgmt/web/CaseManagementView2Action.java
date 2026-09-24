@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.CppUtils;
 import io.github.carlos_emr.carlos.utility.JsDateSerializer;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -1157,7 +1158,11 @@ public class CaseManagementView2Action extends ActionSupport {
         // listNotes() applies the per-issue-code hasReadAccess("_" + codes[0], ...)
         // check above before populating the request attributes the JSP reads, so the
         // include does not widen authorization.
-        if ("XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
+        // RequestNegotiation.isAjax, not an exact header match: CSRFGuard's client script
+        // appends its own marker to X-Requested-With, so a jQuery $.ajax call arrives as
+        // "XMLHttpRequest, OWASP CSRFGuard Project" and an equals check would fall through
+        // to the named result, reinstating the truncation this branch exists to avoid.
+        if (RequestNegotiation.isAjax(request)) {
             request.getRequestDispatcher("/WEB-INF/jsp/casemgmt/viewNotes.jsp").include(request, response);
             return NONE;
         }

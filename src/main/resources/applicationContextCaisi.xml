@@ -33,6 +33,7 @@
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/diabetesQueensFlowsheet.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/healthTracker.xml</value>
 			</list>
 		</property>
 	</bean>

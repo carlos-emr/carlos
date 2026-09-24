@@ -1,0 +1,1817 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%--
+    Page role: body of the CARLOS Health Tracker. Included by HealthTracker.jsp,
+    which turns a missing template into a 404 rather than a half-rendered page.
+
+    What this page is. A single-column data-entry view over one flowsheet: every
+    measurement on the flowsheet gets a card with an inline "value + date +
+    comment" row, its recent history, and an optional trend chart. It is the
+    write-oriented counterpart to TemplateFlowSheetPage.jspf, which is
+    read-oriented and sends the clinician to a popup to add anything.
+
+    Features:
+      - flowsheet switcher (diagnosed flowsheets as buttons, undiagnosed in a
+        dropdown) so a clinician can move between CDM flowsheets without
+        returning to the encounter
+      - undiagnosed-flowsheet warning with a link into the Disease Registry
+      - per-measurement entry with the same server-side Validations the Add
+        Measurement path enforces
+      - history strip with indicator colours, comments and delete
+      - Chart.js trend chart per graphable measurement (BP plots systolic and
+        diastolic as two series)
+      - prevention items rendered inline, added through the prevention module
+      - eForm toolkit (completed / templates) scoped to the flowsheet name
+
+    Parameters:
+      demographic_no - required, the patient
+      template       - flowsheet name; defaults to "tracker"
+      numEle         - how many history values per measurement (max 6)
+      sdate / edate  - inclusive observation-date window
+      show           - "outOfRange" to keep only flagged values
+      ycoord         - scroll offset restored after a save round-trip
+
+    Security: _flowsheet r to view (enforced below and again by the _eChart r
+    Struts gate), _flowsheet w to see the entry controls, _measurement w on the
+    save endpoint itself.
+
+    @since 2026-09-20
+--%>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerSubmissionParser" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Validations" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="java.util.*" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<%
+    if (session.getAttribute("user") == null || session.getAttribute("userrole") == null) {
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
+        return;
+    }
+
+    String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
+    String demographic_no = request.getParameter("demographic_no");
+    String providerNo = (String) session.getAttribute("user");
+
+    // The Health Tracker's own flowsheet is "tracker"; the switcher below reuses
+    // this same page for the CDM flowsheets, which arrive as ?template=.
+    String temp = request.getParameter("template");
+    if (temp == null || temp.isBlank()) {
+        temp = "tracker";
+    }
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="r" reverse="<%=true%>">
+    <%
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.NORIGHT + LogConst.READ,
+                LogConst.CON_FLOWSHEET, temp, request.getRemoteAddr(), demographic_no);
+        response.sendRedirect(request.getContextPath() + "/noRights.html");
+    %>
+</security:oscarSec>
+<%
+    // The taglib above audits and redirects an unauthorized request, but a
+    // `return` inside its body is unreachable code to Jasper, so the same check
+    // is repeated here to actually stop. Without it the page would go on running
+    // its queries and writing into an already-redirected response.
+    SecurityManager securityMgr = new SecurityManager();
+    if (!securityMgr.hasReadAccess("_flowsheet", roleName$)) {
+        return;
+    }
+
+    // The flowsheet named by ?template= is authorized on its own object, the way
+    // the encounter nav entry (EctDisplayMeasurements2Action) gates the tracker on
+    // _flowsheet.tracker. Without this a role denied one specific flowsheet could
+    // still read its measurements by asking this page for it by name. Privileges
+    // are default-open, so a deployment that defines no per-flowsheet rows is
+    // unaffected.
+    if (!securityMgr.hasReadAccess("_flowsheet." + temp, roleName$)) {
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.NORIGHT + LogConst.READ,
+                LogConst.CON_FLOWSHEET, temp, request.getRemoteAddr(), demographic_no);
+        response.sendRedirect(request.getContextPath() + "/noRights.html");
+        return;
+    }
+
+    LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_FLOWSHEET,
+            temp, request.getRemoteAddr(), demographic_no);
+
+    int demographicNoInt;
+    try {
+        demographicNoInt = Integer.parseInt(demographic_no);
+    } catch (Exception e) {
+        request.setAttribute("errorMessage", "A valid demographic_no is required");
+        return;
+    }
+    if (demographicNoInt <= 0) {
+        request.setAttribute("errorMessage", "A valid demographic_no is required");
+        return;
+    }
+
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+    // The checks above are chart-wide; the patient is named in the URL. Without
+    // this one a provider holding _eChart r and _flowsheet r could read any
+    // patient's measurements, preventions and eForms by editing demographic_no --
+    // including a chart their role is explicitly locked out of.
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.NORIGHT + LogConst.READ,
+                LogConst.CON_FLOWSHEET, temp, request.getRemoteAddr(), demographic_no);
+        response.sendRedirect(request.getContextPath() + "/noRights.html");
+        return;
+    }
+
+    boolean canWriteFlowsheet = securityMgr.hasWriteAccess("_flowsheet." + temp, roleName$);
+
+    // Pre-encoded forms of the two values that end up in nearly every URL and
+    // script literal on this page; computed once so no raw value can slip out.
+    String safeDemoNoHtml = SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
+    String safeDemoNoUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
+    String safeDemoNoJs = SafeEncode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
+    String safeTempUri = SafeEncode.forUriComponent(temp);
+    String safeTempJs = SafeEncode.forJavaScript(temp);
+
+    // "All" (no numEle) really means all: the history strip scrolls horizontally,
+    // so there is no layout reason to cap it the way the old carousel had to.
+    int numElementsToShow = Integer.MAX_VALUE;
+    if (request.getParameter("numEle") != null) {
+        try {
+            numElementsToShow = Integer.parseInt(request.getParameter("numEle"));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().debug("Health Tracker: ignoring non-numeric numEle");
+        }
+    }
+    if (numElementsToShow < 1) {
+        numElementsToShow = Integer.MAX_VALUE;
+    }
+
+    Date sdate = null;
+    Date edate = null;
+    if (request.getParameter("sdate") != null) {
+        try {
+            sdate = UtilDateUtilities.StringToDate(request.getParameter("sdate"));
+        } catch (Exception e) {
+            sdate = null;
+        }
+    }
+    if (request.getParameter("edate") != null) {
+        try {
+            edate = UtilDateUtilities.StringToDate(request.getParameter("edate"));
+        } catch (Exception e) {
+            edate = null;
+        }
+    }
+    boolean showOutOfRangeOnly = "outOfRange".equals(request.getParameter("show"));
+
+    String ornPilot = CarlosProperties.getInstance().getProperty("ORN_PILOT", "no");
+
+    FlowSheetCustomizationDao flowSheetCustomizationDao = SpringUtils.getBean(FlowSheetCustomizationDao.class);
+    MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+    List<FlowSheetCustomization> custList =
+            flowSheetCustomizationDao.getFlowSheetCustomizations(temp, providerNo, demographicNoInt);
+    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(temp, custList);
+
+    if (mFlowsheet == null) {
+        request.setAttribute("errorMessage", "Flowsheet not found: " + temp);
+        return;
+    }
+
+    List<String> measurements = new ArrayList<String>(mFlowsheet.getMeasurementList());
+    boolean isMeasurements = !measurements.isEmpty();
+
+    MeasurementInfo mi = new MeasurementInfo(demographic_no);
+    mi.getMeasurements(new ArrayList<String>(measurements));
+    try {
+        mFlowsheet.getMessages(mi);
+    } catch (Exception e) {
+        MiscUtils.getLogger().error("Error getting messages for flowsheet ", e);
+    }
+
+    // Measurements the decision support flagged as due; "Add overdue" reveals
+    // exactly these entry rows rather than every row on the flowsheet.
+    List<?> recList = mi.getList();
+    mFlowsheet.sortToCurrentOrder((ArrayList) recList);
+    StringBuilder overdueJson = new StringBuilder("[");
+    for (int i = 0; i < recList.size(); i++) {
+        if (i > 0) {
+            overdueJson.append(',');
+        }
+        overdueJson.append('"').append(SafeEncode.forJavaScript(String.valueOf(recList.get(i)))).append('"');
+    }
+    overdueJson.append(']');
+
+    String flowSheet = mFlowsheet.getDisplayName();
+    String today = UtilDateUtilities.getToday("yyyy-MM-dd");
+
+    // Scroll offset carried back by the save round-trip. Whitelisted here rather
+    // than in the markup so it is a plain integer by the time it reaches the DOM
+    // and the redirect the save action builds from it.
+    String ycoordParam = request.getParameter("ycoord");
+    String safeYcoord = (ycoordParam != null && ycoordParam.matches("\\d{1,7}")) ? ycoordParam : "0";
+%>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.Tracker"/>
+        - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title>
+
+    <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/fontawesome-all.min.css">
+
+    <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/chartjs/chart.umd.min.js"></script>
+
+    <oscar:customInterface section="health_tracker"/>
+
+    <style>
+        body { padding-top: 8px; padding-bottom: 90px; }
+
+        #tracker-bar { position: sticky; top: 0; z-index: 900; }
+
+        #main { max-width: 1400px; }
+
+        /* The history strip scrolls horizontally instead of paging through a
+           carousel: every recorded value stays reachable with one gesture and
+           there is no hidden state to get out of sync with the filters. */
+        .history-strip {
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            overflow-x: auto;
+            padding: 4px 8px;
+        }
+
+        .history-value {
+            flex: 0 0 auto;
+            min-width: 92px;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 4px;
+            cursor: pointer;
+        }
+        .history-value:hover { background-color: #FFFFAA; }
+        .history-value .value { font-size: 18px; line-height: 1.1; margin: 0; }
+        .history-value .observed { font-size: 10px; line-height: 1.2; }
+        .history-value .indicator { height: 6px; border-radius: 2px; margin-top: 2px; }
+        /* The indicator bar's meaning in words: colour alone is not readable by
+           everyone, and this is a clinical out-of-range flag. */
+        .history-value .indicator-label { font-size: 9px; font-weight: 600; letter-spacing: .5px; }
+
+        .sparkline { vertical-align: middle; }
+
+        .prevention-value { flex: 0 0 auto; min-width: 110px; text-align: center; }
+
+        /* Chart.js with maintainAspectRatio:false sizes itself to its container.
+           Without an explicit height here the canvas grows without bound and one
+           measurement's trend takes over the whole page. */
+        .chart-wrap { position: relative; height: 220px; width: 100%; }
+
+        .measurement-label { font-weight: 600; }
+
+        .save-all {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 950;
+            padding: 8px 16px;
+            text-align: right;
+            border-top: 1px solid var(--bs-border-color);
+            background: var(--bs-body-bg);
+            opacity: 0.55;
+        }
+        .save-all:hover, .save-all:focus-within { opacity: 1; }
+
+        #scrollToTop { position: fixed; display: none; bottom: 80px; right: 18px; z-index: 960; }
+
+        .input-error { border-color: #e56717 !important; box-shadow: 0 0 6px rgba(229,103,23,0.6) !important; }
+        .input-success { border-color: #62c462 !important; }
+        .options-error { color: #bd362f; }
+
+        .DoNotScreen { display: none; }
+
+        @media print {
+            .DoNotPrint { display: none !important; }
+            .save-all, #tracker-bar, #scrollToTop { display: none !important; }
+            body { padding-bottom: 0; }
+        }
+    </style>
+</head>
+
+<body id="HealthTracker">
+
+<%@ include file="/WEB-INF/jsp/share/templates/patient.jspf" %>
+
+<%
+    // ---------------------------------------------------------------------
+    // Flowsheet switcher. Flowsheets whose dx triggers match this patient's
+    // active problems are shown as buttons; the rest go in the "Undiagnosed"
+    // dropdown, because opening one of those is a deliberate act that the
+    // warning modal below asks the clinician to confirm.
+    // ---------------------------------------------------------------------
+    List<String> diagnosed = new ArrayList<String>();
+    List<String> undiagnosedNames = new ArrayList<String>();
+    String dxCodeQueryString = "";
+
+    dxResearchBeanHandler dxRes = new dxResearchBeanHandler(demographic_no);
+    Vector dxCodes = dxRes.getActiveCodeListWithCodingSystem();
+    List<String> dxTriggered = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetsFromDxCodes(dxCodes);
+    Hashtable<String, String> systemFlowsheets =
+            MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();
+
+    for (String name : systemFlowsheets.keySet()) {
+        MeasurementFlowSheet candidate = MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(name);
+        if (candidate == null || candidate.isUniversal()) {
+            continue;
+        }
+        Flowsheet settings = MeasurementTemplateFlowSheetConfig.getInstance()
+                .getFlowsheetSettings().get(candidate.getName());
+        if (settings != null && !settings.isEnabled()) {
+            continue;
+        }
+        // "tracker" is this page's own home button, not a switcher entry.
+        if ("tracker".equals(candidate.getName())) {
+            continue;
+        }
+        // Same per-flowsheet privilege the gate above applies to ?template=: a
+        // flowsheet the role cannot read is not offered as a link to it.
+        if (!securityMgr.hasReadAccess("_flowsheet." + candidate.getName(), roleName$)) {
+            continue;
+        }
+
+        if (dxTriggered.contains(candidate.getName())) {
+            diagnosed.add(candidate.getName());
+        } else {
+            undiagnosedNames.add(candidate.getName());
+        }
+
+        if (candidate.getName().equals(temp)) {
+            try {
+                dxCodeQueryString = candidate.getDxTriggersQueryBuilder(demographic_no, providerNo);
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Error getting DxTriggers - Health Tracker", e);
+            }
+        }
+    }
+
+    boolean undiagnosedFlowsheetInUse =
+            !"tracker".equals(temp) && !diagnosed.contains(temp) && undiagnosedNames.contains(temp);
+    String trackerRoute = request.getContextPath() + "/encounter/oscarMeasurements/ViewHealthTracker";
+%>
+
+<div class="card card-body py-2 mb-2 DoNotPrint" id="tracker-bar">
+    <div class="d-flex flex-wrap align-items-center gap-1">
+        <a href="<%= trackerRoute %>?demographic_no=<%= safeDemoNoUri %>&template=tracker"
+           class="btn btn-sm <%= "tracker".equals(temp) ? "btn-primary active" : "btn-outline-secondary" %>"
+           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.Tracker"/>">
+            <i class="fa-solid fa-house"></i>
+        </a>
+
+        <% for (String name : diagnosed) {
+            MeasurementFlowSheet fsMeta = MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(name); %>
+        <a href="<%= trackerRoute %>?demographic_no=<%= safeDemoNoUri %>&template=<carlos:encode value='<%= name %>' context="uriComponent"/>"
+           class="btn btn-sm <%= name.equals(temp) ? "btn-primary active" : "btn-outline-secondary" %>"
+           title="Diagnosed">
+            <carlos:encode value='<%= fsMeta.getDisplayName() %>' context="html"/>
+        </a>
+        <% } %>
+
+        <% if (!undiagnosedNames.isEmpty()) { %>
+        <div class="dropdown">
+            <button type="button"
+                    class="btn btn-sm dropdown-toggle <%= undiagnosedFlowsheetInUse ? "btn-primary" : "btn-outline-secondary" %>"
+                    data-bs-toggle="dropdown" aria-expanded="false" title="View undiagnosed flowsheets">
+                <%= undiagnosedFlowsheetInUse
+                        ? SafeEncode.forHtmlContent(mFlowsheet.getDisplayName())
+                        : "Undiagnosed" %>
+            </button>
+            <ul class="dropdown-menu">
+                <li><h6 class="dropdown-header">Undiagnosed</h6></li>
+                <% for (String name : undiagnosedNames) {
+                    MeasurementFlowSheet fsMeta = MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(name); %>
+                <li>
+                    <a class="dropdown-item <%= name.equals(temp) ? "active" : "" %>"
+                       href="<%= trackerRoute %>?demographic_no=<%= safeDemoNoUri %>&template=<carlos:encode value='<%= name %>' context="uriComponent"/>">
+                        <carlos:encode value='<%= fsMeta.getDisplayName() %>' context="html"/>
+                    </a>
+                </li>
+                <% } %>
+            </ul>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<div id="main" class="container-fluid">
+
+    <% if (undiagnosedFlowsheetInUse) { %>
+    <div id="dxAlert" class="alert alert-warning alert-dismissible DoNotPrint" role="alert">
+        <strong>Warning!</strong>
+        You are using the <b><carlos:encode value='<%= flowSheet %>' context="html"/></b> without a diagnosis.
+        <% if (!dxCodeQueryString.isEmpty()) { %>
+        To add a diagnosis use one of the available codes:
+        <carlos:encode value='<%= dxCodeQueryString %>' context="html"/> or go to the
+        <% } else { %>
+        Use the
+        <% } %>
+        <a href="javascript:void(0);"
+           onclick="popup(700,900,'<%= SafeEncode.forJavaScriptAttribute(request.getContextPath()
+                   + "/oscarResearch/oscarDxResearch/setupDxResearch?demographicNo=" + safeDemoNoUri
+                   + "&providerNo=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(providerNo))
+                   + "&quickList=") %>','dxAdd'); return false;">Disease Registry</a><%
+        if (dxCodeQueryString.isEmpty()) { %> to add a diagnosis<% } %>.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    <% } %>
+
+    <%-- Server-side rejects from HealthTrackerUpdate2Action. The page's own
+         client-side checks are a convenience; this is what actually reports a
+         value the Validations row refused. --%>
+    <div class="alert alert-danger alert-dismissible DoNotPrint" id="validation-alert"
+         style="<%= request.getAttribute("testOutput") != null ? "" : "display:none;" %>" role="alert">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <span id="validation-alert-body">
+        <% if (request.getAttribute("testOutput") != null) { %>
+        <strong>The following values were not updated due to an error:</strong><br>
+        <pre class="mb-0"><carlos:encode value='<%= String.valueOf(request.getAttribute("testOutput")) %>' context="html"/></pre>
+        <% } %>
+        </span>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+        <h4 class="mb-0"><carlos:encode value='<%= flowSheet %>' context="html"/></h4>
+
+        <% if (isMeasurements) { %>
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+            <% if (!recList.isEmpty()) { %>
+            <a href="javascript:void(0)" id="add_overdue" class="DoNotPrint"
+               title="Add all overdue measurements">
+                <i class="fa-solid fa-circle-plus" id="plus-overdue"></i>
+                <i class="fa-solid fa-circle-minus" id="minus-overdue" style="display:none"></i>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addoverdue"/>
+            </a>
+            <% } %>
+            <a href="javascript:void(0)" id="expand_all" class="DoNotPrint" title="Show every entry row">Expand all</a>
+            <a href="javascript:void(0)" id="collapse_all" class="DoNotPrint" title="Hide entry rows">Collapse all</a>
+        </security:oscarSec>
+
+        <div class="d-flex align-items-center gap-2 DoNotPrint">
+            <label for="numEle" class="col-form-label">Display:</label>
+            <select id="numEle" class="form-select form-select-sm" style="width:auto">
+                <option value="All">All</option>
+                <% String numDisplay = request.getParameter("numEle") == null ? "" : request.getParameter("numEle");
+                   for (int n = 1; n <= 5; n++) { %>
+                <option value="<%= n %>" <%= numDisplay.equals(String.valueOf(n)) ? "selected" : "" %>>Last <%= n %></option>
+                <% } %>
+                <option value="outOfRange" <%= showOutOfRangeOnly ? "selected" : "" %>>Out of Range</option>
+                <option value="dateRange" <%= sdate != null ? "selected" : "" %>>Date Range</option>
+            </select>
+
+            <span id="date-filter" class="d-flex align-items-center gap-2"
+                  style="<%= sdate != null ? "" : "display:none;" %>">
+                <label for="flowsheetStartDate" class="col-form-label">Start:</label>
+                <input type="date" id="flowsheetStartDate" class="form-control form-control-sm" style="width:auto"
+                       value="<carlos:encode value='<%= request.getParameter("sdate") != null ? request.getParameter("sdate") : "" %>' context="htmlAttribute"/>">
+                <label for="flowsheetEndDate" class="col-form-label">End:</label>
+                <input type="date" id="flowsheetEndDate" class="form-control form-control-sm" style="width:auto"
+                       value="<carlos:encode value='<%= request.getParameter("edate") != null ? request.getParameter("edate") : "" %>' context="htmlAttribute"/>">
+                <button type="button" class="btn btn-sm btn-secondary" id="applyDateRange">go</button>
+            </span>
+        </div>
+        <% } %>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-7" id="left-side">
+
+            <% if (!isMeasurements) { %>
+            <div class="card card-body text-center">
+                <p class="lead text-muted">It looks like you are not tracking any measurements!</p>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+                    <div>
+                        <a class="btn btn-secondary btn-lg"
+                           href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%= safeTempUri %>&demographic=<%= safeDemoNoUri %>&add&htracker">
+                            <i class="fa-solid fa-circle-plus"></i> Add Measurements
+                        </a>
+                    </div>
+                </security:oscarSec>
+            </div>
+            <% } %>
+
+            <%-- The form wraps the whole left column. It is a real POST form with a
+                 concrete action, which is what makes CSRFGuard inject the hidden
+                 CSRF-TOKEN input that the delete AJAX below reads. --%>
+            <form id="trackerForm" name="trackerForm" method="post"
+                  action="<%= request.getContextPath() %>/encounter/oscarMeasurements/HealthTrackerUpdate">
+                <input type="hidden" name="ycoord" id="ycoord" value="<%= safeYcoord %>">
+                <input type="hidden" name="date" id="date" value="<%= today %>">
+                <input type="hidden" name="demographic_no" value="<%= safeDemoNoHtml %>">
+                <input type="hidden" name="template" value="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>">
+                <fieldset>
+<%
+    EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
+    List<String> comments = new ArrayList<String>();
+
+    for (String measure : measurements) {
+        Map<String, String> h2 = mFlowsheet.getMeasurementFlowSheetInfo(measure);
+        FlowSheetItem item = mFlowsheet.getFlowSheetItem(measure);
+
+        String hidden = (item.isHide() || mi.getHidden(measure)) ? "display:none;" : "";
+        String displayName = h2.get("display_name");
+        String guideline = h2.get("guideline") == null ? "" : h2.get("guideline");
+        String encMeasure = SafeEncode.forHtmlAttribute(measure);
+
+        if (h2.get("measurement_type") != null) {
+            EctMeasurementTypesBean mtypeBean = mType.getMeasurementType(measure);
+            if (mtypeBean == null) {
+                continue;
+            }
+
+            // Must match HealthTrackerSubmissionParser.fieldNameFor exactly, or the
+            // inputs this page renders are not the ones the save action reads back.
+            // Keyed on the measurement type, which is unique within a flowsheet;
+            // display names are not.
+            String fieldName = HealthTrackerSubmissionParser.fieldNameFor(measure);
+            String encField = SafeEncode.forHtmlAttribute(fieldName);
+            String validationName = mtypeBean.getValidationName() == null ? "" : mtypeBean.getValidationName();
+            boolean yesNo = "Yes/No".equals(validationName)
+                    || "Yes/No/NA".equals(validationName)
+                    || "Yes/No/X".equals(validationName);
+            boolean reviewOnly = "Review".equals(validationName);
+
+            List<EctMeasurementsDataBean> alist = mi.getMeasurementData(measure);
+            if (alist == null) {
+                alist = new ArrayList<EctMeasurementsDataBean>();
+            }
+
+            String headerColour = "";
+            if (mi.hasRecommendation(measure)) {
+                headerColour = cssColour(mFlowsheet.getRecommendationColour());
+            } else if (mi.hasWarning(measure)) {
+                headerColour = cssColour(mFlowsheet.getWarningColour());
+            }
+            if (!headerColour.isEmpty()) {
+                headerColour = "background-color:" + headerColour + ";";
+            }
+
+            boolean graphable = "yes".equals(h2.get("graphable"));
+
+            // At-a-glance trend beside the label, the way the pre-removal page and
+            // o19 both show one. alist is newest-first, so walk it backwards.
+            List<List<Double>> sparkSeries = new ArrayList<List<Double>>();
+            if (graphable && alist.size() > 1) {
+                boolean bloodPressure = "BP".equals(measure);
+                List<Double> systolic = new ArrayList<Double>();
+                List<Double> diastolic = new ArrayList<Double>();
+                for (int x = alist.size() - 1; x >= 0; x--) {
+                    String data = alist.get(x).getDataField();
+                    if (bloodPressure) {
+                        String[] parts = data == null ? new String[0] : data.split("/");
+                        systolic.add(parts.length > 0 ? numeric(parts[0]) : null);
+                        diastolic.add(parts.length > 1 ? numeric(parts[1]) : null);
+                    } else {
+                        systolic.add(numeric(data));
+                    }
+                }
+                sparkSeries.add(systolic);
+                if (bloodPressure) {
+                    sparkSeries.add(diastolic);
+                }
+            }
+            String sparkMarkup = sparkline(sparkSeries);
+
+            // The most recent answer to a Yes/No measurement, shown as a tick or a
+            // cross so the card says what it is without opening anything.
+            String yesNoGlyph = "";
+            if (yesNo && !alist.isEmpty()) {
+                String latest = alist.get(0).getDataField();
+                if ("Yes".equalsIgnoreCase(latest)) {
+                    yesNoGlyph = "<i class=\"fa-solid fa-check text-success ms-1\""
+                            + " title=\"Most recent answer: Yes\"></i>";
+                } else if ("No".equalsIgnoreCase(latest)) {
+                    yesNoGlyph = "<i class=\"fa-solid fa-xmark text-danger ms-1\""
+                            + " title=\"Most recent answer: No\"></i>";
+                }
+            }
+
+            String recommendation = mi.getRecommendation(measure);
+            String popoverBody = (recommendation != null
+                    ? "<span style='color:red'>" + SafeEncode.forHtmlContent(recommendation) + "</span><br>" : "")
+                    + SafeEncode.forHtmlContent(guideline);
+
+            int shown = 0;
+            boolean anyRendered = false;
+            List<Map<String, String>> plotPoints = new ArrayList<Map<String, String>>();
+%>
+                <div class="card mb-2 measurement-card" id="wrap-<%= encMeasure %>"
+                     data-measure="<%= encMeasure %>" style="<%= hidden %>">
+                    <div class="card-header py-2" style="<%= headerColour %>">
+                        <div class="row align-items-center g-2">
+                            <div class="col-lg-5">
+                                <span class="measurement-label" data-bs-toggle="popover" data-bs-html="true"
+                                      data-bs-trigger="hover focus"
+                                      data-bs-title="<carlos:encode value='<%= displayName %>' context="htmlAttribute"/>"
+                                      data-bs-content="<%= SafeEncode.forHtmlAttribute(popoverBody) %>"><carlos:encode
+                                        value='<%= displayName %>' context="html"/></span>
+                                <%= yesNoGlyph %>
+                                <% if (graphable && alist.size() > 1) { %>
+                                <%-- The sparkline is the click target when there is one, as it
+                                     was before the removal; the icon stands in when every value
+                                     is non-numeric and no line could be drawn. --%>
+                                <a href="javascript:void(0)" class="graphClick ms-1"
+                                   data-measure="<%= encMeasure %>"
+                                   title="Show trend"><%= sparkMarkup.isEmpty()
+                                        ? "<i class=\"fa-solid fa-chart-line\"></i>" : sparkMarkup %></a>
+                                <a href="javascript:void(0)" class="ms-1" title="Open the full graph"
+                                   onclick="window.open('<%= SafeEncode.forJavaScriptAttribute(request.getContextPath()
+                                           + "/encounter/GraphMeasurements?demographic_no=" + safeDemoNoUri
+                                           + "&type=" + SafeEncode.forUriComponent(measure)) %>');"><i
+                                        class="fa-solid fa-up-right-from-square"></i></a>
+                                <% } %>
+                            </div>
+
+                            <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+                            <div class="col-lg-7 d-flex justify-content-end gap-2 DoNotPrint entry-controls">
+                                <label class="visually-hidden" for="<%= encField %>_date">Observation date for <carlos:encode
+                                        value='<%= displayName %>' context="html"/></label>
+                                <input type="date" class="form-control form-control-sm" style="width:auto"
+                                       id="<%= encField %>_date"
+                                       name="<%= encField %>_date" value="<%= today %>">
+                                <% if (yesNo) { %>
+                                <div id="options-<%= encField %>" class="d-flex align-items-center gap-2">
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input entry-input" type="radio" value="Yes"
+                                               name="<%= encField %>" id="<%= encField %>-YES">
+                                        <label class="form-check-label" for="<%= encField %>-YES">Yes</label>
+                                    </div>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input entry-input" type="radio" value="No"
+                                               name="<%= encField %>" id="<%= encField %>-NO">
+                                        <label class="form-check-label" for="<%= encField %>-NO">No</label>
+                                    </div>
+                                    <% if ("Yes/No/NA".equals(validationName)) { %>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input entry-input" type="radio" value="NA"
+                                               name="<%= encField %>" id="<%= encField %>-NA">
+                                        <label class="form-check-label" for="<%= encField %>-NA">NA</label>
+                                    </div>
+                                    <% } %>
+                                </div>
+                                <% } else if (reviewOnly) { %>
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input entry-input" type="checkbox" value="Reviewed"
+                                           name="<%= encField %>" id="<%= encField %>-REVIEWED">
+                                    <label class="form-check-label" for="<%= encField %>-REVIEWED">Reviewed</label>
+                                </div>
+                                <% } else { %>
+                                <label class="visually-hidden" for="<%= encField %>"><carlos:encode
+                                        value='<%= displayName %>' context="html"/></label>
+                                <input type="text" class="form-control form-control-sm entry-input" style="width:170px"
+                                       id="<%= encField %>" name="<%= encField %>" autocomplete="off"
+                                       placeholder="Enter Data"
+                                       data-convert="<%= SafeEncode.forHtmlAttribute(conversionHint(measure)) %>"
+                                       title="<%= SafeEncode.forHtmlAttribute(inputHint(measure, validationName)) %>"
+                                       <%= validationAttributes(measure, mtypeBean.getMeasuringInstrc()) %>>
+                                <% } %>
+                            </div>
+                            </security:oscarSec>
+                        </div>
+
+                        <%-- Comment / add-to-note row, revealed by script once the
+                             clinician starts entering a value for this measurement. --%>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+                        <div class="row align-items-center g-2 add-box DoNotPrint" id="add-box-<%= encMeasure %>"
+                             style="display:none;">
+                            <div class="col-lg-5">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="addtonote"
+                                           name="<%= encField %>_note" id="<%= encField %>_note">
+                                    <label class="form-check-label small" for="<%= encField %>_note"
+                                           title="Tick to have this measurement appear in the encounter progress note.">add
+                                        to progress note</label>
+                                </div>
+                            </div>
+                            <div class="col-lg-7 d-flex justify-content-end gap-2">
+                                <% if (!"FUPP".equals(measure)) { %>
+                                <input type="text" class="form-control form-control-sm" style="width:240px"
+                                       placeholder="Comment" id="<%= encField %>_comments" name="<%= encField %>_comments">
+                                <% } else { %>
+                                <textarea class="form-control form-control-sm" rows="4" style="width:304px"
+                                          id="<%= encField %>_comments" name="<%= encField %>_comments"></textarea>
+                                <% } %>
+                            </div>
+                        </div>
+                        </security:oscarSec>
+                    </div>
+
+                    <div class="card-body p-0">
+                        <% if (mi.getWarning(measure) != null) { %>
+                        <div class="alert alert-danger alert-dismissible m-0 py-1" role="alert">
+                            <carlos:encode value='<%= mi.getWarning(measure) %>' context="html"/>
+                            <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        <% } %>
+                        <div class="history-strip">
+                        <%
+                            for (EctMeasurementsDataBean mdb : alist) {
+                                mFlowsheet.runRulesForMeasurement(loggedInInfo, mdb);
+                                Date observed = mdb.getDateObservedAsDate();
+                                String observedText = UtilDateUtilities.DateToString(observed);
+
+                                String indicatorColour = mdb.getIndicationColour() == null
+                                        ? "" : cssColour(mFlowsheet.getIndicatorColour(mdb.getIndicationColour()));
+
+                                if (sdate != null && edate != null && observed != null
+                                        && (observed.before(sdate) || observed.after(edate))) {
+                                    continue;
+                                }
+                                if (showOutOfRangeOnly && indicatorColour.isEmpty()) {
+                                    continue;
+                                }
+                                if (shown >= numElementsToShow) {
+                                    continue;
+                                }
+                                shown++;
+                                anyRendered = true;
+
+                                String comment = mdb.getComments() == null ? "" : mdb.getComments().trim();
+                                if (!comment.isEmpty()) {
+                                    comments.add(comment);
+                                }
+                                String enteredBy = "Entered by: " + SafeEncode.forHtmlContent(
+                                        io.github.carlos_emr.carlos.util.StringUtils.noNull(mdb.getProviderFirstName())
+                                        + " " + io.github.carlos_emr.carlos.util.StringUtils.noNull(mdb.getProviderLastName()));
+
+                                Map<String, String> point = new LinkedHashMap<String, String>();
+                                point.put("d", String.valueOf(observedText));
+                                point.put("v", String.valueOf(mdb.getDataField()));
+                                plotPoints.add(point);
+                        %>
+                            <%-- Opens the value's detail/delete modal, so it carries the same
+                                 button semantics and keyboard handler as the prevention tiles. --%>
+                            <div class="history-value" role="button" tabindex="0"
+                                 onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
+                                 data-bs-toggle="popover" data-bs-html="true"
+                                 data-bs-trigger="hover focus"
+                                 data-bs-content="<%= SafeEncode.forHtmlAttribute(enteredBy
+                                         + (comment.isEmpty() ? "" : "<br>" + SafeEncode.forHtmlContent(comment))) %>"
+                                 data-measurement-id="<%= mdb.getId() %>"
+                                 data-label="<carlos:encode value='<%= displayName %>' context="htmlAttribute"/>"
+                                 data-entered-by="<%= SafeEncode.forHtmlAttribute(enteredBy) %>"
+                                 data-value="<carlos:encode value='<%= String.valueOf(mdb.getDataField()) %>' context="htmlAttribute"/>"
+                                 data-observed="<carlos:encode value='<%= String.valueOf(observedText) %>' context="htmlAttribute"/>"
+                                 data-comment="<carlos:encode value='<%= comment %>' context="htmlAttribute"/>">
+                                <p class="value"><carlos:encode value='<%= String.valueOf(mdb.getDataField()) %>' context="html"/></p>
+                                <span class="observed">
+                                    <carlos:encode value='<%= String.valueOf(observedText) %>' context="html"/>
+                                    <i title="<%= mdb.getNumMonthSinceObserved() %> months since last observed"><%= mdb.getNumMonthSinceObserved() %>M</i>
+                                    <% if (!comment.isEmpty()) { %><i class="fa-solid fa-comment"></i><% } %>
+                                </span>
+                                <% if (!indicatorColour.isEmpty()) { %>
+                                <div class="indicator" style="background-color:<%= indicatorColour %>"></div>
+                                <span class="indicator-label" style="color:<%= indicatorColour %>"><carlos:encode
+                                        value='<%= indicatorLabel(mdb.getIndicationColour()) %>' context="html"/></span>
+                                <% } %>
+                            </div>
+                        <%  } %>
+                        </div>
+                        <% if (!anyRendered) { %>
+                        <p class="text-muted px-2 py-1 mb-0">No Data</p>
+                        <% } %>
+                    </div>
+
+                    <% if (graphable) { %>
+                    <div class="card-footer graph-view DoNotPrint" style="display:none;"
+                         data-points="<%= SafeEncode.forHtmlAttribute(toJson(plotPoints)) %>"
+                         <%-- The measurement type, not the label: a clinician can rename
+                              a BP item, and the chart still has to plot two series. --%>
+                         data-is-bp="<%= "BP".equals(measure) %>"
+                         data-title="<carlos:encode value='<%= displayName %>' context="htmlAttribute"/>">
+                        <button type="button" class="btn-close float-end closeGraph" aria-label="Close"></button>
+                        <div class="chart-wrap"><canvas></canvas></div>
+                    </div>
+                    <% } %>
+                </div>
+<%
+        } else {
+            // Prevention item: read-only here. Adding one goes through the
+            // prevention module popup so its consent/refusal rules still apply.
+            String prevType = h2.get("prevention_type");
+            List<Map<String, Object>> plist = PreventionData.getPreventionData(loggedInInfo, prevType, demographicNoInt);
+            Collections.reverse(plist);
+%>
+                <div class="card mb-2" style="<%= hidden %>">
+                    <div class="card-header py-2">
+                        <div class="row align-items-center g-2">
+                            <div class="col-lg-7">
+                                <span class="measurement-label" data-bs-toggle="popover" data-bs-html="true"
+                                      data-bs-trigger="hover focus"
+                                      data-bs-title="<carlos:encode value='<%= displayName %>' context="htmlAttribute"/>"
+                                      data-bs-content="<carlos:encode value='<%= guideline %>' context="htmlAttribute"/>"><carlos:encode
+                                        value='<%= displayName %>' context="html"/></span>
+                            </div>
+                            <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+                            <div class="col-lg-5 text-end DoNotPrint">
+                                <button type="button" class="btn btn-sm btn-secondary"
+                                        onclick="fsPopup(465,635,'<%= SafeEncode.forJavaScriptAttribute(
+                                                request.getContextPath() + "/prevention/AddPrevention?prevention="
+                                                + SafeEncode.forUriComponent(prevType) + "&demographic_no=" + safeDemoNoUri) %>','addPreventionData<%= Math.abs(prevType.hashCode()) %>')">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            </security:oscarSec>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <% if (!plist.isEmpty()) { %>
+                        <div class="history-strip">
+                            <% for (Map<String, Object> hdata : plist) {
+                                String com = PreventionData.getPreventionComment("" + hdata.get("id"));
+                                Map<String, String> hExt = PreventionData.getPreventionKeyValues(String.valueOf(hdata.get("id")));
+                                String presult = hExt == null ? null : hExt.get("result");
+                                String refusedLabel = refused(hdata.get("refused")); %>
+                            <div class="prevention-value" role="button" tabindex="0"
+                                 onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
+                                 onclick="fsPopup(465,635,'<%= SafeEncode.forJavaScriptAttribute(
+                                         request.getContextPath() + "/prevention/AddPrevention?id="
+                                         + SafeEncode.forUriComponent(String.valueOf(hdata.get("id")))
+                                         + "&demographic_no=" + safeDemoNoUri) %>','addPreventionData')"
+                                 data-bs-toggle="popover" data-bs-html="true" data-bs-trigger="hover focus"
+                                 data-bs-content="<%= SafeEncode.forHtmlAttribute("Entered by: "
+                                         + SafeEncode.forHtmlContent(String.valueOf(hdata.get("provider_name")))
+                                         + (com == null || com.isBlank() ? "" : "<br>" + SafeEncode.forHtmlContent(com))) %>">
+                                <p class="value">
+                                    <% if ("pending".equals(presult) && "Completed".equals(refusedLabel)) { %>Pending<% } else { %><carlos:encode
+                                        value='<%= refusedLabel %>' context="html"/><% } %>
+                                </p>
+                                <span class="observed"><carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/></span>
+                                <div class="indicator" style="<%= refusedIndicatorStyle(hdata.get("refused")) %>"></div>
+                                <% if ("abnormal".equals(presult)) { %>
+                                <span class="text-danger small">abnormal</span>
+                                <% } %>
+                            </div>
+                            <% } %>
+                        </div>
+                        <% } else { %>
+                        <p class="text-muted px-2 py-1 mb-0">No Data</p>
+                        <% } %>
+                    </div>
+                </div>
+<%
+        }
+    }
+%>
+                </fieldset>
+            </form>
+        </div>
+
+        <div class="col-lg-5 DoNotPrint" id="right-side">
+<%
+    boolean ornEnabled = "yes".equalsIgnoreCase(ornPilot) || "true".equalsIgnoreCase(ornPilot);
+    String upperTemp = temp.toUpperCase(Locale.ROOT);
+    boolean renalFlowsheet = ornEnabled
+            && ("DIAB2".equals(upperTemp) || "CKD".equals(upperTemp) || "RENAL".equals(upperTemp));
+%>
+            <% if (renalFlowsheet) { %>
+            <div class="card mb-2">
+                <div class="card-header py-2"><strong>Renal</strong></div>
+                <div class="card-body">
+                    <span class="badge text-bg-dark" id="renal-next-steps">Next Steps</span>
+                    <div id="renal_next_steps" class="mb-3">N/A</div>
+                    <span class="badge text-bg-info" id="renal-resources">Resources</span>
+                    <div>
+                        <a target="_blank" rel="noopener" href="<%=request.getContextPath()%>/renal/csn_algorithm.pdf">CSN
+                            Algorithm Detection, Monitoring &amp; Referral of CKD</a><br>
+                        <a target="_blank" rel="noopener" href="<%=request.getContextPath()%>/renal/kfoc.pdf">Kidney
+                            Foundation of Canada</a>
+                    </div>
+                </div>
+            </div>
+            <% } %>
+
+            <%-- eForm toolkit. Scoped to the flowsheet name, so a flowsheet called
+                 "diab2" surfaces the eForms filed under the "diab2" group. --%>
+            <div class="card mb-2">
+                <div class="card-header py-2"><strong>Toolkit</strong></div>
+                <div class="card-body">
+                    <ul class="nav nav-pills mb-2" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#completed"
+                                    type="button" role="tab" title="forms completed in the past">
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.completed"/>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#templates"
+                                    type="button" role="tab" title="new forms to be completed">
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.templates"/>
+                            </button>
+                        </li>
+                    </ul>
+<%
+    String groupToView = temp.toLowerCase(Locale.ROOT);
+    String eformRoleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
+%>
+                    <div class="tab-content" style="max-height:260px; overflow-y:auto;">
+                        <div id="completed" class="tab-pane fade show active" role="tabpanel">
+                            <table class="table table-striped table-sm table-hover">
+                                <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnSubject"/></th>
+                                    <th>Completed Date</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <%
+                                    List<HashMap<String, ? extends Object>> eFormsCompleted =
+                                            EFormUtil.listPatientEForms(EFormUtil.DATE, EFormUtil.CURRENT,
+                                                    demographic_no, groupToView, eformRoleName);
+                                    for (int i = 0; i < eFormsCompleted.size(); i++) {
+                                        HashMap<String, ? extends Object> curForm = eFormsCompleted.get(i);
+                                %>
+                                <tr>
+                                    <td>
+                                        <a href="javascript:void(0);"
+                                           onclick="popup(700,900,'<%= SafeEncode.forJavaScriptAttribute(
+                                                   request.getContextPath() + "/eform/efmshowform_data?fdid="
+                                                   + SafeEncode.forUriComponent(String.valueOf(curForm.get("fdid")))
+                                                   + "&appointment=") %>','<%= "FormP" + i %>'); return false;">
+                                            <carlos:encode value='<%= String.valueOf(curForm.get("formName")) %>' context="html"/>
+                                        </a>
+                                    </td>
+                                    <td><carlos:encode value='<%= String.valueOf(curForm.get("formSubject")) %>' context="html"/></td>
+                                    <td><carlos:encode value='<%= String.valueOf(curForm.get("formDate")) %>' context="html"/></td>
+                                </tr>
+                                <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="templates" class="tab-pane fade" role="tabpanel">
+                            <table class="table table-striped table-sm table-hover">
+                                <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnSubject"/></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <%
+                                    List<HashMap<String, ? extends Object>> eForms =
+                                            EFormUtil.listEForms("form_name", EFormUtil.CURRENT, groupToView, eformRoleName);
+                                    for (HashMap<String, ? extends Object> curForm : eForms) {
+                                %>
+                                <tr>
+                                    <td>
+                                        <a href="javascript:void(0);"
+                                           onclick="popup(700,900,'<%= SafeEncode.forJavaScriptAttribute(
+                                                   request.getContextPath() + "/eform/efmformadd_data?fid="
+                                                   + SafeEncode.forUriComponent(String.valueOf(curForm.get("fid")))
+                                                   + "&demographic_no=" + safeDemoNoUri) %>','eFormAdd'); return false;">
+                                            <carlos:encode value='<%= String.valueOf(curForm.get("formName")) %>' context="html"/>
+                                        </a>
+                                    </td>
+                                    <td><carlos:encode value='<%= String.valueOf(curForm.get("formSubject")) %>' context="html"/></td>
+                                </tr>
+                                <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <%-- Decision-support HTML declared by the flowsheet XML's top_HTML
+                 attribute. It is clinic-authored flowsheet content, not user input,
+                 and is emitted as markup the same way the flowsheet views do. --%>
+            <% if (!mFlowsheet.getTopHTMLStream().isEmpty()) { %>
+            <div class="card mb-2">
+                <div class="card-header py-2"><strong>Decision Support</strong></div>
+                <div class="card-body" id="TopHTMLStream">
+                    <%= mFlowsheet.getTopHTMLStream() %>
+                </div>
+            </div>
+            <% } %>
+        </div>
+    </div>
+</div><!-- main -->
+
+<div id="scrollToTop" class="DoNotPrint">
+    <a href="#HealthTracker" class="btn btn-secondary btn-sm" title="Back to top"><i class="fa-solid fa-circle-arrow-up"></i></a>
+</div>
+
+<% if (isMeasurements) { %>
+<div class="save-all DoNotPrint">
+    <a class="btn btn-secondary"
+       href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheetPrint?demographic_no=<%= safeDemoNoUri %>&template=<%= safeTempUri %>&htracker"
+       title="Print this flowsheet">
+        <i class="fa-solid fa-print"></i>
+        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.print"/>
+    </a>
+    <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="x">
+            <a class="btn btn-secondary" title="Edit Flowsheet"
+               href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<%= safeTempUri %>&demographic=<%= safeDemoNoUri %>&htracker">
+                <i class="fa-solid fa-pencil"></i> Edit
+            </a>
+        </security:oscarSec>
+        <button type="submit" form="trackerForm" name="submit" value="Save All" class="btn btn-primary">Save All</button>
+    </security:oscarSec>
+</div>
+<% } %>
+
+<% if (undiagnosedFlowsheetInUse) { %>
+<div class="modal fade" id="unDxModal" tabindex="-1" aria-labelledby="unDxModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header alert alert-warning mb-0">
+                <h5 class="modal-title" id="unDxModalLabel">Warning!</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You are using the <b><carlos:encode value='<%= flowSheet %>' context="html"/></b> without a diagnosis.</p>
+                <% if (!dxCodeQueryString.isEmpty()) { %>
+                <p>To add a diagnosis use one of the available codes:
+                    <carlos:encode value='<%= dxCodeQueryString %>' context="html"/>.</p>
+                <% } %>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.healthtracker.skipdiagnosis"/>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<% } %>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <input type="hidden" id="deleteId" value="">
+                <h1 id="deleteMeas"></h1>
+                <div id="deleteObsDate"></div>
+                <div id="deleteComment"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <%-- EctDeleteData2Action, which this button posts to, requires
+                     _measurement d -- gate the control on the same privilege so a
+                     role never sees an enabled Delete the endpoint will refuse. --%>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_measurement" rights="d">
+                    <button type="button" class="btn btn-danger" id="deleteButton" disabled>Delete</button>
+                </security:oscarSec>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var contextPath = '<%= SafeEncode.forJavaScript(request.getContextPath()) %>';
+    var demographicNo = '<%= safeDemoNoJs %>';
+    var template = '<%= safeTempJs %>';
+    var trackerRoute = contextPath + '/encounter/oscarMeasurements/ViewHealthTracker';
+    // Measurements the decision support flagged as due. "Add overdue" opens
+    // exactly these entry rows instead of every row on the flowsheet.
+    var overdueMeasures = <%= overdueJson.toString() %>;
+
+    function trackerUrl(extra) {
+        return trackerRoute + '?demographic_no=' + encodeURIComponent(demographicNo)
+                + '&template=' + encodeURIComponent(template) + (extra || '');
+    }
+
+    /**
+     * CSRFGuard injects the hidden CSRF-TOKEN input into #trackerForm because it
+     * has a real action and method="post". fetch() is not hijacked by the
+     * CSRFGuard client script, so the delete call below sends the header itself.
+     */
+    function csrfToken() {
+        var input = document.querySelector('#trackerForm input[name="CSRF-TOKEN"]');
+        return input ? input.value : '';
+    }
+
+    window.getDemographicNo = function () { return demographicNo; };
+    window.getContextPath = function () { return contextPath; };
+    window.refreshEncounter = function () {
+        if (window.opener && !window.opener.closed) {
+            window.opener.location.reload();
+        }
+    };
+
+    // Popups are only offered when the provider can write this flowsheet; the
+    // server re-checks on the target page, this just avoids dead-end windows.
+    var canWriteFlowsheet = <%= canWriteFlowsheet %>;
+    window.fsPopup = function (width, height, url, windowName) {
+        if (!canWriteFlowsheet) {
+            return null;
+        }
+        return popup(width, height, url, windowName);
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+                .forEach(function (el) { new bootstrap.Popover(el); });
+
+        <% if (undiagnosedFlowsheetInUse) { %>
+        new bootstrap.Modal(document.getElementById('unDxModal')).show();
+        <% } %>
+
+        // Restore the scroll position the save round-trip carried back.
+        var ycoord = document.getElementById('ycoord');
+        if (ycoord && parseInt(ycoord.value, 10) > 0) {
+            window.scrollTo(0, parseInt(ycoord.value, 10));
+        }
+
+        window.addEventListener('scroll', function () {
+            var y = window.pageYOffset || document.documentElement.scrollTop;
+            if (ycoord) {
+                ycoord.value = Math.round(y);
+            }
+            document.getElementById('scrollToTop').style.display = y > 60 ? 'block' : 'none';
+        });
+
+        // --- history filters -------------------------------------------------
+        var numEle = document.getElementById('numEle');
+        if (numEle) {
+            numEle.addEventListener('change', function () {
+                var v = this.value;
+                if (v === 'All') {
+                    window.location = trackerUrl('');
+                } else if (v === 'outOfRange') {
+                    window.location = trackerUrl('&show=outOfRange');
+                } else if (v === 'dateRange') {
+                    var filter = document.getElementById('date-filter');
+                    filter.style.display = filter.style.display === 'none' ? '' : 'none';
+                } else {
+                    window.location = trackerUrl('&numEle=' + encodeURIComponent(v));
+                }
+            });
+        }
+
+        var applyDateRange = document.getElementById('applyDateRange');
+        if (applyDateRange) {
+            applyDateRange.addEventListener('click', function () {
+                var sdate = document.getElementById('flowsheetStartDate').value;
+                var edate = document.getElementById('flowsheetEndDate').value;
+                if (!sdate || !edate) {
+                    alert('Please choose both a start and an end date.');
+                    return;
+                }
+                window.location = trackerUrl('&sdate=' + encodeURIComponent(sdate)
+                        + '&edate=' + encodeURIComponent(edate));
+            });
+        }
+
+        // --- entry rows ------------------------------------------------------
+        function showAddBox(card) {
+            var box = card.querySelector('.add-box');
+            if (box) {
+                box.style.display = '';
+            }
+        }
+
+        [].slice.call(document.querySelectorAll('.entry-input')).forEach(function (input) {
+            var reveal = function () { showAddBox(input.closest('.measurement-card')); };
+            input.addEventListener('click', reveal);
+            input.addEventListener('input', reveal);
+        });
+
+        var addOverdue = document.getElementById('add_overdue');
+        if (addOverdue) {
+            addOverdue.addEventListener('click', function () {
+                document.getElementById('plus-overdue').style.display =
+                        document.getElementById('plus-overdue').style.display === 'none' ? '' : 'none';
+                document.getElementById('minus-overdue').style.display =
+                        document.getElementById('minus-overdue').style.display === 'none' ? '' : 'none';
+                overdueMeasures.forEach(function (measure) {
+                    var card = document.querySelector('.measurement-card[data-measure="' + CSS.escape(measure) + '"]');
+                    if (card) {
+                        card.style.display = '';
+                        showAddBox(card);
+                    }
+                });
+            });
+        }
+
+        var expandAll = document.getElementById('expand_all');
+        if (expandAll) {
+            expandAll.addEventListener('click', function () {
+                [].slice.call(document.querySelectorAll('.add-box')).forEach(function (b) { b.style.display = ''; });
+            });
+        }
+        var collapseAll = document.getElementById('collapse_all');
+        if (collapseAll) {
+            collapseAll.addEventListener('click', function () {
+                [].slice.call(document.querySelectorAll('.add-box')).forEach(function (b) { b.style.display = 'none'; });
+            });
+        }
+
+        // --- unit conversions ------------------------------------------------
+        // Double-click converts imperial entry to the metric value the
+        // measurement is actually stored in; always confirmed, never silent.
+        [].slice.call(document.querySelectorAll('input[data-convert]')).forEach(function (input) {
+            var kind = input.getAttribute('data-convert');
+            if (!kind) {
+                return;
+            }
+            input.addEventListener('dblclick', function () {
+                if (kind === 'weight') {
+                    convertWeight(input);
+                } else if (kind === 'height') {
+                    convertHeight(input);
+                } else if (kind === 'weeklyDose') {
+                    convertWeeklyDose(input);
+                }
+                recalculateBmi();
+            });
+            if (kind === 'weight' || kind === 'height') {
+                input.addEventListener('input', recalculateBmi);
+            }
+        });
+
+        function isNumeric(value) {
+            return value !== '' && !isNaN(parseFloat(value)) && isFinite(value);
+        }
+
+        function convertWeight(input) {
+            if (!isNumeric(input.value)) {
+                return;
+            }
+            var kg = Math.round(parseFloat(input.value) * 10 * 0.4536) / 10;
+            if (confirm('Are you sure you want to change ' + input.value + ' pounds to ' + kg + 'kg?')) {
+                input.value = kg;
+            }
+        }
+
+        function convertHeight(input) {
+            var height = input.value;
+            if (height.length <= 1 || height.indexOf("'") < 0) {
+                return;
+            }
+            var feet = parseFloat(height.substring(0, height.indexOf("'")));
+            var inchPart = height.substring(height.indexOf("'") + 1).replace('"', '');
+            var inch = inchPart === '' ? 0 : parseFloat(inchPart);
+            if (isNaN(feet) || isNaN(inch)) {
+                return;
+            }
+            var cm = Math.round((feet * 30.48 + inch * 2.54) * 10) / 10;
+            if (confirm('Are you sure you want to change ' + feet + " feet " + inch + ' inch(es) to ' + cm + 'cm?')) {
+                input.value = cm;
+            }
+        }
+
+        function convertWeeklyDose(input) {
+            if (!isNumeric(input.value)) {
+                return;
+            }
+            var weekly = Math.round(parseFloat(input.value) * 7 * 10) / 10;
+            if (confirm('Are you sure you want to change ' + input.value + 'mg daily to ' + weekly + 'mg weekly?')) {
+                input.value = weekly;
+            }
+        }
+
+        function recalculateBmi() {
+            // Input ids are the measurement types the tracker names its fields by.
+            var weight = document.getElementById('WT');
+            var height = document.getElementById('HT');
+            var bmi = document.getElementById('BMI');
+            if (!weight || !height || !bmi) {
+                return;
+            }
+            if (!isNumeric(weight.value) || !isNumeric(height.value) || parseFloat(height.value) <= 0) {
+                return;
+            }
+            var metres = parseFloat(height.value) / 100;
+            bmi.value = (parseFloat(weight.value) / (metres * metres)).toFixed(1);
+            showAddBox(bmi.closest('.measurement-card'));
+        }
+
+        // --- delete ----------------------------------------------------------
+        var deleteModalEl = document.getElementById('deleteModal');
+        var deleteModal = new bootstrap.Modal(deleteModalEl);
+
+        [].slice.call(document.querySelectorAll('.history-value[data-measurement-id]')).forEach(function (el) {
+            el.addEventListener('click', function () {
+                document.getElementById('deleteModalLabel').textContent = el.getAttribute('data-label');
+                document.getElementById('deleteMeas').textContent = el.getAttribute('data-value');
+                document.getElementById('deleteObsDate').textContent =
+                        el.getAttribute('data-entered-by') + ' — Date: ' + el.getAttribute('data-observed');
+                document.getElementById('deleteComment').textContent =
+                        el.getAttribute('data-comment') ? 'Comment: ' + el.getAttribute('data-comment') : '';
+                document.getElementById('deleteId').value = el.getAttribute('data-measurement-id');
+                var button = document.getElementById('deleteButton');
+                if (button) {
+                    button.disabled = false;
+                }
+                deleteModal.show();
+            });
+        });
+
+        var deleteButton = document.getElementById('deleteButton');
+        if (deleteButton) {
+            deleteButton.addEventListener('click', function () {
+                var id = document.getElementById('deleteId').value;
+                var ycoordValue = document.getElementById('ycoord').value;
+                var body = new URLSearchParams();
+                body.append('id', id);
+                body.append('deleteCheckbox', id);
+
+                fetch(contextPath + '/encounter/oscarMeasurements/DeleteData2', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': csrfToken()
+                    },
+                    body: body.toString()
+                }).then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('delete failed: ' + response.status);
+                    }
+                    // Drain the body before navigating. Assigning window.location
+                    // with the response still unread aborts the request as far as
+                    // the browser is concerned (net::ERR_ABORTED), which makes a
+                    // successful delete look like a failed one in devtools and
+                    // trips the browser checks' strict-page assertions.
+                    return response.text();
+                }).then(function () {
+                    window.location = trackerUrl('&ycoord=' + encodeURIComponent(ycoordValue));
+                }).catch(function (error) {
+                    deleteModal.hide();
+                    showValidationAlert('<strong>Error!</strong> The measurement could not be deleted.');
+                    if (window.console) {
+                        console.error(error);
+                    }
+                });
+            });
+        }
+
+        deleteModalEl.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('deleteModalLabel').textContent = '';
+            document.getElementById('deleteMeas').textContent = '';
+            document.getElementById('deleteObsDate').textContent = '';
+            document.getElementById('deleteComment').textContent = '';
+            document.getElementById('deleteId').value = '';
+        });
+
+        // --- trend charts ----------------------------------------------------
+        var renderedCharts = {};
+        [].slice.call(document.querySelectorAll('.graphClick')).forEach(function (link) {
+            link.addEventListener('click', function () {
+                var card = link.closest('.measurement-card');
+                var footer = card.querySelector('.graph-view');
+                if (!footer) {
+                    return;
+                }
+                footer.style.display = '';
+                var measure = card.getAttribute('data-measure');
+                if (renderedCharts[measure]) {
+                    return;
+                }
+                renderedCharts[measure] = true;
+
+                var points = JSON.parse(footer.getAttribute('data-points') || '[]');
+                // The history strip renders newest first; a trend reads left to right.
+                points = points.slice().reverse();
+                var labels = points.map(function (p) { return p.d; });
+                var datasets;
+
+                if (footer.getAttribute('data-is-bp') === 'true') {
+                    datasets = [
+                        {
+                            label: 'Systolic',
+                            data: points.map(function (p) { return parseFloat(String(p.v).split('/')[0]); }),
+                            borderColor: '#0d6efd',
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Diastolic',
+                            data: points.map(function (p) { return parseFloat(String(p.v).split('/')[1]); }),
+                            borderColor: '#198754',
+                            tension: 0.2
+                        }
+                    ];
+                } else {
+                    datasets = [{
+                        label: footer.getAttribute('data-title'),
+                        data: points.map(function (p) { return parseFloat(p.v); }),
+                        borderColor: '#0d6efd',
+                        tension: 0.2
+                    }];
+                }
+
+                new Chart(footer.querySelector('canvas').getContext('2d'), {
+                    type: 'line',
+                    data: {labels: labels, datasets: datasets},
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        spanGaps: true,
+                        plugins: {legend: {display: true}}
+                    }
+                });
+            });
+        });
+
+        [].slice.call(document.querySelectorAll('.closeGraph')).forEach(function (button) {
+            button.addEventListener('click', function () {
+                button.closest('.graph-view').style.display = 'none';
+            });
+        });
+
+        // --- client-side pre-flight -----------------------------------------
+        // Feedback only. HealthTrackerUpdate2Action re-validates everything
+        // against the measurement's Validations row before anything is stored.
+        [].slice.call(document.querySelectorAll('input.entry-input[type="text"]')).forEach(function (input) {
+            input.addEventListener('blur', function () {
+                var value = input.value.trim();
+                input.classList.remove('input-error', 'input-success');
+                if (value === '') {
+                    return;
+                }
+                var pattern = input.getAttribute('pattern');
+                var max = input.getAttribute('max');
+                var min = input.getAttribute('min');
+                var ok = true;
+                if (pattern) {
+                    ok = new RegExp('^(?:' + pattern + ')$').test(value);
+                } else if (max !== null || min !== null) {
+                    var numeric = parseFloat(value);
+                    ok = !isNaN(numeric)
+                            && (max === null || numeric <= parseFloat(max))
+                            && (min === null || numeric >= parseFloat(min));
+                }
+                input.classList.add(ok ? 'input-success' : 'input-error');
+            });
+        });
+
+        function showValidationAlert(html) {
+            var alertBox = document.getElementById('validation-alert');
+            document.getElementById('validation-alert-body').innerHTML = html;
+            alertBox.style.display = '';
+        }
+
+        document.getElementById('trackerForm').addEventListener('submit', function (event) {
+            var errors = document.querySelectorAll('#trackerForm .input-error').length;
+            if (errors > 0) {
+                event.preventDefault();
+                showValidationAlert('<strong>Error!</strong> There was an error saving your data, please review and '
+                        + 'correct. Total errors: ' + errors);
+                return;
+            }
+            // One submit per click. Duplicate suppression on the server is a
+            // read-then-write and so only covers sequential re-submits; disabling
+            // the button here removes the double-click that would otherwise put two
+            // identical saves in flight at the same time.
+            var save = document.querySelector('button[form="trackerForm"][value="Save All"]');
+            if (save) {
+                save.disabled = true;
+                // Re-enable if the navigation never happens (a rejected save forwards
+                // back to a freshly rendered page, so this only matters when the
+                // request itself fails).
+                window.setTimeout(function () { save.disabled = false; }, 10000);
+            }
+        });
+    });
+})();
+</script>
+
+</body>
+</html>
+<%!
+    /**
+     * Maps the prevention row's "refused" flag to the label the strip shows.
+     * Legacy encoding: "1" = refused, "2" = ineligible, anything else completed.
+     */
+    String refused(Object refusedFlag) {
+        if ("1".equals(refusedFlag)) {
+            return "Refused";
+        }
+        if ("2".equals(refusedFlag)) {
+            return "Ineligible";
+        }
+        return "Completed";
+    }
+
+    /**
+     * Indicator bar colour for a prevention row; empty for a normal completion.
+     * The literals are fixed, so no encoding is required at the call site.
+     */
+    String refusedIndicatorStyle(Object refusedFlag) {
+        if ("1".equals(refusedFlag)) {
+            return "background: #FFDDDD;";
+        }
+        if ("2".equals(refusedFlag)) {
+            return "background: #FFCC24;";
+        }
+        return "";
+    }
+
+    /** One mapper for the page; ObjectMapper is thread-safe once configured. */
+    private static final ObjectMapper POINTS_MAPPER = new ObjectMapper();
+
+    /**
+     * Serializes the chart's data points as JSON for a {@code data-} attribute.
+     *
+     * <p>Deliberately a real JSON writer rather than string concatenation with
+     * {@code SafeEncode.forJavaScript}. That encoder escapes for a JavaScript
+     * string literal and emits {@code \xHH} sequences, which are not valid JSON
+     * escapes -- a date like {@code 2026-09-01} came out as {@code 2026\x2D09\x2D01}
+     * and every chart threw "Bad escaped character in JSON" on click. The result is
+     * HTML-attribute encoded at the call site.
+     *
+     * @param points the observation points, newest first
+     * @return a JSON array string, or {@code []} if serialization fails
+     */
+    String toJson(List<Map<String, String>> points) {
+        try {
+            return POINTS_MAPPER.writeValueAsString(points);
+        } catch (Exception e) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                    .error("Could not serialize Health Tracker chart points", e);
+            return "[]";
+        }
+    }
+
+    /**
+     * Whitelists a colour before it reaches a {@code style} attribute.
+     *
+     * <p>Indicator, warning and recommendation colours come from the flowsheet
+     * XML, which is clinic-authored and uploadable through Manage Flowsheets, so
+     * it is not trusted markup. CSS string escaping cannot be used here (an
+     * escaped {@code #} stops being a colour), so anything that is not a plain
+     * hex triplet or a bare CSS colour keyword is dropped instead.
+     *
+     * @param colour the configured colour
+     * @return the colour when it is safe to inline, otherwise {@code ""}
+     */
+    String cssColour(String colour) {
+        if (colour == null) {
+            return "";
+        }
+        String trimmed = colour.trim();
+        return trimmed.matches("#[0-9A-Fa-f]{3,8}|[A-Za-z]{1,32}") ? trimmed : "";
+    }
+
+    /** Sparkline geometry, in CSS pixels. */
+    private static final int SPARK_WIDTH = 56;
+    private static final int SPARK_HEIGHT = 18;
+
+    /** Series colours: systolic/primary first, diastolic second. */
+    private static final String[] SPARK_COLOURS = {"#0d6efd", "#198754"};
+
+    /**
+     * Parses a stored measurement value as a number, or {@code null} when it is
+     * not one. Measurement values are free text: "Yes", "trace" and "" all live
+     * in the same column as "82.5".
+     */
+    Double numeric(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        try {
+            return Double.valueOf(trimmed);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * The card header's at-a-glance trend, rendered server-side as inline SVG.
+     *
+     * <p>The pre-removal page and o19 both drew this with jQuery Sparkline onto a
+     * canvas. SVG needs no library, and unlike a canvas it survives this page's own
+     * Print action. Nothing but numbers reaches the markup, so there is no encoding
+     * question.
+     *
+     * <p>Non-numeric points are skipped rather than breaking the line: a flowsheet
+     * item can hold "trace" or "" beside real values, and a gap is less misleading
+     * than an axis distorted to fit a zero.
+     *
+     * @param series one series per line to draw, each oldest-first; blood pressure
+     *        passes systolic and diastolic
+     * @return the {@code <svg>} markup, or {@code ""} when fewer than two numeric
+     *         points exist and there is no trend to show
+     */
+    String sparkline(List<List<Double>> series) {
+        double min = Double.MAX_VALUE;
+        double max = -Double.MAX_VALUE;
+        int points = 0;
+        for (List<Double> line : series) {
+            for (Double value : line) {
+                if (value == null) {
+                    continue;
+                }
+                min = Math.min(min, value.doubleValue());
+                max = Math.max(max, value.doubleValue());
+                points++;
+            }
+        }
+        if (points < 2 || min > max) {
+            return "";
+        }
+        double span = max - min;
+        if (span == 0) {
+            span = 1;
+        }
+
+        StringBuilder svg = new StringBuilder();
+        svg.append("<svg class=\"sparkline\" width=\"").append(SPARK_WIDTH)
+                .append("\" height=\"").append(SPARK_HEIGHT)
+                .append("\" viewBox=\"0 0 ").append(SPARK_WIDTH).append(' ').append(SPARK_HEIGHT)
+                .append("\" aria-hidden=\"true\" focusable=\"false\">");
+        for (int i = 0; i < series.size(); i++) {
+            List<Double> line = series.get(i);
+            StringBuilder path = new StringBuilder();
+            for (int x = 0; x < line.size(); x++) {
+                Double value = line.get(x);
+                if (value == null) {
+                    continue;
+                }
+                double px = line.size() < 2 ? SPARK_WIDTH : (double) x * SPARK_WIDTH / (line.size() - 1);
+                double py = SPARK_HEIGHT - 1 - ((value.doubleValue() - min) / span) * (SPARK_HEIGHT - 2);
+                if (path.length() > 0) {
+                    path.append(' ');
+                }
+                path.append(Math.round(px * 10) / 10.0).append(',').append(Math.round(py * 10) / 10.0);
+            }
+            if (path.length() == 0) {
+                continue;
+            }
+            svg.append("<polyline fill=\"none\" stroke=\"")
+                    .append(SPARK_COLOURS[i % SPARK_COLOURS.length])
+                    .append("\" stroke-width=\"1.5\" stroke-linejoin=\"round\" points=\"")
+                    .append(path).append("\"/>");
+        }
+        svg.append("</svg>");
+        return svg.toString();
+    }
+
+    /**
+     * Short label for a value's decision-support indicator.
+     *
+     * <p>The key is the flowsheet's own (`<indicator key="LOW" .../>`), so the first
+     * word of it is the severity: "HIGH 1" and "HIGH" are both rendered "HIGH", which
+     * is what the pre-removal page showed. Colour alone would carry this meaning
+     * otherwise, which is not something every clinician can see.
+     */
+    String indicatorLabel(String indicationKey) {
+        if (indicationKey == null) {
+            return "";
+        }
+        String trimmed = indicationKey.trim();
+        int space = trimmed.indexOf(' ');
+        return space < 0 ? trimmed : trimmed.substring(0, space);
+    }
+
+    /**
+     * Which double-click unit conversion, if any, applies to a measurement.
+     *
+     * <p>Keyed on the measurement type, not the item's label: a flowsheet item can
+     * be renamed, and pounds are still pounds.
+     */
+    String conversionHint(String measurementType) {
+        if ("WT".equals(measurementType)) {
+            return "weight";
+        }
+        if ("HT".equals(measurementType)) {
+            return "height";
+        }
+        if ("COUM".equals(measurementType)) {
+            return "weeklyDose";
+        }
+        return "";
+    }
+
+    /** Tooltip text for a free-text measurement input. */
+    String inputHint(String measurementType, String validationName) {
+        if (!conversionHint(measurementType).isEmpty()) {
+            return "Double click to convert";
+        }
+        if ("BP".equals(measurementType)) {
+            return "00/00 or 000/00";
+        }
+        return validationName == null ? "" : validationName;
+    }
+
+    /**
+     * Renders the HTML5 validation attributes for a measurement input from its
+     * {@code Validations} row.
+     *
+     * <p>These attributes are browser-side feedback only — the authoritative
+     * check runs in HealthTrackerMeasurementPersister against the same row. The
+     * regex comes from the database, so it is encoded for an HTML attribute
+     * before being emitted.
+     *
+     * @param inputType the measurement type code
+     * @param measuringInstruction the type's measuring instruction
+     * @return an already-encoded attribute fragment, or {@code ""} when the
+     *         measurement has no validation row
+     */
+    String validationAttributes(String inputType, String measuringInstruction) {
+        try {
+            java.util.List<Validations> validations =
+                    new EctValidation().getValidationType(inputType, measuringInstruction);
+            if (validations == null || validations.isEmpty()) {
+                return "";
+            }
+            Validations v = validations.iterator().next();
+            String regExp = v.getRegularExp();
+            Double maxValue = v.getMaxValue();
+            Double minValue = v.getMinValue();
+            String name = v.getName() == null ? "" : v.getName();
+
+            if (regExp == null && maxValue != null && maxValue > 0) {
+                return "min=\"" + SafeEncode.forHtmlAttribute(String.valueOf(minValue == null ? 0 : minValue))
+                        + "\" max=\"" + SafeEncode.forHtmlAttribute(String.valueOf(maxValue)) + "\"";
+            }
+            if ("No Validations".equals(name)) {
+                return "";
+            }
+            if ("Numeric Value greater than or equal to 0".equals(name)) {
+                return "min=\"0\"";
+            }
+            if (regExp == null) {
+                return "";
+            }
+            return "pattern=\"" + SafeEncode.forHtmlAttribute(regExp) + "\"";
+        } catch (Exception e) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                    .error("Error getting validation for Health Tracker " + inputType, e);
+            return "";
+        }
+    }
+%>

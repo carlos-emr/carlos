@@ -37,7 +37,7 @@
     "echart-new-patient-notes-playwright-checks.js": 3,
     "echart-playwright-checks.js": 1,
     "eform-consultation-acceptance-playwright-checks.js": 1,
-    "eform-corpus-soak-playwright-checks.js": 3,
+    "eform-corpus-soak-playwright-checks.js": 2,
     "eform-rtl-attachment-behavior-playwright-checks.js": 1,
     "eform-rtl-attachment-pdf-playwright-checks.js": 1,
     "eform-saved-render-playwright-checks.js": 1,

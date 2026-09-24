@@ -1,4 +1,4 @@
-FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
+FROM tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182
 
 # bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
 #
@@ -29,7 +29,7 @@ ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182 /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \
@@ -202,8 +202,12 @@ RUN rm -rf $TOMCAT_PATH/webapps/ROOT/* \
 # Create ROOT folder
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 
-# NOTE: DrugRef2 runs in a separate Java 11 container (see .devcontainer/drugref/)
-# Open-Drugref requires Java 11 while Open-O uses Java 21
+# NOTE: DrugRef2 runs in a separate container (see .devcontainer/drugref/).
+# It is a separate container because it is a separate webapp with its own
+# lifecycle, NOT because it needs a different JDK: since the Java 25 migration
+# both images are built from the same tomcat:11.0.24-jdk25-temurin base.
+# DrugRef's own sources still COMPILE at a Java 21 language level, which is a
+# floor on its pom, not a constraint on the runtime here.
 
 # Copy scripts and config files
 COPY ./scripts /scripts

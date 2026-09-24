@@ -26,12 +26,14 @@ migration/
            V1.0.20__widen_fax_destination_for_international_numbers.sql
            V1.0.21__serialize_missing_lab_routing_creation.sql
            V1.0.22__add_lab_routing_lock_audit_columns.sql
+           V1.0.29__rename_placeholder_demo_clinic.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
            V1.0.6__restore_reporting_privilege.sql
            V1.0.11__billing_filename_unique_indexes.sql
            V1.0.12__portable_billing_filename_unique_indexes.sql
+           V1.0.23__activate_legacy_consultation_services.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
@@ -39,13 +41,13 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.22`
-(`common/V1.0.22`, shared by both provinces), and the next free number for ANY
-location — shared or province — is `V1.0.23`. The version line is global:
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.29`
+(`common/V1.0.29`, shared by both provinces), and the next free number for ANY
+location — shared or province — is `V1.0.30`. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.22` today on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.22`) but would silently
+run — `common/V1.0.29` today on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.29`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.

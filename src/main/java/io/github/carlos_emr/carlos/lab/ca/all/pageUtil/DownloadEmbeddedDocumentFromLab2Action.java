@@ -45,6 +45,8 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -52,6 +54,9 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs HRS_REQUEST_PARAMETER_TO_HTTP_HEADER: labNo reaches the Content-disposition filename, but the
+    // method rejects anything not matching \d+ before that point, so CR/LF can never reach the header.
+    @SuppressFBWarnings(value = "HRS_REQUEST_PARAMETER_TO_HTTP_HEADER", justification = "labNo is rejected unless it matches \\d+ before it is used in the Content-disposition filename, so it cannot carry CR/LF")
     @Override
     public String execute() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
