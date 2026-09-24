@@ -456,4 +456,48 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         verifyNoInteractions(consultationManager, attachmentOwnershipService);
     }
+    /**
+     * Lab identifier consistency: stored ids are listed as {@code Integer.toString}, so a
+     * resubmitted {@code "0789"} used to look new, detaching 789 and attaching it again.
+     */
+    @Test
+    @DisplayName("should treat a non-canonical resubmitted id as the already attached id")
+    void shouldKeepExistingAttachment_whenIdResubmittedWithLeadingZero() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.LAB.getType()))
+                .thenReturn(List.of(new ConsultDocs(456, 789, DocumentType.LAB.getType(), "999")));
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, 123, Set.of(789))).thenReturn(Set.of(789));
+
+        manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[] {"0789", "789"}, "999", 456, 123);
+
+        verify(consultDocsDao, never()).persist(any());
+        verify(consultDocsDao, never()).merge(any());
+    }
+
+    /**
+     * Lab identifier consistency: the Ocean feed sends only HL7 labs (findOwnedIds), and a new
+     * Ocean referral refuses anything else. An Ocean edit attached a legacy CML/MDS/BCP lab to the
+     * consultation (findAttachableIds) and also queued it for Ocean, where it was dropped at send
+     * time. It is still attached to the consultation but no longer queued.
+     */
+    @Test
+    @DisplayName("should queue only HL7 labs for Ocean while attaching every attachable lab on an Ocean edit")
+    void shouldQueueOnlyHl7Labs_whenAttachingOnOceanEdit() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.LAB.getType())).thenReturn(List.of());
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, 123, Set.of(30, 40))).thenReturn(Set.of(30, 40));
+        when(attachmentOwnershipService.findOwnedIds(DocumentType.LAB, 123, Set.of(30, 40))).thenReturn(Set.of(30));
+
+        registerMock(EReferAttachmentDataDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDataDaoImpl.class));
+        registerMock(EReferAttachmentDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDaoImpl.class));
+        try (MockedStatic<OceanEReferralAttachmentUtil> ocean = mockStatic(OceanEReferralAttachmentUtil.class)) {
+            manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[] {"30", "40"}, "999", 456, 123, Boolean.TRUE);
+
+            ocean.verify(() -> OceanEReferralAttachmentUtil.attachOceanEReferralConsult("30", 123, DocumentType.LAB.getType()));
+            ocean.verifyNoMoreInteractions();
+        }
+        ArgumentCaptor<ConsultDocs> persisted = ArgumentCaptor.forClass(ConsultDocs.class);
+        verify(consultDocsDao, org.mockito.Mockito.times(2)).persist(persisted.capture());
+        assertThat(persisted.getAllValues()).extracting(ConsultDocs::getDocumentNo).containsExactly(30, 40);
+    }
 }

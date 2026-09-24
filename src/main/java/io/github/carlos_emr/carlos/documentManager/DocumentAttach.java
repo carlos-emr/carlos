@@ -88,7 +88,27 @@ public class DocumentAttach {
         List<String> oldList = findConsultAttachmentIds(documentType, requestId);
         List<String> currentList = retainVerifiedAttachments(toList(attachments), oldList, documentType);
         detachFromConsult(currentList, oldList, documentType, requestId);
-        attachToConsult(currentList, oldList, documentType, providerNo, requestId);
+        attachToConsult(currentList, oldList, documentType, providerNo, requestId, findOceanSendableIds(currentList, oldList, documentType));
+    }
+
+    /**
+     * The newly attached ids that may also be queued for Ocean: the ones the Ocean feed
+     * ({@code ConsultationManager#getEReferAttachments}) will actually render and send, i.e.
+     * {@link AttachmentOwnershipService#findOwnedIds}. A legacy CML/MDS/BCP lab is attachable to
+     * the consultation but never rendered, so queuing it would only be dropped at send time; and
+     * {@code ERefer2Action}'s attach path already refuses it. {@code null} means "no filter".
+     */
+    private Set<Integer> findOceanSendableIds(List<String> currentList, List<String> oldList, DocumentType documentType) {
+        if (!editOnOcean || documentType != DocumentType.LAB || attachmentOwnershipService == null) {
+            return null;
+        }
+        Set<Integer> newIds = new HashSet<>();
+        for (String docId : currentList) {
+            if (!oldList.contains(docId)) {
+                newIds.add(Integer.valueOf(docId));
+            }
+        }
+        return newIds.isEmpty() ? newIds : attachmentOwnershipService.findOwnedIds(documentType, demographicNo, newIds);
     }
 
     /**
@@ -123,6 +143,11 @@ public class DocumentAttach {
     /**
      * Returns the submitted ids to keep: every owned id, minus already-attached ids that no longer
      * verify. Throws before any write if a new id is malformed or not owned.
+     *
+     * <p>Kept ids are returned in canonical form ({@code Integer.toString}), once each, because
+     * {@link #findConsultAttachmentIds} lists stored ids that way and the attach/detach diff
+     * compares strings: a resubmitted {@code "007"} or {@code "+7"} would otherwise be detached as
+     * {@code "7"} and re-attached as a new row (and queued for Ocean again).</p>
      */
     private List<String> retainVerifiedAttachments(List<String> currentList, List<String> oldList, DocumentType documentType) {
         if (!AttachmentOwnershipService.isVerifiable(documentType) || currentList.isEmpty()) {
@@ -138,12 +163,14 @@ public class DocumentAttach {
         }
         Set<Integer> owned = attachmentOwnershipService.findAttachableIds(documentType, demographicNo, ids);
 
-        List<String> retained = new ArrayList<>();
+        Set<String> retained = new java.util.LinkedHashSet<>();
         int dropped = 0;
         for (String docId : currentList) {
-            if (owned.contains(parseAttachmentId(docId))) {
-                retained.add(docId);
-            } else if (oldList.contains(docId)) {
+            Integer id = parseAttachmentId(docId);
+            String canonicalId = Integer.toString(id);
+            if (owned.contains(id)) {
+                retained.add(canonicalId);
+            } else if (oldList.contains(canonicalId)) {
                 dropped++;
             } else {
                 throw new SecurityException(ATTACHMENT_NOT_OWNED);
@@ -153,7 +180,7 @@ public class DocumentAttach {
             // Count only: attachment ids and the patient are PHI-correlating identifiers.
             logger.warn("Detached {} existing consultation attachment(s) that no longer verify for the consultation patient", dropped);
         }
-        return retained;
+        return new ArrayList<>(retained);
     }
 
     private static Integer parseAttachmentId(String docId) {
@@ -164,7 +191,9 @@ public class DocumentAttach {
         }
     }
 
-    private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo, Integer requestId) {
+    private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo,
+                                 Integer requestId, Set<Integer> oceanSendableIds) {
+        int notQueued = 0;
         for (String docId : currentList) {
             if (oldList.contains(docId)) {
                 continue;
@@ -172,9 +201,15 @@ public class DocumentAttach {
             ConsultDocs consultDoc = new ConsultDocs(requestId, Integer.parseInt(docId), documentType.getType(), providerNo);
             consultDocsDao.persist(consultDoc);
 
-            if (editOnOcean) {
+            if (editOnOcean && oceanSendableIds != null && !oceanSendableIds.contains(Integer.valueOf(docId))) {
+                notQueued++;
+            } else if (editOnOcean) {
                 OceanEReferralAttachmentUtil.attachOceanEReferralConsult(docId, demographicNo, documentType.getType());
             }
+        }
+        if (notQueued > 0) {
+            // Count only: attachment ids and the patient are PHI-correlating identifiers.
+            logger.warn("Attached {} consultation lab(s) that Ocean cannot receive (non-HL7); not queued for Ocean", notQueued);
         }
     }
 

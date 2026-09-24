@@ -1189,14 +1189,22 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         LabResultData ownLab = mock(LabResultData.class);
         when(ownLab.getSegmentID()).thenReturn("30");
         when(ownLab.getDisciplineDisplayString()).thenReturn("Own lab");
+        when(ownLab.isHL7TEXT()).thenReturn(true);
         LabResultData foreignLab = mock(LabResultData.class);
+        when(foreignLab.isHL7TEXT()).thenReturn(true);
         when(foreignLab.getSegmentID()).thenReturn("31");
         when(foreignLab.getDisciplineDisplayString()).thenReturn("Foreign lab");
+        // A CML lab whose number collides with the patient's own HL7 lab 30: the packet would print
+        // lab 30 in its place, so the cover must not list it either.
+        LabResultData collidingCmlLab = mock(LabResultData.class);
+        when(collidingCmlLab.isHL7TEXT()).thenReturn(false);
+        org.mockito.Mockito.lenient().when(collidingCmlLab.getSegmentID()).thenReturn("30");
+        org.mockito.Mockito.lenient().when(collidingCmlLab.getDisciplineDisplayString()).thenReturn("Legacy CML lab");
 
         try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
              MockedConstruction<CommonLabResultData> labConstruction = mockConstruction(CommonLabResultData.class,
                      (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
-                             .thenReturn(new ArrayList<>(List.of(ownLab, foreignLab))))) {
+                             .thenReturn(new ArrayList<>(List.of(ownLab, foreignLab, collidingCmlLab))))) {
             eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean()))
                     .thenReturn(new ArrayList<>(List.of(ownDoc, foreignDoc)));
 

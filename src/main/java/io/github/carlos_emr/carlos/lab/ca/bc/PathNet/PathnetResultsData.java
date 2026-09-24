@@ -111,7 +111,8 @@ public class PathnetResultsData {
         ArrayList<LabResultData> labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            LabResultData.CompareId c = lbData.getComparatorId();
+            // Match on the lab number, which is what document_no stores (see LabResultData#attachedLabNumbers).
+            java.util.Set<String> attachedLabNumbers = LabResultData.attachedLabNumbers(attachedLabs);
 
             for (Object[] o : labsBCP) {
                 Hl7Message m = (Hl7Message) o[0];
@@ -123,8 +124,8 @@ public class PathnetResultsData {
                 lbData.dateTime = findPathnetObservationDate(lbData.segmentID);
                 lbData.discipline = findPathnetDisipline(lbData.segmentID);
 
-                if (attached && Collections.binarySearch(attachedLabs, lbData, c) >= 0) labResults.add(lbData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lbData, c) < 0) labResults.add(lbData);
+                if (attached && attachedLabNumbers.contains(lbData.segmentID)) labResults.add(lbData);
+                else if (!attached && !attachedLabNumbers.contains(lbData.segmentID)) labResults.add(lbData);
 
                 lbData = new LabResultData(LabResultData.EXCELLERIS);
             }

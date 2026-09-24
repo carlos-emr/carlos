@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -297,6 +298,39 @@ class AttachmentOwnershipServiceUnitTest {
 
             assertThat(withLegacyLabTypes(Set.of("CML")).findAttachableIds(DocumentType.DOC, PATIENT, List.of(10, 11)))
                     .containsExactly(10);
+        }
+    }
+
+    /**
+     * Lab identifier consistency: the renderers resolve every lab number as an HL7 segment and the
+     * LAB ownership check matches on the number alone, so a listed non-HL7 lab must be dropped by
+     * its type before that check, or a colliding HL7 lab of the patient would print instead.
+     */
+    @Nested
+    @DisplayName("renderableLabsOnly")
+    class RenderableLabsOnly {
+
+        private LabResultData lab(boolean hl7) {
+            LabResultData lab = mock(LabResultData.class);
+            when(lab.isHL7TEXT()).thenReturn(hl7);
+            return lab;
+        }
+
+        @Test
+        @DisplayName("should keep HL7 labs in order and drop CML, MDS, BCP and null entries")
+        void shouldKeepOnlyHl7Labs_forRendering() {
+            LabResultData hl7First = lab(true);
+            LabResultData cml = lab(false);
+            LabResultData hl7Second = lab(true);
+
+            assertThat(AttachmentOwnershipService.renderableLabsOnly(Arrays.asList(hl7First, cml, null, hl7Second)))
+                    .containsExactly(hl7First, hl7Second);
+        }
+
+        @Test
+        @DisplayName("should return an empty list for a null listing")
+        void shouldReturnEmptyList_forNullListing() {
+            assertThat(AttachmentOwnershipService.renderableLabsOnly(null)).isEmpty();
         }
     }
 

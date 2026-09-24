@@ -659,7 +659,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
         CommonLabResultData labResultData = new CommonLabResultData();
         List<LabResultData> attachedLabs = retainOwnedAttachments(DocumentType.LAB, ownerDemographicNo,
-                labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED), LabResultData::getSegmentID);
+                AttachmentOwnershipService.renderableLabsOnly(labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED)),
+                LabResultData::getSegmentID);
         ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
         List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 

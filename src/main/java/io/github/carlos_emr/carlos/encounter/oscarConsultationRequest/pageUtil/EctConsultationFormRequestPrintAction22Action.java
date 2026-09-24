@@ -173,7 +173,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         ArrayList<InputStream> streams = new ArrayList<InputStream>();
 
         List<LabResultData> labs = retainOwned(DocumentType.LAB, ownerDemographicNo,
-                consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED),
+                AttachmentOwnershipService.renderableLabsOnly(
+                        consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED)),
                 LabResultData::getSegmentID);
         String error = "";
         Exception exception = null;

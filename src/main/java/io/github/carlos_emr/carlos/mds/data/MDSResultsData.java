@@ -129,7 +129,8 @@ public class MDSResultsData {
         labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lbData = new LabResultData(LabResultData.CML);
-            LabResultData.CompareId c = lbData.getComparatorId();
+            // Match on the lab number, which is what document_no stores (see LabResultData#attachedLabNumbers).
+            java.util.Set<String> attachedLabNumbers = LabResultData.attachedLabNumbers(attachedLabs);
             for (Object[] o : labPPIDao.findRoutings(ConversionUtils.fromIntString(demographicNo), "CML")) {
                 LabPatientPhysicianInfo lpp = (LabPatientPhysicianInfo) o[0];
                 PatientLabRouting r = (PatientLabRouting) o[1];
@@ -140,9 +141,9 @@ public class MDSResultsData {
                 lbData.dateTime = lpp.getCollectionDate();
                 lbData.setDateObj(UtilDateUtilities.getDateFromString(lbData.dateTime, "dd-MMM-yy"));
 
-                if (attached && Collections.binarySearch(attachedLabs, lbData, c) >= 0)
+                if (attached && attachedLabNumbers.contains(lbData.segmentID))
                     labResults.add(lbData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lbData, c) < 0)
+                else if (!attached && !attachedLabNumbers.contains(lbData.segmentID))
                     labResults.add(lbData);
 
                 lbData = new LabResultData(LabResultData.CML);
@@ -400,7 +401,8 @@ public class MDSResultsData {
         labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lData = new LabResultData(LabResultData.MDS);
-            LabResultData.CompareId c = lData.getComparatorId();
+            // Match on the lab number, which is what document_no stores (see LabResultData#attachedLabNumbers).
+            java.util.Set<String> attachedLabNumbers = LabResultData.attachedLabNumbers(attachedLabs);
 
             for (Object[] o : labsMDS) {
                 PatientLabRouting p = (PatientLabRouting) o[0];
@@ -422,9 +424,9 @@ public class MDSResultsData {
                     lData.discipline = "Hem/Chem/Other";
                 }
 
-                if (attached && Collections.binarySearch(attachedLabs, lData, c) >= 0)
+                if (attached && attachedLabNumbers.contains(lData.segmentID))
                     labResults.add(lData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lData, c) < 0)
+                else if (!attached && !attachedLabNumbers.contains(lData.segmentID))
                     labResults.add(lData);
 
                 lData = new LabResultData(LabResultData.MDS);

@@ -332,6 +332,42 @@ class ConsultationWebServiceRegressionTest {
         }
     }
 
+    /**
+     * Lab identifier consistency: consult_docs stores the lab number (segmentID, i.e.
+     * patient_lab_routing.lab_no), which is also what the ownership check and the listing filter
+     * use. For a CML/MDS/BCP lab, labPatientId is the routing row id instead, so emitting it gave
+     * the client an id that its next save verified as a lab number and refused.
+     */
+    @Test
+    @DisplayName("should list a lab by its lab number, not its routing row id")
+    void shouldEmitLabNumber_whenLabPatientIdIsRoutingRowId() {
+        ConsultationRequest stored = new ConsultationRequest();
+        stored.setDemographicId(DEMOGRAPHIC_NO);
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(stored);
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            // MDS: its discipline getter needs no lab DAO (CML's does).
+            LabResultData legacyLab = new LabResultData(LabResultData.MDS);
+            legacyLab.setSegmentID("30");
+            legacyLab.setLabPatientId("9001");
+            try (MockedStatic<EDocUtil> eDocUtil = mockStatic(EDocUtil.class);
+                 MockedStatic<EFormUtil> eFormUtil = mockStatic(EFormUtil.class);
+                 MockedConstruction<CommonLabResultData> labs = mockConstruction(CommonLabResultData.class,
+                         (labData, context) -> when(labData.populateLabResultsData(loggedInInfo, "123", "456", true))
+                                 .thenReturn(new ArrayList<>(List.of(legacyLab))))) {
+                eDocUtil.when(() -> EDocUtil.listDocs(loggedInInfo, "123", "456", true)).thenReturn(new ArrayList<>());
+                eFormUtil.when(() -> EFormUtil.listPatientEFormsShowLatestOnly("123")).thenReturn(new ArrayList<>());
+                when(attachmentOwnershipService.retainAttachable(eq(DocumentType.DOC), eq(DEMOGRAPHIC_NO), any(), any()))
+                        .thenReturn(List.of());
+                when(attachmentOwnershipService.retainAttachable(eq(DocumentType.LAB), eq(DEMOGRAPHIC_NO), eq(List.of(legacyLab)), any()))
+                        .thenReturn(List.of(legacyLab));
+
+                List<ConsultationAttachmentTo1> attachments = service.getRequestAttachments(456, 999, true);
+
+                assertThat(attachments).extracting(ConsultationAttachmentTo1::getDocumentNo).containsExactly(30);
+            }
+        }
+    }
+
     private static LabResultData lab(String segmentId) {
         LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
         lab.setSegmentID(segmentId);

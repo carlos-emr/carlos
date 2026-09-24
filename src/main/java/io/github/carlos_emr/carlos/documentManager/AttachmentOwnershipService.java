@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -228,6 +229,32 @@ public class AttachmentOwnershipService {
     public <T> List<T> retainOwned(DocumentType type, Integer demographicNo, List<T> attachments,
                                    Function<T, String> idOf) {
         return retain(attachments, idOf, ids -> findOwnedIds(type, demographicNo, ids));
+    }
+
+    /**
+     * Keeps only the labs the consultation renderers can print: HL7 labs
+     * ({@link LabResultData#isHL7TEXT()}). Apply before the {@link #retainOwned} LAB filter.
+     *
+     * <p>A consultation stores a lab as a bare number with no lab type, and
+     * {@code populateLabResultsData(..., ATTACHED)} also lists CML/MDS/BCP labs when their
+     * property is on. The LAB ownership check is HL7-only and matches on the number alone, and the
+     * renderer ({@code LabPDFCreator}) resolves every number as an HL7 segment. So a legacy lab whose
+     * number happens to equal one of the patient's HL7 lab numbers would pass the check and print
+     * that other, unattached HL7 lab. Dropping non-HL7 entries by their listed type prevents it.</p>
+     *
+     * @param labs labs as listed for a consultation; {@code null} yields an empty list
+     * @return the HL7 labs, in their original order; never {@code null}
+     */
+    public static List<LabResultData> renderableLabsOnly(List<LabResultData> labs) {
+        List<LabResultData> renderable = new ArrayList<>();
+        if (labs != null) {
+            for (LabResultData lab : labs) {
+                if (lab != null && lab.isHL7TEXT()) {
+                    renderable.add(lab);
+                }
+            }
+        }
+        return renderable;
     }
 
     /**

@@ -431,6 +431,32 @@ public class LabResultData implements Comparable<LabResultData> {
     }
 
 
+    /**
+     * The attached lab numbers of a consultation/eForm attachment listing, for the CML, MDS and
+     * PathNet (BCP) "attached vs. not attached" split.
+     *
+     * <p>Those listings build {@code attachedLabs} with {@link #labPatientId} set to the stored
+     * {@code document_no}, which is a lab number ({@code ConsultDocsDao.findLabs} joins it to
+     * {@code patient_lab_routing.lab_no}); every writer (the attachment window, Ocean, the REST
+     * listing) submits {@link #segmentID}. The candidate labs, however, carry the routing row id in
+     * {@link #labPatientId} for these lab types, so comparing on it matched a different lab (or
+     * none). Callers compare the candidate's {@link #segmentID} against this set instead.</p>
+     *
+     * @param attachedLabs attached entries whose {@link #labPatientId} holds the stored lab number
+     * @return the stored lab numbers; never {@code null}
+     */
+    public static java.util.Set<String> attachedLabNumbers(java.util.List<LabResultData> attachedLabs) {
+        java.util.Set<String> numbers = new java.util.HashSet<>();
+        if (attachedLabs != null) {
+            for (LabResultData lab : attachedLabs) {
+                if (lab != null && lab.labPatientId != null) {
+                    numbers.add(lab.labPatientId);
+                }
+            }
+        }
+        return numbers;
+    }
+
     public class CompareId implements Comparator<LabResultData> {
 
         public int compare(LabResultData lab1, LabResultData lab2) {

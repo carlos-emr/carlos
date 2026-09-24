@@ -944,7 +944,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      *
      * <p>Issue #3867: document descriptions, lab disciplines and eForm names are PHI, and the
      * lookups below resolve attachments by consultation id alone. The cover page lists only the
-     * patient's own documents, HL7 labs and eForms, i.e. what the faxed packet itself contains
+     * patient's own documents, HL7 labs (by listed lab type as well as number) and eForms, i.e. what the faxed packet itself contains
      * ({@code renderConsultationFormWithAttachments} applies the same filter). HRMs and forms are
      * already looked up per patient.</p>
      *
@@ -958,7 +958,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 EDocUtil.listDocs(loggedInInfo, demographicNo, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
         CommonLabResultData commonLabResultData = new CommonLabResultData();
         List<LabResultData> attachedLabList = ownership.retainOwned(DocumentType.LAB, ownerDemographicNo,
-                commonLabResultData.populateLabResultsData(loggedInInfo, demographicNo, requestId, CommonLabResultData.ATTACHED),
+                AttachmentOwnershipService.renderableLabsOnly(
+                        commonLabResultData.populateLabResultsData(loggedInInfo, demographicNo, requestId, CommonLabResultData.ATTACHED)),
                 LabResultData::getSegmentID);
 
         List<EctFormData.PatientForm> attachedFormsList = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));

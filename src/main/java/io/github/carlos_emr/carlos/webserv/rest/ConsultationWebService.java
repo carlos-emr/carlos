@@ -774,7 +774,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 url = "lab/CA/ALL/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else url = "lab/CA/BC/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
 
-            attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getLabPatientId()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
+            // The lab number (segmentID = patient_lab_routing.lab_no), not labPatientId: consult_docs
+            // stores lab numbers (ConsultDocsDao.findLabs joins on plr.labNo), the consultation form
+            // and Ocean submit them, and the ownership check verifies them. labPatientId equals it
+            // for HL7 labs but is the routing row id for CML/MDS/BCP labs, which a save would then
+            // verify as a lab number and refuse (or match to a different lab).
+            attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getSegmentID()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
         }
     }
 

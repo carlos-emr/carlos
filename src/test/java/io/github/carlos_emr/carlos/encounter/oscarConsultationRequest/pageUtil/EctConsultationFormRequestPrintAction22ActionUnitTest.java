@@ -392,7 +392,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     @DisplayName("should not render an attached lab that is not the consultation patient's HL7 lab")
     void shouldSkipLab_whenNotOwnedAsHl7ByConsultationPatient() throws Exception {
         commonLabResultDataConstruction.close();
-        LabResultData foreignLab = new LabResultData();
+        LabResultData foreignLab = new LabResultData(LabResultData.HL7TEXT);
         foreignLab.setSegmentID("999");
         commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (labData, context) ->
                 when(labData.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
@@ -405,6 +405,32 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(labPdfConstruction.constructed()).isEmpty();
             verify(patientLabRoutingDao).findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection());
+        }
+    }
+
+    /**
+     * Lab identifier consistency: a consultation stores a lab as a bare number. A CML lab whose
+     * number equals one of the patient's own HL7 lab numbers passed the HL7-only ownership check by
+     * number alone, and LabPDFCreator then printed that other, unattached HL7 lab.
+     */
+    @Test
+    @DisplayName("should not render a non-HL7 lab even when its number matches one of the patient's HL7 labs")
+    void shouldSkipLab_whenListedLabTypeIsNotHl7() throws Exception {
+        commonLabResultDataConstruction.close();
+        LabResultData cmlLab = new LabResultData(LabResultData.CML);
+        cmlLab.setSegmentID("30");
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (labData, context) ->
+                when(labData.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(cmlLab))));
+        org.mockito.Mockito.lenient().when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+             MockedConstruction<LabPDFCreator> labPdfConstruction = mockConstruction(LabPDFCreator.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(labPdfConstruction.constructed()).isEmpty();
         }
     }
 
