@@ -42,10 +42,6 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         return query.getResultList();
     }
 
-    /**
-     * One page of a patient's messages, newest first. The id tie-breaker keeps rows created in the same
-     * instant in a fixed order, so consecutive pages never repeat or skip a row.
-     */
     @Override
     @Transactional(readOnly = true)
     public List<SmsTransaction> findByDemographicNo(Integer demographicNo, int offset, int limit) {
