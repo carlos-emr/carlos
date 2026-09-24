@@ -89,7 +89,12 @@ test('renderer provisioning and restart are gated on the provisioning lock', () 
   for (const at of [move, token]) {
     assert.ok(at > 0);
     const before = postinst.slice(0, at);
-    assert.ok(before.lastIndexOf('if [ "${RENDER_PROVISION}" = 1 ]; then') > before.lastIndexOf('RENDER_PROVISION="${PROVISION_LOCK_HELD}"'));
+    const gate = before.lastIndexOf('if [ "${RENDER_PROVISION}" = 1 ]; then');
+    assert.ok(gate > before.lastIndexOf('RENDER_PROVISION="${PROVISION_LOCK_HELD}"'));
+    // ... and the guarded line is INSIDE that if: no `fi` at the gate's own
+    // indentation closes it before the line is reached.
+    const gateIndent = /^ */.exec(postinst.slice(postinst.lastIndexOf('\n', gate) + 1))[0];
+    assert.doesNotMatch(postinst.slice(gate, at), new RegExp(`^${gateIndent}fi$`, 'm'));
   }
   assert.match(postinst, /if \[ "\$\{RENDER_PAYLOAD:-0\}" = 1 \] && \[ "\$\{RENDER_PROVISION:-1\}" = 1 \]; then\n        sd_invoke restart carlos-emr-render-browser\.service/);
 });
@@ -103,6 +108,7 @@ test('render browser names avoid everything the old renderer purge touches', () 
     read('debian', 'carlos-emr.tmpfiles'),
     read('debian', 'carlos-emr.sysusers'),
     read('debian', 'assets', 'systemd', 'carlos-emr.service.d', '10-eform-renderer.conf'),
+    read('debian', 'assets', 'systemd', 'carlos-emr-render-browser.service'),
     read('debian', 'assets', 'carlos_ctl', 'util.py'),
   ].join('\n');
   assert.doesNotMatch(shipped, /carlos-emr-chromedriver|render-browser\.env|\/var\/lib\/carlos-emr\/render(?![a-z])/);
