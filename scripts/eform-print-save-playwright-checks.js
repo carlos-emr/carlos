@@ -6,17 +6,24 @@
  * scripts/eform-print-save-decision.test.js pins printSaveDecision()/saveAfterPrint() against stubs.
  * This check drives the real toolbar in Chromium against a running CARLOS and the dev database:
  *
- *   1. a clean eForm for a demo (FAKE-) patient: Print prints, then asks; OK posts the save;
- *   2. the same form: Cancel keeps the printout and posts nothing;
- *   3. the eForm manager preview (demographic -1): Print prints only, with no prompt and no save.
+ * Each branch of saveAfterPrint(needToConfirm) is driven on a real eForm page for a demo (FAKE-)
+ * patient:
+ *
+ *   1. no dirty detection (flag undefined): Print prints, then saves with no prompt;
+ *   2. edited form (flag true): Print prints, then saves with no prompt;
+ *   3. clean form (flag false): Print prints, then asks; OK posts the save;
+ *   4. clean form (flag false): Cancel keeps the printout and posts nothing;
+ *   5. the eForm manager preview (demographic -1): Print prints only, with no prompt and no save.
  *
  * NOTHING IS WRITTEN. Every POST navigation after login is answered by a stub page from
  * context.route(), so the "save" is observed but never reaches AddEForm2Action. window.print is
  * replaced by a counter in every frame, so no print dialog opens.
  *
- * "Clean" means the dirty flag reports no edit. A freshly opened eForm-generator form declares
- * `var needToConfirm = false`; when the chosen form declares no flag at all the check defines
- * `needToConfirm = false` on the page, which is exactly that declaration, and says so in its output.
+ * The toolbar reads only the page's global `needToConfirm` (`typeof needToConfirm === 'undefined'`
+ * means no dirty detection). The check records what the freshly opened form declares natively,
+ * then sets the global to the value each case needs; a declared flag assigned `undefined` is the
+ * same to the toolbar as no declaration, which scripts/eform-print-save-decision.test.js also pins.
+ * The output says whether each case ran on the form's own declaration or on a forced value.
  *
  * Manual reference check (tier core); it is not run by CI:
  *   npm run test:eform-print-save-playwright
@@ -83,18 +90,47 @@ async function openEform(context, config, recorder, appPath, label, answer) {
   return { page, events, kinds: () => events.map((event) => event.kind) };
 }
 
-/** Makes the page's dirty flag report "unedited", returning how the flag was obtained. */
-async function ensureCleanFlag(page) {
+/**
+ * Reads the dirty flag as the toolbar sees it on the freshly opened form:
+ * 'undefined' (no dirty detection), 'dirty' (truthy) or 'clean' (declared and falsy).
+ */
+async function readFlag(page) {
   return page.evaluate(() => {
     // eslint-disable-next-line no-undef
-    if (typeof needToConfirm === 'undefined') {
-      window.needToConfirm = false;
-      return 'synthetic needToConfirm=false (form declares no dirty detection)';
-    }
+    if (typeof needToConfirm === 'undefined') return 'undefined';
     // eslint-disable-next-line no-undef
-    if (needToConfirm) return 'dirty';
-    return 'form-declared needToConfirm=false';
+    return needToConfirm ? 'dirty' : 'clean';
   });
+}
+
+/**
+ * Puts the page's dirty flag into the state a case needs ('undefined', 'dirty' or 'clean') and
+ * returns a label saying whether the form already declared it that way or it was forced.
+ *
+ * Assigning the bare identifier reaches a top-level `var` or `let` declaration alike, and creates
+ * the global when the form declares none; `needToConfirm = undefined` on a declared flag is what
+ * the toolbar treats as "no dirty detection", so that branch is reachable on any library form.
+ */
+async function setFlag(page, wanted) {
+  const native = await readFlag(page);
+  if (native === wanted) return `form-declared ${wanted}`;
+  await page.evaluate((state) => {
+    // eslint-disable-next-line no-undef
+    needToConfirm = state === 'undefined' ? undefined : state === 'dirty';
+  }, wanted);
+  h.assert(await readFlag(page) === wanted, `could not set needToConfirm to ${wanted} on this eForm`);
+  return `forced ${wanted} (form declared ${native})`;
+}
+
+/** Waits for the toolbar's form-submit save to be recorded by the route handler, or times out. */
+async function awaitSave(page, saves, before) {
+  const saved = page.waitForRequest((request) => request.method() === 'POST' && request.isNavigationRequest(),
+    { timeout: 20000 });
+  await page.locator('#remotePrintButton').click();
+  await saved;
+  // The route handler records the POST asynchronously; give it a moment before counting.
+  for (let tries = 0; saves.length === before && tries < 20; tries += 1) await page.waitForTimeout(100);
+  await page.waitForTimeout(500);
 }
 
 async function workflow({ config, context, recorder, saves, fid }) {
@@ -102,22 +138,32 @@ async function workflow({ config, context, recorder, saves, fid }) {
     .getAttribute('data-print-save-unedited-confirm');
   const patientForm = `/eform/efmformadd_data?fid=${encodeURIComponent(fid)}&demographic_no=${encodeURIComponent(demographicNo)}`;
 
-  // 1. Clean form, OK: print, then one confirm, then the save POST.
+  // 1 and 2. No dirty detection, and an edited form: print, then the save POST, never a prompt.
+  // These are the two "save" branches of saveAfterPrint(); the documented unconditional save for
+  // forms without dirty detection is what keeps an edit from being dropped by a Cancel there.
+  for (const wanted of ['undefined', 'dirty']) {
+    const label = wanted === 'undefined' ? 'no-detection' : 'edited';
+    const f = await openEform(context, config, recorder, patientForm, `print-save-${label}`, 'dismiss');
+    console.log(`  ${label}: ${await setFlag(f.page, wanted)}`);
+    const before = saves.length;
+    await awaitSave(f.page, saves, before);
+    h.assert(f.kinds().includes('print'), `${label} form did not print`);
+    h.assert(!f.events.some((event) => event.kind === 'dialog'),
+      `${label} form must save without prompting, saw ${JSON.stringify(f.events.filter((event) => event.kind === 'dialog'))}`);
+    h.assert(saves.length === before + 1, `${label} form must post exactly one save, saw ${saves.length - before}`);
+    await f.page.close();
+  }
+
+  // 3. Clean form, OK: print, then one confirm, then the save POST.
   {
     const f = await openEform(context, config, recorder, patientForm, 'print-save-accept', 'accept');
-    const flag = await ensureCleanFlag(f.page);
-    h.assert(flag !== 'dirty', 'the freshly opened eForm already reports an edit; choose another EFORM_PRINT_SAVE_FID');
-    console.log(`  dirty flag: ${flag}`);
+    const native = await readFlag(f.page);
+    h.assert(native !== 'dirty', 'the freshly opened eForm already reports an edit; choose another EFORM_PRINT_SAVE_FID');
+    console.log(`  clean: ${await setFlag(f.page, 'clean')}`);
     const prompt = await expectedPrompt(f.page);
     h.assert(prompt && prompt.trim(), 'toolbar fragment did not publish data-print-save-unedited-confirm');
     const before = saves.length;
-    const saved = f.page.waitForRequest((request) => request.method() === 'POST' && request.isNavigationRequest(),
-      { timeout: 20000 });
-    await f.page.locator('#remotePrintButton').click();
-    await saved;
-    // The route handler records the POST asynchronously; give it a moment before counting.
-    for (let tries = 0; saves.length === before && tries < 20; tries += 1) await f.page.waitForTimeout(100);
-    await f.page.waitForTimeout(500);
+    await awaitSave(f.page, saves, before);
     const dialogs = f.events.filter((event) => event.kind === 'dialog');
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', `expected exactly one confirm, saw ${JSON.stringify(dialogs)}`);
     h.assert(dialogs[0].text === prompt, 'the confirm did not show the server-localized prompt');
@@ -127,10 +173,10 @@ async function workflow({ config, context, recorder, saves, fid }) {
     await f.page.close();
   }
 
-  // 2. Clean form, Cancel: print, one confirm, no POST.
+  // 4. Clean form, Cancel: print, one confirm, no POST.
   {
     const f = await openEform(context, config, recorder, patientForm, 'print-save-cancel', 'dismiss');
-    await ensureCleanFlag(f.page);
+    await setFlag(f.page, 'clean');
     const before = saves.length;
     await f.page.locator('#remotePrintButton').click();
     await f.page.waitForTimeout(SETTLE_MS);
@@ -141,7 +187,7 @@ async function workflow({ config, context, recorder, saves, fid }) {
     await f.page.close();
   }
 
-  // 3. Manager preview (no patient): print only, no prompt, no POST, whatever the dirty flag says.
+  // 5. Manager preview (no patient): print only, no prompt, no POST, whatever the dirty flag says.
   for (const dirty of [false, true]) {
     const f = await openEform(context, config, recorder, `/eform/efmshowform_data?fid=${encodeURIComponent(fid)}`,
       `print-save-preview-${dirty ? 'dirty' : 'clean'}`, 'accept');
@@ -211,4 +257,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { ensureCleanFlag, workflow };
+module.exports = { readFlag, setFlag, workflow };
