@@ -52,7 +52,11 @@ import io.github.carlos_emr.carlos.log.LogAction;
  * Manages the various consents required from patients for participation in specific programs
  * or to share health information with other providers.
  */
+// Class-level so that every public entry point, including the overloads that call each other,
+// runs the consent edit and the retirement of duplicate records in one transaction. A method-level
+// annotation is bypassed when another method of this class calls in (SonarCloud S2229).
 @Service
+@Transactional
 public class PatientConsentManagerImpl implements PatientConsentManager {
 
     @Autowired
@@ -83,9 +87,6 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * This method sets the boolean "explicit" ( patient gave direct consent = true; patient consent was implied or assumed = false)
      * to a default TRUE.
      */
-    // Transactional here too: the call into addEditConsentRecord is inside this class, so its own
-    // annotation is bypassed by the proxy and would leave the edit and the retirements separate.
-    @Transactional
     public void setConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean consented) {
         if (consented) {
             addConsent(loggedinInfo, demographic_no, consentTypeId, consented, Boolean.FALSE);
@@ -130,9 +131,6 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * EXPLICIT CONSENT: patient gave direct consent. explicit = true;
      * IMPLIED CONSENT: patient consent was implied or assumed. explicit = false
      */
-    // Transactional here too: the call into addEditConsentRecord is inside this class, so its own
-    // annotation is bypassed by the proxy and would leave the edit and the retirements separate.
-    @Transactional
     public boolean addConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
@@ -155,7 +153,6 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * @param optOut         is the patient refusing this consent policy/form or agreeing to it? A null value indicates the absence of a decision
      * @return true if the consent record was either added or updated, false otherwise
      */
-    @Transactional
     public boolean addEditConsentRecord(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
             throw new RuntimeException("Unauthorised Access. Object[_demographic]");
@@ -424,7 +421,6 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * It is assumed that a record of this should be kept. So this method will delete the consent and update the edit date.
      * A new entry will be inserted into the table should the user change their mind again.
      */
-    @Transactional
     public void deleteConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
             throw new RuntimeException("Unauthorised Access. Object[_demographic]");
