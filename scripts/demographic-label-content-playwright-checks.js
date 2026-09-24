@@ -16,16 +16,16 @@ function assertPatientText(text, surname, address) {
 // iframe#pdf holds the real document; the legacy setting opens the PDF itself.
 // The iframe src is relative to the wrapper and must stay inside THIS application:
 // same origin AND under the configured context path, not another app on the host.
+// A direct download or PDF popup (no iframe) gets the same check.
 function resolvePdfUrl(popupUrl, iframeSrc, baseUrl) {
-  if (!iframeSrc) return popupUrl;
-  const target = new URL(iframeSrc, popupUrl);
+  const target = new URL(iframeSrc || popupUrl, popupUrl);
   const contextPath = contextPathOf(baseUrl);
   h.assert(target.origin === new URL(baseUrl).origin && target.pathname.startsWith(`${contextPath}/`),
     'Label wrapper embedded a PDF from outside the CARLOS application');
   return target.href;
 }
 async function pdfUrlFor(produced, baseUrl) {
-  if (produced.kind !== 'popup' || !produced.page) return produced.url;
+  if (produced.kind !== 'popup' || !produced.page) return resolvePdfUrl(produced.url, null, baseUrl);
   const frame = produced.page.locator('iframe#pdf');
   const src = await frame.count() > 0 ? await frame.first().getAttribute('src') : null;
   return resolvePdfUrl(produced.url, src, baseUrl);

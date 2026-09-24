@@ -20,4 +20,9 @@ test('label PDF url follows a new_label_print wrapper iframe but stays in the ap
   // Same origin, different application on the host.
   assert.throws(() => resolvePdfUrl(wrapper, '/otherapp/label.pdf', base), /outside the CARLOS application/);
   assert.throws(() => resolvePdfUrl(wrapper, '/carlosother/label.pdf', base), /outside the CARLOS application/);
+  // A direct download with no wrapper iframe is held to the same rule.
+  assert.throws(() => resolvePdfUrl('http://127.0.0.1:8080/otherapp/label.pdf', null, base), /outside the CARLOS application/);
+  // Root-context deployment.
+  assert.equal(resolvePdfUrl('http://127.0.0.1:8080/demographic/ViewPrintDemoLabel', 'printDemoLabelAction', 'http://127.0.0.1:8080/'),
+    'http://127.0.0.1:8080/demographic/printDemoLabelAction');
 });
