@@ -109,7 +109,11 @@ async function clickOpensPopup(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     // Some menus close their own window in the click handler. Their callers
     // can skip waiting on that opener; the popup is still awaited below.
-    await target.click({ timeout, noWaitAfter: options.closesOpener === true });
+    // position: a point inside the control to click instead of its centre, for a control whose
+    // centre is covered by a sibling (Playwright refuses that click as intercepted).
+    const click = { timeout, noWaitAfter: options.closesOpener === true };
+    if (options.position) click.position = options.position;
+    await target.click(click);
     popup = await pending.promise;
   } catch (error) {
     await pending.abandon();
