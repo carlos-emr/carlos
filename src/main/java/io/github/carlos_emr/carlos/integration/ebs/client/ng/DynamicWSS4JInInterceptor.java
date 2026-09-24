@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
 import org.apache.cxf.interceptor.Fault;
+import org.apache.cxf.io.CachedOutputStream;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
@@ -16,7 +17,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -67,6 +68,19 @@ import java.util.regex.Pattern;
  * XML epilog after the envelope is rejected. Unlike substring matching it is
  * not fooled by comments, CDATA, closing tags, or a different namespace prefix.</p>
  *
+ * <h2>Bounded scan, disk-backed replay</h2>
+ *
+ * <p>Because this runs before CXF's attachment handling, the stream it sees is the whole HTTP
+ * entity, attachments included, and a multi-file download can be large. The entity is therefore
+ * copied into a CXF {@link CachedOutputStream}, which keeps small messages in memory and spills
+ * larger ones to a temporary file (CXF's threshold and temp-directory bus properties apply), and
+ * downstream interceptors receive a replay stream over that cache. Only a bounded prefix of at
+ * most {@link #DEFAULT_MAX_SCAN_BYTES} bytes is read into memory for the scan: it must contain
+ * the whole plain SOAP envelope, or the MIME preamble, the root part and the delimiter that ends
+ * it. Otherwise the message is rejected. Attachment bytes beyond the prefix are never held in
+ * the heap by this class. The temporary file is deleted when the replay stream is closed (or, as
+ * a backstop, by CXF's {@code CachedOutputStreamCleaner}), and immediately if the copy fails.</p>
+ *
  * <p>Message content is never logged or placed in fault messages: MCEDT payloads can contain
  * claims and patient data.</p>
  *
@@ -86,6 +100,18 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      */
     static final int MAX_ENCRYPTED_KEYS = 20;
 
+    /**
+     * Default upper bound, in bytes, on the prefix of the entity that is read into memory and
+     * scanned: the whole plain SOAP envelope, or the MIME preamble plus the complete root part
+     * and its closing delimiter. MCEDT envelopes are a few kilobytes (the payload travels in
+     * attachments), so 16 MiB is generous while keeping the per-message heap cost bounded.
+     */
+    static final int DEFAULT_MAX_SCAN_BYTES = 16 * 1024 * 1024;
+
+    /** Fault text for an envelope that does not fit the scan limit; carries no message content. */
+    private static final String SCAN_LIMIT_MESSAGE =
+            "MCEDT response SOAP envelope is not complete within the scan size limit";
+
     private static final String WSSE_NS = WSS4JConstants.WSSE_NS;
     private static final String XENC_NS = WSS4JConstants.ENC_NS;
     private static final String SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/";
@@ -104,14 +130,35 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             "content-id[ \\t]*:(.*)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final EdtClientBuilder clientBuilder;
+    private final int maxScanBytes;
+    /** In-memory threshold for the replay cache; {@code <= 0} means CXF's configured default. */
+    private final long cacheThreshold;
     private static final Logger logger = MiscUtils.getLogger();
 
     /**
      * @param clientBuilder supplies the base inbound WSS4J property map for each message
      */
     public DynamicWSS4JInInterceptor(EdtClientBuilder clientBuilder) {
+        this(clientBuilder, DEFAULT_MAX_SCAN_BYTES, 0);
+    }
+
+    /**
+     * Test seam for the scan limit and the replay cache's in-memory threshold, so the bounds
+     * can be exercised without multi-megabyte fixtures.
+     *
+     * @param clientBuilder supplies the base inbound WSS4J property map for each message
+     * @param maxScanBytes maximum prefix, in bytes, read into memory and scanned; must be positive
+     * @param cacheThreshold bytes kept in memory before the replay cache spills to a temporary
+     *                       file; {@code <= 0} uses CXF's configured default
+     */
+    DynamicWSS4JInInterceptor(EdtClientBuilder clientBuilder, int maxScanBytes, long cacheThreshold) {
         super(Phase.RECEIVE);
+        if (maxScanBytes <= 0) {
+            throw new IllegalArgumentException("maxScanBytes must be positive");
+        }
         this.clientBuilder = clientBuilder;
+        this.maxScanBytes = maxScanBytes;
+        this.cacheThreshold = cacheThreshold;
     }
 
     /**
@@ -119,8 +166,9 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * {@link WSS4JInInterceptor} to the chain.
      *
      * @param message the incoming CXF message
-     * @throws Fault if the content cannot be read, is malformed, or exceeds
-     *               {@link #MAX_ENCRYPTED_KEYS}; failing here is deliberate so a
+     * @throws Fault if the content cannot be read, is malformed, exceeds
+     *               {@link #MAX_ENCRYPTED_KEYS}, or its envelope does not fit the scan limit
+     *               ({@link #DEFAULT_MAX_SCAN_BYTES}); failing here is deliberate so a
      *               misdetected message never reaches WSS4J with a wrong action list
      */
     @Override
@@ -167,8 +215,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Buffers the message stream, restores it for downstream interceptors, and scans the SOAP
-     * envelope.
+     * Caches the message stream, hands downstream interceptors a replay of it, and scans a
+     * bounded prefix for the SOAP envelope.
      *
      * <p>A missing or empty stream is treated as "no encryption" (unchanged legacy behaviour);
      * CXF reports the empty response itself.</p>
@@ -181,25 +229,60 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             return new EncryptionDetectionResult();
         }
 
-        byte[] content;
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            is.transferTo(bos);
-            content = bos.toByteArray();
+        CachedOutputStream cache = cacheThreshold > 0
+                ? new CachedOutputStream(cacheThreshold) : new CachedOutputStream();
+        byte[] prefix;
+        boolean truncated;
+        InputStream replay = null;
+        try {
+            is.transferTo(cache);
+            cache.flush();
+            long size = cache.size();
+            truncated = size > maxScanBytes;
+            // A second, independent reader over the cache: the replay handed downstream must
+            // start at byte 0 regardless of how far the scan reads.
+            try (InputStream scanCopy = cache.getInputStream()) {
+                prefix = scanCopy.readNBytes((int) Math.min(size, maxScanBytes));
+            }
+            replay = cache.getInputStream();
+            // Closing the cache ends writing; a spilled temp file survives until the replay
+            // stream (still registered with the cache) is closed, and is then deleted.
+            cache.close();
+        } catch (IOException | RuntimeException e) {
+            // Nothing has been handed downstream yet, so release the cache (and delete any
+            // temp file) here rather than leaving it to the delayed cleaner.
+            closeQuietly(replay, e);
+            closeQuietly(cache, e);
+            throw e;
         }
-        // Restore the stream before any parsing so CXF can still consume it even if the
-        // scan below throws.
-        message.setContent(InputStream.class, new ByteArrayInputStream(content));
+        // Hand the replay downstream before any parsing so CXF can still consume the entity
+        // even if the scan below throws.
+        message.setContent(InputStream.class, replay);
 
-        int start = skipWhitespace(content, 0);
-        if (start == content.length) {
+        int start = skipWhitespace(prefix, 0);
+        if (start == prefix.length) {
+            if (truncated) {
+                throw new IOException(SCAN_LIMIT_MESSAGE);
+            }
             return new EncryptionDetectionResult();
         }
 
         EncryptionDetectionResult result = scanEnvelope(
-                locateEnvelope(content, start, (String) message.get(Message.CONTENT_TYPE)));
+                locateEnvelope(prefix, start, (String) message.get(Message.CONTENT_TYPE), truncated));
         logger.debug("Encryption detection result: hasEncryptedData={}, encryptedKeyCount={}",
                 result.hasEncryptedData, result.encryptedKeyCount);
         return result;
+    }
+
+    private static void closeQuietly(Closeable closeable, Exception primary) {
+        if (closeable == null) {
+            return;
+        }
+        try {
+            closeable.close();
+        } catch (IOException | RuntimeException suppressed) {
+            primary.addSuppressed(suppressed);
+        }
     }
 
     /**
@@ -225,14 +308,21 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * correct if the ordering ever changes, and cannot be triggered by a genuine MIME package
      * because such a package always has a delimiter line.</p>
      *
-     * @param content the buffered entity
+     * <p>When {@code truncated} is set, {@code content} is only a prefix of the entity. The
+     * envelope must then be complete within it (the root part followed by its delimiter line);
+     * a plain envelope, or a root part whose end is not found, is rejected as exceeding the scan
+     * limit rather than being scanned partially.</p>
+     *
+     * @param content the scanned prefix of the entity (the whole entity unless {@code truncated})
      * @param start index of the first non-whitespace byte
      * @param contentType the message Content-Type, may be {@code null}
+     * @param truncated whether the entity continues beyond {@code content}
      * @throws IOException if the content is neither XML nor a MIME package whose first part is a
-     *                     delimited root part (matching {@code start}, when given)
+     *                     delimited root part (matching {@code start}, when given), or the
+     *                     envelope does not fit within a truncated prefix
      */
-    static ByteArrayInputStream locateEnvelope(byte[] content, int start, String contentType)
-            throws IOException {
+    static ByteArrayInputStream locateEnvelope(byte[] content, int start, String contentType,
+                                               boolean truncated) throws IOException {
         boolean xmlStart = content[start] == '<' || startsWithUtf8Bom(content, start);
         boolean hasContentType = contentType != null && !contentType.isBlank();
         boolean multipart = hasContentType ? isMultipart(contentType) : !xmlStart;
@@ -240,6 +330,9 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         if (!multipart) {
             if (!xmlStart) {
                 throw new IOException("MCEDT response is not an XML SOAP envelope");
+            }
+            if (truncated) {
+                throw new IOException(SCAN_LIMIT_MESSAGE);
             }
             return new ByteArrayInputStream(content, start, content.length - start);
         }
@@ -263,6 +356,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
 
         Delimiter delimiter = findDelimiter(content, dashBoundary, 0);
         if (delimiter == null) {
+            if (truncated) {
+                // The first delimiter (or, for the already-extracted-root fallback, the end of
+                // the XML document) may lie beyond the prefix.
+                throw new IOException(SCAN_LIMIT_MESSAGE);
+            }
             if (hasContentType && xmlStart) {
                 return new ByteArrayInputStream(content, start, content.length - start);
             }
@@ -276,13 +374,14 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         // the start parameter and hands the first part to the SOAP/WSS4J chain, so counting keys
         // in any other part would build an action list for an envelope WSS4J never sees.
         // A start parameter that names a later part is therefore rejected rather than followed.
-        PartHeaders headers = readPartHeaders(content, delimiter.next);
+        PartHeaders headers = readPartHeaders(content, delimiter.next, truncated);
         if (rootContentId != null && !rootContentId.equals(headers.contentId)) {
             throw new IOException("MCEDT response root MIME part is not the first part");
         }
         Delimiter end = findDelimiter(content, dashBoundary, headers.bodyStart);
         if (end == null) {
-            throw new IOException("MCEDT response MIME part is not terminated by a delimiter");
+            throw new IOException(truncated ? SCAN_LIMIT_MESSAGE
+                    : "MCEDT response MIME part is not terminated by a delimiter");
         }
         // Parts after the root are deliberately not walked: this interceptor only needs the
         // envelope. Attachment framing (truncation, missing close delimiter) is enforced by CXF's
@@ -349,14 +448,16 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * Reads a body part's header block (up to the first empty line), unfolding continuation
      * lines, and returns the body start and the normalized {@code Content-ID}, if any.
      */
-    private static PartHeaders readPartHeaders(byte[] content, int from) throws IOException {
+    private static PartHeaders readPartHeaders(byte[] content, int from, boolean truncated)
+            throws IOException {
         String contentId = null;
         StringBuilder current = null;
         int lineStart = from;
         while (true) {
             int lf = indexOf(content, LF, lineStart, content.length);
             if (lf < 0) {
-                throw new IOException("MCEDT response MIME part has no header terminator");
+                throw new IOException(truncated ? SCAN_LIMIT_MESSAGE
+                        : "MCEDT response MIME part has no header terminator");
             }
             int lineEnd = lf > lineStart && content[lf - 1] == '\r' ? lf - 1 : lf;
             if (lineEnd == lineStart) {

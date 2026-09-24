@@ -33,12 +33,18 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
 
+import org.apache.cxf.helpers.FileUtils;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.interceptor.Interceptor;
 import org.apache.cxf.interceptor.InterceptorChain;
@@ -76,13 +82,14 @@ class DynamicWSS4JInInterceptorUnitTest {
     private static final String TS_SIG = WSHandlerConstants.TIMESTAMP + " " + WSHandlerConstants.SIGNATURE;
 
     private DynamicWSS4JInInterceptor interceptor;
+    private EdtClientBuilder clientBuilder;
     private Message message;
     private InterceptorChain chain;
     private Map<String, Object> wssProps;
 
     @BeforeEach
     void setUp() {
-        EdtClientBuilder clientBuilder = mock(EdtClientBuilder.class);
+        clientBuilder = mock(EdtClientBuilder.class);
         message = mock(Message.class);
         chain = mock(InterceptorChain.class);
         wssProps = new HashMap<>();
@@ -573,11 +580,155 @@ class DynamicWSS4JInInterceptorUnitTest {
         assertNoWssInterceptorAdded();
     }
 
+    // ---------------------------------------------------------------- scan limit and replay cache
+
+    @Test
+    @DisplayName("should reject a plain envelope larger than the scan limit without echoing content")
+    void shouldRejectMessage_whenPlainEnvelopeExceedsScanLimit() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 256, 0);
+        givenContent(envelope(1, true));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class)
+                .hasMessageContaining("scan size limit")
+                .hasMessageNotContaining("Envelope")
+                .hasMessageNotContaining("EK-");
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should accept a plain envelope that exactly fills the scan limit")
+    void shouldAcceptEnvelope_whenEntityExactlyFillsScanLimit() {
+        String xml = envelope(2, true);
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder,
+                xml.getBytes(StandardCharsets.UTF_8).length, 0);
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should reject a MIME package whose root part does not end within the scan limit")
+    void shouldRejectMessage_whenMimeRootPartExceedsScanLimit() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 256, 0);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n\r\n" + envelope(1, true)
+                + "\r\n--b1--\r\n");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class)
+                .hasMessageContaining("scan size limit")
+                .hasMessageNotContaining("EK-");
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should detect keys and replay every byte when an attachment extends beyond the scan limit")
+    void shouldDetectKeysAndReplayEveryByte_whenAttachmentExtendsBeyondScanLimit() throws IOException {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 4096, 0);
+        byte[] mime = mimeWithBinaryAttachment(3, 256 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent(mime);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+        try (InputStream replay = capturedReplay()) {
+            assertThat(replay.readAllBytes()).isEqualTo(mime);
+        }
+    }
+
+    @Test
+    @DisplayName("should delete the spilled cache file once the replay stream is closed")
+    void shouldDeleteSpilledTempFile_whenReplayStreamIsClosed() throws IOException {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 4096, 1024);
+        byte[] mime = mimeWithBinaryAttachment(2, 64 * 1024);
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
+        givenContent(mime);
+        Set<String> before = cacheTempFiles();
+
+        interceptor.handleMessage(message);
+
+        InputStream replay = capturedReplay();
+        assertThat(newCacheTempFiles(before)).as("entity above the threshold spills to disk").isNotEmpty();
+        assertThat(replay.readAllBytes()).isEqualTo(mime);
+        replay.close();
+        assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should delete the spilled cache file when the stream fails part-way through the copy")
+    void shouldDeleteSpilledTempFile_whenStreamReadFailsAfterSpill() {
+        interceptor = new DynamicWSS4JInInterceptor(clientBuilder, 4096, 1024);
+        byte[] head = mimeWithBinaryAttachment(1, 16 * 1024);
+        InputStream failsAfterHead = new SequenceInputStream(new ByteArrayInputStream(head), new InputStream() {
+            @Override
+            public int read() throws IOException {
+                throw new IOException("connection reset");
+            }
+        });
+        when(message.getContent(InputStream.class)).thenReturn(failsAfterHead);
+        Set<String> before = cacheTempFiles();
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
+        assertThat(newCacheTempFiles(before)).isEmpty();
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private void givenContent(String content) {
         when(message.getContent(InputStream.class))
                 .thenReturn(new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private void givenContent(byte[] content) {
+        when(message.getContent(InputStream.class)).thenReturn(new ByteArrayInputStream(content));
+    }
+
+    private InputStream capturedReplay() {
+        ArgumentCaptor<InputStream> restored = ArgumentCaptor.forClass(InputStream.class);
+        verify(message).setContent(eq(InputStream.class), restored.capture());
+        return restored.getValue();
+    }
+
+    /** Names of CXF CachedOutputStream temp files ("cos*tmp") in CXF's default temp directory. */
+    private static Set<String> cacheTempFiles() {
+        String[] names = FileUtils.getDefaultTempDir()
+                .list((dir, name) -> name.startsWith("cos") && name.endsWith("tmp"));
+        return names == null ? new HashSet<>() : new HashSet<>(Arrays.asList(names));
+    }
+
+    private static Set<String> newCacheTempFiles(Set<String> before) {
+        Set<String> now = cacheTempFiles();
+        now.removeAll(before);
+        return now;
+    }
+
+    /**
+     * Builds an MTOM-shaped package: a small root part with {@code keys} EncryptedKey elements,
+     * then one binary attachment of {@code attachmentSize} pseudo-random bytes (synthetic
+     * ciphertext stand-in, no real data), then the close delimiter.
+     */
+    private static byte[] mimeWithBinaryAttachment(int keys, int attachmentSize) {
+        byte[] attachment = new byte[attachmentSize];
+        new Random(3868).nextBytes(attachment);
+        byte[] head = ("--b1\r\nContent-Type: application/xop+xml\r\nContent-ID: <root>\r\n\r\n"
+                + envelope(keys, true)
+                + "\r\n--b1\r\nContent-Type: application/octet-stream\r\nContent-ID: <att1>\r\n\r\n")
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] tail = "\r\n--b1--\r\n".getBytes(StandardCharsets.UTF_8);
+        byte[] all = Arrays.copyOf(head, head.length + attachment.length + tail.length);
+        System.arraycopy(attachment, 0, all, head.length, attachment.length);
+        System.arraycopy(tail, 0, all, head.length + attachment.length, tail.length);
+        return all;
     }
 
     private void assertNoWssInterceptorAdded() {
