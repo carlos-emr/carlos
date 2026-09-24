@@ -183,7 +183,8 @@ case "$1" in
             echo "carlos-emr-drugref: WARNING: MariaDB did not answer within 60 seconds, so the" >&2
             echo "carlos-emr-drugref: WARNING: DrugRef database was NOT provisioned or loaded and" >&2
             echo "carlos-emr-drugref: WARNING: prescribing lookups will return nothing. Once MariaDB" >&2
-            echo "carlos-emr-drugref: WARNING: is running (systemctl status mariadb), finish with:" >&2
+            echo "carlos-emr-drugref: WARNING: is running (systemctl status mariadb), finish with the" >&2
+            echo "carlos-emr-drugref: WARNING: command below, which also restarts the EMR to load DrugRef:" >&2
             echo "carlos-emr-drugref: WARNING:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
         fi
 
@@ -193,26 +194,38 @@ case "$1" in
         # is-active is a query, not a lifecycle action, so systemctl is the
         # right tool for it; the restart itself goes through deb-systemd-invoke
         # so policy-rc.d is honoured.
-        # is-failed as well as is-active: carlos-emr and this package each start
-        # or restart carlos-emr.service in one transaction, so the earlier one
-        # (or a crash-looping deploy) may already have spent the unit's
+        # is-failed as well as is-active: an earlier start (carlos-emr's, or a
+        # crash-looping deploy) may already have spent the unit's
         # StartLimitBurst and left it failed. Skipping here would then
         # leave the EMR down for good. reset-failed clears the start counter (and
         # the failed state) so a restart we asked for on purpose is never refused
         # as a crash loop — see the same guard in carlos-emr.postinst.
-        if [ -d /run/systemd/system ] && \
+        # Not when MariaDB never answered: nothing was provisioned, DrugRef cannot
+        # deploy without its account and schema, and a restart would only take a
+        # running EMR down for its ~2-minute redeploy. Nothing needs loading from
+        # disk either: apt unpacks both packages before configuring either, so
+        # carlos-emr's own configure already (re)started the EMR on these DrugRef
+        # files. The dpkg-reconfigure the warning above asks for restarts it.
+        #
+        # Under dpkg the restart is not done here at all: this package activates
+        # carlos-emr's carlos-emr-restart trigger, which carlos-emr's own
+        # configure activates too, and dpkg runs the triggered carlos-emr
+        # postinst ONCE after both are configured -- one ~2-minute webapp deploy
+        # per transaction instead of two, and the waiting happens there. It
+        # applies the same rule as below (restart only an EMR that is running or
+        # crash-looped, or that carlos-emr's configure asked to start). Outside
+        # dpkg (dpkg-reconfigure, which sets no DPKG_RUNNING_VERSION) nothing
+        # would process the trigger, so the restart and wait below run inline.
+        if [ "${DB_READY}" = 1 ] && [ -n "${DPKG_RUNNING_VERSION:-}" ] \
+            && dpkg-trigger --no-await carlos-emr-restart 2>/dev/null; then
+            echo "carlos-emr-drugref: the EMR restarts once, at the end of this transaction, to load DrugRef."
+        elif [ "${DB_READY}" = 1 ] && [ -d /run/systemd/system ] && \
            { systemctl is-active --quiet carlos-emr.service || \
              systemctl is-failed --quiet carlos-emr.service; }; then
             systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
             if ! deb-systemd-invoke restart carlos-emr.service; then
                 echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
                 echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2
-            elif [ "${DB_READY}" != 1 ]; then
-                # Restarted anyway -- on an upgrade the new DrugRef webapp must be
-                # loaded even if MariaDB was merely slow -- but not waited for: the
-                # schema may not exist, and the wait would only burn five minutes
-                # before saying what the warning above already said.
-                :
             elif ! emr_alive; then
                 # A restart can exit 0 without starting anything: the unit's
                 # ConditionPathExists= skips it while the seeded-credential guard
@@ -222,19 +235,19 @@ case "$1" in
                 echo "carlos-emr-drugref: DrugRef deploys with it when it starts."
             else
                 # Wait for the redeploy, bounded, as carlos-emr.postinst does after
-                # its own start. Without it this is the last package configured, so
-                # apt returned while Tomcat was still down for the ~2 minute
-                # deploy: the operator's first `carlos-ctl check` then reported
-                # "nothing is listening on 18080" over a healthy install.
+                # its own start: returning with Tomcat still down for the ~2 minute
+                # deploy made the operator's first `carlos-ctl check` report
+                # "nothing is listening on 18080" over a healthy system.
                 # Loopback Tomcat, not the front door: DrugRef is loopback-only
                 # and the front door is carlos-emr's to prove. The XML-RPC
                 # endpoint, because the context root answers 404 even when
                 # deployed: the service answers a GET with 405 once DrugRef is
                 # up (200 is accepted too), and 000 / 404 / 503 until then.
                 echo "carlos-emr-drugref: waiting for the EMR to redeploy with DrugRef (a couple of minutes)..."
-                # A deadline (monotonic, see uptime_s), not an attempt count: each probe can take
-                # its full 10-second --max-time, so 60 attempts plus a 5-second sleep
-                # could hold dpkg for 15 minutes behind a "five minutes" message.
+                # A deadline (monotonic, see uptime_s), not an attempt count: each
+                # probe can take its full 10-second --max-time, so 60 attempts plus
+                # a 5-second sleep could hold dpkg for 15 minutes behind a "five
+                # minutes" message.
                 # The last probe may start just before the deadline, so the true
                 # bound is ~5 min + 10 s.
                 deadline=$(( $(uptime_s) + 300 ))

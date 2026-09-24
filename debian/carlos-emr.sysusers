@@ -57,4 +57,4 @@
 u carlos       - "CARLOS EMR application server" /var/lib/carlos-emr        /usr/sbin/nologin
 u carlos-backup - "CARLOS EMR backup" /var/backups/carlos-emr /usr/sbin/nologin
 m carlos-backup carlos
-u carlos-render - "CARLOS EMR eForm render browser" /var/lib/carlos-emr/render /usr/sbin/nologin
+u carlos-render - "CARLOS EMR eForm render browser" /var/lib/carlos-emr/renderer /usr/sbin/nologin

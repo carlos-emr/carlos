@@ -217,7 +217,7 @@ def cmd_init_config(argv) -> int:
 
     # eForm-to-PDF renderer. carlos-emr ships a pinned Chromium and a
     # chromedriver built from the same revision, run as the dedicated
-    # carlos-emr-chromedriver service; the application CONNECTS to that service
+    # carlos-emr-render-browser service; the application CONNECTS to that service
     # (eform_pdf_browser_service_url) and never spawns or downloads a driver.
     #
     # The probe follows the browser rather than being hard-off: with no browser
@@ -234,7 +234,7 @@ def cmd_init_config(argv) -> int:
     if util.render_payload_installed(CHROMIUM_DIR):
         prop_set(PROPERTIES, "eform_pdf_browser_chromium_path", chromium)
         # The application CONNECTS to chromedriver; it no longer spawns one. The
-        # url-base is a bearer credential generated into render-browser.env at
+        # url-base is a bearer credential generated into renderer.env at
         # install, and the two files are read by two accounts that deliberately
         # cannot read each other's — hence the value is composed here rather than
         # shared. A missing/empty url-base is tolerated HERE so init-config never
@@ -525,7 +525,7 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
 def _render_browser_endpoint() -> tuple:
     """Port and url-base the render browser service is configured with.
 
-    Read from /etc/carlos-emr/render-browser.env, which the carlos-emr
+    Read from /etc/carlos-emr/renderer.env, which the carlos-emr
     postinst generates. Returns the documented default port and an empty prefix
     when the file is absent, so a partially-installed system still produces a
     usable URL rather than a crash.

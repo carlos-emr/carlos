@@ -7,5 +7,5 @@ unknown-java-class-version
 # package-driven failure counter with `systemctl reset-failed`. They do not
 # start, stop, enable, or disable DrugRef; lifecycle operations continue to use
 # deb-systemd-invoke so policy-rc.d remains authoritative.
-maintainer-script-calls-systemctl [postinst:205]
-maintainer-script-calls-systemctl [postinst:206]
+maintainer-script-calls-systemctl [postinst:224]
+maintainer-script-calls-systemctl [postinst:225]

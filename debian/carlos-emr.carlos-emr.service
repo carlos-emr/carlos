@@ -40,7 +40,7 @@ EnvironmentFile=-/etc/carlos-emr/carlos-emr.env
 Environment=LANG=C.UTF-8
 Environment=LC_ALL=C.UTF-8
 # No HOME override: the JVM reads user.home from passwd, and this unit no longer
-# launches a browser (the render Chromium runs under carlos-emr-chromedriver as
+# launches a browser (the render Chromium runs under carlos-emr-render-browser as
 # carlos-render with its own writable HOME). The old HOME=/var/lib/carlos-emr/browser
 # existed solely for the abandoned in-JVM browser spawn.
 # EFORM_RENDER_SANDBOX is NOT set here — it is set by
@@ -52,7 +52,7 @@ Environment=LC_ALL=C.UTF-8
 # Chromium's OS sandbox is the right posture for this component: the renderer
 # opens clinic-authored eForm HTML, the least trustworthy input this application
 # handles. The browser does NOT run under this unit. It runs sandboxed under
-# carlos-emr-chromedriver.service as the data-less carlos-render account, and
+# carlos-emr-render-browser.service as the data-less carlos-render account, and
 # the JVM connects to it over loopback — so this unit's confinement
 # (RestrictNamespaces=yes, ProtectProc=invisible below) never has to be loosened
 # for rendering, and MUST NOT be: loosening it trades the PHI-handling Tomcat's

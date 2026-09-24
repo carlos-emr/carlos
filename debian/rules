@@ -394,12 +394,12 @@ ifeq ($(SKIP_EFORM_RENDERER),)
 	install -m 0644 debian/assets/apparmor/carlos-emr-chromium \
 	    $(STAGE)/etc/apparmor.d/carlos-emr-chromium
 	# The browser's own unit. Installed here rather than as
-	# debian/carlos-emr.carlos-emr-chromedriver.service so a SKIP_EFORM_RENDERER
+	# debian/carlos-emr.carlos-emr-render-browser.service so a SKIP_EFORM_RENDERER
 	# build does not ship a unit whose binary is absent; dh_installsystemd picks
 	# it up from the tree (see override_dh_installsystemd).
 	install -d $(STAGE)/usr/lib/systemd/system
-	install -m 0644 debian/assets/systemd/carlos-emr-chromedriver.service \
-	    $(STAGE)/usr/lib/systemd/system/carlos-emr-chromedriver.service
+	install -m 0644 debian/assets/systemd/carlos-emr-render-browser.service \
+	    $(STAGE)/usr/lib/systemd/system/carlos-emr-render-browser.service
 	# Ordering on the browser unit plus EFORM_RENDER_SANDBOX=true. Kept as a
 	# drop-in (at its pre-merge path) so the sandbox flag still travels with the
 	# browser payload: a SKIP_EFORM_RENDERER build leaves out both.
@@ -407,8 +407,8 @@ ifeq ($(SKIP_EFORM_RENDERER),)
 	install -m 0644 debian/assets/systemd/carlos-emr.service.d/10-eform-renderer.conf \
 	    $(STAGE)/usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf
 	# Skeleton only: the postinst generates the url-base secret into the real file.
-	install -m 0644 debian/assets/skel/render-browser.env \
-	    $(STAGE)/$(SHAREDIR)/skel/render-browser.env
+	install -m 0644 debian/assets/skel/renderer.env \
+	    $(STAGE)/$(SHAREDIR)/skel/renderer.env
 endif
 
 # The webapp is thousands of small files that Tomcat serves directly; gzipping
@@ -449,4 +449,4 @@ override_dh_installsystemd:
 	# build). -p explicitly: override_dh_installsystemd otherwise runs each
 	# --name across every binary package. Enabled here, started by the postinst
 	# before the EMR, which probes it at deploy time.
-	dh_installsystemd --no-start -p carlos-emr --name=carlos-emr-chromedriver
+	dh_installsystemd --no-start -p carlos-emr --name=carlos-emr-render-browser

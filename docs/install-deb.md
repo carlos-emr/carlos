@@ -250,7 +250,7 @@ Then confirm the eForm render browser specifically, because `carlos-ctl check`
 covers the EMR rather than that service:
 
 ```bash
-sudo systemctl status carlos-emr-chromedriver          # should be active
+sudo systemctl status carlos-emr-render-browser          # should be active
 sudo carlos-ctl logs | grep -i "renderer startup check"
 ```
 
@@ -267,7 +267,7 @@ one is the most common way to conclude "nothing is logged":
 ```bash
 sudo carlos-ctl logs -n 200        # the EMR and Tomcat  (= journalctl -u carlos-emr)
 sudo carlos-ctl logs -f            # follow it live
-sudo journalctl -u carlos-emr-chromedriver -n 50   # the eForm render browser
+sudo journalctl -u carlos-emr-render-browser -n 50   # the eForm render browser
 sudo journalctl -u nginx -n 50     # TLS and the front door
 sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log   # the WAF
 ```
@@ -344,16 +344,21 @@ proposal fails instead of removing prescription lookup.
 
 **Upgrading from 2026.08.0-alpha13 or earlier** (when the renderer was its own
 `_amd64` package and `carlos-emr` was `_all`): include
-`carlos-emr-eform-renderer_<version>_all.deb` in the same command. The browser,
-its service, the AppArmor profile and the existing render token move into
-`carlos-emr` unchanged, and the old renderer package is *upgraded* to the empty
-transitional one rather than removed. A removed old renderer keeps its old
-cleanup script registered, and purging it later would delete the render
-browser's token and disable its service (`carlos-ctl check` flags that state;
-`sudo apt install --reinstall ./carlos-emr_<version>_amd64.deb` repairs it). With `--no-remove`,
-leaving the file out makes apt stop instead of removing anything. After the upgrade,
-`sudo apt remove carlos-emr-eform-renderer` is safe (or `apt autoremove`
-takes it if it was installed as a recommendation).
+`carlos-emr-eform-renderer_<version>_all.deb` in the same command, so the old
+renderer package is *upgraded* to the empty transitional one; with
+`--no-remove`, leaving the file out makes apt stop instead of removing it. The
+browser and the existing render token move into `carlos-emr`: the token file is
+now `/etc/carlos-emr/renderer.env` and the service `carlos-emr-render-browser`
+(it was `render-browser.env` and `carlos-emr-chromedriver`). Removing or purging
+the old renderer package, then or later, cannot affect them, so
+`sudo apt remove carlos-emr-eform-renderer` after the upgrade is safe. One side
+effect: if apt *removed* the old renderer (the transitional file was left out
+and `--no-remove` was not used), purging it later runs its old script, which
+re-applies the configuration and restarts the EMR once (about two minutes), so
+do that outside clinic hours.
+
+The application's ~2-minute redeploy happens once per upgrade, even with DrugRef
+in the same command, and `apt` returns only once the application answers.
 The schema migrates before the service restarts, your configuration
 files are never overwritten, and the application refuses to start against a
 schema it was not built for rather than failing mid-consultation. Two habits
@@ -442,7 +447,7 @@ sudo carlos-ctl check
 | Something answers on port `8080`, or an older `carlos-ctl check` reported the JVM running as `tomcat` | `dpkg -l tomcat11` | The distribution's `tomcat11` *service* package is installed. CARLOS does not use it and current packages refuse to coexist with it (see [Do not install the `tomcat11` package](#do-not-install-the-tomcat11-package)): `sudo apt purge tomcat11` |
 | Install finished but the EMR is stopped, and `carlos-ctl check` says the unit is DISABLED | `sudo carlos-ctl check`, then `sudo carlos-ctl finish-install` | The installer could not replace the seeded `carlosdoc` credential (published in the source repository), so it stopped and disabled the service rather than expose the EMR with a known administrator password. It stays disabled across reboots on purpose. A successful `finish-install` verifies the credential, re-enables the unit, removes the start guard and starts the EMR |
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |
-| eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-chromedriver -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
+| eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-render-browser -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
 | Drug search returns nothing when prescribing | `sudo carlos-ctl check` (DrugRef probe) | `carlos-emr-drugref` not installed, or its service is down |
 | Administration > Update Drugref reports a failed update, or stays "updating" | The message on that page; `sudo journalctl -u carlos-emr \| grep -E 'DrugRef (database update\|updateDB failed)'` | The Tomcat JVM has no outbound HTTPS to `www.canada.ca` (proxy not passed via `CARLOS_JAVA_OPTS`, see `/usr/share/doc/carlos-emr-drugref/README.Debian`). A failed run keeps the previous drug data |
 | "no space left on device" anywhere | `df -h /var` | Database, document store and the local backup tier all live under `/var` — grow the disk or move backups offsite |

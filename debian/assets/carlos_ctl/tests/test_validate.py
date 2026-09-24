@@ -115,47 +115,6 @@ class TestFrontDoorListeners(unittest.TestCase):
         self.assertEqual(found, [["::1"], ["::1"]])
 
 
-class TestStaleRendererPackage(unittest.TestCase):
-    """A pre-merge renderer left in config-files state must be reported before a purge."""
-
-    STATUS = ["dpkg-query", "-W", "-f=${db:Status-Status}", "carlos-emr-eform-renderer"]
-    CONTROL = ["dpkg-query", "--control-show", "carlos-emr-eform-renderer", "postrm"]
-
-    def run_check(self, postrm_text=None, status="config-files"):
-        # out() returns "" on a failed command, which is what dpkg-query does for a
-        # package with no postrm (the transitional one) or no record at all.
-        answers = {tuple(self.STATUS): status, tuple(self.CONTROL): postrm_text or ""}
-        validate._failures = 0
-        text = io.StringIO()
-        with patch.object(validate, "out", side_effect=lambda cmd: answers[tuple(cmd)]), \
-                contextlib.redirect_stdout(text):
-            validate._check_stale_renderer_package()
-        return validate._failures, text.getvalue()
-
-    LEGACY = "#!/bin/sh\ncase \"$1\" in purge) rm -f /etc/carlos-emr/render-browser.env ;; esac\n"
-
-    def test_legacy_postrm_of_an_installed_package_is_not_the_trap(self):
-        self.assertEqual(self.run_check(self.LEGACY, status="installed"), (0, ""))
-        self.assertEqual(self.run_check(self.LEGACY, status="half-configured"), (0, ""))
-
-    def test_absent_package_passes_silently(self):
-        self.assertEqual(self.run_check(status=""), (0, ""))
-
-    def test_legacy_postrm_is_reported_with_the_remediation(self):
-        failures, text = self.run_check(self.LEGACY)
-        self.assertEqual(failures, 1)
-        self.assertIn("Do not purge it", text)
-        self.assertIn("carlos-emr-eform-renderer_<version>_all.deb", text)
-        self.assertIn("apt install --reinstall ./carlos-emr_<version>_amd64.deb", text)
-
-    def test_transitional_package_without_postrm_passes_silently(self):
-        self.assertEqual(self.run_check(), (0, ""))
-
-    def test_unrelated_postrm_passes_silently(self):
-        self.assertEqual(self.run_check("#!/bin/sh\nexit 0\n"), (0, ""))
-
-
-
 class TestRenderPayload(unittest.TestCase):
     """Only a complete, provisioned payload goes on to the service-level checks."""
 
@@ -169,7 +128,7 @@ class TestRenderPayload(unittest.TestCase):
                     with open(path, "w", encoding="utf-8") as fh:
                         fh.write("#!/bin/sh\n")
                     os.chmod(path, 0o755)
-            render_env = os.path.join(directory, "render-browser.env")
+            render_env = os.path.join(directory, "renderer.env")
             if env:
                 with open(render_env, "w", encoding="utf-8") as fh:
                     fh.write("CARLOS_RENDER_URL_BASE=abc\n")

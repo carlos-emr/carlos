@@ -50,3 +50,40 @@ test('Tomcat startup invalidates only generated JSP code without following cache
     assert.match(source,/run\)\s+clear_jsp_cache\s+cd/);
   } finally {fs.rmSync(root,{recursive:true,force:true});}
 });
+
+// One deploy per transaction: carlos-emr and carlos-emr-drugref must both
+// activate the SAME trigger carlos-emr declares interest in, and the carlos-emr
+// postinst must accept the `triggered` action instead of rejecting it as an
+// unknown argument. A name mismatch silently brings back the double deploy (or
+// no restart at all), and nothing else would notice.
+test('both postinsts activate the carlos-emr-restart trigger carlos-emr declares', () => {
+  const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
+  const triggers = read('debian', 'carlos-emr.triggers')
+    .split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+  assert.deepEqual(triggers, ['interest-noawait carlos-emr-restart']);
+  const postinst = read('debian', 'carlos-emr.postinst');
+  const drugref = read('debian', 'carlos-emr-drugref.postinst');
+  for (const script of [postinst, drugref]) {
+    assert.match(script, /dpkg-trigger --no-await carlos-emr-restart/);
+    // Only under dpkg: dpkg-reconfigure sets no DPKG_RUNNING_VERSION and would
+    // leave a trigger nobody processes.
+    assert.match(script, /DPKG_RUNNING_VERSION/);
+  }
+  assert.match(postinst, /^    triggered\)$/m);
+  assert.match(postinst, /if \[ "\$1" = triggered \] && \[ -d \/run\/systemd\/system \]; then/);
+});
+
+// The render browser must not reuse any name the pre-2026.08.0~alpha14
+// carlos-emr-eform-renderer postrm deletes or disables on purge.
+test('render browser names avoid everything the old renderer purge touches', () => {
+  const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
+  const shipped = [
+    read('debian', 'rules'),
+    read('debian', 'carlos-emr.tmpfiles'),
+    read('debian', 'carlos-emr.sysusers'),
+    read('debian', 'assets', 'systemd', 'carlos-emr.service.d', '10-eform-renderer.conf'),
+    read('debian', 'assets', 'carlos_ctl', 'util.py'),
+  ].join('\n');
+  assert.doesNotMatch(shipped, /carlos-emr-chromedriver|render-browser\.env|\/var\/lib\/carlos-emr\/render(?![a-z])/);
+  assert.match(shipped, /carlos-emr-render-browser/);
+});

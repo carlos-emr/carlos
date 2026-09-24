@@ -110,10 +110,13 @@ with:
 
     sudo dpkg-reconfigure carlos-emr-drugref
 
-Configure then restarts the EMR so Tomcat loads the DrugRef context, and waits
-(up to five minutes) until DrugRef answers before returning; see
-/usr/share/doc/carlos-emr/README.Debian, section 8, for what that means for
-the upgrade window. `carlos-ctl check` confirms a live drug lookup.
+Once the database is ready, the EMR is restarted so Tomcat loads the DrugRef
+context: through carlos-emr's carlos-emr-restart dpkg trigger, so a transaction
+that also installs or upgrades carlos-emr restarts it only once, at the end,
+and waits for it (see /usr/share/doc/carlos-emr/README.Debian, section 8).
+`dpkg-reconfigure carlos-emr-drugref` restarts and waits directly. When MariaDB
+never answered, a running EMR is left alone, as nothing was provisioned.
+`carlos-ctl check` confirms a live drug lookup.
 
 Removing it
 -----------

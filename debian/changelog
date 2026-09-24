@@ -2,26 +2,38 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
 
   * carlos-emr is now Architecture: amd64 and carries the eForm renderer
     itself: the pinned Chromium and chromedriver under
-    /usr/lib/carlos-emr/chromium, the carlos-emr-chromedriver service, the
+    /usr/lib/carlos-emr/chromium, the render browser service, the
     carlos-render account, the AppArmor profile and the carlos-emr.service
     drop-in that enables the browser sandbox. Saved-eForm print, fax and
     archive have no non-browser fallback, so an EMR installed without the
     browser was an EMR with three broken workflows; it was already the case
-    that the renderer (and so a complete install) ran only on x86-64. Every
-    path is unchanged, so an existing render-browser.env and its url-base
-    token are kept across the upgrade.
+    that the renderer (and so a complete install) ran only on x86-64.
+  * The render browser runs under NEW names: carlos-emr-render-browser.service
+    (was carlos-emr-chromedriver), /etc/carlos-emr/renderer.env (was
+    render-browser.env) and /var/lib/carlos-emr/renderer (was .../render).
+    Those three are exactly what the old carlos-emr-eform-renderer package's
+    purge script deletes or disables, and that purge can come at any time
+    after the upgrade, so reusing them left a merged install one `apt purge`
+    away from broken eForm printing. The postinst moves the existing url-base
+    token across (the running configuration stays valid), removes the old
+    browser home (Chromium scratch and crash dumps), and stops and forgets
+    the old unit, whose driver still holds the port.
   * carlos-emr-eform-renderer becomes an empty transitional package
-    (Architecture: all, Section: oldlibs). carlos-emr Breaks the pre-merge
-    versions (<< 2026.08.0~alpha14~, so a later release does not also break
-    an installed transitional package) and Replaces every older version, and
-    upgrading a 2026.08.0~alpha13 or earlier install
-    with the transitional package in the same apt transaction UPGRADES the old
-    renderer instead of removing it, so the old package's purge script --
-    which deletes render-browser.env and the browser's home and disables the
-    chromedriver unit -- can never run against the merged install. The
-    transitional package can be removed afterwards. If apt removed the old
-    renderer instead (no transitional package, no --no-remove), the postinst
-    and `carlos-ctl check` warn not to purge it and name the fix.
+    (Architecture: all, Section: oldlibs), kept only so the documented
+    --no-remove upgrade from 2026.08.0~alpha13 or earlier upgrades the old
+    renderer instead of stopping on its removal. carlos-emr Breaks the
+    pre-merge versions at a fixed version (<< 2026.08.0~alpha14~, so a later
+    release does not also break an installed transitional package) and
+    Replaces every older version.
+  * One application deploy per apt transaction. carlos-emr and
+    carlos-emr-drugref both used to (re)start the shared Tomcat, so every
+    install or upgrade deployed the ~400 MB webapp twice. Both now activate a
+    carlos-emr-restart dpkg trigger (interest-noawait), and the triggered
+    carlos-emr postinst restarts and waits once, after every package is
+    configured; dpkg keeps the trigger pending if a transaction is
+    interrupted. It starts the EMR only if a configure asked for it or it was
+    already running, so a DrugRef-only reinstall still leaves a stopped EMR
+    alone. Outside dpkg (dpkg-reconfigure) both restart inline as before.
   * carlos-emr-drugref (Architecture: all) now depends on carlos-emr
     (>= ${source:Version}, << ${source:Version}.1~) rather than
     (= ${binary:Version}), the binNMU-safe form for an arch-all package
@@ -37,6 +49,8 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
     without repairing the renderer. apparmor.service loads the profile at the
     next boot regardless. `carlos-ctl check` also now FAILs on a partial
     render payload instead of mistaking it for a SKIP_EFORM_RENDERER build.
+    A configure that generates a new render token restarts (not merely
+    starts) the EMR, so a running JVM never keeps a stale url-base.
   * Fix: every warning the carlos-emr and carlos-emr-drugref postinsts print
     after taking the provisioning lock was being discarded. The lock was
     opened with `exec 9>"$LOCK" 2>/dev/null`, and under dash a redirection
@@ -45,23 +59,23 @@ carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
     failure warnings, ...). A failed open also exited the script instead of
     deferring provisioning as documented. The open is now probed in a
     subshell and performed with no redirection of its own.
-  * carlos-emr-drugref's postinst now starts MariaDB and waits for it (the same
-    bounded 60-second wait carlos-emr uses) before provisioning. It probed
-    once, immediately after carlos-emr's configure had restarted MariaDB to
-    apply its settings; losing that race skipped the DrugRef account, grants
-    and seed load while configure still succeeded, so prescribing lookups
-    returned nothing until a manual dpkg-reconfigure. If MariaDB still does not
-    answer, the warning now says what was skipped; the EMR is still
-    restarted (an upgrade must load the new DrugRef webapp) but not waited
-    for.
-  * carlos-emr-drugref's postinst waits (bounded, five minutes) for the
-    restarted Tomcat to serve DrugRef before returning. As the last package in
-    the transaction it used to return with the EMR still redeploying, so an
-    operator's first `carlos-ctl check` reported nothing listening on 18080.
-    It now declares its own curl dependency. Both readiness waits (and
-    carlos-emr's own) use a deadline on the monotonic clock: an attempt count
-    with a 10-second probe timeout could hold dpkg for 15 minutes behind a
-    message that said five, and date +%s would move with NTP steps.
+  * carlos-emr-drugref's postinst now starts MariaDB and waits for it (bounded,
+    60 seconds) before provisioning. It probed once, immediately after
+    carlos-emr's configure had restarted MariaDB to apply its settings;
+    losing that race skipped the DrugRef account, grants and seed load while
+    configure still succeeded, so prescribing lookups returned nothing until
+    a manual dpkg-reconfigure. If MariaDB still does not answer, the warning
+    says what was skipped and a running EMR is left alone. It now declares
+    its own curl dependency.
+  * Bounded waits in both postinsts use a deadline on the monotonic clock: an
+    attempt count with a 10-second probe timeout could hold dpkg for 15
+    minutes behind a message that said five, and date +%s moves with NTP
+    steps.
+  * Fix: carlos-ctl, the WAF policy and README.Debian told operators to
+    "reinstall carlos-emr" / `apt install --reinstall carlos-emr` / `apt
+    upgrade`, none of which does anything for packages installed from release
+    files rather than an apt repository. They now name the release file
+    (sudo apt install --reinstall ./carlos-emr_<version>_amd64.deb).
   * SKIP_EFORM_RENDERER=1 now builds carlos-emr without the renderer payload
     (browser, unit, profile and drop-in) instead of dropping a binary package;
     `carlos-ctl check` reports such a development build as a NOTE.

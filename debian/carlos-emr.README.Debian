@@ -78,12 +78,11 @@ before installing. Later releases record the published name directly.
 
 carlos-emr is built for amd64 only: it carries the pinned Chromium that renders
 saved eForms to PDF (eForm print, fax and archive have no other path), run as
-the carlos-emr-chromedriver service. carlos-emr-eform-renderer, the separate
+the carlos-emr-render-browser service. carlos-emr-eform-renderer, the separate
 renderer package through 2026.08.0-alpha13, is now an empty transitional
-package. Include it when UPGRADING such an install, so the old renderer package
-is upgraded rather than removed (its old removal script deletes the render
-token and the browser's home, which carlos-emr now owns); it can be removed
-afterwards. On a fresh install it does nothing.
+package. Include it when UPGRADING such an install, so that the documented
+`--no-remove` command upgrades the old renderer package instead of stopping on
+its removal; it can be removed afterwards. On a fresh install it does nothing.
 
 apt normally prints this while installing a local .deb, and it is harmless:
 
@@ -111,7 +110,7 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /usr/lib/carlos-emr/                   the administrative helpers
   /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
                                          chromedriver (run by the
-                                         carlos-emr-chromedriver service)
+                                         carlos-emr-render-browser service)
   /usr/sbin/carlos-ctl                    the administration command
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
@@ -178,10 +177,10 @@ upgrade, compare them against the current reference copies in
                   repository, its passphrase, or the backup credential. A
                   compromise of the EMR therefore cannot destroy or decrypt
                   the backups you would recover from.
-  carlos-render   the eForm render browser (carlos-emr-chromedriver.service):
+  carlos-render   the eForm render browser (carlos-emr-render-browser.service):
                   chromedriver and the Chromium it launches, on loopback only.
                   A member of NO group, including `carlos`: it owns nothing
-                  but a scratch home (/var/lib/carlos-emr/render) and cannot
+                  but a scratch home (/var/lib/carlos-emr/renderer) and cannot
                   read patient documents or any credential. Its unit is the
                   only one on the host allowed to create namespaces, which is
                   what lets Chromium keep its own sandbox; see
@@ -694,26 +693,32 @@ sequence has been exercised end to end (DROP DATABASE and back):
 8. Upgrades
 -----------
 
-`apt upgrade` of this package stops the application FIRST (the packaging's
+Upgrading this package -- `sudo apt install --no-remove` of the newer release
+files, as in section 0; a plain `apt upgrade` does nothing, because these
+packages are not served from an apt repository -- stops the application FIRST (the packaging's
 preinst stops the service and timers before unpack — replacing the exploded
 webapp underneath a running JVM is not safe), replaces the webapp, re-renders
 the derived configuration, runs `carlos-ctl db-migrate`, and starts the
 service again. Plan the maintenance window for the whole operation: unpack of
-the ~400 MB webapp plus migration plus the ~2-minute redeploy. In the standard
-transaction (carlos-emr with carlos-emr-drugref) the application deploys
-TWICE: once when carlos-emr starts it, and again when carlos-emr-drugref
-restarts it to load DrugRef. apt returns only after DrugRef answers, so a
-`carlos-ctl check` straight afterwards reflects the finished system; allow
-about four minutes, and up to ten on a slow host.
+the ~400 MB webapp plus migration plus the ~2-minute redeploy. The application
+deploys ONCE per apt transaction, even though carlos-emr and carlos-emr-drugref
+both need it restarted: both activate the carlos-emr-restart dpkg trigger, and
+the restart runs after every package in the transaction is configured. apt
+returns only after the application (and DrugRef, if installed) answers, so a
+`carlos-ctl check` straight afterwards reflects the finished system.
 
 Upgrading from 2026.08.0-alpha13 or earlier: the eForm renderer, then its own
 package, is now part of carlos-emr. Include
 carlos-emr-eform-renderer_<version>_all.deb (the empty transitional package)
 in the same apt command, with --no-remove, so the old renderer package is
-upgraded rather than removed. Its browser, service, AppArmor profile and
-render token move into carlos-emr unchanged. If apt removed it instead,
-`carlos-ctl check` reports it: do not purge it, install the transitional
-package first.
+upgraded rather than removed (with --no-remove, leaving it out makes apt stop
+instead). The render token carries over: the postinst moves it from
+/etc/carlos-emr/render-browser.env to /etc/carlos-emr/renderer.env, and the
+browser now runs as carlos-emr-render-browser.service with its home in
+/var/lib/carlos-emr/renderer. Removing or purging the old renderer package,
+now or later, touches none of those -- though purging an old renderer that apt
+REMOVED runs its old script, which re-applies the configuration and restarts
+the EMR once, so do it outside clinic hours.
 
 Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
@@ -793,7 +798,7 @@ and in backup.env, to your own obligations.
   sudo carlos-ctl logs -n 200          application server log
   sudo carlos-ctl logs -f              follow it live
   sudo journalctl -u nginx -n 100      front door
-  sudo journalctl -u carlos-emr-chromedriver -n 100
+  sudo journalctl -u carlos-emr-render-browser -n 100
                                        the eForm render browser (its OWN unit —
                                        it does not log to the application log)
   sudo journalctl -u mariadb -n 100    the database
@@ -808,7 +813,7 @@ Which log holds what
                                        journal for carlos-emr.service; the same
                                        content is on disk under
                                        /var/log/carlos-emr/tomcat/.
-    journalctl -u carlos-emr-chromedriver
+    journalctl -u carlos-emr-render-browser
                                        the browser that renders eForms to PDF.
                                        Separate service, separate journal — a
                                        render failure often leaves nothing in the
@@ -917,8 +922,8 @@ eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own
   service. Check, in this order:
 
-    sudo systemctl status carlos-emr-chromedriver
-    sudo journalctl -u carlos-emr-chromedriver -n 50
+    sudo systemctl status carlos-emr-render-browser
+    sudo journalctl -u carlos-emr-render-browser -n 50
     sudo carlos-ctl logs | grep -i "renderer"
 
   At startup the application probes the browser once and says so. Look for

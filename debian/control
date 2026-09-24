@@ -129,11 +129,13 @@ Depends:
 # apparmor supplies apparmor_parser, which the postinst uses to load the profile
 # that makes Chromium's own sandbox usable on this distribution.
  apparmor
-# The renderer used to be the separate carlos-emr-eform-renderer package. Its
-# files (the Chromium tree, the carlos-emr-chromedriver unit, the AppArmor
-# profile, the carlos-emr.service drop-in) now belong to this package, so every
-# pre-merge version has to hand them over (Replaces) and must not stay
-# configured beside it (Breaks).
+# The renderer used to be the separate carlos-emr-eform-renderer package. The
+# files that keep their paths (the Chromium tree, the AppArmor profile, the
+# carlos-emr.service drop-in) now belong to this package, so every pre-merge
+# version has to hand them over (Replaces) and must not stay configured beside
+# it (Breaks). The paths its purge script deletes or disables -- its unit,
+# env file and browser home -- are deliberately NOT reused (see the postinst's
+# one-time move), so that purge cannot reach anything carlos-emr runs.
 #
 # Breaks is a FIXED version: the last pre-merge release was 2026.08.0~alpha13,
 # and the first to ship the transitional package sorts at or above
@@ -207,7 +209,7 @@ Description: CARLOS EMR - Canadian electronic medical record (single-host deploy
  26.04 ships Chromium only as a snap, which cannot read the renderer's working
  directories, so this package includes a pinned Chromium and matching
  chromedriver under /usr/lib/carlos-emr/chromium. The driver runs as the
- carlos-emr-chromedriver service under its own account, "carlos-render" (a
+ carlos-emr-render-browser service under its own account, "carlos-render" (a
  member of no group), which is the only unit on the host permitted to create
  namespaces, so Chromium keeps its own sandbox while the EMR's service stays
  confined. The application connects to it over loopback and never launches a
@@ -252,16 +254,16 @@ Description: DrugRef2 drug reference service for CARLOS EMR
 
 Package: carlos-emr-eform-renderer
 # Transitional. The renderer now ships inside carlos-emr itself (see the
-# Breaks/Replaces there). It depends on carlos-emr with >= so a copy left
-# installed keeps satisfying later carlos-emr releases. This empty package exists so that an installed
-# pre-merge renderer is UPGRADED rather than removed. A removed one stays in
-# dpkg's config-files state with its old postrm registered, and purging it later
-# runs that script, which deletes /etc/carlos-emr/render-browser.env and the
-# render browser's home and disables carlos-emr-chromedriver.service -- all now
-# carlos-emr's (verified on an alpha13 -> alpha14 upgrade). An upgrade replaces
-# that postrm with this package's, which is none. The carlos-emr postinst and
-# `carlos-ctl check` both flag the removed-not-upgraded state. Safe to remove,
-# or purge, once installed.
+# Breaks/Replaces there). Its only job is convenience: with it in the same apt
+# command, a pre-merge renderer is UPGRADED to this empty package, so the
+# documented --no-remove upgrade from 2026.08.0~alpha13 or earlier succeeds
+# instead of stopping on a removal. It is not a safety device: carlos-emr runs
+# the render browser under names the old package's scripts never touch
+# (carlos-emr-render-browser.service, /etc/carlos-emr/renderer.env,
+# /var/lib/carlos-emr/renderer), so removing or purging the old renderer at any
+# time cannot break it (a purge of a REMOVED old renderer still runs its old
+# postrm, which re-runs init-config and restarts the EMR once -- verified). Depends with >= so a copy left installed keeps satisfying
+# later carlos-emr releases; safe to remove or purge once installed.
 Architecture: all
 Section: oldlibs
 Depends:

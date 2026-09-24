@@ -90,7 +90,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > (`--js-flags=--max-old-space-size=256`) and the renderer-process fan-out
 > (`--renderer-process-limit=4`, all render content is same-origin loopback), and drop the GPU
 > process (`--disable-gpu`; headless print rasters in software). On the `.deb`, the
-> `carlos-emr-chromedriver` unit additionally carries a cgroup ceiling for the whole browser tree
+> `carlos-emr-render-browser` unit additionally carries a cgroup ceiling for the whole browser tree
 > (`MemoryHigh=1G`, `MemoryMax=1536M`): under pressure the kernel throttles and, at the limit,
 > OOM-kills **inside the unit** — a runaway form's render fails (retryably, via the normal
 > fail-closed render error, with `Restart=always` recycling the driver) instead of the browser
@@ -144,7 +144,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 - **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
   loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
   Selenium Manager fallback to download a driver at first use. On the .deb this is the
-  `carlos-emr-chromedriver` service, which the `carlos-emr` package installs and starts (it
+  `carlos-emr-render-browser` service, which the `carlos-emr` package installs and starts (it
   carries the pinned Chromium, which is why that package is amd64-only). Elsewhere, run one yourself before the webapp deploys.
 
   **Why it is a separate process and not a child of the JVM.** Chromium sandboxes its
@@ -342,7 +342,7 @@ web server. The account split is the control.
 it. A wedged session is ended by `quit()`, escalating to a targeted `DELETE` of that exact session id
 over a fresh short-deadline connection; the id is captured at session creation because
 `RemoteWebDriver.quit()` clears its own even when the quit fails. The backstop of last resort is now
-`systemctl stop carlos-emr-chromedriver`, which tears down the driver and every browser it launched.
+`systemctl stop carlos-emr-render-browser`, which tears down the driver and every browser it launched.
 
 **Selenium is not an isolation layer.** It only launches `chromedriver` → `chrome`; the
 chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). By default
@@ -699,8 +699,8 @@ log. Check both, in this order:
 sudo carlos-ctl logs | grep -i renderer
 
 # 2. What did the browser itself say? Separate unit, separate journal.
-sudo systemctl status carlos-emr-chromedriver
-sudo journalctl -u carlos-emr-chromedriver -n 50
+sudo systemctl status carlos-emr-render-browser
+sudo journalctl -u carlos-emr-render-browser -n 50
 ```
 
 At startup the application probes the browser exactly once and reports the outcome. That report is
@@ -721,7 +721,7 @@ Anything else is a real finding. The two worth recognising:
 | What you see | What it means |
 |---|---|
 | `Chromium session creation exceeded the 30s startup budget` | The application reached chromedriver but could not get a usable session. Usually the browser cannot start — check its own journal, not this one. |
-| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-chromedriver`, and check `eform_pdf_browser_service_url`. |
+| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-render-browser`, and check `eform_pdf_browser_service_url`. |
 | `eForm browser renderer startup check is OFF` | The probe is disabled (`eform_pdf_browser_startup_check=off`). Expected in test contexts; on a deployment it means failures will surface at first print instead. |
 
 Two things the messages deliberately will **not** tell you, so do not go looking for them there. The

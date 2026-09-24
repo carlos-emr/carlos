@@ -42,12 +42,12 @@ UMask=0077
 # prefix generated at install and shared with the application through
 # carlos.properties — a bearer credential on the path, because chromedriver has
 # no authentication of its own and any local uid can reach a loopback port.
-EnvironmentFile=/etc/carlos-emr/render-browser.env
+EnvironmentFile=/etc/carlos-emr/renderer.env
 Environment=LANG=C.UTF-8
 Environment=LC_ALL=C.UTF-8
 # Chromium HANGS without a writable HOME (its crashpad handler cannot create its
 # database); it does not fail cleanly. Same lesson as carlos-emr.service.
-Environment=HOME=/var/lib/carlos-emr/render
+Environment=HOME=/var/lib/carlos-emr/renderer
 
 # NO --allowed-ips and NO --allowed-origins. chromedriver already binds loopback
 # only and already rejects mismatched Origins; passing either flag with an EMPTY
@@ -61,7 +61,7 @@ Environment=HOME=/var/lib/carlos-emr/render
 # so an absent or blanked value would quietly drop the path prefix -- a security
 # downgrade with no error anywhere. Everything else in this design fails closed;
 # so does this.
-ExecStartPre=/bin/sh -c 'test -n "$CARLOS_RENDER_URL_BASE" || { echo "CARLOS_RENDER_URL_BASE is empty in /etc/carlos-emr/render-browser.env; refusing to start without it" >&2; exit 1; }'
+ExecStartPre=/bin/sh -c 'test -n "$CARLOS_RENDER_URL_BASE" || { echo "CARLOS_RENDER_URL_BASE is empty in /etc/carlos-emr/renderer.env; refusing to start without it" >&2; exit 1; }'
 ExecStart=/usr/lib/carlos-emr/chromium/chromedriver \
     --port=${CARLOS_RENDER_PORT} \
     --url-base=${CARLOS_RENDER_URL_BASE} \
@@ -102,7 +102,7 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=
 ProtectSystem=strict
-ReadWritePaths=/var/lib/carlos-emr/render
+ReadWritePaths=/var/lib/carlos-emr/renderer
 ProtectHome=yes
 # Same posture as carlos-emr.service. Does not hide THIS process from others --
 # see the token note in README.Debian -- but it does stop a compromised browser
