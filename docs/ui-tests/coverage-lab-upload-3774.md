@@ -2,11 +2,11 @@
 
 This release-targeted slice executes four changed production paths that had zero covered changed lines in the release audit: the shared upload writer, inside-lab batch action, BC PathNet uploader, and ON CML uploader.
 
-The focused Java run passed 16 tests with no failures or skips. After deleting the previous JaCoCo execution file, it covered 36/54 changed executable lines in `Utilities`, 6/13 in `InsideLabUpload2Action`, 13/27 in BC `LabUpload2Action`, and 10/30 in ON CML `LabUpload2Action`. The comparison is against alpha12 `main` (`d182f254cd`) and measures focused execution, not whole-suite coverage.
+The focused Java run now passes 17 tests with no failures or skips. The line counts below were measured on the original 16-test run: after deleting the previous JaCoCo execution file, it covered 36/54 changed executable lines in `Utilities`, 6/13 in `InsideLabUpload2Action`, 13/27 in BC `LabUpload2Action`, and 10/30 in ON CML `LabUpload2Action`. The comparison is against alpha12 `main` (`d182f254cd`) and measures focused execution, not whole-suite coverage.
 
 The tests use real temporary document directories. They verify upload content, generated names, stream closure, partial-file cleanup, HL7 message splitting, access and key gates, duplicate handling, and archive contents. PathNet and CML parsing/storage collaborators are mocked at their external boundaries, while the action's stream and file-writing paths execute.
 
-Code review found that BC PathNet called `reset()` on a `Files.newInputStream` after `FileUploadCheck.addFile` consumed it. That stream does not support reset, so a successful duplicate check failed before parsing or archiving. The action now opens a fresh stream for each independent reader, closing each one. A regression consumes the complete first stream and then verifies the parser and archive still receive the full file.
+Code review found that BC PathNet called `reset()` on a `Files.newInputStream` after `FileUploadCheck.addFile` consumed it. That stream does not support reset, so a successful duplicate check failed before parsing or archiving. The action now opens a fresh stream for each independent reader, closing each one. A regression consumes the complete first stream and then verifies the parser and archive still receive the full file, and that all three streams are closed. The `reset()` also ran before the duplicate branch, so a rejected duplicate reported `exception` instead of `uploadedPreviously`; a second PathNet test covers that path and checks nothing is parsed or archived. Both tests fail against the pre-fix action.
 
 Reproduce with:
 

@@ -8,11 +8,15 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,6 +86,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                      }))) {
             paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile()))
                     .thenReturn(uploaded.toFile());
+            List<TrackedStream> opened = trackOpenedStreams(paths, uploaded);
             CarlosProperties properties = mock(CarlosProperties.class);
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
@@ -102,7 +107,49 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.source.hl7.");
                 assertThat(archived.get(0)).hasBinaryContent("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
             }
+            // Duplicate check, parser, and archive writer each get their own stream, and none leaks.
+            assertThat(opened).hasSize(3).allMatch(TrackedStream::isClosed);
         }
+    }
+
+    @Test
+    void shouldSkipParseAndArchive_whenDuplicateCheckRejectsUpload() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("duplicate.hl7"), "MSH|duplicate PathNet content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile()))
+                    .thenReturn(uploaded.toFile());
+            List<TrackedStream> opened = trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(request.getAttribute("outcome")).isEqualTo("uploadedPreviously");
+            assertThat(connections.constructed()).isEmpty();
+            try (var children = Files.list(documentDir)) {
+                assertThat(children.toList()).isEmpty();
+            }
+            assertThat(opened).hasSize(1).allMatch(TrackedStream::isClosed);
+        }
+    }
+
+    /** Serves each validated reopen of {@code uploaded} as a stream whose closure the test can assert. */
+    private static List<TrackedStream> trackOpenedStreams(MockedStatic<PathValidationUtils> paths, Path uploaded) {
+        List<TrackedStream> opened = new CopyOnWriteArrayList<>();
+        paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(uploaded.toFile()))
+                .thenAnswer(invocation -> {
+                    TrackedStream stream = new TrackedStream(Files.readAllBytes(uploaded));
+                    opened.add(stream);
+                    return stream;
+                });
+        return opened;
     }
 
     private String execute(Path uploaded) {
@@ -112,6 +159,24 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             LabUpload2Action action = new LabUpload2Action();
             if (uploaded != null) action.setImportFile(uploaded.toFile());
             return action.execute();
+        }
+    }
+
+    private static final class TrackedStream extends ByteArrayInputStream {
+        private volatile boolean closed;
+
+        private TrackedStream(byte[] content) {
+            super(content);
+        }
+
+        boolean isClosed() {
+            return closed;
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            super.close();
         }
     }
 }
