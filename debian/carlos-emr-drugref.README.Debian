@@ -98,6 +98,26 @@ debian/drugref.pin selects a revision that carries it. If you build this
 package against an older DrugRef revision, drug searches will stop returning
 results after the first one or two calls: that is the leak, not this package.
 
+Installing and upgrading
+------------------------
+The package's configure step needs MariaDB. It starts the server and waits up
+to 60 seconds for it: carlos-emr is configured just before this package and
+restarts MariaDB to apply its settings, so the server is often still coming
+back. If MariaDB does not answer in that time, the drugref account, grants
+and dataset are NOT set up (the configure step says so and still succeeds, so
+the rest of the apt transaction completes). Once MariaDB is running, finish
+with:
+
+    sudo dpkg-reconfigure carlos-emr-drugref
+
+Once the database is ready, the EMR is restarted so Tomcat loads the DrugRef
+context: through carlos-emr's carlos-emr-restart dpkg trigger, so a transaction
+that also installs or upgrades carlos-emr restarts it only once, at the end,
+and waits for it (see /usr/share/doc/carlos-emr/README.Debian, section 8).
+`dpkg-reconfigure carlos-emr-drugref` restarts and waits directly. When MariaDB
+never answered, a running EMR is left alone, as nothing was provisioned.
+`carlos-ctl check` confirms a live drug lookup.
+
 Removing it
 -----------
 Removing the package undeploys the context and restarts the EMR. The drugref2
