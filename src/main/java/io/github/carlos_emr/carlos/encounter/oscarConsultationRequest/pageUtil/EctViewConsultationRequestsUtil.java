@@ -173,7 +173,7 @@ public class EctViewConsultationRequestsUtil {
               }
               else {
                   specialist = consult.getProfessionalSpecialist();
-                  specialistName = specialist.getLastName() + ", " + specialist.getFirstName();
+                  specialistName = formatSpecialistName(specialist.getLastName(), specialist.getFirstName());
               }
 
               boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
@@ -273,7 +273,7 @@ public class EctViewConsultationRequestsUtil {
                }
                else {
                   specialist = consult.getProfessionalSpecialist();
-                  specialistName = specialist.getLastName() + ", " + specialist.getFirstName();
+                  specialistName = formatSpecialistName(specialist.getLastName(), specialist.getFirstName());
                }
 
               // A consult row can outlive the records it points at. ConsultationRequestDaoImpl.getConsults
@@ -316,4 +316,25 @@ public class EctViewConsultationRequestsUtil {
       }      
       return verdict;      
    }
+
+    /**
+     * Formats a specialist as "Last, First", dropping whichever part is missing so an incomplete
+     * specialist record never renders as "Smith, null" in the consult list or the eChart box.
+     *
+     * @param lastName String the specialist's last name; may be null or blank
+     * @param firstName String the specialist's first name; may be null or blank
+     * @return String "Last, First", the single part present, or an empty string
+     * @since 2026-09-24
+     */
+    static String formatSpecialistName(String lastName, String firstName) {
+        String last = lastName == null ? "" : lastName.trim();
+        String first = firstName == null ? "" : firstName.trim();
+        if (last.isEmpty()) {
+            return first;
+        }
+        if (first.isEmpty()) {
+            return last;
+        }
+        return last + ", " + first;
+    }
 }

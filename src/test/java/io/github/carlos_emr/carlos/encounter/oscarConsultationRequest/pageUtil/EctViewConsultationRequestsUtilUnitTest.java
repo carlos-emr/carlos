@@ -47,6 +47,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -306,5 +308,20 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(verdict).isTrue();
         assertThat(util.provider).containsExactly("Lovelace, Ada");
         assertThat(util.providerNo).containsExactly("101");
+    }
+
+    @ParameterizedTest(name = "[{index}] last={0}, first={1} -> \"{2}\"")
+    @CsvSource(value = {
+            "Smith,Jane,'Smith, Jane'",
+            "Smith,NULL,Smith",
+            "NULL,Jane,Jane",
+            "NULL,NULL,''",
+            "'  ','  ',''",
+            "' Smith ',' Jane ','Smith, Jane'"
+    }, nullValues = "NULL")
+    @DisplayName("should omit missing specialist name parts")
+    void shouldOmitMissingParts_whenFormattingSpecialistName(String last, String first, String expected) {
+        assertThat(
+                EctViewConsultationRequestsUtil.formatSpecialistName(last, first)).isEqualTo(expected);
     }
 }
