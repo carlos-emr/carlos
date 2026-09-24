@@ -82,6 +82,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     static final long MAX_PREPARED_MESSAGE_BYTES = 50L * 1024L * 1024L;
     static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
     static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
+    /** Bounds the walk over per-recipient refusals when logging them. */
+    private static final int MAX_LOGGED_REFUSALS = 64;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
@@ -316,17 +318,20 @@ public class SMTPEmailSender implements OutboundEmailTransport {
      * codes are logged: the addresses and the server's text can identify the patient.
      */
     private void logRecipientRefusal(SendFailedException refused) {
+        // One SMTPAddressFailedException per refused RCPT, 5xx and 4xx alike. The invalid-address
+        // list alone would miss temporary refusals, and valid-unsent also holds accepted addresses.
         Set<Integer> replyCodes = new TreeSet<>();
+        int refusedRecipients = 0;
         Exception next = refused.getNextException();
-        for (int depth = 0; next != null && depth < 32; depth++) {
+        for (int depth = 0; next != null && depth < MAX_LOGGED_REFUSALS; depth++) {
             if (next instanceof SMTPAddressFailedException addressFailure) {
+                refusedRecipients++;
                 replyCodes.add(addressFailure.getReturnCode());
             }
             next = next instanceof MessagingException messaging ? messaging.getNextException() : null;
         }
-        Address[] invalid = refused.getInvalidAddresses();
         logger.warn("SMTP server refused the message at RCPT TO; refusedRecipients={}, replyCodes={}",
-                invalid == null ? 0 : invalid.length, replyCodes);
+                refusedRecipients, replyCodes);
     }
 
     /**
@@ -508,10 +513,10 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     }
 
     /**
-     * Pins the transport to all-or-nothing recipients, the default that
-     * {@link #isRefusedAtRecipients} relies on to treat a refused recipient as "nothing was sent".
-     * With partial sends on, the other recipients would receive the message, and a later failure
-     * could be misread as a refusal.
+     * Pins the transport to all-or-nothing recipients: one refused recipient means nobody is sent
+     * the message, which is the behaviour {@link #isRefusedAtRecipients} reports as FAILED. With
+     * partial sends on, the other recipients would receive it. The exact-class check there does
+     * not depend on this pin; the pin keeps the delivery behaviour from changing silently.
      */
     static void applyAllOrNothingRecipients(Properties properties) {
         properties.put("mail.smtp.sendpartial", "false");
