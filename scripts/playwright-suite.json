@@ -1138,6 +1138,19 @@
       ]
     },
     {
+      "name": "upstream-small-fixes",
+      "script": "scripts/upstream-small-fixes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "login",
       "script": "scripts/login-playwright-checks.js",
       "tiers": [
