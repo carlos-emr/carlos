@@ -1138,6 +1138,19 @@
       ]
     },
     {
+      "name": "email-field-length",
+      "script": "scripts/email-field-length-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "login",
       "script": "scripts/login-playwright-checks.js",
       "tiers": [
