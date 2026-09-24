@@ -159,7 +159,8 @@ public final class RxUseFavorite2Action extends ActionSupport {
             // create Prescription
             RxPrescriptionData.Prescription rx =
                     rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
-            rx.setRandomId(Long.parseLong(randomId));
+            // The page names the card's key; it must be unused in this stash (#3908).
+            rx.setRandomId(RxStashIds.acceptOrNext(bean, randomId, RxStashIds.DEFAULT_BOUND));
 
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);

@@ -102,6 +102,10 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull()))
                 .thenReturn(false);
+        // Patient-level _allergy read and record access for the named patient (#3908).
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_allergy"), eq("r"), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))

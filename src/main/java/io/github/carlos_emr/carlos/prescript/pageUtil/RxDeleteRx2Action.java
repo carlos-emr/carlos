@@ -126,6 +126,11 @@ public final class RxDeleteRx2Action extends ActionSupport {
     @Override
     public String execute()
             throws IOException, ServletException {
+        // Every dispatch of this action archives drugs or clears staged state: POST-only,
+        // refused before anything else (#3908). CSRFGuard does not check GET.
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String method = request.getParameter("parameterValue");
         if ("Delete2".equals(method)) {
             return Delete2();
@@ -212,6 +217,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     public String Delete2()
             throws IOException {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         MiscUtils.getLogger().debug("===========================Delete2 RxDeleteRx2Action========================");
         checkPrivilege(request, PRIVILEGE_UPDATE);
@@ -253,6 +261,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     public String clearStash()
             throws IOException {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         // The other write paths of this action check _rx update; clearing the stash is a write too.
         checkPrivilege(request, PRIVILEGE_UPDATE);
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
@@ -276,6 +287,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     public String clearReRxDrugList()
             throws IOException {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
@@ -330,6 +344,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String Discontinue() throws IOException {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
@@ -496,9 +513,24 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * @param privilege String privilege level to check ("r" for read, "u" for update, "d" for delete)
      * @throws RuntimeException if the user lacks the required privilege
      */
+    /**
+     * Answers a non-POST request with 405 and {@code Allow: POST}.
+     *
+     * @return {@code true} when the request was refused and the caller must return {@code NONE}
+     * @throws IOException when the error cannot be sent
+     */
+    private boolean refuseUnlessPost() throws IOException {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return true;
+    }
+
     private void checkPrivilege(HttpServletRequest request, String privilege) {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
     }
 

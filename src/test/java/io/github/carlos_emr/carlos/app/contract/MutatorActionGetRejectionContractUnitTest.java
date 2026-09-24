@@ -266,7 +266,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // Clears the named patient's staged prescriptions. Unconditional: it rejects non-POST
             // before resolving any bean; ViewScript2's form POSTs (#3908).
             Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
-                    "_rx", "w")
+                    "_rx", "w"),
+            // Every dispatch (Delete, Delete2, Discontinue, clearStash, clearReRxDrugList) archives
+            // drugs or clears staged state; all reject non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+                    "_rx", "u")
         );
     }
 
@@ -320,8 +324,15 @@ class MutatorActionGetRejectionContractUnitTest {
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
-        // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
+        // Prescription: the reprint methods permit GET; the staging methods (represcribe,
+        // represcribe2, saveReRxDrugIdToStash, repcbAllLongTerm, represcribeMultiple) and
+        // saveDigitalSignature are POST-only (#3908). Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        // Pharmacies: search/getPharmacyInfo/... permit GET; delete, unlink, setPreferred, add,
+        // save and the legacy pharmacyAction form are POST-only (#3908). Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
         // Prescription stash: deletePrescribe and the legacy action=delete remove a staged card and
         // are POST-only; setStashIndex / action=edit cursor moves stay verb-open. Issue #3871.
         // Covered by RxStash2ActionUnitTest.
@@ -475,7 +486,12 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
         // prescript slice: RxReason2Action's add/archive drug-reason writes are POST-only; the popup
         // view stays GET (conditional mutator, #3908).
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+        // prescript slice (#3908): re-prescribe staging, drug deletion/discontinue/clears and
+        // pharmacy links are POST-only.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

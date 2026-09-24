@@ -79,6 +79,16 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
 
     public String execute() throws IOException, ServletException {
+        // Linking, unlinking and preferring a patient's pharmacy, and adding, editing or deleting a
+        // pharmacy record, are writes: POST-only, refused before anything else. CSRFGuard does not
+        // check GET, and unlink/setPreferred authorise any patient the caller may access (#3908).
+        // Every caller ($.post in SelectPharmacy2 / ManagePharmacy2) POSTs; the read methods
+        // (search, getPharmacyInfo, ...) stay verb-open.
+        if (isWriteRequest() && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
@@ -125,6 +135,16 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         return SUCCESS;
     }
+
+    /** Whether this request names a pharmacy write (a mutating {@code method} or legacy {@code pharmacyAction}). */
+    private boolean isWriteRequest() {
+        String method = request.getParameter("method");
+        return (method != null && WRITE_METHODS.contains(method))
+                || !StringUtils.isNullOrEmpty(request.getParameter("pharmacyAction"))
+                || !StringUtils.isNullOrEmpty(this.getPharmacyAction());
+    }
+
+    private static final java.util.Set<String> WRITE_METHODS = java.util.Set.of("delete", "unlink", "setPreferred", "add", "save");
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")

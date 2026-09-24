@@ -169,8 +169,9 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
         // Falling back to the most recently opened Rx patient would stage the drug in another
         // chart's stash (#3875).
-        assertThat(result).isNull();
-        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        // AJAX callers get 409, not a redirect they would follow to a 200 page (#3908).
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
         assertThat(RxSessionBeanResolver.find(request.getSession(), 1).getStashSize()).isZero();
     }
 
@@ -181,8 +182,9 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
         String result = action.saveReRxDrugIdToStash();
 
-        assertThat(result).isNull();
-        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        // AJAX callers get 409, not a redirect they would follow to a 200 page (#3908).
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull());
     }
 

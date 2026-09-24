@@ -79,7 +79,6 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -373,16 +372,18 @@ public final class RxWriteScript2Action extends ActionSupport {
         } else if (action.equals("removeFromReRxDrugIdList") && reRxDrugIdList.contains(drugId)) {
             reRxDrugIdList.remove(drugId);
             try {
-				for (Iterator<RxPrescriptionData.Prescription> iterator = bean.getStashList().iterator(); iterator.hasNext(); ) {
-					RxPrescriptionData.Prescription prescription = iterator.next();
-					if (prescription.getDrugReferenceId() == Integer.parseInt(drugId)) {
-						iterator.remove();
-						break;
-					}
-				}
-			} catch (NumberFormatException e) {
+                int sourceId = Integer.parseInt(drugId);
+                for (int i = 0; i < bean.getStashSize(); i++) {
+                    if (bean.getStashItem(i).getDrugReferenceId() == sourceId) {
+                        // Through removeStashItem, which keeps the cursor on the same card; an
+                        // iterator removal left it pointing one card too far (#3908).
+                        bean.removeStashItem(i);
+                        break;
+                    }
+                }
+            } catch (NumberFormatException e) {
                 logger.error("Prescription update failed ({})", e.getClass().getSimpleName());
-			}
+            }
         } else if (action.equals("clearReRxDrugIdList")) {
             bean.clearReRxDrugIdList();
         } else {
@@ -498,8 +499,8 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             // create Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo());
-            String ra = request.getParameter("randomId");
-            rx.setRandomId(Integer.parseInt(ra));
+            // The page names the card's key; it must be unused in this stash (#3908).
+            rx.setRandomId(RxStashIds.acceptOrNext(bean, request.getParameter("randomId"), RxStashIds.DEFAULT_BOUND));
             rx.setCustomNote(true);
             rx.setGenericName(null);
             rx.setBrandName(null);
@@ -627,12 +628,11 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             // create Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo());
-            String ra = request.getParameter("randomId");
-
             if (customDrugName != null && !customDrugName.isEmpty()) {
                 rx.setCustomName(customDrugName);
             }
-            rx.setRandomId(Integer.parseInt(ra));
+            // The page names the card's key; it must be unused in this stash (#3908).
+            rx.setRandomId(RxStashIds.acceptOrNext(bean, request.getParameter("randomId"), RxStashIds.DEFAULT_BOUND));
             rx.setGenericName(null);
             rx.setBrandName(null);
             rx.setDrugForm("");
@@ -771,13 +771,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             // create Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo());
 
-            String ra = request.getParameter("randomId");
-			int randomId = 0;
-			if (ra != null && !ra.isEmpty()) {
-				randomId = Integer.parseInt(ra);
-			}
-
-            rx.setRandomId(randomId);
+            // The page names the card's key; it must be unused in this stash (#3908).
+            rx.setRandomId(RxStashIds.acceptOrNext(bean, request.getParameter("randomId"), RxStashIds.DEFAULT_BOUND));
             String drugId = request.getParameter("drugId");
             String text = request.getParameter("text");
 
@@ -1887,7 +1882,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
     }
 

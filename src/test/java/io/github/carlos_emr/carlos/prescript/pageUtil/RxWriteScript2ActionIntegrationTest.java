@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.RxManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -203,6 +204,30 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(result).isNull();
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(bean.getReRxDrugIdList()).containsExactly(String.valueOf(drugId));
+    }
+
+    @Test
+    @DisplayName("should keep the cursor on the same card when a ReRx card before it is removed")
+    void shouldKeepCursorOnSameCard_whenReRxCardBeforeCursorRemoved() throws Exception {
+        // removeFromReRxDrugIdList removed the card with an iterator, bypassing removeStashItem's
+        // cursor adjustment, so the cursor then pointed one card too far (#3908).
+        RxSessionBean bean = stageReRxRequest(1001, "removeFromReRxDrugIdList", "3003");
+        bean.addReRxDrugIdList("3003");
+        RxPrescriptionData.Prescription reRxCard = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        reRxCard.setDrugReferenceId(3003);
+        RxPrescriptionData.Prescription second = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        RxPrescriptionData.Prescription edited = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        bean.getStashList().add(reRxCard);
+        bean.getStashList().add(second);
+        bean.getStashList().add(edited);
+        bean.setStashIndex(2);
+
+        executeActionMethod(action, "updateReRxDrug");
+
+        assertThat(bean.getStashList()).containsExactly(second, edited);
+        assertThat(bean.getStashIndex()).isEqualTo(1);
+        assertThat(bean.getCurrentStashItem()).isSameAs(edited);
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
     }
 
     @Test

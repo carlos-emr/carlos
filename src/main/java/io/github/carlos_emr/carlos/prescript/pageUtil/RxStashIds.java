@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+
 import java.security.SecureRandom;
 
 /**
@@ -58,4 +60,60 @@ public final class RxStashIds {
         }
         return RANDOM.nextInt(bound + 1);
     }
+
+    /**
+     * A new stash key that no card in {@code bean}'s stash already uses. A key identifies the card
+     * the prescriber closes, edits or saves, so two cards must never share one (#3908).
+     *
+     * @param bean  the patient's Rx bean whose stash the key must be unique in
+     * @param bound the largest key, must not be negative
+     * @return an unused key between 0 and {@code bound}, or, if the range is exhausted, one above
+     *         every key in use
+     */
+    public static long nextUnique(RxSessionBean bean, int bound) {
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            long key = next(bound);
+            if (!inUse(bean, key)) {
+                return key;
+            }
+        }
+        long highest = -1;
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            highest = Math.max(highest, bean.getStashItem(i).getRandomId());
+        }
+        return highest + 1;
+    }
+
+    /**
+     * The key a client proposed for a card it is about to render, when it is a well-formed
+     * non-negative {@code int} that no staged card uses; otherwise a fresh
+     * {@link #nextUnique unique} key. Kept for the pages that name the card's key before the
+     * server answers; the server's reply renders the card with the key returned here.
+     *
+     * @param bean      the patient's Rx bean
+     * @param clientKey the proposed key, may be {@code null} or malformed
+     * @param bound     the range for a fresh key
+     * @return a key no other staged card uses
+     */
+    public static long acceptOrNext(RxSessionBean bean, String clientKey, int bound) {
+        if (clientKey != null && clientKey.matches("\\d{1,9}")) {
+            long key = Long.parseLong(clientKey);
+            if (!inUse(bean, key)) {
+                return key;
+            }
+        }
+        return nextUnique(bean, bound);
+    }
+
+    private static boolean inUse(RxSessionBean bean, long key) {
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            RxPrescriptionData.Prescription item = bean.getStashItem(i);
+            if (item != null && item.getRandomId() == key) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final int MAX_ATTEMPTS = 1000;
 }

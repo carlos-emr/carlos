@@ -78,7 +78,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
         }
         
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "w", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         // A staged card is looked up by position in the named patient's stash, never the
@@ -134,7 +134,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
             throws IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "w", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         String randomId = request.getParameter("randomId");

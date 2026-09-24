@@ -1107,8 +1107,10 @@ function renderRxStage() {
                                                                 <a href="javascript:void(0);" class="external"><fmt:message key="SearchDrug.legend.external"/></a>
                                                             </div>
 
-                                                            <form action="${pageContext.request.contextPath}/rx/rePrescribe">
-                                                                <input type="hidden" property="drugList" />
+                                                            <%-- Re-prescribing stages drugs, so rx/rePrescribe is POST-only (#3908); the input needs a
+                                                                     name to be submitted at all. --%>
+                                                            <form action="${pageContext.request.contextPath}/rx/rePrescribe" method="post">
+                                                                <input type="hidden" name="drugList" />
                                                                 <input type="hidden" name="method">
                                                         </form> <br>
                                                         <form action="${pageContext.request.contextPath}/rx/deleteRx" method="post">

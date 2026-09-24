@@ -316,6 +316,160 @@ class RxPatientWriteAuthorizationUnitTest {
         logActionMock.verifyNoInteractions();
     }
 
+    static Stream<Arguments> postOnlyWrites() {
+        List<String> writes = List.of(
+                "rePrescribe.represcribe", "rePrescribe.represcribe2", "rePrescribe.saveReRxDrugIdToStash",
+                "rePrescribe.repcbAllLongTerm", "rePrescribe.represcribeMultiple",
+                "deleteRx.execute", "deleteRx.Delete2", "deleteRx.Discontinue", "deleteRx.clearStash",
+                "deleteRx.clearReRxDrugList",
+                "pharmacy.delete", "pharmacy.unlink", "pharmacy.setPreferred", "pharmacy.add", "pharmacy.save",
+                "pharmacy.pharmacyAction");
+        return writes.stream().flatMap(write -> Stream.of(Arguments.of("GET", write), Arguments.of("HEAD", write)));
+    }
+
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("postOnlyWrites")
+    @DisplayName("should refuse a staging, drug or pharmacy write that is not a POST before touching anything")
+    void shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost(String httpMethod, String write) throws Exception {
+        // CSRFGuard does not check GET: a link or image tag must not stage, archive, clear or relink.
+        request.setMethod(httpMethod);
+        request.setParameter("drugId", "5");
+        request.setParameter("drugIds", "5");
+        request.setParameter("deleteRxId", "prefix_77");
+        request.setParameter("demoNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("pharmacyId", "3");
+        MockHttpServletResponse response = (MockHttpServletResponse) ServletActionContext.getResponse();
+
+        String result = switch (write) {
+            case "rePrescribe.represcribe" -> {
+                RxRePrescribe2Action action = new RxRePrescribe2Action();
+                action.setDrugList("5");
+                yield action.represcribe();
+            }
+            case "rePrescribe.represcribe2" -> new RxRePrescribe2Action().represcribe2();
+            case "rePrescribe.saveReRxDrugIdToStash" -> new RxRePrescribe2Action().saveReRxDrugIdToStash();
+            case "rePrescribe.repcbAllLongTerm" -> new RxRePrescribe2Action().repcbAllLongTerm();
+            case "rePrescribe.represcribeMultiple" -> new RxRePrescribe2Action().represcribeMultiple();
+            case "deleteRx.execute" -> {
+                RxDeleteRx2Action action = new RxDeleteRx2Action();
+                action.setDrugList("77");
+                yield action.execute();
+            }
+            case "deleteRx.Delete2" -> new RxDeleteRx2Action().Delete2();
+            case "deleteRx.Discontinue" -> new RxDeleteRx2Action().Discontinue();
+            case "deleteRx.clearStash" -> new RxDeleteRx2Action().clearStash();
+            case "deleteRx.clearReRxDrugList" -> new RxDeleteRx2Action().clearReRxDrugList();
+            case "pharmacy.pharmacyAction" -> {
+                request.setParameter("pharmacyAction", "Delete");
+                yield new RxManagePharmacy2Action().execute();
+            }
+            default -> {
+                request.setParameter("method", write.substring("pharmacy.".length()));
+                yield new RxManagePharmacy2Action().execute();
+            }
+        };
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+        verifyNoInteractions(securityInfoManager);
+        for (Object dependency : dependencies.values()) {
+            verifyNoInteractions(dependency);
+        }
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"represcribe2", "saveReRxDrugIdToStash",
+            "repcbAllLongTerm", "represcribeMultiple"})
+    @DisplayName("should answer an AJAX staging call that names no open patient with 409, not a redirect")
+    void shouldReturnConflict_whenAjaxStagingNamesNoOpenPatient(String method) throws Exception {
+        // fetch/CarlosAjax follow a redirect to the 200 error page and would report success.
+        request.removeParameter("demographicNo");
+        request.setParameter("drugId", "5");
+        request.setParameter("demoNo", String.valueOf(DEMOGRAPHIC_NO));
+        MockHttpServletResponse response = (MockHttpServletResponse) ServletActionContext.getResponse();
+        RxRePrescribe2Action action = new RxRePrescribe2Action();
+
+        String result = switch (method) {
+            case "represcribe2" -> action.represcribe2();
+            case "saveReRxDrugIdToStash" -> action.saveReRxDrugIdToStash();
+            case "repcbAllLongTerm" -> action.repcbAllLongTerm();
+            default -> action.represcribeMultiple();
+        };
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @ParameterizedTest(name = "{0} denied")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"patient read", "record access"})
+    @DisplayName("should refuse to open allergies (and activate Rx) for a patient the caller may not read")
+    void shouldRefuseShowAllergy_whenPatientReadDenied(String denied) {
+        // Opening allergies activates the patient's Rx, which patient-less Rx pages fall back to (#3908).
+        int otherPatient = 2002;
+        request.setMethod("GET");
+        request.setParameter("demographicNo", String.valueOf(otherPatient));
+        request.getSession().setAttribute("user", PROVIDER_NO);
+        denyPatient(denied, otherPatient, "_allergy");
+
+        assertThatThrownBy(() -> new RxShowAllergy2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_allergy)");
+
+        assertThat(RxSessionBeanResolver.find(request.getSession(), otherPatient)).isNull();
+        for (Object dependency : dependencies.values()) {
+            verifyNoInteractions(dependency);
+        }
+    }
+
+    @ParameterizedTest(name = "{0} denied")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"patient read", "record access"})
+    @DisplayName("should refuse the allergy check for a patient the caller may not read")
+    void shouldRefuseAllergyData_whenPatientReadDenied(String denied) {
+        int otherPatient = 2002;
+        request.setMethod("GET");
+        request.setParameter("method", "allergyData");
+        request.setParameter("demographicNo", String.valueOf(otherPatient));
+        request.setParameter("atcCode", "J01CA04");
+        denyPatient(denied, otherPatient, "_allergy");
+
+        assertThatThrownBy(() -> new RxShowAllergy2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_allergy)");
+        for (Object dependency : dependencies.values()) {
+            verifyNoInteractions(dependency);
+        }
+    }
+
+    @ParameterizedTest(name = "{0} denied")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"patient read", "record access"})
+    @DisplayName("should authorise the active Rx patient a patient-less view falls back to")
+    void shouldRefusePatientlessGate_whenActivePatientDenied(String denied) {
+        request.setMethod("GET");
+        request.removeParameter("demographicNo");
+        denyPatient(denied, DEMOGRAPHIC_NO, "_rx");
+
+        assertThatThrownBy(() -> io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess
+                .require(securityInfoManager, loggedInInfo, request, "_rx", "r"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+    }
+
+    private void denyPatient(String denied, int patient, String object) {
+        if ("patient read".equals(denied)) {
+            when(securityInfoManager.hasPrivilege(any(), org.mockito.ArgumentMatchers.eq(object),
+                    org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq(patient))).thenReturn(false);
+        } else {
+            when(securityInfoManager.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.eq(patient)))
+                    .thenReturn(false);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private <T> T dependency(Class<T> type) {
         return (T) dependencies.computeIfAbsent(type, Mockito::mock);

@@ -27,8 +27,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * module, not that they may see the patient the URL names. When the request names a patient, the
  * caller must also hold the same privilege for that patient (patient-level
  * {@code _object$demographicNo} restrictions) and be allowed to open that patient's record. A
- * request that names no patient is left to the page, which falls back to the Rx patient already
- * opened (and authorised) in this session or refuses to render.</p>
+ * request that names no patient falls back, in the page, to the session's active Rx patient; that
+ * patient is authorised the same way, and a session with no active patient is left to the page,
+ * which refuses to render.</p>
  *
  * <p>It is also the one patient-level check for every Rx write (stash edits, saves, stamps,
  * re-prescribing, deletes, allergies, pharmacies, encounter text). Those actions check the
@@ -66,6 +67,14 @@ public final class RxRequestedPatientAccess {
         }
         if (demographicNo > 0) {
             requirePatient(securityInfoManager, loggedInInfo, demographicNo, objectName, privilege);
+            return;
+        }
+        // No patient named: the page falls back to the session's active Rx patient. Authorise
+        // that patient too, so a patient-less URL cannot read a chart the caller may not open
+        // (for instance after the caller's access to it changed) (#3908).
+        RxSessionBean active = RxSessionBeanResolver.resolve(request);
+        if (active != null && active.getDemographicNo() > 0) {
+            requirePatient(securityInfoManager, loggedInInfo, active.getDemographicNo(), objectName, privilege);
         }
     }
 

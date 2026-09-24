@@ -173,7 +173,7 @@ class RxSearchPatient2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> action.execute())
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_demographic");
     }
 }

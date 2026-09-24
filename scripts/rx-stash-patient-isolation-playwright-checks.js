@@ -37,6 +37,8 @@
  *   4. The Rx Print patient chooser renders its search form for a session that has not opened
  *      any patient's Rx yet (it runs first, before this check opens one). It resolved a per-patient
  *      Rx bean and sent such a session to error.html before the form.
+ *   5. Re-prescribing a saved drug from the static-script page stages it. The page read its CSRF
+ *      token while <head> parsed, before the token existed, so the POST was refused.
  *
  * The check owns two synthetic patients and every drug row it saves (removed afterwards). It
  * stages custom drugs through the Custom Drug button, so it needs no DrugRef lookup.
@@ -158,6 +160,28 @@ async function workflow(session) {
     await rx.close();
     h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${source}`) === '0',
       'a ReRx that was never saved archived its source prescription');
+  });
+
+  await session.step('re-prescribing from the static-script page stages the drug', async () => {
+    const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-B`)} AND archived=0`);
+    h.assert(/^\d+$/.test(source), 'the saved drug is not available to re-prescribe');
+    const page = await session.context.newPage();
+    await h.gotoApp(page, session.config.baseUrl, `/rx/ViewStaticScript2?demographicNo=${patient}`
+      + `&cn=${encodeURIComponent(`${marker}-B`)}`);
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await h.assertNotErrorPage(page, 'static-script page');
+    const button = page.locator(`input[value="Represcribe"][onclick*="'${source}'"]`);
+    await button.waitFor({ state: 'visible', timeout: 20000 });
+    // A refused stage raises an alert (failing the strict page) instead of opening the search.
+    await Promise.all([
+      page.waitForURL(/\/rx\/searchDrug/, { timeout: 30000 }),
+      button.click(),
+    ]);
+    await page.close();
+    const rx = await openRx(session, patient);
+    await rx.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible', timeout: 30000 });
+    await rx.close();
   });
 }
 

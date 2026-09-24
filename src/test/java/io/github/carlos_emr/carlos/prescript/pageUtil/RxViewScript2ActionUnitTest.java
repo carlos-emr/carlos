@@ -193,7 +193,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         liveBean.getStashList().add(savedItem(5, "789"));
 
         assertThatThrownBy(() -> newAction().execute())
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_rx)");
         verifyNoInteractions(stampService, prescriptionDao);
     }

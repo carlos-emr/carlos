@@ -78,6 +78,8 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
+        // The pharmacy writes are POST-only (#3908); the read methods accept any verb.
+        mockRequest.setMethod("POST");
         mockResponse = new MockHttpServletResponse();
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);

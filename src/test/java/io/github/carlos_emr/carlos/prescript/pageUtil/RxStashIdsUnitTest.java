@@ -67,4 +67,53 @@ class RxStashIdsUnitTest {
     void shouldRejectBound_whenNegative() {
         assertThatThrownBy(() -> RxStashIds.next(-1)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    private static RxSessionBean beanWithKeys(long... keys) {
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(1);
+        for (long key : keys) {
+            io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription rx =
+                    new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription(0, "999998", 1);
+            rx.setRandomId(key);
+            bean.getStashList().add(rx);
+        }
+        return bean;
+    }
+
+    @Test
+    @DisplayName("should never return a key a staged card already uses")
+    void shouldAvoidKeysInUse_whenRangeIsNearlyFull() {
+        // Bound 3 with keys 0, 1 and 3 in use leaves only 2.
+        RxSessionBean bean = beanWithKeys(0, 1, 3);
+        for (int i = 0; i < 200; i++) {
+            assertThat(RxStashIds.nextUnique(bean, 3)).isEqualTo(2L);
+        }
+    }
+
+    @Test
+    @DisplayName("should go above every key in use when the range is exhausted")
+    void shouldExceedHighestKey_whenRangeIsFull() {
+        assertThat(RxStashIds.nextUnique(beanWithKeys(0, 1), 1)).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("should keep a well-formed unused client key")
+    void shouldAcceptClientKey_whenUnused() {
+        assertThat(RxStashIds.acceptOrNext(beanWithKeys(5), "42", 10)).isEqualTo(42L);
+    }
+
+    @ParameterizedTest(name = "\"{0}\"")
+    @ValueSource(strings = {"5", "", "-1", "abc", "12345678901"})
+    @DisplayName("should replace a client key that is in use or malformed")
+    void shouldReplaceClientKey_whenInUseOrMalformed(String clientKey) {
+        RxSessionBean bean = beanWithKeys(5);
+        long key = RxStashIds.acceptOrNext(bean, clientKey, 10);
+        assertThat(key).isBetween(0L, 10L).isNotEqualTo(5L);
+    }
+
+    @Test
+    @DisplayName("should replace a missing client key")
+    void shouldReplaceClientKey_whenMissing() {
+        assertThat(RxStashIds.acceptOrNext(beanWithKeys(5), null, 10)).isBetween(0L, 10L).isNotEqualTo(5L);
+    }
 }

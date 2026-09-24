@@ -102,7 +102,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
     public String reorder() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
         String demoNoParam = request.getParameter("demographicNo");
@@ -149,7 +149,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
         String method = request.getParameter("method");
@@ -181,6 +181,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        // Opening allergies activates the patient's Rx session, which later patient-less Rx pages
+        // fall back to: authorise this patient (patient-level _allergy read and record access)
+        // before anything is activated, not only the global check above (#3908).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNo, "_allergy", "r");
         // Setup bean
         // Per-patient state (#3875). The old code compared providerNo Strings with != and so
         // replaced the bean (and wiped the staged drafts) every time allergies were opened.
@@ -210,6 +214,13 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * @param loggedInInfo LoggedInInfo object containing user session details and security information.
      */
     private void getAllergyData(LoggedInInfo loggedInInfo) throws IOException {
+        // The check reads the named patient's allergies: authorise that patient before anything is
+        // read, outside the catch-all below so a refusal is a 403 and not a "check failed" (#3908).
+        String requestedPatient = request.getParameter("demographicNo");
+        if (requestedPatient != null && requestedPatient.matches("[1-9]\\d{0,8}")) {
+            RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                    Integer.parseInt(requestedPatient), "_allergy", "r");
+        }
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode result = mapper.createObjectNode();
         result.put("id", request.getParameter("id"));

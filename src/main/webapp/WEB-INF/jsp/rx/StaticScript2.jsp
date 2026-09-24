@@ -140,8 +140,24 @@
 
         <fmt:message key="StaticScript.js.reRxRefused" var="msg_reRxRefused"/>
         <script language="javascript">
-            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            var csrfToken = csrfEl ? csrfEl.value : '';
+            /**
+             * The CSRF token, read when a request is sent. Reading it while <head> parses (as this
+             * page used to) always got '' because the token input is only filled in after the body
+             * renders, so every re-prescribe POST was refused (#3908). csrf-token.jspf in the body
+             * fetches the token; wait for it when the input is still empty.
+             */
+            async function staticScriptCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                if ((!el || !el.value) && window.csrfTokenReady) {
+                    try {
+                        await window.csrfTokenReady;
+                    } catch (e) {
+                        // Fall through: the POST is sent without a token and refused visibly.
+                    }
+                    el = document.querySelector('input[name="CSRF-TOKEN"]');
+                }
+                return el ? el.value : '';
+            }
             // Every Rx request from this page names its patient; staging refuses a request that
             // does not (per-patient Rx state, #3875).
             var staticScriptReRxRefused = '<carlos:encode value="${msg_reRxRefused}" context="javaScriptBlock"/>';
@@ -155,11 +171,13 @@
                     oscarLog(url);
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                        credentials: 'same-origin',
-                        body: data
+                    staticScriptCsrfToken().then(function (csrfToken) {
+                        return fetch(url, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                            credentials: 'same-origin',
+                            body: data
+                        });
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
@@ -179,6 +197,7 @@
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
                 var response = null;
                 try {
+                    var csrfToken = await staticScriptCsrfToken();
                     response = await fetch(url, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -190,7 +209,8 @@
                 }
                 // A refused stage (403 not this patient's drug, 409 no open Rx for the patient, or a
                 // CSRF/HTML error page) must not look like success by opening the drug search.
-                if (!response || !response.ok) {
+                // A followed redirect (to the login or error page) is not a staged drug either.
+                if (!response || !response.ok || response.redirected) {
                     alert(staticScriptReRxRefused + ' (HTTP ' + (response ? response.status : '?') + ')');
                     return;
                 }
@@ -203,6 +223,8 @@
     </head>
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <%-- The page may have no POST form (local drugs only), so CSRFGuard would inject no token. --%>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111"
            width="100%" id="AutoNumber1" height="100%">
         <%@ include file="TopLinks.jsp"%><!-- Row One included here-->

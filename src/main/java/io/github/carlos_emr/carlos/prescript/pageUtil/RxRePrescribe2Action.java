@@ -164,8 +164,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         RxSessionBean sessionBeanRX = RxSessionBeanResolver.resolve(request);
         if (sessionBeanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         RxSessionBean beanRX = new RxSessionBean();
@@ -224,6 +226,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String represcribe() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
@@ -435,6 +441,10 @@ public String saveDigitalSignature() throws IOException {
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String saveReRxDrugIdToStash() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // Staging a copy of a saved drug is an Rx write; this entry point had no privilege check.
@@ -443,8 +453,10 @@ public String saveDigitalSignature() throws IOException {
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         StringBuilder auditStr = new StringBuilder();
 
@@ -466,7 +478,7 @@ public String saveDigitalSignature() throws IOException {
             recordReRxSource(bean, drugId);
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
-            Long rand = RxStashIds.next(RxStashIds.DEFAULT_BOUND);
+            Long rand = RxStashIds.nextUnique(bean, RxStashIds.DEFAULT_BOUND);
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
@@ -515,6 +527,10 @@ public String saveDigitalSignature() throws IOException {
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String represcribe2() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         MiscUtils.getLogger().debug("================in represcribe2 of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
@@ -522,8 +538,10 @@ public String saveDigitalSignature() throws IOException {
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
         RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         StringBuilder auditStr = new StringBuilder();
@@ -543,12 +561,9 @@ public String saveDigitalSignature() throws IOException {
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
 
-            Long rand;
-            try {
-              	 rand = Long.parseLong(request.getParameter("rand"));
-	    }  catch (NumberFormatException e) {
-		rand = RxStashIds.next(10_001);
-            }
+            // The page names this card's key (rand = its UI ref id) before the reply renders it; keep
+            // it only when it is well formed and unused in this stash, else draw a unique one (#3908).
+            long rand = RxStashIds.acceptOrNext(beanRX, request.getParameter("rand"), 10_001);
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
@@ -600,6 +615,10 @@ public String saveDigitalSignature() throws IOException {
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String repcbAllLongTerm() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
         CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
@@ -607,8 +626,10 @@ public String saveDigitalSignature() throws IOException {
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
         RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         StringBuilder auditStr = new StringBuilder();
         // String idList = request.getParameter("drugIdList");
@@ -647,7 +668,7 @@ public String saveDigitalSignature() throws IOException {
 
         List<RxPrescriptionData.Prescription> listLongTerm = new ArrayList<Prescription>();
         for (int i = 0; i < listLongTermMed.size(); i++) {
-            Long rand = RxStashIds.next(RxStashIds.DEFAULT_BOUND);
+            Long rand = RxStashIds.nextUnique(beanRX, RxStashIds.DEFAULT_BOUND);
 
             // loop this
             int drugId = listLongTermMed.get(i);
@@ -705,14 +726,20 @@ public String saveDigitalSignature() throws IOException {
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String represcribeMultiple() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
         // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         // Accept drug IDs passed directly in request to avoid race condition with
         // the async session-update call from the checkbox handler.
@@ -751,7 +778,7 @@ public String saveDigitalSignature() throws IOException {
         // archives a re-prescribed source only when its id is in that list (archiveReRxDrugs).
         int staged = 0;
         for (String drugId : reRxDrugList) {
-            Long rand = RxStashIds.next(RxStashIds.DEFAULT_BOUND);
+            Long rand = RxStashIds.nextUnique(bean, RxStashIds.DEFAULT_BOUND);
             RxPrescriptionData rxData = new RxPrescriptionData();
             RxPrescriptionData.Prescription oldRx;
             try {
@@ -802,17 +829,13 @@ public String saveDigitalSignature() throws IOException {
 
 
     /**
-     * Whether a saved drug belongs to the Rx window's patient. The drug ids the staging calls take
-     * are request input: without this a drug id from another chart was copied, with its dosing and
-     * instructions, into this patient's stash and could be saved for them (#3875).
+     * Records an ownership-checked source drug on the bean's ReRx list, once. {@code saveDrug()}
+     * archives a re-prescribed source only when its id is listed and its replacement was saved, so
+     * every staging path records its source here; a repeated id is not added twice, and ids staged
+     * by earlier requests are kept (#3908).
      *
-     * @param source the saved drug being copied, or {@code null} when it was not found
-     * @param bean   the Rx window's bean
-     * @return {@code true} only when both are present and belong to the same patient
-     */
-    /**
-     * Adds an ownership-checked source drug to the bean's ReRx list, once. saveDrug() archives a
-     * re-prescribed source only when its id is listed and its replacement was saved.
+     * @param bean         the Rx window's bean, whose patient owns the source drug
+     * @param sourceDrugId the saved drug being re-prescribed
      */
     static void recordReRxSource(RxSessionBean bean, int sourceDrugId) {
         String id = String.valueOf(sourceDrugId);
@@ -821,6 +844,31 @@ public String saveDigitalSignature() throws IOException {
         }
     }
 
+    /**
+     * Answers a non-POST request with 405 and {@code Allow: POST}. CSRFGuard does not check GET, so
+     * a link or image tag could otherwise stage drugs into a patient's stash.
+     *
+     * @return {@code true} when the request was refused and the caller must return {@code NONE}
+     * @throws IOException when the error cannot be sent
+     */
+    private boolean refuseUnlessPost() throws IOException {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return true;
+    }
+
+    /**
+     * Whether a saved drug belongs to the Rx window's patient. The drug ids the staging calls take
+     * are request input: without this a drug id from another chart was copied, with its dosing and
+     * instructions, into this patient's stash and could be saved for them (#3875).
+     *
+     * @param source the saved drug being copied, or {@code null} when it was not found
+     * @param bean   the Rx window's bean
+     * @return {@code true} only when both are present and belong to the same patient
+     */
     static boolean isOwnedByBeanPatient(RxPrescriptionData.Prescription source, RxSessionBean bean) {
         return source != null && bean != null && bean.getDemographicNo() > 0
                 && source.getDemographicNo() == bean.getDemographicNo();
@@ -828,7 +876,7 @@ public String saveDigitalSignature() throws IOException {
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
     }
 
