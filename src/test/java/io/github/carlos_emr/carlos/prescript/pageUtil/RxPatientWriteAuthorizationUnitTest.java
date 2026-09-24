@@ -284,6 +284,38 @@ class RxPatientWriteAuthorizationUnitTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} denied")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"patient read", "record access"})
+    @DisplayName("should refuse to open Rx for a patient the caller may not read, without opening it")
+    void shouldRefuseChoosePatient_whenPatientReadDenied(String denied) {
+        // choosePatient renders the patient's medications; _demographic read alone must not open
+        // another patient's Rx (#3908).
+        int otherPatient = 2002;
+        request.setMethod("GET");
+        request.setParameter("demographicNo", String.valueOf(otherPatient));
+        request.getSession().setAttribute("user", PROVIDER_NO);
+        if ("patient read".equals(denied)) {
+            when(securityInfoManager.hasPrivilege(any(), anyString(), org.mockito.ArgumentMatchers.eq("r"),
+                    org.mockito.ArgumentMatchers.eq(otherPatient))).thenReturn(false);
+        } else {
+            when(securityInfoManager.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.eq(otherPatient)))
+                    .thenReturn(false);
+        }
+
+        assertThatThrownBy(() -> new RxChoosePatient2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+
+        assertThat(RxSessionBeanResolver.find(request.getSession(), otherPatient)).isNull();
+        assertThat(RxSessionBeanResolver.resolve(new MockHttpServletRequest() {{
+            setSession(request.getSession());
+        }})).isSameAs(bean);
+        for (Object dependency : dependencies.values()) {
+            verifyNoInteractions(dependency);
+        }
+        logActionMock.verifyNoInteractions();
+    }
+
     @SuppressWarnings("unchecked")
     private <T> T dependency(Class<T> type) {
         return (T) dependencies.computeIfAbsent(type, Mockito::mock);

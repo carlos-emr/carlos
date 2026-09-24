@@ -57,6 +57,16 @@ public final class RxChooseDrug2Action extends ActionSupport {
 
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages the chosen drug as a new card.
+     *
+     * @return the staging result, or {@code null} after a redirect when the request names no open patient
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String execute() throws IOException, ServletException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -124,9 +134,7 @@ public final class RxChooseDrug2Action extends ActionSupport {
                     }
                 }
 
-                MiscUtils.getLogger().debug("In here --=-=--=-_--==" + compString + "\n\n\n\n");
                 if (compString != null) {
-                    MiscUtils.getLogger().debug("In here --=-=--=-_--==" + compString.toString());
                     rx.setGenericName(compString.toString());
                 } else {
                     rx.setGenericName(genName);

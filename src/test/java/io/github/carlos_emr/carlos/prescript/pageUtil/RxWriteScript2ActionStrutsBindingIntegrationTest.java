@@ -62,6 +62,17 @@ import static org.mockito.Mockito.mock;
 @Tag("prescript")
 class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase {
 
+    @org.junit.jupiter.api.BeforeEach
+    void grantPatientAccess() {
+        // Opening Rx also authorises the named patient (#3908); the base class grants only the
+        // global checks.
+        org.mockito.Mockito.when(mockSecurityInfoManager.hasPrivilege(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        org.mockito.Mockito.when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+    }
+
     @Test
     @DisplayName("should reach the action when demographicNo arrives in both the URL and the form body")
     void shouldReachAction_whenDemographicNoIsRepeated() throws Exception {

@@ -36,6 +36,13 @@ public final class ViewStaticScript2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Admits the static-script page with global {@code _rx} read and the patient the request names
+     * ({@link RxRequestedPatientAccess#require}); the page itself refuses a request that names no patient.
+     *
+     * @return {@code success} to render StaticScript2.jsp
+     * @throws SecurityException when the caller may not view the named patient
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

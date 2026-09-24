@@ -395,6 +395,16 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Renames a staged custom drug card.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String saveCustomName() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
         if (refuseUnlessPost()) {
@@ -458,6 +468,16 @@ public final class RxWriteScript2Action extends ActionSupport {
         return rx;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Stages a free-text note card.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String newCustomNote() throws IOException {
         logger.debug("=============Start newCustomNote RxWriteScript2Action.java===============");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -522,6 +542,11 @@ public final class RxWriteScript2Action extends ActionSupport {
         return "newRx";
     }
 
+    /**
+     * Reads earlier instructions for a staged card ({@code _rx} read); does not change any state.
+     *
+     * @return {@code NONE}; the result is written directly
+     */
     public String listPreviousInstructions() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_READ);
 
@@ -567,6 +592,16 @@ public final class RxWriteScript2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Stages a custom drug card.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String newCustomDrug() throws IOException {
         logger.debug("=============Start newCustomDrug RxWriteScript2Action.java===============");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -638,6 +673,16 @@ public final class RxWriteScript2Action extends ActionSupport {
         return "newRx";
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Turns a staged catalogue drug into a custom one.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String normalDrugSetCustom() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
         if (refuseUnlessPost()) {
@@ -690,6 +735,16 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Stages a new card for a catalogue drug.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String createNewRx() throws IOException {
         logger.debug("=============Start createNewRx RxWriteScript2Action.java===============");
@@ -915,6 +970,16 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Rewrites a field of a staged card.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String updateDrug() throws IOException {
@@ -1058,6 +1123,12 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     }
 
+    /**
+     * Renders the staged cards of the resolved patient (read-only); nothing is staged when the patient has
+     * no open Rx.
+     *
+     * @return the staged-card view, or {@code null} when nothing is staged
+     */
     public String iterateStash() {
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         // No Rx session for this request's patient means nothing is staged.
@@ -1075,6 +1146,16 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Sets the special instructions of a staged card; 409 when the request names no open patient.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateSpecialInstruction() throws Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
@@ -1104,6 +1185,16 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Sets a property of a staged card; 409 when the request names no open patient.
+     *
+     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateProperty() throws Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
@@ -1154,6 +1245,15 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Saves the staged prescription. POST-only; the request must name the window's patient, whose bean is
+     * saved (409 otherwise), and the caller needs {@code _rx} write globally and for that patient with record
+     * access, checked before anything is pruned or saved. A save that names no staged card is refused (400)
+     * without touching the stash; re-prescribed sources are archived only when their replacement is saved.
+     *
+     * @return {@code NONE} after an error response, otherwise {@code refresh}
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateSaveAllDrugs() throws IOException, ServletException, Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
@@ -1503,6 +1603,17 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise). Toggles a saved drug's long-term flag by saving a copy and
+     * archiving the original; the drug must belong to the patient.
+     *
+     * @return {@code NONE}; the JSON result is written directly
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String updateLongTermStatus() throws IOException, Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
@@ -1548,6 +1659,15 @@ public final class RxWriteScript2Action extends ActionSupport {
         return NONE;
     }
   
+    /**
+     * Persists the staged cards of the request's patient and archives their re-prescribed sources. Skips
+     * (without writing) a request that does not name the bean's patient or has nothing staged, and requires
+     * {@code _rx} write for that patient with record access.
+     *
+     * @param request the current request
+     * @throws SecurityException when the caller may not write Rx for the patient
+     * @throws Exception when persisting fails
+     */
     public void saveDrug(final HttpServletRequest request) throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
@@ -1705,6 +1825,11 @@ public final class RxWriteScript2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Autocomplete for stored special instructions ({@code _rx} read); reads only.
+     *
+     * @return {@code NONE}; the JSON is written directly
+     */
     public String searchSpecialInstructions() throws IOException {
 		String str = request.getParameter("query");
 		Set<String> set = this.rxManager.getStoredInstructionsMatching(str);
@@ -1722,6 +1847,11 @@ public final class RxWriteScript2Action extends ActionSupport {
         return NONE;
 	}
 
+    /**
+     * Reports how many cards the resolved patient has staged (0 without an open Rx); reads only.
+     *
+     * @return {@code NONE}; the JSON is written directly
+     */
     public String checkNoStashItem() throws IOException, Exception {
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         // No Rx session for this request's patient: report an empty stash rather than a 500.

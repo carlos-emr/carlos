@@ -64,6 +64,14 @@ public final class RxStash2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Legacy stash dispatch. {@code action=edit} moves the cursor (read, falls back to the active patient);
+     * {@code action=delete} removes a staged card and is POST-only, for the explicitly named patient with
+     * {@code _rx} write for that patient.
+     *
+     * @return the staging view, {@code NONE} after an error response, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -166,6 +174,18 @@ public final class RxStash2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only: removes exactly one staged card by its stash key ({@code randomId}) and, for a
+     * re-prescribed card, drops its source from the ReRx list unless another staged card still uses it.
+     * A malformed key is a 400.
+     *
+     * @return {@code NONE}, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String deletePrescribe()
             throws IOException {
         MiscUtils.getLogger().debug("===========start in deletePrescribe ===========");

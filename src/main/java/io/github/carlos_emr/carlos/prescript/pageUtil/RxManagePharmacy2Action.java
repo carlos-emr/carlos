@@ -154,6 +154,13 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    /**
+     * Unlinks a pharmacy from the patient the request names. Authorises that patient ({@code _rx} write and
+     * record access) without requiring the patient's Rx bean, so an open selector keeps working after the
+     * bean was evicted.
+     *
+     * @return {@code NONE}; the JSON result is written directly
+     */
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String unlink() {
 

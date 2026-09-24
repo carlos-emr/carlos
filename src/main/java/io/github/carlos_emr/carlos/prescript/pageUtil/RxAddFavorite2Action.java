@@ -59,6 +59,17 @@ public final class RxAddFavorite2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * A saved drug ({@code drugId}) is favourited without touching any stash; a staged card is chosen by
+     * its position in the named patient's stash, and a malformed or out-of-range position is a 400.
+     *
+     * @return {@code success}, {@code NONE} after an error response, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String execute()
             throws IOException, ServletException {
 
@@ -108,6 +119,17 @@ public final class RxAddFavorite2Action extends ActionSupport {
         return "success";
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * The AJAX variant of {@link #execute()}: a staged card is chosen by its stash key ({@code randomId});
+     * a stale or malformed key is a 400.
+     *
+     * @return {@code NONE}, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String addFav2()
             throws IOException {
 

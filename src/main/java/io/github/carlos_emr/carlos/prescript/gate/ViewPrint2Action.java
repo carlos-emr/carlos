@@ -33,6 +33,13 @@ public final class ViewPrint2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Admits the Rx patient chooser (Print.jsp) with global {@code _rx} read. The chooser needs no open Rx
+     * patient; when the request does name one, that patient is authorised as in the other Rx view gates.
+     *
+     * @return {@code success} to render the chooser
+     * @throws SecurityException when the caller may not use Rx or the named patient
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

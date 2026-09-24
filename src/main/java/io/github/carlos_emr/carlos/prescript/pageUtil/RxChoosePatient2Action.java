@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -65,6 +67,15 @@ public final class RxChoosePatient2Action extends ActionSupport {
         MiscUtils.getLogger().debug(s + "=" + s2);
     }
 
+    /**
+     * Opens Rx for the patient the request names: makes that patient's session bean the active one
+     * (creating it if needed) and keeps its unsaved drafts. Needs global {@code _demographic} read and
+     * {@code _rx} read, patient-level access to the named patient, and a well-formed {@code demographicNo}.
+     *
+     * @return the staging result, or {@code NONE} after a 400 for a missing, malformed or conflicting
+     *         patient
+     * @throws SecurityException when the caller may not open the patient's Rx
+     */
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -98,6 +109,13 @@ public final class RxChoosePatient2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        // Opening Rx renders the patient's medications, allergies and pharmacies: the caller needs
+        // _rx read, globally and for this patient with access to the record (#3908). _demographic
+        // read above only admits the patient search.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNoInt, "_rx", "r");
         this.demographicNo = String.valueOf(demographicNoInt);
         // Per-patient state (#3875): reuse this patient's bean so reopening Rx keeps staged drafts,
         // and never replace another patient's bean that a second window is still using.

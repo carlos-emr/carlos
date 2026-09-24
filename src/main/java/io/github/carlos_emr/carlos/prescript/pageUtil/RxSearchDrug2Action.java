@@ -70,6 +70,12 @@ public final class RxSearchDrug2Action extends ActionSupport {
         this.drugref = new RxDrugRef();
     }
 
+    /**
+     * Drug search for the Rx page; reads the patient through the resolver rather than binding
+     * {@code demographicNo} (needs {@code _rx} read). Does not change any patient's Rx state.
+     *
+     * @return the search result view
+     */
     @Override
     public String execute()
             throws IOException, ServletException {

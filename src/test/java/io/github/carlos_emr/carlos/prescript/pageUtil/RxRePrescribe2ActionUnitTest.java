@@ -189,10 +189,11 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should keep the staged source drug ids so the save archives the source medication")
     void shouldArchiveSourceDrug_whenReprescribedFromDrugIdsParameter() throws Exception {
-        // drugIds path of represcribeMultiple: the request list is the source of truth. The
-        // session ReRx list must end up holding exactly the staged, owned source ids, because
-        // saveDrug() archives a re-prescribed source only when its id is in that list. Clearing it
-        // (the previous behaviour) saved the replacement and left the source active.
+        // drugIds path of represcribeMultiple: the request list says what to stage. Every staged,
+        // owned source id must end up on the session ReRx list, because saveDrug() archives a
+        // re-prescribed source only when its id is in that list. Clearing it (older behaviour)
+        // saved the replacement and left the source active. Ids already listed are kept (#3908):
+        // archiveReRxDrugs archives only sources whose replacement is actually saved.
         request.setParameter("demographicNo", "1");
         request.setParameter("drugIds", "5,6");
         RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
@@ -223,7 +224,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
         assertThat(bean.getStashSize()).isEqualTo(1);
         assertThat(bean.getStashItem(0).getDrugReferenceId()).isEqualTo(5);
-        assertThat(bean.getReRxDrugIdList()).containsExactly("5");
+        assertThat(bean.getReRxDrugIdList()).containsExactly("99", "5");
 
         // The save then archives that source, as saveDrug() does with the saved replacements.
         io.github.carlos_emr.carlos.managers.RxManager rxManager =
@@ -282,6 +283,75 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(bean.getStashSize()).isZero();
         assertThat(bean.getReRxDrugIdList()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should archive the sources of two re-prescribe batches staged one after the other")
+    void shouldArchiveBothSources_whenReprescribedInTwoBatches() throws Exception {
+        // Batch 1 stages source 5; batch 2 stages source 7 while 5's card is still staged. The
+        // second batch replaced the ReRx list with its own ids, so saving both cards archived 7
+        // but left 5 active (#3908).
+        request.setParameter("demographicNo", "1");
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        RxPrescriptionData.Prescription first = new RxPrescriptionData.Prescription(5, "999998", 1);
+        first.setBrandName("FIRST DRUG");
+        RxPrescriptionData.Prescription second = new RxPrescriptionData.Prescription(7, "999998", 1);
+        second.setBrandName("SECOND DRUG");
+        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = org.mockito.Mockito.mockConstruction(
+                RxPrescriptionData.class, (mock, context) -> {
+                    when(mock.getPrescription(5)).thenReturn(first);
+                    when(mock.getPrescription(7)).thenReturn(second);
+                    when(mock.getCurrentATCCodesByPatient(org.mockito.ArgumentMatchers.anyInt()))
+                            .thenReturn(new java.util.Vector<>());
+                    when(mock.newPrescription(anyString(), org.mockito.ArgumentMatchers.anyInt(),
+                            any(RxPrescriptionData.Prescription.class))).thenAnswer(invocation -> {
+                        RxPrescriptionData.Prescription from = invocation.getArgument(2);
+                        RxPrescriptionData.Prescription staged =
+                                new RxPrescriptionData.Prescription(0, invocation.getArgument(0), invocation.getArgument(1));
+                        staged.setBrandName(from.getBrandName());
+                        staged.setDrugReferenceId(from.getDrugId());
+                        return staged;
+                    });
+                })) {
+            request.setParameter("drugIds", "5");
+            assertThat(action.represcribeMultiple()).isEqualTo("represcribe");
+            request.setParameter("drugIds", "7");
+            assertThat(action.represcribeMultiple()).isEqualTo("represcribe");
+        }
+
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("5", "7");
+
+        // Saving both cards archives both sources.
+        io.github.carlos_emr.carlos.managers.RxManager rxManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxManager.class);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxManager.class, rxManager);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.DemographicManager.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+        when(rxManager.archiveDrug(any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt(),
+                any())).thenReturn(true);
+        new RxWriteScript2Action(org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class))
+                .archiveReRxDrugs(mockLoggedInInfo, bean, java.util.Set.of(5, 7), "127.0.0.1", "audit");
+
+        verify(rxManager).archiveDrug(mockLoggedInInfo, 5, 1, io.github.carlos_emr.carlos.commn.model.Drug.REPRESCRIBED);
+        verify(rxManager).archiveDrug(mockLoggedInInfo, 7, 1, io.github.carlos_emr.carlos.commn.model.Drug.REPRESCRIBED);
+    }
+
+    @Test
+    @DisplayName("should record a re-staged source once")
+    void shouldRecordSourceOnce_whenSameSourceStagedAgain() throws Exception {
+        request.setParameter("demographicNo", "1");
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        RxPrescriptionData.Prescription source = new RxPrescriptionData.Prescription(5, "999998", 1);
+        source.setBrandName("SOURCE DRUG");
+        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = stagingData(source)) {
+            request.setParameter("drugIds", "5");
+            action.represcribeMultiple();
+            action.represcribeMultiple();
+        }
+
+        assertThat(bean.getReRxDrugIdList()).containsExactly("5");
     }
 
     private static org.mockito.MockedConstruction<RxPrescriptionData> stagingData(RxPrescriptionData.Prescription source) {

@@ -62,7 +62,6 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class RxRePrescribe2Action extends ActionSupport {
@@ -76,6 +75,13 @@ public final class RxRePrescribe2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Dispatches on {@code method}: reprints read the named patient's Rx; every re-prescribe method stages
+     * copies into the explicitly named patient's stash and needs {@code _rx} write for that patient;
+     * {@code saveDigitalSignature} is POST-only.
+     *
+     * @return the dispatched method's result
+     */
     public String execute() throws IOException {
         String method = request.getParameter("method");
         if ("reprint2".equals(method)) {
@@ -94,6 +100,11 @@ public final class RxRePrescribe2Action extends ActionSupport {
         return reprint();
     }
 
+    /**
+     * Loads a saved script for reprinting, for the patient the request resolves to ({@code _rx} read).
+     *
+     * @return the reprint result, or {@code null} after a redirect
+     */
     public String reprint() throws IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -140,6 +151,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
         return "reprint";
     }
 
+    /**
+     * Loads a saved script of the resolved patient into the reprint bean ({@code tmpBeanRX}) and flags
+     * the session for reprint; the script is looked up for that patient only ({@code _rx} read).
+     *
+     * @return {@code null}; ViewScript2 renders the reprint
+     */
     public String reprint2() throws IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -192,6 +209,20 @@ public final class RxRePrescribe2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Legacy form path: stages copies of the drugs in {@code drugList}.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return {@code represcribe}, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String represcribe() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
@@ -388,6 +419,21 @@ public String saveDigitalSignature() throws IOException {
     return NONE;
 }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages a copy of one saved drug ({@code drugId}) in the same request that records it for ReRx
+     * archival.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return {@code null} (AJAX) or after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String saveReRxDrugIdToStash() throws IOException {
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -454,6 +500,20 @@ public String saveDigitalSignature() throws IOException {
         return null;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages a copy of one saved drug ({@code drugId}).
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return the staged-card result, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String represcribe2() throws IOException {
         MiscUtils.getLogger().debug("================in represcribe2 of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -524,6 +584,20 @@ public String saveDigitalSignature() throws IOException {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages copies of all of the patient's long-term medications.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return the staged-card result, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String repcbAllLongTerm() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -615,8 +689,22 @@ public String saveDigitalSignature() throws IOException {
         return "repcbLongTerm";
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages copies of the drugs in {@code drugIds} (or, without it, of the ReRx list). Staged sources are
+     * added to the ReRx list, never replacing it, so a source staged by an earlier batch is still archived.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return {@code represcribe}, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String represcribeMultiple() throws IOException {
-        MiscUtils.getLogger().debug("================in represcribeMultiple of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
@@ -634,6 +722,7 @@ public String saveDigitalSignature() throws IOException {
         List<String> reRxDrugList;
         if (drugIdsParam != null && !drugIdsParam.isBlank()) {
             reRxDrugList = new ArrayList<>();
+            int malformedIds = 0;
             for (String id : drugIdsParam.split(",")) {
                 String trimmed = id.trim();
                 if (trimmed.isEmpty()) {
@@ -648,17 +737,19 @@ public String saveDigitalSignature() throws IOException {
                         }
                     }
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().warn("Skipping invalid drugId in represcribeMultiple: " + Encode.forJava(trimmed));
+                    malformedIds++;
                 }
+            }
+            if (malformedIds > 0) {
+                logger.warn("represcribeMultiple: skipped {} malformed drug id(s)", malformedIds);
             }
         } else {
             reRxDrugList = new ArrayList<>(bean.getReRxDrugIdList());
         }
-        MiscUtils.getLogger().debug(reRxDrugList);
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
-        // Source ids actually staged below. They must stay on the bean until the save: saveDrug()
-        // archives a re-prescribed source only when its id is in the ReRx list (archiveReRxDrugs).
-        List<String> stagedSourceIds = new ArrayList<>();
+        // Source ids staged below. Each must be on the bean's ReRx list until the save: saveDrug()
+        // archives a re-prescribed source only when its id is in that list (archiveReRxDrugs).
+        int staged = 0;
         for (String drugId : reRxDrugList) {
             Long rand = Math.round(Math.random() * 1000000);
             RxPrescriptionData rxData = new RxPrescriptionData();
@@ -688,18 +779,16 @@ public String saveDigitalSignature() throws IOException {
             }
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
-            stagedSourceIds.add(drugId);
+            // Add, never replace: a source staged by an earlier batch is still on its card and
+            // must stay listed, or saving that card would leave the source active (#3908).
+            // Clearing the list (older behaviour) had the same effect for this batch. A repeated
+            // id is recorded once; archiveReRxDrugs archives only sources whose replacement saved.
+            recordReRxSource(bean, Integer.parseInt(drugId));
+            staged++;
         }
-        // Replace the list with exactly the sources staged by this request rather than clearing
-        // it. Clearing (the previous behaviour) left saveDrug() nothing to archive, so the
-        // replacement was saved while the source medication stayed active unless a late async
-        // addToReRxDrugIdList happened to repopulate the list. Keeping an id does not block
-        // re-staging (a repeated add is a no-op), and archiveReRxDrugs still archives only the
-        // sources whose replacement was actually saved.
-        bean.setReRxDrugIdList(new CopyOnWriteArrayList<>(stagedSourceIds));
-        MiscUtils.getLogger().debug(listReRxDrug);
+        // Counts only: drug ids and prescriptions correlate to the patient's chart.
+        logger.debug("represcribeMultiple: {} requested, {} staged", reRxDrugList.size(), staged);
         request.setAttribute("listRxDrugs", listReRxDrug);
-        MiscUtils.getLogger().debug("================END represcribeMultiple of RxRePrescribe2Action.java=================");
         return "represcribe";
     }
 

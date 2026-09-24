@@ -317,6 +317,17 @@ public final class RxDeleteRx2Action extends ActionSupport {
      */
     //STILL NEED TO SAVE REASON AND COMMENT "would like to create a summary note in the echart"
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} update, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Discontinues one of the patient's saved drugs (refused when the drug is another patient's) and files
+     * the discontinue note.
+     *
+     * @return the discontinue result, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not update Rx for the patient
+     */
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String Discontinue() throws IOException {
         checkPrivilege(request, PRIVILEGE_UPDATE);
@@ -454,8 +465,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
         CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
 
         Long note_id = cmm.saveNoteSimpleReturnID(cmn);
-        // Debugging purposes on the live server
-        MiscUtils.getLogger().info("Document Note ID: " + note_id.toString());
 
         //create an entry in casemgmt note link
         CaseManagementNoteLink cmnl = new CaseManagementNoteLink();

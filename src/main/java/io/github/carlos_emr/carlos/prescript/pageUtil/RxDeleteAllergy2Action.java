@@ -58,6 +58,16 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Changes the allergy list of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _allergy} update, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Deletes or re-activates one allergy, which must belong to that patient (403 otherwise).
+     *
+     * @return the result for the allergy page, or {@code NONE} after an error response
+     * @throws SecurityException when the caller may not update the patient's allergies
+     */
     public String execute()
             throws IOException, ServletException {
 

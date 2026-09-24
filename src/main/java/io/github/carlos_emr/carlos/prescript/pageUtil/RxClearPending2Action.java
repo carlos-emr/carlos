@@ -53,6 +53,16 @@ public final class RxClearPending2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * POST-only (405 + {@code Allow: POST} otherwise): clears every staged card of the named patient.
+     *
+     * @return {@code close}, {@code success}, {@code NONE} after a 405, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String execute()
             throws IOException, ServletException {
         // Clearing the stash discards the patient's staged prescriptions. CSRFGuard does not check

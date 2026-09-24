@@ -80,6 +80,13 @@ public class RxSessionBean implements java.io.Serializable {
         randomIdDrugIdPair.put(r, d);
     }
 
+    /**
+     * Adds a source drug id to the ReRx list; {@code saveDrug()} archives a listed source when its
+     * replacement is saved. Callers that stage a copy use {@code RxRePrescribe2Action.recordReRxSource},
+     * which adds an id once.
+     *
+     * @param s the source drug id
+     */
     public void addReRxDrugIdList(String s) {
         reRxDrugIdList.add(s);
     }
@@ -92,6 +99,9 @@ public class RxSessionBean implements java.io.Serializable {
         return reRxDrugIdList;
     }
 
+    /**
+     * Empties the ReRx list (after a completed save or an explicit reset).
+     */
     public void clearReRxDrugIdList() {
         reRxDrugIdList = new CopyOnWriteArrayList<>();
     }
@@ -225,6 +235,14 @@ public class RxSessionBean implements java.io.Serializable {
         stash.set(index, item);
     }
 
+    /**
+     * Stages a prescription for this bean's patient. An item equal to one already staged (same drug, by
+     * value) is not added twice; the returned index is the item's position either way.
+     *
+     * @param loggedInInfo the logged-in provider, for allergy and interaction checks
+     * @param item         the prescription to stage
+     * @return the item's index in the stash
+     */
     public int addStashItem(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
 
         int ret = -1;
@@ -292,6 +310,9 @@ public class RxSessionBean implements java.io.Serializable {
         }
     }
 
+    /**
+     * Discards every staged card and resets the cursor to -1.
+     */
     public void clearStash() {
         //    this.clearDDI();
         //    this.clearDAM();
@@ -406,7 +427,6 @@ public class RxSessionBean implements java.io.Serializable {
         //Check to see if Allergy checking property is on and if atccode is not null and if atccode is not "" or "null"
 
         if (CarlosProperties.getInstance().getBooleanProperty("RX_ALLERGY_CHECKING", "yes") && atccode != null && !atccode.equals("") && !atccode.equals("null")) {
-            logger.debug("Checking allergy reaction : " + atccode);
             if (allergyWarnings.containsKey(atccode)) {
 
                 allergies = (Allergy[]) allergyWarnings.get(atccode);
@@ -482,7 +502,6 @@ public class RxSessionBean implements java.io.Serializable {
             RxInteractionData rxInteract = RxInteractionData.getInstance();
             Vector atcCodes = rxData.getCurrentATCCodesByPatient(this.getDemographicNo());
 
-            logger.debug("atccode " + atcCodes);
             RxPrescriptionData.Prescription rx;
             for (int i = 0; i < this.getStashSize(); i++) {
                 rx = this.getStashItem(i);
@@ -490,14 +509,12 @@ public class RxSessionBean implements java.io.Serializable {
                     atcCodes.add(rx.getAtcCode());
                 }
             }
-            logger.debug("atccode 2" + atcCodes);
+            // Counts only: the patient's ATC codes and interactions describe their medications.
+            logger.debug("Interaction check over {} ATC code(s)", atcCodes == null ? 0 : atcCodes.size());
             if (atcCodes != null && atcCodes.size() > 1) {
                 try {
                     interactions = rxInteract.getInteractions(atcCodes);
-                    logger.debug("interactions " + interactions.length);
-                    for (int i = 0; i < interactions.length; i++) {
-                        logger.debug(interactions[i].affectingatc + " " + interactions[i].effect + " " + interactions[i].affectedatc);
-                    }
+                    logger.debug("interactions {}", interactions.length);
                     Arrays.sort(interactions);
                 } catch (Exception e) {
                     logger.error("Error", e);
