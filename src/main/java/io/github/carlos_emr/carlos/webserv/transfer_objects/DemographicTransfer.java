@@ -356,10 +356,22 @@ public final class DemographicTransfer {
         this.rosterTerminationReason = rosterTerminationReason;
     }
 
+    /**
+     * Provider number ({@code demographic.roster_enrolled_to}) the patient is rostered/enrolled to,
+     * as the raw provider number rather than a resolved provider. Copied by {@link #filter} only
+     * when the {@code rosterEnrolledTo} field is requested.
+     *
+     * @return the enrolled-to provider number, or {@code null} when not enrolled to a provider
+     */
     public String getRosterEnrolledTo() {
         return (rosterEnrolledTo);
     }
 
+    /**
+     * Sets the enrolled-to provider number. Stored as given; {@code null} is accepted.
+     *
+     * @param rosterEnrolledTo the enrolled-to provider number, or {@code null}
+     */
     public void setRosterEnrolledTo(String rosterEnrolledTo) {
         this.rosterEnrolledTo = rosterEnrolledTo;
     }
