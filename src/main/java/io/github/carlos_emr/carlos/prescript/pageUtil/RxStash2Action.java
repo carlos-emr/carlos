@@ -72,7 +72,7 @@ public final class RxStash2Action extends ActionSupport {
         String method = request.getParameter("parameterValue");
         boolean removesStashItem = "deletePrescribe".equals(method)
                 || (method == null && "delete".equals(request.getParameter("action")));
-        if (removesStashItem && !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (removesStashItem && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

@@ -315,8 +315,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
         // Staging mutates session state, and CSRFGuard only protects POST/PUT/DELETE/PATCH, so a
-        // cross-origin GET could queue a drug for archival. The UI already POSTs.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // cross-origin GET could queue a drug for archival. The UI already POSTs. HTTP method
+        // names are case-sensitive, so this is an exact match.
+        if (!"POST".equals(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
