@@ -250,6 +250,40 @@ class PortalAccountAndPanelActionUnitTest {
                             anyString(), any());
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"moved\naway", "moved\u0000away", "moved\u202Eyawa", "moved\u200Baway",
+                "moved\u2028away", "moved\tSTATUS=ok"})
+        @DisplayName("should refuse a reason with line breaks, control or formatting characters")
+        void shouldRefuseDisable_whenTheReasonHasHiddenCharacters(String reason) throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", reason);
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("must not contain line breaks");
+            verify(patientPortalService, never())
+                    .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
+                            anyString(), any());
+        }
+
+        @Test
+        @DisplayName("should accept accented and non-Latin reasons")
+        void shouldDisableAccount_whenTheReasonIsPlainNonLatinText() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "  Déménagé — 患者の依頼  ");
+            when(patientPortalService.setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), anyString(), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            verify(patientPortalService)
+                    .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("Déménagé — 患者の依頼"), any());
+        }
+
         @Test
         @DisplayName("should disable with the supplied reason")
         void shouldDisableAccount_whenReasonIsGiven() throws Exception {
