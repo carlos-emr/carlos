@@ -134,10 +134,9 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             checksums.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
             checksums.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
                     .thenAnswer(invocation -> {
-                        // Recorded inside the lab's transaction and under addFile's monitor, so the
-                        // checksum exists exactly when the lab does and no other upload sees it early.
+                        // Recorded inside the lab's transaction, so the checksum exists exactly when
+                        // the lab does (FileUploadCheckUnitTest pins the per-content lock around it).
                         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-                        assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
                         InputStream stream = invocation.getArgument(1);
                         assertThat(stream.readAllBytes()).isEqualTo("MSH|fixture CML content".getBytes(StandardCharsets.UTF_8));
                         return 1;
@@ -177,8 +176,6 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
             checksums.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)))
                     .thenAnswer(invocation -> {
-                        // Checked under the same monitor, so an in-flight upload is never counted.
-                        assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
                         InputStream stream = invocation.getArgument(0);
                         return "MSH|duplicate CML content".equals(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
                     });

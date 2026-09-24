@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
@@ -57,6 +58,22 @@ public final class FileUploadCheck {
 
     private FileUploadCheck() {
         // no instantiation allowed
+    }
+
+    // Serializes the duplicate check and the claim per content, not per JVM: storeIfNew holds its
+    // stripe across the whole parse/save/commit, so a single class-wide monitor would make one slow
+    // upload stall every other lab feed. Uploads of the same bytes always share a stripe; different
+    // bytes collide only when their keys hash to the same one of the fixed, bounded set.
+    private static final ReentrantLock[] CONTENT_LOCKS = new ReentrantLock[64];
+
+    static {
+        for (int i = 0; i < CONTENT_LOCKS.length; i++) {
+            CONTENT_LOCKS[i] = new ReentrantLock();
+        }
+    }
+
+    static ReentrantLock contentLock(String contentKey) {
+        return CONTENT_LOCKS[Math.floorMod(contentKey.hashCode(), CONTENT_LOCKS.length)];
     }
 
     private static boolean hasFileBeenUploaded(String md5sum) {
@@ -155,10 +172,11 @@ public final class FileUploadCheck {
      * roll back, including when the step rejects the content or throws. A commit whose outcome is
      * unknown likewise left both or neither.</p>
      *
-     * <p>The lookup and the transaction run while holding this class's monitor, which
-     * {@link #addFile} (static synchronized) also takes. No other upload in the same application
-     * instance can therefore see this content's checksum before it commits, or claim the same
-     * content in between. The lock does not reach across servers. The transaction reads at
+     * <p>The lookup and the transaction run while holding the content's lock stripe, which
+     * {@link #addFile} also takes for the same content. No other upload of the same bytes in the
+     * same application instance can therefore see this content's checksum before it commits, or
+     * claim the content in between; uploads of other content are not held up. The lock does not
+     * reach across servers. The transaction reads at
      * READ_COMMITTED, as {@code ProviderLabRouting.routeMagic} requires of the transaction it joins
      * under MariaDB's snapshot isolation.</p>
      *
@@ -174,7 +192,14 @@ public final class FileUploadCheck {
      */
     public static StoreOutcome storeIfNew(String name, ContentSource content, String provider, ContentStore store)
             throws Exception {
-        synchronized (FileUploadCheck.class) {
+        ReentrantLock lock;
+        try (InputStream in = content.open()) {
+            lock = contentLock(contentKey(in));
+        } catch (IOException | RuntimeException lookupFailure) {
+            throw new LookupFailedException(lookupFailure);
+        }
+        lock.lock();
+        try {
             boolean recorded;
             try (InputStream in = content.open()) {
                 recorded = isFileRecorded(in);
@@ -207,6 +232,8 @@ public final class FileUploadCheck {
             } catch (StoreFailure failure) {
                 throw (Exception) failure.getCause();
             }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -254,22 +281,29 @@ public final class FileUploadCheck {
     /**
      * Used to add a new file to the database, checks to see if it already has been added
      */
-    public static synchronized int addFile(String name, InputStream is, String provider) {
+    public static int addFile(String name, InputStream is, String provider) {
         int fileUploaded = UNSUCCESSFUL_SAVE;
         try {
             String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
-            if (!hasFileBeenUploaded(md5sum)) {
+            // Same stripe as storeIfNew, so neither sees the other's in-flight claim on these bytes.
+            ReentrantLock lock = contentLock(md5sum);
+            lock.lock();
+            try {
+                if (!hasFileBeenUploaded(md5sum)) {
 
-                io.github.carlos_emr.carlos.commn.model.FileUploadCheck f = new io.github.carlos_emr.carlos.commn.model.FileUploadCheck();
-                f.setProviderNo(provider);
-                f.setFilename(name);
-                f.setMd5sum(md5sum);
-                f.setDateTime(new Date());
+                    io.github.carlos_emr.carlos.commn.model.FileUploadCheck f = new io.github.carlos_emr.carlos.commn.model.FileUploadCheck();
+                    f.setProviderNo(provider);
+                    f.setFilename(name);
+                    f.setMd5sum(md5sum);
+                    f.setDateTime(new Date());
 
-                FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
-                dao.persist(f);
+                    FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
+                    dao.persist(f);
 
-                fileUploaded = f.getId();
+                    fileUploaded = f.getId();
+                }
+            } finally {
+                lock.unlock();
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

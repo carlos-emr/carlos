@@ -104,7 +104,6 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 .thenAnswer(invocation -> {
                     // The handler stores the lab in the transaction holding its checksum row (id 1).
                     assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-                    assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
                     return "success";
                 });
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);

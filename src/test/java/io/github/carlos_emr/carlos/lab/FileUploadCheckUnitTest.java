@@ -27,11 +27,15 @@ import io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -43,6 +47,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -122,9 +127,9 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
 
         FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew("lab.hl7",
                 () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
-                    // The store step runs under the checksum lock, inside the transaction that holds
-                    // the uncommitted checksum row, and is told that row's id.
-                    assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
+                    // The store step runs under this content's lock, inside the transaction that
+                    // holds the uncommitted checksum row, and is told that row's id.
+                    assertThat(FileUploadCheck.contentLock(DigestUtils.md5Hex(CONTENT)).isHeldByCurrentThread()).isTrue();
                     assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
                     assertThat(checksumId).isEqualTo(41);
                     verify(dao).persist(any());
@@ -200,5 +205,70 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
                 () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> true))
                 .isInstanceOf(org.springframework.transaction.CannotCreateTransactionException.class);
         verify(dao, never()).persist(any());
+    }
+
+    @Test
+    void shouldStoreOtherContent_whileAnUploadIsStoring() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(List.of());
+        byte[] other = contentOnAnotherStripe();
+
+        FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew("slow.hl7",
+                () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
+                    // A slow store holds only its own content's lock: another feed's upload of
+                    // different bytes completes meanwhile instead of queueing behind it.
+                    CompletableFuture<FileUploadCheck.StoreOutcome> unrelated = onWorker(() -> FileUploadCheck.storeIfNew(
+                            "other.hl7", () -> new ByteArrayInputStream(other), "999998", id -> true));
+                    assertThat(unrelated.get(10, TimeUnit.SECONDS)).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+                    return true;
+                });
+
+        assertThat(outcome).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+        assertThat(transactions.commits).isEqualTo(2);
+    }
+
+    @Test
+    void shouldMakeAddFileWait_whileSameContentIsStoring() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(List.of());
+        CompletableFuture<Integer> concurrentClaim = new CompletableFuture<>();
+
+        FileUploadCheck.storeIfNew("lab.hl7", () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
+            onWorker(() -> FileUploadCheck.addFile("again.hl7", new ByteArrayInputStream(CONTENT), "999998"))
+                    .whenComplete((id, failure) -> concurrentClaim.complete(id));
+            // addFile shares this content's lock, so it cannot check or claim the bytes until the
+            // checksum and the stored upload have committed together.
+            Thread.sleep(300);
+            assertThat(concurrentClaim).isNotDone();
+            return true;
+        });
+
+        assertThat(concurrentClaim.get(10, TimeUnit.SECONDS)).isNotNull();
+    }
+
+    // Mockito's static SpringUtils mock is per thread, so the worker registers the same beans.
+    private <T> CompletableFuture<T> onWorker(java.util.concurrent.Callable<T> work) {
+        CompletableFuture<T> result = new CompletableFuture<>();
+        Thread worker = new Thread(() -> {
+            try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
+                spring.when(() -> SpringUtils.getBean(FileUploadCheckDao.class)).thenReturn(dao);
+                spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
+                result.complete(work.call());
+            } catch (Throwable failure) {
+                result.completeExceptionally(failure);
+            }
+        });
+        worker.setDaemon(true);
+        worker.start();
+        return result;
+    }
+
+    // Different bytes whose checksum maps to a different lock stripe than CONTENT's.
+    private static byte[] contentOnAnotherStripe() {
+        var own = FileUploadCheck.contentLock(DigestUtils.md5Hex(CONTENT));
+        for (int i = 0; ; i++) {
+            byte[] candidate = ("MSH|other lab " + i).getBytes(StandardCharsets.UTF_8);
+            if (FileUploadCheck.contentLock(DigestUtils.md5Hex(candidate)) != own) {
+                return candidate;
+            }
+        }
     }
 }
