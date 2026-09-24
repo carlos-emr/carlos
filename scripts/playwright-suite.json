@@ -1151,6 +1151,19 @@
       "env": []
     },
     {
+      "name": "rest-roster-enrolled-to",
+      "script": "scripts/rest-roster-enrolled-to-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "login",
       "script": "scripts/login-playwright-checks.js",
       "tiers": [
