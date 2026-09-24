@@ -735,6 +735,8 @@ async function main() {
       await route.continue();
     });
     // The viewer just opened holds no marks, so leaving it raises no before-unload dialog.
+    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
+    // Same validated baseUrl; docId is a positive integer parsed from the environment.
     await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
     const narrowFallback = await page.evaluate(() => {
@@ -750,17 +752,24 @@ async function main() {
     page.once('dialog', dialog => dialog.accept('Synthetic note placed before the annotation font had loaded here'));
     await page.mouse.click(fontBox.x + fontBox.width - 10, fontBox.y + 200);
     const fallbackNote = await page.locator('svg.overlay').first().locator('text.mark').first().boundingBox();
+    // Save is pressed while the font is still out: it must wait for the font and post the
+    // refitted note, not a snapshot taken at the fallback width.
+    let fontSavePosted = false;
+    const watchFontSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { fontSavePosted = true; } };
+    page.on('request', watchFontSave);
+    await page.locator('#btnSave').click();
+    await page.waitForTimeout(500);
+    check('a save pressed before the annotation font loads waits for it', !fontSavePosted
+      && await page.locator('#status').getAttribute('class') === 'status busy',
+      JSON.stringify([fontSavePosted, await page.locator('#status').getAttribute('class')]));
     releaseFont();
-    await page.waitForFunction(() => document.fonts.check('11px CarlosAnnotation'));
-    // The refit runs from the font's load promise and loadingdone; let both settle.
-    await page.waitForTimeout(300);
+    await waitForSave();
+    page.off('request', watchFontSave);
     await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
     const fontNote = await page.locator('svg.overlay').first().locator('text.mark').first().boundingBox();
     check('a note placed before the font loaded is refitted onto the page once it arrives',
       fontNote.width > fallbackNote.width && fontNote.x + fontNote.width <= fontBox.x + fontBox.width + 1,
       JSON.stringify([fallbackNote, fontNote, fontBox]));
-    await page.locator('#btnSave').click();
-    await waitForSave();
     check('a note refitted after the font loaded saves',
       await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
     await openViewer();

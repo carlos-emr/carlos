@@ -69,7 +69,8 @@
         saving: false,
         uncertain: false,
         moving: false,       // a mark is being dragged on some page
-        refitPending: false  // the annotation font arrived mid-drag; refit notes when it ends
+        refitPending: false, // the annotation font arrived mid-drag; refit notes when it ends
+        fontReady: null      // settles once the annotation font has loaded or failed
     };
 
     var pagesEl = document.getElementById('pages');
@@ -861,14 +862,25 @@
         return ready.catch(function () { /* surfaces below as an empty token */ });
     }
 
-    function save(thenFax) {
-        if (state.uncertain || state.saving || state.saved || !state.annotations.length) { return; }
-        state.saving = true;
-        setStatus(t('saving', 'Saving…'), 'busy');
-        document.getElementById('btnSave').disabled = true;
-        document.getElementById('btnSaveFax').disabled = true;
+    // How long a save waits for the annotation font before posting with the widths it has.
+    var FONT_WAIT_MS = 3000;
 
-        var payload = {
+    /**
+     * Resolves once the annotation font has loaded (or failed, or FONT_WAIT_MS has passed). A
+     * save waits on it and refits notes before taking its snapshot, so a note placed before the
+     * font arrived is posted at its real width. Otherwise the refit would move the note after
+     * the snapshot, leaving the page showing something other than the copy it reports as saved.
+     */
+    function annotationFontReady() {
+        if (!state.fontReady) { return Promise.resolve(); }
+        return Promise.race([state.fontReady, new Promise(function (resolve) {
+            setTimeout(resolve, FONT_WAIT_MS);
+        })]);
+    }
+
+    /** The model as the save endpoint takes it. */
+    function savePayload() {
+        return {
             sourceDigest: cfg.sourceDigest,
             annotations: state.annotations.map(function (a) {
                 var out = { type: a.type, page: a.page, color: a.color };
@@ -883,8 +895,19 @@
                 return out;
             })
         };
+    }
 
-        csrfTokenReady().then(function () {
+    function save(thenFax) {
+        if (state.uncertain || state.saving || state.saved || !state.annotations.length) { return; }
+        state.saving = true;
+        setStatus(t('saving', 'Saving…'), 'busy');
+        document.getElementById('btnSave').disabled = true;
+        document.getElementById('btnSaveFax').disabled = true;
+
+        annotationFontReady().then(function () {
+            refitNotes();
+            return csrfTokenReady();
+        }).then(function () {
             return fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
                 + encodeURIComponent(cfg.docId), {
                 method: 'POST',
@@ -894,7 +917,7 @@
                     'X-Requested-With': 'XMLHttpRequest',
                     'CSRF-TOKEN': csrfToken()
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(savePayload())
             });
         }).then(function (response) {
             return response.json().then(function (data) {
@@ -1023,7 +1046,8 @@
             // Fetch the annotation face now rather than when the first note is drawn, so notes
             // are measured (hit boxes, edge clamping) in the font the composer will use. Notes
             // placed before it arrives are refitted once it has.
-            document.fonts.load('11px CarlosAnnotation').then(refitNotes, function () { /* fallback face */ });
+            state.fontReady = document.fonts.load('11px CarlosAnnotation')
+                .then(refitNotes, function () { /* fallback face */ });
         }
         window.addEventListener('beforeunload', function (event) {
             if (state.saving || (state.annotations.length && !state.saved)) {
