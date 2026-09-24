@@ -72,7 +72,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldParseAndArchiveFromFreshStreams_whenDuplicateCheckConsumesInput() throws Exception {
+    void shouldParseAndArchiveHashedSnapshot_whenDuplicateCheckConsumesInput() throws Exception {
         Path uploaded = Files.writeString(root.resolve("source.hl7"), "MSH|fixture PathNet content");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
@@ -94,6 +94,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                     .thenAnswer(invocation -> {
                         InputStream hashStream = invocation.getArgument(1);
                         assertThat(hashStream.readAllBytes()).isEqualTo("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
+                        // Rewrite the temp upload after hashing: parse and archive must still see the hashed bytes.
+                        Files.writeString(uploaded, "MSH|replaced after duplicate check");
                         return 1;
                     });
 
@@ -107,8 +109,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.source.hl7.");
                 assertThat(archived.get(0)).hasBinaryContent("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
             }
-            // Duplicate check, parser, and archive writer each get their own stream, and none leaks.
-            assertThat(opened).hasSize(3).allMatch(TrackedStream::isClosed);
+            // The upload is read once into a snapshot shared by all three readers, and the file stream is closed.
+            assertThat(opened).hasSize(1).allMatch(TrackedStream::isClosed);
         }
     }
 

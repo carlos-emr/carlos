@@ -106,18 +106,19 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             File validatedImportFile = PathValidationUtils.validateUpload(importFile);
             filename = importFile.getName();
 
-            int check;
-            try (InputStream duplicateCheckStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
-                check = FileUploadCheck.addFile(filename, duplicateCheckStream, proNo);
+            // Snapshot the upload once. The duplicate check, parser, and archive writer each consume
+            // a stream, and the file stream cannot be reset; reopening the path per reader could also
+            // hash one version of the file while importing or archiving another. Struts caps
+            // multipart uploads (struts.multipart.maxSize), which bounds this buffer.
+            byte[] uploadContent;
+            try (InputStream uploadStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
+                uploadContent = uploadStream.readAllBytes();
             }
+
+            int check = FileUploadCheck.addFile(filename, new ByteArrayInputStream(uploadContent), proNo);
             if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
                 Connection connection = new Connection();
-                ArrayList<String> messages;
-                // FileUploadCheck consumes the first stream. Each independent reader must
-                // start from a fresh, validated stream; the original stream cannot be reset.
-                try (InputStream parserStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
-                    messages = connection.Retrieve(parserStream);
-                }
+                ArrayList<String> messages = connection.Retrieve(new ByteArrayInputStream(uploadContent));
                 if (messages != null) {
                     try {
                         int size = messages.size();
@@ -146,10 +147,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     //connection.Acknowledge(success);
                 }
                 //SAVE FILE TO DISK
-                try (InputStream archiveStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
-                    if (!saveFile(archiveStream, filename)) {
-                        outcome = OUTCOME_EXCEPTION;
-                    }
+                if (!saveFile(new ByteArrayInputStream(uploadContent), filename)) {
+                    outcome = OUTCOME_EXCEPTION;
                 }
             } else {
                 outcome = "uploadedPreviously";
