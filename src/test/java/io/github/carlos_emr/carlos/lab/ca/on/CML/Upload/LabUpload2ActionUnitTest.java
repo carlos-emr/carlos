@@ -125,6 +125,9 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                      doAnswer(invocation -> {
                          BufferedReader reader = invocation.getArgument(0);
                          parserReader.set(reader);
+                         // Stored under addFile's monitor, so a concurrent upload of the same bytes
+                         // cannot see this checksum until the lab is stored or the checksum removed.
+                         assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
                          assertThat(reader.readLine()).isEqualTo("MSH|fixture CML content");
                          return null;
                      }).when(parser).parse(any(BufferedReader.class)))) {
@@ -182,6 +185,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                     .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
             duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)))
                     .thenAnswer(invocation -> {
+                        // Confirmed under the same monitor, so an in-flight upload is never counted.
+                        assertThat(Thread.holdsLock(FileUploadCheck.class)).isTrue();
                         InputStream stream = invocation.getArgument(0);
                         return "MSH|duplicate CML content".equals(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
                     });

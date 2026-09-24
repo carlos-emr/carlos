@@ -141,34 +141,42 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         return SUCCESS;
                     }
 
-                    int check;
-                    try (InputStream fis = new FileInputStream(localFile)) {
-                        check = FileUploadCheck.addFile(filename, fis, proNo);
-                    } catch (Exception addFileEx) {
-                        MiscUtils.getLogger().error("Error", addFileEx);
-                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_DATABASE_NOT_STARTED);
-                        return SUCCESS;
-                    }
-                    if (check == FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        // addFile answers UNSUCCESSFUL_SAVE both for a checksum it already
-                        // holds and for any failure reading the file or reaching the database,
-                        // which it swallows. Acknowledge a duplicate only when the checksum is
-                        // really on record: a false "uploadedPreviously" tells the XML client
-                        // not to retry a lab that was never stored.
-                        // A lookup that fails confirms nothing either, so it is the same
-                        // retryable failure rather than a generic exception.
-                        try {
-                            outcome = isRecordedUpload(localFile)
-                                    ? OUTCOME_UPLOADED_PREVIOUSLY
-                                    : OUTCOME_DATABASE_NOT_STARTED;
-                        } catch (IOException | RuntimeException lookupEx) {
-                            _logger.error("Could not confirm a rejected CML upload's checksum: {}",
-                                    LogSafe.exceptionTrace(lookupEx));
-                            outcome = OUTCOME_DATABASE_NOT_STARTED;
+                    // addFile is static synchronized, so it holds this monitor. Keep holding it until
+                    // the lab is stored or its checksum removed: otherwise a concurrent upload of the
+                    // same bytes could see this request's in-flight checksum, be told
+                    // uploadedPreviously, and stop retrying a lab that then rolls back. The other lab
+                    // uploaders go through addFile too, so they wait here rather than race. This is a
+                    // lock within one application instance, not across servers.
+                    synchronized (FileUploadCheck.class) {
+                        int check;
+                        try (InputStream fis = new FileInputStream(localFile)) {
+                            check = FileUploadCheck.addFile(filename, fis, proNo);
+                        } catch (Exception addFileEx) {
+                            MiscUtils.getLogger().error("Error", addFileEx);
+                            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_DATABASE_NOT_STARTED);
+                            return SUCCESS;
                         }
-                    } else {
-                        storeLab(localFile, check);
-                        outcome = "uploaded";
+                        if (check == FileUploadCheck.UNSUCCESSFUL_SAVE) {
+                            // addFile answers UNSUCCESSFUL_SAVE both for a checksum it already
+                            // holds and for any failure reading the file or reaching the database,
+                            // which it swallows. Acknowledge a duplicate only when the checksum is
+                            // really on record: a false "uploadedPreviously" tells the XML client
+                            // not to retry a lab that was never stored.
+                            // A lookup that fails confirms nothing either, so it is the same
+                            // retryable failure rather than a generic exception.
+                            try {
+                                outcome = isRecordedUpload(localFile)
+                                        ? OUTCOME_UPLOADED_PREVIOUSLY
+                                        : OUTCOME_DATABASE_NOT_STARTED;
+                            } catch (IOException | RuntimeException lookupEx) {
+                                _logger.error("Could not confirm a rejected CML upload's checksum: {}",
+                                        LogSafe.exceptionTrace(lookupEx));
+                                outcome = OUTCOME_DATABASE_NOT_STARTED;
+                            }
+                        } else {
+                            storeLab(localFile, check);
+                            outcome = "uploaded";
+                        }
                     }
                 } else {
                     outcome = OUTCOME_ACCESS_DENIED;  //file could not save

@@ -77,6 +77,7 @@ public final class FileUploadCheck {
     // stores it), never a password, signature or integrity check; it must match what addFile wrote.
     @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_MD5",
             justification = "MD5 is the stored duplicate-detection key written by addFile, not a security control")
+    @SuppressWarnings("java:S4790") // Sonar: same MD5 duplicate-detection key as addFile, not a security control.
     public static boolean isFileRecorded(InputStream is) throws IOException {
         return hasFileBeenUploaded(DigestUtils.md5Hex(is));
     }
