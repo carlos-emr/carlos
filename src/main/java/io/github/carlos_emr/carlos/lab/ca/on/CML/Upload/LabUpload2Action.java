@@ -62,6 +62,8 @@ import java.util.List;
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
     private static final String OUTCOME_ACCESS_DENIED = "accessDenied";
+    private static final String OUTCOME_UPLOADED_PREVIOUSLY = "uploadedPreviously";
+    private static final String OUTCOME_DATABASE_NOT_STARTED = "databaseNotStarted";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -123,7 +125,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 is.close();
 
 
-                boolean fileUploadedSuccessfully = false;
                 if (localFileName != null) {
                     File localFile;
                     try {
@@ -137,23 +138,25 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         return SUCCESS;
                     }
 
-                    InputStream fis = new FileInputStream(localFile);
-                    int check = FileUploadCheck.UNSUCCESSFUL_SAVE;
-                    try {
+                    int check;
+                    try (InputStream fis = new FileInputStream(localFile)) {
                         check = FileUploadCheck.addFile(filename, fis, proNo);
-                        if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                            outcome = "uploadedPreviously";
-                        }
                     } catch (Exception addFileEx) {
                         MiscUtils.getLogger().error("Error", addFileEx);
-                        outcome = "databaseNotStarted";
+                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_DATABASE_NOT_STARTED);
+                        return SUCCESS;
                     }
-                    MiscUtils.getLogger().debug("Was file uploaded successfully ?" + fileUploadedSuccessfully);
-                    fis.close();
-                    if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        BufferedReader in = new BufferedReader(new FileReader(localFile));
+                    if (check == FileUploadCheck.UNSUCCESSFUL_SAVE) {
+                        // addFile answers UNSUCCESSFUL_SAVE when the file's MD5 is already
+                        // recorded (it also swallows its own insert failures into the same
+                        // value, which PathNet and inside-lab read the same way). The XML
+                        // client needs a distinct outcome for a duplicate, not an empty one.
+                        outcome = OUTCOME_UPLOADED_PREVIOUSLY;
+                    } else {
                         ABCDParser abc = new ABCDParser();
-                        abc.parse(in);
+                        try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
+                            abc.parse(in);
+                        }
 
                         try (Connection connection = LegacyJdbcQuery.getConnection()) {
                             abc.save(connection);

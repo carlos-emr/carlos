@@ -30,11 +30,13 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,6 +107,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         Path uploaded = Files.writeString(root.resolve("source.hl7"), "MSH|fixture CML content");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
         Connection database = mock(Connection.class);
+        AtomicReference<BufferedReader> parserReader = new AtomicReference<>();
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
              MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
@@ -112,6 +115,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class, (parser, context) ->
                      doAnswer(invocation -> {
                          BufferedReader reader = invocation.getArgument(0);
+                         parserReader.set(reader);
                          assertThat(reader.readLine()).isEqualTo("MSH|fixture CML content");
                          return null;
                      }).when(parser).parse(any(BufferedReader.class)))) {
@@ -134,12 +138,42 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("outcome")).isEqualTo("uploaded");
             assertThat(parsers.constructed()).hasSize(1);
             verify(parsers.constructed().get(0)).save(database);
+            // The parser's reader over the archived lab must not leak a file handle.
+            assertThatThrownBy(() -> parserReader.get().ready())
+                    .isInstanceOf(IOException.class).hasMessageContaining("closed");
             try (var children = Files.list(documentDir)) {
                 var archived = children.toList();
                 assertThat(archived).hasSize(1);
                 assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.source.hl7.");
                 assertThat(archived.get(0)).hasBinaryContent("MSH|fixture CML content".getBytes(StandardCharsets.UTF_8));
             }
+        }
+    }
+
+    @Test
+    void shouldReportUploadedPreviously_whenDuplicateCheckRejectsFile() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("duplicate.hl7"), "MSH|duplicate CML content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile()))
+                    .thenReturn(uploaded.toFile());
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            when(properties.getProperty("CML_UPLOAD_KEY")).thenReturn("fixture-key");
+            duplicateCheck.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(FileUploadCheck.UNSUCCESSFUL_SAVE);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // Before the fix a duplicate left the outcome empty, so the XML client saw <outcome/>.
+            assertThat(request.getAttribute("outcome")).isEqualTo("uploadedPreviously");
+            assertThat(parsers.constructed()).isEmpty();
+            jdbc.verifyNoInteractions();
         }
     }
 
