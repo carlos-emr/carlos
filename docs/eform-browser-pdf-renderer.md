@@ -108,8 +108,8 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > orphans are reaped.
 
 > **Runbook: provision the browser before using eForm PDF workflows.** Run a chromedriver as its
-> own service and point `eform_pdf_browser_service_url` at it (the `.deb` does both via
-> `carlos-emr-eform-renderer`); set `eform_pdf_browser_chromium_path` to the browser binary the
+> own service and point `eform_pdf_browser_service_url` at it (the `carlos-emr` `.deb` does
+> both; before 2026.08.0-alpha14 that was the separate `carlos-emr-eform-renderer` package); set `eform_pdf_browser_chromium_path` to the browser binary the
 > driver should launch. CARLOS never spawns a chromedriver itself. It probes the renderer at
 > startup and logs a warning if it is unavailable, but continues deploying so other application
 > workflows remain available. Confirm `eForm browser renderer startup check passed.` in the log
@@ -144,8 +144,8 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 - **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
   loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
   Selenium Manager fallback to download a driver at first use. On the .deb this is the
-  `carlos-emr-chromedriver` service, which the `carlos-emr-eform-renderer` package installs
-  and starts. Elsewhere, run one yourself before the webapp deploys.
+  `carlos-emr-chromedriver` service, which the `carlos-emr` package installs and starts (it
+  carries the pinned Chromium, which is why that package is amd64-only). Elsewhere, run one yourself before the webapp deploys.
 
   **Why it is a separate process and not a child of the JVM.** Chromium sandboxes its
   renderers with an unprivileged user namespace. A chromedriver the application spawns

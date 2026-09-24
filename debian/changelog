@@ -1,3 +1,49 @@
+carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
+
+  * carlos-emr is now Architecture: amd64 and carries the eForm renderer
+    itself: the pinned Chromium and chromedriver under
+    /usr/lib/carlos-emr/chromium, the carlos-emr-chromedriver service, the
+    carlos-render account, the AppArmor profile and the carlos-emr.service
+    drop-in that enables the browser sandbox. Saved-eForm print, fax and
+    archive have no non-browser fallback, so an EMR installed without the
+    browser was an EMR with three broken workflows; it was already the case
+    that the renderer (and so a complete install) ran only on x86-64. Every
+    path is unchanged, so an existing render-browser.env and its url-base
+    token are kept across the upgrade.
+  * carlos-emr-eform-renderer becomes an empty transitional package
+    (Architecture: all, Section: oldlibs). carlos-emr Breaks and Replaces
+    every older version, and upgrading a 2026.08.0~alpha13 or earlier install
+    with the transitional package in the same apt transaction UPGRADES the old
+    renderer instead of removing it, so the old package's purge script --
+    which deletes render-browser.env and the browser's home and disables the
+    chromedriver unit -- can never run against the merged install. The
+    transitional package can be removed afterwards. If apt removed the old
+    renderer instead (no transitional package, no --no-remove), the postinst
+    and `carlos-ctl check` warn not to purge it and name the fix.
+  * carlos-emr-drugref (Architecture: all) now depends on carlos-emr
+    (= ${source:Version}) rather than ${binary:Version}, and carlos-emr
+    recommends it the same way, as an arch-all/arch-any pair must.
+  * The renderer's provisioning moved into the carlos-emr postinst. One
+    behaviour changed: an AppArmor profile that cannot be loaded on a kernel
+    that restricts unprivileged user namespaces used to fail the renderer's
+    configure; it now records the install as unfinished (debconf critical
+    note, `carlos-ctl check`) instead of leaving the whole EMR and DrugRef
+    unconfigured over one subsystem. apparmor.service loads the profile at
+    the next boot regardless.
+  * Fix: every warning the carlos-emr and carlos-emr-drugref postinsts print
+    after taking the provisioning lock was being discarded. The lock was
+    opened with `exec 9>"$LOCK" 2>/dev/null`, and under dash a redirection
+    attached to `exec` is permanent, so stderr stayed on /dev/null for the
+    rest of the script ("the application server did not start", the nginx
+    failure warnings, ...). A failed open also exited the script instead of
+    deferring provisioning as documented. The open is now probed in a
+    subshell and performed with no redirection of its own.
+  * SKIP_EFORM_RENDERER=1 now builds carlos-emr without the renderer payload
+    (browser, unit, profile and drop-in) instead of dropping a binary package;
+    `carlos-ctl check` reports such a development build as a NOTE.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Thu, 24 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
 
   * Adopting a legacy OSCAR 19 / OpenO database now actually works. `db-baseline`

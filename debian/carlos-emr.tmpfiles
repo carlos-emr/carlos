@@ -110,3 +110,11 @@ d /etc/carlos-emr/tls                             0750 root          www-data -
 # 0700, not 0750: the import state dir holds the carry-secret properties
 # fragment and the break-glass credential notes.
 d /var/lib/carlos-emr/o19-import                  0700 root          root     -
+
+# HOME for the eForm render browser (carlos-emr-chromedriver.service).
+# Chromium will not start without a writable home -- and does not fail cleanly
+# either: its crashpad handler cannot create its database, so the browser hangs
+# until the renderer's startup budget expires. Mode 0700 because a rendered
+# patient page passes through this process. Safe under the layout rule above:
+# /var/lib/carlos-emr is root-owned.
+d /var/lib/carlos-emr/render                      0700 carlos-render carlos-render -

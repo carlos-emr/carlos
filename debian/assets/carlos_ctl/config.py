@@ -215,13 +215,14 @@ def cmd_init_config(argv) -> int:
     # DrugRef is co-deployed in this Tomcat, loopback-only.
     prop_set(PROPERTIES, "drugref_url", "http://127.0.0.1:18080/drugref2/DrugrefService")
 
-    # eForm-to-PDF renderer. carlos-emr-eform-renderer ships a pinned Chromium
-    # and a chromedriver built from the same revision, run as the dedicated
+    # eForm-to-PDF renderer. carlos-emr ships a pinned Chromium and a
+    # chromedriver built from the same revision, run as the dedicated
     # carlos-emr-chromedriver service; the application CONNECTS to that service
     # (eform_pdf_browser_service_url) and never spawns or downloads a driver.
     #
     # The probe follows the browser rather than being hard-off: with no browser
-    # installed it could only fail and log an error burst on every boot, but
+    # installed (a SKIP_EFORM_RENDERER development build, or a pre-2026.08.0~alpha14
+    # install without the then-separate renderer package) it could only fail and log an error burst on every boot, but
     # once one IS installed a silent probe is worse than none — a broken
     # renderer then surfaces as a failed print mid-consultation instead of one
     # WARN at startup. "warn" is the application's own documented default; it
@@ -238,7 +239,7 @@ def cmd_init_config(argv) -> int:
         # blocks, but the chromedriver unit itself refuses to start on an empty
         # CARLOS_RENDER_URL_BASE (its ExecStartPre guard): a bare-root endpoint
         # would silently drop the capability-token defence, and everything else in
-        # this design fails closed. The renderer package's postinst generates the
+        # this design fails closed. The carlos-emr postinst generates the
         # token, so this branch only matters mid-install or after manual edits.
         port, url_base = _render_browser_endpoint()
         service_url = f"http://127.0.0.1:{port}"
@@ -255,7 +256,7 @@ def cmd_init_config(argv) -> int:
         # closed, so a stale value would turn every eForm print into an error
         # naming a URL the operator just deliberately removed. The binary paths
         # are retracted for the same reason: they would otherwise keep naming
-        # files the renderer package's removal just deleted.
+        # files that are not there.
         prop_comment(PROPERTIES, "eform_pdf_browser_service_url")
         prop_comment(PROPERTIES, "eform_pdf_browser_chromium_path")
         prop_comment(PROPERTIES, "eform_pdf_browser_chromedriver_path")
@@ -522,7 +523,7 @@ def apply_nginx(bind_ip: str, *, start_if_inactive: bool = False) -> int:
 def _render_browser_endpoint() -> tuple:
     """Port and url-base the render browser service is configured with.
 
-    Read from /etc/carlos-emr/render-browser.env, which the renderer package's
+    Read from /etc/carlos-emr/render-browser.env, which the carlos-emr
     postinst generates. Returns the documented default port and an empty prefix
     when the file is absent, so a partially-installed system still produces a
     usable URL rather than a crash.

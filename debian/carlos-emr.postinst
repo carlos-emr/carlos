@@ -87,7 +87,15 @@ acquire_provision_lock() {
     # cannot be taken at all, so provisioning must be deferred rather than run
     # unserialized beside another run.
     command -v flock >/dev/null 2>&1 || return 0
-    if ! mkdir -p "${STATE}" 2>/dev/null || ! exec 9>"${PROVISION_LOCK}" 2>/dev/null; then
+    # Probe the open in a subshell before the real `exec`. Two dash behaviours
+    # made the old one-liner (`! exec 9>"${PROVISION_LOCK}" 2>/dev/null`) wrong:
+    # a redirection attached to `exec` is PERMANENT, so its 2>/dev/null silenced
+    # every warning this script printed after taking the lock; and a failed
+    # redirection on `exec`, a special builtin, exits the shell outright, so the
+    # "defer provisioning" branch below could never run.
+    if ! mkdir -p "${STATE}" 2>/dev/null \
+        || ! ( exec 9>"${PROVISION_LOCK}" ) 2>/dev/null \
+        || ! exec 9>"${PROVISION_LOCK}"; then
         echo "carlos-emr: could not open ${PROVISION_LOCK} (is /var writable?); this" >&2
         echo "carlos-emr: configure did NOT provision the database, because it cannot" >&2
         echo "carlos-emr: rule out another provisioning run in the same database." >&2
@@ -285,6 +293,19 @@ case "$1" in
         if ! id -nG carlos-backup | tr ' ' '\n' | grep -qx carlos; then
             adduser --quiet carlos-backup carlos
         fi
+        # The eForm render browser's account: in its own group and NO other (see
+        # debian/carlos-emr.sysusers). Created here, before the tmpfiles call
+        # below, because /var/lib/carlos-emr/render is owned by it and
+        # systemd-tmpfiles fails that line with "Failed to resolve user" when
+        # the account does not exist yet.
+        if ! getent group carlos-render >/dev/null; then
+            addgroup --system carlos-render
+        fi
+        if ! getent passwd carlos-render >/dev/null; then
+            adduser --system --ingroup carlos-render --home "${STATE}/render" \
+                    --no-create-home --shell /usr/sbin/nologin \
+                    --gecos "CARLOS EMR eForm render browser" carlos-render
+        fi
 
         # One-time migration (2026.09.0~snapshot4): the document store default
         # was renamed OscarDocument -> CarlosDocument. Runs BEFORE the tmpfiles
@@ -386,6 +407,7 @@ case "$1" in
             install -d -m 0700 -o carlos-backup -g adm /var/log/carlos-emr/backup-state
             install -d -m 0700 -o carlos-backup -g carlos-backup /var/backups/carlos-emr
             install -d -m 0750 -o root -g www-data "${CONF_DIR}/tls"
+            install -d -m 0700 -o carlos-render -g carlos-render "${STATE}/render"
         fi
 
         # The document skeleton the application expects to exist before it
@@ -880,6 +902,127 @@ except ValueError:
             fi
         fi
 
+        # --- eForm render browser -------------------------------------------
+        # The vendored Chromium + chromedriver under ${RENDER_DIR}, run as the
+        # carlos-emr-chromedriver service (User=carlos-render). This provisions
+        # that service -- the AppArmor userns grant and the url-base bearer
+        # token in render-browser.env -- BEFORE init-config below, which reads
+        # the token to write eform_pdf_browser_service_url (plus the Chromium
+        # path and the startup probe) into carlos.properties. The service itself
+        # is started further down, after the debhelper block has enabled it and
+        # before the EMR, which probes it while Tomcat deploys.
+        #
+        # Until 2026.08.0~alpha13 this was the postinst of the separate
+        # carlos-emr-eform-renderer package; an upgrade keeps the existing
+        # render-browser.env (and so the token the running config already uses).
+        RENDER_DIR=/usr/lib/carlos-emr/chromium
+        RENDER_ENV="${CONF_DIR}/render-browser.env"
+        RENDER_PAYLOAD=0
+        if [ -x "${RENDER_DIR}/chrome" ] && [ -x "${RENDER_DIR}/chromedriver" ]; then
+            RENDER_PAYLOAD=1
+        elif [ -e "${RENDER_DIR}" ]; then
+            # Half a payload is a broken package, not a SKIP_EFORM_RENDERER build
+            # (which ships no ${RENDER_DIR} at all). Say so now rather than as a
+            # failed print weeks later.
+            echo "carlos-emr: ERROR: ${RENDER_DIR}/chrome or chromedriver is missing or not" >&2
+            echo "carlos-emr: ERROR: executable; eForm print/fax/archive will not work." >&2
+            echo "carlos-emr: ERROR: Reinstall: sudo apt install --reinstall carlos-emr" >&2
+            mark_incomplete "the eForm render browser payload is incomplete"
+        else
+            echo "carlos-emr: NOTE: this build carries no eForm render browser (SKIP_EFORM_RENDERER);" >&2
+            echo "carlos-emr: NOTE: saved-eForm print, fax and archive are unavailable." >&2
+        fi
+
+        # A pre-merge carlos-emr-eform-renderer that apt REMOVED (rather than
+        # upgraded to the transitional package) stays behind in dpkg's
+        # config-files state with its old postrm still registered. Purging it
+        # later runs that script, which deletes render-browser.env and the
+        # browser's home and disables carlos-emr-chromedriver.service -- all of
+        # which now belong to this package. A maintainer script cannot replace
+        # another package's scripts, so make the trap visible instead: the fix is
+        # to install the transitional package, whose (absent) postrm replaces it.
+        # carlos-ctl check reports the same state.
+        old_renderer_postrm="$(dpkg-query --control-path carlos-emr-eform-renderer postrm 2>/dev/null || true)"
+        if [ -n "${old_renderer_postrm}" ] && grep -qs 'render-browser.env' "${old_renderer_postrm}"; then
+            echo "carlos-emr: WARNING: the old carlos-emr-eform-renderer package was removed but" >&2
+            echo "carlos-emr: WARNING: not upgraded, and its removal script is still registered." >&2
+            echo "carlos-emr: WARNING: Do NOT purge it: that would delete the render browser's token" >&2
+            echo "carlos-emr: WARNING: and disable its service. Install the transitional package from" >&2
+            echo "carlos-emr: WARNING: this release first:" >&2
+            echo "carlos-emr: WARNING:   sudo apt install ./carlos-emr-eform-renderer_<version>_all.deb" >&2
+        fi
+
+        if [ "${RENDER_PAYLOAD}" = 1 ]; then
+            # Load the AppArmor profile that grants the browser back the `userns`
+            # permission Ubuntu 23.10+ removes system-wide. The shipped drop-in
+            # sets EFORM_RENDER_SANDBOX=true, so on a kernel that enforces
+            # apparmor_restrict_unprivileged_userns this profile is LOAD-BEARING:
+            # without it Chromium aborts ("No usable sandbox!") and every eForm
+            # print/fax/archive fails closed. Where the restriction is off the
+            # sandbox works without the profile and a failed load is a warning.
+            #
+            # Recorded as an unfinished install rather than failing configure
+            # (which the separate renderer package used to do): failing here would
+            # now leave the whole EMR -- and carlos-emr-drugref behind it --
+            # unconfigured over one subsystem. The marker makes it loud (debconf
+            # critical note, `carlos-ctl check`), and apparmor.service loads every
+            # profile in /etc/apparmor.d at the next boot regardless.
+            if [ -e /sys/module/apparmor/parameters/enabled ] \
+               && [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = "Y" ]; then
+                if apparmor_parser -r -T -W /etc/apparmor.d/carlos-emr-chromium 2>/dev/null; then
+                    echo "carlos-emr: AppArmor profile loaded for the eForm render browser"
+                elif [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = "1" ]; then
+                    echo "carlos-emr: ERROR: could not load the AppArmor profile" >&2
+                    echo "carlos-emr: ERROR: /etc/apparmor.d/carlos-emr-chromium, and this kernel restricts" >&2
+                    echo "carlos-emr: ERROR: unprivileged user namespaces: the sandboxed render browser cannot" >&2
+                    echo "carlos-emr: ERROR: start and eForm print/fax/archive WILL FAIL until it loads." >&2
+                    echo "carlos-emr: ERROR: Try: systemctl reload apparmor (or reboot)." >&2
+                    mark_incomplete "the eForm render browser AppArmor profile could not be loaded"
+                else
+                    echo "carlos-emr: WARNING: could not load the AppArmor profile" >&2
+                    echo "carlos-emr: WARNING: /etc/apparmor.d/carlos-emr-chromium. This kernel does not" >&2
+                    echo "carlos-emr: WARNING: restrict user namespaces, so the render browser still works;" >&2
+                    echo "carlos-emr: WARNING: try: systemctl reload apparmor" >&2
+                fi
+            fi
+
+            # The account and its home exist by now (the accounts and directories
+            # sections above), so the chown below cannot fail with "invalid group".
+            #
+            # The render browser's own settings, including the url-base capability
+            # token. 0640 root:carlos-render: the browser account reads it, and the
+            # `carlos` account deliberately cannot -- just as carlos-render cannot
+            # read carlos.properties. Generated once and never rotated
+            # automatically; rotating means updating eform_pdf_browser_service_url
+            # to match (init-config does that from this file).
+            if [ ! -e "${RENDER_ENV}" ]; then
+                install -m 0640 -o root -g carlos-render "${SHARE}/skel/render-browser.env" "${RENDER_ENV}"
+            fi
+            chown root:carlos-render "${RENDER_ENV}"
+            chmod 0640 "${RENDER_ENV}"
+            # Two cases: the key present-but-empty (sed substitutes) and the key
+            # ABSENT entirely (sed would match nothing and leave no token while
+            # reporting success). The unit refuses to start without one.
+            if ! grep -q '^CARLOS_RENDER_URL_BASE=' "${RENDER_ENV}"; then
+                # An operator-edited file may lack a trailing newline; appending
+                # onto its last line would fuse the key into it and this guard
+                # would re-append on every configure.
+                [ ! -s "${RENDER_ENV}" ] || [ -z "$(tail -c1 "${RENDER_ENV}")" ] || echo >> "${RENDER_ENV}"
+                printf 'CARLOS_RENDER_URL_BASE=%s\n' "$(openssl rand -hex 16)" >> "${RENDER_ENV}"
+            elif ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
+                # chromedriver has no authentication and any local uid can reach
+                # a loopback port, so this prefix is what stops another local
+                # account driving a browser as carlos-render.
+                url_base="$(openssl rand -hex 16)"
+                tmp="$(mktemp "${RENDER_ENV}.XXXXXX")"
+                chmod 0640 "${tmp}"
+                chown root:carlos-render "${tmp}"
+                sed "s|^CARLOS_RENDER_URL_BASE=.*|CARLOS_RENDER_URL_BASE=${url_base}|" \
+                    "${RENDER_ENV}" > "${tmp}"
+                mv "${tmp}" "${RENDER_ENV}"
+            fi
+        fi
+
         # --- render, provision, migrate -------------------------------------
         # Under the lock taken above: init-config rewrites carlos.properties
         # and reloads nginx, and doing that beside the run that owns the lock
@@ -1361,9 +1504,25 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # So on an UPGRADE that ships a changed unit, systemd still holds the old
     # fragment: without an explicit reload here the start below launches the
     # stale unit and prints "unit file ... changed on disk. Run daemon-reload".
-    # deb-systemd-invoke has no reload verb, so call systemctl directly (as the
-    # renderer's postinst already does). Best-effort; never fail configure.
+    # deb-systemd-invoke has no reload verb, so call systemctl directly.
+    # Best-effort; never fail configure. The reload also makes systemd see the
+    # renderer's carlos-emr.service drop-in before either unit starts.
     systemctl --system daemon-reload >/dev/null 2>&1 || true
+    # The render browser comes up BEFORE the EMR: the application probes it from
+    # @PostConstruct, i.e. while Tomcat deploys, so chromedriver must already be
+    # listening or the first boot after install logs a failure for a deployment
+    # that is actually fine. restart, not start, so an upgrade replaces a driver
+    # still running the previous Chromium. The debhelper block above has enabled
+    # the unit (deb-systemd-invoke skips a unit that is neither enabled nor
+    # active). Independent of the credential and schema gates below: the browser
+    # holds no credential and serves nothing until the EMR connects to it.
+    if [ "${RENDER_PAYLOAD:-0}" = 1 ]; then
+        sd_invoke restart carlos-emr-chromedriver.service || {
+            echo "carlos-emr: WARNING: the eForm render browser service did not start;" >&2
+            echo "carlos-emr: WARNING: eForm print/fax/archive will fail until it does" >&2
+            echo "carlos-emr: WARNING: (systemctl status carlos-emr-chromedriver)." >&2
+        }
+    fi
     if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ] || [ -e "${SEED_SENTINEL}" ]; then
         echo "carlos-emr: NOT starting the service — the seeded credential guard requires recovery." >&2
         echo "carlos-emr: run 'sudo carlos-ctl finish-install' (see above)." >&2

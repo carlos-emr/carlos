@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
 #
-# Build the Debian packages (carlos-emr, carlos-emr-drugref), attach them to
+# Build the Debian packages (carlos-emr for amd64, which carries the eForm
+# renderer's vendored Chromium; carlos-emr-drugref; and the empty transitional
+# carlos-emr-eform-renderer that upgrades pre-merge installs), attach them to
 # the release, and PUBLISH the release as the final step.
 #
 # DESIGN — a SEPARATE workflow from publish-release.yml, but it FINALIZES the
@@ -215,8 +217,14 @@ jobs:
           # staging checks.
           dpkg-buildpackage -us -uc -b
           mkdir -p release-assets
-          for deb in ../carlos-emr_"${DEB_VERSION}"_all.deb ../carlos-emr-drugref_"${DEB_VERSION}"_all.deb \
-                     ../carlos-emr-eform-renderer_"${DEB_VERSION}"_amd64.deb; do
+          # carlos-emr is amd64: it ships the eForm renderer's vendored x86-64
+          # Chromium (through 2026.08.0-alpha13 it was _all and the renderer was
+          # its own _amd64 package). carlos-emr-eform-renderer is now an empty
+          # transitional _all package; operators upgrading a pre-merge install
+          # need it in the same apt transaction so the old renderer is upgraded,
+          # never removed (see debian/control).
+          for deb in ../carlos-emr_"${DEB_VERSION}"_amd64.deb ../carlos-emr-drugref_"${DEB_VERSION}"_all.deb \
+                     ../carlos-emr-eform-renderer_"${DEB_VERSION}"_all.deb; do
             cp "$deb" release-assets/
           done
           cd release-assets

@@ -22,7 +22,11 @@ PROVISION_LOCK="${STATE}/.finish-install.lock"
 acquire_provision_lock() {
     command -v flock >/dev/null 2>&1 || return 0
     mkdir -p "${STATE}" 2>/dev/null || return 1
-    exec 9>"${PROVISION_LOCK}" 2>/dev/null || return 1
+    # Probe in a subshell first: under dash a redirection attached to `exec` is
+    # permanent (a trailing 2>/dev/null here silenced every later warning in
+    # this script), and a failed one exits the shell instead of returning.
+    ( exec 9>"${PROVISION_LOCK}" ) 2>/dev/null || return 1
+    exec 9>"${PROVISION_LOCK}" || return 1
     flock -w 300 9
 }
 

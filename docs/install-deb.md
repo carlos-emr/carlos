@@ -1,7 +1,7 @@
 # Installing CARLOS on a single server (Debian packages)
 
-This is the supported way to run CARLOS EMR on one Ubuntu machine: three
-Debian packages that install the application, its database, an nginx +
+This is the supported way to run CARLOS EMR on one Ubuntu machine: two
+Debian packages (plus one empty transitional package for upgrades) that install the application, its database, an nginx +
 ModSecurity web application firewall, HTTPS, scheduled encrypted backups, and
 an administration tool — a working, secured EMR from `apt install`.
 
@@ -14,12 +14,13 @@ an administration tool — a working, secured EMR from `apt install`.
 |---|---|
 | `carlos-emr` | CARLOS on a dedicated Tomcat 11 instance, MariaDB with least-privilege accounts, an nginx front door running ModSecurity 3 + OWASP CRS in blocking mode, HTTPS (self-signed by default, Let's Encrypt on request), nightly restic backups with a weekly restore drill, and the `carlos-ctl` admin CLI |
 | `carlos-emr-drugref` | DrugRef2, the drug and drug-interaction reference CARLOS queries when prescribing — co-deployed, loopback-only, with the Health Canada Drug Product Database seed loaded on install |
-| `carlos-emr-eform-renderer` | The sandboxed browser service that renders saved eForms to PDF for print, fax and archive |
+| `carlos-emr-eform-renderer` | Empty transitional package. The sandboxed browser that renders saved eForms to PDF now ships inside `carlos-emr`; this package only lets a 2026.08.0-alpha13 or earlier install upgrade cleanly (see [Upgrades](#upgrades)) |
 
 ## Requirements
 
 - Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 25 / MariaDB
-  11.8 / nginx stack).
+  11.8 / nginx stack) on **x86-64 (amd64)**. `carlos-emr` carries the pinned
+  Chromium that renders eForms to PDF, which exists only for amd64.
 - One dedicated server or VM. As a starting point: 4+ CPU cores, 8 GB RAM
   (2 GB JVM heap + 1 GB database buffer pool by default — both tunable),
   and disk sized for your document store plus backups.
@@ -78,17 +79,25 @@ byte for byte). Download all three, verify, install:
 
 ```bash
 sudo apt update
-sha256sum -c carlos-emr_<version>_all.deb.sha256
+sha256sum -c carlos-emr_<version>_amd64.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
-sudo apt install --no-remove ./carlos-emr_<version>_all.deb \
+sha256sum -c carlos-emr-eform-renderer_<version>_all.deb.sha256
+sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
                  ./carlos-emr-drugref_<version>_all.deb \
-                 ./carlos-emr-eform-renderer_<version>_amd64.deb
+                 ./carlos-emr-eform-renderer_<version>_all.deb
 ```
 
 `<version>` is the release's Debian version as it appears in the asset name,
-with dots throughout — for example `2026.08.0.alpha12`, giving
-`carlos-emr_2026.08.0.alpha12_all.deb`.
+with dots throughout — for example `2026.08.0.alpha14`, giving
+`carlos-emr_2026.08.0.alpha14_amd64.deb`.
+
+> **Releases up to and including 2026.08.0-alpha13** name the packages
+> differently: `carlos-emr_<version>_all.deb`, and the renderer as a real
+> package, `carlos-emr-eform-renderer_<version>_amd64.deb`. From
+> 2026.08.0-alpha14 the renderer is part of `carlos-emr`, which is therefore
+> `_amd64`, and `carlos-emr-eform-renderer_<version>_all.deb` is an empty
+> transitional package. On a fresh install it does nothing and can be left
+> out or removed later.
 
 > **Releases up to and including 2026.08.0-alpha12:** the `.sha256` files
 > record the build-time name, which spells the pre-release with a tilde
@@ -104,13 +113,13 @@ with dots throughout — for example `2026.08.0.alpha12`, giving
 >
 > Later releases record the published name and verify normally.
 
-Three packages, and it is worth knowing what each is for:
+What each package is for:
 
 | Package | What it does | Leave it out? |
 |---|---|---|
-| `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups. | No. |
+| `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups, and the browser that turns saved eForms into PDFs (eForm print, fax and archive have no other path). | No. |
 | `carlos-emr-drugref` | Drug and interaction lookups when prescribing. | Only if you never prescribe — searches return nothing without it. |
-| `carlos-emr-eform-renderer` | The browser that turns saved eForms into PDFs. | Only if the clinic does not use eForms — **there is no fallback**, so eForm print, fax and archive simply do not work without it. |
+| `carlos-emr-eform-renderer` | Nothing (transitional). | On a fresh install, yes. When upgrading from 2026.08.0-alpha13 or earlier, **no** — see [Upgrades](#upgrades). |
 
 apt may print this while installing local files. It is harmless:
 
@@ -325,13 +334,26 @@ move between the two without relearning.
 
 An upgrade is `apt install` of the newer packages — same command as the
 install. Supply the main package and each companion that is already installed,
-all from the same release: DrugRef and the renderer depend on the matching
-main-package version. For the standard installation this means all three files.
-If you intentionally omitted companions, supply only the packages you use and
-add `--no-install-recommends` to keep the optional packages absent.
+all from the same release: DrugRef depends on the matching main-package
+version. For the standard installation this means all three files.
+If you intentionally omitted DrugRef, supply only the packages you use and
+add `--no-install-recommends` to keep it absent.
 Offering only a newer main package
-can cause apt to propose removing those companions. Keep `--no-remove` so that
-proposal fails instead of removing prescription lookup and eForm rendering.
+can cause apt to propose removing a companion. Keep `--no-remove` so that
+proposal fails instead of removing prescription lookup.
+
+**Upgrading from 2026.08.0-alpha13 or earlier** (when the renderer was its own
+`_amd64` package and `carlos-emr` was `_all`): include
+`carlos-emr-eform-renderer_<version>_all.deb` in the same command. The browser,
+its service, the AppArmor profile and the existing render token move into
+`carlos-emr` unchanged, and the old renderer package is *upgraded* to the empty
+transitional one rather than removed. A removed old renderer keeps its old
+cleanup script registered, and purging it later would delete the render
+browser's token and disable its service (`carlos-ctl check` flags that state;
+`sudo apt install --reinstall carlos-emr` repairs it). With `--no-remove`,
+leaving the file out makes apt stop instead of removing anything. After the upgrade,
+`sudo apt remove carlos-emr-eform-renderer` is safe (or `apt autoremove`
+takes it if it was installed as a recommendation).
 The schema migrates before the service restarts, your configuration
 files are never overwritten, and the application refuses to start against a
 schema it was not built for rather than failing mid-consultation. Two habits

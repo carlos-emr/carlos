@@ -182,7 +182,12 @@ print("ok")
   // Only a MISSING flock(1) falls through to the pre-lock behavior; a lock file
   // that cannot be opened defers provisioning instead of running unserialized.
   assert.match(postinst, /command -v flock[^\n]*\|\| return 0/);
-  assert.match(postinst, /! mkdir -p "\$\{STATE\}"[^\n]*\|\| ! exec 9>/);
+  assert.match(postinst, /! mkdir -p "\$\{STATE\}"[^\n]*\\\n\s*\|\| ! \( exec 9>"\$\{PROVISION_LOCK\}" \) 2>\/dev\/null \\\n\s*\|\| ! exec 9>"\$\{PROVISION_LOCK\}"; then/);
+  // The real exec carries NO redirection of its own: under dash a redirection on
+  // `exec` is permanent, and a 2>/dev/null there silenced every later warning.
+  for (const script of [postinst, fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr-drugref.postinst'), 'utf8')]) {
+    assert.doesNotMatch(script, /^\s*[^#\n(]*exec 9>"\$\{PROVISION_LOCK\}" 2>/m);
+  }
   // The sentinel is the per-start guard; when it cannot be written the mask is
   // the only containment left, and recovery has to lift it again.
   assert.match(provision, /"systemctl", "mask", "carlos-emr\.service"/);

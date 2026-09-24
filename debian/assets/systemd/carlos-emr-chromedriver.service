@@ -27,7 +27,7 @@ StartLimitIntervalSec=0
 # PartOf: stopping or restarting the EMR stops or restarts this browser with it.
 # This is the guarantee that replaces the one lost when the JVM stopped owning
 # the chromedriver process -- WITHOUT it, `systemctl restart carlos-emr` (which
-# this package's own postinst does) leaves every in-flight render browser alive
+# the carlos-emr postinst does) leaves every in-flight render browser alive
 # under carlos-render, each holding a fully rendered patient page in memory,
 # indefinitely. Not Requires=/BindsTo=: the EMR must still start and serve when
 # the browser is broken.

@@ -209,27 +209,53 @@ def cmd_check(argv) -> int:
             _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
                  "MariaDB drop-in documents is missing")
 
-    # The eForm render browser is optional (Recommends:), so probe it only when its
-    # env file says it is installed. Every check here maps to a way it silently breaks:
+    # The eForm render browser ships inside carlos-emr (it was the separate
+    # carlos-emr-eform-renderer package through 2026.08.0~alpha13). Only a
+    # SKIP_EFORM_RENDERER dev build lacks it. Every check here maps to a way it
+    # silently breaks:
     # the unit not running, the AppArmor userns grant missing on a kernel that enforces
     # apparmor_restrict_unprivileged_userns (Chromium aborts "No usable sandbox!" and
     # every eForm print/fax/archive fails closed), or carlos.properties pointing the
     # JVM at a different port/token than the driver actually serves.
-    # Gate on the chromedriver BINARY, which a plain `apt remove` deletes — not on
-    # render-browser.env, which survives until purge: keying on the env file made check
-    # report a broken renderer on hosts where the operator deliberately removed the
-    # package. Binary-present-but-env-missing IS a fault (postinst never completed).
+    # Gate on the chromedriver BINARY, not on render-browser.env, which the postinst
+    # generates and only purge removes. Binary-present-but-env-missing IS a fault
+    # (postinst never completed); env-present-but-binary-missing means the payload was
+    # deleted from under an install that had it.
     render_env = "/etc/carlos-emr/render-browser.env"
     render_driver = "/usr/lib/carlos-emr/chromium/chromedriver"
+    # A pre-merge carlos-emr-eform-renderer that apt removed instead of upgrading
+    # to the transitional package keeps its old postrm registered (the transitional
+    # package ships none). Purging it runs that script against files carlos-emr now
+    # owns: it deletes render-browser.env and the browser's home and disables
+    # carlos-emr-chromedriver. Report it before anyone purges.
+    stale_renderer = False
+    postrm = out(["dpkg-query", "--control-path", "carlos-emr-eform-renderer", "postrm"])
+    if postrm:
+        try:
+            with open(postrm, encoding="utf-8", errors="replace") as fh:
+                stale_renderer = "render-browser.env" in fh.read()
+        except OSError:
+            pass
+    if stale_renderer:
+        print("\neForm render browser (package state)")
+        _bad("the pre-2026.08.0-alpha14 carlos-emr-eform-renderer package was removed instead "
+             "of upgraded, and purging it would delete the render browser's token and disable "
+             "its service. Do not purge it; install the transitional package from this release "
+             "first (sudo apt install ./carlos-emr-eform-renderer_<version>_all.deb). If it "
+             "was already purged: sudo apt install --reinstall carlos-emr")
     if os.path.exists(render_driver) and not os.path.exists(render_env):
         print("\neForm render browser")
-        _bad("the renderer package is installed but render-browser.env is missing — its "
-             "postinst never completed (sudo apt install --reinstall carlos-emr-eform-renderer)")
+        _bad("the render browser is installed but render-browser.env is missing — the "
+             "carlos-emr postinst never completed (sudo apt install --reinstall carlos-emr)")
     elif not os.path.exists(render_driver) and os.path.exists(render_env):
         print("\neForm render browser")
-        _note("render-browser.env is left over from a removed carlos-emr-eform-renderer "
-              "(it holds the url-base token and is deleted on purge); the renderer itself "
-              "is not installed, so its checks are skipped")
+        _bad(f"{render_driver} is missing although this host was set up with the render "
+             "browser (render-browser.env exists) — saved-eForm print, fax and archive "
+             "fail (sudo apt install --reinstall carlos-emr)")
+    elif not os.path.exists(render_driver):
+        print("\neForm render browser")
+        _note("this carlos-emr build carries no render browser (a SKIP_EFORM_RENDERER "
+              "development build); saved-eForm print, fax and archive are unavailable")
     elif os.path.exists(render_driver):
         print("\neForm render browser")
         if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
@@ -272,7 +298,7 @@ def cmd_check(argv) -> int:
             pass
         # Mirror config.py's composition exactly, including the empty-url-base shape it
         # deliberately writes mid-install: a base-less URL is then EXPECTED, and the broken
-        # thing is the missing token — whose fix is the renderer postinst, not init-config.
+        # thing is the missing token — whose fix is the carlos-emr postinst, not init-config.
         expected = None
         if port:
             expected = f"http://127.0.0.1:{port}/{url_base}" if url_base else f"http://127.0.0.1:{port}"
@@ -281,9 +307,8 @@ def cmd_check(argv) -> int:
                 _ok("eform_pdf_browser_service_url matches render-browser.env")
             else:
                 _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
-                     "unit refuses to start without the token; reinstall the renderer package "
-                     "(its postinst regenerates it): sudo apt install --reinstall "
-                     "carlos-emr-eform-renderer")
+                     "unit refuses to start without the token; the carlos-emr postinst "
+                     "regenerates it: sudo apt install --reinstall carlos-emr")
         elif prop_url is None:
             _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
                  "reach the render browser (sudo carlos-ctl init-config)")

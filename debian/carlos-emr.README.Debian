@@ -46,17 +46,21 @@ release tag as GitHub shows it (2026.08.0-alpha12); <version> is that tag as
 it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha12):
 
   R=https://github.com/carlos-emr/carlos/releases/download/<tag>
-  wget $R/carlos-emr_<version>_all.deb $R/carlos-emr_<version>_all.deb.sha256 \
+  wget $R/carlos-emr_<version>_amd64.deb $R/carlos-emr_<version>_amd64.deb.sha256 \
        $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
-       $R/carlos-emr-eform-renderer_<version>_amd64.deb $R/carlos-emr-eform-renderer_<version>_amd64.deb.sha256
+       $R/carlos-emr-eform-renderer_<version>_all.deb $R/carlos-emr-eform-renderer_<version>_all.deb.sha256
 
 Verify, then install:
 
-  sha256sum -c carlos-emr_<version>_all.deb.sha256
+  sha256sum -c carlos-emr_<version>_amd64.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-  sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
-  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
-      ./carlos-emr-eform-renderer_<version>_amd64.deb
+  sha256sum -c carlos-emr-eform-renderer_<version>_all.deb.sha256
+  sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
+      ./carlos-emr-drugref_<version>_all.deb ./carlos-emr-eform-renderer_<version>_all.deb
+
+Releases up to and including 2026.08.0-alpha13 publish carlos-emr as _all.deb
+and the renderer as a real carlos-emr-eform-renderer_<version>_amd64.deb; adjust
+the names above for those.
 
 On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
 package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
@@ -70,9 +74,14 @@ digest is unchanged), for example:
 Repeat for drugref and the renderer and require an OK result for every package
 before installing. Later releases record the published name directly.
 
-carlos-emr-eform-renderer is optional but strongly recommended: it carries the
-browser that renders saved eForms to PDF, and eForm print, fax and archive do
-not work without it. Leave it out only if the site does not use eForms.
+carlos-emr is built for amd64 only: it carries the pinned Chromium that renders
+saved eForms to PDF (eForm print, fax and archive have no other path), run as
+the carlos-emr-chromedriver service. carlos-emr-eform-renderer, the separate
+renderer package through 2026.08.0-alpha13, is now an empty transitional
+package. Include it when UPGRADING such an install, so the old renderer package
+is upgraded rather than removed (its old removal script deletes the render
+token and the browser's home, which carlos-emr now owns); it can be removed
+afterwards. On a fresh install it does nothing.
 
 apt normally prints this while installing a local .deb, and it is harmless:
 
@@ -99,7 +108,8 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
   /usr/lib/carlos-emr/                   the administrative helpers
   /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
-                                         chromedriver (carlos-emr-eform-renderer)
+                                         chromedriver (run by the
+                                         carlos-emr-chromedriver service)
   /usr/sbin/carlos-ctl                    the administration command
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
@@ -910,8 +920,9 @@ eForm print, fax or archive fails
 
       carlos-ctl logs | grep '<reference>'
 
-  If the renderer package is not installed at all, that is expected and the
-  application says so once at startup rather than failing a print later.
+  The render browser ships inside carlos-emr. Only a development build made
+  with SKIP_EFORM_RENDERER lacks it; the application then says so once at
+  startup rather than failing a print later.
 
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the
