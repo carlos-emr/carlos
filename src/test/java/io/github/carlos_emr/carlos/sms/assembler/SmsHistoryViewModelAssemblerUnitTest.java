@@ -106,7 +106,7 @@ class SmsHistoryViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("assemble formats rows for display and shows only the last four digits of the number")
+    @DisplayName("assemble passes codes for translation and shows only the last four digits of the number")
     void shouldFormatRows_withRedactedNumber() {
         SmsTransaction sent = outbound(11L);
         sent.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
@@ -124,7 +124,7 @@ class SmsHistoryViewModelAssemblerUnitTest {
                 .extracting(SmsHistoryViewModel.Row::id, SmsHistoryViewModel.Row::direction,
                         SmsHistoryViewModel.Row::purpose, SmsHistoryViewModel.Row::status,
                         SmsHistoryViewModel.Row::phone, SmsHistoryViewModel.Row::bodyStored)
-                .containsExactly("11", "Outbound", "Patient message", "Sent", "***1212", true);
+                .containsExactly("11", "OUTBOUND", "PATIENT_MESSAGE", "SENT", "***1212", true);
         assertThat(sentRow.createdAt()).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}");
         assertThat(sentRow.completedAt()).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}");
 
@@ -132,7 +132,7 @@ class SmsHistoryViewModelAssemblerUnitTest {
         assertThat(blockedRow)
                 .extracting(SmsHistoryViewModel.Row::status, SmsHistoryViewModel.Row::consentReason,
                         SmsHistoryViewModel.Row::bodyStored, SmsHistoryViewModel.Row::completedAt)
-                .containsExactly("Consent blocked", "SMS_CONSENT_UNKNOWN", false, "");
+                .containsExactly("CONSENT_BLOCKED", "SMS_CONSENT_UNKNOWN", false, "");
         assertThat(model.rows()).allSatisfy(row ->
                 assertThat(row.phone()).doesNotContain("416").doesNotContain("555"));
     }

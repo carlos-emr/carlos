@@ -84,9 +84,9 @@
                 <c:forEach items="${smsHistory.rows}" var="row">
                     <tr>
                         <td><carlos:encode value="${row.createdAt}"/></td>
-                        <td><carlos:encode value="${row.direction}"/></td>
-                        <td><carlos:encode value="${row.purpose}"/></td>
-                        <td><carlos:encode value="${row.status}"/></td>
+                        <td><fmt:message key="sms.direction.${row.direction}"/></td>
+                        <td><fmt:message key="sms.purpose.${row.purpose}"/></td>
+                        <td><fmt:message key="sms.status.${row.status}"/></td>
                         <td><carlos:encode value="${row.phone}"/></td>
                         <td><carlos:encode value="${row.consentReason}"/></td>
                         <td><carlos:encode value="${row.errorCode}"/></td>
