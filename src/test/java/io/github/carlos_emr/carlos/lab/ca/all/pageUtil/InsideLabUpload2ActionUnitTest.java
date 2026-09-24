@@ -1,4 +1,24 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -17,6 +37,7 @@ import java.util.Map;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
@@ -34,6 +55,8 @@ import static org.mockito.Mockito.*;
 /** Exercises the inside-lab batch action through its file and handler boundaries.
  * @since 2026-09-20
  */
+@Tag("unit")
+@Tag("lab")
 class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
     @TempDir Path root;
     private MockHttpServletRequest request;
@@ -46,6 +69,7 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         request.getSession().setAttribute("user", "999998");
         request.setParameter("type", "HL7");
+        request.setRemoteAddr("192.0.2.10");
         response = new MockHttpServletResponse();
         info = mock(LoggedInInfo.class);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
@@ -70,7 +94,7 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
     void shouldMarkCompleted_whenSavedLabParses(@TempDir Path documentDir) throws Exception {
         Path source = Files.writeString(root.resolve("source.hl7"), "MSH|inside-lab fixture");
         MessageHandler handler = mock(MessageHandler.class);
-        when(handler.parse(eq(info), eq("InsideLabUpload2Action"), anyString(), eq(1), anyString()))
+        when(handler.parse(eq(info), eq("InsideLabUpload2Action"), anyString(), eq(1), eq("192.0.2.10")))
                 .thenReturn("success");
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
