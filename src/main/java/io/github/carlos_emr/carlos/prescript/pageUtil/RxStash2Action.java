@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -186,7 +187,16 @@ public final class RxStash2Action extends ActionSupport {
         }
         int stashId = bean.getIndexFromRx(randomId);
         if (stashId != -1) {
+            int sourceDrugId = bean.getStashItem(stashId).getDrugReferenceId();
             bean.removeStashItem(stashId);
+            // Closing a re-prescribed card also un-ticks its source for ReRx. This request is the
+            // card X button's only server call: it used to send removeFromReRxDrugIdList as well,
+            // which removes the first stash entry for that source in a second, unordered request
+            // and could drop a different draft (#3908). The source stays listed while another
+            // staged card still re-prescribes it.
+            if (sourceDrugId > 0 && !stagesSource(bean, sourceDrugId)) {
+                bean.getReRxDrugIdList().remove(String.valueOf(sourceDrugId));
+            }
             if (bean.getStashIndex() >= bean.getStashSize()) {
                 bean.setStashIndex(bean.getStashSize() - 1);
             }
@@ -197,6 +207,16 @@ public final class RxStash2Action extends ActionSupport {
         return SUCCESS;
     }
 
+
+    private static boolean stagesSource(RxSessionBean bean, int sourceDrugId) {
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            RxPrescriptionData.Prescription item = bean.getStashItem(i);
+            if (item != null && item.getDrugReferenceId() == sourceDrugId) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private String action = null;
     private int stashId = -1;

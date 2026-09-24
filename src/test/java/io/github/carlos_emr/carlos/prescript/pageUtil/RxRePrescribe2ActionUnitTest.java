@@ -229,6 +229,62 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         verify(rxManager).archiveDrug(mockLoggedInInfo, 5, 1, io.github.carlos_emr.carlos.commn.model.Drug.REPRESCRIBED);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"saveReRxDrugIdToStash", "represcribe2"})
+    @DisplayName("should record the ReRx source in the same request that stages its copy")
+    void shouldRecordReRxSource_whenStagingSingleReprescription(String method) throws Exception {
+        // StaticScript2 used to send addToReRxDrugIdList as a separate, un-awaited request; losing
+        // that race left the source unarchived after the replacement was saved (#3908).
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugId", "5");
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        RxPrescriptionData.Prescription ownSource = new RxPrescriptionData.Prescription(5, "999998", 1);
+        ownSource.setBrandName("SOURCE DRUG");
+        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = stagingData(ownSource)) {
+            if ("represcribe2".equals(method)) {
+                action.represcribe2();
+            } else {
+                action.saveReRxDrugIdToStash();
+            }
+        }
+
+        assertThat(bean.getStashSize()).isEqualTo(1);
+        assertThat(bean.getStashItem(0).getDrugReferenceId()).isEqualTo(5);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("5");
+    }
+
+    @Test
+    @DisplayName("should neither stage nor record another patient's drug as a ReRx source")
+    void shouldNotRecordReRxSource_whenSourceBelongsToAnotherPatient() throws Exception {
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugId", "6");
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        RxPrescriptionData.Prescription otherPatientsDrug = new RxPrescriptionData.Prescription(6, "999998", 2);
+        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = stagingData(otherPatientsDrug)) {
+            assertThat(action.saveReRxDrugIdToStash()).isEqualTo(ActionSupport.NONE);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(bean.getStashSize()).isZero();
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+    }
+
+    private static org.mockito.MockedConstruction<RxPrescriptionData> stagingData(RxPrescriptionData.Prescription source) {
+        return org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) -> {
+            when(mock.getPrescription(source.getDrugId())).thenReturn(source);
+            when(mock.getCurrentATCCodesByPatient(org.mockito.ArgumentMatchers.anyInt())).thenReturn(new java.util.Vector<>());
+            when(mock.newPrescription(anyString(), org.mockito.ArgumentMatchers.anyInt(),
+                    any(RxPrescriptionData.Prescription.class))).thenAnswer(invocation -> {
+                RxPrescriptionData.Prescription from = invocation.getArgument(2);
+                RxPrescriptionData.Prescription staged =
+                        new RxPrescriptionData.Prescription(0, invocation.getArgument(0), invocation.getArgument(1));
+                staged.setBrandName(from.getBrandName());
+                staged.setDrugReferenceId(from.getDrugId());
+                return staged;
+            });
+        });
+    }
+
     @Test
     @DisplayName("should only treat a source drug of the Rx window's own patient as re-prescribable")
     void shouldMatchSourceDrugOwner_toBeanPatient() {

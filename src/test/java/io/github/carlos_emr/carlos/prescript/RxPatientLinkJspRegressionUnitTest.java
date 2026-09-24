@@ -100,6 +100,49 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should stop every Rx page that resolves its bean before using a missing one")
+    void shouldStopRendering_whenRxBeanDoesNotResolve() throws IOException {
+        // A patient whose Rx is not open, or a malformed/conflicting demographicNo, resolves no
+        // bean. The pages redirected but kept executing and dereferenced the null bean (a 500).
+        String unguarded = "if (rxResolvedBean != null) { pageContext.setAttribute(\"RxSessionBean\", rxResolvedBean); } }";
+        String guarded = "if (rxResolvedBean != null) { pageContext.setAttribute(\"RxSessionBean\", rxResolvedBean); }"
+                + " else { response.sendRedirect(\"error.html\"); return; } }";
+        int pages = 0;
+        try (java.util.stream.Stream<Path> files = Files.list(JSP_ROOT.resolve("rx"))) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".jsp")).toList()) {
+                String jsp = Files.readString(file, StandardCharsets.UTF_8);
+                assertThat(jsp).as(file.toString()).doesNotContain(unguarded);
+                if (jsp.contains(guarded)) {
+                    pages++;
+                }
+                if (jsp.contains("RxSessionBean bean2 = RxSessionBeanResolver.resolve(request);")) {
+                    assertThat(jsp).as(file.toString()).contains("if (bean2 == null) {");
+                }
+            }
+        }
+        assertThat(pages).isGreaterThanOrEqualTo(17);
+    }
+
+    @Test
+    @DisplayName("should answer a refused Rx request with the security-error page instead of a 500")
+    void shouldMapRxSecurityExceptions_toSecurityErrorPage() throws IOException {
+        String struts = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-prescription.xml"),
+                StandardCharsets.UTF_8);
+        assertThat(struts).contains("<result name=\"securityError\">/WEB-INF/jsp/error/securityError.jsp</result>");
+        assertThat(struts).contains("<exception-mapping exception=\"java.lang.SecurityException\" result=\"securityError\"/>");
+    }
+
+    @Test
+    @DisplayName("should name this page's patient on every pharmacy modal URL")
+    void shouldNamePatient_onPharmacyModalUrls() throws IOException {
+        String jsp = read("rx/SelectPharmacy2.jsp");
+        int start = jsp.indexOf("function openPharmacyModal(url) {");
+        int end = jsp.indexOf("iframe.src = url;", start);
+        assertThat(start).isPositive();
+        assertThat(jsp.substring(start, end)).contains("\"demographicNo=\" + encodeURIComponent(demo)");
+    }
+
+    @Test
     @DisplayName("should open the static-script page only for an explicitly named patient")
     void shouldRefuseFallbackPatient_onStaticScriptPage() throws IOException {
         String jsp = read("rx/StaticScript2.jsp");
@@ -107,7 +150,9 @@ class RxPatientLinkJspRegressionUnitTest {
         assertThat(jsp).contains("RxSessionBeanResolver.requestedDemographicNo(request)");
         assertThat(jsp).doesNotContain("RxSessionBeanResolver.resolve(request)");
         // Its re-prescribe calls stage for the page's patient only.
-        assertThat(jsp).contains("\"&parameterValue=updateReRxDrug&demographicNo=\" + staticScriptDemographicNo");
+        // Staging records the ReRx source itself; no separate, un-awaited list update (#3908).
+        assertThat(jsp).doesNotContain("parameterValue=updateReRxDrug");
+        assertThat(jsp).contains("/rx/rePrescribe2?method=saveReRxDrugIdToStash");
         assertThat(jsp).contains("\"&demographicNo=\" + staticScriptDemographicNo");
         assertThat(jsp).contains("/rx/searchDrug?demographicNo=\" + staticScriptDemographicNo");
     }

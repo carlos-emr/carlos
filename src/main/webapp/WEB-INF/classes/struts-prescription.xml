@@ -28,6 +28,18 @@
 <struts>
     <package name="prescription" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <!-- A refused Rx request (a missing privilege, or a patient the caller may not open,
+                 including a malformed or conflicting demographicNo at the view gates) answers 403
+                 with the CARLOS security-error page, as the other module packages do, instead of
+                 escaping as an unmapped exception and a 500 (#3908). -->
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="rx/choosePatient" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChoosePatient2Action">
             <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
         </action>

@@ -158,7 +158,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
             String pharmId = request.getParameter("pharmacyId");
-            String demographicNo = patientOfOpenRxWindow();
+            String demographicNo = authorisedRequestedPatient();
             if (demographicNo == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
@@ -189,11 +189,15 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
     public String getPharmacyFromDemographic() throws IOException {
 
-        String demographicNo = request.getParameter("demographicNo");
-
-        if (demographicNo == null || demographicNo.isEmpty() || !demographicNo.matches("\\d+")) {
-            return null;
-	}
+        // The patient's pharmacy links, for the patient the request names, provided the caller may
+        // change that patient's pharmacies (the same check as unlink/setPreferred). A missing,
+        // malformed, out-of-range or conflicting demographicNo used to reach Integer.parseInt and
+        // answer 500 on overflow; it is refused here instead (#3908).
+        String demographicNo = authorisedRequestedPatient();
+        if (demographicNo == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
         RxPharmacyData pharmacyData = new RxPharmacyData();
         List<PharmacyInfo> pharmacyList;
@@ -206,23 +210,34 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     /**
-     * The patient a pharmacy link change may touch: the {@code demographicNo} the request names,
-     * provided Rx is open for that patient in this session. The request value alone was trusted
-     * before, so any chart's pharmacy links could be changed (ported from draft PR #3304).
+     * The patient a pharmacy link change may touch: the {@code demographicNo} the request names
+     * explicitly (never the session's fallback Rx patient; malformed or conflicting values are
+     * refused), provided the caller holds {@code _rx} write for that patient and may open that
+     * patient's record. The request value alone was trusted before, so any chart's pharmacy
+     * links could be changed (ported from draft PR #3304). Authorising the patient, rather than
+     * requiring that patient's Rx bean to still be in the session, keeps an open pharmacy selector
+     * working after the bean was evicted by the per-session cap.
      *
-     * @return the demographic number as a string, or {@code null} when the request names no patient
-     *         or Rx is not open for it
+     * @return the demographic number as a string, or {@code null} when the request names no valid
+     *         patient or the caller may not change that patient's pharmacies
      */
-    private String patientOfOpenRxWindow() {
-        RxSessionBean bean = RxSessionBeanResolver.resolve(request);
-        return RxSessionBeanResolver.isRequestForBeanPatient(request, bean)
-                ? String.valueOf(bean.getDemographicNo()) : null;
+    private String authorisedRequestedPatient() {
+        int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        if (demographicNo <= 0) {
+            return null;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            return null;
+        }
+        return String.valueOf(demographicNo);
     }
 
     public String setPreferred() {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
-            String demographicNo = patientOfOpenRxWindow();
+            String demographicNo = authorisedRequestedPatient();
             if (demographicNo == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;

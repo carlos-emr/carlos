@@ -409,6 +409,10 @@ public String saveDigitalSignature() throws IOException {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
             }
+            // Record the source for ReRx archival in this same request, after the ownership check.
+            // The callers used to send addToReRxDrugIdList as a separate, un-awaited request; when
+            // it lost the race or failed, the replacement was saved and the source stayed active.
+            recordReRxSource(bean, drugId);
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
             Long rand = Math.round(Math.random() * 1000000);
@@ -471,6 +475,8 @@ public String saveDigitalSignature() throws IOException {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
             }
+            // Same as saveReRxDrugIdToStash: the source is recorded for archival atomically here.
+            recordReRxSource(beanRX, drugId);
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
 
@@ -720,6 +726,17 @@ public String saveDigitalSignature() throws IOException {
      * @param bean   the Rx window's bean
      * @return {@code true} only when both are present and belong to the same patient
      */
+    /**
+     * Adds an ownership-checked source drug to the bean's ReRx list, once. saveDrug() archives a
+     * re-prescribed source only when its id is listed and its replacement was saved.
+     */
+    static void recordReRxSource(RxSessionBean bean, int sourceDrugId) {
+        String id = String.valueOf(sourceDrugId);
+        if (!bean.getReRxDrugIdList().contains(id)) {
+            bean.addReRxDrugIdList(id);
+        }
+    }
+
     static boolean isOwnedByBeanPatient(RxPrescriptionData.Prescription source, RxSessionBean bean) {
         return source != null && bean != null && bean.getDemographicNo() > 0
                 && source.getDemographicNo() == bean.getDemographicNo();

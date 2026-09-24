@@ -52,11 +52,12 @@ import static org.mockito.Mockito.mock;
  * the conversion, and the workflow interceptor answered with the undefined {@code input} result
  * (HTTP 404), so every prescription save was refused. The patient is resolved from the request by
  * {@link RxSessionBeanResolver}, which accepts repeated equal values, so the action must not bind
- * {@code demographicNo} itself.</p>
+ * {@code demographicNo} itself. The same holds for {@link RxChoosePatient2Action} and
+ * {@link RxSearchDrug2Action}, whose String property turned the repeat into "1001, 1001".</p>
  *
  * @since 2026-09-24
  */
-@DisplayName("RxWriteScript2Action Struts binding")
+@DisplayName("Rx actions Struts binding of a repeated demographicNo")
 @Tag("integration")
 @Tag("prescript")
 class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase {
@@ -88,10 +89,56 @@ class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase
         assertThat(result.code()).isNull();
     }
 
-    private record BindingResult(RxWriteScript2Action action, String code, Exception failure) {
+    @Test
+    @DisplayName("should open Rx for the patient when choosePatient receives demographicNo twice")
+    void shouldOpenRxForPatient_whenChoosePatientReceivesRepeatedDemographicNo() throws Exception {
+        mockSession.setAttribute("user", "999998");
+        BindingResult result = bindThroughStruts("rx-choosepatient-binding-test", Map.of(
+                "demographicNo", new String[]{"1001", "1001"}));
+
+        assertThat(result.failure()).isNull();
+        assertThat(result.action().hasFieldErrors()).isFalse();
+        // The bean is opened for 1001 whatever the patient lookup then finds in the test database.
+        assertThat(((RxChoosePatient2Action) result.action()).getDemographicNo()).isEqualTo("1001");
+        assertThat(RxSessionBeanResolver.find(mockRequest.getSession(false), 1001)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should refuse to open Rx when choosePatient receives two different patients")
+    void shouldNotOpenRx_whenChoosePatientReceivesConflictingDemographicNo() throws Exception {
+        mockSession.setAttribute("user", "999998");
+        BindingResult result = bindThroughStruts("rx-choosepatient-binding-test", Map.of(
+                "demographicNo", new String[]{"1001", "1002"}));
+
+        assertThat(result.failure()).isNull();
+        assertThat(result.code()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(RxSessionBeanResolver.find(mockRequest.getSession(false), 1001)).isNull();
+        assertThat(RxSessionBeanResolver.find(mockRequest.getSession(false), 1002)).isNull();
+    }
+
+    @Test
+    @DisplayName("should pass one patient number on when searchDrug receives demographicNo twice")
+    void shouldExposeSinglePatient_whenSearchDrugReceivesRepeatedDemographicNo() throws Exception {
+        // inactiveDate is not dispatched without a drug id, so the plain search path runs; its
+        // DrugRef lookup fails fast offline and is caught by the action.
+        BindingResult result = bindThroughStruts("rx-searchdrug-binding-test", Map.of(
+                "searchString", new String[]{"zz"},
+                "demographicNo", new String[]{"1001", "1001"}));
+
+        assertThat(result.failure()).isNull();
+        assertThat(result.action().hasFieldErrors()).isFalse();
+        assertThat(mockRequest.getAttribute("demoNo")).isEqualTo("1001");
+    }
+
+    private record BindingResult(org.apache.struts2.ActionSupport action, String code, Exception failure) {
     }
 
     private BindingResult bindThroughStruts(Map<String, String[]> parameters) throws Exception {
+        return bindThroughStruts("rx-writescript-binding-test", parameters);
+    }
+
+    private BindingResult bindThroughStruts(String actionName, Map<String, String[]> parameters) throws Exception {
         // Collaborators the action resolves in its constructor; none is used by this request.
         replaceSpringUtilsBean(RxManager.class, mock(RxManager.class));
         parameters.forEach((name, values) -> {
@@ -100,6 +147,9 @@ class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase
         });
         mockRequest.setMethod("POST");
         mockRequest.getServletContext().setAttribute(
+                WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, applicationContext);
+        // RxChoosePatient2Action looks the context up through the session's servlet context.
+        mockRequest.getSession().getServletContext().setAttribute(
                 WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, applicationContext);
         Dispatcher dispatcher = new Dispatcher(mockRequest.getServletContext(), Map.of(
                 "config", "struts-default.xml,struts-plugin.xml,struts-rx-writescript-binding-test.xml"));
@@ -116,7 +166,7 @@ class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase
                     .withParameters(HttpParameters.create(requestParameters).build());
             bindingContext.bind();
             ActionProxy proxy = container.getInstance(ActionProxyFactory.class).createActionProxy(
-                    "/", "rx-writescript-binding-test", null,
+                    "/", actionName, null,
                     bindingContext.getContextMap(), false, true);
             String code = null;
             Exception failure = null;
@@ -126,7 +176,7 @@ class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase
                 // An "input" result has no mapping, so a conversion error surfaces here.
                 failure = e;
             }
-            return new BindingResult((RxWriteScript2Action) proxy.getAction(), code, failure);
+            return new BindingResult((org.apache.struts2.ActionSupport) proxy.getAction(), code, failure);
         } finally {
             dispatcher.cleanup();
             Dispatcher.clearInstance();

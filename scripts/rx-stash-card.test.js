@@ -54,13 +54,18 @@ function run(script, cards) {
     return calls;
 }
 
-test('card X button deletes the stash entry by random id (#3871)', () => {
+test('card X button on a ReRx card sends only the stash deletion by random id (#3871, #3908)', () => {
     const staged = card('set_734512', '4242');
-    const calls = run('removePrescribingDrug(document.getElementById("set_734512"), 4242);', [staged]);
+    const checkbox = { id: 'reRxCheckBox_4242', checked: true, getAttribute() { return null; } };
+    const calls = run('removePrescribingDrug(document.getElementById("set_734512"), 4242);', [staged, checkbox]);
 
+    // deletePrescribe removes exactly this card and un-ticks its source server-side. A second
+    // removeFromReRxDrugIdList request would remove the first stash entry for the source in an
+    // unordered request and could drop another draft.
     assert.deepEqual(calls.deletePrescribe, ['734512']);
     assert.equal(staged.removed, true);
-    assert.deepEqual(calls.removeReRxDrugId, [4242]);
+    assert.deepEqual(calls.removeReRxDrugId, []);
+    assert.equal(checkbox.checked, false);
 });
 
 test('card X button on a new drug does not touch the ReRx list (#3871)', () => {

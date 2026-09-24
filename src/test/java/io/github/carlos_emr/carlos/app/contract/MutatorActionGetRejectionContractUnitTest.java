@@ -321,6 +321,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // are POST-only; setStashIndex / action=edit cursor moves stay verb-open. Issue #3871.
         // Covered by RxStash2ActionUnitTest.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
+        // Prescription write: updateSaveAllDrugs, the action=update* stash rewrite/save and
+        // updateReRxDrug are POST-only; the read dispatches (listPreviousInstructions,
+        // getInstructionsAutocomplete, ...) stay verb-open. Covered by
+        // RxWriteScript2ActionWriteIsolationUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -452,7 +457,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
         // prescript slice: RxStash2Action's stash removal is POST-only; the prescript package is not
         // in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator). Issue #3871.
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
+        // prescript slice: RxWriteScript2Action's save and update dispatches are POST-only
+        // (conditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

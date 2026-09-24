@@ -130,14 +130,35 @@ public class RxSessionBean implements java.io.Serializable {
 
     //--------------------------------------------------------------------------
 
+    /**
+     * The selected staged item (the cursor), or -1 when none is selected. Always within the
+     * stash: a cursor left past the end by a removal that bypassed {@link #removeStashItem}
+     * (for example an iterator over {@link #getStashList()}) is pulled back to the last item.
+     */
     public int getStashIndex() {
+        if (this.stashIndex >= this.stash.size()) {
+            this.stashIndex = this.stash.size() - 1;
+        }
         return this.stashIndex;
     }
 
+    /**
+     * Moves the cursor. Only -1 (nothing selected) or an index of a staged item is accepted; any
+     * other value (negative, past the end) is ignored, so a bad index from a request can never
+     * point the cursor at nothing and later make a write fail or touch the wrong item.
+     */
     public void setStashIndex(int RHS) {
-        if (RHS < this.getStashSize()) {
+        if (RHS >= -1 && RHS < this.getStashSize()) {
             this.stashIndex = RHS;
         }
+    }
+
+    /**
+     * The staged item the cursor selects, or {@code null} when nothing (valid) is selected.
+     */
+    public RxPrescriptionData.Prescription getCurrentStashItem() {
+        int index = getStashIndex();
+        return index >= 0 ? this.stash.get(index) : null;
     }
 
     public int getStashSize() {
@@ -252,16 +273,30 @@ public class RxSessionBean implements java.io.Serializable {
 
     }
 
+    /**
+     * Removes one staged item and keeps the cursor on the same item where it still exists: a
+     * removal before the cursor shifts it down with the list, and a removal of the selected (last)
+     * item leaves it on the new last item. An index outside the stash is ignored.
+     */
     public void removeStashItem(int index) {
         //    this.clearDDI();
         //    this.clearDAM();
+        if (index < 0 || index >= stash.size()) {
+            return;
+        }
         stash.remove(index);
+        if (index < stashIndex) {
+            stashIndex--;
+        } else if (stashIndex >= stash.size()) {
+            stashIndex = stash.size() - 1;
+        }
     }
 
     public void clearStash() {
         //    this.clearDDI();
         //    this.clearDAM();
         stash = new ArrayList();
+        stashIndex = -1;
     }
 
     /**

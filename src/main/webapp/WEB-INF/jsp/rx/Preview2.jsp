@@ -36,8 +36,9 @@
     ViewScript2.jsp loads it into its preview frame for printing.
 
     Features:
-    - Reads the prescription from the session RxSessionBean. With no bean in
-      the session the page redirects to error.html instead of rendering.
+    - Reads the prescription from the request's per-patient RxSessionBean
+      (RxSessionBeanResolver). With no bean for that patient the page redirects
+      to error.html instead of rendering.
     - The prescription text and practitioner number are encoded for their
       context (html or htmlAttribute) (#3873). Some older clinic header fields
       are still written unencoded and need the same treatment.
@@ -149,7 +150,10 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
 <%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
-<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>

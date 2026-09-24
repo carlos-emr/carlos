@@ -166,19 +166,23 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
 
         String user_no = (String) request.getSession().getAttribute("user");
-        String demo_no = request.getParameter("demographicNo");
         String view = request.getParameter("view");
 
-        if (demo_no == null) {
+        // The patient must be named: a missing one keeps the old "failure" page, and a malformed,
+        // non-positive or conflicting one (demographicNo=1&demographic_no=2) is a bad request. "0"
+        // used to pass the digits check and fail inside activate() with a 500 (#3908).
+        int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        if (demographicNo == RxSessionBeanResolver.NOT_REQUESTED) {
             return "failure";
         }
-        if (!demo_no.matches("\\d{1,9}")) {
-            return "failure";
+        if (demographicNo <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
         // Setup bean
         // Per-patient state (#3875). The old code compared providerNo Strings with != and so
         // replaced the bean (and wiped the staged drafts) every time allergies were opened.
-        RxSessionBean bean = RxSessionBeanResolver.activate(request, Integer.parseInt(demo_no), user_no);
+        RxSessionBean bean = RxSessionBeanResolver.activate(request, demographicNo, user_no);
         if (view != null) {
             bean.setView(view);
         }

@@ -49,6 +49,12 @@ public final class RxRequestedPatientAccess {
     public static void require(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
                                HttpServletRequest request, String objectName, String privilege) {
         int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        // A malformed, non-positive or conflicting patient (demographicNo=1&demographic_no=2) is
+        // refused outright rather than treated as "no patient named", which would let the page
+        // fall back to the session's Rx patient without any patient-level check.
+        if (demographicNo == RxSessionBeanResolver.INVALID) {
+            throw new SecurityException("missing required sec object (" + objectName + ")");
+        }
         if (demographicNo > 0
                 && (!securityInfoManager.hasPrivilege(loggedInInfo, objectName, privilege, demographicNo)
                     || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo))) {

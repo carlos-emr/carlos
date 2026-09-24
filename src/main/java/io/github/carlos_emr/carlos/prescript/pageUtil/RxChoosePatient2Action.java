@@ -86,16 +86,19 @@ public final class RxChoosePatient2Action extends ActionSupport {
         // p("user_no", user_no);
         // p("frm", frm.toString());
         // Setup bean
-        int demographicNoInt;
-        try {
-            demographicNoInt = Integer.parseInt(this.getDemographicNo());
-        } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("Rejected Rx open: malformed demographicNo");
-            return redirect;
-        }
+        // The patient comes from the request through the resolver, which accepts the same
+        // demographicNo repeated (URL and form body) and refuses a malformed or conflicting one.
+        // Struts no longer binds it: a repeated value used to become "1, 1" here (#3908).
+        int demographicNoInt = RxSessionBeanResolver.requestedDemographicNo(request);
         if (demographicNoInt <= 0) {
-            return redirect;
+            // Missing, malformed, non-positive or conflicting (demographicNo and demographic_no
+            // naming different patients): a bad request, answered here rather than through the
+            // unmapped "error.html" result.
+            MiscUtils.getLogger().warn("Rejected Rx open: missing or malformed demographicNo");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
+        this.demographicNo = String.valueOf(demographicNoInt);
         // Per-patient state (#3875): reuse this patient's bean so reopening Rx keeps staged drafts,
         // and never replace another patient's bean that a second window is still using.
         RxSessionBean bean = RxSessionBeanResolver.activate(request, demographicNoInt, user_no);
@@ -163,7 +166,11 @@ public final class RxChoosePatient2Action extends ActionSupport {
         return (this.demographicNo);
     }
 
-    @StrutsParameter
+    /**
+     * Not a Struts parameter: the patient is read from the request by
+     * {@link RxSessionBeanResolver#requestedDemographicNo}. Binding it turned a repeated
+     * demographicNo into one comma-joined string and the Rx page failed to open (#3908).
+     */
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }

@@ -179,6 +179,35 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse an update when no staged item is selected instead of failing")
+    void shouldRefuseUpdate_whenCursorSelectsNothing() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        bean.setStashIndex(-1);
+        action.setAction("update");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        verifyNoInteractions(stagedCard, mockSignatureStampService);
+    }
+
+    @Test
+    @DisplayName("should skip a malformed card key in a save instead of failing")
+    void shouldSkipMalformedCardKey_whenSaving() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("parameterValue", "updateSaveAllDrugs");
+        request.setParameter("drugName_abc", "MALFORMED");
+
+        String result = action.execute();
+
+        // Only a malformed key: nothing names a staged card, so it is an empty save (400).
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(bean.getStashList()).containsExactly(stagedCard);
+    }
+
+    @Test
     @DisplayName("should still re-render through the fallback patient for a non-update action")
     void shouldRefresh_whenNonUpdateActionNamesNoPatient() throws Exception {
         action.setAction("refresh");
@@ -187,6 +216,53 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("refresh");
         assertThat(response.getRedirectedUrl()).isNull();
+        verifyNoInteractions(stagedCard);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should reject a non-POST save before resolving or touching the stash")
+    void shouldRejectSave_whenMethodIsNotPost(String httpMethod) throws Exception {
+        request.setMethod(httpMethod);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("parameterValue", "updateSaveAllDrugs");
+        request.setParameter("drugName_111111", "CARD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(bean.getStashList()).containsExactly(stagedCard);
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest(name = "{0} action={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"GET,update", "GET,updateAndPrint", "HEAD,updateAddAnother"})
+    @DisplayName("should reject a non-POST update before rewriting or saving the staged item")
+    void shouldRejectUpdate_whenMethodIsNotPost(String httpMethod, String updateAction) throws Exception {
+        request.setMethod(httpMethod);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        action.setAction(updateAction);
+        action.setGCN_SEQNO("0");
+        action.setCustomName("Custom drug");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should still allow a GET re-render that is not an update")
+    void shouldAllowGet_forNonUpdateRender() throws Exception {
+        request.setMethod("GET");
+        action.setAction("edit");
+
+        assertThat(action.execute()).isEqualTo("refresh");
         verifyNoInteractions(stagedCard);
     }
 

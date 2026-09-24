@@ -107,7 +107,10 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
 
 <%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
-<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } } %>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxSessionBeanResolver.resolve(request); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
 <c:if test="${empty pageScope.RxSessionBean}">
   <% response.sendRedirect("error.html"); %>
 </c:if>
@@ -2370,9 +2373,15 @@ function removeDrugFromReRxList(drugId) {
  */
 function removePrescribingDrug(cardId, drugId) {
     const uiRefId = cardId.id.split('_')[1];
+    // One server call only: deletePrescribe removes exactly this card by its stash key and, for a
+    // re-prescribed card, also drops the source from the ReRx list. Sending
+    // removeFromReRxDrugIdList as well (as this used to) made a second, unordered request that
+    // removes the first stash entry for the source and could drop a different draft (#3908).
     deletePrescribingDrugFromUI(uiRefId);
     if (drugId) {
-        uncheckReRxForExistingPrescribedDrug(drugId);
+        const checkbox = getReRxCheckboxByUiRefId(drugId);
+        if (checkbox)
+            checkbox.checked = false;
     }
 }
 
@@ -2708,12 +2717,14 @@ function updateQty(element){
     // Nothing staged: warn instead of posting an empty save (#3869). The ReRx selection is left
     // intact so the prescriber can still stage it; the server also refuses an empty save, and
     // only archives a ReRx source once its replacement is actually saved.
+    // A ticked ReRx selection that was never staged is not part of the save: ask before saving
+    // without it (the confirmation existed but no save path called it).
     function updateSaveAllDrugsPrintCheckContinue() {
         if (countStagedMedications() === 0) {
             alert(jsMsg.pleaseAddDrugFirst);
             return false;
         }
-        updateSaveAllDrugsPrintContinue();
+        showUnstagedReRxConfirmation(updateSaveAllDrugsPrintContinue);
     }
 
     function updateSaveAllDrugsCheckContinue() {
@@ -2721,7 +2732,7 @@ function updateQty(element){
             alert(jsMsg.pleaseAddDrugFirst);
             return false;
         }
-        updateSaveAllDrugsContinue();
+        showUnstagedReRxConfirmation(updateSaveAllDrugsContinue);
     }
 
     const CONFIRMATION_MESSAGE = {

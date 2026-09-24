@@ -43,6 +43,12 @@
 <fmt:setBundle basename="oscarResources"/>
 <%
     RxSessionBean bean2 = RxSessionBeanResolver.resolve(request);
+    if (bean2 == null) {
+        // No Rx open for the request's patient (or a malformed demographicNo): nothing to render,
+        // and never another patient's (#3908).
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
 
     Allergy[] allergies = RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request), bean2.getDemographicNo()).getActiveAllergies();
     String alle = "";

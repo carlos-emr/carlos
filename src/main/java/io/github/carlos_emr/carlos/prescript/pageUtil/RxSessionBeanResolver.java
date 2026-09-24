@@ -127,9 +127,11 @@ public final class RxSessionBeanResolver {
     }
 
     /**
-     * Makes sure a bean exists for a patient without opening Rx for them: the active patient and
-     * the patient's staged drafts are left alone. For pages outside the Rx window (the eChart, the
-     * messenger PDF preview) that render Rx fragments for a named patient.
+     * Makes sure a bean exists for a patient without opening Rx for them: the patient's staged
+     * drafts are left alone, and so is the active patient, except that a session with no active
+     * patient yet takes this patient as its active one (so a later request that names no patient
+     * falls back to it). For pages outside the Rx window (the eChart, the messenger PDF preview)
+     * that render Rx fragments for a named patient.
      *
      * @param request       the current request (a session is created if needed)
      * @param demographicNo the patient, must be positive

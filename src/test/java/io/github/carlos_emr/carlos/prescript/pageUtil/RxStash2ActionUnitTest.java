@@ -207,6 +207,36 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should un-tick the ReRx source when its re-prescribed card is closed")
+    void shouldDropReRxSource_whenReprescribedCardRemoved() throws Exception {
+        // The card X button's only server call (#3908): removing the re-prescribed card also takes
+        // its source off the ReRx list, so no second removeFromReRxDrugIdList request is needed.
+        bean.addReRxDrugIdList("55");
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        new RxStash2Action().execute();
+
+        assertThat(bean.getStashSize()).isEqualTo(1);
+        assertThat(bean.getStashItem(0).getRandomId()).isEqualTo(222222L);
+        assertThat(bean.getReRxDrugIdList()).doesNotContain("55");
+    }
+
+    @Test
+    @DisplayName("should keep the ReRx source listed while another staged card still re-prescribes it")
+    void shouldKeepReRxSource_whenAnotherCardStillStagesIt() throws Exception {
+        bean.getStashList().add(staged(333333L, 55));
+        bean.addReRxDrugIdList("55");
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        new RxStash2Action().execute();
+
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+    }
+
+    @Test
     @DisplayName("should leave the stash alone when a drug id is posted instead of a random id")
     void shouldKeepStash_whenDrugIdPostedInsteadOfRandomId() throws Exception {
         // The pre-#3871 X button sent the ReRx source drug id (55) here. It never matches a stash

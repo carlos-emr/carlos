@@ -115,7 +115,11 @@ public final class RxSearchDrug2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", connEx);
         }
         request.setAttribute("drugSearch", drugSearch);
-        request.setAttribute("demoNo", this.getDemographicNo());
+        // The patient comes from the request through the resolver (a repeated demographicNo is
+        // accepted there); the drug list links carry it on to the next Rx page (#3908).
+        int requestedDemographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        this.demographicNo = requestedDemographicNo > 0 ? String.valueOf(requestedDemographicNo) : null;
+        request.setAttribute("demoNo", this.demographicNo);
 
         return SUCCESS;
     }
@@ -347,7 +351,10 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return (this.demographicNo);
     }
 
-    @StrutsParameter
+    /**
+     * Not a Struts parameter: {@link #execute()} reads the patient from the request through
+     * {@link RxSessionBeanResolver#requestedDemographicNo}, which accepts a repeated equal value.
+     */
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }

@@ -290,6 +290,94 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("stash cursor from a request")
+    class StashCursor {
+
+        @Test
+        @DisplayName("should move only the named patient's cursor with two patients open")
+        void shouldMoveOnlyNamedPatientsCursor_withTwoPatientsOpen() throws Exception {
+            RxSessionBean other = new RxSessionBean();
+            other.setDemographicNo(2002);
+            other.setProviderNo(PROVIDER_NO);
+            RxPrescriptionData.Prescription otherCard = new RxPrescriptionData.Prescription(0, PROVIDER_NO, 2002);
+            otherCard.setRandomId(777777L);
+            other.getStashList().add(otherCard);
+            other.getStashList().add(new RxPrescriptionData.Prescription(0, PROVIDER_NO, 2002));
+            other.setStashIndex(1);
+            // Registering the second bean makes 2002 the active (fallback) patient.
+            RxSessionBeanResolver.register(request.getSession(), other);
+            namePatient();
+            request.setParameter("parameterValue", "setStashIndex");
+            request.setParameter("randomId", "111111");
+
+            new RxStash2Action().execute();
+
+            assertThat(bean.getStashIndex()).isZero();
+            assertThat(other.getStashIndex()).isEqualTo(1);
+        }
+
+        @ParameterizedTest(name = "randomId={0}")
+        @ValueSource(strings = {"999999", "abc", "-5", ""})
+        @DisplayName("should leave the cursor alone for a stale or malformed card key")
+        void shouldKeepCursor_whenCardKeyStaleOrMalformed(String randomId) throws Exception {
+            namePatient();
+            request.setParameter("parameterValue", "setStashIndex");
+            request.setParameter("randomId", randomId);
+
+            String result = new RxStash2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(bean.getStashIndex()).isEqualTo(1);
+            assertThat(bean.getStashSize()).isEqualTo(2);
+        }
+
+        @ParameterizedTest(name = "stashId={0}")
+        @ValueSource(ints = {2, 99, -1, -7})
+        @DisplayName("should leave the stash alone for an out-of-range legacy edit or delete")
+        void shouldKeepStash_whenLegacyIndexOutOfRange(int stashId) throws Exception {
+            namePatient();
+            for (String legacyAction : new String[]{"edit", "delete"}) {
+                RxStash2Action action = new RxStash2Action();
+                action.setAction(legacyAction);
+                action.setStashId(stashId);
+
+                assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(bean.getStashIndex()).isEqualTo(1);
+                assertThat(bean.getStashSize()).isEqualTo(2);
+            }
+        }
+
+        @ParameterizedTest(name = "stashId={0}")
+        @ValueSource(strings = {"2", "99", "-1", "abc"})
+        @DisplayName("should favourite nothing for an out-of-range or malformed card position")
+        void shouldRejectFavourite_whenCardPositionInvalid(String stashId) throws Exception {
+            namePatient();
+            RxAddFavorite2Action action = new RxAddFavorite2Action();
+            action.setStashId(stashId);
+            action.setFavoriteName("fav");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            verify(stagedCard, never()).AddToFavorites(anyString(), anyString());
+        }
+
+        @ParameterizedTest(name = "randomId={0}")
+        @ValueSource(strings = {"999999", "abc"})
+        @DisplayName("should favourite nothing for a stale or malformed card key")
+        void shouldRejectFavourite_whenCardKeyStaleOrMalformed(String randomId) throws Exception {
+            namePatient();
+            request.setParameter("parameterValue", "addFav2");
+            request.setParameter("randomId", randomId);
+            request.setParameter("favoriteName", "fav");
+
+            new RxAddFavorite2Action().execute();
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verify(stagedCard, never()).AddToFavorites(anyString(), anyString());
+        }
+    }
+
+    @Nested
     @DisplayName("RxStash2Action legacy action parameter")
     class StashLegacyAction {
 

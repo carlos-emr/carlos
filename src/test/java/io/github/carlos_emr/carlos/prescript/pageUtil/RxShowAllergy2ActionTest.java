@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -142,6 +143,36 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
         verify(mockAllergyDao, never()).merge(any(AbstractModel.class));
     }
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-3", "abc", "1234567890123"})
+    @DisplayName("should answer 400 without opening Rx for a malformed or non-positive patient")
+    void shouldRejectAllergyPage_whenRequestedPatientIsMalformed(String demographicNo) throws Exception {
+        mockRequest.setParameter("demographicNo", demographicNo);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getSession().getAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should answer 400 without opening Rx when demographicNo and demographic_no disagree")
+    void shouldRejectAllergyPage_whenPatientParametersConflict() throws Exception {
+        mockRequest.setParameter("demographicNo", "1");
+        mockRequest.setParameter("demographic_no", "2");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getSession().getAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep the failure page when no patient is named")
+    void shouldReturnFailure_whenNoPatientNamed() throws Exception {
+        assertThat(action.execute()).isEqualTo("failure");
+    }
+
     private Allergy allergy(String name, String severity) {
         Allergy allergy = new Allergy();
         allergy.setId(name.hashCode());

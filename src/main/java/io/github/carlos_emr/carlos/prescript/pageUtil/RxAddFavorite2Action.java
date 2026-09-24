@@ -88,8 +88,18 @@ public final class RxAddFavorite2Action extends ActionSupport {
             Drug drug = drugDao.find(drugId);
             RxPrescriptionData.addToFavorites(providerNo, favoriteName, drug);
         } else {
-            int stashId = Integer.parseInt(this.getStashId());
-
+            // The card's position in the named patient's stash; a malformed or out-of-range
+            // position names no staged item, so nothing is favourited.
+            int stashId;
+            try {
+                stashId = Integer.parseInt(this.getStashId());
+            } catch (NumberFormatException e) {
+                stashId = -1;
+            }
+            if (stashId < 0 || stashId >= bean.getStashSize()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
             bean.getStashItem(stashId).AddToFavorites(providerNo, favoriteName);
         }
 
@@ -122,7 +132,17 @@ public final class RxAddFavorite2Action extends ActionSupport {
             Drug drug = drugDao.find(drugId);
             RxPrescriptionData.addToFavorites(providerNo, favoriteName, drug);
         } else {
-            int stashId = bean.getIndexFromRx(Integer.parseInt(randomId));
+            int stashId;
+            try {
+                stashId = bean.getIndexFromRx(Integer.parseInt(randomId));
+            } catch (NumberFormatException e) {
+                stashId = -1;
+            }
+            if (stashId < 0) {
+                // No staged card carries this key (stale or malformed): favourite nothing.
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return null;
+            }
             bean.getStashItem(stashId).AddToFavorites(providerNo, favoriteName);
         }
        

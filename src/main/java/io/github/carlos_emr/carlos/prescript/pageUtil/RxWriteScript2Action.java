@@ -168,6 +168,17 @@ public final class RxWriteScript2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
+        // update* rewrites the staged item and updateAndPrint saves the script, so, like every other
+        // Rx write, it is POST-only: CSRFGuard does not check GET, so a cross-origin GET could
+        // otherwise drive the write. Checked before the stash is resolved or touched. The staging
+        // page (WriteScript.jsp) posts its form.
+        if (this.getAction() != null && this.getAction().startsWith("update")
+                && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         //RxWriteScriptForm frm = (RxWriteScriptForm) form;
         String fwd = "refresh";
         // update* actions rewrite the current stash item (and updateAndPrint saves it), so they
@@ -185,7 +196,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (this.getAction().startsWith("update")) {
 
             RxDrugData drugData = new RxDrugData();
-            RxPrescriptionData.Prescription rx = bean.getStashItem(bean.getStashIndex());
+            // The cursor selects the item being edited; with nothing (valid) selected there is
+            // nothing to update, so refuse rather than fail on an out-of-range index.
+            RxPrescriptionData.Prescription rx = bean.getCurrentStashItem();
+            if (rx == null) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
             RxPrescriptionData prescription = new RxPrescriptionData();
 
 			if (! this.getGCN_SEQNO().equals("0")) { // not custom
@@ -1118,6 +1135,14 @@ public final class RxWriteScript2Action extends ActionSupport {
     public String updateSaveAllDrugs() throws IOException, ServletException, Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
+        // Saves the prescription, its drugs and any ReRx archival: POST-only, checked before the
+        // stash is resolved or pruned (CSRFGuard does not check GET). SearchDrug3 posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         // A save must name the patient of the window it came from, and that patient's bean must be
         // the one being saved (#3875). Never save on the no-patient fallback: with two charts open
@@ -1145,7 +1170,14 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         List<Integer> existingIndex = new ArrayList();
         for (String num : randNum) {
-            int stashIndex = bean.getIndexFromRx(Integer.parseInt(num));
+            int randomId;
+            try {
+                randomId = Integer.parseInt(num);
+            } catch (NumberFormatException e) {
+                // A malformed card key names no staged item; skip it like a stale one.
+                continue;
+            }
+            int stashIndex = bean.getIndexFromRx(randomId);
             try {
                 if (stashIndex == -1) {
                     continue;

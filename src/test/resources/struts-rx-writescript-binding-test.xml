@@ -27,5 +27,9 @@
     <package name="rx-writescript-binding-test" namespace="/" extends="struts-default">
         <action name="rx-writescript-binding-test"
                 class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action"/>
+        <action name="rx-choosepatient-binding-test"
+                class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChoosePatient2Action"/>
+        <action name="rx-searchdrug-binding-test"
+                class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchDrug2Action"/>
     </package>
 </struts>

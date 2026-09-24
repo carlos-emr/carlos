@@ -168,14 +168,10 @@
 
             //represcribe a drug
             async function reRxDrugSearch3(reRxDrugId) {
-                var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-                var urlUpdateId = "${carlos:forJavaScript(ctx)}" + "/rx/WriteScript";
-                fetch(urlUpdateId, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                    credentials: 'same-origin',
-                    body: dataUpdateId + "&parameterValue=updateReRxDrug&demographicNo=" + staticScriptDemographicNo
-                });
+                // One request: saveReRxDrugIdToStash stages the copy and records the source for
+                // ReRx archival together, after its ownership check. A separate, un-awaited
+                // addToReRxDrugIdList request could lose the race (or fail), leaving the old
+                // medication active after the replacement was saved (#3908).
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId) + "&demographicNo=" + staticScriptDemographicNo;
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";

@@ -183,6 +183,32 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
         verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("patientResolvingGates")
+    @DisplayName("should refuse a malformed or conflicting patient instead of treating it as none")
+    void shouldThrow_whenRequestedPatientIsInvalid(Class<? extends ActionSupport> gate, String object,
+                                                  String privilege) {
+        request.removeParameter("demographicNo");
+        request.addParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.addParameter("demographic_no", String.valueOf(DEMOGRAPHIC_NO + 1));
+
+        assertThatThrownBy(() -> run(gate))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (" + object + ")");
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should refuse a non-numeric patient number")
+    void shouldThrow_whenRequestedPatientIsMalformed() {
+        request.removeParameter("demographicNo");
+        request.addParameter("demographicNo", "42abc");
+
+        assertThatThrownBy(() -> run(ViewPrintDrugProfile22Action.class))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+    }
+
     @Test
     @DisplayName("should refuse before any patient check when the global privilege is missing")
     void shouldThrow_whenGlobalPrivilegeIsDenied() {
