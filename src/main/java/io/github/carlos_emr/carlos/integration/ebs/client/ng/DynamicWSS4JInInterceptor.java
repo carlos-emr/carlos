@@ -315,12 +315,13 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                 // it is buffered or spilled.
                 is.transferTo(cache);
             } catch (CacheSizeExceededException e) {
-                // Stop reading the rest of an oversized entity now; the exchange faults anyway.
-                IOException limit = new IOException("MCEDT response exceeds the " + RESPONSE_MAX_SIZE
+                // The catch below closes the source, so the rest of the oversized entity is not read.
+                throw new IOException("MCEDT response exceeds the " + RESPONSE_MAX_SIZE
                         + " limit of " + maxResponseBytes + " bytes", e);
-                closeQuietly(is, limit);
-                throw limit;
             }
+            // The source is fully consumed and only the replay goes downstream (handleMessage
+            // replaces the message's InputStream content with it), so release the HTTP entity now.
+            closeSource(is);
             cache.flush();
             long size = cache.size();
             truncated = size > maxScanBytes;
@@ -334,8 +335,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             // stream (still registered with the cache) is closed, and is then deleted.
             cache.close();
         } catch (IOException | RuntimeException e) {
-            // Nothing has been handed downstream yet, so release the cache (and delete any
-            // temp file) here rather than leaving it to the delayed cleaner.
+            // Nothing has been handed downstream yet, so release the source, the replay and the
+            // cache (deleting any temp file) here rather than leaving them to CXF's cleaners.
+            // Closing an already-closed source is a no-op for InputStream implementations.
+            closeQuietly(is, e);
             closeQuietly(replay, e);
             closeQuietly(cache, e);
             throw e;
@@ -468,6 +471,20 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         logger.debug("Encryption detection result: hasEncryptedData={}, encryptedKeyCount={}",
                 result.hasEncryptedData, result.encryptedKeyCount);
         return result;
+    }
+
+    /**
+     * Closes the fully read HTTP entity stream after a successful copy. A close failure here
+     * cannot affect the replay, which already holds every byte, so it is logged (without content)
+     * rather than faulting a valid download.
+     */
+    private static void closeSource(InputStream source) {
+        try {
+            source.close();
+        } catch (IOException | RuntimeException e) {
+            logger.debug("Ignoring failure to close the fully read MCEDT response stream: {}",
+                    e.getClass().getName());
+        }
     }
 
     private static void closeQuietly(Closeable closeable, Exception primary) {
@@ -721,8 +738,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * pairs where the value is a token or a quoted-string with backslash escapes. Names are
      * folded to ASCII lower case. Quoted {@code ;} and {@code =} do not split parameters; a
      * parameter without {@code =} is skipped, and the first occurrence of a name wins.
+     *
+     * @throws IOException if a quoted-string has no closing quote (for example
+     *                     {@code boundary="b1}), rather than accepting a truncated value
      */
-    static Map<String, String> parseContentTypeParameters(String contentType) {
+    static Map<String, String> parseContentTypeParameters(String contentType) throws IOException {
         Map<String, String> params = new HashMap<>();
         int n = contentType.length();
         int i = contentType.indexOf(';');
@@ -757,6 +777,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                     }
                     value.append(c);
                     i++;
+                }
+                if (i >= n) {
+                    // Unterminated quoted-string: the header is malformed, so fail fast instead
+                    // of using a partial boundary or start value.
+                    throw new IOException("MCEDT response Content-Type has an unterminated quoted parameter");
                 }
                 i++;
                 while (i < n && contentType.charAt(i) != ';') {

@@ -41,15 +41,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
 
 import org.apache.cxf.attachment.AttachmentDeserializer;
-import org.apache.cxf.helpers.FileUtils;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.interceptor.Interceptor;
 import org.apache.cxf.interceptor.InterceptorChain;
@@ -92,6 +89,9 @@ class DynamicWSS4JInInterceptorUnitTest {
     private Message message;
     private InterceptorChain chain;
     private Map<String, Object> wssProps;
+    /** Per-test spill directory for the replay cache; see {@link #givenSpillDirectory()}. */
+    @TempDir
+    File spillDir;
 
     @BeforeEach
     void setUp() {
@@ -415,7 +415,7 @@ class DynamicWSS4JInInterceptorUnitTest {
 
     @Test
     @DisplayName("should not split Content-Type parameters on quoted separators")
-    void shouldParseQuotedParameters_withEmbeddedSeparators() {
+    void shouldParseQuotedParameters_withEmbeddedSeparators() throws IOException {
         Map<String, String> params = DynamicWSS4JInInterceptor.parseContentTypeParameters(
                 "multipart/related; type=\"a; boundary=wrong\"; Boundary=\"right\\\"q\"; start=<r>");
 
@@ -423,6 +423,45 @@ class DynamicWSS4JInInterceptorUnitTest {
                 .containsEntry("type", "a; boundary=wrong")
                 .containsEntry("boundary", "right\"q")
                 .containsEntry("start", "<r>");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "multipart/related; boundary=\"b1",
+            "multipart/related; boundary=\"b1\\\"",
+            "multipart/related; start=\"<root>; boundary=b1",
+            "multipart/related; boundary=\""})
+    @DisplayName("should reject a Content-Type whose quoted parameter has no closing quote")
+    void shouldRejectContentType_whenQuotedParameterIsUnterminated(String contentType) {
+        assertThatThrownBy(() -> DynamicWSS4JInInterceptor.parseContentTypeParameters(contentType))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("unterminated quoted parameter");
+    }
+
+    @Test
+    @DisplayName("should parse a quoted boundary and one with an escaped quote")
+    void shouldParseQuotedBoundary_withAndWithoutEscapedQuote() throws IOException {
+        assertThat(DynamicWSS4JInInterceptor.parseContentTypeParameters("multipart/related; boundary=\"b1\""))
+                .containsEntry("boundary", "b1");
+        assertThat(DynamicWSS4JInInterceptor.parseContentTypeParameters(
+                "multipart/related; boundary=\"b\\\"1\"; start=\"<r>\""))
+                .containsEntry("boundary", "b\"1")
+                .containsEntry("start", "<r>");
+    }
+
+    @Test
+    @DisplayName("should reject the message when its multipart boundary quote is unterminated")
+    void shouldRejectMessage_whenBoundaryQuoteIsUnterminated() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=\"b1");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n\r\n" + envelope(1, true)
+                + "\r\n--b1--\r\n");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class)
+                .hasMessageContaining("unterminated quoted parameter");
+        assertNoWssInterceptorAdded();
+        verify(message, never()).setContent(eq(InputStream.class), any());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -681,15 +720,15 @@ class DynamicWSS4JInInterceptorUnitTest {
         byte[] mime = mimeWithBinaryAttachment(2, 64 * 1024);
         when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
         givenContent(mime);
-        Set<String> before = cacheTempFiles();
+        givenSpillDirectory();
 
         interceptor.handleMessage(message);
 
         InputStream replay = capturedReplay();
-        assertThat(newCacheTempFiles(before)).as("entity above the threshold spills to disk").isNotEmpty();
+        assertThat(spilledFiles()).as("entity above the threshold spills to disk").isNotEmpty();
         assertThat(replay.readAllBytes()).isEqualTo(mime);
         replay.close();
-        assertThat(newCacheTempFiles(before)).isEmpty();
+        assertThat(spilledFiles()).isEmpty();
     }
 
     @Test
@@ -704,14 +743,14 @@ class DynamicWSS4JInInterceptorUnitTest {
             }
         });
         when(message.getContent(InputStream.class)).thenReturn(failsAfterHead);
-        Set<String> before = cacheTempFiles();
+        givenSpillDirectory();
 
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
                 .hasRootCauseInstanceOf(IOException.class);
         assertNoWssInterceptorAdded();
         verify(message, never()).setContent(eq(InputStream.class), any());
-        assertThat(newCacheTempFiles(before)).isEmpty();
+        assertThat(spilledFiles()).isEmpty();
     }
 
     @Test
@@ -721,14 +760,14 @@ class DynamicWSS4JInInterceptorUnitTest {
         // The boundary in the Content-Type never occurs in the entity, so locateEnvelope fails.
         when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=nomatch");
         givenContent(mimeWithBinaryAttachment(1, 16 * 1024));
-        Set<String> before = cacheTempFiles();
+        givenSpillDirectory();
 
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
                 .hasRootCauseInstanceOf(IOException.class);
         assertNoWssInterceptorAdded();
         verify(message, never()).setContent(eq(InputStream.class), any());
-        assertThat(newCacheTempFiles(before)).isEmpty();
+        assertThat(spilledFiles()).isEmpty();
     }
 
     @Test
@@ -738,14 +777,14 @@ class DynamicWSS4JInInterceptorUnitTest {
         // Well past the spill threshold, then an unclosed element: scanEnvelope throws.
         String padding = "<!--" + "x".repeat(8 * 1024) + "-->";
         givenContent(padding + "<s:Envelope xmlns:s=\"" + SOAP_NS + "\"><s:Header><unclosed></s:Header></s:Envelope>");
-        Set<String> before = cacheTempFiles();
+        givenSpillDirectory();
 
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
                 .hasCauseInstanceOf(XMLStreamException.class);
         assertNoWssInterceptorAdded();
         verify(message, never()).setContent(eq(InputStream.class), any());
-        assertThat(newCacheTempFiles(before)).isEmpty();
+        assertThat(spilledFiles()).isEmpty();
     }
 
     @Test
@@ -756,14 +795,14 @@ class DynamicWSS4JInInterceptorUnitTest {
         givenContent(mimeWithBinaryAttachment(2, 64 * 1024));
         when(clientBuilder.newWSSInInterceptorConfiguration())
                 .thenThrow(new IllegalStateException("keystore unavailable"));
-        Set<String> before = cacheTempFiles();
+        givenSpillDirectory();
 
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
                 .hasCauseInstanceOf(IllegalStateException.class);
         assertNoWssInterceptorAdded();
         verify(message, never()).setContent(eq(InputStream.class), any());
-        assertThat(newCacheTempFiles(before)).isEmpty();
+        assertThat(spilledFiles()).isEmpty();
     }
 
     @Test
@@ -773,13 +812,13 @@ class DynamicWSS4JInInterceptorUnitTest {
         when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1");
         givenContent(mimeWithBinaryAttachment(2, 64 * 1024));
         doThrow(new IllegalStateException("chain rejected")).when(chain).add(any(Interceptor.class));
-        Set<String> before = cacheTempFiles();
+        givenSpillDirectory();
 
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
                 .hasCauseInstanceOf(IllegalStateException.class);
         verify(message, never()).setContent(eq(InputStream.class), any());
-        assertThat(newCacheTempFiles(before)).isEmpty();
+        assertThat(spilledFiles()).isEmpty();
     }
 
     // ---------------------------------------------------------------- CXF attachment cache settings
@@ -816,12 +855,11 @@ class DynamicWSS4JInInterceptorUnitTest {
         when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MEMORY_THRESHOLD))
                 .thenReturn(1024L * 1024L);
         givenContent(mime);
-        Set<String> before = cacheTempFiles();
 
         interceptor.handleMessage(message);
 
+        // The directory is configured, so it is the only place the cache could have spilled.
         assertThat(dir.list()).isEmpty();
-        assertThat(newCacheTempFiles(before)).as("nothing spilled to CXF's default temp directory").isEmpty();
         try (InputStream replay = capturedReplay()) {
             assertThat(replay.readAllBytes()).isEqualTo(mime);
         }
@@ -892,6 +930,55 @@ class DynamicWSS4JInInterceptorUnitTest {
         verify(message, never()).setContent(eq(InputStream.class), any());
     }
 
+    // ---------------------------------------------------------------- source stream lifecycle
+
+    @Test
+    @DisplayName("should close the original response stream once it is copied and hand only the replay downstream")
+    void shouldCloseSourceStream_whenDetectionSucceeds() throws IOException {
+        byte[] body = envelope(1, true).getBytes(StandardCharsets.UTF_8);
+        CountingInputStream source = new CountingInputStream(body);
+        when(message.getContent(InputStream.class)).thenReturn(source);
+
+        interceptor.handleMessage(message);
+
+        assertThat(source.closed).isTrue();
+        try (InputStream replay = capturedReplay()) {
+            assertThat(replay).isNotSameAs(source);
+            assertThat(replay.readAllBytes()).isEqualTo(body);
+        }
+    }
+
+    @Test
+    @DisplayName("should close the original response stream when reading it fails")
+    void shouldCloseSourceStream_whenReadFails() {
+        CountingInputStream source = new CountingInputStream(new byte[0]) {
+            @Override
+            public int read(byte[] b, int off, int len) throws IOException {
+                throw new IOException("connection reset");
+            }
+        };
+        when(message.getContent(InputStream.class)).thenReturn(source);
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class);
+        assertThat(source.closed).isTrue();
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should close the original response stream when the cache configuration is rejected")
+    void shouldCloseSourceStream_whenConfigurationIsRejected() {
+        CountingInputStream source = new CountingInputStream(envelope(1, true).getBytes(StandardCharsets.UTF_8));
+        when(message.getContent(InputStream.class)).thenReturn(source);
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_MEMORY_THRESHOLD)).thenReturn("lots");
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        assertThat(source.closed).isTrue();
+        assertThat(source.read).as("rejected before any byte is read").isZero();
+        assertNoWssInterceptorAdded();
+    }
+
     // ---------------------------------------------------------------- aggregate response cap
 
     @Test
@@ -920,7 +1007,7 @@ class DynamicWSS4JInInterceptorUnitTest {
         when(message.getContextualProperty(DynamicWSS4JInInterceptor.RESPONSE_MAX_SIZE)).thenReturn(64L * 1024);
         CountingInputStream source = new CountingInputStream(mime);
         when(message.getContent(InputStream.class)).thenReturn(source);
-        Set<String> before = cacheTempFiles();
+        givenSpillDirectory();
 
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
@@ -933,7 +1020,7 @@ class DynamicWSS4JInInterceptorUnitTest {
         assertThat(source.closed).isTrue();
         assertNoWssInterceptorAdded();
         verify(message, never()).setContent(eq(InputStream.class), any());
-        assertThat(newCacheTempFiles(before)).isEmpty();
+        assertThat(spilledFiles()).isEmpty();
     }
 
     @ParameterizedTest
@@ -1001,17 +1088,20 @@ class DynamicWSS4JInInterceptorUnitTest {
         return restored.getValue();
     }
 
-    /** Names of CXF CachedOutputStream temp files ("cos*tmp") in CXF's default temp directory. */
-    private static Set<String> cacheTempFiles() {
-        String[] names = FileUtils.getDefaultTempDir()
-                .list((dir, name) -> name.startsWith("cos") && name.endsWith("tmp"));
-        return names == null ? new HashSet<>() : new HashSet<>(Arrays.asList(names));
+    /**
+     * Points the replay cache's spill directory at this test's own {@link TempDir}, so temp-file
+     * assertions never see cache files created by other tests or parallel Surefire forks in the
+     * shared JVM temp directory.
+     */
+    private void givenSpillDirectory() {
+        when(message.getContextualProperty(AttachmentDeserializer.ATTACHMENT_DIRECTORY))
+                .thenReturn(spillDir.getAbsolutePath());
     }
 
-    private static Set<String> newCacheTempFiles(Set<String> before) {
-        Set<String> now = cacheTempFiles();
-        now.removeAll(before);
-        return now;
+    /** Files currently in this test's spill directory. */
+    private String[] spilledFiles() {
+        String[] names = spillDir.list();
+        return names == null ? new String[0] : names;
     }
 
     /**
@@ -1038,7 +1128,7 @@ class DynamicWSS4JInInterceptorUnitTest {
      * {@link InputStream} directly, not {@link ByteArrayInputStream}, so the interceptor's copy
      * goes through the default chunked {@code transferTo}, as it does for a real HTTP stream.
      */
-    private static final class CountingInputStream extends InputStream {
+    private static class CountingInputStream extends InputStream {
         private final ByteArrayInputStream delegate;
         private long read;
         private boolean closed;
@@ -1048,7 +1138,7 @@ class DynamicWSS4JInInterceptorUnitTest {
         }
 
         @Override
-        public int read(byte[] b, int off, int len) {
+        public int read(byte[] b, int off, int len) throws IOException {
             int n = delegate.read(b, off, len);
             if (n > 0) {
                 read += n;
