@@ -86,7 +86,7 @@ const {
   validateBaseUrl,
   wirePage,
 } = require('./eform-local-playwright-utils');
-const { clickOpensPopup } = require('./lib/playwright-ui');
+const { NAVBAR_ROW_CLICK, clickOpensPopup } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
@@ -181,7 +181,9 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     const chart = await openChart(context, masterPage, recorder, 30000);
     await waitForNavbars(chart, 30000);
     const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: description }).first();
-    const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000 });
+    const viewer = await clickOpensPopup(chart, link, {
+      context, recorder, label: 'document-forward', timeout: 30000, clickPosition: NAVBAR_ROW_CLICK,
+    });
     const routes = () => sql(`SELECT provider_no,status FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY id`);
     const before = routes();
     assert(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} AND provider_no='${recipient}'`) === '0',

@@ -93,6 +93,19 @@ function watchOutcomes(sources, timeout, message) {
  * navigated to it directly was asserting against a login form and passing (see
  * docs/ui-tests/clinical-workflow-browser-checks.md).
  */
+/**
+ * Where to click an eChart navbar row (LeftNavBarDisplay.jsp).
+ *
+ * A row's title link sits in an absolutely positioned span that spans 90% of the column, and
+ * the date floats over its right-hand end at a higher z-index, so a long title runs underneath
+ * the date and is clipped where the date starts. The date link carries the same onclick as the
+ * title, so a clinician clicking anywhere on the row opens the item. Playwright, though, clicks
+ * the centre of the title link's box, which in a narrow chart window (the chart popup is sized
+ * to window.screen) lands on the date, and it refuses the click as intercepted. Clicking the
+ * start of the title is the visible text a clinician actually clicks.
+ */
+const NAVBAR_ROW_CLICK = Object.freeze({ x: 4, y: 6 });
+
 async function clickOpensPopup(page, locator, options = {}) {
   const context = options.context || page.context();
   const label = options.label || 'popup';
@@ -109,7 +122,9 @@ async function clickOpensPopup(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     // Some menus close their own window in the click handler. Their callers
     // can skip waiting on that opener; the popup is still awaited below.
-    await target.click({ timeout, noWaitAfter: options.closesOpener === true });
+    // options.clickPosition: see NAVBAR_ROW_CLICK for why a navbar row is clicked at
+    // its start rather than at Playwright's default centre point.
+    await target.click({ timeout, noWaitAfter: options.closesOpener === true, position: options.clickPosition });
     popup = await pending.promise;
   } catch (error) {
     await pending.abandon();
@@ -746,6 +761,7 @@ const REQUIRED_SECTIONS = [
 ];
 
 module.exports = {
+  NAVBAR_ROW_CLICK,
   NAVIGATION,
   REQUIRED_SECTIONS,
   clickAndAwaitReload,

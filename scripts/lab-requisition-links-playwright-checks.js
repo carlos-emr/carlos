@@ -14,6 +14,7 @@ const {
 } = require('./lib/playwright-harness');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { NAVBAR_ROW_CLICK } = require('./lib/playwright-ui');
 
 async function main() {
   const config = readConfig();
@@ -43,10 +44,10 @@ async function main() {
     });
     const chart = await openChart(context, masterPage, recorder, 45000);
     await waitForNavbars(chart, 45000);
-    async function popupFrom(page, control, label) {
+    async function popupFrom(page, control, label, clickOptions = {}) {
       const pending = context.waitForEvent('page', { timeout: 45000 });
       pending.catch(() => {});
-      await control.click();
+      await control.click(clickOptions);
       const popup = await pending;
       wireStrictPage(popup, label, recorder);
       await popup.waitForLoadState('domcontentloaded');
@@ -55,7 +56,7 @@ async function main() {
     }
     const labLink = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: /URINALYSIS/i }).first();
     if (!await labLink.count()) throw new SkipCheck('need a linked demo Urinalysis report');
-    const lab = await popupFrom(chart, labLink, 'lab');
+    const lab = await popupFrom(chart, labLink, 'lab', { position: NAVBAR_ROW_CLICK });
     const failures = [];
     try {
       const compose = await popupFrom(lab, lab.locator('input[value="Msg"]').first(), 'lab-message');
