@@ -3053,8 +3053,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         } else if (ds.getExamCode().equals(ExamCode.X_67536_3)) {
                             String nrtfResult = nrtfMarkers.claim(neurologicalExamOrdinal++, ds);
                             if (nrtfResult != null) {
-                                String nrtfDataField = StringUtils.filled(nrtfResult) ? nrtfResult : dataField;
-                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfDataField, dateObserved);
+                                // Keep the recorded value as exported, even when empty: an NRTF saved
+                                // without a value must not come back as a positive "Yes" finding.
+                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfResult, dateObserved);
                             } else {
                                 ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.FTLS, demographicNo, admProviderNo, dataField, dateObserved);
                             }

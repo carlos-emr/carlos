@@ -86,6 +86,29 @@ class CdsNeurologicalExamUnitTest {
     }
 
     @Test
+    @DisplayName("should restore an NRTF reading with an empty value as empty, not as Yes")
+    void shouldKeepEmptyResult_whenNrtfValueIsBlank() throws Exception {
+        Export export = new Export();
+        export.nrtf(date(2026, 3, 14), "   ");
+
+        assertThat(importNeurologicalExams(export.reparse()))
+                .containsExactly(new ImportedExam("NRTF", ""));
+    }
+
+    @Test
+    @DisplayName("should restore an NRTF reading with a null value as empty, not as Yes")
+    void shouldKeepEmptyResult_whenNrtfValueIsNull() throws Exception {
+        Export export = new Export();
+        Calendar day = date(2026, 3, 14);
+        export.ftls(day);
+        export.nrtf(day, null);
+
+        assertThat(importNeurologicalExams(export.reparse())).containsExactly(
+                new ImportedExam("FTLS", "Yes"),
+                new ImportedExam("NRTF", ""));
+    }
+
+    @Test
     @DisplayName("should keep importing FTLS as FTLS with Yes, exactly as before the NRTF split")
     void shouldImportFtlsUnchanged_whenNoNrtfMarkerIsPresent() throws Exception {
         Export export = new Export();
@@ -223,6 +246,8 @@ class CdsNeurologicalExamUnitTest {
         assertThat(importer)
                 .contains("CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray())")
                 .contains("nrtfMarkers.claim(neurologicalExamOrdinal++, ds)")
+                .contains("saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfResult, dateObserved)")
+                .doesNotContain("StringUtils.filled(nrtfResult)")
                 .contains("CdsNeurologicalExam.isNrtfMarkerCategory(ce)");
     }
 
@@ -267,7 +292,7 @@ class CdsNeurologicalExamUnitTest {
                 }
                 String nrtfResult = markers.claim(ordinal++, ds);
                 if (nrtfResult != null) {
-                    imported.add(new ImportedExam(CdsNeurologicalExam.NRTF, nrtfResult.isEmpty() ? "Yes" : nrtfResult));
+                    imported.add(new ImportedExam(CdsNeurologicalExam.NRTF, nrtfResult));
                 } else {
                     imported.add(new ImportedExam(CdsNeurologicalExam.FTLS, "Yes"));
                 }

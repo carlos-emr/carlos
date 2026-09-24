@@ -97,7 +97,9 @@ public final class CdsNeurologicalExam {
      * @param patientRec the patient record being exported
      * @param category the marker category already created for this patient, or {@code null}
      * @param screening the {@code 67536-3} screening just added for the NRTF reading
-     * @param result the NRTF measurement value; {@code null} is exported as empty
+     * @param result the NRTF measurement value; {@code null} and blank are both exported as empty,
+     *               which the importer restores as an empty value ({@code measurements.dataField}
+     *               is {@code NOT NULL}, so empty is the only faithful form of "no value")
      * @return the marker category to pass in for the next NRTF reading of the same patient
      */
     public static NewCategory addNrtfMarker(PatientRecord patientRec, NewCategory category,
@@ -241,7 +243,8 @@ public final class CdsNeurologicalExam {
          * @param ordinal the 0-based position of {@code screening} among the record's
          *                {@code 67536-3} screenings, counted in document order
          * @param screening the imported neurological exam screening
-         * @return the recorded NRTF result (possibly empty) when the screening is an NRTF reading,
+         * @return the recorded NRTF result when the screening is an NRTF reading; an empty string
+         *         means the reading had no value and must be stored as such, never as {@code "Yes"};
          *         or {@code null} when it should be imported as FTLS
          */
         public String claim(int ordinal, DiabetesComplicationScreening screening) {
