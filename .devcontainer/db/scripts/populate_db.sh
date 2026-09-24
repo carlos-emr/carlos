@@ -84,6 +84,16 @@ $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
 $SQL carlos < /scripts/development.sql
+# development.sql also truncate-reloads measurement and billing reference tables
+# (measurementType, validations, billingservice, ctl_billingservice) from the old
+# snapshot, undoing the reference-data migrations applied above. Re-apply those
+# migrations here; each one is idempotent. (The deb demo load needs no equivalent:
+# demo-additive-exclude.txt drops these tables, so the Flyway rows stand there.)
+echo 'Re-applying reference-data migrations undone by the demo snapshot...'
+for REF_MIGRATION in \
+    "${MIG}/common/V1.0.30__add_nrtf_tuning_fork_measurement_type.sql"; do
+  $SQL carlos < "${REF_MIGRATION}"
+done
 echo 'Restoring current Administration privileges...'
 $SQL carlos < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'
