@@ -1032,13 +1032,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             boolean extChanged = false;
             List<CaseManagementNoteExt> cmeList = caseManagementNoteExtDao.getExtByNote(Long.valueOf(noteId));
 
-            // EVERY ROW A KEY HOLDS, NOT JUST THE FIRST. getExtByNote() orders id desc, and this
-            // loop used to stop at the first match -- the NEWEST row. A note that already carries
-            // several rows for one key can hold different values in them, and NotesService.getNote()
-            // reads to the end of that list, so it reports the OLDEST. Submitting the value the
-            // newest row already has therefore looked like "nothing changed": the save returned
-            // early below, the reconciliation further down never ran, and the chart went on showing
-            // the older value. Disagreement between the rows for a key is itself a change.
+            // EVERY ROW A KEY HOLDS, NOT JUST THE FIRST. getExtByNote() orders id desc, so the
+            // first match is the NEWEST row, and this loop used to stop there. A note that already
+            // carries several rows for one key can hold different values in them, and
+            // NotesService.getNote() reads to the end of that list, so it reports the OLDEST.
+            // Submitting the value the newest row already held therefore looked like "nothing
+            // changed": the save returned early below, the reconciliation further down never ran,
+            // and the chart went on showing the older value. Walking every row makes disagreement
+            // between them a change in its own right.
             extNames:
             for (int i = 0; i < extNames.length; i++) {
                 boolean extKeyMatched = false;

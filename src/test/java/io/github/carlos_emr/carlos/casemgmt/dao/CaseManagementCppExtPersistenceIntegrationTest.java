@@ -170,11 +170,13 @@ public class CaseManagementCppExtPersistenceIntegrationTest extends CarlosTestBa
     @Tag("update")
     @DisplayName("should refresh every duplicate row when a key already has more than one (#3739)")
     void shouldRefreshEveryDuplicateRow_whenAKeyAlreadyHasMoreThanOne() {
-        // A note saved before the per-key fix can carry several rows for one key, and the
-        // readers disagree about which one counts: getExtByNote() orders id desc, the note
-        // route's change-detection loop breaks on the first match so it sees the newest, and
-        // NotesService.getNote() assigns from every row it walks so it ends on the oldest.
-        // Refreshing only one of them would leave the other reader on the value it replaced.
+        // A note saved before the per-key fix can carry several rows for one key, and the readers
+        // disagree about which one counts: getExtByNote() orders id desc, so the first match is the
+        // newest, while NotesService.getNote() assigns from every row it walks and ends on the
+        // oldest. The note route's change detection used to stop at that first match, which is why
+        // submitting the newest row's own value looked like no change at all; it now walks every
+        // row. Refreshing only one of a duplicate set would still leave the other reader on the
+        // value it replaced, which is what this test pins.
         caseManagementNoteExtDAO.save(newExtension(CaseManagementNoteExt.STARTDATE, START));
         caseManagementNoteExtDAO.save(newExtension(CaseManagementNoteExt.STARTDATE, RESOLUTION));
         entityManager.flush();
