@@ -29,7 +29,8 @@ public class SmsQueueService {
     private final SmsDefaultProviderResolver providerSelector;
     private final SmsConfigService configService;
 
-    public SmsQueueService(
+    /** For tests: no stored settings, so sending is always on. */
+    SmsQueueService(
             SmsSendValidator validator,
             SmsConsentService consentService,
             SmsTransactionService transactionRecorder,

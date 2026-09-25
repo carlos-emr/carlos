@@ -31,7 +31,8 @@ public class SmsQueueScheduler {
     private final SmsConfigService configService;
     private ScheduledExecutorService executorService;
 
-    public SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
+    /** For tests: no stored settings, so the scheduler follows the property. */
+    SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
         this(smsQueueWorker, null);
     }
 

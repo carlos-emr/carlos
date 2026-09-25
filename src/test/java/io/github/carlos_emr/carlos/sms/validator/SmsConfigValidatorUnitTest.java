@@ -70,4 +70,15 @@ class SmsConfigValidatorUnitTest {
     private static SmsConfigUpdateDto update(SmsProviderType providerType, String senderNumber) {
         return new SmsConfigUpdateDto(providerType, true, false, senderNumber, "", false, Map.of());
     }
+
+    @Test
+    @DisplayName("refuses a webhook secret longer than 256 characters, which would not fit once encrypted")
+    void shouldRejectSettings_whenWebhookSecretIsTooLong() {
+        SmsConfigUpdateDto update = new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "x".repeat(257), false, Map.of());
+
+        assertThat(validator.validate(update, INSTALLED)).containsExactly("sms.config.error.webhookSecretTooLong");
+        assertThat(validator.validate(new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "x".repeat(256), false, Map.of()), INSTALLED)).isEmpty();
+    }
 }

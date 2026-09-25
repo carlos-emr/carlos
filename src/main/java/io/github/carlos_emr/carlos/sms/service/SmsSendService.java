@@ -35,7 +35,8 @@ public class SmsSendService {
     private final SmsDefaultProviderResolver providerSelector;
     private final SmsConfigService configService;
 
-    public SmsSendService(
+    /** For tests: no stored settings, so sending is always on. */
+    SmsSendService(
             SmsSendValidator validator,
             SmsConsentService consentService,
             SmsProviderClientResolver providerResolver,

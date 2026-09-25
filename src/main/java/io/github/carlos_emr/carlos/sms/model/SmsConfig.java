@@ -184,6 +184,12 @@ public class SmsConfig extends AbstractModel<Integer> {
         this.updatedBy = providerNo;
     }
 
+    /** Redacted: the inherited reflection toString would print the encrypted secret and credentials. */
+    @Override
+    public String toString() {
+        return "SmsConfig[redacted]";
+    }
+
     private TreeMap<String, String> credentials() {
         if (isBlank(credentialsJson)) {
             return new TreeMap<>();
