@@ -152,7 +152,7 @@ public record PatientPortalSettings(
      * validation so they produce a configuration error instead of looking like an absent portal.
      */
     public static boolean isConfigured() {
-        return isConfigured(key -> CarlosProperties.getInstance().getProperty(key));
+        return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
