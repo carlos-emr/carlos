@@ -13,7 +13,8 @@
  *   2. edited form (flag true): Print prints, then saves with no prompt;
  *   3. clean form (flag false): Print prints, then asks; OK posts the save;
  *   4. clean form (flag false): Cancel keeps the printout and posts nothing;
- *   5. the eForm manager preview (demographic -1): Print prints only, with no prompt and no save.
+ *   5. the eForm manager preview (demographic -1): Print prints only, with no prompt and no save;
+ *      the Save button is hidden once the toolbar lands and its handler refuses.
  *
  * NOTHING IS WRITTEN. Every POST navigation after login is answered by a stub page from
  * context.route(), so the "save" is observed but never reaches AddEForm2Action. window.print is
@@ -199,6 +200,12 @@ async function workflow({ config, context, recorder, saves, fid }) {
     h.assert(f.kinds().includes('print'), 'preview Print did not print');
     h.assert(!f.events.some((event) => event.kind === 'dialog'), 'preview Print must not prompt about the chart');
     h.assert(saves.length === before, 'preview Print must not post a save');
+    // The toolbar is fetched after DOMContentLoaded, so the Save button must be hidden once it
+    // lands, and its handler must refuse even when called directly (#3904).
+    h.assert(!(await f.page.locator('#remoteSubmitButton').isVisible()), 'preview still shows the Save button');
+    h.assert((await f.page.evaluate(() => remoteSaveOnly())) === false, 'preview remoteSaveOnly did not refuse');
+    await f.page.waitForTimeout(SETTLE_MS);
+    h.assert(saves.length === before, 'preview Save must not post a save');
     await f.page.close();
   }
 }

@@ -627,6 +627,11 @@ function remoteEmail() {
  * the clinician's next plain Save would take the fax branch with the earlier recipient.
  */
 function remoteSaveOnly() {
+    // The manager preview has no patient to save into (demographic -1); refuse even when the
+    // Save button is reached before the toolbar guard hid it (#3904).
+    if (isAdminPreview()) {
+        return false;
+    }
     clearWorkflowFlags();
     return remoteSave();
 }
@@ -980,6 +985,9 @@ function includeHTML(elmnt) {
                 // event handlers — innerHTML is required for toolbar functionality.
                 toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
                 elmnt.append(toolbarWrapper);
+                // The toolbar arrives after DOMContentLoaded, so the preview guard that ran there
+                // found no Save button yet: hide it now that the fragment is in the DOM (#3904).
+                hideAdminPreviewSaveButton();
 
                 // After adding floating toolbar update number of attachments
                 jQuery('#remoteTotalAttachments').empty().append(jQuery('.delegateAttachment').length);

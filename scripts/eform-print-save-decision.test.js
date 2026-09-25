@@ -11,9 +11,9 @@ const vm = require('node:vm');
 const toolbarPath = path.join(__dirname, '../src/main/webapp/eform/eformFloatingToolbar/eform_floating_toolbar.js');
 const jspfPath = path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_toolbar.jspf');
 const source = fs.readFileSync(toolbarPath, 'utf8');
-const start = source.indexOf('function remotePrint() {');
+const start = source.indexOf('function remoteSaveOnly() {');
 const end = source.indexOf('function hailMary() {');
-assert.ok(start > 0 && end > start, 'remotePrint..hailMary slice must exist');
+assert.ok(start > 0 && end > start, 'remoteSaveOnly..hailMary slice must exist');
 const previewStart = source.indexOf('function isAdminPreview() {');
 const previewEnd = source.indexOf('function hideAdminPreviewSaveButton() {');
 assert.ok(previewStart > 0 && previewEnd > previewStart, 'isAdminPreview slice must exist');
@@ -148,4 +148,14 @@ test('every locale bundle defines the print-save prompt key', () => {
   const en = fs.readFileSync(path.join(resources, 'oscarResources_en.properties'), 'utf8');
   assert.ok(en.includes(`eform.floatingToolbar.printSaveUneditedConfirm=${FALLBACK}\n`),
     'JS English fallback must match the en bundle');
+});
+
+test('remoteSaveOnly refuses the manager preview and saves a patient form', () => {
+  const preview = setup({demographicNo: '-1'});
+  assert.equal(preview.context.remoteSaveOnly(), false);
+  assert.deepEqual(preview.kinds(), []);
+
+  const chart = setup();
+  assert.equal(chart.context.remoteSaveOnly(), true);
+  assert.deepEqual(chart.kinds(), ['clearWorkflowFlags', 'save']);
 });
