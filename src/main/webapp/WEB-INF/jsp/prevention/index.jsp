@@ -51,6 +51,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
@@ -849,14 +850,19 @@
                     </div>
                     <% } %>
 
-                    <%if (!StringUtils.isEmpty(CarlosProperties.getInstance().getProperty("cvc.url"))) { %>
-                                <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
-                                       style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
-                                <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
-                    <% } else {%>
+                    <%-- The brand picker is always offered. Once a National Vaccine Catalogue is
+                         installed (Administration > Integration > Update National Vaccine
+                         Catalogue) the catalogue brand/generic/lot search is offered as well:
+                         additive, so installing the catalogue never takes the curated brand
+                         picker (with its DIN/dose/route prefill) away from clinicians. --%>
                                 <input type="text" id="immunization" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Pick vaccine brand/generic" autocomplete="off">
                                 <div id="immunization_choices" class="autocomplete"></div>
+                    <%if (SpringUtils.getBean(CanadianVaccineCatalogueManager.class).isCatalogueInstalled()) { %>
+                                <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm mt-1"
+                                       style="width: 300px;" placeholder="Add by NVC brand/generic/lot#" autocomplete="off"
+                                       aria-label="Add by National Vaccine Catalogue brand, generic or lot number">
+                                <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
                     <% } %>
                     <%
                         String[] ColourCodesArray = new String[7];

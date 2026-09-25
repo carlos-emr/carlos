@@ -164,6 +164,9 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
+            // Replaces the whole National Vaccine Catalogue on every POST.
+            Arguments.of("io.github.carlos_emr.carlos.prevention.web.UpdateVaccineCatalogue2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
@@ -456,7 +459,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // facility slice: FacilityManager2Action is the first gated mutator there; the facility
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional
         // mutator). The sibling PMmodule/FacilityManager action is not gated on POST yet.
-        "io.github.carlos_emr.carlos.facility.FacilityManager2Action"
+        "io.github.carlos_emr.carlos.facility.FacilityManager2Action",
+        // prevention slice: UpdateVaccineCatalogue2Action (National Vaccine Catalogue install) is
+        // the only gated mutator; the prevention package is not in IN_SCOPE_PACKAGE_PREFIXES.
+        "io.github.carlos_emr.carlos.prevention.web.UpdateVaccineCatalogue2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

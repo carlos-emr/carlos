@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -28,370 +28,482 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 
-import ca.uhn.fhir.rest.client.api.IGenericClient;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
-import org.hl7.fhir.dstu3.model.Bundle;
-import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.dstu3.model.Coding;
-import org.hl7.fhir.dstu3.model.Extension;
-import org.hl7.fhir.dstu3.model.Medication;
-import org.hl7.fhir.dstu3.model.Medication.MedicationPackageBatchComponent;
-import org.hl7.fhir.dstu3.model.ValueSet;
-import org.hl7.fhir.dstu3.model.ValueSet.ConceptReferenceComponent;
-import org.hl7.fhir.dstu3.model.ValueSet.ConceptReferenceDesignationComponent;
-import org.hl7.fhir.dstu3.model.ValueSet.ConceptSetComponent;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationGTINDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationLotNumberDao;
+import io.github.carlos_emr.carlos.commn.dao.LookupListItemDao;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 import io.github.carlos_emr.carlos.commn.model.CVCMedication;
 import io.github.carlos_emr.carlos.commn.model.CVCMedicationGTIN;
 import io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber;
+import io.github.carlos_emr.carlos.commn.model.LookupList;
+import io.github.carlos_emr.carlos.commn.model.LookupListItem;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.prevention.nvc.NvcBundleException;
+import io.github.carlos_emr.carlos.prevention.nvc.NvcBundleParser;
+import io.github.carlos_emr.carlos.prevention.nvc.NvcCatalogue;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
-import ca.uhn.fhir.context.FhirContext;
-
-import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.log.LogAction;
-
+/**
+ * Local copy of the Canadian vaccine catalogue used by the Prevention module.
+ *
+ * <p>The catalogue is sourced from the Public Health Agency of Canada National Vaccine Catalogue
+ * (NVC) v2 FHIR R4 bundle, which replaced the retired Canadian Vaccine Catalogue (CVC) v1 DSTU3
+ * API. The local {@code CVC*} tables and this class name are kept for schema and caller
+ * compatibility.
+ *
+ * <p>{@link #update(LoggedInInfo)} downloads and fully parses the bundle <em>before</em> opening
+ * a transaction, then replaces the catalogue in a single transaction. A failed download or an
+ * unusable bundle therefore leaves the installed catalogue untouched, and a failed write rolls
+ * back to it; the (up to two-minute) download never holds a database connection.
+ */
 @Service
 public class CanadianVaccineCatalogueManager {
 
-    protected static final String serverBase = CarlosProperties.getInstance().getProperty("cvc.url");
+    /** NVC v2 FHIR base used when {@code cvc.url} is not set. */
+    public static final String NVC_DEFAULT_BASE_URL = "https://nvc-cnv.canada.ca/fhir/v2";
+    static final String NVC_BUNDLE_PATH = "/Bundle/NVC";
+    static final String NVC_ACCEPT = "application/fhir+json";
 
-    protected static FhirContext ctx = null;
-    Logger logger = MiscUtils.getLogger();
+    static final String CVC_UPDATED_PROP = "cvc.updated";
+    static final String CVC_FIRST_DATE_PROP = "cvc.firstdate";
+    static final String CVC_VERSION_PROP = "cvc.version";
 
-    @Autowired
-    CVCMedicationDao medicationDao;
-    @Autowired
-    CVCMedicationLotNumberDao lotNumberDao;
-    @Autowired
-    CVCMedicationGTINDao gtinDao;
-    @Autowired
-    CVCImmunizationDao immunizationDao;
+    static final String ANATOMICAL_SITE_LIST = "AnatomicalSite";
+    static final String ROUTE_OF_ADMIN_LIST = "RouteOfAdmin";
+    private static final String CATALOGUE_AUTHOR = "NVC";
 
-    static {
-        ctx = FhirContext.forDstu3();
-		/*
-		SSLParameters sslParameters = new SSLParameters();
-		List sniHostNames = new ArrayList(1);
-		sniHostNames.add(new SNIHostName("api.cvc.canimmunize.ca"));
-		sslParameters.setServerNames(sniHostNames);
-		
-		try {
-		
-			SSLContext sslcontext = SSLContexts.custom().build();
-			
-			
-			SSLConnectionSocketFactory fac = new SSLConnectionSocketFactory(new SSLSocketFactoryWrapper(sslcontext.getSocketFactory(), sslParameters), SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-			
-			List<Header> defaultHeaders = new ArrayList<Header>();
-			defaultHeaders.add(new BasicHeader("Accept-Encoding", "gzip;q=0,deflate,sdch"));
-			CloseableHttpClient httpclient = HttpClients.custom().setSSLSocketFactory(fac).setDefaultHeaders(defaultHeaders).build();
-			
-			
-		//	CloseableHttpClient httpclient = HttpClients.custom().setSslcontext(sslcontext).build();
-			
-			
-			ctx.getRestfulClientFactory().setHttpClient(httpclient);
-		}catch(Exception e) {
-		}
-		*/
+    /** The September 2026 bundle is ~9 MB; the cap only guards against a runaway response. */
+    static final int MAX_BUNDLE_BYTES = 64 * 1024 * 1024;
 
+    private final Logger logger = MiscUtils.getLogger();
+
+    private final CVCMedicationDao medicationDao;
+    private final CVCMedicationLotNumberDao lotNumberDao;
+    private final CVCMedicationGTINDao gtinDao;
+    private final CVCImmunizationDao immunizationDao;
+    private final UserPropertyDAO userPropertyDao;
+    private final LookupListManager lookupListManager;
+    private final LookupListItemDao lookupListItemDao;
+    private final SecurityInfoManager securityInfoManager;
+    private final TransactionTemplate transactionTemplate;
+    /**
+     * Serializes updates end to end (download and replace). Without it two administrators could
+     * download different NVC versions and the older one could commit last. A later caller waits,
+     * then downloads afresh, so the last install is always the newest bundle.
+     */
+    private final ReentrantLock updateLock = new ReentrantLock();
+
+    public CanadianVaccineCatalogueManager(CVCMedicationDao medicationDao,
+                                           CVCMedicationLotNumberDao lotNumberDao,
+                                           CVCMedicationGTINDao gtinDao,
+                                           CVCImmunizationDao immunizationDao,
+                                           UserPropertyDAO userPropertyDao,
+                                           LookupListManager lookupListManager,
+                                           LookupListItemDao lookupListItemDao,
+                                           SecurityInfoManager securityInfoManager,
+                                           PlatformTransactionManager transactionManager) {
+        this.medicationDao = medicationDao;
+        this.lotNumberDao = lotNumberDao;
+        this.gtinDao = gtinDao;
+        this.immunizationDao = immunizationDao;
+        this.userPropertyDao = userPropertyDao;
+        this.lookupListManager = lookupListManager;
+        this.lookupListItemDao = lookupListItemDao;
+        this.securityInfoManager = securityInfoManager;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     public List<CVCImmunization> getImmunizationList() {
-        List<CVCImmunization> results = immunizationDao.findAll(0, 1000);
-        return results;
+        return immunizationDao.findAll(0, 1000);
     }
 
     public List<CVCImmunization> getImmunizationsByParent(String conceptId) {
-        List<CVCImmunization> results = immunizationDao.findByParent(conceptId);
-        return results;
+        return immunizationDao.findByParent(conceptId);
     }
 
     public CVCMedication getMedicationBySnomedConceptId(String conceptId) {
-        CVCMedication result = medicationDao.findBySNOMED(conceptId);
-        return result;
+        return medicationDao.findBySNOMED(conceptId);
     }
 
     public List<CVCImmunization> getGenericImmunizationList() {
-        List<CVCImmunization> results = immunizationDao.findAllGeneric();
-        return results;
+        return immunizationDao.findAllGeneric();
     }
 
     public List<CVCMedication> getMedicationByDIN(LoggedInInfo loggedInInfo, String din) {
         List<CVCMedication> results = medicationDao.findByDIN(din);
-
-        //--- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.getMedicationByDIN", null);
-
         return results;
     }
 
-    public void update(LoggedInInfo loggedInInfo) {
-        clearCurrentData();
-        updateMedications(loggedInInfo);
-        updateBrandNameImmunizations(loggedInInfo);
-        updateGenericImmunizations(loggedInInfo);
+    /**
+     * Downloads the NVC bundle and replaces the local catalogue with it.
+     *
+     * @param loggedInInfo the administrator running the update; requires {@code _admin} write
+     * @return the catalogue that was installed
+     * @throws SecurityException   if the caller lacks {@code _admin} write
+     * @throws IOException         if the bundle could not be downloaded; nothing was changed
+     * @throws NvcBundleException  if the download is not a usable NVC bundle; nothing was changed
+     */
+    public NvcCatalogue update(LoggedInInfo loggedInInfo) throws IOException, NvcBundleException {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+        String url = getCVCURL() + NVC_BUNDLE_PATH;
+        NvcCatalogue catalogue;
+        updateLock.lock();
+        try {
+            catalogue = NvcBundleParser.parse(fetchBundleJson(url));
+            transactionTemplate.executeWithoutResult(status -> replaceCatalogue(loggedInInfo, catalogue));
+        } finally {
+            updateLock.unlock();
+        }
+        logger.info("NVC catalogue {} installed: {} generics, {} tradenames, {} lots",
+                catalogue.version(), catalogue.generics().size(), catalogue.tradenames().size(),
+                catalogue.products().stream().mapToInt(p -> p.lots().size()).sum());
+        return catalogue;
     }
 
-    private void clearCurrentData() {
-        medicationDao.removeAll();
+    /**
+     * Fetches the raw bundle. Package-private so tests can substitute a fixture without a network.
+     */
+    String fetchBundleJson(String url) throws IOException {
+        URI uri = URI.create(url);
+        if (!"https".equals(uri.getScheme())) {
+            // The catalogue feeds clinical documentation; never accept it over cleartext.
+            throw new IOException("NVC catalogue URL must use https");
+        }
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofSeconds(120))
+                .build();
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(15))
+                .build();
+
+        // useSystemProperties() honours https.proxyHost/proxyPort and the JVM trust store, which
+        // clinic and hospital networks commonly require for outbound HTTPS. Redirects are not
+        // followed so the https-only rule above cannot be bypassed by a downgrade redirect; a
+        // moved endpoint surfaces as an HTTP 3xx and is fixed by setting cvc.url.
+        try (CloseableHttpClient client = HttpClients.custom()
+                .useSystemProperties()
+                .disableRedirectHandling()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDefaultConnectionConfig(connectionConfig)
+                        .build())
+                .setDefaultRequestConfig(requestConfig)
+                .build()) {
+            return client.execute(bundleRequest(uri), response -> {
+                if (response.getCode() != HttpStatus.SC_OK) {
+                    throw new IOException("NVC bundle download returned HTTP " + response.getCode());
+                }
+                return readBounded(response.getEntity());
+            });
+        }
+    }
+
+    /**
+     * The bundle GET. NVC answers {@code 406 Not Acceptable} to any Accept header that lists
+     * more than one media type (including {@code *}{@code /*}), so exactly one is sent.
+     */
+    static HttpGet bundleRequest(URI uri) {
+        HttpGet request = new HttpGet(uri);
+        request.addHeader("Accept", NVC_ACCEPT);
+        request.addHeader("x-app-desc", "CARLOS EMR");
+        return request;
+    }
+
+    private static String readBounded(HttpEntity entity) throws IOException {
+        if (entity == null) {
+            throw new IOException("NVC bundle download returned no body");
+        }
+        if (entity.getContentLength() > MAX_BUNDLE_BYTES) {
+            throw new IOException("NVC bundle exceeds " + MAX_BUNDLE_BYTES + " bytes");
+        }
+        try (InputStream in = entity.getContent()) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[64 * 1024];
+            int total = 0;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_BUNDLE_BYTES) {
+                    throw new IOException("NVC bundle exceeds " + MAX_BUNDLE_BYTES + " bytes");
+                }
+                out.write(buffer, 0, read);
+            }
+            return out.toString(StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * Replaces every catalogue row with {@code catalogue}. Must run inside a transaction.
+     */
+    void replaceCatalogue(LoggedInInfo loggedInInfo, NvcCatalogue catalogue) {
+        // Children first: lots and GTINs reference CVCMedication rows.
         lotNumberDao.removeAll();
         gtinDao.removeAll();
+        medicationDao.removeAll();
         immunizationDao.removeAll();
-    }
 
-    public void updateMedications(LoggedInInfo loggedInInfo) {
-
-        IGenericClient client = (IGenericClient) ctx.newRestfulGenericClient(serverBase);
-        Bundle bundle = client.search().forResource(Medication.class).withTag(null, "CVC2").returnBundle(Bundle.class).execute();
-        processMedicationBundle(loggedInInfo, bundle);
-        logger.debug("Retrieved Bundle ID + " + bundle.getId() + ", total records found = " + bundle.getTotal());
-        while (bundle.getLink(Bundle.LINK_NEXT) != null) {
-            bundle = client.loadPage().next(bundle).execute();
-            logger.debug("Retrieved Next Bundle ID + " + bundle.getId());
-            processMedicationBundle(loggedInInfo, bundle);
+        for (NvcCatalogue.Vaccine generic : catalogue.generics()) {
+            immunizationDao.persist(toImmunization(generic, true));
         }
-    }
-
-    private void processMedicationBundle(LoggedInInfo loggedInInfo, Bundle bundle) {
-
-        for (BundleEntryComponent entry : bundle.getEntry()) {
-            CVCMedication cMed = new CVCMedication();
-
-            Medication med = (Medication) entry.getResource();
-            logger.debug("processing " + med.getId());
-            cMed.setBrand(med.getIsBrand());
-            cMed.setStatus(med.getStatus().toString());
-
-            for (Coding c : med.getCode().getCoding()) {
-                if ("http://hl7.org/fhir/sid/ca-hc-din".equals(c.getSystem())) {
-                    cMed.setDin(c.getCode());
-                    cMed.setDinDisplayName(c.getDisplay());
-                }
-                if ("http://snomed.info/sct".equals(c.getSystem())) {
-                    cMed.setSnomedCode(c.getCode());
-                    cMed.setSnomedDisplay(c.getDisplay());
-                }
-                if ("http://www.gs1.org/gtin".equals(c.getSystem())) {
-                    cMed.getGtinList().add(new CVCMedicationGTIN(cMed, c.getCode()));
-                }
-
-            }
-
-            if (med.getManufacturer() != null) {
-                //med.getManufacturer().getIdentifier().getSystem();
-                cMed.setManufacturerId(med.getManufacturer().getIdentifier().getValue());
-                cMed.setManufacturerDisplay(med.getManufacturer().getDisplay());
-            }
-
-            for (MedicationPackageBatchComponent comp : med.getPackage().getBatch()) {
-                cMed.getLotNumberList().add(new CVCMedicationLotNumber(cMed, comp.getLotNumber(), comp.getExpirationDate()));
-            }
-
-            //logger.info("saving a medication: " + cMed.getDinDisplayName());
-
-            saveMedication(loggedInInfo, cMed);
+        for (NvcCatalogue.Vaccine tradename : catalogue.tradenames()) {
+            immunizationDao.persist(toImmunization(tradename, false));
         }
 
-    }
-
-    public void saveMedication(LoggedInInfo loggedInInfo, CVCMedication medication) {
-        Set<CVCMedicationGTIN> gtins = medication.getGtinList();
-        Set<CVCMedicationLotNumber> lotNumbers = medication.getLotNumberList();
-
-        medication.setGtinList(null);
-        medication.setLotNumberList(null);
-        medicationDao.saveEntity(medication);
-
-        for (CVCMedicationGTIN g : gtins) {
-            gtinDao.saveEntity(g);
-        }
-
-        for (CVCMedicationLotNumber l : lotNumbers) {
-            lotNumberDao.saveEntity(l);
-        }
-
-        //--- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.saveMedication", medication.getId().toString());
-
-    }
-
-    public void updateBrandNameImmunizations(LoggedInInfo loggedInInfo) {
-        IGenericClient client = (IGenericClient) ctx.newRestfulGenericClient(serverBase);
-        ValueSet vs = client.read().resource(ValueSet.class).withId("CVC-Tradename-ValueSet").execute();
-
-        for (ConceptSetComponent c : vs.getCompose().getInclude()) {
-            List<ConceptReferenceComponent> cons = c.getConcept();
-            for (ConceptReferenceComponent cc : cons) {
-                CVCImmunization imm = new CVCImmunization();
-
-                imm.setSnomedConceptId(cc.getCode());
-                imm.setVersionId(0);
-                for (ConceptReferenceDesignationComponent cr : cc.getDesignation()) {
-                    if ("en".equals(cr.getLanguage()) && "Picklist".equals(cr.getUse().getDisplay())) {
-                        imm.setPicklistName(cr.getValue());
-
-                    }
-                    if ("en".equals(cr.getLanguage()) && "Display".equals(cr.getUse().getDisplay())) {
-                        imm.setDisplayName(cr.getValue());
-                    }
-                }
-
-                for (Extension ext : cc.getExtension()) {
-                    if ("https://cvc.canimmunize.ca/extensions/prevalence".equals(ext.getUrl())) {
-                        Integer prevalence = (Integer) ext.getValueAsPrimitive().getValue();
-                        imm.setPrevalence(prevalence);
-                    }
-                    if ("https://cvc.canimmunize.ca/extensions/parentConcept".equals(ext.getUrl())) {
-                        String parent = ext.getValue().toString();
-                        imm.setParentConceptId(parent);
-                    }
-                    if ("https://cvc.canimmunize.ca/extensions/ontario-ispa-vaccine".equals(ext.getUrl())) {
-                        Boolean ispa = (Boolean) ext.getValueAsPrimitive().getValue();
-                        imm.setIspa(ispa);
-                    }
-                }
-                imm.setGeneric(false);
-
-                saveImmunization(loggedInInfo, imm);
+        int lotCount = 0;
+        for (NvcCatalogue.Product product : catalogue.products()) {
+            CVCMedication medication = new CVCMedication();
+            medication.setBrand(true);
+            medication.setSnomedCode(product.snomedCode());
+            medication.setSnomedDisplay(product.displayName());
+            medication.setDin(product.din());
+            medication.setDinDisplayName(product.displayName());
+            medication.setManufacturerDisplay(product.manufacturer());
+            medication.setStatus(product.status());
+            medicationDao.persist(medication);
+            for (NvcCatalogue.Lot lot : product.lots()) {
+                Date expiry = lot.expiryDate() == null ? null : java.sql.Date.valueOf(lot.expiryDate());
+                lotNumberDao.persist(new CVCMedicationLotNumber(medication, lot.lotNumber(), expiry));
+                lotCount++;
             }
         }
+
+        syncLookupList(loggedInInfo, ANATOMICAL_SITE_LIST, "Anatomical Site",
+                "Anatomical sites of administration from the National Vaccine Catalogue", catalogue.anatomicalSites());
+        syncLookupList(loggedInInfo, ROUTE_OF_ADMIN_LIST, "Routes of Administration",
+                "Routes of administration from the National Vaccine Catalogue", catalogue.routes());
+
+        userPropertyDao.saveProp(CVC_UPDATED_PROP, new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()));
+        // Always overwritten: an unversioned bundle must not leave the previous install's
+        // version on display (a blank value reads back as "no version").
+        userPropertyDao.saveProp(CVC_VERSION_PROP, catalogue.version() == null ? "" : catalogue.version());
+        if (userPropertyDao.getProp(CVC_FIRST_DATE_PROP) == null) {
+            userPropertyDao.saveProp(CVC_FIRST_DATE_PROP, String.valueOf(System.currentTimeMillis()));
+        }
+
+        // One audit row per update, not one per catalogue row (~5,000 inserts).
+        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.update",
+                "version=" + catalogue.version() + " generics=" + catalogue.generics().size()
+                        + " tradenames=" + catalogue.tradenames().size() + " lots=" + lotCount);
     }
 
-    public void updateGenericImmunizations(LoggedInInfo loggedInInfo) {
-        IGenericClient client = (IGenericClient) ctx.newRestfulGenericClient(serverBase);
-        ValueSet vs = client.read().resource(ValueSet.class).withId("CVC-Generic-ValueSet").execute();
+    private static CVCImmunization toImmunization(NvcCatalogue.Vaccine vaccine, boolean generic) {
+        CVCImmunization immunization = new CVCImmunization();
+        immunization.setVersionId(0);
+        immunization.setSnomedConceptId(vaccine.snomedConceptId());
+        immunization.setDisplayName(vaccine.displayName());
+        immunization.setPicklistName(vaccine.picklistName());
+        immunization.setParentConceptId(vaccine.parentConceptId());
+        immunization.setGeneric(generic);
+        return immunization;
+    }
 
-        for (ConceptSetComponent c : vs.getCompose().getInclude()) {
-            List<ConceptReferenceComponent> cons = c.getConcept();
-            for (ConceptReferenceComponent cc : cons) {
-                CVCImmunization imm = new CVCImmunization();
+    /**
+     * Upserts a lookup list by item value: NVC concepts are (re)activated with their current
+     * label and order, and NVC-created items NVC no longer publishes are deactivated rather than
+     * deleted so that any record already referencing them still resolves. Locally added items
+     * are never touched.
+     */
+    private void syncLookupList(LoggedInInfo loggedInInfo, String name, String title, String description,
+                                List<NvcCatalogue.CodedValue> values) {
+        if (values.isEmpty()) {
+            // An absent subset is not evidence that every site/route was withdrawn.
+            return;
+        }
+        LookupList list = lookupListManager.findLookupListByName(loggedInInfo, name);
+        if (list == null) {
+            list = new LookupList();
+            list.setName(name);
+            list.setListTitle(title);
+            list.setDescription(description);
+            list.setActive(true);
+            list.setCreatedBy(CATALOGUE_AUTHOR);
+            list.setDateCreated(new Date());
+            list = lookupListManager.addLookupList(loggedInInfo, list);
+        }
 
-                imm.setSnomedConceptId(cc.getCode());
-                imm.setVersionId(0);
-                for (ConceptReferenceDesignationComponent cr : cc.getDesignation()) {
-                    if ("en".equals(cr.getLanguage()) && "Picklist".equals(cr.getUse().getDisplay())) {
-                        imm.setPicklistName(cr.getValue());
+        Map<String, LookupListItem> existing = new HashMap<>();
+        for (boolean active : new boolean[]{true, false}) {
+            for (LookupListItem item : lookupListItemDao.findByLookupListId(list.getId(), active)) {
+                existing.putIfAbsent(item.getValue(), item);
+            }
+        }
 
-                    }
-                    if ("en".equals(cr.getLanguage()) && "Display".equals(cr.getUse().getDisplay())) {
-                        imm.setDisplayName(cr.getValue());
-                    }
-                }
-
-                for (Extension ext : cc.getExtension()) {
-                    if ("https://cvc.canimmunize.ca/extensions/prevalence".equals(ext.getUrl())) {
-                        Integer prevalence = (Integer) ext.getValueAsPrimitive().getValue();
-                        imm.setPrevalence(prevalence);
-                    }
-                    if ("https://cvc.canimmunize.ca/extensions/ontario-ispa-vaccine".equals(ext.getUrl())) {
-                        Boolean ispa = (Boolean) ext.getValueAsPrimitive().getValue();
-                        imm.setIspa(ispa);
-                    }
-                }
-                imm.setGeneric(true);
-                saveImmunization(loggedInInfo, imm);
+        int order = 0;
+        for (NvcCatalogue.CodedValue value : values) {
+            LookupListItem item = existing.remove(value.code());
+            if (item == null) {
+                item = new LookupListItem();
+                item.setLookupListId(list.getId());
+                item.setValue(value.code());
+                item.setLabel(value.label());
+                item.setDisplayOrder(order++);
+                item.setActive(true);
+                item.setCreatedBy(CATALOGUE_AUTHOR);
+                item.setDateCreated(new Date());
+                lookupListManager.addLookupListItem(loggedInInfo, item);
+            } else if (CATALOGUE_AUTHOR.equals(item.getCreatedBy())) {
+                item.setLabel(value.label());
+                item.setDisplayOrder(order++);
+                item.setActive(true);
+                // Through the manager, not the DAO: it evicts the shared lookup-list cache.
+                lookupListManager.updateLookupListItem(loggedInInfo, item);
+            } else {
+                // A clinic already maintains this value: leave its label, order and active flag
+                // exactly as the clinic set them, and do not add an NVC duplicate beside it.
+                order++;
+            }
+        }
+        for (LookupListItem withdrawn : existing.values()) {
+            // Only retire values this synchronisation created. Items an administrator added
+            // through Lookup List Manager (or a clinic list that predates the catalogue) stay.
+            if (withdrawn.isActive() && CATALOGUE_AUTHOR.equals(withdrawn.getCreatedBy())) {
+                withdrawn.setActive(false);
+                lookupListManager.updateLookupListItem(loggedInInfo, withdrawn);
             }
         }
     }
 
-    public void saveImmunization(LoggedInInfo loggedInInfo, CVCImmunization immunization) {
-        immunizationDao.saveEntity(immunization);
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.saveImmunization", immunization.getId().toString());
+    /**
+     * @return when the catalogue was last installed ({@code yyyy-MM-dd HH:mm}), or {@code null}
+     *         if it never has been
+     */
+    public String getLastUpdated() {
+        return propertyValue(CVC_UPDATED_PROP);
+    }
 
+    /**
+     * @return the NVC version stamp of the installed catalogue, or {@code null}
+     */
+    public String getInstalledVersion() {
+        return propertyValue(CVC_VERSION_PROP);
+    }
+
+    /**
+     * Whether a catalogue has been installed. The Prevention screen uses this to decide between
+     * the catalogue-backed brand/generic/lot search and the static prevention list.
+     */
+    public boolean isCatalogueInstalled() {
+        return getLastUpdated() != null;
+    }
+
+    private String propertyValue(String name) {
+        UserProperty property = userPropertyDao.getProp(name);
+        return property == null || property.getValue() == null || property.getValue().isBlank()
+                ? null : property.getValue();
     }
 
     public CVCMedicationLotNumber findByLotNumber(LoggedInInfo loggedInInfo, String lotNumber) {
         CVCMedicationLotNumber result = lotNumberDao.findByLotNumber(lotNumber);
-
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.findByLotNumber", "lotNumber:" + lotNumber);
-
+        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.findByLotNumber",
+                "lotNumber:" + lotNumber);
         return result;
     }
 
     public CVCImmunization getBrandNameImmunizationBySnomedCode(LoggedInInfo loggedInInfo, String snomedCode) {
         CVCImmunization result = immunizationDao.findBySnomedConceptId(snomedCode);
-
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.getBrandNameImmunizationBySnomedCode", "snomedCode:" + snomedCode);
-
+        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.getBrandNameImmunizationBySnomedCode",
+                "snomedCode:" + snomedCode);
         return result;
     }
 
-    public List<CVCImmunization> query(String term, boolean includeGenerics, boolean includeBrands, boolean includeLotNumbers, boolean includeGTINs, StringBuilder matchedLotNumber) {
-        List<CVCImmunization> results = new ArrayList<CVCImmunization>();
+    public List<CVCImmunization> query(String term, boolean includeGenerics, boolean includeBrands,
+            boolean includeLotNumbers, boolean includeGTINs, StringBuilder matchedLotNumber) {
+        List<CVCImmunization> results = new ArrayList<>();
 
         if (includeGenerics || includeBrands) {
             results.addAll(immunizationDao.query(term, includeGenerics, includeBrands));
         }
         if (includeLotNumbers) {
             List<CVCMedicationLotNumber> res = lotNumberDao.query(term);
-            if (res.size() == 1) {
-                if (matchedLotNumber != null) {
-                    matchedLotNumber.append(res.get(0).getLotNumber());
-                }
+            if (res.size() == 1 && matchedLotNumber != null) {
+                matchedLotNumber.append(res.get(0).getLotNumber());
             }
-
             for (CVCMedicationLotNumber t : res) {
-                String snomedId = t.getMedication().getSnomedCode();
-                results.add(immunizationDao.findBySnomedConceptId(snomedId));
+                results.add(immunizationDao.findBySnomedConceptId(t.getMedication().getSnomedCode()));
             }
-
-
         }
         if (includeGTINs) {
             for (CVCMedicationGTIN t : gtinDao.query(term)) {
-                String snomedId = t.getMedication().getSnomedCode();
-                results.add(immunizationDao.findBySnomedConceptId(snomedId));
+                results.add(immunizationDao.findBySnomedConceptId(t.getMedication().getSnomedCode()));
             }
-
         }
 
-        //unique it
-        Map<String, CVCImmunization> tmp = new HashMap<String, CVCImmunization>();
+        // Deduplicate by SNOMED concept ID
+        Map<String, CVCImmunization> tmp = new HashMap<>();
         for (CVCImmunization i : results) {
             // An imported lot/GTIN may reference a medication whose immunization
             // has not arrived yet; it must not abort the remaining suggestions.
             if (i != null) tmp.put(i.getSnomedConceptId(), i);
         }
-        List<CVCImmunization> uniqueResults = new ArrayList<CVCImmunization>(tmp.values());
-
-        //sort it
+        List<CVCImmunization> uniqueResults = new ArrayList<>(tmp.values());
         Collections.sort(uniqueResults, new PrevalenceComparator());
-
-
         return uniqueResults;
+    }
+
+    /**
+     * Returns the NVC FHIR base URL: the {@code cvc.url} property when set (for a mirror or
+     * proxy), otherwise {@value #NVC_DEFAULT_BASE_URL}. Trailing slashes are stripped so callers
+     * can append a path.
+     */
+    public static String getCVCURL() {
+        String url = CarlosProperties.getInstance().getProperty("cvc.url");
+        if (url == null || url.isBlank()) {
+            url = NVC_DEFAULT_BASE_URL;
+        }
+        url = url.trim();
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        return url;
     }
 }
 
 class PrevalenceComparator implements Comparator<CVCImmunization> {
+    @Override
     public int compare(CVCImmunization i1, CVCImmunization i2) {
-
         Integer d1 = i1.getPrevalence();
         Integer d2 = i2.getPrevalence();
-
-        if (d1 == null && d2 != null)
-            return 1;
-        else if (d1 != null && d2 == null)
-            return -1;
-        else if (d1 == null && d2 == null)
-            return 0;
-        else
-            return d1.compareTo(d2) * -1;
+        if (d1 == null && d2 != null) return 1;
+        else if (d1 != null && d2 == null) return -1;
+        else if (d1 == null) return 0;
+        else return d1.compareTo(d2) * -1;
     }
 }
