@@ -267,9 +267,11 @@ public final class EncryptionUtils {
     }
 
     /**
-     * Reports whether a usable application encryption key has been prepared. Read-only: it never
-     * prepares, generates or replaces a key. An invalid configured key fails startup, so at run
-     * time the answer is false only when the key is missing or blank.
+     * Reports whether an application encryption key has been prepared. Read-only: it never
+     * prepares, generates or replaces a key. It says nothing about whether the key is the one
+     * existing values were encrypted under. In the servlet deployment Startup creates a key when
+     * none is set and refuses to start on an invalid one, so it is false there only before Startup
+     * runs; entry points that skip Startup may see false for a missing or invalid key.
      *
      * @return true when {@link #encrypt(String)} and {@link #decrypt(String)} have a key to use
      * @since 2026-09-24
