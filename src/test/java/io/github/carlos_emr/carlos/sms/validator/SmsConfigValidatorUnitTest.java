@@ -81,4 +81,16 @@ class SmsConfigValidatorUnitTest {
         assertThat(validator.validate(new SmsConfigUpdateDto(
                 SmsProviderType.STUB, true, false, "", "x".repeat(256), false, Map.of()), INSTALLED)).isEmpty();
     }
+
+    @Test
+    @DisplayName("counts the webhook secret in UTF-8 bytes, since that is what gets encrypted and stored")
+    void shouldRejectSettings_whenMultiByteSecretExceedsByteLimit() {
+        // 200 characters, 400 bytes: under the character count but over the stored-size limit.
+        SmsConfigUpdateDto update = new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "\u00E9".repeat(200), false, Map.of());
+
+        assertThat(validator.validate(update, INSTALLED)).containsExactly("sms.config.error.webhookSecretTooLong");
+        assertThat(validator.validate(new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "\u00E9".repeat(128), false, Map.of()), INSTALLED)).isEmpty();
+    }
 }

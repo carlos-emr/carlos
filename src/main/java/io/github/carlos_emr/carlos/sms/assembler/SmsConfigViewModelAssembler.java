@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.sms.viewmodel.SmsConfigViewModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -83,8 +84,19 @@ public class SmsConfigViewModelAssembler {
      */
     public SmsConfigViewModel assemble(String resultCode, List<String> errorKeys) {
         Optional<SmsConfig> stored = configService.current();
-        SmsProviderType providerType = stored.map(SmsConfig::getProviderType)
-                .orElseGet(providerResolver::configuredDefault);
+        List<String> messageKeys = new ArrayList<>(errorKeys == null ? List.of() : errorKeys);
+        SmsProviderType providerType;
+        if (stored.isPresent()) {
+            providerType = stored.get().getProviderType();
+        } else {
+            try {
+                providerType = providerResolver.configuredDefault();
+            } catch (IllegalStateException e) {
+                // An unknown sms.provider.default must not lock the admin out of the page that replaces it.
+                providerType = SmsProviderType.STUB;
+                messageKeys.add("sms.config.error.invalidPropertyProvider");
+            }
+        }
         boolean schedulerRunning = scheduler.isRunning();
         List<SmsConfigViewModel.CredentialField> credentialFields = configService.credentialFields(providerType)
                 .stream()
@@ -103,7 +115,7 @@ public class SmsConfigViewModelAssembler {
                 stored.isPresent(),
                 systemTestEnabled.getAsBoolean(),
                 resultCode != null && RESULT_CODES.contains(resultCode) ? "sms.config.result." + resultCode : "",
-                errorKeys
+                messageKeys
         );
     }
 }

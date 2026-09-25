@@ -15,6 +15,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -122,6 +123,17 @@ class SmsQueueSchedulerUnitTest {
         } finally {
             scheduler.stop();
         }
+    }
+
+    @Test
+    @DisplayName("runOnce leaves queued messages alone while SMS is turned off in Administration")
+    void shouldSkipQueue_whenSendingIsTurnedOff() {
+        when(smsConfigService.sendingEnabled()).thenReturn(false);
+
+        int processed = new SmsQueueScheduler(smsQueueWorker, smsConfigService).runOnce();
+
+        assertThat(processed).isZero();
+        verifyNoInteractions(smsQueueWorker);
     }
 
     private int runOnceWithProperties() {
