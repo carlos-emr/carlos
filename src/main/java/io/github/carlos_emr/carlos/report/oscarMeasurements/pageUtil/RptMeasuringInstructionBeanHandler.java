@@ -87,7 +87,7 @@ public class RptMeasuringInstructionBeanHandler {
         Set<String> defined = new LinkedHashSet<>(instructions);
         for (MeasurementType mt : typesForDisplayName) {
             for (String stored : storedInstructionsByType.getOrDefault(mt.getType(), Collections.emptyList())) {
-                if (isControlled(stored, defined)) {
+                if (isControlled(mt.getType(), stored, defined)) {
                     instructions.add(stored);
                 }
             }
@@ -101,14 +101,15 @@ public class RptMeasuringInstructionBeanHandler {
      * Whether a stored instruction may be offered clinic-wide: one a {@code measurementType} row
      * defines, or a retired seed spelling. Anything else is treated as free text and dropped.
      *
+     * @param type the measurement type code; only AACP has these retired seed instructions
      * @param stored the {@code measurements.measuringInstruction} value; may be {@code null}
      * @param defined the instructions the type definitions carry
      */
-    static boolean isControlled(String stored, Set<String> defined) {
+    static boolean isControlled(String type, String stored, Set<String> defined) {
         if (stored == null || stored.isBlank()) {
             return false;
         }
-        return defined.contains(stored) || LEGACY_INSTRUCTIONS.contains(stored);
+        return defined.contains(stored) || ("AACP".equals(type) && LEGACY_INSTRUCTIONS.contains(stored));
     }
 
     public Vector<RptMeasuringInstructionBean> getMeasuringInstrcVector() {

@@ -131,6 +131,14 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 if (measurementType == null) {
                     continue;
                 }
+                // The aggregate is also queried when no instruction checkbox is selected.
+                if (new RptCheckGuideline().getValidation(measurementType) == 1
+                        && (RptCheckGuideline.numericValue(upper) == null
+                        || RptCheckGuideline.numericValue(lower) == null)) {
+                    addActionError(getText("errors.invalid", measurementType));
+                    valid = false;
+                    continue;
+                }
                 // The posted value(mNbInstrcsCN) count is ignored: the rendered list bounds the loop.
                 int iNumMInstrc = selection.instructionCount(ctr);
                 String upperMsg = "The upper bound value of " + measurementType;

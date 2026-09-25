@@ -131,6 +131,13 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 if (measurementType == null) {
                     continue;
                 }
+                // Validate the aggregate row too, even when every instruction is unchecked.
+                if (new RptCheckGuideline().getValidation(measurementType) == 1
+                        && RptCheckGuideline.numericValue(guideline) == null) {
+                    addActionError(getText("errors.invalid", measurementType));
+                    valid = false;
+                    continue;
+                }
                 // The posted value(mNbInstrcsN) count is ignored: the rendered list bounds the loop.
                 int iNumMInstrc = selection.instructionCount(ctr);
 
@@ -289,13 +296,14 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                             Integer demographicNo = (Integer) o[0];
                             Date maxDateEntered = (Date) o[1];
 
+                            // Preserve the full entry timestamp; formatting as a date loses non-midnight readings.
                             String sql = ABOVE.equals(comparator) ? SQL_MET_ABOVE_WITH_INSTRUCTION : SQL_MET_BELOW_WITH_INSTRUCTION;
                             List<Object[]> rs = fDao.runParameterizedNativeQuery(sql, 
-                                "dateEntered", ConversionUtils.toDateString(maxDateEntered),
+                                "dateEntered", maxDateEntered,
                                 "demographicNo", demographicNo,
                                 "measurementType", measurementType,
                                 "measuringInstruction", mInstrc,
-                                "guideline", guideline);
+                                "guideline", RptCheckGuideline.numericValue(guideline));
 
                             if (!rs.isEmpty()) {
                                 nbMetGL++;
@@ -371,10 +379,10 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
                     String sql = ABOVE.equals(comparator) ? SQL_MET_ABOVE : SQL_MET_BELOW;
                     List<Object[]> rs = fDao.runParameterizedNativeQuery(sql,
-                        "dateEntered", ConversionUtils.toDateString(maxDateEntered),
+                        "dateEntered", maxDateEntered,
                         "demographicNo", demographicNo,
                         "measurementType", measurementType,
-                        "guideline", guideline);
+                        "guideline", RptCheckGuideline.numericValue(guideline));
                     if (!rs.isEmpty()) {
                         nbMetGL++;
                     }

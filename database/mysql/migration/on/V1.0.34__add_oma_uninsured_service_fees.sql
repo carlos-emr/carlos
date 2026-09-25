@@ -7,7 +7,7 @@
 --
 -- This migration:
 --   1. deactivates (status 'I') those three placeholder mappings, matched on their exact seeded
---      group names so any real PRIVATE mapping of A007A an administrator added stays active.
+--      form, group, order and names so customised PRIVATE mappings of A007A stay active.
 --      Nothing is deleted;
 --   2. upserts 34 private fee codes in billingservice: existing rows for the same code and
 --      effective date are updated, missing ones are inserted. Private codes use the CARLOS
@@ -16,7 +16,12 @@
 --   3. maps each code to the PRIVATE form (servicetype 'PRI') in three groups:
 --      Group1 = Forms, Group2 = Assessments, Group3 = Procedures.
 --
--- Fee amounts and effective dates are the upstream values, kept as-is. The PRIVATE form lists a
+-- Fees were checked against the January 2026 OMA guide and January 23 fee schedule.
+-- See docs/billing/oma-uninsured-fees-2026.md for per-code sources and discrepancies.
+-- Descriptions distinguish hourly rates, minimums, clinic defaults and payer reimbursements.
+-- Hourly entries require the billing user to enter the time-based total. Activation dates retain
+-- the upstream application dates; they are not independently verified OMA effective dates.
+-- The PRIVATE form lists a
 -- code only for bill dates on or after its billingservice_date (BillingServiceDao picks the
 -- latest fee row dated on or before the bill date).
 --
@@ -57,7 +62,11 @@ UPDATE `ctl_billingservice`
 SET `status` = 'I'
 WHERE `servicetype` = 'PRI'
   AND `service_code` = 'A007A'
-  AND `service_group_name` IN (' Group 1 Name', ' Group 2 Name', ' Group 3 Name');
+  AND `servicetype_name` = 'PRIVATE'
+  AND `service_order` = 1
+  AND ((`service_group` = 'Group1' AND `service_group_name` = ' Group 1 Name')
+    OR (`service_group` = 'Group2' AND `service_group_name` = ' Group 2 Name')
+    OR (`service_group` = 'Group3' AND `service_group_name` = ' Group 3 Name'));
 
 CREATE TEMPORARY TABLE `carlos_oma_uninsured_fee` (
     `service_code` VARCHAR(10) NOT NULL PRIMARY KEY,
@@ -74,31 +83,31 @@ INSERT INTO `carlos_oma_uninsured_fee` (`service_code`, `description`, `value`, 
     ('_OMA_F01', 'Form completion for physicals for schools, camps, pre-school, daycare, university/educational institutions', '37.25', '2026-01-01'),
     ('_OMA_F02', 'Form completion for physicals for pre-employment certification of fitness/fitness clubs or hospital/nursing home employee', '49.00', '2026-01-01'),
     ('_OMA_F03', 'Children''s Aid Society (CAS) application for prospective foster parent', '252.00', '2026-01-01'),
-    ('_OMA_F04', 'CRA Disability Tax Credit Certificate (form T2201)', '150.00', '2026-01-01'),
+    ('_OMA_F04', 'CRA Disability Tax Credit Certificate (form T2201) (hourly; minimum $150)', '150.00', '2026-01-01'),
     ('_OMA_F05', 'Insurance Certificate OCF- 3 Disability Certificate', '262.00', '2026-01-01'),
     ('_OMA_F06', 'Insurance Certificate OCF-18 Treatment Plan', '278.00', '2026-01-01'),
     ('_OMA_F07', 'Insurance Certificate OCF-23 Treatment Confirmation', '262.00', '2026-01-01'),
-    ('_OMA_F08', 'Attending Physician''s Statement', '200.00', '2026-01-01'),
-    ('_OMA_F09', 'Insurance Medical Examination (assessment and report)', '200.00', '2026-03-01'),
-    ('_OMA_F10', 'Medical Report for a CPP Disability Benefit (SCISP-2519)', '85.00', '2026-03-01'),
-    ('_OMA_F11', 'CPP Narrative Medical Report', '150.00', '2026-03-01'),
+    ('_OMA_F08', 'Attending Physician''s Statement (hourly; minimum $160)', '160.00', '2026-01-01'),
+    ('_OMA_F09', 'Insurance Medical Examination (assessment and report) (clinic default; set hourly total)', '200.00', '2026-03-01'),
+    ('_OMA_F10', 'Medical Report for a CPP Disability Benefit (SCISP-2519) (Service Canada reimbursement limit; OMA minimum total $200)', '85.00', '2026-03-01'),
+    ('_OMA_F11', 'CPP Narrative Medical Report (Service Canada reimbursement limit; set hourly total)', '150.00', '2026-03-01'),
     ('_OMA_F12', 'Medical certificate employment insurance sickness benefits INS5140', '52.00', '2026-01-01'),
     ('_OMA_F13', 'Travel cancellation insurance form', '164.00', '2026-01-01'),
-    ('_OMA_F14', 'Life insurance death certificate', '50.00', '2026-03-01'),
+    ('_OMA_F14', 'Life insurance death certificate (clinic default; set hourly total)', '50.00', '2026-03-01'),
     ('_OMA_F15', 'Insurance Certificate OCF-19 Determination of Catastrophic Impairment', '155.00', '2026-01-01'),
     ('_OMA_F16', 'System-Specific or Disease Specific Questionnaire', '125.00', '2026-01-01'),
     ('_OMA_F17', 'System-Specific Examination', '152.00', '2026-01-01'),
-    ('_OMA_F18', 'Assessments: Clarification Report', '300.00', '2026-01-01'),
-    ('_OMA_F19', 'Assessments: Full Narrative Report', '350.00', '2026-01-01'),
-    ('_OMA_F20', 'Assessments: Independent Medical Examination', '200.00', '2026-01-01'),
-    ('_OMA_F21', 'Terminal Illness Medical Attestation for a Disability Benefit (ISP2530B)', '85.00', '2026-01-01'),
-    ('_OMA_F22', 'Reassessment Medical Report (ISP2509)', '25.00', '2026-01-01'),
-    ('_OMA_F23', 'Scannable Impairment Evaluation (IMPAIR)', '50.00', '2026-01-01'),
-    ('_OMA_F24', 'Medical Report – Recurrence of the Same Medical Problem (ISP2525)', '25.00', '2026-01-01'),
+    ('_OMA_F18', 'Assessments: Clarification Report ($497/hour; enter time-based total)', '497.00', '2026-01-01'),
+    ('_OMA_F19', 'Assessments: Full Narrative Report ($497/hour; enter time-based total)', '497.00', '2026-01-01'),
+    ('_OMA_F20', 'Assessments: Independent Medical Examination (clinic default; set hourly total)', '200.00', '2026-01-01'),
+    ('_OMA_F21', 'Terminal Illness Medical Attestation for a Disability Benefit (ISP2530B) (Service Canada reimbursement limit; OMA minimum total $135)', '85.00', '2026-01-01'),
+    ('_OMA_F22', 'Reassessment Medical Report (ISP2509) (Service Canada reimbursement; set hourly total)', '25.00', '2026-01-01'),
+    ('_OMA_F23', 'Scannable Impairment Evaluation (IMPAIR) (Service Canada reimbursement)', '50.00', '2026-01-01'),
+    ('_OMA_F24', 'Medical Report – Recurrence of the Same Medical Problem (ISP2525) (Service Canada reimbursement; set hourly total)', '25.00', '2026-01-01'),
     ('_OMA_F25', 'Drivers medical examination (form only)', '77.00', '2026-01-01'),
-    ('_OMA_G010', 'Urinalysis – without microscopy', '7.65', '2026-03-01'),
+    ('_OMA_G010', 'Urinalysis – without microscopy', '7.70', '2026-03-01'),
     ('_OMA_N01', 'Sick notes (includes return to work/school notes)', '26.00', '2026-01-01'),
-    ('_OMA_N02', 'Fitness to work notes', '50.00', '2026-01-01'),
+    ('_OMA_N02', 'Fitness to work notes (hourly; minimum $50)', '50.00', '2026-01-01'),
     ('_OMA_RECOR', 'Electronic Transfer of Records', '30.00', '2026-03-01'),
     ('_OMA_RX', 'Dispensing service fee', '20.75', '2026-01-01');
 

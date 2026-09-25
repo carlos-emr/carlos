@@ -37,7 +37,7 @@
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  * Optional: BILLING_DEMOGRAPHIC_NO (1), BILLING_PROVIDER_NO (999998),
  *   BILLING_SUBMIT_DATE (2024-05-06), BILLING_OHIP_CODE (A007A; a private code such as
- *   _OMA_A003 with BILLING_FORM_NAME=PRIVATE also works),
+ *   _OMA_A003 with BILLING_FORM_NAME=PRIVATE tests private billing and final-save guards),
  *   BILLING_BONUS_CODE (Q040A), BILLING_DX_CODE (250),
  *   BILLING_FORM_NAME (General Practice) -- the entry in the "Billing form"
  *   chooser whose favourite grid carries BILLING_OHIP_CODE. The grid stays
@@ -324,6 +324,30 @@ async function billOhipOrWsib(context, recorder, { label, billType, expectPayPro
   await submitToReview(page, label);
   const reviewText = await page.locator('body').innerText();
   assert(reviewText.includes(ohipCode), `${label} review page did not list ${ohipCode}`);
+  if (ohipCode.startsWith('_')) {
+    // Exercise the final POST directly while keeping the valid review form available.
+    const form = await page.locator('form[name="titlesearch"]').evaluate((element) => ({
+      action: element.action, fields: Array.from(new FormData(element).entries()),
+    }));
+    const effective = sql(`SELECT MIN(billingservice_date) FROM billingservice WHERE service_code='${escapeSql(ohipCode)}'`);
+    const beforeEffective = new Date(`${effective}T00:00:00Z`);
+    beforeEffective.setUTCDate(beforeEffective.getUTCDate() - 1);
+    for (const changes of [
+      { service_date: beforeEffective.toISOString().slice(0, 10) },
+      { xserviceCode_0: '_OMA_BAD' },
+      { xml_billtype: 'ODP' },
+    ]) {
+      const fields = new URLSearchParams(form.fields);
+      fields.set('billingAction', 'SAVE');
+      for (const [key, value] of Object.entries(changes)) fields.set(key, value);
+      const response = await page.request.post(form.action, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, data: fields.toString(),
+      });
+      assert(response.status() === 200 && /Save Failed|Save rejected/.test(await response.text()),
+        `${label}: final save did not explicitly reject ${JSON.stringify(changes)}`);
+      assert(headerRows(appointmentNo).length === 0, `${label}: rejected final save persisted a billing header`);
+    }
+  }
   await saveFromReview(page, label);
   await page.close().catch(() => {});
 
@@ -421,18 +445,26 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     await login(context, config, recorder);
 
-    const ohipHeader = await billOhipOrWsib(context, recorder, {
-      label: 'ohip', billType: 'ODP', expectPayProgram: 'HCP', expectStatus: 'O', startTime: '09:00:00',
-    });
-    const wsibHeader = await billOhipOrWsib(context, recorder, {
-      label: 'wsib', billType: 'WCB', expectPayProgram: 'WCB', expectStatus: 'W', startTime: '09:15:00',
-    });
-    const bonusHeader = await billBonus(context, recorder, { label: 'bonus', startTime: '09:30:00' });
+    if (ohipCode.startsWith('_')) {
+      const privateHeader = await billOhipOrWsib(context, recorder, {
+        label: 'private', billType: 'PAT', expectPayProgram: 'PAT', expectStatus: 'P', startTime: '09:00:00',
+      });
+      console.log(`PASS private bill ${privateHeader}: final-save guards and valid save`);
+    } else {
+      const ohipHeader = await billOhipOrWsib(context, recorder, {
+        label: 'ohip', billType: 'ODP', expectPayProgram: 'HCP', expectStatus: 'O', startTime: '09:00:00',
+      });
+      const wsibHeader = await billOhipOrWsib(context, recorder, {
+        label: 'wsib', billType: 'WCB', expectPayProgram: 'WCB', expectStatus: 'W', startTime: '09:15:00',
+      });
+      const bonusHeader = await billBonus(context, recorder, { label: 'bonus', startTime: '09:30:00' });
+      console.log(`PASS Ontario bills saved through the UI: OHIP header ${ohipHeader}, WSIB header ${wsibHeader}, bonus header ${bonusHeader}`);
+    }
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
-    console.log(`PASS Ontario bills saved through the UI: OHIP header ${ohipHeader}, WSIB header ${wsibHeader}, bonus header ${bonusHeader}`);
+    console.log('PASS Ontario bill persistence and browser error checks');
   } catch (error) {
     console.error(`FAIL Ontario bill submit check: ${error.stack || error.message}`);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));

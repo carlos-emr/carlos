@@ -39,7 +39,23 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+import java.math.BigDecimal;
+
 public class RptCheckGuideline {
+
+    /** Numeric binding prevents VARCHAR readings from being compared lexicographically. */
+    static BigDecimal numericValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException _) {
+            return null;
+        }
+    }
+
+
 
     public RptCheckGuideline() {
     }

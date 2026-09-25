@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormsDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -49,6 +50,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -128,13 +131,15 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         private HttpServletResponse response;
         private MeasurementDao measurementDao;
         private FormsDao formsDao;
+        private MeasurementTypeDao typeDao;
+        private ValidationsDao validationsDao;
 
         @BeforeEach
         void setUp() {
             SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
             MeasurementGroupDao groupDao = createAndRegisterMock(MeasurementGroupDao.class);
-            MeasurementTypeDao typeDao = createAndRegisterMock(MeasurementTypeDao.class);
-            createAndRegisterMock(ValidationsDao.class);
+            typeDao = createAndRegisterMock(MeasurementTypeDao.class);
+            validationsDao = createAndRegisterMock(ValidationsDao.class);
             measurementDao = createAndRegisterMock(MeasurementDao.class);
             formsDao = createAndRegisterMock(FormsDao.class);
 
@@ -207,6 +212,50 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             action.setEndDateB(new String[] {"2026-01-01"});
             action.setGuidelineB(new String[] {"Provided"});
             return action;
+        }
+
+        private void useNumericValidation() {
+            MeasurementType type = mock(MeasurementType.class);
+            when(type.getValidation()).thenReturn("18");
+            when(typeDao.findByType("AACP")).thenReturn(List.of(type));
+            Validations numeric = new Validations();
+            numeric.setNumeric(true);
+            when(validationsDao.find((Object) Integer.valueOf(18))).thenReturn(numeric);
+        }
+
+        @Test
+        void shouldBindNumbersAndFullTimestamps_whenReportingNumericReadings() throws Exception {
+            useNumericValidation();
+            Timestamp entered = Timestamp.valueOf("2025-06-01 14:30:12");
+            List<Object[]> latest = java.util.Collections.singletonList(new Object[] {123, entered});
+            when(measurementDao.findLastEntered(any(Date.class), any(Date.class), eq("AACP"), eq("Yes/No")))
+                    .thenReturn(latest);
+            when(measurementDao.findLastEntered(any(Date.class), any(Date.class), eq("AACP")))
+                    .thenReturn(latest);
+            when(formsDao.runParameterizedNativeQuery(anyString(), any(Object[].class))).thenAnswer(call -> {
+                Object[] parameters = (Object[]) call.getRawArguments()[1];
+                assertThat(parameters).containsSubsequence("dateEntered", entered)
+                        .containsSubsequence("guideline", new BigDecimal("9"));
+                return java.util.Collections.singletonList(new Object[] {"10"});
+            });
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", "Yes/No");
+            action.setGuidelineB(new String[] {"9"});
+
+            assertThat(action.execute()).isEqualTo("success");
+            verify(formsDao, times(2)).runParameterizedNativeQuery(anyString(), any(Object[].class));
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(strings = {"", "NaN", "Infinity", "not a number"})
+        void shouldRejectInvalidNumericGuideline_whenNoInstructionIsSelected(String guideline) throws Exception {
+            useNumericValidation();
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", null);
+            action.setGuidelineB(new String[] {guideline});
+
+            assertThat(action.execute()).isEqualTo("none");
+            verifyNoInteractions(formsDao);
+            verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString());
         }
 
         @Test

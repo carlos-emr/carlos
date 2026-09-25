@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Collection;
@@ -670,15 +671,15 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     public List<Object[]> findByDemoNoDateTypeMeasuringInstrAndDataField(Integer demographicNo, Date dateEntered,
                                                                          String measurementType, String mInstrc, String upper, String lower) {
         String sql = "SELECT dataField FROM measurements " + "WHERE dateEntered = ?1"
-                + "AND demographicNo = ?2" + "AND type = ?3"
-                + "AND measuringInstruction = ?4" + "AND dataField < ?5" + "AND dataField > ?6";
+                + " AND demographicNo = ?2" + " AND type = ?3"
+                + " AND measuringInstruction = ?4" + " AND dataField < ?5" + " AND dataField > ?6";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, dateEntered);
         query.setParameter(2, demographicNo);
         query.setParameter(3, measurementType);
         query.setParameter(4, mInstrc);
-        query.setParameter(5, upper);
-        query.setParameter(6, lower);
+        query.setParameter(5, new BigDecimal(upper.trim()));
+        query.setParameter(6, new BigDecimal(lower.trim()));
         return query.getResultList();
     }
 
@@ -706,14 +707,14 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     public List<Object[]> findByDemoNoDateTypeAndDataField(Integer demographicNo, Date dateEntered, String type,
                                                            String upper, String lower) {
         String sql = "SELECT dataField FROM measurements WHERE dateEntered = ?1"
-                + "AND demographicNo = ?2" + "AND type = ?3" + "AND dataField < ?4"
-                + "AND dataField > ?5";
+                + " AND demographicNo = ?2" + " AND type = ?3" + " AND dataField < ?4"
+                + " AND dataField > ?5";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, dateEntered);
         query.setParameter(2, demographicNo);
         query.setParameter(3, type);
-        query.setParameter(4, upper);
-        query.setParameter(5, lower);
+        query.setParameter(4, new BigDecimal(upper.trim()));
+        query.setParameter(5, new BigDecimal(lower.trim()));
         return query.getResultList();
     }
 

@@ -78,14 +78,14 @@ async function openCdmScreen(session, group, forward, label) {
 }
 
 /** Index of the AACP row, from the hidden measurement-type field each row carries. */
-async function aacpRow(page, hiddenPrefix) {
+async function aacpRow(page, hiddenPrefix, type = 'AACP') {
   const rows = await page.locator(`input[type="hidden"][name^="value(${hiddenPrefix}"]`).evaluateAll(
     (inputs, prefix) => inputs.map((input) => ({
       index: input.name.slice(`value(${prefix}`.length, -1),
       type: input.value,
     })), hiddenPrefix);
-  const row = rows.find((candidate) => candidate.type === 'AACP');
-  h.assert(row && /^\d+$/.test(row.index), `the CDM screen has no AACP row (rows: ${JSON.stringify(rows)})`);
+  const row = rows.find((candidate) => candidate.type === type);
+  h.assert(row && /^\d+$/.test(row.index), `the CDM screen has no ${type} row (rows: ${JSON.stringify(rows)})`);
   return row.index;
 }
 
@@ -132,7 +132,7 @@ async function workflow(session) {
   // chosen by group), and one pre-change and one current AACP reading for the owned patient.
   session.cleanup(() => {
     sql.execute(`DELETE FROM measurementGroup WHERE name=${h.sqlString(group)};
-      DELETE FROM measurements WHERE demographicNo=${patient} AND type='AACP'`);
+      DELETE FROM measurements WHERE demographicNo=${patient} AND type IN ('AACP', 'Z900')`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM measurementGroup WHERE name=${h.sqlString(group)})
       + (SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient})`) === '0',
       'the CDM report fixtures were not removed');
@@ -151,6 +151,71 @@ async function workflow(session) {
       CURDATE() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY)`);
   h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient} AND type='AACP'`) === '3',
     'the AACP reading fixtures were not created');
+
+  // A dedicated numeric type keeps exact counts independent of other synthetic charts.
+  const numericType = 'Z900';
+  h.assert(sql.value(`SELECT COUNT(*) FROM measurementType WHERE type='${numericType}'`) === '0',
+    'numeric CDM fixture type already exists; refusing to overwrite it');
+  const numericName = `${marker}-numeric`;
+  const numericInstruction = 'numeric fixture';
+  const validation = sql.value('SELECT id FROM validations WHERE isNumeric=1 AND minValue<=1 AND maxValue1>=20 ORDER BY id LIMIT 1');
+  h.assert(/^\d+$/.test(validation), 'no suitable numeric validation exists');
+  session.cleanup(() => {
+    sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient} AND type='${numericType}';
+      DELETE FROM measurementType WHERE type='${numericType}' AND typeDisplayName=${h.sqlString(numericName)}`);
+  });
+  sql.execute(`INSERT INTO measurementType (type, typeDisplayName, typeDescription, measuringInstruction, validation, createDate)
+    VALUES ('${numericType}', ${h.sqlString(numericName)}, 'Numeric CDM regression', ${h.sqlString(numericInstruction)}, '${validation}', NOW());
+    INSERT INTO measurementGroup (name, typeDisplayName) VALUES (${h.sqlString(group)}, ${h.sqlString(numericName)});
+    INSERT INTO measurements (type, demographicNo, providerNo, dataField, measuringInstruction, comments, dateObserved, dateEntered)
+    VALUES ('${numericType}', ${patient}, ${h.sqlString(provider)}, '10', ${h.sqlString(numericInstruction)}, '',
+      CURDATE() - INTERVAL 1 DAY, CONCAT(CURDATE() - INTERVAL 1 DAY, ' 14:30:12')),
+      ('${numericType}', ${patient}, ${h.sqlString(provider)}, '8', 'Yes/No', '',
+      CURDATE() - INTERVAL 2 DAY, CONCAT(CURDATE() - INTERVAL 2 DAY, ' 14:30:12'))`);
+
+  for (const comparator of ['>', '<']) {
+    await session.step(`numeric guideline ${comparator} 9 counts the latest afternoon reading of 10`, async () => {
+      const page = await openCdmScreen(session, group, 'patientWhoMetGuideline', 'numeric CDM guideline');
+      const row = await aacpRow(page, 'measurementType', numericType);
+      const choices = await instructionChoices(page, 'mInstrcsCheckbox', row);
+      h.assert(choices.length === 1 && choices[0].value === numericInstruction,
+        'a numeric measurement offers a legacy AACP instruction');
+      await page.locator(`input[name="guidelineCheckbox"][value="${row}"]`).check();
+      await page.locator('input[name="guidelineB"]').nth(Number(row)).fill('9');
+      await page.locator(`input[name="value(aboveBelow${row})"][value="${comparator}"]`).check();
+      await Promise.all([
+        page.waitForURL(/\/InitializePatientsMetGuidelineCDMReport(?:$|[?#])/),
+        page.locator('input[type="submit"][name="submitBtn"]').click(),
+      ]);
+      await h.assertNotErrorPage(page, 'numeric guideline report');
+      const text = await page.locator('body').innerText();
+      const met = comparator === '>' ? '1.0' : '0.0';
+      for (const instruction of [numericInstruction, '']) {
+        h.assert(text.includes(`${numericType} ${instruction} -> (${met}/1.0)`),
+          `numeric guideline ${comparator} 9 has incorrect counts for instruction '${instruction}'`);
+      }
+      await page.close();
+    });
+  }
+
+  await session.step('numeric range 9 to 11 includes the latest reading of 10', async () => {
+    const page = await openCdmScreen(session, group, 'patientInAbnormalRange', 'numeric CDM range');
+    const row = await aacpRow(page, 'measurementTypeC', numericType);
+    await page.locator(`input[name="abnormalCheckbox"][value="${row}"]`).check();
+    await page.locator('input[name="lowerBound"]').nth(Number(row)).fill('9');
+    await page.locator('input[name="upperBound"]').nth(Number(row)).fill('11');
+    await Promise.all([
+      page.waitForURL(/\/InitializePatientsInAbnormalRangeCDMReport(?:$|[?#])/),
+      page.locator('input[type="submit"][name="submitBtn"]').click(),
+    ]);
+    await h.assertNotErrorPage(page, 'numeric range report');
+    const text = await page.locator('body').innerText();
+    for (const instruction of [numericInstruction, '']) {
+      h.assert(text.includes(`${numericType} ${instruction} -> From 9 to 11: (1.0/1.0)`),
+        `numeric range has incorrect counts for instruction '${instruction}'`);
+    }
+    await page.close();
+  });
 
   await session.step('"patients who met guideline" offers the legacy instruction and counts a Provided reading', async () => {
     const page = await openCdmScreen(session, group, 'patientWhoMetGuideline', 'CDM met-guideline screen');

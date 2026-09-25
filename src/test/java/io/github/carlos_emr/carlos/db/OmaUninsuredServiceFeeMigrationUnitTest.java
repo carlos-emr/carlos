@@ -132,7 +132,24 @@ class OmaUninsuredServiceFeeMigrationUnitTest {
         assertThat(sql)
                 .contains("AND bs.`billingservice_date` = fee.`billingservice_date`")
                 .contains("WHERE ctl.`servicetype` = 'PRI'")
-                .contains("AND `service_group_name` IN (' Group 1 Name', ' Group 2 Name', ' Group 3 Name');")
+                .contains("AND `servicetype_name` = 'PRIVATE'")
+                .contains("AND `service_order` = 1")
+                .contains("`service_group` = 'Group1' AND `service_group_name` = ' Group 1 Name'")
+                .contains("`service_group` = 'Group2' AND `service_group_name` = ' Group 2 Name'")
+                .contains("`service_group` = 'Group3' AND `service_group_name` = ' Group 3 Name'")
                 .doesNotContainIgnoringCase("DELETE FROM");
     }
+    @Test
+    void shouldDistinguishHourlyRatesAndReimbursements_whenSeedingVerifiedFees() {
+        assertThat(FEES).containsEntry("_OMA_F08", "160.00")
+                .containsEntry("_OMA_F18", "497.00")
+                .containsEntry("_OMA_F19", "497.00")
+                .containsEntry("_OMA_G010", "7.70");
+        assertThat(sql).contains("$497/hour; enter time-based total")
+                .contains("hourly; minimum $160")
+                .contains("Service Canada reimbursement limit; OMA minimum total $200")
+                .contains("Service Canada reimbursement limit; OMA minimum total $135")
+                .contains("clinic default; set hourly total");
+    }
+
 }

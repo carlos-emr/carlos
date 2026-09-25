@@ -105,6 +105,19 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         nextWeek = cal.getTime();
     }
 
+    @Test
+    void shouldCompareNumericBounds_whenReadingHasTwoDigitsAndAfternoonTimestamp() {
+        Date entered = java.sql.Timestamp.valueOf("2026-03-04 14:30:12");
+        createAndPersistWithCreateDate(DEMO_NO, "A1C", "10", today, entered);
+
+        assertThat(measurementDao.findByDemoNoDateTypeMeasuringInstrAndDataField(
+                DEMO_NO, entered, "A1C", "", "11", "9")).hasSize(1);
+        assertThat(measurementDao.findByDemoNoDateTypeAndDataField(
+                DEMO_NO, entered, "A1C", "11", "9")).hasSize(1);
+        assertThat(measurementDao.findByDemoNoDateTypeAndDataField(
+                DEMO_NO, entered, "A1C", "9", "1")).isEmpty();
+    }
+
     private Measurement createMeasurement(int demoNo, String type, String dataField, Date dateObserved) {
         Measurement m = new Measurement();
         m.setDemographicId(demoNo);

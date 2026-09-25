@@ -97,6 +97,14 @@ class RptMeasuringInstructionBeanHandlerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldExcludeAacpLegacyInstructions_whenAnotherTypeStoresThoseStrings() {
+        RptMeasuringInstructionBeanHandler handler = new RptMeasuringInstructionBeanHandler(
+                List.of(type("WT", "Weight", "kg")), Map.of("WT", List.of("Yes/No", "Yes/No/NA")));
+
+        assertThat(instructions(handler)).containsExactly("kg");
+    }
+
+    @Test
     @DisplayName("should read the stored instructions of every listed type in a single query")
     void shouldQueryStoredInstructionsOnce_forManyTypes() {
         List<MeasurementGroup> groups = new ArrayList<>();
@@ -157,13 +165,13 @@ class RptMeasuringInstructionBeanHandlerUnitTest extends CarlosUnitTestBase {
     void shouldClassifyInstructions_forControlledCheck() {
         Set<String> defined = Set.of("Provided/Revised/Reviewed");
 
-        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Provided/Revised/Reviewed", defined)).isTrue();
-        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Yes/No", defined)).isTrue();
-        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Yes/No/NA", defined)).isTrue();
-        assertThat(RptMeasuringInstructionBeanHandler.isControlled("yes/no", defined)).isFalse();
-        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Provided", defined)).isFalse();
-        assertThat(RptMeasuringInstructionBeanHandler.isControlled(null, defined)).isFalse();
-        assertThat(RptMeasuringInstructionBeanHandler.isControlled("  ", defined)).isFalse();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("AACP", "Provided/Revised/Reviewed", defined)).isTrue();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("AACP", "Yes/No", defined)).isTrue();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("AACP", "Yes/No/NA", defined)).isTrue();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("AACP", "yes/no", defined)).isFalse();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("AACP", "Provided", defined)).isFalse();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("AACP", null, defined)).isFalse();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("AACP", "  ", defined)).isFalse();
     }
 
     /** A mock, because the entity has no id setter and the report bean unboxes the id. */
