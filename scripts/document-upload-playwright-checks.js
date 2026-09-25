@@ -181,7 +181,12 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     const chart = await openChart(context, masterPage, recorder, 30000);
     await waitForNavbars(chart, 30000);
     const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: description }).first();
-    const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000 });
+    // Click the visible left edge of the title, as an operator does. LeftNavBarDisplay.jsp
+    // lays each entry out as an absolutely positioned title span under a right-floated
+    // "...date" span (z-index 100) that truncates long titles; a title this long has its
+    // centre under that suffix, so a centre click is refused as intercepted even though the
+    // suffix link opens the same document.
+    const viewer = await clickOpensPopup(chart, link, { context, recorder, label: 'document-forward', timeout: 30000, position: { x: 8, y: 9 } });
     const routes = () => sql(`SELECT provider_no,status FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY id`);
     const before = routes();
     assert(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} AND provider_no='${recipient}'`) === '0',

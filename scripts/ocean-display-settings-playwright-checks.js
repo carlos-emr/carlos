@@ -56,11 +56,21 @@ async function save(s, frame, enabled) {
   h.assert(s.sql.value('SELECT COUNT(*) FROM OceanSetting WHERE id=1') === '1', 'Saving did not create the OceanSetting singleton');
 }
 
+/**
+ * Renders the encounter afresh and counts #ocean_placeholder.
+ *
+ * A fresh page, not chart.reload(): leaving the encounter fires its unload beacon to
+ * CaseManagementEntry, which the browser reports as an aborted "ping" request and the strict
+ * page recorder treats as a failure. The pages stay open until the browser closes.
+ */
 async function placeholderCount(s) {
   const chart = await s.chart();
-  await chart.reload({ waitUntil: 'domcontentloaded' });
-  await chart.locator('#notCPP').waitFor({ state: 'attached' });
-  return chart.locator('#ocean_placeholder').count();
+  const page = await s.context.newPage();
+  await page.goto(chart.url(), { waitUntil: 'domcontentloaded' });
+  await page.locator('#notCPP').waitFor({ state: 'attached' });
+  const count = await page.locator('#ocean_placeholder').count();
+  const hidden = count === 0 || !await page.locator('#ocean_placeholder').isVisible();
+  return { count, hidden };
 }
 
 async function workflow(s) {
@@ -85,13 +95,13 @@ async function workflow(s) {
   });
   await s.step('turning Ocean off persists and removes the encounter placeholder', async () => {
     await save(s, frame, false);
-    h.assert(await placeholderCount(s) === 0, 'The encounter still renders #ocean_placeholder with Ocean turned off');
+    h.assert((await placeholderCount(s)).count === 0, 'The encounter still renders #ocean_placeholder with Ocean turned off');
   });
   await s.step('turning Ocean on persists and restores the hidden placeholder', async () => {
     await save(s, frame, true);
-    h.assert(await placeholderCount(s) === 1, 'The encounter does not render #ocean_placeholder with Ocean turned on');
-    const chart = await s.chart();
-    h.assert(!await chart.locator('#ocean_placeholder').isVisible(), 'The Ocean placeholder must stay hidden until the toolbar script shows it');
+    const rendered = await placeholderCount(s);
+    h.assert(rendered.count === 1, 'The encounter does not render #ocean_placeholder with Ocean turned on');
+    h.assert(rendered.hidden, 'The Ocean placeholder must stay hidden until the toolbar script shows it');
   });
   await s.step('a GET carrying the save intent is refused and changes nothing', async () => {
     const response = await s.context.request.get(`${s.config.baseUrl}/admin/EchartDisplaySettings?dboperation=Save&${PREF}=false`,

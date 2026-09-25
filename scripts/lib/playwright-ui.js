@@ -109,7 +109,9 @@ async function clickOpensPopup(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     // Some menus close their own window in the click handler. Their callers
     // can skip waiting on that opener; the popup is still awaited below.
-    await target.click({ timeout, noWaitAfter: options.closesOpener === true });
+    // options.position lets a caller click a specific point of the target, for links whose
+    // centre sits under a sibling overlay (the eChart navbar's "...date" suffix).
+    await target.click({ timeout, noWaitAfter: options.closesOpener === true, position: options.position });
     popup = await pending.promise;
   } catch (error) {
     await pending.abandon();
