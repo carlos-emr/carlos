@@ -476,7 +476,7 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     }
 
     /**
-     * Lab identifier consistency: the Ocean feed sends only HL7 labs (findOwnedIds), and a new
+     * Lab identifier consistency: the Ocean feed sends only HL7 labs (findOceanSendableIds), and a new
      * Ocean referral refuses anything else. An Ocean edit attached a legacy CML/MDS/BCP lab to the
      * consultation (findAttachableIds) and also queued it for Ocean, where it was dropped at send
      * time. It is still attached to the consultation but no longer queued.
@@ -487,7 +487,7 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
         when(consultDocsDao.findByRequestIdDocType(456, DocumentType.LAB.getType())).thenReturn(List.of());
         when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, 123, Set.of(30, 40))).thenReturn(Set.of(30, 40));
-        when(attachmentOwnershipService.findOwnedIds(DocumentType.LAB, 123, Set.of(30, 40))).thenReturn(Set.of(30));
+        when(attachmentOwnershipService.findOceanSendableIds(DocumentType.LAB, 123, Set.of(30, 40))).thenReturn(Set.of(30));
 
         registerMock(EReferAttachmentDataDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDataDaoImpl.class));
         registerMock(EReferAttachmentDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDaoImpl.class));
@@ -501,6 +501,32 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
         verify(consultDocsDao, org.mockito.Mockito.times(2)).persist(persisted.capture());
         assertThat(persisted.getAllValues()).extracting(ConsultDocs::getDocumentNo).containsExactly(30, 40);
     }
+
+    /**
+     * Copilot on #3903: a consultation submits a lab as a bare number, so a legacy CML/MDS/BCP lab
+     * whose number the patient also holds as an HL7 lab is indistinguishable from that HL7 lab.
+     * The queue decision (findOceanSendableIds) reports such a collision as not sendable; the lab
+     * must still be attached but must never be queued, or Ocean would send the other lab.
+     */
+    @Test
+    @DisplayName("should not queue a legacy lab whose number collides with an HL7 lab on an Ocean edit")
+    void shouldNotQueueLegacyLab_whenNumberCollidesWithHl7Lab() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.LAB.getType())).thenReturn(List.of());
+        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, 123, Set.of(30))).thenReturn(Set.of(30));
+        when(attachmentOwnershipService.findOceanSendableIds(DocumentType.LAB, 123, Set.of(30))).thenReturn(Set.of());
+
+        try (MockedStatic<OceanEReferralAttachmentUtil> ocean = mockStatic(OceanEReferralAttachmentUtil.class)) {
+            manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[] {"30"}, "999", 456, 123, Boolean.TRUE);
+
+            ocean.verifyNoInteractions();
+        }
+        ArgumentCaptor<ConsultDocs> persisted = ArgumentCaptor.forClass(ConsultDocs.class);
+        verify(consultDocsDao).persist(persisted.capture());
+        assertThat(persisted.getValue().getDocumentNo()).isEqualTo(30);
+        verify(attachmentOwnershipService, never()).findOwnedIds(any(), any(), any());
+    }
+
     private org.springframework.mock.web.MockHttpServletRequest renderRequest(String reqId) {
         org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
         org.springframework.mock.web.MockHttpSession session = new org.springframework.mock.web.MockHttpSession();

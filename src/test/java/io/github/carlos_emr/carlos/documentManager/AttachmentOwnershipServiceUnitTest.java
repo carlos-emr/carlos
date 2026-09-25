@@ -340,6 +340,77 @@ class AttachmentOwnershipServiceUnitTest {
      * are routed as HL7, so no {@code Epsilon} lab type is ever queried.
      */
     @Nested
+    @DisplayName("findOceanSendableIds")
+    class FindOceanSendableIds {
+
+        private AttachmentOwnershipService withLegacyLabTypes(Set<String> types) {
+            return new AttachmentOwnershipService(ctlDocumentDao, patientLabRoutingDao, eFormDataDao,
+                    hrmDocumentToDemographicDao, consultationRequestDao, () -> types);
+        }
+
+        @Test
+        @DisplayName("should queue the patient's HL7 lab when no legacy lab shares its number")
+        void shouldQueueHl7Lab_whenNoLegacyCollision() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(20));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of());
+
+            assertThat(withLegacyLabTypes(Set.of("CML")).findOceanSendableIds(DocumentType.LAB, PATIENT, List.of(20, 40)))
+                    .containsExactly(20);
+        }
+
+        @Test
+        @DisplayName("should not queue a number the patient holds as both an HL7 and an enabled legacy lab")
+        void shouldNotQueueLab_whenLegacyLabSharesHl7Number() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(20, 30));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of());
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("MDS"), anyCollection()))
+                    .thenReturn(List.of(30));
+
+            assertThat(withLegacyLabTypes(Set.of("CML", "MDS")).findOceanSendableIds(DocumentType.LAB, PATIENT, List.of(20, 30)))
+                    .containsExactly(20);
+        }
+
+        @Test
+        @DisplayName("should not queue a legacy-only lab even though it is attachable")
+        void shouldNotQueueLegacyLab_whenNotRoutedAsHl7() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of());
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection()))
+                    .thenReturn(List.of(30));
+
+            AttachmentOwnershipService service = withLegacyLabTypes(Set.of("CML"));
+            assertThat(service.findAttachableIds(DocumentType.LAB, PATIENT, List.of(30))).containsExactly(30);
+            assertThat(service.findOceanSendableIds(DocumentType.LAB, PATIENT, List.of(30))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should ignore legacy lab types that are switched off")
+        void shouldQueueHl7Lab_whenCollidingLegacyTypeDisabled() {
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(PATIENT), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(30));
+
+            assertThat(withLegacyLabTypes(Set.of()).findOceanSendableIds(DocumentType.LAB, PATIENT, List.of(30)))
+                    .containsExactly(30);
+            verify(patientLabRoutingDao, org.mockito.Mockito.never())
+                    .findLabNosForDemographic(eq(PATIENT), eq("CML"), anyCollection());
+        }
+
+        @Test
+        @DisplayName("should match findOwnedIds for non-lab types")
+        void shouldMatchFindOwnedIds_forNonLabTypes() {
+            when(ctlDocumentDao.findDocumentNosForDemographic(eq(PATIENT), anyCollection())).thenReturn(List.of(10));
+
+            assertThat(withLegacyLabTypes(Set.of("CML")).findOceanSendableIds(DocumentType.DOC, PATIENT, List.of(10, 11)))
+                    .containsExactly(10);
+            verifyNoInteractions(patientLabRoutingDao);
+        }
+    }
+
+    @Nested
     @DisplayName("legacyLabTypes")
     class LegacyLabTypes {
 

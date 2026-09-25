@@ -94,9 +94,12 @@ public class DocumentAttach {
     /**
      * The newly attached ids that may also be queued for Ocean: the ones the Ocean feed
      * ({@code ConsultationManager#getEReferAttachments}) will actually render and send, i.e.
-     * {@link AttachmentOwnershipService#findOwnedIds}. A legacy CML/MDS/BCP lab is attachable to
-     * the consultation but never rendered, so queuing it would only be dropped at send time; and
-     * {@code ERefer2Action}'s attach path already refuses it. {@code null} means "no filter".
+     * {@link AttachmentOwnershipService#findOceanSendableIds}. A legacy CML/MDS/BCP lab is
+     * attachable to the consultation but never rendered, so queuing it would only be dropped at
+     * send time; and {@code ERefer2Action}'s attach path already refuses it. The consultation
+     * submits a lab as a bare number with no lab type, so a number the patient holds under both
+     * HL7 and an enabled legacy type is ambiguous and is not queued either: the feed would resolve
+     * it as the HL7 lab even if the legacy one was the one attached. {@code null} means "no filter".
      */
     private Set<Integer> findOceanSendableIds(List<String> currentList, List<String> oldList, DocumentType documentType) {
         if (!editOnOcean || documentType != DocumentType.LAB || attachmentOwnershipService == null) {
@@ -108,7 +111,7 @@ public class DocumentAttach {
                 newIds.add(Integer.valueOf(docId));
             }
         }
-        return newIds.isEmpty() ? newIds : attachmentOwnershipService.findOwnedIds(documentType, demographicNo, newIds);
+        return newIds.isEmpty() ? newIds : attachmentOwnershipService.findOceanSendableIds(documentType, demographicNo, newIds);
     }
 
     /**
@@ -209,7 +212,7 @@ public class DocumentAttach {
         }
         if (notQueued > 0) {
             // Count only: attachment ids and the patient are PHI-correlating identifiers.
-            logger.warn("Attached {} consultation lab(s) that Ocean cannot receive (non-HL7); not queued for Ocean", notQueued);
+            logger.warn("Attached {} consultation lab(s) that Ocean cannot receive (non-HL7 or ambiguous lab number); not queued for Ocean", notQueued);
         }
     }
 

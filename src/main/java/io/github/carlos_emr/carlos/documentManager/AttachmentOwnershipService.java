@@ -310,10 +310,11 @@ public class AttachmentOwnershipService {
      *
      * <p>The consultation form lists those labs when their property is on, so rejecting them would
      * refuse a save the user made from the form, and an already-attached one would be detached on
-     * every save. They are accepted here only. Printing, faxing and the Ocean queue keep using
-     * {@link #findOwnedIds}: the lab renderer resolves every LAB id as an HL7 segment, so an
-     * HL7 lab of another patient whose number collides with this patient's CML/MDS lab is still
-     * never rendered for this consultation.</p>
+     * every save. They are accepted here only. Printing and faxing keep using
+     * {@link #findOwnedIds} and the Ocean queue uses {@link #findOceanSendableIds}: the lab
+     * renderer resolves every LAB id as an HL7 segment, so an HL7 lab of another patient whose
+     * number collides with this patient's CML/MDS lab is still never rendered for this
+     * consultation.</p>
      *
      * @param type attachment type
      * @param demographicNo patient that must own the attachments
@@ -342,6 +343,41 @@ public class AttachmentOwnershipService {
                         result.add(id);
                     }
                 }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * The newly attached ids a consultation may <em>queue for Ocean</em>: {@link #findOwnedIds},
+     * minus, for {@link DocumentType#LAB}, every number that is <em>also</em> routed to the patient
+     * under a legacy lab type the install has switched on (CML, MDS, BCP).
+     *
+     * <p>A consultation submits a lab as a bare number with no lab type, and the Ocean feed
+     * resolves every queued LAB number as an HL7 segment. When the patient has both an HL7 lab and
+     * a CML/MDS/BCP lab with the same number, the number alone cannot tell which one the user
+     * attached: queuing it would send the HL7 lab even if the legacy one was selected. Such a
+     * collision is therefore not sendable (fail closed); the lab stays attached to the
+     * consultation via {@link #findAttachableIds}, it is only not queued. A legacy-only number is
+     * not sendable either, exactly as with {@link #findOwnedIds}.</p>
+     *
+     * @param type attachment type
+     * @param demographicNo patient that must own the attachments
+     * @param ids candidate ids
+     * @return ids safe to queue for Ocean; never {@code null}
+     */
+    public Set<Integer> findOceanSendableIds(DocumentType type, Integer demographicNo, Collection<Integer> ids) {
+        Set<Integer> result = new HashSet<>(findOwnedIds(type, demographicNo, ids));
+        if (type != DocumentType.LAB || result.isEmpty()) {
+            return result;
+        }
+        for (String labType : enabledLegacyLabTypes.get()) {
+            if (result.isEmpty()) {
+                break;
+            }
+            List<Integer> collisions = patientLabRoutingDao.findLabNosForDemographic(demographicNo, labType, new HashSet<>(result));
+            if (collisions != null) {
+                result.removeAll(collisions);
             }
         }
         return result;
