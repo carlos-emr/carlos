@@ -1307,10 +1307,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* save extra fields */
         // Exactly one casemgmt_note_ext row per extension key of this note, updated in place.
         //
-        // saveNoteExt() is a JPA persist(), so reusing one entity across the keys collapses them
-        // into the row the first call created -- whichever key was written last wins, which is
-        // how a CPP item saved with both a start date and a resolution date used to keep only
-        // the resolution date. Allocating per key is not enough on its own either: saveNote()
+        // saveNoteExt() is a JPA persist(), and it commits its own transaction, so reusing one
+        // entity across the keys leaves it DETACHED with an id assigned by the time the second
+        // key is written: Hibernate raises PersistentObjectException, surfaced as
+        // EntityExistsException, and the whole save answers HTTP 500 with the second key never
+        // stored. That is issue #3739 -- a CPP item given both a start date and a resolution
+        // date could not be saved or archived at all, and the box repainted as "Error: 500".
+        // (Inside a single persistence context the same reuse is absorbed instead, collapsing
+        // the keys into the first row; CaseManagementCppExtPersistenceIntegrationTest pins that
+        // half, and scripts/cpp-note-extension-archive-playwright-checks.js pins the 500.)
+        // Allocating per key is not enough on its own either: saveNote()
         // merges an existing note rather than revising it under a fresh id, so a note keeps its
         // id across edits and a plain persist() per save piles a second row onto every key.
         //

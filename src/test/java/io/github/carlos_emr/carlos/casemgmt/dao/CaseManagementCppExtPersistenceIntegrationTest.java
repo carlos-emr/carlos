@@ -209,6 +209,18 @@ public class CaseManagementCppExtPersistenceIntegrationTest extends CarlosTestBa
         // future persistence-provider upgrade that changes it is noticed here rather than in a
         // chart. Re-persisting a managed instance is a no-op, so the second save only mutates
         // the row the first one created.
+        //
+        // THE DEPLOYED APPLICATION FARES WORSE, and the difference is the transaction boundary,
+        // not the entity. This test holds ONE persistence context for its whole body, so the
+        // instance stays managed and the second persist() is silently absorbed. In the running
+        // web application every saveNoteExt() call commits its own transaction, so by the second
+        // key the instance is DETACHED and carries an id: Hibernate raises
+        // PersistentObjectException, surfaced as jakarta.persistence.EntityExistsException, and
+        // issueNoteSave answers HTTP 500 with the second key never written. That is the failure
+        // issue #3739 reports, reproduced on 2026.08.0-alpha12 and pinned end to end by
+        // scripts/cpp-note-extension-archive-playwright-checks.js. Both outcomes have the same
+        // cause -- one entity reused across the keys -- so both are fixed by allocating inside
+        // the loop; only this in-context half can be asserted from a transactional test.
         CaseManagementNoteExt shared = newExtension(CaseManagementNoteExt.STARTDATE, START);
         caseManagementNoteExtDAO.save(shared);
         Long firstRowId = shared.getId();
