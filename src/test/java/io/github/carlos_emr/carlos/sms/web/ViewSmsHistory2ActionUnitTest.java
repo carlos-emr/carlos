@@ -249,7 +249,8 @@ class ViewSmsHistory2ActionUnitTest {
         String result = action().execute();
 
         assertThat(result).isEqualTo("message");
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        // Rendered with 200: CARLOS's ResponseSanitizationFilter blanks a JSP body rendered under a 4xx status.
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(request.getAttribute("smsMessageDenied")).isEqualTo(Boolean.TRUE);
         assertThat(request.getAttribute("smsMessageBody")).isNull();
     }

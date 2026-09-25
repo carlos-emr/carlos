@@ -133,7 +133,8 @@ public class ViewSmsHistory2Action extends ActionSupport {
             Optional<String> body = bodyReadService.readFullMessageBody(transaction, loggedInInfo, reason.get().name());
             request.setAttribute("smsMessageBody", body.orElse(""));
         } catch (AccessDeniedException e) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            // Rendered with 200, not 403: CARLOS's ResponseSanitizationFilter mishandles a JSP body rendered
+            // under a 4xx status ("committed mid-chain"), which would show a blank page instead of the denial.
             request.setAttribute("smsMessageDenied", Boolean.TRUE);
         }
         return MESSAGE_RESULT;
