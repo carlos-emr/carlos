@@ -129,6 +129,24 @@ public class SMTPEmailSender {
     }
 
     /**
+     * Returns the stored transport configuration JSON, or throws the checked exception the
+     * senders' callers already handle when the row carries no configuration at all.
+     *
+     * @param emailConfig the configuration row being used to send
+     * @return the non-blank configuration JSON
+     * @throws EmailSendingException when configDetails is NULL or blank; Jackson would otherwise
+     *         throw an unchecked IllegalArgumentException from {@code readTree(null)}
+     */
+    protected static String requireConfigDetails(EmailConfig emailConfig) throws EmailSendingException {
+        String configJson = emailConfig == null ? null : emailConfig.getConfigDetailsJson();
+        if (configJson == null || configJson.isBlank()) {
+            throw new EmailSendingException("No transport configuration stored for "
+                    + (emailConfig == null ? "the email account" : emailConfig.getSenderEmail()));
+        }
+        return configJson;
+    }
+
+    /**
      * Creates a JavaMailSender configured for TLS-encrypted SMTP transmission.
      *
      * <p>Parses the EmailConfig's JSON configuration to extract SMTP server settings
@@ -149,24 +167,6 @@ public class SMTPEmailSender {
      * @return JavaMailSender configured mail sender instance ready for message transmission
      * @throws EmailSendingException if the configuration JSON is invalid or missing required fields
      */
-    /**
-     * Returns the stored transport configuration JSON, or throws the checked exception the
-     * senders' callers already handle when the row carries no configuration at all.
-     *
-     * @param emailConfig the configuration row being used to send
-     * @return the non-blank configuration JSON
-     * @throws EmailSendingException when configDetails is NULL or blank; Jackson would otherwise
-     *         throw an unchecked IllegalArgumentException from {@code readTree(null)}
-     */
-    protected static String requireConfigDetails(EmailConfig emailConfig) throws EmailSendingException {
-        String configJson = emailConfig == null ? null : emailConfig.getConfigDetailsJson();
-        if (configJson == null || configJson.isBlank()) {
-            throw new EmailSendingException("No transport configuration stored for "
-                    + (emailConfig == null ? "the email account" : emailConfig.getSenderEmail()));
-        }
-        return configJson;
-    }
-
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
