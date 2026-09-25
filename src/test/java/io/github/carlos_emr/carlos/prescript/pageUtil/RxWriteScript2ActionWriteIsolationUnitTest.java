@@ -52,6 +52,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -146,6 +149,95 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         if (mocks != null) {
             mocks.close();
         }
+    }
+
+    @Test
+    @DisplayName("saving cards whose keys share a prefix preserves each medication name")
+    void shouldMatchExactCardKey_whenDrugNameKeysSharePrefix() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription first = draft(1, "first");
+        RxPrescriptionData.Prescription second = draft(12, "second");
+        bean.getStashList().add(first);
+        bean.getStashList().add(second);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "First medication");
+        request.setParameter("drugName_12", "Second medication");
+        action = spy(action);
+        doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+        assertThat(first.getBrandName()).isEqualTo("First medication");
+        assertThat(second.getBrandName()).isEqualTo("Second medication");
+        verify(action).persistStash(mockLoggedInInfo, bean);
+    }
+
+    @Test
+    @DisplayName("concurrent close cannot shift a saved card's index onto another medication")
+    void shouldSaveSubmittedCards_whenAnotherWindowClosesPrecedingCard() throws Exception {
+        try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(111111)) {
+            concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
+            concurrentBean.setProviderNo("999998");
+            RxPrescriptionData.Prescription first = draft(111111, "closed");
+            RxPrescriptionData.Prescription second = draft(222222, "second");
+            RxPrescriptionData.Prescription third = draft(333333, "third");
+            concurrentBean.getStashList().add(first);
+            concurrentBean.getStashList().add(second);
+            concurrentBean.getStashList().add(third);
+            RxSessionBeanResolver.register(request.getSession(), concurrentBean);
+            request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            request.setParameter("drugName_222222", "Second medication");
+            request.setParameter("drugName_333333", "Third medication");
+            action = spy(action);
+            doAnswer(invocation -> {
+                assertThat(concurrentBean.getStash()).containsExactly(second, third);
+                assertThat(second.getBrandName()).isEqualTo("Second medication");
+                assertThat(third.getBrandName()).isEqualTo("Third medication");
+                return "9001";
+            }).when(action).persistStash(mockLoggedInInfo, concurrentBean);
+
+            assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+            concurrentBean.awaitCompletion();
+
+            assertThat(concurrentBean.getStash()).containsExactly(second, third);
+            verify(action).persistStash(mockLoggedInInfo, concurrentBean);
+        }
+    }
+
+    @Test
+    @DisplayName("unticking a ReRx source removes every staged copy of that source")
+    void shouldRemoveEverySourceCard_whenReRxUnchecked() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription first = draft(1, "first");
+        RxPrescriptionData.Prescription second = draft(2, "second");
+        RxPrescriptionData.Prescription other = draft(3, "other");
+        first.setDrugReferenceId(55);
+        second.setDrugReferenceId(55);
+        other.setDrugReferenceId(66);
+        bean.getStashList().add(first);
+        bean.getStashList().add(second);
+        bean.getStashList().add(other);
+        bean.setStashIndex(2);
+        bean.addReRxDrugIdList("55");
+        bean.addReRxDrugIdList("66");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("action", "removeFromReRxDrugIdList");
+        request.setParameter("reRxDrugId", "55");
+
+        action.updateReRxDrug();
+
+        assertThat(bean.getStash()).containsExactly(other);
+        assertThat(bean.getCurrentStashItem()).isSameAs(other);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("66");
+    }
+
+    private static RxPrescriptionData.Prescription draft(int key, String name) {
+        RxPrescriptionData.Prescription card = new RxPrescriptionData.Prescription(0, "999998", DEMOGRAPHIC_NO);
+        card.setRandomId(key);
+        card.setBrandName(name);
+        card.setSpecial("Take daily");
+        card.setQuantity("30");
+        return card;
     }
 
     @ParameterizedTest(name = "action={0}")

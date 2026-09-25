@@ -107,7 +107,9 @@ public final class RxStash2Action extends ActionSupport {
             return null;
         }
 
-        applyLegacyAction(bean);
+        synchronized (bean) {
+            applyLegacyAction(bean);
+        }
         return SUCCESS;
     }
 
@@ -171,9 +173,11 @@ public final class RxStash2Action extends ActionSupport {
 
 
             //find the stashIndex corresponding to the random number
-            int stashId = bean.getIndexFromRx(randomId);
-            if (stashId >= 0 && stashId < bean.getStashSize()) {
-                bean.setStashIndex(stashId);
+            synchronized (bean) {
+                int stashId = bean.getIndexFromRx(randomId);
+                if (stashId >= 0 && stashId < bean.getStashSize()) {
+                    bean.setStashIndex(stashId);
+                }
             }
 
 
@@ -220,23 +224,28 @@ public final class RxStash2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        int stashId = bean.getIndexFromRx(randomId);
-        if (stashId != -1) {
-            int sourceDrugId = bean.getStashItem(stashId).getDrugReferenceId();
-            bean.removeStashItem(stashId);
-            // Closing a re-prescribed card also un-ticks its source for ReRx. This request is the
-            // card X button's only server call: it used to send removeFromReRxDrugIdList as well,
-            // which removes the first stash entry for that source in a second, unordered request
-            // and could drop a different draft (#3908). The source stays listed while another
-            // staged card still re-prescribes it.
-            if (sourceDrugId > 0 && !stagesSource(bean, sourceDrugId)) {
-                bean.getReRxDrugIdList().remove(String.valueOf(sourceDrugId));
+        // Looking up the key and removing its positional entry must be one operation. Another
+        // window can close a preceding card between accessor calls and otherwise shift this
+        // index onto a different medication. Keep ReRx cleanup in the same critical section.
+        synchronized (bean) {
+            int stashId = bean.getIndexFromRx(randomId);
+            if (stashId != -1) {
+                int sourceDrugId = bean.getStashItem(stashId).getDrugReferenceId();
+                bean.removeStashItem(stashId);
+                // Closing a re-prescribed card also un-ticks its source for ReRx. This request is the
+                // card X button's only server call: it used to send removeFromReRxDrugIdList as well,
+                // which removes the first stash entry for that source in a second, unordered request
+                // and could drop a different draft (#3908). The source stays listed while another
+                // staged card still re-prescribes it.
+                if (sourceDrugId > 0 && !stagesSource(bean, sourceDrugId)) {
+                    bean.getReRxDrugIdList().remove(String.valueOf(sourceDrugId));
+                }
+                if (bean.getStashIndex() >= bean.getStashSize()) {
+                    bean.setStashIndex(bean.getStashSize() - 1);
+                }
+            } else {
+                MiscUtils.getLogger().debug("deletePrescribe: no staged card for the requested random id");
             }
-            if (bean.getStashIndex() >= bean.getStashSize()) {
-                bean.setStashIndex(bean.getStashSize() - 1);
-            }
-        } else {
-            MiscUtils.getLogger().debug("deletePrescribe: no staged card for the requested random id");
         }
 
         return SUCCESS;
