@@ -35,7 +35,7 @@ coordinate automated key rotation with this process; failures stop portal calls.
 
 [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md) turns this into steps: choosing
 where HTTPS ends, setting and checking the first pin, renewing without changing the key, keeping a
-standby pin, rotating, and recovering from a mismatch. Each clinic records its own answers in a copy
+standby pin, rotating, responding to a compromised key, and diagnosing a mismatch. Each clinic records its own answers in a copy
 of [`patient-portal-deployment-record-template.md`](patient-portal-deployment-record-template.md).
 
 This authenticates the configured TLS endpoint. It does not protect a compromised
