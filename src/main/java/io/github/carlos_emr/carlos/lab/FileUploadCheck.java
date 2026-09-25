@@ -285,31 +285,39 @@ public final class FileUploadCheck {
         int fileUploaded = UNSUCCESSFUL_SAVE;
         try {
             String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
-            // Same stripe as storeIfNew, so neither sees the other's in-flight claim on these bytes.
-            ReentrantLock lock = contentLock(md5sum);
-            lock.lock();
-            try {
-                if (!hasFileBeenUploaded(md5sum)) {
-
-                    io.github.carlos_emr.carlos.commn.model.FileUploadCheck f = new io.github.carlos_emr.carlos.commn.model.FileUploadCheck();
-                    f.setProviderNo(provider);
-                    f.setFilename(name);
-                    f.setMd5sum(md5sum);
-                    f.setDateTime(new Date());
-
-                    FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
-                    dao.persist(f);
-
-                    fileUploaded = f.getId();
-                }
-            } finally {
-                lock.unlock();
-            }
+            fileUploaded = recordIfNew(name, md5sum, provider);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
         MiscUtils.getLogger().debug("returning " + fileUploaded);
         return fileUploaded;
+    }
+
+    /**
+     * The locked part of {@link #addFile}: checks and records the checksum under the same stripe
+     * {@link #storeIfNew} takes, so neither sees the other's in-flight claim on these bytes.
+     *
+     * @return the new row's id, or {@link #UNSUCCESSFUL_SAVE} when the checksum was already recorded
+     */
+    private static int recordIfNew(String name, String md5sum, String provider) {
+        ReentrantLock lock = contentLock(md5sum);
+        lock.lock();
+        try {
+            if (hasFileBeenUploaded(md5sum)) {
+                return UNSUCCESSFUL_SAVE;
+            }
+            io.github.carlos_emr.carlos.commn.model.FileUploadCheck f = new io.github.carlos_emr.carlos.commn.model.FileUploadCheck();
+            f.setProviderNo(provider);
+            f.setFilename(name);
+            f.setMd5sum(md5sum);
+            f.setDateTime(new Date());
+
+            FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
+            dao.persist(f);
+            return f.getId();
+        } finally {
+            lock.unlock();
+        }
     }
 
 }
