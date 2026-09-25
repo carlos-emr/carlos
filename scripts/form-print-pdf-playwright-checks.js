@@ -194,7 +194,7 @@ async function cleanup() {
     // Print saves the record before it renders, so an assertion that fails after the POST would
     // otherwise leave the row behind.
     // EXACT MATCH, NOT LIKE. The stamp contains underscores and `_` is a single-character
-    // wildcard in LIKE, so `LIKE 'PW_FORM_PRINT_17...%'` also matches a clinician's note that
+    // wildcard in LIKE, so `LIKE 'PW_FORM_PRINT_17..._ab12...%'` also matches a clinician's note that
     // happens to differ in exactly those positions. Scoped to the patient this run opened as
     // well, so a stamp collision cannot reach another chart's rows.
     statements.push(['the form rows this run saved',
@@ -353,7 +353,10 @@ async function main() {
     // remove that row without touching a clinician's. Typed into the form below, so the row carries
     // it and can be named exactly -- unlike an id range or a snapshot difference, both of which also
     // match whatever somebody else saved for this patient while the check was running.
-    fixture.stamp = `PW_FORM_PRINT_${Date.now()}`;
+    // RANDOM, NOT JUST THE CLOCK. The stamp is what cleanup deletes by, so two runs that started
+    // in the same millisecond against the same patient would share it and each would delete the
+    // other's row -- the concurrency the marker exists to be safe under.
+    fixture.stamp = `PW_FORM_PRINT_${Date.now()}_${require('crypto').randomBytes(6).toString('hex')}`;
 
     // Every response the form window and its popups make for this action, with
     // the status and content type each answered.
@@ -475,14 +478,22 @@ async function main() {
         `the PDF shows client reference ${reference[1]}, not row ${savedIds[0]} that Print had just `
         + 'saved, so FrmPDFServlet rendered some other record');
     } else {
+      // RELOAD THE CHART FIRST. Its Forms menu was rendered before this run saved anything, so on
+      // a patient with no earlier requisition it offers no started entry at all -- and a control
+      // print that never happens makes the assertion below vacuous in exactly the case it exists
+      // for. After the reload the row this run just saved is the newest, so formId=latest is it.
+      await chartPage.reload({ waitUntil: 'domcontentloaded', timeout });
+      await chartPage.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
       const startedUrl = await formMenuUrl(chartPage, formName, 'started');
-      const control = startedUrl
-        ? await printAndRead(context, config, startedUrl, { timeout, posts, pdfBodies })
-        : '';
+      assert(startedUrl,
+        `the chart offers no started ${formName} even though Print has just saved one, so the `
+        + 'control print that tells "the setting is off" from "the saved id never arrived" cannot '
+        + 'be made -- and without it this check would pass over the regression it is here for');
+      const control = await printAndRead(context, config, startedUrl, { timeout, posts, pdfBodies });
       assert(!CLIENT_REFERENCE.test(control),
         'reprinting the saved record shows a client reference while printing it the first time '
         + 'did not, so the id the save produced never reached FrmPDFServlet and the first print '
-        + 'rendered the new-form defaults (issue #3935)');
+        + 'rendered the new-form defaults (issue #3735)');
       console.log('  (no client reference on either print -- use_lab_clientreference is off on '
         + 'this deployment, so the saved-id half cannot be exercised here)');
     }
