@@ -199,11 +199,14 @@ async function assertPreviewRenders(hostFrame, label) {
     const originalPreview = nullPage.frames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
     const originalText = await originalPreview.locator('input[name="rx_no_newlines"]').inputValue();
     const originalUrl = originalPreview.url();
-    const alternateScript = sql(`SELECT DISTINCT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} AND p.script_no<>${scriptId} ORDER BY p.script_no LIMIT 1`);
-    assert(/^\d+$/.test(alternateScript), 'preview identity coverage requires two saved prescriptions for the patient');
+    const alternateCandidates = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} AND p.script_no<>${scriptId} GROUP BY p.script_no HAVING SHA2(GROUP_CONCAT(COALESCE(d.special,'') ORDER BY d.drugid),256) <> (SELECT SHA2(GROUP_CONCAT(COALESCE(special,'') ORDER BY drugid),256) FROM drugs WHERE script_no=${scriptId} AND demographic_no=${demographicNo}) ORDER BY p.script_no`).split(/\r?\n/).filter((id) => /^\d+$/.test(id));
+    const reprintLinks = await rxPage.locator('#reprint a[onclick*="reprint2("]').evaluateAll((links) =>
+      links.map((link) => (link.getAttribute('onclick').match(/reprint2\('(\d+)'\)/) || [])[1]));
+    const alternateScript = alternateCandidates.find((id) => reprintLinks.includes(id));
+    assert(alternateScript, 'preview identity coverage requires two visible prescriptions with different drug text');
+    await rxPage.locator('#carlosModalCloseBtn').click();
+    await rxPage.locator('#carlosModal').waitFor({ state: 'hidden' });
     await rxPage.locator(`#reprint a[onclick*="reprint2('${alternateScript}')"]`).first().click();
-    await rxPage.waitForFunction((id) => Array.from(document.querySelectorAll('iframe')).some(
-      (frame) => frame.src.includes('/rx/viewScript') && new URL(frame.src).searchParams.get('scriptId') === id), alternateScript);
     let alternateHost = null;
     for (let attempt = 0; attempt < 30 && !alternateHost; attempt += 1) {
       alternateHost = rxPage.frames().find((frame) => frame.url().includes('/rx/viewScript')
