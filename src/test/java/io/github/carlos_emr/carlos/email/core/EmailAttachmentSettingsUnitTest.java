@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.mock.web.MockHttpServletRequest;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -38,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailAttachmentSettings validation")
-class EmailAttachmentSettingsTest {
+class EmailAttachmentSettingsUnitTest {
 
     @Nested
     @DisplayName("validateEmail")
@@ -104,7 +106,7 @@ class EmailAttachmentSettingsTest {
         @Test
         @DisplayName("should return email when at RFC 5321 length limit")
         void shouldReturnEmail_whenAtMaxLength() {
-            String local = "a".repeat(241);
+            String local = "a".repeat(242);
             String email = local + "@example.com";
             assertThat(email.length()).isEqualTo(254);
             assertThat(EmailAttachmentSettings.validateEmail(email)).isEqualTo(email);
@@ -164,18 +166,35 @@ class EmailAttachmentSettingsTest {
         }
 
         @Test
-        @DisplayName("should truncate when exceeding max length")
-        void shouldTruncate_whenExceedingMaxLength() {
-            String longSubject = "A".repeat(250);
-            String result = EmailAttachmentSettings.sanitizeSubject(longSubject);
-            assertThat(result).hasSize(200);
+        @DisplayName("should keep a subject longer than the old 200 character cut-off intact")
+        void shouldKeepFullSubject_whenLongerThanOldCutOff() {
+            String longSubject = "Referral letter follow-up ".repeat(20);
+            assertThat(longSubject.length()).isGreaterThan(200);
+            assertThat(EmailAttachmentSettings.sanitizeSubject(longSubject)).isEqualTo(longSubject);
         }
 
         @Test
-        @DisplayName("should not truncate when within max length")
-        void shouldNotTruncate_whenWithinMaxLength() {
-            String subject = "A".repeat(200);
-            assertThat(EmailAttachmentSettings.sanitizeSubject(subject)).hasSize(200);
+        @DisplayName("should keep a subject at the storage limit intact")
+        void shouldKeepFullSubject_whenAtStorageLimit() {
+            String subject = "A".repeat(EmailFieldLengthValidator.MAX_SUBJECT_CHARS);
+            assertThat(EmailAttachmentSettings.sanitizeSubject(subject)).isEqualTo(subject);
+        }
+
+        @Test
+        @DisplayName("should strip line breaks from a long subject without shortening the rest")
+        void shouldStripLineBreaksOnly_whenLongSubjectContainsBreaks() {
+            String head = "B".repeat(600);
+            String tail = "C".repeat(600);
+            assertThat(EmailAttachmentSettings.sanitizeSubject(head + "\r\nBcc: x@example.com\n" + tail))
+                    .isEqualTo(head + "Bcc: x@example.com" + tail)
+                    .doesNotContain("\r", "\n");
+        }
+
+        @Test
+        @DisplayName("should not truncate an over-limit subject so the send step can reject it")
+        void shouldNotTruncate_whenSubjectExceedsStorageLimit() {
+            String subject = "D".repeat(EmailFieldLengthValidator.MAX_SUBJECT_CHARS + 1);
+            assertThat(EmailAttachmentSettings.sanitizeSubject(subject)).isEqualTo(subject);
         }
     }
 
@@ -208,50 +227,59 @@ class EmailAttachmentSettingsTest {
         }
 
         @Test
-        @DisplayName("should truncate when exceeding max length")
-        void shouldTruncate_whenExceedingMaxLength() {
-            String longPassword = "A".repeat(150);
-            String result = EmailAttachmentSettings.sanitizePassword(longPassword);
-            assertThat(result).hasSize(100);
+        @DisplayName("should keep C1 controls, matching the compose page's ASCII-only strip")
+        void shouldKeepC1Controls_forParityWithComposePage() {
+            // emailCompose.jsp withoutControlChars strips /[\x00-\x1F\x7F]/ only; the server must
+            // strip the same set so both count the stored password and clue identically.
+            assertThat(EmailAttachmentSettings.sanitizePassword("a\u0080b\u0085c\u009Fd\u007Fe\u001Ff"))
+                    .isEqualTo("a\u0080b\u0085c\u009Fdef");
         }
 
         @Test
-        @DisplayName("should not truncate when within max length")
-        void shouldNotTruncate_whenWithinMaxLength() {
-            String password = "A".repeat(100);
-            assertThat(EmailAttachmentSettings.sanitizePassword(password)).hasSize(100);
+        @DisplayName("should not silently shorten a long password")
+        void shouldNotTruncate_whenPasswordExceedsStorageLimit() {
+            String longPassword = "A".repeat(150);
+            assertThat(EmailAttachmentSettings.sanitizePassword(longPassword)).isEqualTo(longPassword);
         }
     }
 
     @Nested
-    @DisplayName("truncate")
-    class Truncate {
+    @DisplayName("of")
+    class Of {
 
-        @Test
-        @DisplayName("should return value when within limit")
-        void shouldReturnValue_whenWithinLimit() {
-            assertThat(EmailAttachmentSettings.truncate("short text", 10000)).isEqualTo("short text");
+        private EmailAttachmentSettings settingsFrom(MockHttpServletRequest request) {
+            return EmailAttachmentSettings.of(request, "1", "2", null, null, null, null, null);
         }
 
         @Test
-        @DisplayName("should return null when null input")
-        void shouldReturnNull_whenNullInput() {
-            assertThat(EmailAttachmentSettings.truncate(null, 10000)).isNull();
+        @DisplayName("should preserve a body longer than the old 10,000 character cut-off")
+        void shouldPreserveFullBody_whenLongerThanOldCutOff() {
+            String longBody = "Patient letter paragraph.\n".repeat(1000);
+            assertThat(longBody.length()).isGreaterThan(10000);
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("bodyEmail", longBody);
+
+            assertThat(settingsFrom(request).bodyEmail()).isEqualTo(longBody);
         }
 
         @Test
-        @DisplayName("should truncate when exceeding limit")
-        void shouldTruncate_whenExceedingLimit() {
-            String longBody = "B".repeat(15000);
-            String result = EmailAttachmentSettings.truncate(longBody, 10000);
-            assertThat(result).hasSize(10000);
+        @DisplayName("should preserve an encrypted message longer than the old 10,000 character cut-off")
+        void shouldPreserveFullEncryptedMessage_whenLongerThanOldCutOff() {
+            String longMessage = "E".repeat(25000);
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("encryptedMessageEmail", longMessage);
+
+            assertThat(settingsFrom(request).encryptedMessageEmail()).isEqualTo(longMessage);
         }
 
         @Test
-        @DisplayName("should return exact length string unchanged")
-        void shouldReturnUnchanged_whenExactLength() {
-            String exact = "C".repeat(10000);
-            assertThat(EmailAttachmentSettings.truncate(exact, 10000)).hasSize(10000);
+        @DisplayName("should strip line breaks but keep the full length of a long subject")
+        void shouldStripLineBreaksAndKeepLength_whenSubjectIsLong() {
+            String subject = "S".repeat(500) + "\r\n" + "T".repeat(500);
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("subjectEmail", subject);
+
+            assertThat(settingsFrom(request).subjectEmail()).isEqualTo("S".repeat(500) + "T".repeat(500));
         }
     }
 

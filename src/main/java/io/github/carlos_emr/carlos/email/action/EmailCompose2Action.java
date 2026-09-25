@@ -15,7 +15,6 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -229,10 +228,8 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            if (logger.isWarnEnabled()) {
-                String sanitizedFid = LogSafe.sanitize(fid);
-                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
-            }
+            // The rejected value is request text and adds nothing to the log, so it is not echoed.
+            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
             fid = null;
         }
 
@@ -291,7 +288,8 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
         request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, demographicId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- only compared with the send request's patient
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
         cleanupEmailSessionAttributes(request);
 

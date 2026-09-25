@@ -1154,6 +1154,19 @@
       ]
     },
     {
+      "name": "email-field-length",
+      "script": "scripts/email-field-length-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "echart-consult-specialist",
       "script": "scripts/echart-consult-specialist-playwright-checks.js",
       "tiers": [

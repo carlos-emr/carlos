@@ -7,6 +7,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -56,6 +57,14 @@
     <fmt:message key="email.compose.msg.passwordRequired" var="emailComposePasswordRequired"/>
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
+    <%-- Length messages are read without fmt:param so the page script can fill {0} (entered size)
+         and {1} (limit) itself; see checkLength(). --%>
+    <fmt:message key="email.compose.msg.subjectTooLong" var="emailComposeSubjectTooLong"/>
+    <fmt:message key="email.compose.msg.bodyTooLong" var="emailComposeBodyTooLong"/>
+    <fmt:message key="email.compose.msg.encryptedMessageTooLong" var="emailComposeEncryptedMessageTooLong"/>
+    <fmt:message key="email.compose.msg.passwordTooLong" var="emailComposePasswordTooLong"/>
+    <fmt:message key="email.compose.msg.clueTooLong" var="emailComposeClueTooLong"/>
+    <fmt:message key="email.compose.msg.internalCommentTooLong" var="emailComposeInternalCommentTooLong"/>
     <fmt:message key="email.compose.msg.minimumRecipient" var="emailComposeMinimumRecipient"/>
     <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
     <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
@@ -239,6 +248,23 @@
                 </c:when>
             </c:choose>
 
+            <c:if test="${ not empty emailLengthViolations }">
+                <%-- EmailSend2Action rejected the submission before persisting or sending it
+                     because a field would not fit the emailLog table (issue #3905). It re-renders
+                     this form with everything the provider entered, so the fields can be
+                     shortened and sent again from here. Only bundle text and integer sizes are
+                     rendered in this panel, never field content. --%>
+                <div class="alert alert-danger" role="alert" id="emailLengthErrorMessage">
+                    <p><fmt:message key="email.compose.msg.fieldsTooLong"/></p>
+                    <ul class="mb-0">
+                        <c:forEach items="${ emailLengthViolations }" var="violation">
+                            <li><fmt:message key="${ violation.messageKey }"><fmt:param value="${ violation.actual }"/><fmt:param value="${ violation.limit }"/></fmt:message></li>
+                        </c:forEach>
+                    </ul>
+                </div>
+            </c:if>
+            <input type="hidden" name="emailRejectedForLength" id="emailRejectedForLength"
+                   value="${ not empty emailLengthViolations }"/>
             <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
@@ -253,7 +279,7 @@
             <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
-                <input type="hidden" name="fdid" value="${fdid}"/>
+                <input type="hidden" name="fdid" value="${carlos:forHtmlAttribute(fdid)}"/>
                 <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
                 <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
@@ -411,6 +437,7 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
+                                    <label class="visually-hidden" for="bodyEmail">${emailComposeBodyLabel}</label>
                                     <textarea class="form-control" name="bodyEmail" id="bodyEmail" rows="7"
                                               placeholder="${emailComposeBodyPlaceholder}">${carlos:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
                                     <div class="error-message" id="bodyError"></div>
@@ -445,7 +472,7 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12 mb-3">
-                                    <label>${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
+                                    <label for="encryptedMessage">${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
                                                                    data-bs-toggle="tooltip" data-bs-placement="right"
                                                                    title="${emailComposeEncryptedMessageTooltip}"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
@@ -522,6 +549,7 @@
                                             </label>
 										<div id="internalCommentContainer" class="d-none">
 											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="<fmt:message key='email.compose.chart.internalComment'/>" rows="3">${carlos:forHtml(not empty param.internalComment ? param.internalComment : internalComment)}</textarea>
+                                            <div class="error-message" id="internalCommentError"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -672,9 +700,6 @@
             return;
         }
 
-        // Auto-send email
-        autoSendEmail();
-
         // Convert attachment size into kb/mb
         convertAttachmentSize();
 
@@ -692,6 +717,19 @@
 
 	// Toggle internal note text area
 	toggleInternalTextArea();
+
+        if (document.getElementById('emailRejectedForLength').value === 'true') {
+            // The server refused the last send. Mark the fields it reported (where the page can
+            // measure them) and wait for the provider; a rejected retry is never auto-sent.
+            validateForm();
+            return;
+        }
+
+        // Auto-send email. Runs last: validateForm() and the submitted form data depend on the
+        // chart option, encryption state and internal-comment visibility set just above. Before,
+        // an auto-sent email always went with the default chart option and was length-checked
+        // against the wrong set of fields.
+        autoSendEmail();
     });
 
     document.addEventListener("keydown", function (event) {
@@ -705,6 +743,20 @@
     const emailComposePasswordRequiredMsg = "<carlos:encode value='${emailComposePasswordRequired}' context="javaScript"/>";
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
+    const emailComposeSubjectTooLongMsg = "<carlos:encode value='${emailComposeSubjectTooLong}' context="javaScript"/>";
+    const emailComposeBodyTooLongMsg = "<carlos:encode value='${emailComposeBodyTooLong}' context="javaScript"/>";
+    const emailComposeEncryptedMessageTooLongMsg = "<carlos:encode value='${emailComposeEncryptedMessageTooLong}' context="javaScript"/>";
+    const emailComposePasswordTooLongMsg = "<carlos:encode value='${emailComposePasswordTooLong}' context="javaScript"/>";
+    const emailComposeClueTooLongMsg = "<carlos:encode value='${emailComposeClueTooLong}' context="javaScript"/>";
+    const emailComposeInternalCommentTooLongMsg = "<carlos:encode value='${emailComposeInternalCommentTooLong}' context="javaScript"/>";
+
+    // emailLog column limits, from EmailFieldLengthValidator (the authoritative server-side check).
+    // These are checked on submit rather than with maxlength: maxlength silently cuts pasted text
+    // and does not flag an over-long pre-filled value, which is the silent loss issue #3905 removed.
+    const EMAIL_MAX_SUBJECT_CHARS = <%= EmailFieldLengthValidator.MAX_SUBJECT_CHARS %>;
+    const EMAIL_MAX_PASSWORD_CHARS = <%= EmailFieldLengthValidator.MAX_PASSWORD_CHARS %>;
+    const EMAIL_MAX_PASSWORD_CLUE_CHARS = <%= EmailFieldLengthValidator.MAX_PASSWORD_CLUE_CHARS %>;
+    const EMAIL_MAX_BLOB_TEXT_UTF8_BYTES = <%= EmailFieldLengthValidator.MAX_BLOB_TEXT_UTF8_BYTES %>;
     const emailComposeMinimumRecipientMsg = "<carlos:encode value='${emailComposeMinimumRecipient}' context="javaScript"/>";
     const emailComposeStateOnMsg = "<carlos:encode value='${emailComposeStateOn}' context="javaScript"/>";
     const emailComposeStateOffMsg = "<carlos:encode value='${emailComposeStateOff}' context="javaScript"/>";
@@ -750,6 +802,28 @@
             }
         }
 
+        // Length limits mirror EmailManager: encryption fields and the internal comment are only
+        // stored when they are used, so they are only checked in that case. The additional API
+        // parameters (1000 characters) are left to the server-side check. The encrypted message
+        // and internal comment have no required-field check, so reset their earlier errors here.
+        clearError('encryptedMessageError');
+        clearError('internalCommentError');
+        checkLength(subjectEmail, 'chars', EMAIL_MAX_SUBJECT_CHARS, emailComposeSubjectTooLongMsg, errors, 'subjectError');
+        checkLength(bodyEmail, 'bytes', EMAIL_MAX_BLOB_TEXT_UTF8_BYTES, emailComposeBodyTooLongMsg, errors, 'bodyError');
+        if (isEncrypted) {
+            checkLength(document.getElementById('encryptedMessage'), 'bytes', EMAIL_MAX_BLOB_TEXT_UTF8_BYTES,
+                emailComposeEncryptedMessageTooLongMsg, errors, 'encryptedMessageError');
+            if (hasEncryptedMessage || (hasAttachments && isAttachmentEncrypted)) {
+                checkLength(withoutControlChars(emailPDFPassword), 'chars', EMAIL_MAX_PASSWORD_CHARS, emailComposePasswordTooLongMsg, errors, 'emailPDFPasswordError');
+                checkLength(withoutControlChars(emailPDFPasswordClue), 'chars', EMAIL_MAX_PASSWORD_CLUE_CHARS, emailComposeClueTooLongMsg, errors, 'emailPDFPasswordClueError');
+            }
+        }
+        const addFullNoteOption = document.getElementById('addFullNoteOption');
+        if (addFullNoteOption && addFullNoteOption.checked) {
+            checkLength(document.getElementById('internalComment'), 'bytes', EMAIL_MAX_BLOB_TEXT_UTF8_BYTES,
+                emailComposeInternalCommentTooLongMsg, errors, 'internalCommentError');
+        }
+
         if (Object.keys(errors).length === 0) {
             return true;
         }
@@ -764,6 +838,37 @@
             displayError(errorElementId, errorMessage);
         } else if (field.value.trim().length < 5 && field.id === 'emailPDFPassword') {
             errorMessage = emailComposePasswordMinLengthMsg;
+            errors[field.name] = errorMessage;
+            displayError(errorElementId, errorMessage);
+        }
+    }
+
+    // Size of a field as the database will count it: code points for varchar columns (utf8mb4),
+    // UTF-8 bytes for the Base64-encoded BLOB columns. A textarea's value uses LF, but form
+    // submission sends CRLF, so count line breaks the way the server will receive them.
+    function measureLength(value, unit) {
+        const submitted = value.replace(/\r\n|\r|\n/g, '\r\n');
+        return unit === 'bytes' ? new TextEncoder().encode(submitted).length : Array.from(submitted).length;
+    }
+
+    // The password and clue are stored with ASCII control characters (including line breaks)
+    // removed, as EmailAttachmentSettings.sanitizePassword does on the server, so count them the
+    // same way: a clue with line breaks must not be refused here and accepted there.
+    function withoutControlChars(field) {
+        return {name: field.name, value: field.value.replace(/[\x00-\x1F\x7F]/g, '')};
+    }
+
+    // Flags a field that exceeds its limit. Runs after validateField, so it never replaces an
+    // error that validateField already reported for the same field.
+    function checkLength(field, unit, limit, messageTemplate, errors, errorElementId) {
+        if (!field || errors[field.name]) {
+            return;
+        }
+        const length = measureLength(field.value, unit);
+        if (length > limit) {
+            const errorMessage = messageTemplate
+                .replace('{0}', length.toLocaleString())
+                .replace('{1}', limit.toLocaleString());
             errors[field.name] = errorMessage;
             displayError(errorElementId, errorMessage);
         }
@@ -811,9 +916,10 @@
 
     // Open EForm again on sent
     function openEFormAfterSend() {
-        const isOpenEForm = "${isOpenEForm}" === "true";
+        // fdid and isOpenEForm are echoed from the send request on the result page, so encode them.
+        const isOpenEForm = "${carlos:forJavaScript(isOpenEForm)}" === "true";
         if (isOpenEForm) {
-            window.open("${ctx}/eform/efmshowform_data?fdid=${fdid}", "_blank", "width=800,height=600");
+            window.open("${ctx}/eform/efmshowform_data?fdid=${carlos:forJavaScript(carlos:forUriComponent(fdid))}", "_blank", "width=800,height=600");
         }
     }
 
