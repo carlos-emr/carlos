@@ -72,6 +72,47 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Credential Encryption Key
+
+Sender accounts that authenticate (an SMTP password, or a provider API key such
+as SendGrid's) store that secret in `emailConfig.configDetails`. CARLOS encrypts
+it at rest with the application key `encryption.util.secret.key`, the same key
+fax credentials use. A plaintext row inserted by hand is encrypted the first
+time it is used to send. An unauthenticated `LOCAL` relay holds no secret and
+never needs the key.
+
+Without the key, credentials cannot be encrypted, and an already-encrypted row
+cannot be decrypted, so its sends fail. What happens to a plaintext row depends
+on `email.credentials.require_encryption_key`:
+
+| Setting | Key missing, account holds a credential |
+|---|---|
+| unset (default), or anything other than `true`, `yes` or `on` | The send proceeds. The credential stays in plaintext. One WARN per account per server run names the account id and the setting. |
+| `true`, `yes` or `on` | The send is refused before any connection is made. The email log records `FAILED` with "Email sender account cannot be used until the server encryption key is configured. Contact your administrator." Each refusal logs an ERROR naming the account id. |
+
+Logs name the account id and the property only. They never contain the
+credential, the configuration JSON or the key.
+
+An invalid key (not Base64, or not a 16, 24 or 32 byte AES key) stops CARLOS at
+startup, so a running server has either a usable key or none.
+
+### Rollout
+
+1. Generate a key once (`openssl rand -base64 32`) and set
+   `encryption.util.secret.key` in the override properties on every server.
+   Never generate a new one for a server that already has encrypted rows:
+   rotating the key makes them undecryptable.
+2. Restart, then send a non-PHI test message from each credentialed account.
+   Each plaintext row is encrypted on that first send; check that the
+   "stored unencrypted" warning no longer appears.
+3. Set `email.credentials.require_encryption_key=true` and restart. From then
+   on, a server that loses its key refuses credentialed sends instead of quietly
+   sending with plaintext credentials.
+
+The compatibility window is the time between upgrading and step 3. It is
+deliberately left to each deployment, because enforcement before the key is in
+place would stop all credentialed email.
+
 ## Local Development
 
 Local development must not send real patient email.
@@ -161,6 +202,8 @@ subjects, body text, and password clues accordingly.
 - Email transport secrets and PDF password exposure:
   [issue #3112](https://github.com/carlos-emr/carlos/issues/3112) /
   [PR #3130](https://github.com/carlos-emr/carlos/pull/3130).
+- Require the encryption key for credentialed email:
+  [issue #3673](https://github.com/carlos-emr/carlos/issues/3673).
 - Temp PDF cleanup:
   [issue #3114](https://github.com/carlos-emr/carlos/issues/3114).
 - Single message field:

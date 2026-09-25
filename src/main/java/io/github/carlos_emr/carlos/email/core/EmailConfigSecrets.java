@@ -119,6 +119,37 @@ public final class EmailConfigSecrets {
         return changed ? configObject.toString() : configDetailsJson;
     }
 
+    /**
+     * Reports whether a {@code configDetails} value carries a transport credential (an SMTP
+     * password or a provider API key), encrypted or not. An unauthenticated LOCAL relay carries
+     * none. A value that cannot be parsed counts as carrying one: it cannot be shown not to.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @return true when a non-empty secret field is present, or the value is unparseable
+     * @since 2026-09-24
+     */
+    public static boolean holdsTransportSecret(String configDetailsJson) {
+        if (configDetailsJson == null || configDetailsJson.isBlank()) {
+            return false;
+        }
+        JsonNode root;
+        try {
+            root = OBJECT_MAPPER.readTree(configDetailsJson);
+        } catch (Exception e) {
+            return true;
+        }
+        if (root == null || !root.isObject()) {
+            return true;
+        }
+        for (String field : SECRET_FIELDS) {
+            JsonNode value = root.get(field);
+            if (value != null && !value.isNull() && !(value.isValueNode() && value.asText().isEmpty())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static String encryptSecret(String plaintext) throws EmailSendingException {
         try {
             return EncryptionUtils.encrypt(plaintext);
