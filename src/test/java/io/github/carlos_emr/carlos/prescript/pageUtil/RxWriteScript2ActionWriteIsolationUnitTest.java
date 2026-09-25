@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -564,6 +565,49 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         logActionMock.verifyNoInteractions();
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"updateReRxDrug", "saveCustomName", "newCustomNote", "newCustomDrug",
+            "normalDrugSetCustom", "createNewRx", "updateDrug", "updateLongTermStatus",
+            "updateSpecialInstruction", "updateProperty", "updateSaveAllDrugs"})
+    @DisplayName("should return an AJAX failure when the named patient has no workspace")
+    void shouldRejectAjaxMutation_whenPatientWorkspaceIsMissing(String method) throws Exception {
+        request.setParameter("parameterValue", method);
+        request.setParameter("demographicNo", "9999");
+        request.setParameter("ltDrugId", "77");
+        request.setParameter("action", "removeFromReRxDrugIdList");
+        request.setParameter("reRxDrugId", "77");
+        bean.addReRxDrugIdList("77");
+
+        assertThat(action.execute()).isEqualTo(RxWriteScript2Action.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashList()).containsExactly(stagedCard);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("77");
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"malformed", "9999"})
+    @DisplayName("should reject renewal removal without falsely acknowledging an unresolved patient")
+    void shouldRejectReRxRemoval_whenPatientCannotBeResolved(String patient) throws Exception {
+        request.setParameter("parameterValue", "updateReRxDrug");
+        if (patient != null) request.setParameter("demographicNo", patient);
+        request.setParameter("action", "removeFromReRxDrugIdList");
+        request.setParameter("reRxDrugId", "77");
+        bean.addReRxDrugIdList("77");
+
+        assertThat(action.execute()).isEqualTo(RxWriteScript2Action.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashList()).containsExactly(stagedCard);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("77");
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
+    }
+
     @Test
     @DisplayName("should not change a drug's long-term status when the request names no patient")
     void shouldNotArchive_whenLongTermToggleNamesNoPatient() throws Exception {
@@ -573,8 +617,9 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isNull();
-        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
         verifyNoInteractions(mockRxManager);
     }
 }

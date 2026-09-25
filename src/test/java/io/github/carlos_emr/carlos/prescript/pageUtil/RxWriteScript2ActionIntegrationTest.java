@@ -411,7 +411,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
         executeActionMethod(action, "updateReRxDrug");
 
-        assertThat(getMockResponse().getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+        assertThat(getMockResponse().getRedirectedUrl()).isNull();
         assertThat(beanA.getReRxDrugIdList()).isEmpty();
         assertThat(beanB.getReRxDrugIdList()).isEmpty();
     }

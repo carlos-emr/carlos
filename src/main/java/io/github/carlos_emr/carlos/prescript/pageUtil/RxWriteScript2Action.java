@@ -324,11 +324,12 @@ public final class RxWriteScript2Action extends ActionSupport {
      * the UI stay harmless.</p>
      *
      * <p>POST is required; anything else is rejected with {@code 405} before the Rx session is
-     * touched.</p>
+     * touched. A missing patient workspace returns {@code 409}, so AJAX clients cannot mistake
+     * a followed error-page redirect for a successful mutation.</p>
      *
      * @return {@link #NONE} when the request is rejected and an error status has been written,
      *         otherwise {@code null} so the dispatcher completes without rendering a view
-     * @throws IOException if writing the error status or redirect fails
+     * @throws IOException if writing the error status fails
      * @since 2010-03-17
      */
     public String updateReRxDrug() throws IOException {
@@ -345,8 +346,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         synchronized (bean) {
             return updateReRxDrugLocked(bean);
@@ -395,7 +396,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Renames a staged custom drug card.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String saveCustomName() throws IOException {
@@ -407,8 +408,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         synchronized (bean) {
             return saveCustomNameLocked(bean);
@@ -474,7 +475,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Stages a free-text note card.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String newCustomNote() throws IOException {
@@ -488,8 +489,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         synchronized (bean) {
@@ -604,7 +605,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Stages a custom drug card.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String newCustomDrug() throws IOException {
@@ -621,8 +622,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         synchronized (bean) {
@@ -689,7 +690,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Turns a staged catalogue drug into a custom one.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String normalDrugSetCustom() throws IOException {
@@ -701,8 +702,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         synchronized (bean) {
             return normalDrugSetCustomLocked(bean);
@@ -755,7 +756,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Stages a new card for a catalogue drug.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -772,8 +773,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         synchronized (bean) {
@@ -992,7 +993,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Rewrites a field of a staged card.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -1006,8 +1007,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         synchronized (bean) {
@@ -1178,7 +1179,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Sets the special instructions of a staged card; 409 when the request names no open patient.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -1228,7 +1229,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Sets a property of a staged card; 409 when the request names no open patient.
      *
-     * @return {@code NONE} (the response is written directly) or {@code null} after a redirect
+     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -1710,8 +1711,8 @@ public final class RxWriteScript2Action extends ActionSupport {
             // Saves and archives a chart drug: only the named patient's bean, never the fallback (#3875).
             RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
             if (bean == null) {
-                response.sendRedirect("error.html");
-                return null;
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
             }
 
             RxPrescriptionData rxData = new RxPrescriptionData();
