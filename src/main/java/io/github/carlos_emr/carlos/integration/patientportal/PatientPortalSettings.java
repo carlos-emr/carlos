@@ -69,6 +69,12 @@ public record PatientPortalSettings(
         Duration requestTimeout,
         Set<String> certificatePins) {
 
+    /**
+     * The master switch. The portal is off unless this is exactly {@code true}, so a clinic that
+     * does not use it needs no other setting, and one that does can switch it off without removing
+     * its credentials.
+     */
+    public static final String ENABLED_KEY = "patient_portal.enabled";
     public static final String BASE_URL_KEY = "patient_portal.base_url";
     public static final String CLINIC_ID_KEY = "patient_portal.clinic_id";
     public static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
@@ -105,6 +111,9 @@ public record PatientPortalSettings(
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
+    private static final String NOT_ENABLED_MESSAGE =
+            "patient portal is not enabled: set " + ENABLED_KEY + "=true to use it";
+    private static final String ENABLED_VALUE_MESSAGE = ENABLED_KEY + " must be true or false";
     private static final String PLAINTEXT_MESSAGE =
             "%s must begin with a lowercase https:// ; refusing to send the portal token over"
                     + " plaintext";
@@ -144,36 +153,48 @@ public record PatientPortalSettings(
      * @throws PatientPortalConfigurationException if the portal is unconfigured or misconfigured
      */
     public static PatientPortalSettings fromCarlosProperties() {
-        return fromProperties(key -> CarlosProperties.getInstance().getProperty(key));
+        return fromDeploymentProperties(key -> CarlosProperties.getInstance().getProperty(key));
     }
 
     /**
-     * Reports whether any connection setting is present. Partial configurations proceed to
-     * validation so they produce a configuration error instead of looking like an absent portal.
+     * Reads the settings a deployment runs with: the master switch must be on, then the connection
+     * settings are validated as {@link #fromProperties(Function)} does.
+     *
+     * @throws PatientPortalConfigurationException if {@link #ENABLED_KEY} is not {@code true}, or
+     *     the connection settings are absent or invalid
+     */
+    static PatientPortalSettings fromDeploymentProperties(Function<String, String> lookup) {
+        String enabled = switchValue(lookup);
+        if (enabled.isEmpty() || "false".equals(enabled)) {
+            throw new PatientPortalConfigurationException(NOT_ENABLED_MESSAGE);
+        }
+        if (!"true".equals(enabled)) {
+            throw new PatientPortalConfigurationException(ENABLED_VALUE_MESSAGE);
+        }
+        return fromProperties(lookup);
+    }
+
+    /**
+     * Reports whether the clinic has switched the portal on. Absent or {@code false} means off, the
+     * normal state for a clinic that does not use it, whatever connection settings are present.
+     *
+     * <p>Any other value counts as on, so that constructing the settings reports it: a mistyped
+     * switch, like a partial configuration, must surface as a configuration error rather than
+     * quietly looking like an absent portal. Once on, missing connection settings are reported the
+     * same way.
      */
     public static boolean isConfigured() {
         return isConfigured(key -> CarlosProperties.getInstance().getProperty(key));
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
-        for (String key :
-                new String[] {
-                    BASE_URL_KEY,
-                    CLINIC_ID_KEY,
-                    SERVICE_TOKEN_KEY,
-                    STAFF_ASSERTION_KEY,
-                    STAFF_ASSERTION_KEY_ID,
-                    CONNECT_TIMEOUT_KEY,
-                    READ_TIMEOUT_KEY,
-                    REQUEST_TIMEOUT_KEY,
-                    CERTIFICATE_PINS_KEY
-                }) {
-            String value = lookup.apply(key);
-            if (value != null && !value.isBlank()) {
-                return true;
-            }
-        }
-        return false;
+        String enabled = switchValue(lookup);
+        return !enabled.isEmpty() && !"false".equals(enabled);
+    }
+
+    private static String switchValue(Function<String, String> lookup) {
+        String value = lookup.apply(ENABLED_KEY);
+        return value == null ? "" : value.strip();
     }
 
     /**

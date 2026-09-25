@@ -7,10 +7,15 @@ run in CARLOS before signing.
 
 ## Authenticating the portal server
 
+The portal is optional and off by default. It is used only when
+`patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
+setting it back to `false` switches the portal off without removing its
+credentials. With the portal off, the rest of CARLOS is unaffected and no portal
+call is made. Any value other than `true` or `false` is a configuration error.
+
 `patient_portal.certificate.pins` is required whenever the integration is
-configured. Missing, empty, or malformed pins prevent client initialization;
-there is no fallback to CA-only trust. Leaving the whole integration unconfigured
-still leaves the rest of CARLOS available. Existing deployments must provision
+enabled. Missing, empty, or malformed pins prevent client initialization;
+there is no fallback to CA-only trust. Existing deployments must provision
 verified pins before deploying this change and restarting CARLOS.
 
 CARLOS requires TLS 1.2/1.3, normal certificate validation, a matching hostname,

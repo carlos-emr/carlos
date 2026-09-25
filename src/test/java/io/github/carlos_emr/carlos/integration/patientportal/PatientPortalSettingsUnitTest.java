@@ -33,6 +33,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Configuration contract for the CARLOS to patient-portal channel.
@@ -348,16 +350,19 @@ class PatientPortalSettingsUnitTest {
     class FailClosed {
 
         @Test
-        @DisplayName("should recognize optional-only values as an attempted configuration")
-        void shouldTreatOptionalSettingAsConfigured_whenRequiredValuesAreMissing() {
+        @DisplayName("should treat a switched-on portal with only optional values as misconfigured")
+        void shouldReportMissingSettings_whenSwitchedOnWithOnlyOptionalValues() {
             for (String key : java.util.List.of(
                     CONNECT_TIMEOUT_KEY,
                     READ_TIMEOUT_KEY,
                     PatientPortalSettings.CERTIFICATE_PINS_KEY)) {
-                assertThat(PatientPortalSettings.isConfigured(candidate ->
-                                candidate.equals(key) ? "configured" : null))
+                Map<String, String> values = Map.of(
+                        PatientPortalSettings.ENABLED_KEY, "true", key, "configured");
+
+                assertThat(PatientPortalSettings.isConfigured(values::get)).as(key).isTrue();
+                assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
                         .as(key)
-                        .isTrue();
+                        .isInstanceOf(PatientPortalConfigurationException.class);
             }
         }
 
@@ -641,5 +646,79 @@ class PatientPortalSettingsUnitTest {
         String url = "https://portal.example:" + port;
         properties.put(BASE_URL_KEY, url);
         assertThat(PatientPortalSettings.fromProperties(properties).baseUrl()).isEqualTo(url);
+    }
+
+    @Nested
+    @DisplayName("master switch")
+    class MasterSwitch {
+
+        private Map<String, String> connection(String enabled) {
+            Map<String, String> values = new HashMap<>();
+            values.put(PatientPortalSettings.BASE_URL_KEY, "https://portal.example.ca");
+            values.put(PatientPortalSettings.CLINIC_ID_KEY, "maplecreek");
+            values.put(PatientPortalSettings.SERVICE_TOKEN_KEY, "synthetic-service-token-0000000001");
+            values.put(PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY);
+            values.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
+            values.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN);
+            if (enabled != null) {
+                values.put(PatientPortalSettings.ENABLED_KEY, enabled);
+            }
+            return values;
+        }
+
+        @Test
+        @DisplayName("should leave the portal off when the switch is absent, however complete the rest")
+        void shouldBeOff_whenSwitchIsAbsent() {
+            Map<String, String> values = connection(null);
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled");
+        }
+
+        @Test
+        @DisplayName("should let a clinic switch the portal off without removing its credentials")
+        void shouldBeOff_whenSwitchIsFalse() {
+            Map<String, String> values = connection(" false ");
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled");
+        }
+
+        @Test
+        @DisplayName("should build settings when the switch is on and the connection is valid")
+        void shouldBuildSettings_whenSwitchIsOn() {
+            Map<String, String> values = connection("true");
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
+            assertThat(PatientPortalSettings.fromDeploymentProperties(values::get).clinicId())
+                    .isEqualTo("maplecreek");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"yes", "TRUE", "1", "on"})
+        @DisplayName("should report a mistyped switch as an error rather than as an absent portal")
+        void shouldReportError_whenSwitchIsMistyped(String value) {
+            Map<String, String> values = connection(value);
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("must be true or false");
+        }
+
+        @Test
+        @DisplayName("should report missing connection settings once the portal is switched on")
+        void shouldReportMissingSettings_whenSwitchedOnAlone() {
+            Map<String, String> values = Map.of(PatientPortalSettings.ENABLED_KEY, "true");
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("is not configured");
+        }
     }
 }
