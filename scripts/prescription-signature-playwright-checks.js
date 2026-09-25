@@ -189,11 +189,12 @@ async function choosePrescriptionPatient(page) {
 }
 
 async function postReprintSession(page) {
-  const result = await page.evaluate(async ({ scriptId }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection // scriptId is numeric-validated before this call; data is passed as a serialized argument, not string-interpolated into the function body.
+  const result = await page.evaluate(async ({ scriptId, demographicNo }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection // scriptId and demographicNo are numeric-validated before this call; data is passed as a serialized argument, not string-interpolated into the function body.
     const csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
     const csrfToken = csrfEl ? csrfEl.value || '' : '';
     const body = new URLSearchParams({
       scriptNo: scriptId,
+      demographicNo,
       rand: String(Math.floor(Math.random() * 10001)),
     });
     if (csrfToken) {
@@ -213,7 +214,7 @@ async function postReprintSession(page) {
     return {
       status: response.status,
     };
-  }, { scriptId: prescriptionScriptId });
+  }, { scriptId: prescriptionScriptId, demographicNo: prescriptionDemographicNo });
   if (result.status !== 200) {
     throw new Error(`Prescription reprint session setup returned HTTP ${result.status}`);
   }
