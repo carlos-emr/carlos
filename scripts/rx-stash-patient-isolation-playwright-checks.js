@@ -98,15 +98,28 @@ function drugsFor(sql, demographicNo, marker) {
 
 // Only consume the exact HTTP conflict asserted by a negative workflow step. All other
 // browser errors, responses, failed requests and dialogs remain subject to strict checks.
-function consumeExpectedConflict(recorder, response, since) {
+function consumeExpectedConflict(recorder, response, since, baseUrl) {
+  const appUrl = new URL(baseUrl);
+  const contextPath = appUrl.pathname.replace(/\/$/, '');
+  const responseUrl = new URL(response.url());
+  h.assert(responseUrl.origin === appUrl.origin && responseUrl.pathname === `${contextPath}/rx/WriteScript`,
+    'the expected conflict must belong to this application prescription endpoint');
   const errors = recorder.badResponses.slice(since.responses);
   h.assert(errors.length === 1 && errors[0].url === response.url() && errors[0].status === 409
     && errors[0].method === 'POST', 'the negative probe produced an unexpected HTTP failure');
   recorder.badResponses.splice(since.responses, 1);
+  const csrfGuardUrl = new URL(`${contextPath}/csrfguard`, appUrl.origin).href;
   for (let i = recorder.consoleIssues.length - 1; i >= since.console; i--) {
     const entry = recorder.consoleIssues[i];
-    if (entry.location.url === response.url() && entry.text.startsWith('Failed to load resource:')
-      && entry.text.includes('status of 409 (')) recorder.consoleIssues.splice(i, 1);
+    // Chromium can attribute the native resource failure to CSRFGuard's XHR wrapper.
+    // Allow its exact same-context script URL only after verifying this one failed POST.
+    const expectedLocation = entry.location && (entry.location.url === response.url()
+      || entry.location.url === csrfGuardUrl);
+    if (expectedLocation && entry.label === errors[0].label && entry.type === 'error'
+      && /^Failed to load resource: the server responded with a status of 409 \((?:Conflict)?\)$/.test(entry.text)) {
+      recorder.consoleIssues.splice(i, 1);
+      break; // One POST permits one native warning; other errors remain strict.
+    }
   }
 }
 
@@ -201,7 +214,7 @@ async function workflow(session) {
       'the stale-save refusal did not explain how to review the current draft');
     h.assert(await first.locator(`#drugName_${keyA}`).inputValue() === nameA,
       'the stale-save refusal discarded edits in the original window');
-    consumeExpectedConflict(session.recorder, refusal, since);
+    consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl);
     h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === beforeScripts,
       'the refused stale save created a prescription');
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`) === beforeDrugs,
@@ -289,7 +302,7 @@ async function workflow(session) {
         h.assert(await card.isVisible(), 'refused ReRx removal hid the staged card');
       });
       h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'refused ReRx removal did not explain its failure');
-      consumeExpectedConflict(session.recorder, refusal, since);
+      consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl);
     } finally {
       release();
       await rx.unroute(routePattern, handler);
@@ -324,4 +337,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-stash-patient-isolation', workflow);
-module.exports = { workflow, openRx, stageCustomDrug };
+module.exports = { workflow, openRx, stageCustomDrug, consumeExpectedConflict };
