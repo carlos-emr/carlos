@@ -64,6 +64,7 @@ passphrases, or patient data. Pins are public-key hashes and may be recorded.
 | Renewal job (timer or cron, and where its script lives) | |
 | Renewal schedule, and who is told when it fails | |
 | Post-renewal pin check (automated or manual, by whom) | |
+| How renewal failures reach the owner, and the external expiry monitor | |
 | Where the standby private key is stored | |
 | Rotation interval | |
 | Next scheduled rotation | |
