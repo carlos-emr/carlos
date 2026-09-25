@@ -70,6 +70,9 @@ class CaseManagementCppSaveRegressionTest {
             "attack-sqli", "attack-xss", "attack-rce",
             "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"};
 
+    /** The allocation the write loop must perform per key, matched as source text. */
+    private static final String ALLOCATION = "new CaseManagementNoteExt()";
+
     @Test
     @DisplayName("CPP saves should refresh Unresolved Issues without relying on a missing form element (#3422)")
     void shouldRefreshUnresolvedIssues_afterCppSave() throws IOException {
@@ -324,20 +327,6 @@ class CaseManagementCppSaveRegressionTest {
                 .doesNotContain("encodeURI(noteTxt)");
     }
 
-    /**
-     * Returns the whole chained SecRule carrying {@code id:<ruleId>}, from its
-     * {@code SecRule REQUEST_URI} line to the blank line that separates it from the next rule.
-     *
-     * <p>Bounding the slice on the rule's own structure rather than on the text of whichever
-     * clause happens to sit last keeps the assertions about what the rule <em>says</em>.
-     * Anchoring on a particular argument name meant that reordering the clauses, or adding one
-     * after it, silently truncated the slice and turned real assertions into vacuous ones. A
-     * closing quote is no good either: the {@code chain} action's own line ends in one while
-     * the chained rule continues below it.</p>
-     */
-    /** The allocation the write loop must perform per key, matched as source text. */
-    private static final String ALLOCATION = "new CaseManagementNoteExt()";
-
     @Test
     @DisplayName("the note route should upsert one note extension per key (#3739)")
     void shouldUpsertOneNoteExtensionPerKey_inIssueNoteSave() throws IOException {
@@ -420,6 +409,17 @@ class CaseManagementCppSaveRegressionTest {
                 .allSatisfy(at -> assertThat(at).isBetween(loopOpens, loopCloses));
     }
 
+    /**
+     * Returns the whole chained SecRule carrying {@code id:<ruleId>}, from its
+     * {@code SecRule REQUEST_URI} line to the blank line that separates it from the next rule.
+     *
+     * <p>Bounding the slice on the rule's own structure rather than on the text of whichever
+     * clause happens to sit last keeps the assertions about what the rule <em>says</em>.
+     * Anchoring on a particular argument name meant that reordering the clauses, or adding one
+     * after it, silently truncated the slice and turned real assertions into vacuous ones. A
+     * closing quote is no good either: the {@code chain} action's own line ends in one while
+     * the chained rule continues below it.</p>
+     */
     private String readExclusionRule(String ruleId) throws IOException {
         String exclusions = read(Path.of("debian", "assets", "modsecurity",
                 "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"))
