@@ -47,7 +47,7 @@ passphrases, or patient data. Pins are public-key hashes and may be recorded.
 
 | Item | Answer |
 |---|---|
-| Method (self-generated key, or certificate file) | |
+| Setup (first setup, or moved from an existing portal) | |
 | Trusted channel the key or certificate came through | |
 | Pin computed by | |
 | Independently checked by | |
@@ -60,7 +60,7 @@ passphrases, or patient data. Pins are public-key hashes and may be recorded.
 
 | Item | Answer |
 |---|---|
-| Renewal method (self-generated key and CSR, or certbot-managed with key reuse) | |
+| Certificate authority, and renewal (certbot ACME job, or manual CSR reissue) | |
 | Renewal job (timer or cron, and where its script lives) | |
 | Renewal schedule, and who is told when it fails | |
 | Post-renewal pin check (automated or manual, by whom) | |
