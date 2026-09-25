@@ -701,13 +701,14 @@ public final class IncomingDocUtil {
         File validatedDeleteFile = null;
         File scratch = null;
         File recycleScratch = null;
+        File recycled = null;
         boolean replaced = false;
         try {
             scratch = newScratchFile(new File(basePath), permissions);
-            // The removed page goes to a scratch file in the recycle directory and takes its
-            // recycle name only after the queue document has been replaced. A failed delete then
-            // leaves no recycled copy of a page that is still queued, and never overwrites an
-            // older recycle entry of the same name.
+            // The removed page is written to a scratch file in the recycle directory, filed under
+            // a name no other recycle entry holds, and only then is the queue document replaced.
+            // If filing fails the queue is untouched; if the replacement fails the entry this call
+            // filed is removed again. Either way no page is lost and no older entry overwritten.
             recycleScratch = newScratchFile(deleteDir, permissions);
             // Only once setup has succeeded, so a failure above cannot leave the source read-only;
             // the finally below restores its permissions whenever the replacement did not happen.
@@ -741,6 +742,10 @@ public final class IncomingDocUtil {
                 }
             }
 
+            if (recycleBinEnabled()) {
+                recycled = moveToUnusedName(recycleScratch, validatedDeleteFile, deleteDir);
+            }
+
             // Replace the queue entry in one move rather than deleting it and then renaming the
             // replacement over the gap. Delete-then-rename lost the document outright whenever the
             // rename failed (permissions, a cross-filesystem temp dir): the queue entry was already
@@ -750,21 +755,10 @@ public final class IncomingDocUtil {
         } finally {
             if (!replaced) {
                 deleteQuietly(scratch);
-                deleteQuietly(recycleScratch);
+                deleteQuietly(recycled);
                 restorePermissions(f, permissions);
             }
-        }
-
-        // The queue now holds the remaining pages; file the removed one. The queue document is
-        // already correct, so a failure here is logged rather than reported as a failed delete.
-        if (recycleBinEnabled()) {
-            try {
-                Files.move(recycleScratch.toPath(), validatedDeleteFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                MiscUtils.getLogger().warn("Could not file a deleted incoming-document page in the recycle directory");
-                deleteQuietly(recycleScratch);
-            }
-        } else {
+            // Gone already when it was filed; otherwise (recycle bin off, or a failure) discard it.
             deleteQuietly(recycleScratch);
         }
 
@@ -776,6 +770,30 @@ public final class IncomingDocUtil {
         }
     }
 
+
+    /**
+     * Moves {@code source} to {@code target}, or to {@code target} with a {@code -2}, {@code -3} ...
+     * suffix when that name is taken, never replacing an existing file.
+     *
+     * @return the file the source now lives at
+     * @throws IOException if the move fails for a reason other than the name being taken
+     */
+    // every candidate name is validated against dir by PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "every candidate name is validated against dir by PathValidationUtils before use")
+    private static File moveToUnusedName(File source, File target, File dir) throws IOException {
+        String name = target.getName();
+        for (int attempt = 1; attempt <= 1000; attempt++) {
+            File candidate = attempt == 1 ? target
+                    : PathValidationUtils.validatePath(addPdfNameSuffix(name, "-" + attempt), dir);
+            try {
+                Files.move(source.toPath(), candidate.toPath());
+                return candidate;
+            } catch (FileAlreadyExistsException e) {
+                // taken: try the next suffix
+            }
+        }
+        throw new IOException("No unused recycle name for a deleted incoming-document page");
+    }
 
     /** Whether a deleted page is kept in the recycle directory (INCOMINGDOCUMENT_RECYCLEBIN is active). */
     private static boolean recycleBinEnabled() {

@@ -431,4 +431,25 @@ class IncomingDocUtilUnitTest {
         }
         assertThat(scratchFilesLeft()).isZero();
     }
+
+    @Test
+    @DisplayName("should keep an older recycle entry of the same name and file the new page beside it")
+    void shouldKeepOlderRecycleEntry_whenSameNameAlreadyRecycled() throws Exception {
+        queuedPdf("fax.pdf", 3);
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path olderEntry = deleteDir.resolve("faxd2of3.pdf");
+        Files.writeString(olderEntry, "an earlier recycled page", StandardCharsets.UTF_8);
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(Files.readString(olderEntry, StandardCharsets.UTF_8)).isEqualTo("an earlier recycled page");
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(deleteDir.resolve("faxd2of3-2.pdf").toFile())) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+        }
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        try (Stream<Path> files = Files.list(deleteDir)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
+        }
+    }
 }
