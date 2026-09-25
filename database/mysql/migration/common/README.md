@@ -51,9 +51,16 @@ must be rebuilt or explicitly reconciled before adopting this migration: Flyway
 [archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
 retirement semantics, and failure investigation.
 
+`V1.0.33__one_live_consent_per_type.sql` leaves at most one live `Consent` row per patient and
+consent type, then adds a unique key that keeps it that way. It first fills NULL flags, retires
+the extra live rows with the rule `ConsentRecords.effective` uses (an opt-out wins, otherwise the
+latest edit), and makes `explicit`, `optout` and `deleted` NOT NULL. Retired rows are soft-deleted
+with every other value kept. The key sits on an invisible generated column, `live_demographic_no`,
+because deleted rows legitimately repeat and MariaDB has no partial index.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.28`
-(also the highest shared one), so the next free version for ANY location is `V1.0.29`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.33`
+(also the highest shared one), so the next free version for ANY location is `V1.0.34`
 (see `../README.md`).
