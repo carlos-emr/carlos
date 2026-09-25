@@ -66,6 +66,31 @@ class SmsQueueServiceUnitTest {
     }
 
     @Test
+    @DisplayName("enqueue refuses without recording anything when SMS is turned off in Administration")
+    void shouldRefuseQueue_whenSmsIsTurnedOff() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsQueueProcessingService worker = mock(SmsQueueProcessingService.class);
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(false);
+        SmsQueueService service = new SmsQueueService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                recorder,
+                worker,
+                new SmsDefaultProviderResolver(() -> "STUB"),
+                configService
+        );
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_TURNED_OFF_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+        verify(worker, never()).processDueMessages(anyInt());
+    }
+
+    @Test
     @DisplayName("enqueueAndProcessNow wakes the queue worker after queuing")
     void shouldWakeWorker_whenMessageIsQueuedForImmediateProcessing() {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();

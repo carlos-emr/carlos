@@ -741,6 +741,24 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			</div>
 </security:oscarSec>
 
+<!-- #SMS Management (#3836) -->
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.sms" rights="r" reverse="<%=false%>">
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSms" aria-expanded="false" aria-controls="collapseSms">
+			<fmt:message key="admin.admin.sms"/>
+			</button>
+			</h2>
+			<div id="collapseSms" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ConfigureSms"><fmt:message key="admin.admin.configureSms"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
+</security:oscarSec>
+
 <!-- #Email Management -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.email" rights="r" reverse="<%=false%>">
 			<div class="accordion-item">

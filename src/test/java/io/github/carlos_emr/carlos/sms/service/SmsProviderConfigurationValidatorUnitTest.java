@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,19 @@ class SmsProviderConfigurationValidatorUnitTest {
 
         assertThat(validator.configuredDefaultHasRegisteredClient()).isFalse();
         // Startup validation logs an error but must not block context startup.
+        assertThatCode(validator::validateConfiguredDefaultProvider).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("does not block startup when the saved SMS settings cannot be read (V1.0.34 not applied)")
+    void shouldNotBlockStartup_whenStoredSettingsCannotBeRead() {
+        SmsProviderConfigurationValidator validator = new SmsProviderConfigurationValidator(
+                new SmsDefaultProviderResolver(() -> "STUB", () -> {
+                    throw new PersistenceException("Table 'sms_config' doesn't exist");
+                }),
+                STUB_ONLY_RESOLVER
+        );
+
         assertThatCode(validator::validateConfiguredDefaultProvider).doesNotThrowAnyException();
     }
 }
