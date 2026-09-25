@@ -40,13 +40,13 @@ class RxPreviewSnapshotUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "-1", "1x", " 1", "2147483648", "99999999999"})
-    void refusesMalformedIdentityBeforeDatabaseRead(String id) {
+    void shouldRefuseBeforeDatabaseRead_whenIdentityIsMalformed(String id) {
         assertThatIllegalArgumentException().isThrownBy(() -> RxPreviewSnapshot.load(42, id));
         verifyNoInteractions(dao);
     }
 
     @Test
-    void refusesForeignAndMissingScriptsBeforeReadingDrugsOrNotes() {
+    void shouldRefuseWithoutReadingClinicalData_whenScriptIsForeignOrMissing() {
         Prescription foreign = new Prescription();
         foreign.setDemographicId(43);
         foreign.setComments("private foreign notes");
@@ -59,7 +59,7 @@ class RxPreviewSnapshotUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void keepsEveryPersistedRowInAnIndependentDisplayBeanAndUsesSameScriptsComment() {
+    void shouldKeepAllRowsAndComment_whenLoadingIndependentSnapshots() {
         Prescription header = new Prescription();
         header.setDemographicId(42);
         header.setProviderNo("doctor");
@@ -83,7 +83,7 @@ class RxPreviewSnapshotUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void refusesHeaderWithoutPatientOwnedDrugRows() {
+    void shouldRefuseHeader_whenPatientOwnedDrugRowsAreMissing() {
         Prescription header = new Prescription();
         header.setDemographicId(42);
         when(dao.find(7)).thenReturn(header);

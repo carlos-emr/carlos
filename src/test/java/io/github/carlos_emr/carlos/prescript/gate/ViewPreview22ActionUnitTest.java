@@ -133,7 +133,7 @@ class ViewPreview22ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void pinsTheExplicitSavedScriptDespiteDifferentSessionStaging() throws Exception {
+    void shouldPinExplicitSavedScript_despiteDifferentSessionStaging() throws Exception {
         request.addParameter("scriptId", "7");
         RxPreviewSnapshot expected = new RxPreviewSnapshot(new RxSessionBean(), "7", "notes");
         try (var snapshots = mockStatic(RxPreviewSnapshot.class)) {
@@ -144,7 +144,7 @@ class ViewPreview22ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void refusesMissingOrForeignScriptWithoutFallingBackToSession() throws Exception {
+    void shouldRefuseWithoutSessionFallback_whenScriptIsMissingOrForeign() throws Exception {
         request.addParameter("scriptId", "7");
         try (var snapshots = mockStatic(RxPreviewSnapshot.class)) {
             assertThat(new ViewPreview22Action().execute()).isEqualTo(ActionSupport.NONE);
@@ -154,7 +154,7 @@ class ViewPreview22ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void refusesMalformedScriptWithoutFallingBackToSession() throws Exception {
+    void shouldRefuseWithoutSessionFallback_whenScriptIsMalformed() throws Exception {
         request.addParameter("scriptId", "bad");
         try (var snapshots = mockStatic(RxPreviewSnapshot.class)) {
             snapshots.when(() -> RxPreviewSnapshot.load(DEMOGRAPHIC_NO, "bad"))
