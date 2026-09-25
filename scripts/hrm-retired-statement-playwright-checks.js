@@ -5,7 +5,8 @@
  * admin page, route and navigation links are gone). HRM2Action keeps the two old method names
  * and answers them with HTTP 410 Gone instead of falling through into the report listing with
  * a misleading 200. This check pins that contract from a real logged-in session, in both the
- * verb an old bookmark uses (GET) and the one the removed page posted (POST), and proves the
+ * verb an old bookmark uses (GET) and the one the removed page posted (a CSRF-valid POST, so
+ * the request reaches the action rather than stopping at CSRFGuard), and proves the
  * two things that must still work around it: the Administration panel offers no link to the
  * removed page, and the HRM report listing the same action serves still answers.
  *
@@ -20,19 +21,29 @@ const RETIRED = ['getConfidentialityStatement', 'saveConfidentialityStatement'];
 
 async function workflow(s) {
   const hrm = `${s.config.baseUrl}/hospitalReportManager/hrm`;
-  await s.step('retired statement operations answer 410 on GET and POST', async () => {
+  // The POST must carry this session's CSRF token, otherwise CSRFGuard answers 403 before
+  // HRM2Action runs and a regression that restored the old method dispatch would go unseen.
+  // Read the master token the same way csrfTokenFetch.js does, from inside the logged-in
+  // schedule page so the request is same-origin with the session cookie and a Referer.
+  const csrfToken = await s.schedule.evaluate(async (ctx) => {
+    const response = await fetch(`${ctx}/csrfguard`, { credentials: 'same-origin' });
+    if (!response.ok) return '';
+    const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
+    return match ? match[1] : '';
+  }, new URL(s.config.baseUrl).pathname.replace(/\/$/, ''));
+  h.assert(csrfToken, 'Could not read the session CSRF token from /csrfguard');
+  await s.step('retired statement operations answer 410 on GET and on a CSRF-valid POST', async () => {
     for (const method of RETIRED) {
       const get = await s.context.request.get(`${hrm}?method=${method}&providerNo=${encodeURIComponent(s.provider)}`,
         { maxRedirects: 0, failOnStatusCode: false });
       h.assert(get.status() === 410, `GET method=${method} answered ${get.status()}, expected 410`);
       const post = await s.context.request.post(hrm, {
-        form: { method, providerNo: s.provider, statement: 'no longer stored' },
+        form: { method, providerNo: s.provider, statement: 'no longer stored', 'CSRF-TOKEN': csrfToken },
+        headers: { Referer: `${s.config.baseUrl}/hospitalReportManager/hrm` },
         maxRedirects: 0, failOnStatusCode: false,
       });
-      // POST without a CSRF token is refused before the action runs; with the same session's
-      // token it must reach the 410. Either way it must never be a 200 report listing.
-      h.assert(post.status() === 410 || post.status() === 403,
-        `POST method=${method} answered ${post.status()}, expected 410 (or the CSRF 403)`);
+      h.assert(post.status() === 410,
+        `CSRF-valid POST method=${method} answered ${post.status()}, expected 410`);
       h.assert(!/"recordsTotal"|"data"\s*:/.test(await post.text()),
         `POST method=${method} fell through into the report listing`);
     }
