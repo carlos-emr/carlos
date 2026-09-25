@@ -28,6 +28,9 @@ import jakarta.servlet.http.HttpSession;
 
 import java.io.Serial;
 import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -79,7 +82,8 @@ public final class RxSessionBeanResolver {
 
     /**
      * Target number of patients kept per session. Empty beans are evicted above this number;
-     * drafts and pending ReRx selections are always retained, even when the target is exceeded.
+     * drafts, pending ReRx selections and beans leased by active requests are always retained,
+     * even when the target is exceeded.
      */
     static final int MAX_PATIENTS_PER_SESSION = 25;
 
@@ -88,6 +92,8 @@ public final class RxSessionBeanResolver {
 
     /** Returned by {@link #requestedDemographicNo} when the named patient is malformed or ambiguous. */
     public static final int INVALID = -1;
+
+    private static final String LEASES_ATTRIBUTE = RxSessionBeanResolver.class.getName() + ".leases";
 
     private static final String[] DEMOGRAPHIC_PARAMETERS = {"demographicNo", "demographic_no"};
 
@@ -126,6 +132,7 @@ public final class RxSessionBeanResolver {
                 bean.setProviderNo(providerNo);
             }
             session.setAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE, demographicNo);
+            lease(request, session, beans, bean);
         }
         return bean;
     }
@@ -161,6 +168,7 @@ public final class RxSessionBeanResolver {
             if (session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE) == null) {
                 session.setAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE, demographicNo);
             }
+            lease(request, session, beans, bean);
             return bean;
         }
     }
@@ -200,11 +208,19 @@ public final class RxSessionBeanResolver {
         if (requested == INVALID) {
             return null;
         }
-        if (requested > 0) {
-            return find(session, requested);
+        synchronized (lockFor(session)) {
+            Object active = session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE);
+            int demographicNo = requested;
+            if (demographicNo <= 0 && active instanceof Integer activeDemographicNo) {
+                demographicNo = activeDemographicNo;
+            }
+            PatientBeans beans = beans(session, false);
+            RxSessionBean bean = beans.peek(demographicNo);
+            if (bean != null) {
+                lease(request, session, beans, bean);
+            }
+            return bean;
         }
-        Object active = session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE);
-        return active instanceof Integer activeDemographicNo ? find(session, activeDemographicNo) : null;
     }
 
     /**
@@ -225,6 +241,8 @@ public final class RxSessionBeanResolver {
 
     /**
      * The bean Rx holds for {@code demographicNo} in this session, without consulting the request.
+     * This lifecycle inspection does not lease the bean; request handlers that retain or mutate
+     * the result must use {@link #resolve(HttpServletRequest)} instead.
      *
      * @return the bean, or {@code null} when Rx was not opened for that patient
      */
@@ -328,6 +346,48 @@ public final class RxSessionBeanResolver {
         return patient;
     }
 
+    /**
+     * Pins every bean exposed to a request until the servlet container destroys that request.
+     * Holding the bean monitor only during eviction is insufficient: a request may have resolved
+     * an empty bean and not yet entered its staging critical section. Acquisition and eviction
+     * share the session mutex, so that reference stays attached throughout the request.
+     */
+    @SuppressWarnings("unchecked")
+    private static void lease(HttpServletRequest request, HttpSession session, PatientBeans beans, RxSessionBean bean) {
+        List<BeanLease> leases = (List<BeanLease>) request.getAttribute(LEASES_ATTRIBUTE);
+        if (leases == null) {
+            leases = new ArrayList<>();
+            request.setAttribute(LEASES_ATTRIBUTE, leases);
+        }
+        for (BeanLease existing : leases) {
+            if (existing.owner() == beans && existing.bean() == bean) {
+                return;
+            }
+        }
+        beans.acquire(bean);
+        leases.add(new BeanLease(beans, bean, lockFor(session)));
+    }
+
+    /** Called by the registered request listener, including failed and asynchronous requests. */
+    static void releaseRequestLeases(jakarta.servlet.ServletRequest request) {
+        Object value = request.getAttribute(LEASES_ATTRIBUTE);
+        request.removeAttribute(LEASES_ATTRIBUTE);
+        if (value instanceof List<?> leases) {
+            for (Object entry : leases) {
+                if (entry instanceof BeanLease lease) {
+                    // Keep the original owner and mutex: logout may already have invalidated the
+                    // session. Cleanup neither reads it nor creates a replacement session.
+                    synchronized (lease.mutex()) {
+                        lease.owner().release(lease.bean());
+                    }
+                }
+            }
+        }
+    }
+
+    private record BeanLease(PatientBeans owner, RxSessionBean bean, Object mutex) {
+    }
+
     private static Object lockFor(HttpSession session) {
         // Use the same mutex as the reprint workspace, including when Spring installs a custom
         // session mutex, so pruning reprints and evicting patient beans share one lock order.
@@ -356,8 +416,28 @@ public final class RxSessionBeanResolver {
         @Serial
         private static final long serialVersionUID = 1L;
 
+        // Requests do not survive session serialization; restored beans start without leases.
+        private transient IdentityHashMap<RxSessionBean, Integer> leases;
+
         PatientBeans() {
             super(16, 0.75f, true);
+        }
+
+        void acquire(RxSessionBean bean) {
+            if (leases == null) {
+                leases = new IdentityHashMap<>();
+            }
+            leases.merge(bean, 1, Integer::sum);
+        }
+
+        void release(RxSessionBean bean) {
+            if (leases != null) {
+                leases.computeIfPresent(bean, (key, count) -> count > 1 ? count - 1 : null);
+            }
+        }
+
+        private boolean isLeased(RxSessionBean bean) {
+            return leases != null && leases.containsKey(bean);
         }
 
         /** Reads without refreshing the patient's recency (only opening Rx does that). */
@@ -381,7 +461,8 @@ public final class RxSessionBeanResolver {
             int candidates = size() - 1;
             Iterator<Map.Entry<Integer, RxSessionBean>> oldestFirst = entrySet().iterator();
             while (size() > MAX_PATIENTS_PER_SESSION && candidates-- > 0 && oldestFirst.hasNext()) {
-                if (!hasStagedWork(oldestFirst.next().getValue())) {
+                RxSessionBean bean = oldestFirst.next().getValue();
+                if (!isLeased(bean) && !hasStagedWork(bean)) {
                     oldestFirst.remove();
                 }
             }

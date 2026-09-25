@@ -27,6 +27,12 @@ as work is saved or discarded. The patient being opened is never dropped. Evicti
 patient's saved reprint workspace so reopening cannot revive an old reprint. The active patient
 is `RxActiveDemographicNo`.
 
+Every bean returned through a request is leased until the servlet container finishes that request
+(including error and asynchronous completion); eviction skips leased beans. Resolving a bean and
+then waiting to stage a draft therefore cannot leave the request holding an evicted workspace.
+The registered `RxSessionBeanRequestListener` releases each request's leases without creating or
+accessing a session that logout may already have invalidated.
+
 ### Patient-level authorisation of writes
 
 A write's global privilege check (`_rx` or `_allergy` with no patient) only admits the caller to

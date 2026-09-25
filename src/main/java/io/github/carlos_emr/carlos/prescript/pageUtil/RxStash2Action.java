@@ -200,7 +200,7 @@ public final class RxStash2Action extends ActionSupport {
      * re-prescribed card, drops its source from the ReRx list unless another staged card still uses it.
      * A malformed key is a 400.
      *
-     * @return {@code NONE}, or {@code null} after a redirect
+     * @return {@code NONE}; a missing patient workspace receives HTTP 409
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String deletePrescribe()
@@ -212,8 +212,8 @@ public final class RxStash2Action extends ActionSupport {
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
 
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         // randomId is the card's stash key (the <rand> in set_<rand>), never a drug id.

@@ -284,9 +284,24 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("parameterValue", "deletePrescribe");
         request.setParameter("randomId", "111111");
 
-        new RxStash2Action().execute();
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should answer conflict when the named patient's workspace has expired")
+    void shouldRejectDelete_whenNamedPatientWorkspaceMissing() throws Exception {
+        request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
         assertThat(bean.getStashSize()).isEqualTo(2);
     }
 

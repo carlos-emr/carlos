@@ -151,8 +151,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         String ip = request.getRemoteAddr();
         try {
@@ -233,7 +233,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * </ul>
      *
      * @return null (AJAX response, no page navigation)
-     * @throws IOException if response redirect fails
+     * @throws IOException if the response cannot be written
      */
     public String Delete2()
             throws IOException {
@@ -248,8 +248,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         String ip = request.getRemoteAddr();
         String rawId = request.getParameter("deleteRxId");
@@ -283,7 +283,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * worked on but not yet finalized.
      *
      * @return String "successClearStash" action result
-     * @throws IOException if response redirect fails
+     * @throws IOException if the response cannot be written
      */
     public String clearStash()
             throws IOException {
@@ -295,8 +295,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         bean.clearStash();
         return "successClearStash";
@@ -309,7 +309,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * (renewed) for the patient. This method clears that list.
      *
      * @return null (AJAX response, no page navigation)
-     * @throws IOException if response redirect fails
+     * @throws IOException if the response cannot be written
      */
     public String clearReRxDrugList()
             throws IOException {
@@ -321,8 +321,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         bean.clearReRxDrugIdList();
         //return "successClearStash";
@@ -359,7 +359,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * </ul>
      * The note is filed against the Rx session's patient, never a request-supplied demographic.
      *
-     * @return the discontinue result, or {@code null} after a redirect
+     * @return {@code NONE}; a missing patient workspace receives HTTP 409
      * @throws SecurityException when the caller may not update Rx for the patient
      */
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
@@ -372,7 +372,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
+            response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
 

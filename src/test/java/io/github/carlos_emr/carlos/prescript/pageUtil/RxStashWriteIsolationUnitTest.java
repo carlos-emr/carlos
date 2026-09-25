@@ -210,11 +210,27 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             RxDeleteRx2Action action = new RxDeleteRx2Action();
             action.setDrugList("77");
 
-            action.execute();
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
-            assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getRedirectedUrl()).isNull();
             assertThat(bean.getStashSize()).isEqualTo(2);
             assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+            verifyNoInteractions(mockDrugDao);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should answer conflict when an AJAX delete names an expired workspace")
+        void shouldRejectDelete_whenNamedPatientWorkspaceMissing() throws Exception {
+            namePatient();
+            request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
+            request.setParameter("deleteRxId", "del_77");
+
+            assertThat(new RxDeleteRx2Action().Delete2()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getRedirectedUrl()).isNull();
             verifyNoInteractions(mockDrugDao);
             logActionMock.verifyNoInteractions();
         }

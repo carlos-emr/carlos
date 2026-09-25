@@ -65,6 +65,20 @@ class RxSessionBeanResolverUnitTest {
         return request;
     }
 
+    private RxSessionBean activateCompleted(int demographicNo, String providerNo) {
+        MockHttpServletRequest request = request();
+        RxSessionBean bean = RxSessionBeanResolver.activate(request, demographicNo, providerNo);
+        RxSessionBeanResolver.releaseRequestLeases(request);
+        return bean;
+    }
+
+    private RxSessionBean ensureCompleted(int demographicNo, String providerNo) {
+        MockHttpServletRequest request = request();
+        RxSessionBean bean = RxSessionBeanResolver.ensure(request, demographicNo, providerNo);
+        RxSessionBeanResolver.releaseRequestLeases(request);
+        return bean;
+    }
+
     private static RxPrescriptionData.Prescription draft(long randomId) {
         RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, PROVIDER, 0);
         rx.setRandomId(randomId);
@@ -180,7 +194,7 @@ class RxSessionBeanResolverUnitTest {
     @DisplayName("should cap the number of patients kept in one session")
     void shouldEvictLeastRecentlyOpenedPatient_whenCapExceeded() {
         for (int demo = 1; demo <= RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 1; demo++) {
-            RxSessionBeanResolver.activate(request(), demo, PROVIDER);
+            activateCompleted(demo, PROVIDER);
         }
 
         assertThat(RxSessionBeanResolver.find(session, 1)).isNull();
@@ -191,13 +205,13 @@ class RxSessionBeanResolverUnitTest {
     @Test
     @DisplayName("should keep a patient's staged drafts over empty beans when the cap is exceeded")
     void shouldEvictPatientWithoutStagedWork_whenCapExceeded() {
-        RxSessionBean withDraft = RxSessionBeanResolver.activate(request(), 1, PROVIDER);
+        RxSessionBean withDraft = activateCompleted(1, PROVIDER);
         withDraft.getStashList().add(draft(11));
-        RxSessionBean withReRx = RxSessionBeanResolver.activate(request(), 2, PROVIDER);
+        RxSessionBean withReRx = activateCompleted(2, PROVIDER);
         withReRx.getReRxDrugIdList().add("77");
         // eChart Prescriptions tabs and messenger previews for many other patients.
         for (int demo = 3; demo <= RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 1; demo++) {
-            RxSessionBeanResolver.ensure(request(), demo, PROVIDER);
+            ensureCompleted(demo, PROVIDER);
         }
 
         assertThat(RxSessionBeanResolver.find(session, 1)).isSameAs(withDraft);
@@ -211,11 +225,11 @@ class RxSessionBeanResolverUnitTest {
     @DisplayName("should preserve every draft and the new patient when all older beans hold work")
     void shouldPreserveAllPatients_whenEveryOlderBeanHasDrafts() {
         for (int demo = 1; demo <= RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION; demo++) {
-            RxSessionBeanResolver.activate(request(), demo, PROVIDER).getStashList().add(draft(demo));
+            activateCompleted(demo, PROVIDER).getStashList().add(draft(demo));
         }
         int newest = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 1;
 
-        RxSessionBean opened = RxSessionBeanResolver.activate(request(), newest, PROVIDER);
+        RxSessionBean opened = activateCompleted(newest, PROVIDER);
 
         assertThat(RxSessionBeanResolver.find(session, newest)).isSameAs(opened);
         for (int demo = 1; demo < newest; demo++) {
@@ -230,7 +244,7 @@ class RxSessionBeanResolverUnitTest {
     void shouldPreserveReRxSelections_whenTargetExceeded() {
         int count = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 3;
         for (int demo = 1; demo <= count; demo++) {
-            RxSessionBeanResolver.ensure(request(), demo, PROVIDER).addReRxDrugIdList("77");
+            ensureCompleted(demo, PROVIDER).addReRxDrugIdList("77");
         }
 
         for (int demo = 1; demo <= count; demo++) {
@@ -244,13 +258,13 @@ class RxSessionBeanResolverUnitTest {
     void shouldPruneEmptyBeans_afterDraftsWereDiscarded() {
         int count = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 3;
         for (int demo = 1; demo <= count; demo++) {
-            RxSessionBeanResolver.activate(request(), demo, PROVIDER).getStashList().add(draft(demo));
+            activateCompleted(demo, PROVIDER).getStashList().add(draft(demo));
         }
         for (int demo = 1; demo <= 4; demo++) {
             RxSessionBeanResolver.find(session, demo).clearStash();
         }
 
-        RxSessionBeanResolver.activate(request(), count + 1, PROVIDER);
+        activateCompleted(count + 1, PROVIDER);
 
         for (int demo = 1; demo <= 4; demo++) {
             assertThat(RxSessionBeanResolver.find(session, demo)).isNull();
