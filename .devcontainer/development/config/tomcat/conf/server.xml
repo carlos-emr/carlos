@@ -17,10 +17,16 @@
     </GlobalNamingResources>
 
     <Service name="Catalina">
+        <!-- relaxedQueryChars="[]" is required by the Ocean Toolbar integration (cme_js=ocean
+             in carlos.properties): Ocean-generated eForm/eReferral URLs use square brackets in
+             the query string, which Tomcat rejects by default. This applies connector-wide,
+             including when Ocean is disabled. For proxied deployments, align query
+             validation/decoding with the front end; see debian/assets/tomcat/server.xml. -->
         <Connector port="8080" protocol="HTTP/1.1"
                    connectionTimeout="20000"
                    maxPostSize="52428800"
                    maxSwallowSize="52428800"
+                   relaxedQueryChars="[]"
                    redirectPort="8443"/>
 
         <Engine name="Catalina" defaultHost="localhost">
