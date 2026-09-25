@@ -68,24 +68,23 @@ function insertFavorite(sql, providerNo, name) {
 }
 
 /**
- * POST rx/useFavorite the way SearchDrug3's useFav2() does (CSRF token from the page's hidden
- * input, AJAX marker header) and report the status and a stripped excerpt of the body.
+ * POST rx/useFavorite the way SearchDrug3's useFav2() does: the page's CSRF token in the
+ * CSRF-TOKEN header, the AJAX marker, and the window's patient (CarlosAjax adds it to every Rx
+ * request; staging is refused for a request that names no patient). Sent through the context's
+ * request API, which shares the session cookie, so the refusals this check expects (403/404/400)
+ * are not logged as resource failures on the strict page.
  */
-async function useFavorite(page, favoriteId) {
-  return page.evaluate(async (id) => {
-    const token = document.querySelector('input[name="CSRF-TOKEN"]');
-    const headers = {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-Requested-With': 'XMLHttpRequest',
-    };
-    if (token && token.value) headers['CSRF-TOKEN'] = token.value;
-    const body = `parameterValue=useFav2&favoriteId=${encodeURIComponent(id)}&randomId=424242`;
-    const response = await fetch(`${window.location.pathname.split('/rx/')[0]}/rx/useFavorite`, {
-      method: 'POST', headers, body, credentials: 'same-origin',
-    });
-    const text = await response.text();
-    return { status: response.status, body: text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400) };
-  }, favoriteId);
+async function useFavorite(session, page, demographicNo, favoriteId) {
+  const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue().catch(() => '');
+  h.assert(token, 'the Rx page has no CSRF token to send');
+  const response = await session.context.request.post(`${String(session.config.baseUrl).replace(/\/$/, '')}/rx/useFavorite`, {
+    headers: { 'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+    form: { parameterValue: 'useFav2', favoriteId, randomId: '424242', demographicNo: String(demographicNo) },
+    maxRedirects: 0,
+    timeout: 20000,
+  });
+  const text = await response.text().catch(() => '');
+  return { status: response.status(), body: text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400) };
 }
 
 async function workflow(session) {
@@ -172,14 +171,14 @@ async function workflow(session) {
     const foreign = insertFavorite(sql, FOREIGN_PROVIDER, `${marker}-foreign`);
     const rx = await openRx(session, patient);
 
-    const refused = await useFavorite(rx, foreign);
+    const refused = await useFavorite(session, rx, patient, foreign);
     h.assert(refused.status === 403, `another provider's favourite answered HTTP ${refused.status}: ${refused.body}`);
-    const missing = await useFavorite(rx, '999999999');
+    const missing = await useFavorite(session, rx, patient, '999999999');
     h.assert(missing.status === 404, `an unknown favourite answered HTTP ${missing.status}: ${missing.body}`);
-    const malformed = await useFavorite(rx, 'abc');
+    const malformed = await useFavorite(session, rx, patient, 'abc');
     h.assert(malformed.status === 400, `a malformed favourite id answered HTTP ${malformed.status}: ${malformed.body}`);
 
-    const staged = await useFavorite(rx, own);
+    const staged = await useFavorite(session, rx, patient, own);
     h.assert(staged.status === 200, `the caller's own favourite answered HTTP ${staged.status}: ${staged.body}`);
     // The stash belongs to the session, so a fresh Rx page for the patient shows the card under
     // the key the page asked for, named after the favourite.
