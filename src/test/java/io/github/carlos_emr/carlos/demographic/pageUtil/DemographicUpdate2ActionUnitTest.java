@@ -22,14 +22,18 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.List;
 
@@ -184,5 +188,197 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
         assertThat(fieldLengthValidationErrors)
                 .contains("Last name exceeds maximum length of 30 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @Test
+    @DisplayName("should save no consent when the form is rejected as a HIN duplicate")
+    void shouldNotSaveConsents_whenHinIsDuplicate() throws Exception {
+        allowPrivilege("_demographic", "w");
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        PatientConsentManager consentManager = mock(PatientConsentManager.class);
+        replaceSpringUtilsBean(PatientConsentManager.class, consentManager);
+        io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String originalSetting = properties.getProperty("USE_NEW_PATIENT_CONSENT_MODULE");
+        properties.setProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true");
+        try {
+            mockRequest.setMethod("POST");
+            addRequestParameter("demographic_no", "123");
+            addRequestParameter("hin", "1234567890");
+            addRequestParameter("email_consent", "0");
+            addRequestParameter("recordExplicit_email_consent", "1");
+            when(mockDemographicDao.getDemographic("123")).thenReturn(new Demographic(123));
+            Demographic otherPatient = new Demographic(456);
+            otherPatient.setVer("AB");
+            when(mockDemographicDao.searchDemographicByHIN(eq("1234567890"), anyInt(), anyInt(), any(), anyBoolean()))
+                    .thenReturn(List.of(otherPatient));
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("duplicate");
+            verifyNoInteractions(consentManager);
+            verify(mockDemographicDao, never()).save(any(Demographic.class));
+        } finally {
+            if (originalSetting != null) {
+                properties.setProperty("USE_NEW_PATIENT_CONSENT_MODULE", originalSetting);
+            } else {
+                properties.remove("USE_NEW_PATIENT_CONSENT_MODULE");
+            }
+        }
+    }
+
+    /**
+     * The chart's consent section (#3858). Every save re-posts each type's pre-checked radio, so
+     * only the separate confirmation box may upgrade an implied record to explicit.
+     */
+    @Nested
+    @DisplayName("saveConsents")
+    class SaveConsents {
+
+        private PatientConsentManager consentManager;
+        private MockHttpServletRequest request;
+
+        @BeforeEach
+        void setUpConsents() {
+            consentManager = mock(PatientConsentManager.class);
+            ConsentType email = new ConsentType();
+            email.setId(7);
+            email.setType("email_consent");
+            when(consentManager.getActiveConsentTypes()).thenReturn(List.of(email));
+            request = new MockHttpServletRequest();
+        }
+
+        @Test
+        @DisplayName("should record explicit consent only when the box is ticked with Opt-in")
+        void shouldRecordExplicitConsent_whenBoxTickedWithOptIn() {
+            request.setParameter("email_consent", "0");
+            request.setParameter("recordExplicit_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            // Order matters: an implied opt-out switched to Opt-in must be flipped before the upgrade,
+            // which refuses an opt-out, so both can happen in one save.
+            org.mockito.InOrder inOrder = inOrder(consentManager);
+            inOrder.verify(consentManager).addEditConsentRecord(mockLoggedInInfo, 42, 7, true, false);
+            inOrder.verify(consentManager).recordExplicitConsent(mockLoggedInInfo, 42, 7);
+        }
+
+        @Test
+        @DisplayName("should not upgrade anything on a routine save with Opt-in pre-checked")
+        void shouldNotRecordExplicitConsent_whenBoxNotTicked() {
+            request.setParameter("email_consent", "0");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager).addEditConsentRecord(mockLoggedInInfo, 42, 7, true, false);
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should ignore the box when Opt-out is chosen")
+        void shouldIgnoreConfirmationBox_whenOptOutChosen() {
+            request.setParameter("email_consent", "1");
+            request.setParameter("recordExplicit_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager).addEditConsentRecord(mockLoggedInInfo, 42, 7, true, true);
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should leave the record unchanged for an unrecognised choice rather than opting in")
+        void shouldSkipConsentType_whenChoiceUnrecognised() {
+            request.setParameter("email_consent", "yes");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager, never()).addEditConsentRecord(any(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
+            verify(consentManager, never()).deleteConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should do nothing with the box when no choice is posted")
+        void shouldIgnoreConfirmationBox_whenNoChoicePosted() {
+            request.setParameter("recordExplicit_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager, never()).addEditConsentRecord(any(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should accept only the value 1 for the box")
+        void shouldIgnoreConfirmationBox_forValueOtherThanOne() {
+            request.setParameter("email_consent", "0");
+            request.setParameter("recordExplicit_email_consent", "on");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should not upgrade when the choice is unrecognised even with the box ticked")
+        void shouldNotRecordExplicitConsent_whenChoiceUnrecognised() {
+            request.setParameter("email_consent", "yes");
+            request.setParameter("recordExplicit_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager, never()).recordExplicitConsent(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should log when a requested upgrade was not recorded")
+        void shouldLogWarning_whenExplicitConsentNotRecorded() {
+            request.setParameter("email_consent", "0");
+            request.setParameter("recordExplicit_email_consent", "1");
+            when(consentManager.recordExplicitConsent(mockLoggedInInfo, 42, 7)).thenReturn(false);
+
+            try (LogCapture capture = LogCapture.forLogger(DemographicUpdate2Action.class)) {
+                DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                assertThat(capture.messages())
+                        .anySatisfy(message -> assertThat(message).contains("explicit consent was requested but not recorded"));
+            }
+        }
+
+        @Test
+        @DisplayName("should log and not delete for an unrecognised clear flag")
+        void shouldLogWarning_whenClearFlagUnrecognised() {
+            request.setParameter("deleteConsent_email_consent", "2");
+
+            try (LogCapture capture = LogCapture.forLogger(DemographicUpdate2Action.class)) {
+                DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                verify(consentManager, never()).deleteConsent(any(), anyInt(), anyInt());
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message).contains("unrecognised clear flag"));
+            }
+        }
+
+        @Test
+        @DisplayName("should neither delete nor warn for the untouched clear flag 0")
+        void shouldIgnoreQuietly_whenClearFlagIsZero() {
+            request.setParameter("deleteConsent_email_consent", "0");
+
+            try (LogCapture capture = LogCapture.forLogger(DemographicUpdate2Action.class)) {
+                DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                verify(consentManager, never()).deleteConsent(any(), anyInt(), anyInt());
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains("unrecognised"));
+            }
+        }
+
+        @Test
+        @DisplayName("should delete the consent when cleared and no choice is posted")
+        void shouldDeleteConsent_whenCleared() {
+            request.setParameter("deleteConsent_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager).deleteConsent(mockLoggedInInfo, 42, 7);
+            verify(consentManager, never()).addEditConsentRecord(any(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
+        }
     }
 }

@@ -31,9 +31,12 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsentRecords;
@@ -364,21 +367,63 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return consentDao.findByDemographicAndConsentTypeId(demographic_no, consentType.getId());
     }
 
-    /**
-     * Returns a list of all the consentTypes/programs this patient has consented.
-     */
     public List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
             throw new RuntimeException("Unauthorised Access. Object[_demographic]");
         }
 
-        List<Consent> consent = consentDao.findByDemographic(demographic_no);
+        // One record per type, chosen like every single lookup. The chart used to receive every
+        // live row and show whichever came last, which with duplicates need not be the one that
+        // decides (#3845).
+        Map<Integer, List<Consent>> liveByType = new LinkedHashMap<>();
+        for (Consent consent : consentDao.findByDemographic(demographic_no)) {
+            liveByType.computeIfAbsent(consent.getConsentTypeId(), typeId -> new ArrayList<>()).add(consent);
+        }
+        List<Consent> effective = new ArrayList<>(liveByType.size());
+        for (List<Consent> live : liveByType.values()) {
+            effective.add(ConsentRecords.effective(live));
+        }
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getAllConsentsByDemographic",
                 " Demographic: " + demographic_no);
 
-        return consent;
+        return effective;
+    }
+
+    public boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
+            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+        }
+
+        ConsentType consentType = getConsentTypeByConsentTypeId(consentTypeId);
+        if (consentType == null || !consentType.isActive()) {
+            return false;
+        }
+        Consent consent = ConsentRecords.effective(
+                consentDao.findLiveByDemographicAndConsentTypeId(demographic_no, consentTypeId));
+        if (consent == null || consent.isOptout()) {
+            // Confirming consent the patient has refused, or never gave, is not an upgrade.
+            return false;
+        }
+        if (consent.isExplicit()) {
+            return true;
+        }
+
+        // The consent date is restamped to when the patient confirmed. Consent keeps no history,
+        // so the audit entry carries the consent date the record held just before the upgrade
+        // (the moment of this save if the same save has just switched it from opt-out).
+        Date priorConsentDate = consent.getConsentDate();
+        Date now = new Date(System.currentTimeMillis());
+        consent.setExplicit(true);
+        consent.setConsentDate(now);
+        consent.setEditDate(now);
+        consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
+        consentDao.merge(consent);
+        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.recordExplicitConsent",
+                " Demographic: " + demographic_no + " ConsentId: " + consent.getId()
+                        + " implied->explicit PriorConsentDate: " + priorConsentDate);
+        return true;
     }
 
     /**

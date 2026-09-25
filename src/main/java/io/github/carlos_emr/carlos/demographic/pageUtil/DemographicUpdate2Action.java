@@ -279,38 +279,6 @@ public class DemographicUpdate2Action extends ActionSupport {
             return "validationError";
         }
 
-        if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
-            PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
-            List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
-            boolean explicitConsent = Boolean.TRUE;
-            for (ConsentType consentType : consentTypes) {
-                String type = consentType.getType();
-                String consentRecord = request.getParameter(type);
-                int deleteme = 0;
-                String deleteConsentParam = request.getParameter("deleteConsent_" + type);
-                if (!org.apache.commons.lang3.StringUtils.isEmpty(deleteConsentParam)) {
-                    try {
-                        deleteme = Integer.parseInt(deleteConsentParam);
-                    } catch (NumberFormatException e) {
-                        logger.warn("DemographicUpdate2Action: invalid deleteConsent_{} value={}, defaulting to 0", type, deleteConsentParam);
-                    }
-                }
-                if (consentRecord != null) {
-                    boolean optOut;
-                    try {
-                        optOut = Integer.parseInt(consentRecord) == 1;
-                    } catch (NumberFormatException e) {
-                        logger.warn("DemographicUpdate2Action: invalid consent record value={}, defaulting to false", consentRecord);
-                        optOut = false;
-                    }
-                    patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
-                            consentType.getId(), explicitConsent, optOut);
-                } else if (deleteme == 1) {
-                    patientConsentManager.deleteConsent(loggedInInfo, demographic.getDemographicNo(), consentType.getId());
-                }
-            }
-        }
-
         List<DemographicExt> extensions = new ArrayList<>();
         extensions.add(new DemographicExt(request.getParameter("demo_cell_id"), proNo, demographicNo, "demo_cell", request.getParameter("demo_cell")));
         extensions.add(new DemographicExt(request.getParameter("aboriginal_id"), proNo, demographicNo, "aboriginal", request.getParameter("aboriginal")));
@@ -372,6 +340,13 @@ public class DemographicUpdate2Action extends ActionSupport {
                     }
                 }
             }
+        }
+
+        // Consent is persisted only once the form has passed every check above; a form rejected as
+        // a HIN duplicate must not have recorded, for instance, a confirmed explicit consent.
+        if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+            saveConsents(request, loggedInInfo, demographic.getDemographicNo(),
+                    SpringUtils.getBean(PatientConsentManager.class));
         }
 
         for (DemographicExt extension : extensions) {
@@ -462,6 +437,59 @@ public class DemographicUpdate2Action extends ActionSupport {
             response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
             return null;
         }
+    }
+
+    /**
+     * Applies the chart's consent section for every active consent type.
+     *
+     * <p>Every demographic save re-posts each type's pre-checked radio, so an Opt-in here is not
+     * evidence that anyone just asked the patient, and re-saving never changes whether an existing
+     * record is explicit. Only the separate {@code recordExplicit_<type>} checkbox, ticked with
+     * Opt-in selected, upgrades one (#3858). A record created here, when staff pick a choice for a
+     * type that had none, is explicit as before: that choice is the staff member's own entry.</p>
+     *
+     * <p>A radio value other than 0 (opt in) or 1 (opt out) leaves that type unchanged. It used to
+     * default to opt-in, which recorded consent nobody gave.</p>
+     */
+    static void saveConsents(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo,
+                             PatientConsentManager patientConsentManager) {
+        for (ConsentType consentType : patientConsentManager.getActiveConsentTypes()) {
+            String type = consentType.getType();
+            String consentRecord = request.getParameter(type);
+            if (consentRecord != null) {
+                Boolean optOut = parseConsentChoice(consentRecord);
+                if (optOut == null) {
+                    logger.warn("DemographicUpdate2Action: ignoring an unrecognised choice for consent type id {}",
+                            consentType.getId());
+                    continue;
+                }
+                patientConsentManager.addEditConsentRecord(loggedInInfo, demographicNo,
+                        consentType.getId(), true, optOut);
+                if (!optOut && "1".equals(request.getParameter("recordExplicit_" + type))
+                        && !patientConsentManager.recordExplicitConsent(loggedInInfo, demographicNo, consentType.getId())) {
+                    // Staff ticked the box, so they believe it happened; leave a trace when it did not.
+                    logger.warn("DemographicUpdate2Action: explicit consent was requested but not recorded for consent type id {}",
+                            consentType.getId());
+                }
+            } else {
+                String delete = request.getParameter("deleteConsent_" + type);
+                if ("1".equals(delete)) {
+                    patientConsentManager.deleteConsent(loggedInInfo, demographicNo, consentType.getId());
+                } else if (delete != null && !delete.isEmpty() && !"0".equals(delete)) {
+                    logger.warn("DemographicUpdate2Action: ignoring an unrecognised clear flag for consent type id {}",
+                            consentType.getId());
+                }
+            }
+        }
+    }
+
+    /** Returns true for opt-out ("1"), false for opt-in ("0"), and null for anything else. */
+    private static Boolean parseConsentChoice(String value) {
+        return switch (value.trim()) {
+            case "0" -> Boolean.FALSE;
+            case "1" -> Boolean.TRUE;
+            default -> null;
+        };
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

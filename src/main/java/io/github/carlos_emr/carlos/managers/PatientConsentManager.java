@@ -164,9 +164,22 @@ public interface PatientConsentManager {
     Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, ConsentType consentType);
 
     /**
-     * Returns a list of all the consentTypes/programs this patient has consented.
+     * Returns the patient's deciding consent record for each consent type they have one for: the
+     * record {@link #getConsentByDemographicAndConsentType} would return, so the chart shows what
+     * every other reader acts on. Deleted records are excluded.
      */
     List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no);
+
+    /**
+     * Records that the patient confirmed this consent directly: marks the deciding opt-in record
+     * explicit and stamps its consent date, edit date and author. Staff must ask for this
+     * deliberately; re-saving the chart never changes whether an existing record is explicit (#3858).
+     *
+     * @return true if the record is now explicit (including when it already was); false when there
+     *         is no live opt-in record to confirm or the consent type is inactive
+     * @throws RuntimeException when the caller lacks {@code _demographic} write privilege
+     */
+    boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 
     /**
      * A boolean determination for if the patient has consented to the given ConsentType/program.
