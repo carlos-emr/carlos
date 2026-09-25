@@ -73,7 +73,8 @@
         previews: {},        // mark id -> {dx, dy} page fractions of a drag not yet released
         strokePreviews: {},  // page -> the highlight/ink drag being drawn there, not yet released
         refitPending: false, // the annotation font arrived mid-drag; refit notes when it ends
-        fontReady: null      // settles once the annotation font has loaded or failed
+        fontReady: null,     // settles once the annotation font has loaded or failed
+        gestureResets: []    // one per page: drops that page's stale gesture on a new press anywhere
     };
 
     var pagesEl = document.getElementById('pages');
@@ -629,19 +630,11 @@
             // middle-click on a mark would otherwise run the click path on release, and in select
             // mode that silently deletes the mark the provider only meant to open a menu on.
             if (!event.isPrimary || event.button !== 0) { return; }
-            // A new primary press means any earlier gesture is over, even if its pointerup never
-            // arrived (a capture lost to a window switch); drop it rather than let it hijack this one.
-            if (moving || dragging) {
-                var staleMove = moving !== null;
-                var staleStroke = dragging !== null;
-                if (staleMove) { delete state.previews[moving.a.id]; }
-                delete state.strokePreviews[page];
-                moving = null;
-                dragging = null;
-                redrawPage(page);
-                if (staleMove) { moveEnded(); }
-                if (staleStroke) { strokeEnded(); }
-            }
+            // A new primary press means any earlier gesture of the same pointer is over, even if
+            // its pointerup never arrived; drop it rather than let it hijack this one or hold Save
+            // (a gesture in progress disables Save) for the rest of the session. Every page is
+            // asked, not just this one: the stale gesture may sit on the page pressed before.
+            state.gestureResets.forEach(function (reset) { reset(event.pointerType, page); });
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
                     || wrap.classList.contains('load-failed')) { return; }
@@ -654,8 +647,8 @@
                 return;
             }
             if (state.tool === 'highlight') { fetchWordBoxes(page); }
-            dragging = { pointerId: event.pointerId, x0: nx, y0: ny, points: [[nx, ny]],
-                tool: state.tool, color: state.color };
+            dragging = { pointerId: event.pointerId, pointerType: event.pointerType,
+                x0: nx, y0: ny, points: [[nx, ny]], tool: state.tool, color: state.color };
             strokeStarted();
             svg.setPointerCapture(event.pointerId);
         });
@@ -708,18 +701,36 @@
         // lostpointercapture that follows it is a no-op.
         function abandonGesture(event) {
             if (!owns(moving, event) && !owns(dragging, event)) { return; }
-            var abandonedMove = moving !== null;
-            var abandonedStroke = dragging !== null;
-            if (abandonedMove) { delete state.previews[moving.a.id]; }
+            dropGesture();
+        }
+        svg.addEventListener('pointercancel', abandonGesture);
+        svg.addEventListener('lostpointercapture', abandonGesture);
+
+        /** Ends this page's gesture, if any, with nothing committed; releases its hold on Save. */
+        function dropGesture() {
+            var droppedMove = moving !== null;
+            var droppedStroke = dragging !== null;
+            if (!droppedMove && !droppedStroke) { return; }
+            if (droppedMove) { delete state.previews[moving.a.id]; }
             delete state.strokePreviews[page];
             moving = null;
             dragging = null;
             redrawPage(page);
-            if (abandonedMove) { moveEnded(); }
-            if (abandonedStroke) { strokeEnded(); }
+            if (droppedMove) { moveEnded(); }
+            if (droppedStroke) { strokeEnded(); }
         }
-        svg.addEventListener('pointercancel', abandonGesture);
-        svg.addEventListener('lostpointercapture', abandonGesture);
+
+        // A primary press anywhere in the viewer ends this page's gesture when it is stale: any
+        // gesture here if the press is on this page, or one started by the same kind of pointer
+        // if it is on another page. There is one primary pointer per kind (one mouse, one pen,
+        // one first finger), so a fresh press of that kind proves its earlier gesture ended. A
+        // gesture of another kind on another page is left alone: a pen dragging on one page
+        // while the mouse presses on the next is two live gestures, not one stale one.
+        state.gestureResets.push(function (pointerType, pressedPage) {
+            var gesture = moving || dragging;
+            if (!gesture) { return; }
+            if (pressedPage === page || gesture.pointerType === pointerType) { dropGesture(); }
+        });
 
         // Moves are previewed with a transform on the mark's own element and written to the
         // model only on release, so a drag that is cancelled leaves the model untouched.
@@ -731,7 +742,8 @@
             // The grab point is kept in page fractions as well as screen pixels: a resize or a
             // scroll mid-drag moves the page under the pointer, and a pixel delta from the old
             // layout would then leave the mark drifting away from the pointer.
-            moving = { pointerId: event.pointerId, a: a, x0: event.clientX, y0: event.clientY,
+            moving = { pointerId: event.pointerId, pointerType: event.pointerType, a: a,
+                x0: event.clientX, y0: event.clientY,
                 fx0: start.width ? (event.clientX - start.left) / start.width : 0,
                 fy0: start.height ? (event.clientY - start.top) / start.height : 0,
                 dx: 0, dy: 0, moved: false, bounds: markBounds(a), drawnWidth: 0,

@@ -590,6 +590,28 @@ async function main() {
     check('another pointer lifting does not end a move in progress',
       Math.abs(hlTouchAfter.y - hlTouchBefore.y - 100) < 3, JSON.stringify([hlTouchBefore, hlTouchAfter]));
 
+    // A gesture whose pointerup never arrives must not hold Save for the rest of the session. A
+    // new primary press of the same pointer kind on ANOTHER page proves the old gesture is over:
+    // the stale drag is dropped (its mark snaps back) and Save is released.
+    const staleBefore = await boxOf('rect.mark');
+    await page.mouse.move(staleBefore.x + 6, staleBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(staleBefore.x + 6, staleBefore.y + 46, { steps: 5 });
+    const saveHeldByStale = await page.locator('#btnSave').isDisabled();
+    await page.locator('svg.overlay').nth(1).evaluate(svg => svg.dispatchEvent(new PointerEvent('pointerdown',
+      { bubbles: true, pointerId: 1, isPrimary: true, button: 0, pointerType: 'mouse', clientX: -50, clientY: -50 })));
+    const saveAfterOtherPagePress = await page.locator('#btnSave').isEnabled();
+    const previewsAfterOtherPagePress = await page.locator('svg.overlay').first().locator('.moving').count();
+    // Back to the press point before lifting, so a build that still owns the drag commits no move
+    // and the rest of the run is unaffected either way.
+    await page.mouse.move(staleBefore.x + 6, staleBefore.y + 6, { steps: 5 });
+    await page.mouse.up();
+    const staleAfter = await boxOf('rect.mark');
+    check('a press on another page drops a stale drag and releases Save',
+      saveHeldByStale && saveAfterOtherPagePress && previewsAfterOtherPagePress === 0
+      && Math.abs(staleAfter.y - staleBefore.y) < 1.5 && await markCount() === 2,
+      JSON.stringify([saveHeldByStale, saveAfterOtherPagePress, previewsAfterOtherPagePress, staleBefore, staleAfter]));
+
     // A redraw in the middle of a drag (here a resize; the annotation font arriving does the
     // same) must not drop the preview: the mark stays where the pointer has taken it.
     const viewport = page.viewportSize();
