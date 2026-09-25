@@ -80,6 +80,26 @@ async function workflow(session) {
 
   let chart = await session.chart();
 
+  await session.step('Queens CDM flowsheet warns about missing and overdue tuning-fork exams', async () => {
+    const page = await session.context.newPage();
+    const query = new URLSearchParams({ demographic_no: patient, template: 'diab3' });
+    await h.gotoApp(page, session.config.baseUrl, `/encounter/oscarMeasurements/ViewTemplateFlowSheet?${query}`);
+    await h.assertNotErrorPage(page, 'Queens CDM flowsheet');
+    await page.locator('a[onclick*="recomList"]').click();
+    h.assert((await page.locator('body').innerText()).includes('A 128Hz tuning fork exam has not been recorded'),
+      'Queens CDM flowsheet has no warning for a missing tuning-fork exam');
+    sql.execute(`INSERT INTO measurements (type, demographicNo, providerNo, dataField, measuringInstruction,
+      comments, dateObserved, dateEntered) VALUES ('NRTF', ${patient}, ${h.sqlString(provider)}, 'Yes', 'Yes/No/NA',
+      '', NOW() - INTERVAL 13 MONTH - INTERVAL 1 DAY, NOW() - INTERVAL 13 MONTH - INTERVAL 1 DAY)`);
+    await page.reload();
+    await h.assertNotErrorPage(page, 'Queens overdue tuning-fork reminder');
+    await page.locator('a[onclick*="recomList"]').click();
+    h.assert((await page.locator('body').innerText()).includes("A 128Hz tuning fork exam hasn't been recorded in 13 months"),
+      'Queens CDM flowsheet has no warning for an overdue tuning-fork exam');
+    sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient} AND type='NRTF'`);
+    await page.close();
+  });
+
   await session.step('diabetes flowsheet lists monofilament and tuning fork separately; NRTF saves', async () => {
     const flowsheet = await openFlowsheet(session, chart, 'diab2', 'diabetes-flowsheet');
     const text = await flowsheet.locator('body').innerText();

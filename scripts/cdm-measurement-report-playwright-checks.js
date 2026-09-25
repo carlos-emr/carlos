@@ -191,7 +191,7 @@ async function workflow(session) {
       const text = await page.locator('body').innerText();
       const met = comparator === '>' ? '1.0' : '0.0';
       for (const instruction of [numericInstruction, '']) {
-        h.assert(text.includes(`${numericType} ${instruction} -> (${met}/1.0)`),
+        h.assert(text.replace(/\s+/g, ' ').includes(`${numericType} ${instruction} -> (${met}/1.0)`.replace(/\s+/g, ' ')),
           `numeric guideline ${comparator} 9 has incorrect counts for instruction '${instruction}'`);
       }
       await page.close();
@@ -211,7 +211,7 @@ async function workflow(session) {
     await h.assertNotErrorPage(page, 'numeric range report');
     const text = await page.locator('body').innerText();
     for (const instruction of [numericInstruction, '']) {
-      h.assert(text.includes(`${numericType} ${instruction} -> From 9 to 11: (1.0/1.0)`),
+      h.assert(text.replace(/\s+/g, ' ').includes(`${numericType} ${instruction} -> From 9 to 11: (1.0/1.0)`.replace(/\s+/g, ' ')),
         `numeric range has incorrect counts for instruction '${instruction}'`);
     }
     await page.close();
