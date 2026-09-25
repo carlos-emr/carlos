@@ -52,6 +52,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -303,7 +304,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             drug.setId(77);
             drug.setDemographicId(DEMOGRAPHIC_NO);
             when(mockDrugDao.find(77)).thenReturn(drug);
-            org.mockito.Mockito.doThrow(new IllegalStateException("Persistence unavailable"))
+            doThrow(new IllegalStateException("Persistence unavailable"))
                     .when(mockDrugDao).merge(drug);
 
             RxDeleteRx2Action action = new RxDeleteRx2Action();

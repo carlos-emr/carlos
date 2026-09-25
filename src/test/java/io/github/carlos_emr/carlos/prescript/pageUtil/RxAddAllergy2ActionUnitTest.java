@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -204,10 +205,11 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         logActionMock.verifyNoInteractions();
     }
 
-    @Test
-    @DisplayName("should reject a stale rendered patient context before adding an allergy")
-    void shouldRejectAdd_whenFormDemographicNoDiffersFromSessionPatient() throws Exception {
-        mockRequest.setParameter("formDemographicNo", "456");
+    @ParameterizedTest(name = "{0}={1}")
+    @CsvSource({"formDemographicNo,456", "formDemographicNo,not-a-number", "allergyToArchive,42"})
+    @DisplayName("should reject mismatched patient context or a foreign allergy before adding a replacement")
+    void shouldRejectAdd_whenPatientOrOriginalAllergyDoesNotMatch(String parameter, String value) throws Exception {
+        mockRequest.setParameter(parameter, value);
 
         String result = action.execute();
 
@@ -254,20 +256,6 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject a malformed rendered patient context before adding an allergy")
-    void shouldRejectAdd_whenFormDemographicNoIsMalformed() throws Exception {
-        mockRequest.setParameter("formDemographicNo", "not-a-number");
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(403);
-        verify(mockRxPatient, never()).addAllergy(any(), any());
-        verify(mockRxPatient, never()).deleteAllergy(anyInt());
-        logActionMock.verifyNoInteractions();
-    }
-
-    @Test
     @DisplayName("should add allergy and log ADD when no prior allergy is archived")
     void shouldAddAllergyAndLogAdd_whenNoAllergyToArchive() throws Exception {
         String result = action.execute();
@@ -280,20 +268,6 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
                 eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
                 any(String.class), any(String.class), eq("123"), any(String.class)));
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
-    }
-
-    @Test
-    @DisplayName("should reject a stale or foreign allergy edit before adding its replacement")
-    void shouldRejectEdit_whenAllergyDoesNotBelongToPatient() throws Exception {
-        mockRequest.setParameter("allergyToArchive", "42");
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(403);
-        verify(mockRxPatient, never()).addAllergy(any(), any());
-        verify(mockRxPatient, never()).deleteAllergy(anyInt());
-        logActionMock.verifyNoInteractions();
     }
 
     @Test

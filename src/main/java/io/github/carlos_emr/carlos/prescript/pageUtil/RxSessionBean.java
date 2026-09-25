@@ -157,9 +157,9 @@ public class RxSessionBean implements java.io.Serializable {
      * other value (negative, past the end) is ignored, so a bad index from a request can never
      * point the cursor at nothing and later make a write fail or touch the wrong item.
      */
-    public synchronized void setStashIndex(int RHS) {
-        if (RHS >= -1 && RHS < this.getStashSize()) {
-            this.stashIndex = RHS;
+    public synchronized void setStashIndex(int index) {
+        if (index >= -1 && index < this.getStashSize()) {
+            this.stashIndex = index;
         }
     }
 
@@ -558,6 +558,7 @@ public class RxSessionBean implements java.io.Serializable {
 
             end2 = System.currentTimeMillis() - start2;
         } catch (Exception _) {
+            // Preserve the legacy unavailable-result fallback if interaction lookup cannot start.
         }
         long end = System.currentTimeMillis() - start;
 

@@ -123,8 +123,8 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE);
-        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "");
+        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE)
+                .containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "");
         assertThat((RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS)).isEmpty();
         rxPatientDataMock.verifyNoInteractions();
     }
@@ -152,8 +152,8 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
                 (RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE);
-        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "Smith");
+        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE)
+                .containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "Smith");
         assertThat(results).isSameAs(expected);
         rxPatientDataMock.verify(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", ""));
         assertThat(results[0].getDemographicNo()).isEqualTo(101);
@@ -173,8 +173,8 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
                 (RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE);
-        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "NoMatches");
+        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE)
+                .containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "NoMatches");
         assertThat(results).isEmpty();
     }
 

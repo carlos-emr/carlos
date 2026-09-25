@@ -253,7 +253,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         }
         String ip = request.getRemoteAddr();
         String rawId = request.getParameter("deleteRxId");
-        if (rawId == null || !rawId.matches("[^_]+_[0-9]{1,9}")) {
+        if (rawId == null || !rawId.matches("[^_]+_\\d{1,9}")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }

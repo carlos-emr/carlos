@@ -172,9 +172,9 @@ class RxPatientLinkJspRegressionUnitTest {
                 .doesNotContain("parameterValue=updateReRxDrug")
                 .contains("/rx/rePrescribe2?method=saveReRxDrugIdToStash")
                 .contains("\"&demographicNo=\" + staticScriptDemographicNo")
-                .contains("/rx/searchDrug?demographicNo=\" + staticScriptDemographicNo");
-        // A refused stage (403/409/CSRF error page) reports the refusal instead of opening the search.
-        assertThat(jsp).contains("if (!response || !response.ok || response.redirected) {")
+                .contains("/rx/searchDrug?demographicNo=\" + staticScriptDemographicNo")
+                // A refused stage reports the refusal instead of opening the search.
+                .contains("if (!response || !response.ok || response.redirected) {")
                 // The token is read when the POST is sent; reading it in <head> always got '' (#3908).
                 .contains("var csrfToken = await staticScriptCsrfToken();")
                 .contains("<%@ include file=\"/WEB-INF/jspf/csrf-token.jspf\" %>")

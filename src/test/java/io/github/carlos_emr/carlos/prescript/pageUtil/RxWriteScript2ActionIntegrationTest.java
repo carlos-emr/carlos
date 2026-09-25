@@ -532,7 +532,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should neither save nor archive when the stash is empty")
-    void shouldSkipSaveAndArchival_whenStashEmpty() throws Exception {
+    void shouldSkipSaveAndArchival_whenStashEmpty() {
         RxSessionBean bean = stageReRxSession(1001);
         bean.getReRxDrugIdList().add("3003");
         addRequestParameter("demographicNo", "1001");
@@ -552,7 +552,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should archive the re-prescribed sources once and clear the ReRx list when the stash is persisted")
-    void shouldArchiveSourcesAndClearReRxList_whenStashPersisted() throws Exception {
+    void shouldArchiveSourcesAndClearReRxList_whenStashPersisted() {
         // persistStash is the one persistence every save path uses (updateSaveAllDrugs,
         // updateAndPrint, the write-script fallback), so the ReRx invariant holds on all of them,
         // and a second save from the same window cannot archive the sources again (#3908).
@@ -573,7 +573,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
         String scriptId;
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
-             org.mockito.MockedConstruction<io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData> _ =
+             var _ =
                      org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.class,
                              (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
             scriptId = action.persistStash(mockLoggedInInfo, bean);
