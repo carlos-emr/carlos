@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -9,6 +10,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +36,9 @@ import static org.mockito.Mockito.mock;
 @Tag("unit")
 @Tag("service")
 class SmsQueueProcessingServiceUnitTest {
+    private static final SmsConsentDecisionDto CONSENTED = SmsConsentDecisionDto.permitted(
+            SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"));
+
     private static final Instant FIRST_ATTEMPT_AT = Instant.parse("2026-06-08T12:00:00Z");
     private static final Instant RETRY_SCHEDULED_AT = Instant.parse("2026-06-08T12:05:00Z");
     private static final Instant SECOND_ATTEMPT_AT = Instant.parse("2026-06-08T12:10:00Z");
@@ -45,7 +53,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -71,7 +79,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new VoipMsAcceptingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -93,7 +101,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> false,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -114,7 +122,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new FailingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -139,7 +147,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new FailingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -172,7 +180,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new ThrowingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -195,7 +203,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of()),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -219,7 +227,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new ThrowingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -253,7 +261,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new FoundStatusProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> false,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -276,7 +284,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new NotFoundStatusProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> false,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -300,7 +308,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new NotFoundStatusProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> false,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -322,7 +330,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> false,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -344,7 +352,7 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of()),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> false,
-                command -> SmsConsentDecisionDto.permit()
+                command -> CONSENTED
         );
 
         int processed = worker.processDueMessages(25);
@@ -363,12 +371,330 @@ class SmsQueueProcessingServiceUnitTest {
         SmsProviderClientResolver resolver = mock(SmsProviderClientResolver.class);
         SmsSendRateLimitService limiter = mock(SmsSendRateLimitService.class);
         SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver, new SmsRetryCalculator(), limiter,
-                new DeferredSmsConsentService(() -> false));
+                command -> SmsConsentDecisionDto.blocked(SmsStatus.OPTOUT_BLOCKED, "SMS_CONSENT_OPTED_OUT", "blocked"));
 
         assertThat(worker.processDueMessages(1)).isEqualTo(1);
-        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.OPTOUT_BLOCKED);
         assertThat(transaction.toSendCommand().body()).isNull();
         org.mockito.Mockito.verifyNoInteractions(resolver, limiter);
+    }
+
+    @Test
+    @DisplayName("a consent lookup failure schedules a backed-off retry without sending")
+    void shouldScheduleBackedOffRetry_whenConsentRecheckThrows() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClientResolver resolver = mock(SmsProviderClientResolver.class);
+        SmsSendRateLimitService limiter = mock(SmsSendRateLimitService.class);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver, new SmsRetryCalculator(), limiter,
+                command -> {
+                    throw new IllegalStateException("consent store unavailable");
+                });
+        Date startedAt = new Date();
+
+        assertThat(worker.processDueMessages(5)).isZero();
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.QUEUED, 1, "QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED");
+        assertThat(transaction.getNextAttemptAt()).isAfterOrEqualTo(new Date(startedAt.getTime() + 60_000));
+        assertThat(transaction.toSendCommand().body()).isNotNull();
+        org.mockito.Mockito.verifyNoInteractions(resolver, limiter);
+    }
+
+    @Test
+    @DisplayName("a row whose consent recheck keeps failing does not block newer rows on later runs")
+    void shouldSendNewerMessage_whenOlderRowKeepsFailingConsentRecheck() {
+        SmsTransaction poisoned = queuedTransaction();
+        SmsTransaction healthy = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(healthy, 2L);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(poisoned, healthy));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> {
+                    if (Integer.valueOf(123).equals(command.demographicNo())) {
+                        throw new IllegalStateException("consent record cannot be loaded");
+                    }
+                    return CONSENTED;
+                });
+
+        assertThat(worker.processDueMessages(5)).isZero();
+        assertThat(healthy)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+
+        assertThat(healthy.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(poisoned.getStatus()).isEqualTo(SmsStatus.QUEUED);
+    }
+
+    @Test
+    @DisplayName("a consent recheck that still fails at the retry limit fails the row for manual review")
+    void shouldMarkFailed_whenConsentRecheckThrowsAtRetryLimit() {
+        SmsTransaction transaction = queuedTransaction();
+        scheduleTwoFailedAttempts(transaction);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClientResolver resolver = mock(SmsProviderClientResolver.class);
+        SmsSendRateLimitService limiter = mock(SmsSendRateLimitService.class);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                resolver,
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                limiter,
+                command -> {
+                    throw new IllegalStateException("consent store unavailable");
+                });
+
+        assertThat(worker.processDueMessages(5)).isZero();
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.FAILED, 3, "QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED");
+        org.mockito.Mockito.verifyNoInteractions(resolver, limiter);
+    }
+
+    @Test
+    @DisplayName("a failure to record the consent-check failure does not abort the run")
+    void shouldFinishRun_whenRecordingConsentCheckFailureThrows() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction markRetryScheduled(
+                    SmsTransaction row, SmsProviderSendResultDto providerResult, Date nextAttemptAt) {
+                throw new IllegalStateException("database unavailable");
+            }
+        };
+        SmsProviderClientResolver resolver = mock(SmsProviderClientResolver.class);
+        SmsSendRateLimitService limiter = mock(SmsSendRateLimitService.class);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver, new SmsRetryCalculator(), limiter,
+                command -> {
+                    throw new IllegalStateException("consent store unavailable");
+                });
+
+        assertThat(worker.processDueMessages(5)).isZero();
+        // The claim could not be handed back, so the row stays SENDING for stale recovery to reconcile.
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENDING);
+        org.mockito.Mockito.verifyNoInteractions(resolver, limiter);
+    }
+
+    @Test
+    @DisplayName("a dispatch-time permit that relies on a different consent record rewrites the audit snapshot")
+    void shouldRecordDispatchConsent_whenPermitReliesOnDifferentRecord() {
+        SmsTransaction transaction = queuedTransaction();
+        transaction.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 5, Instant.parse("2026-09-01T14:30:00Z")));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        Instant reconsentedAt = Instant.parse("2026-09-10T09:00:00Z");
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 9, reconsentedAt));
+
+        assertThat(worker.processDueMessages(1)).isEqualTo(1);
+
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(transaction.getConsentId()).isEqualTo(9);
+        assertThat(transaction.getConsentLastUpdateDate()).isEqualTo(Date.from(reconsentedAt));
+    }
+
+    @Test
+    @DisplayName("a dispatch-time permit that matches the admission snapshot costs no extra write")
+    void shouldNotRewriteSnapshot_whenPermitMatchesAdmissionRecord() {
+        SmsTransaction transaction = queuedTransaction();
+        SmsConsentDecisionDto admitted = SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 5, Instant.parse("2026-09-01T14:30:00Z"));
+        transaction.recordConsentDecision(admitted);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> admitted);
+
+        assertThat(worker.processDueMessages(1)).isEqualTo(1);
+
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(recorder.consentDecisionWrites).isZero();
+    }
+
+    @Test
+    @DisplayName("a row whose dispatch-time snapshot write is rejected is not sent on an unrecorded consent")
+    void shouldNotSend_whenDispatchConsentSnapshotIsRejected() {
+        SmsTransaction transaction = queuedTransaction();
+        transaction.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 5, Instant.parse("2026-09-01T14:30:00Z")));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction recordConsentDecision(SmsTransaction row, SmsConsentDecisionDto decision) {
+                // The JPA recorder's answer when the row changed under the claim.
+                throw new SmsTransactionClaimConflictException(row.getId());
+            }
+        };
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(client)),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permitted(
+                        SmsConsentStatus.OPT_IN, 9, Instant.parse("2026-09-10T09:00:00Z")));
+
+        assertThat(worker.processDueMessages(1)).isZero();
+
+        verify(client, never()).send(any(), anyString());
+        assertThat(transaction.getConsentId()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("a consent recheck failure for one SMS provider leaves the other providers draining")
+    void shouldDrainOtherProvider_whenConsentRecheckFailsForOneProvider() {
+        SmsTransaction stubRow = queuedTransaction();
+        SmsTransaction voipMsRow = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.VOIPMS
+        );
+        assignId(voipMsRow, 2L);
+        voipMsRow.recordConsentDecision(CONSENTED);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(stubRow, voipMsRow));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient(), new VoipMsAcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> {
+                    if (Integer.valueOf(123).equals(command.demographicNo())) {
+                        throw new IllegalStateException("consent record cannot be loaded");
+                    }
+                    return CONSENTED;
+                });
+
+        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+
+        assertThat(voipMsRow.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(stubRow)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.QUEUED, "QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("the send and its result are applied to the row returned by the snapshot rewrite")
+    void shouldSendOnReturnedRow_whenDispatchSnapshotIsRewritten() {
+        SmsTransaction claimedCopy = queuedTransaction();
+        SmsTransaction rewrittenCopy = queuedTransaction();
+        SmsConsentDecisionDto reconsented = SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 9, Instant.parse("2026-09-10T09:00:00Z"));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(claimedCopy)) {
+            @Override
+            public SmsTransaction recordConsentDecision(SmsTransaction row, SmsConsentDecisionDto decision) {
+                // The JPA recorder returns the freshly loaded row, whose version has advanced past the claim's.
+                rewrittenCopy.markSending(new Date());
+                rewrittenCopy.recordConsentDecision(decision);
+                return rewrittenCopy;
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> reconsented);
+
+        assertThat(worker.processDueMessages(1)).isEqualTo(1);
+
+        assertThat(rewrittenCopy.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(claimedCopy.getStatus()).isEqualTo(SmsStatus.SENDING);
+    }
+
+    @Test
+    @DisplayName("a failed dispatch-time snapshot write stops draining that SMS provider for the run")
+    void shouldStopDraining_whenDispatchConsentSnapshotCannotBeWritten() {
+        SmsTransaction first = queuedTransaction();
+        first.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 5, Instant.parse("2026-09-01T14:30:00Z")));
+        SmsTransaction second = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(second, 2L);
+        second.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 6, Instant.parse("2026-09-01T14:30:00Z")));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
+            @Override
+            public SmsTransaction recordConsentDecision(SmsTransaction row, SmsConsentDecisionDto decision) {
+                throw new IllegalStateException("database unavailable");
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        // A write failure is unlikely to be about one row, so the rest of the queue is left unclaimed
+        // rather than stranded SENDING one row at a time.
+        assertThat(first.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(second)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("a dispatch-time permit that names no consent state is never sent on")
+    void shouldNotSend_whenDispatchPermitNamesNoConsentState() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(transaction, 1L);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(client)),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> SmsConsentDecisionDto.permitted(null, null, null));
+
+        assertThat(worker.processDueMessages(1)).isZero();
+
+        verify(client, never()).send(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("a consent recheck failure is logged without the exception message, which may carry PHI")
+    void shouldNotLogExceptionMessage_whenConsentRecheckThrows() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                mock(SmsProviderClientResolver.class),
+                new SmsRetryCalculator(),
+                mock(SmsSendRateLimitService.class),
+                command -> {
+                    throw new IllegalStateException("synthetic-hin-9876543210");
+                });
+
+        try (LogCapture logs = LogCapture.forLogger(SmsQueueProcessingService.class)) {
+            worker.processDueMessages(1);
+
+            assertThat(logs.events()).isNotEmpty();
+            assertThat(logs.events()).allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).doesNotContain("synthetic-hin-9876543210");
+                assertThat(event.getThrown()).isNull();
+            });
+        }
     }
 
     @Test
@@ -384,7 +710,7 @@ class SmsQueueProcessingServiceUnitTest {
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(SmsProviderMessageStatusDto.found(
                         SmsProviderSendResultDto.accepted("accepted-once", SmsStatus.SENT)));
         SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, new SmsProviderClientResolver(List.of(client)),
-                new SmsRetryCalculator(), type -> true, command -> SmsConsentDecisionDto.permit());
+                new SmsRetryCalculator(), type -> true, command -> CONSENTED);
 
         assertThat(worker.processDueMessages(1)).isEqualTo(1);
         assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENDING);
@@ -417,6 +743,7 @@ class SmsQueueProcessingServiceUnitTest {
                 SmsProviderType.STUB
         );
         assignId(transaction, 1L);
+        transaction.recordConsentDecision(CONSENTED);
         return transaction;
     }
 
@@ -426,6 +753,7 @@ class SmsQueueProcessingServiceUnitTest {
 
     private static class RecordingSmsTransactionService implements SmsTransactionService {
         private final List<SmsTransaction> transactions;
+        private int consentDecisionWrites;
 
         private RecordingSmsTransactionService(List<SmsTransaction> transactions) {
             this.transactions = new ArrayList<>(transactions);
@@ -437,7 +765,9 @@ class SmsQueueProcessingServiceUnitTest {
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             assignId(transaction, transactions.size() + 1L);
             transactions.add(transaction);
-            if (!decision.allowed()) {
+            if (decision.allowed()) {
+                transaction.recordConsentDecision(decision);
+            } else {
                 transaction.markConsentBlocked(decision);
             }
             return transaction;
@@ -446,6 +776,13 @@ class SmsQueueProcessingServiceUnitTest {
         @Override
         public SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision) {
             transaction.markConsentBlocked(decision);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction recordConsentDecision(SmsTransaction transaction, SmsConsentDecisionDto decision) {
+            consentDecisionWrites++;
+            transaction.recordConsentDecision(decision);
             return transaction;
         }
 

@@ -128,6 +128,23 @@ $SQL carlos < /scripts/demo-hrm-report.sql
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
 $SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# development.sql truncate-reloads consentType and property with the old
+# snapshot, which has no SMS consent type and no sms_communication property,
+# so every SMS would be blocked as SMS_CONSENT_NOT_CONFIGURED and the consent
+# would be missing from the patient record. Re-apply the migration that seeds
+# them; every statement in it is idempotent. The glob survives a renumbering.
+echo 'Restoring the SMS consent type and sms_communication property...'
+for f in "${MIG}"/common/V*__add_sms_consent.sql; do
+  [ -f "$f" ] || { echo "ERROR: no V*__add_sms_consent.sql under ${MIG}/common" >&2; exit 1; }
+  $SQL carlos < "$f"
+done
+# The migration seeds the consent type inactive until its wording has compliance
+# sign-off. Activate it here so the SMS opt-in path can be exercised in development.
+# The consent section on the patient add, edit and view pages only renders with both
+# privateConsentEnabled=true and USE_NEW_PATIENT_CONSENT_MODULE=true (the module's
+# block is nested inside the privateConsentEnabled one). The devcontainer's
+# carlos.properties turns both off; flip both there to record or see the consent.
+$SQL carlos -e "UPDATE consentType SET active = 1 WHERE type = 'sms_communication_consent';"
 # Administration fixtures for the data-backed Administration screens the demo
 # snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
 # (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only
