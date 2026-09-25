@@ -5,7 +5,10 @@
 // in the deployed reference dataset. This does not create or save a prescription.
 // A temporary status element exercises the page's shipped callback; intercepted
 // responses below test the browser failure display, not a DrugRef outage.
-const { assert, assertNotErrorPage, SkipCheck } = require('./lib/playwright-harness');
+// The final step selects the same product through the real Rx search, reading its
+// search-index row from DRUGREF_TEST_DATABASE (default drugref2); it only adds the
+// drug to the unsaved Rx editor and asserts that no prescription was persisted.
+const { assert, assertNotErrorPage, SkipCheck, sqlString } = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
 function isCalendarDate(value) {
@@ -61,6 +64,37 @@ async function workflow(s) {
   await s.step('a subsequent real lookup recovers after failed responses', async () => {
     await invoke();
     await target.filter({ hasText: `Inactive Drug Since: ${date}` }).waitFor();
+  });
+  await s.step('selecting the inactive product from Rx search displays its date on the new row', async () => {
+    const database = process.env.DRUGREF_TEST_DATABASE || 'drugref2';
+    assert(/^[A-Za-z0-9_]+$/.test(database), 'Invalid DRUGREF_TEST_DATABASE');
+    const rows = s.sql.rows(`SELECT ds.id,ds.name,DATE(ip.history_date) FROM ${database}.cd_inactive_products ip
+      JOIN ${database}.cd_drug_search ds ON ds.drug_code=CAST(ip.drug_code AS CHAR)
+      WHERE ip.drug_identification_number=${sqlString(din)} AND ds.category=13 ORDER BY ds.id LIMIT 1`);
+    assert(rows.length === 1, 'INACTIVE_DRUG_DIN has no brand-name row in the DrugRef search index');
+    const [searchId, searchName, storedDate] = rows[0];
+    assert(storedDate === date, 'INACTIVE_DRUG_DATE does not match the DrugRef inactive-product date');
+    s.cleanup(() => {
+      assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${s.patient}`) === '0',
+        'Selecting the temporary Rx drug unexpectedly persisted a prescription; retain the fixture for investigation');
+    });
+    const [response] = await Promise.all([
+      page.waitForResponse(r => r.url().includes('/rx/searchDrug')
+        && new URLSearchParams(r.request().postData() || '').get('query') === searchName.toUpperCase()),
+      page.locator('#searchString').pressSequentially(searchName, { delay: 30 }),
+    ]);
+    assert(response.ok(), 'Inactive product search failed');
+    const index = (await response.json()).results.findIndex(item => String(item.id) === searchId);
+    assert(index >= 0, 'The inactive product is missing from the rendered search result payload');
+    const [status] = await Promise.all([
+      page.waitForResponse(r => r.url().includes('/rx/searchDrug')
+        && new URLSearchParams(r.request().postData() || '').get('method') === 'inactiveDate'
+        && new URLSearchParams(r.request().postData() || '').get('id') !== id),
+      page.locator('ul.ui-autocomplete li.ui-menu-item').nth(index).click(),
+    ]);
+    assert(new URLSearchParams(status.request().postData()).get('din') === din, 'The selected drug does not match the fixture DIN');
+    await page.locator('[id^="inactive_"]').filter({ hasText: `Inactive Drug Since: ${date}` })
+      .and(page.locator(`:not(#inactive_${id})`)).first().waitFor();
   });
 }
 if (require.main === module) runWorkflow('inactive-drug-status', workflow);

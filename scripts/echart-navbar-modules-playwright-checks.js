@@ -64,6 +64,9 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 /** The navbar containers newEncounterLayout.jsp renders and navBarLoader() fills. */
 const NAVBAR_SELECTOR = '#leftNavBar a, #rightNavBar a';
 
+/** Consecutive unchanged link-count polls that count as "the modules finished loading". */
+const NAVBAR_SETTLE_POLLS = 3;
+
 const SKIP_ITEMS = [
   {
     // The "+" controls open entry forms that write. Each belongs to the workflow
@@ -100,10 +103,16 @@ async function openChart(context, masterPage, recorder, timeout) {
  * Asserting this separately is the point: an empty navbar is a real, silent
  * failure, and without this a run would simply find nothing to click and pass.
  */
-async function waitForNavbars(chartPage, timeout) {
+async function waitForNavbars(chartPage, timeout, { settleIntervalMs = 250 } = {}) {
   await chartPage.locator('#leftNavBar, #rightNavBar').first()
     .waitFor({ state: 'attached', timeout })
     .catch(() => {});
+  // Best effort only, as everywhere else in the suite: networkidle resolves at
+  // once if the page was ever idle, and never on a page with a request still in
+  // flight, so it can neither prove the modules finished nor be required. The
+  // settle loop below is the real completion signal. Capped so a chart that
+  // never goes idle does not stall every chart workflow for the full timeout.
+  await chartPage.waitForLoadState('networkidle', { timeout: Math.min(timeout, 5000) }).catch(() => {});
   // EACH CONTAINER ON ITS OWN. The two were summed, so a fully empty
   // #rightNavBar was masked by a populated #leftNavBar and vice versa -- and
   // they are filled from separate module groups, so losing one is exactly the
@@ -123,6 +132,31 @@ async function waitForNavbars(chartPage, timeout) {
     'The eChart navigation modules never loaded: #leftNavBar and #rightNavBar do not BOTH contain links after the '
     + 'AJAX load. They are filled from separate module groups, so one empty container is a chart missing half its '
     + 'sections -- no Allergies, Prescriptions, Labs or Preventions where the clinician expects them.');
+
+  // The first link on each side does not mean every module has been inserted;
+  // cataloguing then races later insertions and link indices shift. Wait until
+  // both counts hold still for NAVBAR_SETTLE_POLLS consecutive polls.
+  let last = JSON.stringify(counts);
+  let stable = 0;
+  const deadline = Date.now() + timeout;
+  while (stable < NAVBAR_SETTLE_POLLS) {
+    await new Promise((resolve) => setTimeout(resolve, settleIntervalMs));
+    const now = JSON.stringify(await chartPage.evaluate(() => {
+      const count = (id) => {
+        const element = document.getElementById(id);
+        return element ? element.querySelectorAll('a').length : 0;
+      };
+      return { left: count('leftNavBar'), right: count('rightNavBar') };
+    }));
+    stable = now === last ? stable + 1 : 0;
+    last = now;
+    assert(stable > 0 || Date.now() < deadline,
+      'The eChart navigation modules were still changing when the wait expired, so the links cannot be catalogued reliably');
+  }
+  const settled = JSON.parse(last);
+  assert(settled.left > 0 && settled.right > 0,
+    'The eChart navigation modules loaded and then emptied: #leftNavBar and #rightNavBar do not BOTH contain links once settled');
+  return settled;
 }
 
 async function main() {

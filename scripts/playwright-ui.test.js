@@ -390,3 +390,33 @@ test('pickDate accepts an input whose flatpickr instance cannot be read', async 
   const double = flatpickrDouble(() => september, { selectedIso: null });
   assert.equal(await pickDate(double.page, '#appointment_date', '2026-09-20', { timeout: 50 }), '2026-09-20');
 });
+
+for (const helper of [clickOpensPopup, clickOpensPopupOrNavigates]) {
+  test(`${helper.name} waits for a named blank window to navigate before checking content`, async () => {
+    const context = new EventEmitter();
+    const opener = eventPage();
+    const popup = eventPage();
+    let navigated = false;
+    popup.waitForURL = async (predicate, options) => {
+      assert.equal(predicate(new URL('about:blank')), false);
+      assert.equal(predicate(new URL('https://carlos.test/carlos/chart')), true);
+      assert.equal(options.waitUntil, 'domcontentloaded');
+      await new Promise(resolve => setImmediate(resolve));
+      navigated = true;
+    };
+    popup.locator = () => ({innerText: async () => navigated ? 'Loaded chart' : ''});
+    await helper(opener, control(async () => context.emit('page', popup)), {context});
+    assert.equal(navigated, true);
+  });
+  test(`${helper.name} fails and closes a popup that stays blank`, async () => {
+    const context = new EventEmitter();
+    const opener = eventPage();
+    const popup = eventPage();
+    let closed = false;
+    popup.waitForURL = async () => { throw new Error('destination never navigated'); };
+    popup.close = async () => { closed = true; };
+    await assert.rejects(helper(opener, control(async () => context.emit('page', popup)), {context}),
+      /destination never navigated/);
+    assert.equal(closed, true);
+  });
+}
