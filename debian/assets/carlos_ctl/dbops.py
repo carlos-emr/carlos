@@ -27,7 +27,7 @@ import sys
 
 from . import config, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, DRUGREF_PROPERTIES, PROPERTIES, SHARE, STATE, WEBAPP,
+    BACKUP_ENV, CONF_DIR, DRUGREF_PROPERTIES, PROPERTIES, REINSTALL_HINT, SHARE, STATE, WEBAPP,
     die, env_get, genpw, genrandom, log, need_root, prop_escape, prop_get,
     prop_set, prop_unescape, run, warn,
 )
@@ -308,7 +308,7 @@ def cmd_db_users(argv) -> int:
     # write) would leave the application locked out with no record of the
     # new credential.
     if not os.path.isfile(PROPERTIES):
-        die(f"{PROPERTIES} does not exist — reinstall carlos-emr or restore it from backup "
+        die(f"{PROPERTIES} does not exist — reinstall carlos-emr ({REINSTALL_HINT}) or restore it from backup "
             "before provisioning accounts")
     for path in [PROPERTIES] + [q for q in (DRUGREF_PROPERTIES, BACKUP_ENV) if os.path.isfile(q)]:
         if not os.access(path, os.W_OK):
@@ -728,7 +728,7 @@ def cmd_bootstrap_admin(argv) -> int:
     # and the next run regenerates it.
     outfile = os.path.join(CONF_DIR, "initial-admin.txt")
     if not os.path.isdir(CONF_DIR):
-        die(f"{CONF_DIR} does not exist — reinstall carlos-emr before "
+        die(f"{CONF_DIR} does not exist — reinstall carlos-emr ({REINSTALL_HINT}) before "
             "resetting the seeded credential")
     sql = f"""
 SET SESSION sql_log_bin = 0;
@@ -995,7 +995,7 @@ def cmd_demo_data(argv) -> int:
     pieces.append(os.path.join(DEMO_DIR, "admin_test_data.sql"))
     for p in pieces:
         if not os.path.isfile(p):
-            die(f"{p} is missing — reinstall carlos-emr")
+            die(f"{p} is missing — reinstall carlos-emr ({REINSTALL_HINT})")
 
     log("loading the demonstration dataset (fictitious patients; a few minutes)...")
     # The stream is unlinked by the finally below, which covers the ASSEMBLY
@@ -1016,7 +1016,7 @@ def cmd_demo_data(argv) -> int:
         except (OSError, EOFError, UnicodeDecodeError, zlib.error) as e:
             die(f"could not assemble the demonstration SQL stream: {e} — the "
                 "demo artifact or a companion file is corrupt or unreadable; "
-                "reinstall carlos-emr and re-run 'carlos-ctl demo-data'")
+                f"reinstall carlos-emr ({REINSTALL_HINT}) and re-run 'carlos-ctl demo-data'")
         with open(stream, encoding="utf-8") as fh:
             cp = db_root([s.db_name], stdin=fh)
     finally:

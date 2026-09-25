@@ -18,6 +18,7 @@
     "test:login-playwright": "node scripts/login-playwright-checks.js",
     "test:rx-stash-patient-isolation-playwright": "node scripts/rx-stash-patient-isolation-playwright-checks.js",
     "test:rx-favorites-choose-drug-playwright": "node scripts/rx-favorites-choose-drug-playwright-checks.js",
+    "test:echart-consult-specialist-playwright": "node scripts/echart-consult-specialist-playwright-checks.js",
     "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
