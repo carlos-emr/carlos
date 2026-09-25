@@ -99,8 +99,93 @@ const fixture = {
   sql: null,
   stamp: '',
   demographicNo: '',
+  providerNo: '',
   sessionId: '',
+  /** What the patient's chart summary looked like before this run wrote anything. */
+  chartBefore: null,
 };
+
+/**
+ * The chart summary columns copyNote2cpp() can append a saved note into.
+ *
+ * Which one it picks depends on the item's issue code (SocHistory here), and saveCPPIntoEchart()
+ * mirrors the same five into the legacy eChart row. Cleanup covers all of them rather than only
+ * the one this check currently drives, so changing the issue does not silently leave text behind.
+ */
+const CHART_TEXT_COLUMNS = ['socialHistory', 'familyHistory', 'medicalHistory', 'ongoingConcerns', 'reminders'];
+
+/** The same, plus the column saveNote() writes on the legacy row. */
+const ECHART_TEXT_COLUMNS = [...CHART_TEXT_COLUMNS, 'encounter'];
+
+/**
+ * A SQL predicate matching rows whose column contains `needle` literally.
+ *
+ * NOT `LIKE '%needle%'`. The stamp is PW_CPP_EXT_<epoch> and `_` is a single-character wildcard in
+ * LIKE, so a LIKE built from it also matches a clinician's text that merely differs in those
+ * positions -- and what cleanup does with a match here is DELETE.
+ */
+function holds(column, needle) {
+  return `LOCATE(${sqlString(needle)}, COALESCE(${column}, '')) > 0`;
+}
+
+/**
+ * What the patient's chart summary held before this run touched it.
+ *
+ * Read BEFORE the first save, because cleanup has to tell a row this run created from one it only
+ * appended to. saveCPP() creates the casemgmt_cpp row when the patient has none, and
+ * saveCPPIntoEchart() (EChartDaoImpl:155-182) UPDATES the patient's NEWEST existing eChart row
+ * rather than always adding one -- so deleting every eChart row carrying the stamp would take a
+ * clinician's encounter history with it.
+ */
+function readChartSnapshot(sql, demographicNo) {
+  const cpp = sql.rows(
+    `SELECT provider_no FROM casemgmt_cpp WHERE demographic_no = ${demographicNo}`,
+  );
+  const echartLast = sql.rows(
+    `SELECT eChartId FROM eChart WHERE demographicNo = ${demographicNo} ORDER BY eChartId DESC LIMIT 1`,
+  );
+  return {
+    cppExisted: cpp.length > 0,
+    cppProviderNo: cpp.length ? cpp[0][0] : '',
+    echartMaxId: echartLast.length ? String(echartLast[0][0]) : '0',
+    echartLastId: echartLast.length ? String(echartLast[0][0]) : '',
+  };
+}
+
+/**
+ * Remove this run's stamped blocks from one column, without overwriting anything written since.
+ *
+ * Read-modify-write across two database calls is a lost-update window: an entry appended between
+ * the SELECT and the UPDATE would be erased by an UPDATE built from the stale value, and this is
+ * a clinical column. So the write is a compare-and-swap -- it only lands while the column still
+ * holds exactly what was read -- and a losing attempt re-reads and tries again rather than
+ * forcing its value through.
+ */
+function stripStampedBlocks(sql, table, where, column, stamp, failures) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const current = sql.value(`SELECT ${column} FROM ${table} WHERE ${where}`);
+    // NOTHING TO STRIP UNLESS THE STAMP IS THERE. This is also what keeps the compare-and-swap
+    // honest: `mysql -B` prints SQL NULL and the four-character string 'NULL' identically, so the
+    // harness reads both as null and warns against writing such a value back (see
+    // unescapeMysqlBatchValue). A column carrying this run's stamp is neither, so the ambiguity
+    // cannot reach the UPDATE below -- and a column the run never wrote is left exactly as it is,
+    // rather than being normalised to '' by a cleanup that had no business touching it.
+    if (typeof current !== 'string' || !current.includes(stamp)) {
+      return;
+    }
+    const trimmed = withoutStampedBlocks(current, stamp);
+    if (trimmed === current) {
+      return;
+    }
+    sql.execute(`UPDATE ${table} SET ${column} = ${sqlString(trimmed)} `
+      + `WHERE ${where} AND ${column} = ${sqlString(current)}`);
+    if (sql.value(`SELECT ${column} FROM ${table} WHERE ${where}`) === trimmed) {
+      return;
+    }
+  }
+  failures.push(`${table}.${column} still carries this run's text: three compare-and-swap attempts `
+    + 'each lost to a concurrent write');
+}
 
 /**
  * Strip the blocks a stamped note appended to a CPP summary column.
@@ -137,12 +222,14 @@ function sqlNumber(value, what) {
  * rows still in the chart.
  */
 async function cleanup() {
-  const { sql, stamp, demographicNo, sessionId } = fixture;
+  const { sql, stamp, demographicNo, providerNo, sessionId, chartBefore } = fixture;
   if (!sql) {
     return;
   }
   const statements = [];
   const failuresBeforeStatements = [];
+  /** [table, where, columns] sets whose stamped blocks are stripped, not deleted. */
+  const stripFrom = [];
   if (stamp) {
     // THE SIGNATURE ROW TOO. issueNoteSave marks the note signed, and
     // CaseManagementManagerImpl hashes a signed note into hash_audit (type "enc", the note id in
@@ -150,7 +237,7 @@ async function cleanup() {
     // row pointing at a note that no longer exists, once per save this check makes.
     statements.push(['the stamped item\'s hash audit rows',
       `DELETE h FROM hash_audit h JOIN casemgmt_note n ON n.note_id = h.id `
-      + `WHERE h.type = 'enc' AND n.note LIKE '${stamp}%'`]);
+      + `WHERE h.type = 'enc' AND LOCATE(${sqlString(stamp)}, n.note) = 1`]);
     // CHILDREN BEFORE THE PARENT, and the note row is what identifies them all,
     // so every child delete joins back to it and the note goes last.
     // casemgmt_note_ext and casemgmt_issue_notes carry real foreign keys to
@@ -158,38 +245,51 @@ async function cleanup() {
     // through addNewNoteLink() and an orphan there outlives the note.
     statements.push(['the stamped item\'s extension rows',
       `DELETE e FROM casemgmt_note_ext e JOIN casemgmt_note n ON n.note_id = e.note_id `
-      + `WHERE n.note LIKE '${stamp}%'`]);
+      + `WHERE LOCATE(${sqlString(stamp)}, n.note) = 1`]);
     statements.push(['the stamped item\'s issue links',
       `DELETE i FROM casemgmt_issue_notes i JOIN casemgmt_note n ON n.note_id = i.note_id `
-      + `WHERE n.note LIKE '${stamp}%'`]);
+      + `WHERE LOCATE(${sqlString(stamp)}, n.note) = 1`]);
     statements.push(['the stamped item\'s note link',
       `DELETE l FROM casemgmt_note_link l JOIN casemgmt_note n ON n.note_id = l.note_id `
-      + `WHERE n.note LIKE '${stamp}%'`]);
-    statements.push(['the stamped CPP item', `DELETE FROM casemgmt_note WHERE note LIKE '${stamp}%'`]);
+      + `WHERE LOCATE(${sqlString(stamp)}, n.note) = 1`]);
+    statements.push(['the stamped CPP item', `DELETE FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1`]);
   }
-  if (stamp && demographicNo) {
-    // THE SUMMARY THE SAVE APPENDED TO, WHICH IS NOT THE NOTE. copyNote2cpp()/saveCPP() copy the
-    // note's text into casemgmt_cpp.socialHistory, and saveNote() writes a legacy eChart row too
-    // when AbandonOldChart is off (it is off by default; this deployment has it on, so the eChart
-    // delete is a no-op here rather than untested-by-omission). Deleting the note without these
-    // would leave every run's text in the patient's chart summary for good.
-    try {
-      const summary = sql.value(
-        `SELECT socialHistory FROM casemgmt_cpp WHERE demographic_no = ${demographicNo}`,
-      );
-      const trimmed = withoutStampedBlocks(summary, stamp);
-      if (trimmed !== summary) {
-        statements.push(['the stamped text appended to the CPP summary',
-          `UPDATE casemgmt_cpp SET socialHistory = ${sqlString(trimmed)} `
-          + `WHERE demographic_no = ${demographicNo}`]);
-      }
-    } catch (error) {
-      failuresBeforeStatements.push(
-        `the CPP summary could not be read (${(error && error.message) || 'query failed'})`);
-    }
-    statements.push(['the stamped legacy eChart row',
+  // THE SUMMARY THE SAVE APPENDED TO, WHICH IS NOT THE NOTE. copyNote2cpp()/saveCPP() append the
+  // note's text to the patient's casemgmt_cpp summary, and saveCPPIntoEchart() mirrors it into the
+  // legacy eChart row when AbandonOldChart is off (it is off by default; this deployment has it
+  // on). Deleting the note alone would leave every run's text in the chart for good -- but so
+  // would a blunter cleanup take a clinician's row with it, because the eChart write UPDATES the
+  // newest row the patient already has rather than adding one.
+  if (stamp && demographicNo && chartBefore) {
+    // Rows this run CREATED: newer than anything the patient had, and carrying the stamp.
+    const echartStamped = ECHART_TEXT_COLUMNS.map((column) => holds(column, stamp)).join(' OR ');
+    statements.push(['the legacy eChart rows this run created',
       `DELETE FROM eChart WHERE demographicNo = ${demographicNo} `
-      + `AND (socialHistory LIKE '%${stamp}%' OR encounter LIKE '%${stamp}%')`]);
+      + `AND eChartId > ${chartBefore.echartMaxId} AND (${echartStamped})`]);
+
+    // Rows that ALREADY EXISTED: the run only appended to them, so only the appended blocks go.
+    stripFrom.push(['casemgmt_cpp', `demographic_no = ${demographicNo}`, CHART_TEXT_COLUMNS]);
+    if (chartBefore.echartLastId) {
+      stripFrom.push(['eChart', `eChartId = ${chartBefore.echartLastId}`, ECHART_TEXT_COLUMNS]);
+    }
+
+    if (!chartBefore.cppExisted) {
+      // The patient had no CPP row at all, so saveCPP() made one. Removed only once it is empty
+      // again -- if a concurrent save has put real text in it, the row stays.
+      const emptied = CHART_TEXT_COLUMNS.map((column) => `COALESCE(${column}, '') = ''`).join(' AND ');
+      statements.push(['the CPP summary row this run created',
+        `DELETE FROM casemgmt_cpp WHERE demographic_no = ${demographicNo} AND ${emptied}`]);
+    } else if (providerNo && chartBefore.cppProviderNo !== providerNo) {
+      // saveCPP() also stamps the row with whoever saved. Put the previous provider back, but only
+      // while the row still records this run's -- a save since then is not ours to rewind.
+      statements.push(["the CPP summary's provider",
+        `UPDATE casemgmt_cpp SET provider_no = ${sqlString(chartBefore.cppProviderNo)} `
+        + `WHERE demographic_no = ${demographicNo} AND provider_no = ${sqlString(providerNo)}`]);
+    }
+    // NOT REWOUND, DELIBERATELY: casemgmt_cpp.update_date and eChart.timeStamp. Both record when
+    // the row last changed, which this run genuinely did; and a concurrent save cannot be told
+    // from this one by its value, so restoring the old instant could misdate somebody else's edit.
+    // Leaving a truthful timestamp is the lesser error.
   }
   if (demographicNo && sessionId) {
     statements.push(['this session\'s note lock',
@@ -197,14 +297,31 @@ async function cleanup() {
       + `AND session_id = '${sessionId}'`]);
   }
   const failures = [...failuresBeforeStatements];
-  for (const [what, statement] of statements) {
-    try {
-      sql.execute(statement);
-    } catch (error) {
-      failures.push(`${what}: ${(error && error.message) || 'delete failed'}`);
+  try {
+    // STRIPS BEFORE DELETES. "the CPP summary row this run created" only removes the row once its
+    // summary columns are empty again, which is what the strip does; running it the other way
+    // round would leave the row behind on every run.
+    for (const [table, where, columns] of stripFrom) {
+      for (const column of columns) {
+        try {
+          stripStampedBlocks(sql, table, where, column, stamp, failures);
+        } catch (error) {
+          failures.push(`${table}.${column}: ${(error && error.message) || 'could not be rewritten'}`);
+        }
+      }
     }
+    for (const [what, statement] of statements) {
+      try {
+        sql.execute(statement);
+      } catch (error) {
+        failures.push(`${what}: ${(error && error.message) || 'delete failed'}`);
+      }
+    }
+  } finally {
+    // ALWAYS, EVEN ON THE WAY OUT OF A THROW: createSqlRunner writes MYSQL_PASSWORD into a
+    // temporary client.cnf, and dispose() is what removes it.
+    sql.dispose();
   }
-  sql.dispose();
   if (failures.length) {
     throw new Error(`the check could not remove what it wrote (${failures.join('; ')})`);
   }
@@ -238,7 +355,7 @@ async function boxErrorText(page) {
 function extensionRows(sql, stamp) {
   return sql.rows(
     `SELECT e.key_val, e.date_value FROM casemgmt_note_ext e `
-    + `JOIN casemgmt_note n ON n.note_id = e.note_id WHERE n.note LIKE '${stamp}%' ORDER BY e.key_val`,
+    + `JOIN casemgmt_note n ON n.note_id = e.note_id WHERE LOCATE(${sqlString(stamp)}, n.note) = 1 ORDER BY e.key_val`,
   );
 }
 
@@ -273,8 +390,17 @@ async function main() {
     const { page: chartPage } = await clickOpensPopupOrNavigates(masterPage,
       masterPage.locator('a').filter({ hasText: /^\s*E-?Chart\s*$/i }).first(),
       { context, label: 'echart', recorder, timeout, baseline: [] });
-    fixture.demographicNo = sqlNumber(new URL(chartPage.url()).searchParams.get('demographicNo') || '',
+    const chartUrl = new URL(chartPage.url());
+    fixture.demographicNo = sqlNumber(chartUrl.searchParams.get('demographicNo') || '',
       'the demographicNo in the chart URL');
+    // Read from the chart rather than assumed: saveCPP() stamps the summary row with whoever
+    // saved, and cleanup puts the previous provider back only while the row still records this one.
+    fixture.providerNo = sqlNumber(chartUrl.searchParams.get('providerNo') || '',
+      'the providerNo in the chart URL');
+
+    // BEFORE ANYTHING IS WRITTEN. Cleanup has to tell a chart row this run created from one it
+    // only appended to, and after the first save that distinction is gone.
+    fixture.chartBefore = readChartSnapshot(sql, fixture.demographicNo);
 
     // Every issueNoteSave POST the page makes, with the status it answered. The
     // 500 this check exists for is invisible in the DOM beyond the repaint, so
