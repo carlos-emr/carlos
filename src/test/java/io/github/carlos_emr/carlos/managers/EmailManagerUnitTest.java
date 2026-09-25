@@ -44,9 +44,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.Consent;
+import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
@@ -55,6 +59,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
@@ -105,12 +110,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailSender = mock(EmailSender.class);
         loggedInInfo = new LoggedInInfo();
-        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
-
-        injectDependency(emailManager, "emailConfigDao", emailConfigDao);
-        injectDependency(emailManager, "emailLogDao", emailLogDao);
-        injectDependency(emailManager, "demographicManager", demographicManager);
-        injectDependency(emailManager, "providerManager", providerManager);
+        initializeEmailManager(emailConsentResolver);
         when(securityInfoManager.hasPrivilege(
                 loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
@@ -346,6 +346,88 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         assertThat(config.getConfigDetailsJson()).isEqualTo(original);
         verify(emailConfigDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("should block implied consent without confirmation through the real resolver")
+    void shouldBlockSend_whenImpliedConsentHasNoOverride() {
+        useImpliedConsentRecord(false);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentId()).isEqualTo(55);
+        assertThat(emailLog.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        verify(emailLogDao).merge(emailLog);
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should send implied consent with a documented override through the real resolver")
+    void shouldSendWithAuditSnapshot_whenImpliedConsentHasDocumentedOverride() throws Exception {
+        useImpliedConsentRecord(false);
+        EmailData emailData = emailData();
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailSenderFactory.create(any(), any(), any())).thenReturn(emailSender);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentId()).isEqualTo(55);
+        assertThat(emailLog.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
+        assertThat(emailLog.getConsentOverride()).isTrue();
+        assertThat(emailLog.getConsentOverrideReason()).isEqualTo("Patient verbally confirmed email consent");
+        verify(emailLogDao).merge(emailLog);
+        verify(emailSender).sendPrepared();
+    }
+
+    @Test
+    @DisplayName("should block opted out implied consent even with an override through the real resolver")
+    void shouldBlockSend_whenImpliedConsentIsOptedOutEvenWithOverride() {
+        useImpliedConsentRecord(true);
+        EmailData emailData = emailData();
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        assertThat(emailLog.getConsentOverrideReason()).isEmpty();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    private void initializeEmailManager(EmailConsentResolver resolver) {
+        emailManager = new EmailManager(resolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
+        injectDependency(emailManager, "emailConfigDao", emailConfigDao);
+        injectDependency(emailManager, "emailLogDao", emailLogDao);
+        injectDependency(emailManager, "demographicManager", demographicManager);
+        injectDependency(emailManager, "providerManager", providerManager);
+    }
+
+    private void useImpliedConsentRecord(boolean optout) {
+        UserPropertyDAO userPropertyDAO = mock(UserPropertyDAO.class);
+        PatientConsentManager patientConsentManager = mock(PatientConsentManager.class);
+        UserProperty property = new UserProperty();
+        property.setValue("EmailConsent");
+        ConsentType consentType = new ConsentType();
+        consentType.setName("EmailConsent");
+        consentType.setActive(true);
+        Consent consent = new Consent();
+        ReflectionTestUtils.setField(consent, "id", 55);
+        consent.setExplicit(false);
+        consent.setOptout(optout);
+        consent.setEditDate(new Date(1_000L));
+        when(userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION)).thenReturn(property);
+        when(patientConsentManager.getConsentType("EmailConsent")).thenReturn(consentType);
+        when(patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, 123, consentType))
+                .thenReturn(consent);
+        initializeEmailManager(new EmailConsentResolver(userPropertyDAO, patientConsentManager));
     }
 
     private EmailData emailData() {

@@ -16,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -65,11 +67,12 @@ class EmailConsentResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should resolve opt in when patient consent record is active and not opted out")
-    void shouldResolveOptIn_whenPatientConsentRecordIsActiveAndNotOptedOut() {
+    @DisplayName("should resolve opt in when patient consent is explicit and not opted out")
+    void shouldResolveOptIn_whenPatientConsentIsExplicitAndNotOptedOut() {
         ConsentType consentType = consentType("EmailConsent");
         Date editDate = new Date(1_000L);
         Consent consent = consent(false, editDate);
+        consent.setExplicit(true);
         when(userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION)).thenReturn(property("EmailConsent"));
         when(patientConsentManager.getConsentType("EmailConsent")).thenReturn(consentType);
         when(patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, 123, consentType)).thenReturn(consent);
@@ -82,10 +85,30 @@ class EmailConsentResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should require confirmation and preserve audit metadata when consent is implied")
+    void shouldResolveUnknownWithAuditMetadata_whenConsentIsImplied() {
+        ConsentType consentType = consentType("EmailConsent");
+        Date editDate = new Date(1_000L);
+        Consent consent = consent(false, editDate);
+        consent.setExplicit(false);
+        when(userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION)).thenReturn(property("EmailConsent"));
+        when(patientConsentManager.getConsentType("EmailConsent")).thenReturn(consentType);
+        when(patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, 123, consentType)).thenReturn(consent);
+
+        EmailConsentResult result = emailConsentResolver.resolve(loggedInInfo, 123);
+
+        assertThat(result.getStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(result.getConsentId()).isEqualTo(77);
+        assertThat(result.getConsentLastUpdateDate()).isEqualTo(editDate);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     @DisplayName("should resolve opt out when patient consent record is opted out")
-    void shouldResolveOptOut_whenPatientConsentRecordIsOptedOut() {
+    void shouldResolveOptOut_whenPatientConsentRecordIsOptedOut(boolean explicit) {
         ConsentType consentType = consentType("EmailConsent");
         Consent consent = consent(true, new Date(1_000L));
+        consent.setExplicit(explicit);
         when(userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION)).thenReturn(property("EmailConsent"));
         when(patientConsentManager.getConsentType("EmailConsent")).thenReturn(consentType);
         when(patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, 123, consentType)).thenReturn(consent);
