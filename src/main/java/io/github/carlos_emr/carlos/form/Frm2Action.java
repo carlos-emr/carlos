@@ -286,6 +286,15 @@ public final class Frm2Action extends ActionSupport {
                 // FrmPDFServlet reads -- so the identifiers in the discarded query string were
                 // never what carried them.
                 actionForward = strAction;
+                // THE FORWARD CARRIES THE POST'S OWN formId, AND ON A FIRST SAVE THAT IS STILL 0.
+                // FrmPDFServlet reads the record by req.getParameter("formId") and only then
+                // overlays the posted fields, so printing a brand-new form loaded the blank
+                // defaults: anything the JSP does not post -- an unchecked box, and
+                // FrmLabReq07Record's clientRefNo, which it generates only for a positive id --
+                // came out of the printer wrong. The result locations append ${savedFormId}, and a
+                // forward's own query string takes precedence over the request's parameters of the
+                // same name, so the servlet sees the row that was just written.
+                savedFormId = newID;
             }
 
         } catch (Exception ex) {
@@ -298,6 +307,19 @@ public final class Frm2Action extends ActionSupport {
         request.setAttribute("saveSuccess", saveSuccess);
 
         return actionForward;
+    }
+
+    /**
+     * The id of the record this request wrote, for the result locations to forward with.
+     *
+     * <p>Zero until a save happens, which is the same value the request already carries, so a path
+     * that saves nothing forwards unchanged.</p>
+     */
+    private int savedFormId;
+
+    /** Read by the {@code ${savedFormId}} in struts-form.xml's print and graph result locations. */
+    public int getSavedFormId() {
+        return savedFormId;
     }
 
     static String forwardNameRedirectUrl(String contextPath, String formLink, String actionForward) {

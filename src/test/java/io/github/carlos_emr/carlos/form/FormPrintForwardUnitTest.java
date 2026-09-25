@@ -76,9 +76,26 @@ class FormPrintForwardUnitTest {
     private static final Path FRM2ACTION_JAVA = Path.of("src", "main", "java", "io", "github",
             "carlos_emr", "carlos", "form", "Frm2Action.java");
 
-    /** {@code document.forms[0].submit.value = "printall";} and friends. */
+    /**
+     * Every way a form JSP names its submit token.
+     *
+     * <p>Two syntaxes, because both are in use and only scanning one would let an invented spelling
+     * through the very test that exists to catch it: {@code document.forms[0].submit.value =
+     * "printall"}, and the token appended to the action instead, as the Rourke completion pages do
+     * ({@code document.forms["frmP1"].action += "&submit=printAll"}). Single and double quotes.</p>
+     */
     private static final Pattern SUBMIT_VALUE =
-            Pattern.compile("submit\\.value\\s*=\\s*\"([A-Za-z]+)\"");
+            Pattern.compile("submit\\.value\\s*=\\s*[\"']([A-Za-z]+)[\"']");
+
+    /**
+     * The token appended to the form's own action instead of assigned to the field.
+     *
+     * <p>Matched only on a line that also names {@code .action}, because {@code submit=} appears in
+     * URLs for other endpoints too — {@code formConsultant.jsp} builds a referring-doctor search
+     * against {@code /billing/CA/ON/ViewSearchRefDoc?...&submit=Search}, which this action never
+     * sees and no result here is declared for.</p>
+     */
+    private static final Pattern SUBMIT_IN_ACTION = Pattern.compile("[?&]submit=([A-Za-z]+)");
     /** {@code <result name="printAll">} in the form/formname action. */
     private static final Pattern RESULT_NAME = Pattern.compile("<result\\s+name=\"([^\"]+)\"");
 
@@ -186,6 +203,30 @@ class FormPrintForwardUnitTest {
                 .contains("actionUrl.startsWith(SAVE_ACTION_PREFIX)");
     }
 
+    @Test
+    @DisplayName("should forward the freshly saved record id to the PDF servlet")
+    void shouldForwardSavedFormId_forThePrintResults() throws IOException {
+        String source = read(FRM2ACTION_JAVA);
+        assertThat(source)
+                .as("the action exposes the saved id for the result location to read")
+                .contains("public int getSavedFormId()")
+                .contains("savedFormId = newID;");
+
+        String xml = read(STRUTS_FORM_XML);
+        int actionStart = xml.indexOf("<action name=\"form/formname\"");
+        String action = xml.substring(actionStart, xml.indexOf("</action>", actionStart));
+
+        // FrmPDFServlet reads the record by req.getParameter("formId"), and the POST still carries
+        // the id the page was loaded with -- 0 on a first save. A forward's own query string takes
+        // precedence over the request's parameters of the same name, so the id has to travel here.
+        assertThat(action)
+                .as("printing forwards the record that was just saved, not the one the page loaded")
+                .contains("<result name=\"printAll\">/form/createpdf?formId=${savedFormId}</result>");
+        assertThat(action)
+                .as("the graph result reaches the same servlet and reads the same parameter")
+                .contains("<result name=\"graph\">/form/createpdf?formId=${savedFormId}</result>");
+    }
+
     /** Every distinct token any form JSP writes into the submit field. */
     private static Set<String> submitTokensEmittedByFormJsps() throws IOException {
         Set<String> tokens = new LinkedHashSet<>();
@@ -205,12 +246,19 @@ class FormPrintForwardUnitTest {
                     while (matcher.find()) {
                         tokens.add(matcher.group(1));
                     }
+                    if (line.contains(".action")) {
+                        Matcher appended = SUBMIT_IN_ACTION.matcher(line);
+                        while (appended.find()) {
+                            tokens.add(appended.group(1));
+                        }
+                    }
                 }
             }
         }
         assertThat(tokens)
-                .as("the form JSPs emit submit tokens at all (guards against a vacuous pass)")
-                .contains("save", "printAll");
+                .as("the form JSPs emit submit tokens at all, by BOTH syntaxes (guards against a "
+                        + "vacuous pass, and against the appended-to-action form being missed again)")
+                .contains("save", "printAll", "printall");
         return tokens;
     }
 

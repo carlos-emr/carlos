@@ -67,25 +67,40 @@
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   FORM_PRINT_SEARCH=FAKE-           surname prefix used to reach a patient
  *   FORM_PRINT_DEMOGRAPHIC_NO=1       which patient's chart to open
- *   FORM_PRINT_NAME=Lab Req 2007      the Forms menu entry to open
+ *   FORM_PRINT_NAME=Lab Req 2007      the Forms menu entry to open (one of the lab requisitions
+ *                                     in FORM_TABLES; printing saves, so the table has to be known)
  *   FORM_PRINT_TIMEOUT_MS=45000       per-step allowance
  */
 
 const {
-  assert, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig, runCheck,
+  SkipCheck, assert, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig,
+  runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /** The action every encounter form posts to, whatever the button. */
 const FORM_POST = /\/form\/formname(\?|$)/;
-/** The table the lab requisition saves into; the row this run creates is removed from it. */
-const FORM_TABLE = 'formLabReq07';
+
+/**
+ * Forms this check knows how to clean up after, and the table each saves into.
+ *
+ * Printing SAVES the record first, so a form whose table is not named here would leave its row
+ * behind; FORM_PRINT_NAME is therefore restricted to this map rather than accepting any menu entry.
+ * All three are lab requisitions because those are the forms that send the lowercase token the
+ * issue is about.
+ */
+const FORM_TABLES = {
+  'Lab Req 2007': 'formLabReq07',
+  'Lab Req 2010': 'formLabReq10',
+  'Lab Req': 'formLabReq',
+};
 
 const fixture = {
   sql: null,
-  /** Largest form-table id that existed BEFORE this run; anything above it is this run's. */
-  highWaterMark: '',
+  table: '',
+  /** Ids present BEFORE this run, so cleanup can delete the difference and nothing else. */
+  idsBefore: null,
   demographicNo: '',
   sessionId: '',
 };
@@ -104,18 +119,29 @@ function sqlNumber(value, what) {
  * PASS the assertions earned.
  */
 async function cleanup() {
-  const { sql, highWaterMark, demographicNo, sessionId } = fixture;
+  const { sql, table, idsBefore, demographicNo, sessionId } = fixture;
   if (!sql) {
     return;
   }
   const statements = [];
-  if (highWaterMark && demographicNo) {
-    // Resolved HERE rather than at the end of the run: Print saves the record
-    // before it renders, so an assertion that fails after the POST still leaves
-    // a row behind. Bounded by the mark read before anything was written, so a
-    // clinician's requisition is never in range.
-    statements.push(['the form rows this run saved',
-      `DELETE FROM ${FORM_TABLE} WHERE ID > ${highWaterMark} AND demographic_no = ${demographicNo}`]);
+  if (table && idsBefore && demographicNo) {
+    // THE DIFFERENCE OF TWO SNAPSHOTS, NOT A RANGE. Print saves the record before it renders, so an
+    // assertion that fails after the POST still leaves a row behind -- which is why this is resolved
+    // in the cleanup hook rather than at the end of the run. It deletes only ids that were ABSENT
+    // before this run started: a range like "id > mark" would also take a row a clinician or another
+    // check wrote for the same patient while this one was running, and that row is real chart data.
+    let created = [];
+    try {
+      created = sql.rows(`SELECT ID FROM ${table} WHERE demographic_no = ${demographicNo}`)
+        .map((row) => row[0])
+        .filter((id) => /^\d+$/.test(id) && !idsBefore.has(id));
+    } catch (error) {
+      throw new Error(`the check could not list what it wrote (${(error && error.message) || 'query failed'})`);
+    }
+    if (created.length) {
+      statements.push(['the form rows this run saved',
+        `DELETE FROM ${table} WHERE ID IN (${created.join(',')})`]);
+    }
   }
   if (demographicNo && sessionId) {
     statements.push(['this session\'s note lock',
@@ -167,8 +193,26 @@ async function main() {
   const formName = process.env.FORM_PRINT_NAME || 'Lab Req 2007';
   const timeout = Number(process.env.FORM_PRINT_TIMEOUT_MS || '45000');
 
+  const table = FORM_TABLES[formName];
+  assert(table, `FORM_PRINT_NAME must name a form this check can clean up after `
+    + `(${Object.keys(FORM_TABLES).join(', ')}); printing saves the record, so a form whose table `
+    + 'is unknown would leave its row in the chart');
+
   const sql = createSqlRunner(config.mysql);
   fixture.sql = sql;
+  fixture.table = table;
+
+  // ONTARIO ONLY. The lab requisition tables come from the Ontario migration
+  // (database/mysql/migration/on/V1.0.1__on_schema.sql), so on a BC deployment the first query
+  // would fail with a missing table long before anything was proved. Skip, saying which.
+  const tableExists = sql.value(
+    'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() '
+    + `AND table_name = '${table}'`,
+  );
+  if (tableExists !== '1') {
+    throw new SkipCheck(`this deployment has no ${table}; the lab requisitions are Ontario forms, `
+      + 'so there is nothing here to print');
+  }
 
   const recorder = createRecorder();
   let browser;
@@ -194,14 +238,13 @@ async function main() {
     const menuUrl = await formMenuUrl(chartPage, formName);
     assert(menuUrl, `the chart's Forms menu offers no entry for ${formName}, so the print flow cannot be driven`);
 
-    // THE HIGH-WATER MARK, READ BEFORE ANYTHING IS WRITTEN. Print saves the
-    // record, and the cleanup has to remove that row without touching a
-    // clinician's. Deleting "the newest rows" would do exactly that on a chart
-    // that already holds requisitions, so the cleanup deletes only ids ABOVE
-    // the largest one that existed before this run started.
-    fixture.highWaterMark = sqlNumber(
-      sql.value(`SELECT COALESCE(MAX(ID), 0) FROM ${FORM_TABLE}`) || '0',
-      `the largest existing ${FORM_TABLE} id`,
+    // THE SNAPSHOT, TAKEN BEFORE ANYTHING IS WRITTEN. Print saves the record, and the cleanup has
+    // to remove that row without touching a clinician's: it deletes the difference between this set
+    // and the one it reads afterwards, so a row somebody else writes for the same patient meanwhile
+    // is not in range.
+    fixture.idsBefore = new Set(
+      sql.rows(`SELECT ID FROM ${table} WHERE demographic_no = ${fixture.demographicNo}`)
+        .map((row) => row[0]),
     );
 
     // Every response the form window and its popups make for this action, with
@@ -225,11 +268,22 @@ async function main() {
     const printButton = formPage.locator('input[value*="Print" i], button:has-text("Print"), a:has-text("Print")').first();
     assert(await printButton.count() > 0,
       `${formName} renders no Print button, so there is nothing for this check to press`);
+    // WAIT FOR THE ANSWER, NOT A CLOCK. The print opens a window and the PDF is generated
+    // server-side, so a fixed sleep reports "posted nothing" on a slow render while the request is
+    // still in flight -- and leaves the check's own step timeout unused.
+    const answered = new Promise((resolve) => {
+      const done = () => resolve();
+      if (posts.length) { done(); return; }
+      const poll = setInterval(() => {
+        if (posts.length) { clearInterval(poll); done(); }
+      }, 250);
+      setTimeout(() => { clearInterval(poll); done(); }, timeout);
+    });
     await printButton.click({ timeout });
-    // The print opens a window; give the POST behind it time to answer.
-    await formPage.waitForTimeout(8000);
+    await answered;
 
-    assert(posts.length > 0, 'pressing Print posted nothing, so the print path was never exercised');
+    assert(posts.length > 0,
+      `pressing Print posted no answer within ${timeout}ms, so the print path was never exercised`);
     const failed = posts.filter((post) => post.status >= 400);
     assert(failed.length === 0,
       `Print answered HTTP ${(failed[0] || {}).status} instead of a PDF. A 500 is the submit token `
@@ -239,12 +293,12 @@ async function main() {
       `Print answered ${JSON.stringify(posts.map((post) => post.contentType))} rather than application/pdf; `
       + 'the request succeeded but what came back is not the form');
 
-    // Print saves the record before it renders, so a row must have appeared.
-    const saved = Number(sql.value(
-      `SELECT COUNT(*) FROM ${FORM_TABLE} WHERE ID > ${fixture.highWaterMark} `
-      + `AND demographic_no = ${fixture.demographicNo}`,
-    ) || '0');
-    assert(saved > 0, 'Print returned a PDF but saved no form row, so the record it printed was never stored');
+    // Print saves the record before it renders, so a row this run did not see before must exist.
+    const created = sql.rows(`SELECT ID FROM ${table} WHERE demographic_no = ${fixture.demographicNo}`)
+      .map((row) => row[0])
+      .filter((id) => !fixture.idsBefore.has(id));
+    assert(created.length > 0,
+      'Print returned a PDF but saved no form row, so the record it printed was never stored');
 
     console.log(`  ${formName}: Print answered 200 application/pdf for the selected patient`);
     await formPage.close().catch(() => {});
@@ -259,4 +313,4 @@ if (require.main === module) {
   runCheck({ name: 'form-print-pdf', run: main, cleanup });
 }
 
-module.exports = { FORM_POST, FORM_TABLE, cleanup, fixture, formMenuUrl, main };
+module.exports = { FORM_POST, FORM_TABLES, cleanup, fixture, formMenuUrl, main };

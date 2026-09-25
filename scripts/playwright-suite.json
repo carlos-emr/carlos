@@ -2476,7 +2476,7 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [
