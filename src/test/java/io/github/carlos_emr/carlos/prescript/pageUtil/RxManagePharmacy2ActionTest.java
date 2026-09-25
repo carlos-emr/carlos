@@ -88,6 +88,9 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
 
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
@@ -197,8 +200,68 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getContentType()).startsWith("application/json");
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"getPharmacyFromDemographic", "search", "searchCity", "getPharmacyInfo", "getTotalDemographicsPreferedToPharmacy"})
+    void shouldReturnLookup_whenOnlyReadPrivilegeGranted(String method) throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", method);
+        mockRequest.setParameter("demographicNo", "42");
+        mockRequest.setParameter("pharmacyId", "7");
+        mockRequest.setParameter("term", "Test");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", null)).thenReturn(false);
+        authorisePatient(42, false, true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", 42)).thenReturn(true);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
+        if ("getPharmacyFromDemographic".equals(method)) {
+            verify(mockDemographicPharmacyDao).findByDemographicId(42);
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", 42);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"delete", "unlink", "setPreferred", "add", "save"})
+    void shouldRefuseMutation_whenOnlyReadPrivilegeGranted(String method) {
+        mockRequest.setParameter("method", method);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", null)).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,true", "true,false"})
+    void shouldRefusePatientLookup_whenPatientReadOrRecordAccessDenied(boolean rxRead, boolean recordAccess) throws Exception {
+        mockRequest.setParameter("method", "getPharmacyFromDemographic");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, rxRead, recordAccess);
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @Test
+    void shouldRefuseLegacyMutation_whenLookupMethodAlsoSuppliedWithoutWritePrivilege() {
+        mockRequest.setParameter("method", "search");
+        action.setPharmacyAction("Add");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", null)).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
     private void authorisePatient(int demographicNo, boolean rxWrite, boolean recordAccess) {
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", demographicNo)).thenReturn(rxWrite);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", demographicNo)).thenReturn(rxWrite);
         when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, demographicNo))
                 .thenReturn(recordAccess);
     }

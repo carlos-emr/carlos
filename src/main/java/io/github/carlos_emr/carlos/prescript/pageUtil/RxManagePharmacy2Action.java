@@ -90,12 +90,13 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+        String method = request.getParameter("method");
+        // Only named lookups are read-only; the management view and legacy forms require write.
+        String privilege = !isWriteRequest() && method != null && READ_METHODS.contains(method) ? "r" : "w";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        String method = request.getParameter("method");
         switch (method == null ? "" : method) {
             case "delete":
                 return delete();
@@ -151,6 +152,9 @@ public final class RxManagePharmacy2Action extends ActionSupport {
                 || !StringUtils.isNullOrEmpty(this.getPharmacyAction());
     }
 
+    private static final java.util.Set<String> READ_METHODS = java.util.Set.of("getPharmacyFromDemographic",
+            "search", "searchCity", "getPharmacyInfo", "getTotalDemographicsPreferedToPharmacy");
+
     private static final java.util.Set<String> WRITE_METHODS = java.util.Set.of("delete", "unlink", "setPreferred", "add", "save");
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -194,7 +198,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
             String pharmId = request.getParameter("pharmacyId");
-            String demographicNo = authorisedRequestedPatient();
+            String demographicNo = authorisedRequestedPatient("w");
             if (demographicNo == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
@@ -224,10 +228,10 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     public String getPharmacyFromDemographic() throws IOException {
 
         // The patient's pharmacy links, for the patient the request names, provided the caller may
-        // change that patient's pharmacies (the same check as unlink/setPreferred). A missing,
+        // read that patient's prescriptions. A missing,
         // malformed, out-of-range or conflicting demographicNo used to reach Integer.parseInt and
         // answer 500 on overflow; it is refused here instead (#3908).
-        String demographicNo = authorisedRequestedPatient();
+        String demographicNo = authorisedRequestedPatient("r");
         if (demographicNo == null) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
@@ -244,25 +248,25 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     }
 
     /**
-     * The patient a pharmacy link change may touch: the {@code demographicNo} the request names
+     * The patient a pharmacy link lookup or change may touch: the {@code demographicNo} the request names
      * explicitly (never the session's fallback Rx patient; malformed or conflicting values are
-     * refused), provided the caller holds {@code _rx} write for that patient and may open that
+     * refused), provided the caller holds the requested {@code _rx} privilege for that patient and may open that
      * patient's record. The request value alone was trusted before, so any chart's pharmacy
      * links could be changed (ported from draft PR #3304). Authorising the patient, rather than
      * requiring that patient's Rx bean to still be in the session, keeps an open pharmacy selector
      * working after the bean was evicted by the per-session cap.
      *
      * @return the demographic number as a string, or {@code null} when the request names no valid
-     *         patient or the caller may not change that patient's pharmacies
+     *         patient or the caller lacks the requested access to that patient's pharmacies
      */
-    private String authorisedRequestedPatient() {
+    private String authorisedRequestedPatient(String privilege) {
         int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
         if (demographicNo <= 0) {
             return null;
         }
-        // The shared patient-level Rx write check (#3908).
+        // The shared patient-level Rx authorization check (#3908).
         if (!RxRequestedPatientAccess.mayAccessPatient(securityInfoManager,
-                LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "_rx", "w")) {
+                LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "_rx", privilege)) {
             return null;
         }
         return String.valueOf(demographicNo);
@@ -271,7 +275,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     public void setPreferred() {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
-            String demographicNo = authorisedRequestedPatient();
+            String demographicNo = authorisedRequestedPatient("w");
             if (demographicNo == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
