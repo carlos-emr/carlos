@@ -348,7 +348,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"elementId", "propertyValue"})
     @DisplayName("a missing property edit parameter returns 400 before touching the card")
-    void shouldRejectMissingPropertyParameter(String missing) throws Exception {
+    void shouldRejectPropertyEdit_whenParameterIsMissing(String missing) throws Exception {
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("elementId", "method_1");
         request.setParameter("propertyValue", "oral");
