@@ -590,6 +590,25 @@ async function main() {
     check('another pointer lifting does not end a move in progress',
       Math.abs(hlTouchAfter.y - hlTouchBefore.y - 100) < 3, JSON.stringify([hlTouchBefore, hlTouchAfter]));
 
+    // A stale drag is released by a same-kind primary press anywhere in the viewer, not only on
+    // a page: here the press lands on the toolbar.
+    const toolbarStaleBefore = await boxOf('rect.mark');
+    await page.mouse.move(toolbarStaleBefore.x + 6, toolbarStaleBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(toolbarStaleBefore.x + 6, toolbarStaleBefore.y + 46, { steps: 5 });
+    const heldBeforeToolbarPress = await page.locator('#btnSave').isDisabled();
+    await page.locator('.tool[data-tool="select"]').evaluate(button => button.dispatchEvent(new PointerEvent('pointerdown',
+      { bubbles: true, pointerId: 1, isPrimary: true, button: 0, pointerType: 'mouse' })));
+    const releasedByToolbarPress = await page.locator('#btnSave').isEnabled();
+    const previewAfterToolbarPress = await page.locator('svg.overlay').first().locator('.moving').count();
+    await page.mouse.move(toolbarStaleBefore.x + 6, toolbarStaleBefore.y + 6, { steps: 5 });
+    await page.mouse.up();
+    const toolbarStaleAfter = await boxOf('rect.mark');
+    check('a same-kind press on the toolbar drops a stale drag and releases Save',
+      heldBeforeToolbarPress && releasedByToolbarPress && previewAfterToolbarPress === 0
+      && Math.abs(toolbarStaleAfter.y - toolbarStaleBefore.y) < 1.5 && await markCount() === 2,
+      JSON.stringify([heldBeforeToolbarPress, releasedByToolbarPress, previewAfterToolbarPress, toolbarStaleBefore, toolbarStaleAfter]));
+
     // A press by another kind of pointer on the same page must not end a live drag: a pen press
     // while the mouse drags leaves the mouse gesture alone (and takes no gesture of its own).
     // Dragged upward: the later drags below move the mark down, and it must stay in the viewport.

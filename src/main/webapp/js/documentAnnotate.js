@@ -637,15 +637,11 @@
             // middle-click on a mark would otherwise run the click path on release, and in select
             // mode that silently deletes the mark the provider only meant to open a menu on.
             if (!event.isPrimary || event.button !== 0) { return; }
-            // A new primary press means any earlier gesture of the same kind of pointer is over,
-            // even if its pointerup never arrived; drop it rather than let it hijack this one or
-            // hold Save (a gesture in progress disables Save) for the rest of the session. Every
-            // page is asked, not just this one: the stale gesture may sit on the page pressed
-            // before.
-            state.gestureResets.forEach(function (reset) { reset(event.pointerType); });
-            // A live gesture of another kind on this page (the mouse dragging while a pen
-            // presses) keeps its slot: this page tracks one gesture, and the press must not end
-            // one it does not own. The press is simply not taken.
+            // Stale gestures of this pointer's kind were dropped by the document-level press
+            // handler (dropStaleGestures) before this ran. A live gesture of another kind on
+            // this page (the mouse dragging while a pen presses) keeps its slot: this page tracks
+            // one gesture, and the press must not end one it does not own. The press is simply
+            // not taken.
             if (moving || dragging) { return; }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
@@ -1226,6 +1222,16 @@
             for (var n = 0; n < wraps.length; n++) { sizeOverlay(wraps[n]); }
         }
         window.addEventListener('resize', resizeAllOverlays);
+        // A new primary press means any earlier gesture of the same kind of pointer is over,
+        // even if its pointerup never arrived; drop it rather than let it hijack the next
+        // gesture or hold Save (a gesture in progress disables Save) for the rest of the
+        // session. Listened for on the document, in the capture phase, so a press anywhere in
+        // the viewer counts (the toolbar, a caption, the notice), not only one on a page, and
+        // so it runs before the pressed page's own handler takes the new gesture.
+        document.addEventListener('pointerdown', function (event) {
+            if (!event.isPrimary || event.button !== 0) { return; }
+            state.gestureResets.forEach(function (reset) { reset(event.pointerType); });
+        }, true);
         // Notes are measured from the rendered text, so re-fit them once the annotation font
         // arrives; until then the text is laid out in a fallback face of different width. The
         // refit redraws each page whose notes changed, and only those: a page with no notes has
