@@ -122,14 +122,14 @@ import java.util.Set;
 public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message> {
 
     /**
-     * Upper bound, applied separately, on the direct {@code EncryptedKey} children of the
-     * Security header, on its direct {@code EncryptedData} children, and on the predicted
+     * Upper bound, applied separately, on the direct {@code EncryptedKey}, {@code EncryptedData}
+     * and {@code ReferenceList} children of the Security header, and on the predicted
      * {@code Encrypt} results (see {@link #scanEnvelope}) in one response.
      *
      * <p>Each direct key costs WSS4J one RSA key-unwrap whether or not it decrypts anything
      * (so a key-transport-only key that predicts no result still counts against the bound),
-     * and each predicted result becomes one WSS4J {@code Encrypt} action, and so one RSA key-unwrap during
-     * security processing. MCEDT limits a download request to a handful of resources (one key
+     * while the other bounds limit token metadata and receiver actions. MCEDT limits a download
+     * request to a handful of resources (one key
      * for the body plus one per attachment), so 20 leaves ample headroom while preventing a
      * hostile or corrupted response from forcing unbounded action-list construction and
      * decryption work. Exceeding it rejects the message rather than silently capping, because a
@@ -791,33 +791,18 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Streams the envelope and predicts how many {@code Encrypt} results WSS4J will produce
-     * from the {@code wsse:Security} header ({@code Envelope/Header/Security}), and notes
-     * whether any {@code xenc:EncryptedData} is present anywhere. WSS4J's engine dispatches only
-     * the <em>direct</em> children of {@code Security}, and its action check counts only results
-     * that decrypted something, so the prediction is:
-     * <ul>
-     *   <li>one per direct {@code xenc:EncryptedKey} whose first direct-child
-     *       {@code ReferenceList} holds at least one {@code DataReference}
-     *       ({@code EncryptedKeyProcessor} reads that one list with {@code getDirectChildElement}
-     *       and the references as its direct children, so a second list, a wrapped list or a
-     *       deeper reference is ignored; a key-transport-only {@code EncryptedKey}
-     *       yields a result with no data references, which WSS4J skips);</li>
-     *   <li>one per direct {@code xenc:ReferenceList};</li>
-     *   <li>one per direct {@code xenc:EncryptedData} that no {@code DataReference} of those
-     *       lists points at. A referenced one (the SwA attachment shape MCEDT uses)
-     *       is decrypted by the key that references it and removed from the header
-     *       ({@code EncryptionUtils.decryptAttachment}), so the engine never dispatches it
-     *       separately.</li>
-     * </ul>
-     * Keys nested inside other header elements (for example an {@code EncryptedData/KeyInfo})
-     * are not counted: the engine does not dispatch them, and the result the enclosing
-     * {@code EncryptedData} produces is what the third rule counts. After the envelope only the
-     * XML epilog (whitespace, comments, processing instructions) is accepted.
+     * Streams the envelope and predicts the nonempty {@code Encrypt} results produced by
+     * WSS4J's direct Security children. Their document order matters: keys and reference lists
+     * can remove a later EncryptedData, while a directly processed EncryptedData records its Id
+     * so later reference lists skip it. Empty results do not require an Encrypt action.
+     *
+     * <p>Only direct DataReference children of the relevant ReferenceList participate, just as
+     * in WSS4J. The envelope is scanned without decrypting or changing the replayed response;
+     * WSS4J still validates every token and reference.</p>
      *
      * @throws XMLStreamException if the XML is not well-formed or contains a DTD
      * @throws IOException if the document is not a SOAP envelope, has trailing content, or
-     *                     the prediction exceeds {@link #MAX_ENCRYPTED_KEYS}
+     *                     exceeds an encryption-token or prediction bound
      */
     static EncryptionDetectionResult scanEnvelope(InputStream xml)
             throws XMLStreamException, IOException {
@@ -827,18 +812,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             int depth = 0;
             int securityDepth = -1;
             boolean inHeader = false;
-            // Per Security header: whether a direct EncryptedKey is open, the depth of the
-            // ReferenceList WSS4J would read (a direct child of Security, or the direct child of
-            // that key; -1 when none is open), whether the open key has shown such a reference,
-            // the Ids those lists reference, and the Ids of direct EncryptedData children (null
-            // when the element has no Id).
-            boolean inDirectKey = false;
-            boolean keyListSelected = false;
+            EncryptionHeader header = new EncryptionHeader();
+            EncryptionToken current = null;
             int referenceListDepth = -1;
-            boolean directKeyHasReference = false;
-            int directKeyCount = 0;
-            Set<String> referencedIds = new HashSet<>();
-            List<String> directEncryptedDataIds = new ArrayList<>();
+            boolean keyReferenceListSeen = false;
             while (reader.hasNext()) {
                 int event = reader.next();
                 if (event == XMLStreamConstants.DTD) {
@@ -860,49 +837,24 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                     if (!XENC_NS.equals(ns)) {
                         continue;
                     }
+                    if ("EncryptedData".equals(local)) {
+                        result.hasEncryptedData = true;
+                    }
                     boolean direct = securityDepth > 0 && depth == securityDepth + 1;
-                    switch (local) {
-                        case "EncryptedData" -> {
-                            result.hasEncryptedData = true;
-                            if (direct) {
-                                directEncryptedDataIds.add(elementId(reader));
-                                requireWithinBound(directEncryptedDataIds.size());
-                            }
-                        }
-                        case "EncryptedKey" -> {
-                            if (direct) {
-                                // Bounded even when it will predict no result: WSS4J unwraps
-                                // every direct key with the private key before deciding that.
-                                requireWithinBound(++directKeyCount);
-                                inDirectKey = true;
-                                keyListSelected = false;
-                                directKeyHasReference = false;
-                            }
-                        }
-                        case "ReferenceList" -> {
-                            if (direct) {
-                                referenceListDepth = depth;
-                                requireWithinBound(++result.encryptCount);
-                            } else if (inDirectKey && depth == securityDepth + 2 && !keyListSelected) {
-                                // The key's own list: EncryptedKeyProcessor reads it with
-                                // getDirectChildElement, so only the FIRST direct list counts.
-                                keyListSelected = true;
-                                referenceListDepth = depth;
-                            }
-                        }
-                        case "DataReference" -> {
-                            // decryptDataRefs walks the list's direct children only; a reference
-                            // wrapped in another element, or nested deeper, is never decrypted.
-                            if (referenceListDepth > 0 && depth == referenceListDepth + 1) {
-                                directKeyHasReference = true;
-                                String uri = reader.getAttributeValue(null, "URI");
-                                if (uri != null) {
-                                    referencedIds.add(uri.startsWith("#") ? uri.substring(1) : uri);
-                                }
-                            }
-                        }
-                        default -> {
-                            // other xenc elements (CipherData, EncryptionMethod, ...) carry no result
+                    if (direct) {
+                        current = header.add(local, elementId(reader));
+                        keyReferenceListSeen = false;
+                        referenceListDepth = "ReferenceList".equals(local) ? depth : -1;
+                    } else if (current != null) {
+                        if ("EncryptedKey".equals(current.kind()) && !keyReferenceListSeen
+                                && depth == securityDepth + 2 && "ReferenceList".equals(local)) {
+                            // EncryptedKeyProcessor selects the first direct ReferenceList only.
+                            keyReferenceListSeen = true;
+                            referenceListDepth = depth;
+                        } else if (referenceListDepth > 0 && depth == referenceListDepth + 1
+                                && "DataReference".equals(local)) {
+                            String uri = reader.getAttributeValue(null, "URI");
+                            current.references().add(uri != null && uri.startsWith("#") ? uri.substring(1) : uri);
                         }
                     }
                 } else if (event == XMLStreamConstants.END_ELEMENT) {
@@ -910,21 +862,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                         referenceListDepth = -1;
                     }
                     if (securityDepth > 0 && depth == securityDepth + 1) {
-                        // A direct child of Security closes.
-                        if (inDirectKey && directKeyHasReference) {
-                            requireWithinBound(++result.encryptCount);
-                        }
-                        inDirectKey = false;
+                        current = null;
                     } else if (depth == securityDepth) {
-                        // Security closes: only now are all DataReferences known.
-                        for (String id : directEncryptedDataIds) {
-                            if (id == null || !referencedIds.contains(id)) {
-                                requireWithinBound(++result.encryptCount);
-                            }
-                        }
-                        directEncryptedDataIds.clear();
-                        referencedIds.clear();
-                        directKeyCount = 0;
+                        result.encryptCount += header.encryptionCount();
+                        requireWithinBound(result.encryptCount);
+                        header = new EncryptionHeader();
                         securityDepth = -1;
                     }
                     depth--;
@@ -940,6 +882,58 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         }
     }
 
+    /** One direct encryption token, in WSSecurityEngine's dispatch order. */
+    private record EncryptionToken(String kind, String id, List<String> references) { }
+
+    /** Bounded token metadata for one Security header; no ciphertext or decrypted data is kept. */
+    private static final class EncryptionHeader {
+        private final List<EncryptionToken> tokens = new ArrayList<>();
+        private final Map<String, Integer> counts = new HashMap<>();
+
+        private EncryptionToken add(String kind, String id) throws IOException {
+            if (!"EncryptedKey".equals(kind) && !"EncryptedData".equals(kind) && !"ReferenceList".equals(kind)) {
+                return null;
+            }
+            // Keep the work bound even when a key or list will produce an empty result.
+            requireWithinBound(counts.merge(kind, 1, Integer::sum));
+            EncryptionToken token = new EncryptionToken(kind, id, new ArrayList<>());
+            tokens.add(token);
+            return token;
+        }
+
+        private int encryptionCount() {
+            Set<String> removedDataIds = new HashSet<>();
+            Set<String> resultIds = new HashSet<>();
+            int count = 0;
+            for (EncryptionToken token : tokens) {
+                if ("EncryptedData".equals(token.kind())) {
+                    if (token.id() != null && removedDataIds.contains(token.id())) {
+                        continue;
+                    }
+                    count++;
+                } else {
+                    boolean decrypted = false;
+                    for (String reference : token.references()) {
+                        // ReferenceListProcessor skips a target with an existing ENCR result.
+                        // EncryptedKeyProcessor does not perform that result-Id check.
+                        if ("EncryptedKey".equals(token.kind()) || !resultIds.contains(reference)) {
+                            decrypted = true;
+                            removedDataIds.add(reference);
+                        }
+                    }
+                    if (decrypted) {
+                        count++;
+                    }
+                }
+                // WSS4J records a token's own Id, not each target Id, even for an empty result.
+                if (token.id() != null && !token.id().isEmpty()) {
+                    resultIds.add(token.id());
+                }
+            }
+            return count;
+        }
+    }
+
     /** The {@code Id} (or {@code wsu:Id}) of the element the reader is on, or {@code null}. */
     private static String elementId(XMLStreamReader reader) {
         String id = reader.getAttributeValue(null, "Id");
@@ -947,7 +941,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Aborts the scan as soon as a bounded quantity (direct keys, direct {@code EncryptedData},
+     * Aborts the scan as soon as a bounded quantity (each direct encryption-token type,
      * or the prediction) exceeds {@link #MAX_ENCRYPTED_KEYS}.
      */
     private static void requireWithinBound(int predicted) throws IOException {

@@ -652,6 +652,50 @@ class DynamicWSS4JInInterceptorUnitTest {
         assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(4));
     }
 
+    @Test
+    void shouldIgnoreEmptyReferenceList_whenNoDataIsEncrypted() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:ReferenceList/></wsse:Security>"));
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
+    void shouldIgnoreNestedDataReference_whenItIsNotAListChild() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey><xenc:EncryptionProperties><xenc:DataReference URI=\"#ignored\"/>"
+                + "</xenc:EncryptionProperties></xenc:EncryptedKey></wsse:Security>"));
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
+    void shouldRejectExcessiveReferenceLists_whenTheirResultsWouldBeEmpty() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:ReferenceList/>".repeat(DynamicWSS4JInInterceptor.MAX_ENCRYPTED_KEYS + 1)
+                + "</wsse:Security>"));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class).hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    void shouldIgnoreLaterKeyReferenceLists_whenTheFirstListIsEmpty() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey><xenc:ReferenceList/>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ignored\"/></xenc:ReferenceList>"
+                + "</xenc:EncryptedKey></wsse:Security>"));
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
     // ---------------------------------------------------------------- stream handling
 
     @Test
