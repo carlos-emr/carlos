@@ -172,7 +172,7 @@ class RxPatientLinkJspRegressionUnitTest {
                 .doesNotContain("parameterValue=updateReRxDrug")
                 .contains("/rx/rePrescribe2?method=saveReRxDrugIdToStash")
                 .contains("\"&demographicNo=\" + staticScriptDemographicNo")
-                .contains("/rx/searchDrug?demographicNo=\" + staticScriptDemographicNo")
+                .contains("/rx/choosePatient?demographicNo=\" + staticScriptDemographicNo")
                 // A refused stage reports the refusal instead of opening the search.
                 .contains("if (!response || !response.ok || response.redirected) {")
                 // The token is read when the POST is sent; reading it in <head> always got '' (#3908).
@@ -180,6 +180,18 @@ class RxPatientLinkJspRegressionUnitTest {
                 .contains("<%@ include file=\"/WEB-INF/jspf/csrf-token.jspf\" %>")
                 .doesNotContain("var csrfEl = document.querySelector")
                 .contains("<fmt:message key=\"StaticScript.js.reRxRefused\" var=\"msg_reRxRefused\"/>");
+    }
+
+    @Test
+    @DisplayName("should encode stored provider names and reprint dates in print history")
+    void shouldEncodePrintHistoryText() throws IOException {
+        String jsp = read("rx/ShowPreviousPrints.jsp");
+        for (String value : new String[] {"providerDao.getProvider(originalProviderNo).getFormattedName()",
+                "drp", "providerName"}) {
+            assertThat(jsp).contains("<carlos:encode value='<%= " + value + " %>' context=\"html\"/>");
+        }
+        assertThat(jsp).doesNotContain("<%=drp%>", "<%=providerName %>",
+                "<%=providerDao.getProvider(originalProviderNo).getFormattedName() %>");
     }
 
     @Test

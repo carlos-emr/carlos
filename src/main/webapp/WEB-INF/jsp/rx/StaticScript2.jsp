@@ -224,7 +224,8 @@
                 } catch (e) {
                     // The stage was accepted (2xx); a truncated body changes nothing.
                 }
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?demographicNo=" + staticScriptDemographicNo;
+                // Open the prescribing pad so the staged card and safety warnings are visible.
+                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/choosePatient?demographicNo=" + staticScriptDemographicNo;
             }
 
         </script>

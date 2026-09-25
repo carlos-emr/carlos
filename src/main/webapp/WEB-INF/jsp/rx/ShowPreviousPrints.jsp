@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
@@ -142,7 +143,7 @@
                                                     nowrap="nowrap"><%=DateUtils.formatDate(originalPrintDate, request.getLocale()) %>
                                                 </td>
                                                 <td width="50%" valign="top"
-                                                    nowrap="nowrap"><%=providerDao.getProvider(originalProviderNo).getFormattedName() %>
+                                                    nowrap="nowrap"><carlos:encode value='<%= providerDao.getProvider(originalProviderNo).getFormattedName() %>' context="html"/>
                                                 </td>
                                             </tr>
 
@@ -164,9 +165,9 @@
                                                     }
                                             %>
                                             <tr>
-                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><%=drp%>
+                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><carlos:encode value='<%= drp %>' context="html"/>
                                                 </td>
-                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><%=providerName %>
+                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><carlos:encode value='<%= providerName %>' context="html"/>
                                                 </td>
                                             </tr>
                                             <%

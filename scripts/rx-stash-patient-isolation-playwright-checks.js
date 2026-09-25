@@ -184,13 +184,11 @@ async function workflow(session) {
     await button.waitFor({ state: 'visible', timeout: 20000 });
     // A refused stage raises an alert (failing the strict page) instead of opening the search.
     await Promise.all([
-      page.waitForURL(/\/rx\/searchDrug/, { timeout: 30000 }),
+      page.waitForURL(/\/rx\/choosePatient/, { timeout: 30000 }),
       button.click(),
     ]);
+    await page.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible', timeout: 30000 });
     await page.close();
-    const rx = await openRx(session, patient);
-    await rx.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible', timeout: 30000 });
-    await rx.close();
   });
 }
 

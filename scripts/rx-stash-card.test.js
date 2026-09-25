@@ -151,3 +151,26 @@ test('discontinued confirmation encodes stored reason and date as JavaScript dat
         assert.ok(!prescribe.includes(`<%=${value}%>`));
     }
 });
+
+
+for (const helper of ['updateQty', 'parseIntr']) {
+    test(`${helper} ignores a response after its staged card was removed`, () => {
+        let request;
+        let present = true;
+        let touchedMissingField = false;
+        const context = {
+            ctx: '/carlos',
+            CarlosAjax: { request(url, options) { request = options; } },
+            document: { getElementById(id) {
+                if (id === 'set_901') return present ? {} : null;
+                touchedMissingField = true;
+                throw new Error('removed card fields must not be read');
+            } },
+        };
+        vm.runInNewContext(slice('function updateQty(', '    function addLuCode('), context);
+        context[helper]({id: helper === 'updateQty' ? 'quantity_901' : 'instructions_901', value: '30'});
+        present = false;
+        assert.doesNotThrow(() => request.onSuccess({responseText: '{"policyViolations":["retired card"]}'}));
+        assert.equal(touchedMissingField, false);
+    });
+}

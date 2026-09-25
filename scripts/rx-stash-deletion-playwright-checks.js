@@ -90,7 +90,10 @@ async function workflow(session) {
     await page.route(routePattern, handler);
     try {
       const dialogs = await h.withExpectedDialogs(page, async () => {
-        await page.locator(`input[value="Represcribe"][onclick*="'${source}'"]`).click();
+        await Promise.all([
+          page.waitForURL(/\/rx\/choosePatient/),
+          page.locator(`input[value="Represcribe"][onclick*="'${source}'"]`).click(),
+        ]);
         await Promise.race([
           received,
           page.waitForTimeout(15000).then(() => { throw new Error('declining discontinued drug did not request removal'); }),
