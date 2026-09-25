@@ -2441,6 +2441,32 @@
       "env": [
         "CHROME_BIN"
       ]
+    },
+    {
+      "name": "demographic-label-content",
+      "script": "scripts/demographic-label-content-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "demographic-gates",
+      "script": "scripts/demographic-gates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }
