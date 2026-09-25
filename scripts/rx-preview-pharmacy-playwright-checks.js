@@ -96,9 +96,11 @@ function cleanupMysqlDefaults() {
  *
  * `prescription` rows outnumber `drugs` rows in the demo dataset — more than half the seeded
  * prescriptions for the demo patient carry no drug rows at all, including the highest
- * script_no. `/rx/viewScript` renders the print page with no preview frame for those, so the
- * obvious operator choice (`SELECT MAX(script_no) ... WHERE demographic_no=1`) used to fail
- * deep in the run as a locator timeout that reads like an application defect (#3734).
+ * script_no. The Rx page's Reprint panel lists only the prescriptions that have drugs (scripts
+ * 17-45 of the 63 seeded, measured on a deployed alpha12), so the obvious operator choice
+ * (`SELECT MAX(script_no) ... WHERE demographic_no=1`) used to fail deep in the run as a
+ * locator timeout on a reprint row that was never going to appear — which reads like an
+ * application defect rather than a bad fixture (#3734).
  *
  * With no PRESCRIPTION_SCRIPT_ID this now picks the newest script that actually has drugs;
  * with one supplied it fails immediately, naming the problem and a script that would work.
@@ -113,9 +115,17 @@ function resolvePrescriptionScriptId() {
         `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
         + `WHERE p.demographic_no=${demographicNo}`,
       );
+      // WHAT ACTUALLY GOES WRONG, MEASURED. Driven against a deployed alpha12 with this guard
+      // disabled, the run does not reach /rx/viewScript at all: the Rx page's Reprint panel
+      // lists only the prescriptions that have drugs (scripts 17-45 of the 63 seeded for the
+      // demo patient), so the reprint row for an empty script never appears and the journey
+      // dies waiting for it. The signature suite, which navigates to /rx/viewScript directly,
+      // is the one that meets the missing preview frame; naming the wrong one here would send
+      // the next operator to the wrong page.
       throw new Error(
-        `PRESCRIPTION_SCRIPT_ID=${requestedScriptId} has no drugs rows for demographic ${demographicNo}, `
-        + `so /rx/viewScript renders no preview frame and this suite cannot pass. `
+        `PRESCRIPTION_SCRIPT_ID=${requestedScriptId} has no drugs rows for demographic ${demographicNo}. `
+        + `The Rx page's Reprint panel only offers prescriptions that have drugs, so this script is `
+        + `never listed there and the suite would time out waiting for its reprint row. `
         + (suggestion && suggestion !== 'NULL'
           ? `Use PRESCRIPTION_SCRIPT_ID=${suggestion}, or leave it unset to resolve one automatically.`
           : `No prescription for this demographic has drugs rows; seed one first.`),
