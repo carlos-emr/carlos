@@ -572,6 +572,38 @@ class DynamicWSS4JInInterceptorUnitTest {
     }
 
     @Test
+    @DisplayName("should not count an EncryptedKey whose ReferenceList is wrapped in another element")
+    void shouldNotCountEncryptedKey_whenReferenceListIsWrapped() {
+        // EncryptedKeyProcessor reads ReferenceList only as a direct child of the key, so a
+        // wrapped list decrypts nothing: WSS4J skips the key, and no Encrypt action may be
+        // configured for it. No EncryptedData anywhere, so the legacy fallback stays off.
+        String xml = envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-wrapped\"><xenc:CipherData/>"
+                + "<wrap><xenc:ReferenceList><xenc:DataReference URI=\"#ED-0\"/></xenc:ReferenceList></wrap>"
+                + "</xenc:EncryptedKey></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
+    @DisplayName("should not treat a DataReference nested below the list's children as a reference")
+    void shouldNotCountNestedDataReference_whenItIsNotAListChild() {
+        // decryptDataRefs walks the list's direct children only.
+        String xml = envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-deep\"><xenc:CipherData/>"
+                + "<xenc:ReferenceList><note><xenc:DataReference URI=\"#ED-0\"/></note></xenc:ReferenceList>"
+                + "</xenc:EncryptedKey></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
     @DisplayName("should count a standalone ReferenceList in the Security header")
     void shouldCountStandaloneReferenceList_whenKeyCarriesNoReferences() {
         String xml = envelope(0, true).replace("</wsse:Security>",

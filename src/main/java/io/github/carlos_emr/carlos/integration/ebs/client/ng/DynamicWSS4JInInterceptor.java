@@ -797,12 +797,14 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * the <em>direct</em> children of {@code Security}, and its action check counts only results
      * that decrypted something, so the prediction is:
      * <ul>
-     *   <li>one per direct {@code xenc:EncryptedKey} that carries a {@code ReferenceList} (a
-     *       key-transport-only {@code EncryptedKey} yields a result with no data references,
-     *       which WSS4J skips);</li>
+     *   <li>one per direct {@code xenc:EncryptedKey} whose own direct-child {@code ReferenceList}
+     *       holds at least one {@code DataReference} ({@code EncryptedKeyProcessor} reads the list
+     *       as a direct child of the key and the references as direct children of the list, so a
+     *       wrapped or deeper reference is ignored; a key-transport-only {@code EncryptedKey}
+     *       yields a result with no data references, which WSS4J skips);</li>
      *   <li>one per direct {@code xenc:ReferenceList};</li>
      *   <li>one per direct {@code xenc:EncryptedData} that no {@code DataReference} of those
-     *       direct children points at. A referenced one (the SwA attachment shape MCEDT uses)
+     *       lists points at. A referenced one (the SwA attachment shape MCEDT uses)
      *       is decrypted by the key that references it and removed from the header
      *       ({@code EncryptionUtils.decryptAttachment}), so the engine never dispatches it
      *       separately.</li>
@@ -824,11 +826,13 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             int depth = 0;
             int securityDepth = -1;
             boolean inHeader = false;
-            // Per Security header: which kind of direct child is open, whether an open direct
-            // EncryptedKey has shown a DataReference, the Ids referenced by direct children, and
-            // the Ids of direct EncryptedData children (null when the element has no Id).
+            // Per Security header: whether a direct EncryptedKey is open, the depth of the
+            // ReferenceList WSS4J would read (a direct child of Security, or the direct child of
+            // that key; -1 when none is open), whether the open key has shown such a reference,
+            // the Ids those lists reference, and the Ids of direct EncryptedData children (null
+            // when the element has no Id).
             boolean inDirectKey = false;
-            boolean inDirectReferenceList = false;
+            int referenceListDepth = -1;
             boolean directKeyHasReference = false;
             int directKeyCount = 0;
             Set<String> referencedIds = new HashSet<>();
@@ -874,12 +878,18 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                         }
                         case "ReferenceList" -> {
                             if (direct) {
-                                inDirectReferenceList = true;
+                                referenceListDepth = depth;
                                 requireWithinBound(++result.encryptCount);
+                            } else if (inDirectKey && depth == securityDepth + 2) {
+                                // The key's own list: EncryptedKeyProcessor reads it only as a
+                                // direct child of the key.
+                                referenceListDepth = depth;
                             }
                         }
                         case "DataReference" -> {
-                            if (inDirectKey || inDirectReferenceList) {
+                            // decryptDataRefs walks the list's direct children only; a reference
+                            // wrapped in another element, or nested deeper, is never decrypted.
+                            if (referenceListDepth > 0 && depth == referenceListDepth + 1) {
                                 directKeyHasReference = true;
                                 String uri = reader.getAttributeValue(null, "URI");
                                 if (uri != null) {
@@ -892,13 +902,15 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                         }
                     }
                 } else if (event == XMLStreamConstants.END_ELEMENT) {
+                    if (depth == referenceListDepth) {
+                        referenceListDepth = -1;
+                    }
                     if (securityDepth > 0 && depth == securityDepth + 1) {
                         // A direct child of Security closes.
                         if (inDirectKey && directKeyHasReference) {
                             requireWithinBound(++result.encryptCount);
                         }
                         inDirectKey = false;
-                        inDirectReferenceList = false;
                     } else if (depth == securityDepth) {
                         // Security closes: only now are all DataReferences known.
                         for (String id : directEncryptedDataIds) {
