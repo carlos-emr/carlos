@@ -66,7 +66,10 @@
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   FORM_PRINT_SEARCH=FAKE-           surname prefix used to reach a patient
- *   FORM_PRINT_DEMOGRAPHIC_NO=1       which patient's chart to open
+ *   FORM_PRINT_DEMOGRAPHIC_NO=2       which patient's chart to open. Defaults to 2, not 1:
+ *                                     demographic 1's chart answers 500 on the demo
+ *                                     dataset, because its HRM rows point at report files
+ *                                     that never shipped
  *   FORM_PRINT_NAME=Lab Req 2007      the Forms menu entry to open (one of the lab requisitions
  *                                     in FORM_TABLES; printing saves, so the table has to be known)
  *   FORM_PRINT_TIMEOUT_MS=45000       per-step allowance
@@ -189,7 +192,7 @@ async function formMenuUrl(chartPage, formName) {
 async function main() {
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
   const searchTerm = process.env.FORM_PRINT_SEARCH || 'FAKE-';
-  const preferredDemographicNo = process.env.FORM_PRINT_DEMOGRAPHIC_NO || '1';
+  const preferredDemographicNo = process.env.FORM_PRINT_DEMOGRAPHIC_NO || '2';
   const formName = process.env.FORM_PRINT_NAME || 'Lab Req 2007';
   const timeout = Number(process.env.FORM_PRINT_TIMEOUT_MS || '45000');
 
