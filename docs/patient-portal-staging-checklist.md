@@ -23,8 +23,10 @@ the team controls. Nothing here authorises real patient data; that is the readin
 
 ## 0. Decide first
 
-These decisions are tracked in [#3674](https://github.com/carlos-emr/carlos/issues/3674). Record
-the answers before configuring anything, because the TLS pin and both public URLs depend on them.
+Work through [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md) and record the
+answers in the clinic's copy of
+[`patient-portal-deployment-record-template.md`](patient-portal-deployment-record-template.md)
+before configuring anything, because the TLS pin and both public URLs depend on them.
 
 - [ ] Portal hostname patients will open (`patient_portal.public_base_url`).
 - [ ] Hostname CARLOS will call for the internal API (`patient_portal.base_url`). It may be the same
@@ -75,9 +77,11 @@ deployment secret manager, and never reuse staging values in production.
 - [ ] Key pair generated with the `openssl` commands in `carlos.properties`. The private key goes
       only to CARLOS; the portal gets the raw public key in its keyring JSON,
       `{"<key-id>":"<public-key>"}`.
-- [ ] Pin computed from the **verified certificate file** obtained from whoever runs nginx, using
-      the command in `carlos.properties`. Do not copy a pin from a live connection or from a
-      mismatch error: that trusts whatever answered.
+- [ ] Key and pin set up as in section 4 of the TLS runbook: a key you generated, with its pin
+      checked by a second person (a portal already on another tool's key follows the runbook's
+      migration). Do not copy a pin from a live connection or from a mismatch error: that trusts
+      whatever answered.
+- [ ] A standby pin is configured alongside the live one (runbook section 5).
 - [ ] The portal's certificate also validates normally: the CARLOS JVM truststore trusts its issuer,
       and the hostname matches. A pin is checked in addition to normal validation, not instead of
       it.
@@ -144,8 +148,9 @@ and the result.
       for a user without portal rights, and when the integration is not configured.
 - [ ] Open it: it loads in the same window with the patient header, left navigation and panels, and
       shows no portal error.
-- [ ] Temporarily set a wrong pin and restart CARLOS: the page reports a portal failure and the
-      portal receives nothing. Restore the pin.
+- [ ] Temporarily set a wrong but well-formed pin (the pin of a throwaway key) and restart CARLOS:
+      the page reports a portal failure, the CARLOS log shows `portal transport failed: TLS
+      handshake`, and the portal receives nothing. Restore the pin.
 - [ ] Set `patient_portal.enabled=false` and restart CARLOS: the **Patient portal** entry disappears
       from the record, and the rest of CARLOS works as before. Set it back to `true` and restart.
 
@@ -195,12 +200,19 @@ and the result.
       behaves as described in `patient-portal-client-security.md`.
 - [ ] Rotate the staff-assertion key with old and new keys overlapping, as in `carlos.properties`,
       and confirm no call fails during the change.
+- [ ] Rotate the portal's TLS key with the five steps in section 5 of
+      [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md); the Patient portal page
+      loads after steps 2, 4 and 5.
+- [ ] Move the portal to the standby key as in the runbook's compromise steps, with the old pin
+      removed; the page loads, and no call fails while nginx switches.
 
 ## 6. Sign-off
 
 - [ ] Sections 0 to 5 complete, with the CARLOS commit, the portal image digest, and the evidence
       for each step recorded.
 - [ ] Every staging secret listed for destruction; production gets fresh ones.
+- [ ] Production verification in section 6 of the TLS runbook done and recorded in the clinic's
+      deployment record.
 - [ ] The portal's `REAL_DATA_READINESS.md` record started for the clinic. Real patients are
       invited only after it is signed.
 
