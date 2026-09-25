@@ -42,7 +42,7 @@ import static org.mockito.Mockito.verify;
 class RxPrescriptionPatientIsolationUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"1001,1001,true", "2002,2002,false", "1001,2002,false", "2002,1001,false", ",1001,false", "1001,,false"})
-    void shouldOnlyConvertRowsOwnedByRequestedPatient(Integer drugPatient, Integer scriptPatient, boolean expected) {
+    void shouldOnlyConvertRows_whenPersistedOwnersMatchRequestedPatient(Integer drugPatient, Integer scriptPatient, boolean expected) {
         DrugDao dao = mock(DrugDao.class);
         registerMock(DrugDao.class, dao);
         Drug drug = new Drug();
