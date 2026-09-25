@@ -464,7 +464,7 @@
                 <fmt:message key="encounter.templateSearch.namePlaceholder" var="templateNamePlaceholder"/>
                 <label for="enTemplate"><img alt="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
                      src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png"></label>
-                <input id="enTemplate" placeholder="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
+                <input id="enTemplate" tabindex="6" placeholder="${carlos:forHtmlAttribute(templateNamePlaceholder)}"
                        size="16" type="text" value=""
                        onkeypress="return grabEnterGetTemplate(event)">
 
@@ -592,14 +592,14 @@
                         try {
                         if (facility != null && facility.isEnableGroupNotes()) {
                     %>
-                    <input type='image'
+                    <input tabindex="16" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/group-gnote.png" id="groupNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:message key="encounter.Index.btnGroupNote"/>'>
                     <% }
                         if (facility != null && facility.isEnablePhoneEncounter()) {
                     %>
-                    <input type='image' src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/attach.png"
+                    <input tabindex="25" type='image' src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/attach.png"
                            id="attachNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:message key="encounter.Index.btnAttachNote"/>'>
@@ -608,26 +608,26 @@
                             io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Facility check error in ChartNotes.jsp", facilityEx);
                         }
                     %>
-                    <input type='image'
+                    <input tabindex="17" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/media-floppy.png" id="saveImg"
                            onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
                            title='<fmt:message key="encounter.Index.btnSave"/>'>
-                    <input type='image'
+                    <input tabindex="18" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/document-new.png" id="newNoteImg"
                            onclick="newNote(event); return false;"
                            title='<fmt:message key="encounter.Index.btnNew"/>'>
-                    <input type='image'
+                    <input tabindex="19" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/note-save.png" id="signSaveImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSignSave"/>'>
-                    <input type='image'
+                    <input tabindex="20" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/verify-sign.png" id="signVerifyImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSign"/>'>
                     <%
                         if (bean.source == null) {
                     %>
-                    <input type='image'
+                    <input tabindex="21" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].toBill.value='true';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnBill"/>'>
@@ -636,10 +636,10 @@
                     %>
 
 
-                    <input type='image'
+                    <input tabindex="23" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/system-log-out.png"
                            onclick='closeEnc(event);return false;' title='<fmt:message key="global.btnExit"/>'>
-                    <input type='image'
+                    <input tabindex="24" type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/document-print.png"
                            onclick="return printSetup(event);"
                            title='<fmt:message key="encounter.Index.btnPrint"/>' id="imgPrintEncounter">
