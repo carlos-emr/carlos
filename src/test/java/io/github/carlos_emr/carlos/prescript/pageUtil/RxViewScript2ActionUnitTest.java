@@ -116,6 +116,28 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.close();
     }
 
+    @Test
+    @DisplayName("preview keeps the persisted script selected before a concurrent last-card close")
+    void shouldResolvePreviewAtomically_whenLastCardCloses() throws Exception {
+        try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(1)) {
+            concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
+            concurrentBean.setProviderNo(PROVIDER_NO);
+            RxPrescriptionData.Prescription saved = savedItem(11, "77");
+            saved.setRandomId(1);
+            concurrentBean.getStashList().add(saved);
+            RxSessionBeanResolver.register(request.getSession(), concurrentBean);
+            request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            concurrentBean.armSizeCheck();
+
+            assertThat(new RxViewScript2Action().execute()).isEqualTo("viewScript");
+            concurrentBean.awaitCompletion();
+
+            assertThat(request.getAttribute("scriptId")).isEqualTo("77");
+            assertThat(concurrentBean.getStashSize()).isZero();
+            verifyNoInteractions(stampService);
+        }
+    }
+
     /** A stash item as {@code Prescription.Save} leaves it: a drugs row id and its script number. */
     private static RxPrescriptionData.Prescription savedItem(int drugId, String scriptNo) {
         RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(drugId, PROVIDER_NO, DEMOGRAPHIC_NO);

@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.web.util.WebUtils;
 
@@ -81,8 +82,9 @@ public final class RxReprintWorkspace {
      * @param session     the prescriber's session
      * @param reprintBean the reprinted script; its demographic number is the key
      * @param comment     the script comment, or {@code null}
+     * @return the exact stored entry, for pinning the current render to this workspace
      */
-    public static void store(HttpSession session, RxSessionBean reprintBean, String comment) {
+    public static Entry store(HttpSession session, RxSessionBean reprintBean, String comment) {
         // Lookup, prune and put under the same session mutex, so a save that clears this patient's
         // reprint in another window cannot interleave between them and leave a stale entry behind.
         synchronized (WebUtils.getSessionMutex(session)) {
@@ -94,7 +96,9 @@ public final class RxReprintWorkspace {
                 oldestFirst.next();
                 oldestFirst.remove();
             }
-            entries.put(reprintBean.getDemographicNo(), new Entry(reprintBean, comment == null ? "" : comment));
+            Entry stored = new Entry(reprintBean, comment == null ? "" : comment);
+            entries.put(reprintBean.getDemographicNo(), stored);
+            return stored;
         }
     }
 
@@ -144,6 +148,35 @@ public final class RxReprintWorkspace {
         }
         synchronized (WebUtils.getSessionMutex(session)) {
             map(session, false).remove(demographicNo);
+        }
+    }
+
+    private static final String REQUEST_ENTRY = RxReprintWorkspace.class.getName() + ".viewEntry";
+
+    /** Pins the workspace chosen by the action so concurrent reprints cannot change its render. */
+    public static void pinForRequest(HttpServletRequest request, Entry entry) {
+        request.setAttribute(REQUEST_ENTRY, entry == null ? Boolean.FALSE : entry);
+    }
+
+    /** Uses the action's pinned workspace, or resolves it normally for a standalone view. */
+    public static Entry findForRequest(HttpServletRequest request, HttpSession session, int demographicNo) {
+        Object pinned = request.getAttribute(REQUEST_ENTRY);
+        if (pinned instanceof Entry entry) {
+            return entry.bean().getDemographicNo() == demographicNo ? entry : null;
+        }
+        return Boolean.FALSE.equals(pinned) ? null : find(session, demographicNo);
+    }
+
+    /** Clears the reprint seen before a save, preserving a newer reprint opened during that save. */
+    public static void clearIfSame(HttpSession session, int demographicNo, Entry expected) {
+        if (session == null || expected == null) {
+            return;
+        }
+        synchronized (WebUtils.getSessionMutex(session)) {
+            Map<Integer, Entry> entries = map(session, false);
+            if (entries.get(demographicNo) == expected) {
+                entries.remove(demographicNo);
+            }
         }
     }
 

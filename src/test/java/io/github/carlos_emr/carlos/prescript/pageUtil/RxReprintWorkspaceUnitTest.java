@@ -133,4 +133,35 @@ class RxReprintWorkspaceUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("compare-and-clear preserves a newer workspace even with the same values")
+    void shouldClearOnlyCapturedEntry() {
+        RxSessionBean reprint = openPatient(1);
+        RxReprintWorkspace.store(session, reprint, "same comment");
+        RxReprintWorkspace.Entry original = RxReprintWorkspace.find(session, 1);
+        RxReprintWorkspace.store(session, reprint, "same comment");
+        RxReprintWorkspace.Entry newer = RxReprintWorkspace.find(session, 1);
+
+        RxReprintWorkspace.clearIfSame(session, 1, original);
+        assertThat(RxReprintWorkspace.find(session, 1)).isSameAs(newer);
+        RxReprintWorkspace.clearIfSame(session, 1, newer);
+        assertThat(RxReprintWorkspace.find(session, 1)).isNull();
+    }
+
+    @Test
+    @DisplayName("a view keeps its chosen workspace when another reprint opens")
+    void shouldPinWorkspaceForCurrentRender() {
+        openPatient(1);
+        org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
+        RxReprintWorkspace.store(session, reprintFor(1), "original");
+        RxReprintWorkspace.Entry original = RxReprintWorkspace.find(session, 1);
+        RxReprintWorkspace.pinForRequest(request, original);
+        RxReprintWorkspace.store(session, reprintFor(1), "newer");
+
+        assertThat(RxReprintWorkspace.findForRequest(request, session, 1)).isSameAs(original);
+        RxReprintWorkspace.pinForRequest(request, null);
+        assertThat(RxReprintWorkspace.findForRequest(request, session, 1)).isNull();
+        assertThat(RxReprintWorkspace.find(session, 1).comment()).isEqualTo("newer");
+    }
+
 }

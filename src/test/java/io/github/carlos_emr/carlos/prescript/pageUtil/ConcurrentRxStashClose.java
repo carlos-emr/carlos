@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.util.concurrent.TimeUnit;
+
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import java.util.concurrent.locks.LockSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 final class ConcurrentRxStashClose extends RxSessionBean implements AutoCloseable {
     private final int keyToClose;
     private Thread closer;
+    private boolean closeAfterSizeCheck;
 
     ConcurrentRxStashClose(int keyToClose) {
         this.keyToClose = keyToClose;
@@ -38,6 +41,32 @@ final class ConcurrentRxStashClose extends RxSessionBean implements AutoCloseabl
     @Override
     public int getIndexFromRx(int randomId) {
         int index = super.getIndexFromRx(randomId);
+        startClose();
+        return index;
+    }
+
+    @Override
+    public RxPrescriptionData.Prescription getCurrentStashItem() {
+        RxPrescriptionData.Prescription item = super.getCurrentStashItem();
+        startClose();
+        return item;
+    }
+
+    void armSizeCheck() {
+        closeAfterSizeCheck = true;
+    }
+
+    @Override
+    public int getStashSize() {
+        int size = super.getStashSize();
+        if (closeAfterSizeCheck) {
+            closeAfterSizeCheck = false;
+            startClose();
+        }
+        return size;
+    }
+
+    private void startClose() {
         if (closer == null) {
             closer = new Thread(() -> {
                 synchronized (this) {
@@ -55,7 +84,6 @@ final class ConcurrentRxStashClose extends RxSessionBean implements AutoCloseabl
             }
             assertThat(closer.getState()).isIn(Thread.State.BLOCKED, Thread.State.TERMINATED);
         }
-        return index;
     }
 
     void awaitCompletion() throws InterruptedException {

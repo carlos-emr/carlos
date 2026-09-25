@@ -185,7 +185,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         //RxWriteScriptForm frm = (RxWriteScriptForm) form;
-        String fwd = "refresh";
+        String fwd;
         // update* actions rewrite the current stash item (and updateAndPrint saves it), so they
         // need the explicitly named patient's bean, never the fallback; other actions only
         // re-render (#3875).
@@ -198,6 +198,20 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
 
+        RxReprintWorkspace.Entry previousReprint = RxReprintWorkspace.find(request.getSession(), bean.getDemographicNo());
+        synchronized (bean) {
+            fwd = updateSelectedCardLocked(bean, loggedInInfo);
+        }
+        if ("viewScript".equals(fwd)) {
+            RxReprintWorkspace.pinForRequest(request, null);
+            RxReprintWorkspace.clearIfSame(request.getSession(), bean.getDemographicNo(), previousReprint);
+        }
+        return fwd;
+    }
+
+    /** Updates the selected card and optionally saves it while its position is stable. */
+    private String updateSelectedCardLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) throws IOException {
+        String fwd = "refresh";
         // A request without an action parameter is a plain (re)render, not an update.
         if (this.getAction() != null && this.getAction().startsWith(ACTION_UPDATE_PREFIX)) {
 
@@ -283,10 +297,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 // replacement and leave the source active (#3908).
                 String scriptId = persistStash(loggedInInfo, bean);
                 fwd = "viewScript";
-                // A reprint earlier for this patient leaves its RxReprintWorkspace entry behind and
-                // ViewScript2.jsp would then render the reprinted script instead of the one just
-                // written, so only this patient's entry is cleared (#3908).
-                RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
                 // Same stamp-on-write as RxViewScript2Action: a stamp on file signs the freshly
                 // written script so it can be faxed without the pad. This action already runs under
                 // _rx write (checkPrivilege above). Eligibility is decided inside the service from
@@ -400,6 +410,12 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
+        synchronized (bean) {
+            return saveCustomNameLocked(bean);
+        }
+    }
+
+    private String saveCustomNameLocked(RxSessionBean bean) {
         try {
             String randomId = request.getParameter("randomId");
             String customName = request.getParameter("customName");
@@ -476,6 +492,12 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
 
+        synchronized (bean) {
+            return newCustomNoteLocked(bean, loggedInInfo);
+        }
+    }
+
+    private String newCustomNoteLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) {
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
 
@@ -603,8 +625,13 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
 
-        String customDrugName = request.getParameter("name");
+        synchronized (bean) {
+            return newCustomDrugLocked(bean, loggedInInfo);
+        }
+    }
 
+    private String newCustomDrugLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) {
+        String customDrugName = request.getParameter("name");
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
 
@@ -677,6 +704,12 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
+        synchronized (bean) {
+            return normalDrugSetCustomLocked(bean);
+        }
+    }
+
+    private String normalDrugSetCustomLocked(RxSessionBean bean) {
         String randomId = request.getParameter("randomId");
         String customDrugName = request.getParameter("customDrugName");
         logger.debug("radomId=" + randomId);
@@ -684,9 +717,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             RxPrescriptionData.Prescription normalRx = bean.getStashItem2(Integer.parseInt(randomId));
             if (normalRx != null) {// set other fields same as normal drug, set some fields null like custom drug, remove normal drugfrom stash, add customdrug to stash,
                 // forward to prescribe.jsp
-                RxPrescriptionData rxData = new RxPrescriptionData();
-                RxPrescriptionData.Prescription customRx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo());
-                customRx = normalRx;
+                RxPrescriptionData.Prescription customRx = normalRx;
                 customRx.setCustomName(customDrugName);
                 customRx.setRandomId(Long.parseLong(randomId));
                 customRx.setGenericName(null);
@@ -736,7 +767,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             return NONE;
         }
         response.setContentType("application/json");
-        String success = "newRx";
         // set default quantity
         setDefaultQuantity(request);
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
@@ -746,6 +776,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
 
+        synchronized (bean) {
+            return createNewRxLocked(bean, loggedInInfo);
+        }
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
+    private String createNewRxLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) {
+        String success = "newRx";
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
             RxDrugData drugData = new RxDrugData();
@@ -972,6 +1010,13 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
 
+        synchronized (bean) {
+            return updateDrugLocked(bean);
+        }
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
+    private String updateDrugLocked(RxSessionBean bean) throws IOException {
         String action = request.getParameter("action");
         response.setContentType("application/json");
 
@@ -1146,14 +1191,21 @@ public final class RxWriteScript2Action extends ActionSupport {
         // get special instruction from parameter
         // get prescript from random Id
         // prescript.setspecialisntruction
-        String randomId = request.getParameter("randomId");
-        String specialInstruction = request.getParameter("specialInstruction");
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        synchronized (bean) {
+            return updateSpecialInstructionLocked(bean);
+        }
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
+    private String updateSpecialInstructionLocked(RxSessionBean bean) throws IOException {
+        String randomId = request.getParameter("randomId");
+        String specialInstruction = request.getParameter("specialInstruction");
         RxPrescriptionData.Prescription rx = stagedCard(bean, randomId);
         if (rx == null || specialInstruction == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
@@ -1192,42 +1244,51 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        synchronized (bean) {
+            return updatePropertyLocked(bean);
+        }
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
+    private String updatePropertyLocked(RxSessionBean bean) throws IOException {
         String elem = request.getParameter("elementId");
         String val = request.getParameter("propertyValue");
+        if (elem == null || val == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         val = val.trim();
-        if (elem != null && val != null) {
-            String[] strArr = elem.split("_");
-            if (strArr.length > 1) {
-                String num = strArr[1];
-                num = num.trim();
-                RxPrescriptionData.Prescription rx = stagedCard(bean, num);
-                if (rx == null) {
-                    // A malformed or stale card key names nothing to update: 400, not a 500.
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                    return NONE;
-                }
-                if (elem.equals("method_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setMethod(val);
-                } else if (elem.equals("route_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setRoute(val);
-                } else if (elem.equals("frequency_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setFrequencyCode(val);
-                } else if (elem.equals("minimum_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setTakeMin(Float.parseFloat(val));
-                } else if (elem.equals("maximum_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setTakeMax(Float.parseFloat(val));
-                } else if (elem.equals("duration_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDuration(val);
-                } else if (elem.equals("durationUnit_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDurationUnit(val);
-                } else if (elem.equals("repeats_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setRepeat(Integer.parseInt(val));
-                } else if (elem.equals("prnVal_" + num)) {
-                    if (!val.equals("") && !val.equalsIgnoreCase("null")) {
-                        if (val.equalsIgnoreCase("true")) rx.setPrn(true);
-                        else rx.setPrn(false);
-                    } else rx.setPrn(false);
-                }
+        String[] strArr = elem.split("_");
+        if (strArr.length > 1) {
+            String num = strArr[1];
+            num = num.trim();
+            RxPrescriptionData.Prescription rx = stagedCard(bean, num);
+            if (rx == null) {
+                // A malformed or stale card key names nothing to update: 400, not a 500.
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            if (elem.equals("method_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setMethod(val);
+            } else if (elem.equals("route_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setRoute(val);
+            } else if (elem.equals("frequency_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setFrequencyCode(val);
+            } else if (elem.equals("minimum_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setTakeMin(Float.parseFloat(val));
+            } else if (elem.equals("maximum_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setTakeMax(Float.parseFloat(val));
+            } else if (elem.equals("duration_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDuration(val);
+            } else if (elem.equals("durationUnit_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDurationUnit(val);
+            } else if (elem.equals("repeats_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setRepeat(Integer.parseInt(val));
+            } else if (elem.equals("prnVal_" + num)) {
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) {
+                    if (val.equalsIgnoreCase("true")) rx.setPrn(true);
+                    else rx.setPrn(false);
+                } else rx.setPrn(false);
             }
         }
         return null;
@@ -1268,6 +1329,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // patient being saved, not only the global _rx write checked above (#3908).
         RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
                 bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
+        RxReprintWorkspace.Entry previousReprint = RxReprintWorkspace.find(request.getSession(), bean.getDemographicNo());
         String result;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // Keep card lookup, form updates, pruning and persistence together. A close from another
@@ -1278,7 +1340,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         if ("refresh".equals(result)) {
             // Acquire the session mutex only after releasing the bean monitor: opening Rx takes
             // these locks in the opposite order while removing persisted drafts.
-            RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
+            RxReprintWorkspace.clearIfSame(request.getSession(), bean.getDemographicNo(), previousReprint);
         }
         return result;
     }
@@ -1723,13 +1785,16 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * @param loggedInInfo the prescriber
      * @param bean         the patient's Rx bean, already authorised for write and non-empty
-     * @return the new script id
+     * @return the new script id, or null when no staged cards remain
      */
     // The shared session bean is the lock used by all synchronized stash accessors. A separate
     // action-local monitor would not serialize operations from two windows of the same patient.
     @SuppressWarnings("java:S2445")
     String persistStash(LoggedInInfo loggedInInfo, RxSessionBean bean) {
         synchronized (bean) {
+            if (bean.getStashSize() == 0) {
+                return null;
+            }
             return persistStashLocked(loggedInInfo, bean);
         }
     }

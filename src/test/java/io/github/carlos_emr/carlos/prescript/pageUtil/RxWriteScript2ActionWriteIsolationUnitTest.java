@@ -244,6 +244,120 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(bean.getReRxDrugIdList()).containsExactly("66");
     }
 
+    @Test
+    @DisplayName("a concurrent close cannot make a custom-name edit overwrite another card")
+    void shouldEditOnlyNamedCard_whenPrecedingCardCloses() throws Exception {
+        try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(1)) {
+            concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
+            RxPrescriptionData.Prescription first = draft(1, "first");
+            RxPrescriptionData.Prescription edited = draft(2, "second");
+            RxPrescriptionData.Prescription other = draft(3, "third");
+            concurrentBean.getStashList().addAll(java.util.List.of(first, edited, other));
+            RxSessionBeanResolver.register(request.getSession(), concurrentBean);
+            request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            request.setParameter("randomId", "2");
+            request.setParameter("customName", "Updated medication");
+
+            action.saveCustomName();
+            concurrentBean.awaitCompletion();
+
+            assertThat(concurrentBean.getStash()).containsExactly(edited, other);
+            assertThat(edited.getCustomName()).isEqualTo("Updated medication");
+            assertThat(other.getBrandName()).isEqualTo("third");
+        }
+    }
+
+    @Test
+    @DisplayName("Save And Print keeps the selected medication until its update and save finish")
+    void shouldSaveSelectedCard_whenAnotherWindowClosesIt() throws Exception {
+        try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(2)) {
+            concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
+            RxPrescriptionData.Prescription first = draft(1, "first");
+            RxPrescriptionData.Prescription selected = draft(2, "selected");
+            RxPrescriptionData.Prescription other = draft(3, "third");
+            concurrentBean.getStashList().addAll(java.util.List.of(first, selected, other));
+            concurrentBean.setStashIndex(1);
+            RxSessionBeanResolver.register(request.getSession(), concurrentBean);
+            request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            action.setAction("updateAndPrint");
+            action.setGCN_SEQNO("0");
+            action.setCustomName("Updated medication");
+            action.setSpecial("take one tablet daily");
+            action.setUnit("tab");
+            action.setDosage("1");
+            action = spy(action);
+            doAnswer(invocation -> {
+                assertThat(concurrentBean.getStash()).containsExactly(first, selected, other);
+                assertThat(selected.getCustomName()).isEqualTo("Updated medication");
+                return "9001";
+            }).when(action).persistStash(mockLoggedInInfo, concurrentBean);
+
+            assertThat(action.execute()).isEqualTo("viewScript");
+            concurrentBean.awaitCompletion();
+
+            assertThat(concurrentBean.getStash()).containsExactly(first, other);
+            verify(action).persistStash(mockLoggedInInfo, concurrentBean);
+        }
+    }
+
+    @Test
+    @DisplayName("a last-card close before persistence creates no empty script or archival")
+    void shouldSkipPersistence_whenLastCardClosesAfterSavePrecheck() throws Exception {
+        try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(1);
+             var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
+            concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
+            concurrentBean.getStashList().add(draft(1, "first"));
+            concurrentBean.addReRxDrugIdList("55");
+            RxSessionBeanResolver.register(request.getSession(), concurrentBean);
+            request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            concurrentBean.armSizeCheck();
+
+            action.saveDrug(request);
+            concurrentBean.awaitCompletion();
+
+            assertThat(data.constructed()).isEmpty();
+            assertThat(concurrentBean.getReRxDrugIdList()).containsExactly("55");
+            verifyNoInteractions(mockRxManager);
+        }
+    }
+
+    @Test
+    @DisplayName("saving clears only the reprint that existed before the save")
+    void shouldPreserveNewReprint_whenOpenedDuringSave() throws Exception {
+        bean.clearStash();
+        bean.getStashList().add(draft(1, "first"));
+        RxSessionBean prior = new RxSessionBean();
+        prior.setDemographicNo(DEMOGRAPHIC_NO);
+        RxSessionBean newer = new RxSessionBean();
+        newer.setDemographicNo(DEMOGRAPHIC_NO);
+        RxReprintWorkspace.store(request.getSession(), prior, "previous");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "First medication");
+        action = spy(action);
+        doAnswer(invocation -> {
+            RxReprintWorkspace.store(request.getSession(), newer, "newer");
+            return "9001";
+        }).when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO).bean()).isSameAs(newer);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"elementId", "propertyValue"})
+    @DisplayName("a missing property edit parameter returns 400 before touching the card")
+    void shouldRejectMissingPropertyParameter(String missing) throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("elementId", "method_1");
+        request.setParameter("propertyValue", "oral");
+        request.removeParameter(missing);
+
+        assertThat(action.updateProperty()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(stagedCard);
+    }
+
     private static RxPrescriptionData.Prescription draft(int key, String name) {
         RxPrescriptionData.Prescription card = new RxPrescriptionData.Prescription(0, "999998", DEMOGRAPHIC_NO);
         card.setRandomId(key);

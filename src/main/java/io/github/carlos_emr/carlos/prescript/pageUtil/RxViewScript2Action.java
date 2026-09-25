@@ -113,6 +113,7 @@ public final class RxViewScript2Action extends ActionSupport {
         // re-signed). A reprint shows the signature stored when the script was first printed, or
         // the pad if it never was.
         RxReprintWorkspace.Entry reprint = RxReprintWorkspace.find(session, bean.getDemographicNo());
+        RxReprintWorkspace.pinForRequest(request, reprint);
         if (reprint != null) {
             String reprintedScriptId = persistedScriptId(reprint.bean());
             if (reprintedScriptId != null) {
@@ -121,6 +122,14 @@ public final class RxViewScript2Action extends ActionSupport {
             return "viewScript";
         }
 
+        // Resolve the session/reprint first, then hold only the bean monitor through the save
+        // preconditions and persistence. Closing a card cannot invalidate a preview mid-save.
+        synchronized (bean) {
+            return viewStashLocked(bean, loggedInInfo);
+        }
+    }
+
+    private String viewStashLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) throws IOException {
         // Viewing an empty/new prescription is not a write. In particular, do not
         // create an orphan prescription row or apply a stamp when there are no drugs.
         if (bean.getStashSize() == 0) {

@@ -159,7 +159,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         // The reprint is kept per patient, never session-wide, so another patient's window cannot
         // render it (#3908). beanRX holds database prescriptions of the resolved patient only.
-        RxReprintWorkspace.store(request.getSession(), beanRX, comment);
+        RxReprintWorkspace.Entry stored = RxReprintWorkspace.store(request.getSession(), beanRX, comment);
+        RxReprintWorkspace.pinForRequest(request, stored);
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
@@ -234,7 +235,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
         // old session-wide tmpBeanRX / rePrint / comment put every other open Rx window into
         // reprint mode showing this patient's script (#3908). beanRX and comment come from the
         // database for the resolved patient only.
-        RxReprintWorkspace.store(request.getSession(), beanRX, comment);
+        RxReprintWorkspace.Entry stored = RxReprintWorkspace.store(request.getSession(), beanRX, comment);
+        RxReprintWorkspace.pinForRequest(request, stored);
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
 
         return null;
@@ -320,12 +322,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
     /** Stages a copy of {@code oldRx} for the legacy re-prescribe and returns its audit line. */
     private String stageLegacyCopy(LoggedInInfo loggedInInfo, RxSessionBean beanRX, RxPrescriptionData rxData,
                                    int drugId, RxPrescriptionData.Prescription oldRx) {
-        // Record the source for ReRx archival, as the other staging paths do: without it
-        // saveDrug() saved the replacement and left the source active (#3908).
-        recordReRxSource(beanRX, drugId);
         // create copy of Prescription
         RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
-        beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, rx));
+        stageReRxCopy(loggedInInfo, beanRX, rx, drugId, null);
         request.setAttribute("BoxNoFillFirstLoad", "true");
         return rx.getAuditString() + "\n";
     }
@@ -519,10 +518,6 @@ public String saveDigitalSignature() throws IOException {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
             }
-            // Record the source for ReRx archival in this same request, after the ownership check.
-            // The callers used to send addToReRxDrugIdList as a separate, un-awaited request; when
-            // it lost the race or failed, the replacement was saved and the source stayed active.
-            recordReRxSource(bean, drugId);
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
             Long rand = RxStashIds.nextUnique(bean, RxStashIds.DEFAULT_BOUND);
@@ -540,13 +535,7 @@ public String saveDigitalSignature() throws IOException {
 
             List<RxPrescriptionData.Prescription> listReRx = new ArrayList<Prescription>();
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
-            // add prescript to prescript list
-            if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                listReRx.add(rx);
-            }
-            // save prescript to stash
-            int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
-            bean.setStashIndex(rxStashIndex);
+            stageReRxCopy(loggedInInfo, bean, rx, drugId, listReRx);
 
             auditStr.append(rx.getAuditString() + "\n");
 
@@ -602,8 +591,6 @@ public String saveDigitalSignature() throws IOException {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
             }
-            // Same as saveReRxDrugIdToStash: the source is recorded for archival atomically here.
-            recordReRxSource(beanRX, drugId);
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
 
@@ -624,13 +611,7 @@ public String saveDigitalSignature() throws IOException {
 
             List<RxPrescriptionData.Prescription> listReRx = new ArrayList<Prescription>();
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
-            // add prescript to prescript list
-            if (RxUtil.isRxUniqueInStash(beanRX, rx)) {
-                listReRx.add(rx);
-            }
-            // save prescript to stash
-            int rxStashIndex = beanRX.addStashItem(loggedInInfo, rx);
-            beanRX.setStashIndex(rxStashIndex);
+            stageReRxCopy(loggedInInfo, beanRX, rx, drugId, listReRx);
 
             auditStr.append(rx.getAuditString() + "\n");
 
@@ -691,18 +672,12 @@ public String saveDigitalSignature() throws IOException {
         List<Integer> listLongTermMed = longTermDrugIds(caseManagementManager, loggedInInfo, demoNo, showall);
 
 
-        // The same bean as beanRX: this request's explicitly named patient.
-        RxSessionBean bean = beanRX;
-
         List<RxPrescriptionData.Prescription> listLongTerm = new ArrayList<Prescription>();
         for (int i = 0; i < listLongTermMed.size(); i++) {
             Long rand = RxStashIds.nextUnique(beanRX, RxStashIds.DEFAULT_BOUND);
 
             // loop this
             int drugId = listLongTermMed.get(i);
-
-            //add drug to re-prescribe drug list, once (a repeat would be archived twice)
-            recordReRxSource(bean, drugId);
 
             // get original drug
             RxPrescriptionData rxData = new RxPrescriptionData();
@@ -723,11 +698,7 @@ public String saveDigitalSignature() throws IOException {
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
-            if (RxUtil.isRxUniqueInStash(beanRX, rx)) {
-                listLongTerm.add(rx);
-            }
-            int rxStashIndex = beanRX.addStashItem(loggedInInfo, rx);
-            beanRX.setStashIndex(rxStashIndex);
+            stageReRxCopy(loggedInInfo, beanRX, rx, drugId, listLongTerm);
             auditStr.append(rx.getAuditString() + "\n");
 
         }
@@ -827,16 +798,7 @@ public String saveDigitalSignature() throws IOException {
             }
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
-            if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                listReRxDrug.add(rx);
-            }
-            int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
-            bean.setStashIndex(rxStashIndex);
-            // Add, never replace: a source staged by an earlier batch is still on its card and
-            // must stay listed, or saving that card would leave the source active (#3908).
-            // Clearing the list (older behaviour) had the same effect for this batch. A repeated
-            // id is recorded once; archiveReRxDrugs archives only sources whose replacement saved.
-            recordReRxSource(bean, Integer.parseInt(drugId));
+            stageReRxCopy(loggedInInfo, bean, rx, Integer.parseInt(drugId), listReRxDrug);
             staged++;
         }
         // Counts only: drug ids and prescriptions correlate to the patient's chart.
@@ -853,6 +815,23 @@ public String saveDigitalSignature() throws IOException {
         MiscUtils.getLogger().debug(s + "=" + s1);
     }
 
+
+    /** Publishes the completed replacement and its archival source together to concurrent saves. */
+    // This is the same application-owned monitor as the bean's synchronized stash accessors.
+    @SuppressWarnings("java:S2445")
+    static void stageReRxCopy(LoggedInInfo loggedInInfo, RxSessionBean bean,
+                             RxPrescriptionData.Prescription rx, int sourceDrugId,
+                             List<RxPrescriptionData.Prescription> renderedCards) {
+        synchronized (bean) {
+            if (renderedCards != null && RxUtil.isRxUniqueInStash(bean, rx)) {
+                renderedCards.add(rx);
+            }
+            // addStashItem preloads interactions after inserting. Keep the source recorded even
+            // if that preload fails; archival still requires a successfully saved replacement.
+            recordReRxSource(bean, sourceDrugId);
+            bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
+        }
+    }
 
     /**
      * Records an ownership-checked source drug on the bean's ReRx list, once. {@code saveDrug()}

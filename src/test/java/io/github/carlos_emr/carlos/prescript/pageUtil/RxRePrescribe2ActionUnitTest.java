@@ -161,6 +161,72 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"saveReRxDrugIdToStash", "represcribe2", "represcribe", "represcribeMultiple"})
+    @DisplayName("concurrent saves observe a replacement and its ReRx source together")
+    void shouldPublishReplacementAndSourceTogether(String method) throws Exception {
+        try (ConcurrentSaveBean concurrentBean = new ConcurrentSaveBean()) {
+            concurrentBean.setDemographicNo(1);
+            concurrentBean.setProviderNo("999998");
+            RxSessionBeanResolver.register(request.getSession(), concurrentBean);
+            request.setParameter("demographicNo", "1");
+            request.setParameter("drugId", "5");
+            request.setParameter("drugIds", "5");
+            RxPrescriptionData.Prescription source = new RxPrescriptionData.Prescription(5, "999998", 1);
+            source.setBrandName("SOURCE DRUG");
+            try (var _ = stagingData(source)) {
+                switch (method) {
+                    case "saveReRxDrugIdToStash" -> action.saveReRxDrugIdToStash();
+                    case "represcribe2" -> action.represcribe2();
+                    case "represcribeMultiple" -> action.represcribeMultiple();
+                    default -> {
+                        action.setDrugList("5");
+                        action.represcribe();
+                    }
+                }
+            }
+            concurrentBean.awaitSave();
+
+            assertThat(concurrentBean.savedCardCount).isEqualTo(1);
+            assertThat(concurrentBean.savedSource).isTrue();
+        }
+    }
+
+    private static final class ConcurrentSaveBean extends RxSessionBean implements AutoCloseable {
+        private Thread save;
+        private int savedCardCount;
+        private boolean savedSource;
+
+        @Override
+        public int addStashItem(LoggedInInfo info, RxPrescriptionData.Prescription item) {
+            save = new Thread(() -> {
+                synchronized (this) {
+                    savedCardCount = getStashSize();
+                    savedSource = getReRxDrugIdList().contains("5");
+                }
+            }, "concurrent-rx-save");
+            save.start();
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+            while (save.getState() != Thread.State.BLOCKED && save.isAlive() && System.nanoTime() < deadline) {
+                java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1));
+            }
+            assertThat(save.getState()).isIn(Thread.State.BLOCKED, Thread.State.TERMINATED);
+            return super.addStashItem(info, item);
+        }
+
+        void awaitSave() throws InterruptedException {
+            if (save != null) {
+                save.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5));
+                assertThat(save.isAlive()).isFalse();
+            }
+        }
+
+        @Override
+        public void close() throws InterruptedException {
+            awaitSave();
+        }
+    }
+
     @Test
     @DisplayName("should refuse to stage a re-prescription for a request that names no patient")
     void shouldRefuseReRxStaging_whenRequestNamesNoPatient() throws Exception {
