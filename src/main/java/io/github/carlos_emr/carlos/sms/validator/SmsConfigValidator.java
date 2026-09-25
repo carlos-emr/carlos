@@ -38,6 +38,8 @@ import java.util.Set;
  */
 @Service
 public class SmsConfigValidator {
+    /** Longest webhook secret that still fits {@code sms_config.webhook_secret} (512) once encrypted. */
+    static final int MAX_WEBHOOK_SECRET_LENGTH = 256;
 
     /**
      * @param update             the submitted settings
@@ -55,6 +57,9 @@ public class SmsConfigValidator {
         if (senderNumber != null && !senderNumber.isBlank()
                 && SmsPhoneNumbers.normalizeToE164(senderNumber).isEmpty()) {
             errors.add("sms.config.error.senderNumber");
+        }
+        if (update.webhookSecret() != null && update.webhookSecret().length() > MAX_WEBHOOK_SECRET_LENGTH) {
+            errors.add("sms.config.error.webhookSecretTooLong");
         }
         return errors;
     }

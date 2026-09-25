@@ -109,4 +109,14 @@ class SmsConfigUnitTest {
         assertThat(config.isEnabled()).isFalse();
         assertThat(config.isSchedulerEnabled()).isFalse();
     }
+
+    @Test
+    @DisplayName("toString is redacted, so logging the settings never prints secrets or their ciphertext")
+    void shouldRedactToString_forSecrets() {
+        SmsConfig config = new SmsConfig();
+        config.setWebhookSecret("hook-secret-123");
+        config.setCredential("api_password", "p@ss word");
+
+        assertThat(config.toString()).isEqualTo("SmsConfig[redacted]");
+    }
 }
