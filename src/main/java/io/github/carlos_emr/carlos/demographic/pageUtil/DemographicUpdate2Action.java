@@ -279,11 +279,6 @@ public class DemographicUpdate2Action extends ActionSupport {
             return "validationError";
         }
 
-        if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
-            saveConsents(request, loggedInInfo, demographic.getDemographicNo(),
-                    SpringUtils.getBean(PatientConsentManager.class));
-        }
-
         List<DemographicExt> extensions = new ArrayList<>();
         extensions.add(new DemographicExt(request.getParameter("demo_cell_id"), proNo, demographicNo, "demo_cell", request.getParameter("demo_cell")));
         extensions.add(new DemographicExt(request.getParameter("aboriginal_id"), proNo, demographicNo, "aboriginal", request.getParameter("aboriginal")));
@@ -345,6 +340,13 @@ public class DemographicUpdate2Action extends ActionSupport {
                     }
                 }
             }
+        }
+
+        // Consent is persisted only once the form has passed every check above; a form rejected as
+        // a HIN duplicate must not have recorded, for instance, a confirmed explicit consent.
+        if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+            saveConsents(request, loggedInInfo, demographic.getDemographicNo(),
+                    SpringUtils.getBean(PatientConsentManager.class));
         }
 
         for (DemographicExt extension : extensions) {
