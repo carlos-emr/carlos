@@ -22,7 +22,9 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.io.Serializable;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -52,6 +54,9 @@ public final class RxReprintWorkspace {
     /** Session attribute holding the per-patient map. Never read it directly; use this class. */
     static final String SESSION_ATTRIBUTE = "rxReprintByPatient";
 
+    /** Same bound as the per-patient beans: a reprint outlives neither its patient nor the cap. */
+    static final int MAX_REPRINTS = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION;
+
     /**
      * One patient's reprint: the script loaded for reprinting and its stored script comment.
      *
@@ -67,17 +72,29 @@ public final class RxReprintWorkspace {
 
     /**
      * Records a reprint for the patient {@code reprintBean} belongs to, replacing only that
-     * patient's earlier reprint.
+     * patient's earlier reprint. The workspace follows the per-patient bean lifecycle: a reprint
+     * whose patient the session no longer holds ({@link RxSessionBeanResolver#find}) is dropped,
+     * and the map never holds more entries than {@link RxSessionBeanResolver#MAX_PATIENTS_PER_SESSION}
+     * (oldest first), so reprinting for many patients cannot retain their scripts for the whole
+     * session.
      *
      * @param session     the prescriber's session
      * @param reprintBean the reprinted script; its demographic number is the key
      * @param comment     the script comment, or {@code null}
      */
     public static void store(HttpSession session, RxSessionBean reprintBean, String comment) {
-        // Lookup and put under the same session mutex, so a save that clears this patient's reprint
-        // in another window cannot interleave between them and leave a stale entry behind.
+        // Lookup, prune and put under the same session mutex, so a save that clears this patient's
+        // reprint in another window cannot interleave between them and leave a stale entry behind.
         synchronized (WebUtils.getSessionMutex(session)) {
-            map(session, true).put(reprintBean.getDemographicNo(), new Entry(reprintBean, comment == null ? "" : comment));
+            Map<Integer, Entry> entries = map(session, true);
+            entries.remove(reprintBean.getDemographicNo());
+            entries.entrySet().removeIf(entry -> RxSessionBeanResolver.find(session, entry.getKey()) == null);
+            Iterator<Integer> oldestFirst = entries.keySet().iterator();
+            while (entries.size() >= MAX_REPRINTS && oldestFirst.hasNext()) {
+                oldestFirst.next();
+                oldestFirst.remove();
+            }
+            entries.put(reprintBean.getDemographicNo(), new Entry(reprintBean, comment == null ? "" : comment));
         }
     }
 
@@ -92,7 +109,9 @@ public final class RxReprintWorkspace {
         if (session == null || demographicNo == null) {
             return null;
         }
-        return map(session, false).get(demographicNo);
+        synchronized (WebUtils.getSessionMutex(session)) {
+            return map(session, false).get(demographicNo);
+        }
     }
 
     /**
@@ -122,21 +141,19 @@ public final class RxReprintWorkspace {
     }
 
     @SuppressWarnings("unchecked")
-    private static ConcurrentHashMap<Integer, Entry> map(HttpSession session, boolean create) {
-        // Two windows of one session can reprint at the same moment; create the map once under the
-        // session mutex so neither request replaces the other's map.
-        synchronized (WebUtils.getSessionMutex(session)) {
-            Object existing = session.getAttribute(SESSION_ATTRIBUTE);
-            if (existing instanceof ConcurrentHashMap<?, ?> found) {
-                return (ConcurrentHashMap<Integer, Entry>) found;
-            }
-            if (!create) {
-                // Not stored: an empty view for readers, so callers never see null.
-                return new ConcurrentHashMap<>();
-            }
-            ConcurrentHashMap<Integer, Entry> created = new ConcurrentHashMap<>();
-            session.setAttribute(SESSION_ATTRIBUTE, created);
-            return created;
+    private static Map<Integer, Entry> map(HttpSession session, boolean create) {
+        // Two windows of one session can reprint at the same moment; every access runs under the
+        // session mutex (the callers above), so neither request replaces the other's map.
+        Object existing = session.getAttribute(SESSION_ATTRIBUTE);
+        if (existing instanceof LinkedHashMap<?, ?> found) {
+            return (Map<Integer, Entry>) found;
         }
+        if (!create) {
+            // Not stored: an empty view for readers, so callers never see null.
+            return new LinkedHashMap<>();
+        }
+        LinkedHashMap<Integer, Entry> created = new LinkedHashMap<>();
+        session.setAttribute(SESSION_ATTRIBUTE, created);
+        return created;
     }
 }
