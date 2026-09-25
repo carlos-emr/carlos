@@ -685,10 +685,11 @@ class PatientPortalSettingsUnitTest {
             assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
         }
 
-        @Test
+        @ParameterizedTest
+        @ValueSource(strings = {" false ", "FALSE", "False"})
         @DisplayName("should let a clinic switch the portal off without removing its credentials")
-        void shouldBeOff_whenSwitchIsFalse() {
-            Map<String, String> values = connection(" false ");
+        void shouldBeOff_whenSwitchIsFalse(String value) {
+            Map<String, String> values = connection(value);
 
             assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
             assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
@@ -696,10 +697,11 @@ class PatientPortalSettingsUnitTest {
                     .hasMessageContaining("not enabled");
         }
 
-        @Test
+        @ParameterizedTest
+        @ValueSource(strings = {"true", "TRUE", " True "})
         @DisplayName("should build settings when the switch is on and the connection is valid")
-        void shouldBuildSettings_whenSwitchIsOn() {
-            Map<String, String> values = connection("true");
+        void shouldBuildSettings_whenSwitchIsOn(String value) {
+            Map<String, String> values = connection(value);
 
             assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
             assertThat(PatientPortalSettings.fromDeploymentProperties(values::get).clinicId())
@@ -707,7 +709,7 @@ class PatientPortalSettingsUnitTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"yes", "TRUE", "1", "on"})
+        @ValueSource(strings = {"yes", "on", "1", "off", "true # prod"})
         @DisplayName("should report a mistyped switch as an error rather than as an absent portal")
         void shouldReportError_whenSwitchIsMistyped(String value) {
             Map<String, String> values = connection(value);

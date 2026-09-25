@@ -26,20 +26,23 @@ import static org.mockito.Mockito.mockStatic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
-import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
-import org.apache.struts2.ServletActionContext;
-import org.mockito.MockedStatic;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.function.Supplier;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LogEvent;
+import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.springframework.beans.BeanInstantiationException;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 /**
@@ -176,24 +179,28 @@ class PortalFailureLoggingUnitTest {
 
     private static final class MisconfiguredAction extends PortalJsonAction {
         private static final long serialVersionUID = 1L;
-        private final String message;
+        private final transient Supplier<RuntimeException> failure;
 
-        MisconfiguredAction(String message) {
-            this.message = message;
+        MisconfiguredAction(Supplier<RuntimeException> failure) {
+            this.failure = failure;
         }
 
         @Override
         protected String handleRequest() {
-            throw new PatientPortalConfigurationException(message);
+            throw failure.get();
         }
     }
 
     private String configurationLogOf(String message) throws IOException {
+        return configurationLogOf(() -> new PatientPortalConfigurationException(message));
+    }
+
+    private String configurationLogOf(Supplier<RuntimeException> failure) throws IOException {
         MockHttpServletResponse response = new MockHttpServletResponse();
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
                 LogCapture capture = LogCapture.forLogger(PortalJsonAction.class)) {
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
-            new MisconfiguredAction(message).execute();
+            new MisconfiguredAction(failure).execute();
             assertThat(response.getStatus()).isEqualTo(503);
             StringBuilder all = new StringBuilder();
             for (LogEvent event : capture.events()) {
@@ -207,6 +214,27 @@ class PortalFailureLoggingUnitTest {
     @DisplayName("should name the master switch in the log when its value is mistyped")
     void shouldNameTheSwitch_whenItsValueIsMistyped() throws IOException {
         assertThat(configurationLogOf(PatientPortalSettings.ENABLED_VALUE_MESSAGE))
+                .contains("patient_portal.enabled must be true or false");
+    }
+
+    /** How it arrives in production: Spring wraps the settings failure in bean-creation errors. */
+    @Test
+    @DisplayName("should name the master switch when Spring wraps the error")
+    void shouldNameTheSwitch_whenSpringWrapsTheError() throws IOException {
+        Supplier<RuntimeException> wrapped =
+                () -> new BeanCreationException(
+                        "patientPortalService",
+                        "dependency failed",
+                        new BeanCreationException(
+                                "patientPortalSettings",
+                                "creation failed",
+                                new BeanInstantiationException(
+                                        PatientPortalSettings.class,
+                                        "factory method threw",
+                                        new PatientPortalConfigurationException(
+                                                PatientPortalSettings.ENABLED_VALUE_MESSAGE))));
+
+        assertThat(configurationLogOf(wrapped))
                 .contains("patient_portal.enabled must be true or false");
     }
 
