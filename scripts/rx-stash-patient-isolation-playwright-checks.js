@@ -96,6 +96,20 @@ function drugsFor(sql, demographicNo, marker) {
     AND customName LIKE ${h.sqlString(`${marker}%`)} ORDER BY drugid`);
 }
 
+// Only consume the exact HTTP conflict asserted by a negative workflow step. All other
+// browser errors, responses, failed requests and dialogs remain subject to strict checks.
+function consumeExpectedConflict(recorder, response, since) {
+  const errors = recorder.badResponses.slice(since.responses);
+  h.assert(errors.length === 1 && errors[0].url === response.url() && errors[0].status === 409
+    && errors[0].method === 'POST', 'the negative probe produced an unexpected HTTP failure');
+  recorder.badResponses.splice(since.responses, 1);
+  for (let i = recorder.consoleIssues.length - 1; i >= since.console; i--) {
+    const entry = recorder.consoleIssues[i];
+    if (entry.location.url === response.url() && entry.text.startsWith('Failed to load resource:')
+      && entry.text.includes('status of 409 (')) recorder.consoleIssues.splice(i, 1);
+  }
+}
+
 async function workflow(session) {
   const { sql, patient, provider, marker } = session;
   const second = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
@@ -151,6 +165,66 @@ async function workflow(session) {
       'a drug staged for one patient was saved to the patient open in the other tab');
     await other.close();
     await first.close();
+  });
+
+  await session.step('a stale same-patient save preserves newer cards until the current form is saved', async () => {
+    const nameA = `${marker}-stale-A`;
+    const nameB = `${marker}-stale-B`;
+    const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-C`)} AND archived=0`);
+    h.assert(/^[1-9]\d*$/.test(source), 'the stale-save fixture has no active source prescription');
+    const first = await openRx(session, patient);
+    const keyA = await stageCustomDrug(first, nameA);
+    const newer = await openRx(session, patient);
+    await newer.locator(`#set_${keyA}`).waitFor({ state: 'visible' });
+    const keyB = await stageCustomDrug(newer, nameB);
+    await newer.locator(`#reRxCheckBox_${source}`).check();
+    await newer.locator('#reRxConfirmBox input[name="stage"]').click();
+    await newer.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible' });
+    h.assert(await first.locator(`#set_${keyB}`).count() === 0, 'the first form did not remain stale');
+    const beforeScripts = sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`);
+    const beforeDrugs = sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`);
+    const since = { responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length };
+    let refusal;
+    const dialogs = await h.withExpectedDialogs(first, async () => {
+      const [response] = await Promise.all([
+        first.waitForResponse(response => response.request().method() === 'POST'
+          && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url())),
+        first.waitForEvent('dialog'),
+        first.locator('#saveOnlyButton').click(),
+      ]);
+      refusal = response;
+      h.assert(response.status() === 409, 'saving a stale form must refuse the omitted server cards');
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert'
+      && dialogs[0].text === await first.evaluate(() => jsMsg.staleDraft),
+      'the stale-save refusal did not explain how to review the current draft');
+    h.assert(await first.locator(`#drugName_${keyA}`).inputValue() === nameA,
+      'the stale-save refusal discarded edits in the original window');
+    consumeExpectedConflict(session.recorder, refusal, since);
+    h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === beforeScripts,
+      'the refused stale save created a prescription');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`) === beforeDrugs,
+      'the refused stale save persisted a drug');
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${source}`) === '0',
+      'the refused stale save archived its source');
+    await first.close();
+    await newer.close();
+    const current = await openRx(session, patient);
+    for (const [key, name] of [[keyA, nameA], [keyB, nameB]]) {
+      h.assert(await current.locator(`#drugName_${key}`).inputValue() === name,
+        'reopening after stale save lost a staged custom drug');
+    }
+    await current.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible' });
+    await saveOnly(current);
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName IN (${h.sqlString(nameA)},${h.sqlString(nameB)})`, '2',
+      'saving the current form did not preserve both windows custom drugs');
+    await expectValue(sql, `SELECT archived FROM drugs WHERE drugid=${source}`, '1',
+      'saving the current form did not archive its successfully replaced source');
+    h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === String(Number(beforeScripts) + 1),
+      'saving the current form did not create exactly one prescription');
+    await current.close();
   });
 
   await session.step('refused ReRx untick retains its card and successful retry removes it', async () => {
@@ -215,17 +289,7 @@ async function workflow(session) {
         h.assert(await card.isVisible(), 'refused ReRx removal hid the staged card');
       });
       h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'refused ReRx removal did not explain its failure');
-      // Consume only the exact expected HTTP failure and its matching browser resource warning.
-      // All unrelated responses, errors, failed requests and dialogs remain strict.
-      const errors = session.recorder.badResponses.slice(since.responses);
-      h.assert(errors.length === 1 && errors[0].url === refusal.url() && errors[0].status === 409
-        && errors[0].method === 'POST', 'the removal probe produced an unexpected HTTP failure');
-      session.recorder.badResponses.splice(since.responses, 1);
-      for (let i = session.recorder.consoleIssues.length - 1; i >= since.console; i--) {
-        const entry = session.recorder.consoleIssues[i];
-        if (entry.location.url === refusal.url() && entry.text.startsWith('Failed to load resource:')
-          && entry.text.includes('status of 409 (')) session.recorder.consoleIssues.splice(i, 1);
-      }
+      consumeExpectedConflict(session.recorder, refusal, since);
     } finally {
       release();
       await rx.unroute(routePattern, handler);

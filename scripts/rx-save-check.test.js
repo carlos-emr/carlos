@@ -50,3 +50,23 @@ test('an empty stash is refused before any confirmation or save', () => {
     assert.deepEqual(run('updateSaveAllDrugsPrintCheckContinue();', 0), [['alert', 'add a drug first']]);
     assert.deepEqual(run('updateSaveAllDrugsCheckContinue();', 0), [['alert', 'add a drug first']]);
 });
+
+const refusedSave = slice('function reportRefusedSave(', '/**');
+for (const [transport, expected] of [
+    [{ status: 409, responseJSON: { error: 'STALE_RX_STASH' } }, 'review the current draft'],
+    [{ status: 409, responseJSON: null, responseText: '<html>Conflict</html>' }, 'reopen the session'],
+    [{ status: 409, responseJSON: { error: 'OTHER' } }, 'reopen the session'],
+    [{ status: 500, responseJSON: { error: 'STALE_RX_STASH' } }, 'reopen the session (HTTP 500)'],
+]) {
+    test(`refused save explains the fixed stale-draft conflict only: ${JSON.stringify(transport)}`, () => {
+        const alerts = [];
+        const context = {
+            jsMsg: { staleDraft: 'review the current draft', saveRefused: 'reopen the session' },
+            alert(message) { alerts.push(message); },
+        };
+        // No reload, retry or DOM mutation is available: refusal must preserve local edits.
+        vm.runInNewContext(refusedSave, context);
+        context.reportRefusedSave(transport);
+        assert.deepEqual(alerts, [expected]);
+    });
+}
