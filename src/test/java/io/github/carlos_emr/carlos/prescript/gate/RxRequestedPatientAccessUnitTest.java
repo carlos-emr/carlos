@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.prescript.gate;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -120,6 +122,27 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    @DisplayName("capturing the fallback patient does not cache or bypass patient authorization")
+    void shouldReauthorizeCapturedPatient_whenActivePatientChanges() {
+        request.removeParameter("demographicNo");
+        RxSessionBean original = new RxSessionBean();
+        original.setDemographicNo(DEMOGRAPHIC_NO);
+        RxSessionBeanResolver.register(request.getSession(), original);
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
+        RxSessionBean another = new RxSessionBean();
+        another.setDemographicNo(99);
+        RxSessionBeanResolver.register(request.getSession(), another);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", 99)).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 99)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", DEMOGRAPHIC_NO)).thenReturn(false);
+
+        assertThatThrownBy(() -> RxRequestedPatientAccess.require(
+                securityInfoManager, loggedInInfo, request, "_rx", "r"))
+                .isInstanceOf(SecurityException.class);
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_rx", "r", 99);
     }
 
     private static String run(Class<? extends ActionSupport> gate) throws Exception {

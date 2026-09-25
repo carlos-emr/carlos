@@ -55,6 +55,8 @@ import org.springframework.web.util.WebUtils;
  *       There is deliberately no fallback to another patient's bean.</li>
  *   <li>A request that names no patient (legacy AJAX and popups that predate this model) gets the
  *       bean of the patient whose Rx page was opened most recently ({@link #ACTIVE_DEMOGRAPHIC_ATTRIBUTE}).
+ *       That fallback selection is captured once per request, so later fragments cannot switch
+ *       patients when another window opens Rx during the render.
  *       The Rx pages load {@code share/javascript/rx-patient-context.js}, which adds the page's
  *       demographic to every Rx request, so the fallback is a compatibility path, not the norm.</li>
  *   <li>Writes that persist or archive medications must not rely on the fallback: they call
@@ -92,6 +94,9 @@ public final class RxSessionBeanResolver {
 
     /** Returned by {@link #requestedDemographicNo} when the named patient is malformed or ambiguous. */
     public static final int INVALID = -1;
+
+    /** Patient selected by the first unnamed resolution, including NOT_REQUESTED when none was active. */
+    private static final String FALLBACK_DEMOGRAPHIC_ATTRIBUTE = RxSessionBeanResolver.class.getName() + ".fallbackDemographic";
 
     private static final String LEASES_ATTRIBUTE = RxSessionBeanResolver.class.getName() + ".leases";
 
@@ -193,28 +198,40 @@ public final class RxSessionBeanResolver {
 
     /**
      * The bean for this request: the named patient's bean when the request names one, otherwise
-     * the active patient's bean.
+     * the active patient captured on the first unnamed resolution in this request.
      *
      * @param request the current request
      * @return the bean, or {@code null} when there is no session, the named patient is malformed,
      *         or Rx was not opened for the resolved patient in this session
      */
     public static RxSessionBean resolve(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            return null;
-        }
         int requested = requestedDemographicNo(request);
         if (requested == INVALID) {
             return null;
         }
-        synchronized (lockFor(session)) {
-            Object active = session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE);
-            int demographicNo = requested;
-            if (demographicNo <= 0 && active instanceof Integer activeDemographicNo) {
-                demographicNo = activeDemographicNo;
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            if (requested == NOT_REQUESTED) {
+                request.setAttribute(FALLBACK_DEMOGRAPHIC_ATTRIBUTE, NOT_REQUESTED);
             }
+            return null;
+        }
+        synchronized (lockFor(session)) {
             PatientBeans beans = beans(session, false);
+            int demographicNo = requested;
+            if (demographicNo == NOT_REQUESTED) {
+                Object captured = request.getAttribute(FALLBACK_DEMOGRAPHIC_ATTRIBUTE);
+                if (captured instanceof Integer capturedDemographicNo) {
+                    demographicNo = capturedDemographicNo;
+                } else {
+                    Object active = session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE);
+                    // An active id without a bean is also an unresolved fallback. Otherwise a
+                    // later activation could supply a patient after the read gate checked none.
+                    demographicNo = active instanceof Integer activeDemographicNo
+                            && beans.peek(activeDemographicNo) != null ? activeDemographicNo : NOT_REQUESTED;
+                    request.setAttribute(FALLBACK_DEMOGRAPHIC_ATTRIBUTE, demographicNo);
+                }
+            }
             RxSessionBean bean = beans.peek(demographicNo);
             if (bean != null) {
                 lease(request, session, beans, bean);
