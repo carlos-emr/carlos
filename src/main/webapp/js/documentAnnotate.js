@@ -1090,6 +1090,8 @@
             fitAllNotes();
             return csrfTokenReady();
         }).then(function () {
+            // Build the body before marking the save as sent: a failure here has sent nothing.
+            var body = JSON.stringify(savePayload());
             sent = true;
             return fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
                 + encodeURIComponent(cfg.docId), {
@@ -1100,7 +1102,7 @@
                     'X-Requested-With': 'XMLHttpRequest',
                     'CSRF-TOKEN': csrfToken()
                 },
-                body: JSON.stringify(savePayload())
+                body: body
             });
         }).then(function (response) {
             return response.json().then(function (data) {
@@ -1144,9 +1146,9 @@
                 state.uncertain = true;
                 setStatus(t('saveUnconfirmed', 'The save could not be confirmed. Check the patient\u2019s documents before saving another copy.'), 'error');
             } else {
-                // Nothing left the browser (the font or CSRF-token bootstrap failed before
-                // fetch() started): the marks are intact and a retry is safe, so keep Save
-                // enabled.
+                // Nothing left the browser (the font or CSRF-token bootstrap, or building the
+                // request body, failed before fetch() started): the marks are intact and a
+                // retry is safe, so keep Save enabled.
                 setStatus(t('saveFailed', 'The annotated document could not be saved.'), 'error');
             }
             updateCounts();

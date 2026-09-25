@@ -1002,6 +1002,49 @@ async function main() {
       await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
     await openViewer();
 
+    // A save that fails before fetch() starts has sent nothing, so Save must stay usable. Building
+    // the request body is the last step before the request leaves: fail it once, for the save
+    // payload only, and prove no request went out, the error is shown and a retry files.
+    await page.evaluate(() => {
+      const original = JSON.stringify;
+      JSON.stringify = function (value, ...rest) {
+        if (value && typeof value === 'object' && 'sourceDigest' in value) {
+          JSON.stringify = original;
+          throw new Error('synthetic save-body failure');
+        }
+        return original.call(this, value, ...rest);
+      };
+    });
+    let preSendPosts = 0;
+    const countPreSend = request => { if (request.url().includes('/SaveAnnotatedDocument')) { preSendPosts += 1; } };
+    page.on('request', countPreSend);
+    await mark();
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    page.off('request', countPreSend);
+    check('a save that fails before its request leaves keeps Save enabled',
+      preSendPosts === 0 && await page.locator('#status').getAttribute('class') === 'status error'
+        && await page.locator('#btnSave').isEnabled(),
+      JSON.stringify([preSendPosts, await page.locator('#status').textContent()]));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('the retry after a pre-send failure files the copy',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
+
+    // Once fetch() has started the server may already have filed the copy, even if the
+    // connection drops before any reply. Save must then be held so the operator checks first.
+    await page.route('**/SaveAnnotatedDocument?*', route => route.abort('connectionreset'));
+    await mark();
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    await page.unroute('**/SaveAnnotatedDocument?*');
+    check('a save whose connection drops after sending holds Save until the operator checks',
+      await page.locator('#status').getAttribute('class') === 'status error'
+        && !await page.locator('#btnSave').isEnabled() && !await page.locator('#btnSaveFax').isEnabled(),
+      await page.locator('#status').textContent());
+    await openViewer();
+
     // The composer measures a note's full string, spaces included. A note ending in spaces,
     // placed hard against the right edge, must be fitted by that width or the save is refused.
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
