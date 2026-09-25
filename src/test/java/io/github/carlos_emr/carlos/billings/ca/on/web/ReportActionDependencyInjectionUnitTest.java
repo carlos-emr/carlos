@@ -135,7 +135,7 @@ class ReportActionDependencyInjectionUnitTest {
         assertThat(new ViewGenGroupReport2Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
-        verify(service).generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT);
+        verify(service).generateReport(loggedInInfo, request, OhipReportGenerationService.Mode.GROUP_REPORT);
     }
 
     @Test

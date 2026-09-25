@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
@@ -154,11 +155,16 @@ public class OhipReportGenerationService {
      * BillActivity rows and writes the OHIP+HTML files for each
      * eligible provider.
      *
+     * @param loggedInInfo the acting user, recorded as the creator of the
+     *                     persisted BillActivity rows
+     * @param request the report request carrying the selection parameters
+     * @param mode SOLO_REPORT or GROUP_REPORT
      * @return list of providers whose per-provider tx rolled back; empty
      *         when all selected providers were processed cleanly. Caller
      *         should stash this on the request for the JSP banner.
      */
-    public java.util.List<FailedProvider> generateReport(HttpServletRequest request, Mode mode) {
+    public java.util.List<FailedProvider> generateReport(LoggedInInfo loggedInInfo,
+                                                         HttpServletRequest request, Mode mode) {
         if (mode == Mode.SIMULATION) {
             throw new IllegalArgumentException("Use generateSimulation for SIMULATION mode");
         }
@@ -188,6 +194,7 @@ public class OhipReportGenerationService {
         int curYear = new GregorianCalendar().get(Calendar.YEAR);
 
         List<Provider> providersToProcess = resolveProviders(providerParam);
+        String creator = loggedInInfo.getLoggedInProviderNo();
 
         int batchOrdinal = 1;
         for (Provider p : providersToProcess) {
@@ -231,7 +238,6 @@ public class OhipReportGenerationService {
             // succeeds correctly tears down setAsBilled but leaves the
             // file on disk — the operator finds the orphan via the
             // missing BillActivity row and re-runs for that provider.
-            String curUser = request.getParameter("curUser");
             try {
                 perProviderTx.executeWithoutResult(status -> {
                     // Throwing a RuntimeException out of the lambda is the
@@ -241,7 +247,7 @@ public class OhipReportGenerationService {
                     extract.writeFile(extract.getValue());
                     extract.writeHtml(extract.getHtmlCode());
                     persistBillActivity(monthCode, batchCount, filenames[0], filenames[1],
-                            proOHIP, groupNo, curUser, extract);
+                            proOHIP, groupNo, creator, extract);
                 });
             } catch (RuntimeException ex) {
                 // BillingFileWriteException, BillingDataLoadException, and
