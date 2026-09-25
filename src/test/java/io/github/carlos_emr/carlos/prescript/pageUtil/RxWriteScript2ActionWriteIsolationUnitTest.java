@@ -472,11 +472,38 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isNull();
-        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
         assertThat(bean.getStashItem(0)).isSameAs(stagedCard);
         verifyNoInteractions(stagedCard);
         verifyNoInteractions(mockSignatureStampService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "updateAddAnother", "updateAndPrint"})
+    void shouldRejectLegacyUpdate_whenNamedWorkspaceIsMissing(String updateAction) throws Exception {
+        action.setAction(updateAction);
+        request.setParameter("demographicNo", "9999");
+
+        assertThat(action.execute()).isEqualTo(RxWriteScript2Action.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashList()).containsExactly(stagedCard);
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRedirectRender_whenNamedWorkspaceIsMissing() throws Exception {
+        action.setAction("refresh");
+        request.setParameter("demographicNo", "9999");
+
+        assertThat(action.execute()).isNull();
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
     }
 
     @Test

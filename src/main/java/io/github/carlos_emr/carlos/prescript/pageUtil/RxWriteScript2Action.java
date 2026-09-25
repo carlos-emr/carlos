@@ -188,11 +188,16 @@ public final class RxWriteScript2Action extends ActionSupport {
         // update* actions rewrite the current stash item (and updateAndPrint saves it), so they
         // need the explicitly named patient's bean, never the fallback; other actions only
         // re-render (#3875).
-        RxSessionBean bean = this.getAction() != null && this.getAction().startsWith(ACTION_UPDATE_PREFIX)
+        boolean updateRequested = this.getAction() != null && this.getAction().startsWith(ACTION_UPDATE_PREFIX);
+        RxSessionBean bean = updateRequested
                 ? RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w")
                 : RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
 
         if (bean == null) {
+            if (updateRequested) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
             response.sendRedirect("error.html");
             return null;
         }

@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -203,6 +204,47 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
         request.removeParameter("demographicNo");
 
         assertThat(run(gate)).isEqualTo(ActionSupport.SUCCESS);
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("patientResolvingGates")
+    @DisplayName("should authorise an unnamed active patient only when the page renders that patient")
+    void shouldApplyPagePatientPolicy_whenUnnamedActivePatientIsDenied(Class<? extends ActionSupport> gate,
+                                                                      String object, String privilege) throws Exception {
+        request.removeParameter("demographicNo");
+        RxSessionBean active = new RxSessionBean();
+        active.setDemographicNo(DEMOGRAPHIC_NO);
+        RxSessionBeanResolver.register(request.getSession(), active);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, object, privilege, DEMOGRAPHIC_NO)).thenReturn(false);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(false);
+
+        if (gate == ViewPrint2Action.class) {
+            assertThat(run(gate)).isEqualTo(ActionSupport.SUCCESS);
+            verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, object, privilege, DEMOGRAPHIC_NO);
+            verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
+            assertThat(RxSessionBeanResolver.find(request.getSession(), DEMOGRAPHIC_NO)).isSameAs(active);
+        } else {
+            assertThatThrownBy(() -> run(gate)).isInstanceOf(SecurityException.class);
+            verify(securityInfoManager).hasPrivilege(loggedInInfo, object, privilege, DEMOGRAPHIC_NO);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"42abc", "0", "-1", "2147483648"})
+    void shouldRefuseChooser_whenRequestedPatientIsMalformed(String demographicNo) {
+        request.setParameter("demographicNo", demographicNo);
+
+        assertThatThrownBy(() -> run(ViewPrint2Action.class)).isInstanceOf(SecurityException.class);
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
+    }
+
+    @Test
+    void shouldRefuseChooser_whenNoPatientNamedAndGlobalReadDenied() {
+        request.removeParameter("demographicNo");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)).thenReturn(false);
+
+        assertThatThrownBy(() -> run(ViewPrint2Action.class)).isInstanceOf(SecurityException.class);
         verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
     }
 

@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.prescript.gate;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -48,8 +49,15 @@ public final class ViewPrint2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
-        // The JSP renders the patient the request names; authorise that patient too (#3875).
-        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
+        // The chooser does not render the active Rx patient. Authorise only a patient explicitly
+        // named by this request, without letting malformed identifiers bypass that check.
+        int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        if (demographicNo == RxSessionBeanResolver.INVALID) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        if (demographicNo > 0) {
+            RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNo, "_rx", "r");
+        }
 
         return SUCCESS;
     }
