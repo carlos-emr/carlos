@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -38,7 +39,7 @@ import java.util.Set;
  */
 @Service
 public class SmsConfigValidator {
-    /** Longest webhook secret that still fits {@code sms_config.webhook_secret} (512) once encrypted. */
+    /** Longest webhook secret, in UTF-8 bytes, that still fits {@code sms_config.webhook_secret} (512) once encrypted. */
     static final int MAX_WEBHOOK_SECRET_LENGTH = 256;
 
     /**
@@ -58,7 +59,8 @@ public class SmsConfigValidator {
                 && SmsPhoneNumbers.normalizeToE164(senderNumber).isEmpty()) {
             errors.add("sms.config.error.senderNumber");
         }
-        if (update.webhookSecret() != null && update.webhookSecret().length() > MAX_WEBHOOK_SECRET_LENGTH) {
+        if (update.webhookSecret() != null
+                && update.webhookSecret().getBytes(StandardCharsets.UTF_8).length > MAX_WEBHOOK_SECRET_LENGTH) {
             errors.add("sms.config.error.webhookSecretTooLong");
         }
         return errors;

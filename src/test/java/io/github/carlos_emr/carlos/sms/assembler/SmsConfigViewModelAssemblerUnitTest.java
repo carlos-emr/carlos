@@ -107,7 +107,7 @@ class SmsConfigViewModelAssemblerUnitTest {
 
     @Test
     @DisplayName("turns only known result codes into messages, so the query string cannot inject text")
-    void shouldMapKnownResultCodes_only() {
+    void shouldIgnoreResultCode_whenCodeIsUnknown() {
         when(configService.current()).thenReturn(Optional.empty());
 
         assertThat(assembler().assemble("testSent", List.of()).resultKey()).isEqualTo("sms.config.result.testSent");
@@ -122,6 +122,20 @@ class SmsConfigViewModelAssemblerUnitTest {
         SmsConfigViewModel model = assembler().assemble(null, List.of("sms.config.error.senderNumber"));
 
         assertThat(model.errorKeys()).containsExactly("sms.config.error.senderNumber");
+    }
+
+    @Test
+    @DisplayName("still opens, showing STUB and a warning, when sms.provider.default names an unknown provider")
+    void shouldShowStubWithWarning_whenPropertyProviderIsInvalid() {
+        when(configService.current()).thenReturn(Optional.empty());
+        SmsConfigViewModelAssembler assembler = assembler();
+        when(providerResolver.configuredDefault()).thenThrow(new IllegalStateException("unknown provider"));
+
+        SmsConfigViewModel model = assembler.assemble(null, List.of("sms.config.error.senderNumber"));
+
+        assertThat(model.providerType()).isEqualTo("STUB");
+        assertThat(model.errorKeys())
+                .containsExactly("sms.config.error.senderNumber", "sms.config.error.invalidPropertyProvider");
     }
 
     private SmsConfigViewModelAssembler assembler() {

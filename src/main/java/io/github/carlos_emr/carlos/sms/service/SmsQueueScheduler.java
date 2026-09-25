@@ -105,7 +105,14 @@ public class SmsQueueScheduler {
         }
     }
 
+    /**
+     * Drains one batch of due messages, unless SMS is turned off in Administration &gt; SMS: then queued
+     * messages stay queued (not failed) and go out once it is turned back on.
+     */
     public int runOnce() {
+        if (configService != null && !configService.sendingEnabled()) {
+            return 0;
+        }
         return smsQueueWorker.processDueMessages(batchSize());
     }
 
