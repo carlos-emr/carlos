@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,6 +56,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
+import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -218,6 +221,9 @@ public class EmailManager {
                 if (emailData.getIsEncrypted()) {
                     encryptEmail(emailData);
                 }
+                // After encryption and before the sender is built, so the signature covers the
+                // exact bytes that are archived and dispatched.
+                signAttachments(emailData);
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
                 Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog);
                 // EmailLog is the authoritative record, so its SUCCESS is written first. The
@@ -1169,6 +1175,74 @@ public class EmailManager {
                 logger.error("Failed to create encrypted email attachments", e);
                 throw new EmailSendingException("Failed to create encrypted email attachments", e);
             }
+        }
+    }
+
+    /**
+     * Cryptographically signs outgoing PDF attachments when PDF signing is configured.
+     *
+     * <p>Runs after optional password encryption, so the signature covers the exact bytes sent
+     * to the patient. Each signed PDF is adopted into the send's working directory, which owns
+     * its cleanup. The compose flow always supplies that directory and {@code sendEmailInternal}
+     * decides who closes it; only a caller that builds {@code EmailData} directly arrives
+     * without one, and then it is created here, never closed here.</p>
+     *
+     * <p>Every attachment on {@code emailData} is expected to be a signable PDF. Signing is
+     * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
+     * send is aborted rather than delivering a partially signed or unsigned set.</p>
+     *
+     * @param emailData EmailData containing the final attachment list
+     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    void signAttachments(EmailData emailData) throws EmailSendingException {
+        List<EmailAttachment> attachments = emailData.getAttachments();
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        PDFSigningConfig signingConfig = PDFSigningConfig.fromCarlosProperties();
+        if (!signingConfig.isEnabled()) {
+            return;
+        }
+
+        ensureWorkingDirectory(emailData);
+        // An encrypted PDF can only be modified with its owner password.
+        String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
+        for (EmailAttachment attachment : attachments) {
+            Path signedPDFPath = null;
+            try {
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
+                attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
+            } catch (IOException | RuntimeException e) {
+                // Any RuntimeException, not a chosen few: one that escaped would skip
+                // completeFailedSend and strand the EmailLog at PENDING behind a 500.
+                deleteUnadoptedSignedPdf(signedPDFPath);
+                // The cause chain is what tells an operator whether the keystore, its password or
+                // the certificate is at fault. It names server paths, never the attachment: the
+                // attachment's own file name can identify a patient, so it is left out.
+                logger.error("Failed to sign an email PDF attachment", e);
+                throw new EmailSendingException("Failed to sign email PDF attachment", e);
+            }
+        }
+    }
+
+    /**
+     * Removes a signed PDF that the working directory never took ownership of. It holds the
+     * patient's document and nothing else would ever delete it.
+     */
+    private void deleteUnadoptedSignedPdf(Path signedPDFPath) {
+        // signPDF only ever returns a temp file it created, so anything else here is a bug and
+        // is left alone rather than deleted.
+        if (signedPDFPath == null || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(signedPDFPath);
+        } catch (IOException | RuntimeException cleanupFailure) {
+            logger.warn("Signed email PDF could not be removed after a failed send: {}",
+                    cleanupFailure.getClass().getSimpleName());
         }
     }
 
