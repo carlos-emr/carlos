@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -128,6 +129,36 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(drug);
         entityManager.flush();
         return drug;
+    }
+
+    @Test
+    @DisplayName("should require both prescription and drug ownership when loading a patient's script")
+    void shouldScopeScriptLookup_toPersistedPatientOwnership() {
+        Prescription script = new Prescription();
+        script.setDemographicId(DEMO_NO);
+        script.setProviderNo(PROVIDER_NO);
+        script.setDatePrescribed(today);
+        script.setDatePrinted(today);
+        entityManager.persist(script);
+        entityManager.flush();
+
+        Drug owned = createDrug(DEMO_NO, "Owned medication", "", false);
+        owned.setScriptNo(script.getId());
+        entityManager.persist(owned);
+        // Inconsistent historical data must not leak another patient's drug through this script.
+        Drug foreign = createDrug(DEMO_NO_2, "Foreign medication", "", false);
+        foreign.setScriptNo(script.getId());
+        entityManager.persist(foreign);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Object[]> ownedRows = drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO);
+
+        assertThat(ownedRows).hasSize(1);
+        assertThat(((Drug) ownedRows.getFirst()[0]).getId()).isEqualTo(owned.getId());
+        assertThat(((Prescription) ownedRows.getFirst()[1]).getDemographicId()).isEqualTo(DEMO_NO);
+        // The foreign drug's own demographic cannot read a prescription belonging to DEMO_NO.
+        assertThat(drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO_2)).isEmpty();
     }
 
     // ========================================================================

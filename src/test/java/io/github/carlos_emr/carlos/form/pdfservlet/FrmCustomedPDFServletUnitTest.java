@@ -192,7 +192,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         for (Drug drug : drugs) {
             pairs.add(new Object[] {drug, prescription});
         }
-        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID)).thenReturn(pairs);
+        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID, DEMOGRAPHIC_NO)).thenReturn(pairs);
     }
 
     /**
@@ -1223,7 +1223,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = createFaxRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
-        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID)).thenReturn(Collections.emptyList());
+        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID, DEMOGRAPHIC_NO)).thenReturn(Collections.emptyList());
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
