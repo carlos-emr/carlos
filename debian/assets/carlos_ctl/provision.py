@@ -41,7 +41,7 @@ import tempfile
 from typing import Optional
 
 from . import config, dbops, util
-from .util import PROPERTIES, STATE, die, log, need_root, run, warn
+from .util import PROPERTIES, REINSTALL_HINT, STATE, die, log, need_root, run, warn
 
 # Written by carlos-emr.postinst when a provisioning step did not run or
 # failed; removed by a successful configure and by finish-install. Plain
@@ -260,12 +260,12 @@ def _o19_import_running() -> Optional[str]:
     # replace an actionable refusal with a stack dump.
     if not os.access(O19_GUARD, os.X_OK):
         return (f"{O19_GUARD} is missing or not executable, so whether an OSCAR 19 "
-                "import is running cannot be established (reinstall carlos-emr)")
+                f"import is running cannot be established (reinstall carlos-emr: {REINSTALL_HINT})")
     try:
         verdict = run([O19_GUARD], capture_output=True)
     except OSError as exc:
         return (f"{O19_GUARD} could not be run ({exc}), so whether an OSCAR 19 "
-                "import is running cannot be established (reinstall carlos-emr)")
+                f"import is running cannot be established (reinstall carlos-emr: {REINSTALL_HINT})")
     if verdict.returncode == 0:
         return None
     return (verdict.stderr or "").strip() or "an OSCAR 19 import is in progress"
@@ -397,7 +397,7 @@ def cmd_finish_install(argv) -> int:
 
     # init-config requires this file too; only the package installs its skeleton.
     if not os.path.isfile(PROPERTIES):
-        fail(f"{PROPERTIES} is missing; reinstall carlos-emr to restore the configuration, "
+        fail(f"{PROPERTIES} is missing; reinstall carlos-emr ({REINSTALL_HINT}) to restore the configuration, "
              "then re-run 'carlos-ctl finish-install'.")
 
     _required("init-config", config.cmd_init_config, [], note=note)
