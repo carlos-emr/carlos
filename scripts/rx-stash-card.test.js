@@ -110,3 +110,44 @@ test('archive-on-close mechanism is gone (#3871)', () => {
 test('staged cards carry an encoded data-drug-ref-id (#3872)', () => {
     assert.match(prescribe, /<fieldset[^>]*id="<%=fieldSetId%>"[^>]*data-drug-ref-id="<carlos:encode value='<%= String\.valueOf\(DrugReferenceId\) %>' context="htmlAttribute"\/>"/);
 });
+
+
+test('card X resolves its fieldset explicitly without named-window globals', () => {
+    assert.match(prescribe, /onclick="removePrescribingDrug\(this\.closest\('fieldset'\), <%=DrugReferenceId%>\);"/);
+});
+
+test('declining a discontinued drug keeps the card until removal succeeds and skips focus', () => {
+    const staged = card('set_901', '4242');
+    const checkbox = { id: 'reRxCheckBox_4242', checked: true };
+    const { requests, alerts, context } = run('', [staged, checkbox]);
+    const start = prescribe.indexOf('            var isDiscontinuedLatest=');
+    const end = prescribe.indexOf('</script>', start);
+    let script = prescribe.slice(start, end)
+        .replace(/<carlos:encode value='<%= archivedReason %>' context="javaScriptBlock"\/>/g, 'adverse reaction')
+        .replace(/<carlos:encode value='<%= archivedDate %>' context="javaScriptBlock"\/>/g, '2026-01-01');
+    const values = {isDiscontinuedLatest: 'true', fieldSetId: 'set_901', DrugReferenceId: '4242',
+        'listRxDrugs.size()': '1', gcnCode: '0', rand: '901'};
+    script = script.replace(/<%=\s*(.*?)\s*%>/g, (_, key) => {
+        assert.ok(Object.hasOwn(values, key), `unexpected JSP expression: ${key}`);
+        return values[key];
+    });
+    context.confirm = () => false;
+    context.counterRx = 0;
+    vm.runInNewContext(script, context);
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].options.parameters, /^randomId=901&/);
+    assert.equal(staged.removed, false);
+    requests[0].options.onFailure({ status: 409 });
+    assert.equal(staged.removed, false);
+    assert.deepEqual(alerts, ['Removal failed']);
+    requests[0].options.onSuccess();
+    assert.equal(staged.removed, true);
+    assert.equal(checkbox.checked, false);
+});
+
+test('discontinued confirmation encodes stored reason and date as JavaScript data', () => {
+    for (const value of ['archivedReason', 'archivedDate']) {
+        assert.ok(prescribe.includes(`<carlos:encode value='<%= ${value} %>' context="javaScriptBlock"/>`));
+        assert.ok(!prescribe.includes(`<%=${value}%>`));
+    }
+});

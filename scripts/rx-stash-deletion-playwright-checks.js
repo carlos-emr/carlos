@@ -6,7 +6,7 @@
 // before sending it, then release it and reopen Rx to verify the session stash round trip.
 // Uses an owned patient and session-only custom medication; no DrugRef fixture is required.
 const h = require('./lib/playwright-harness');
-const { runWorkflow } = require('./lib/workflow-session');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openRx, stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 
 async function workflow(session) {
@@ -49,6 +49,73 @@ async function workflow(session) {
     const reopened = await openRx(session, session.patient);
     h.assert(await reopened.locator(`#set_${key}`).count() === 0,
       'deleted card returned after reopening the patient Rx');
+    await reopened.close();
+  });
+
+  await session.step('declining a discontinued drug waits for removal and preserves quoted warning text', async () => {
+    const { sql, patient, marker, config } = session;
+    const name = `${marker}-discontinued`;
+    session.cleanup(() => sql.execute(`DELETE FROM prescription WHERE demographic_no=${patient}
+      AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${patient}
+        AND customName=${h.sqlString(name)});
+      DELETE FROM drugs WHERE demographic_no=${patient} AND customName=${h.sqlString(name)}`));
+    const original = await openRx(session, patient);
+    await stageCustomDrug(original, name);
+    const saved = original.waitForResponse(response => response.request().method() === 'POST'
+      && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url()));
+    await original.locator('#saveOnlyButton').click();
+    h.assert((await saved).ok(), 'the discontinued-drug fixture could not be saved');
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(name)}`, '1', 'the discontinued-drug fixture was not persisted');
+    await original.close();
+    const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(name)}`);
+    h.assert(/^[1-9]\d*$/.test(source), 'the discontinued-drug fixture has no source id');
+    const reason = `Patient's choice </script><script>window.__rxArchiveInjected=true</script>`;
+    sql.execute(`UPDATE drugs SET archived=1, archived_date=NOW(), archived_reason=${h.sqlString(reason)},
+      ATC='', regional_identifier='' WHERE drugid=${source} AND demographic_no=${patient}`);
+    const page = await session.context.newPage();
+    await h.gotoApp(page, config.baseUrl, `/rx/ViewStaticScript2?demographicNo=${patient}&cn=${encodeURIComponent(name)}`);
+    await h.assertNotErrorPage(page, 'discontinued-drug history');
+    let release;
+    let intercepted;
+    const hold = new Promise(resolve => { release = resolve; });
+    const received = new Promise(resolve => { intercepted = resolve; });
+    const routePattern = /\/rx\/rxStashDelete(?:\?|$)/;
+    const handler = async route => {
+      intercepted(route.request());
+      await hold;
+      await route.continue();
+    };
+    await page.route(routePattern, handler);
+    try {
+      const dialogs = await h.withExpectedDialogs(page, async () => {
+        await page.locator(`input[value="Represcribe"][onclick*="'${source}'"]`).click();
+        await Promise.race([
+          received,
+          page.waitForTimeout(15000).then(() => { throw new Error('declining discontinued drug did not request removal'); }),
+        ]);
+      }, { accept: false });
+      h.assert(dialogs.length === 1 && dialogs[0].text.includes(reason),
+        'the discontinued warning did not preserve its stored text');
+      h.assert(await page.evaluate(() => window.__rxArchiveInjected !== true),
+        'stored discontinued reason executed as JavaScript');
+      const card = page.locator(`fieldset[data-drug-ref-id="${source}"]`);
+      h.assert(await card.isVisible(), 'declined card disappeared before removal succeeded');
+      const responsePromise = page.waitForResponse(response => routePattern.test(response.url()));
+      release();
+      h.assert((await responsePromise).ok(), 'the declined card removal failed');
+      await card.waitFor({ state: 'detached' });
+    } finally {
+      release();
+      await page.unroute(routePattern, handler);
+    }
+    await page.close();
+    const reopened = await openRx(session, patient);
+    h.assert(await reopened.locator(`fieldset[data-drug-ref-id="${source}"]`).count() === 0,
+      'declined discontinued drug returned after reopening Rx');
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${source}`) === '1',
+      'declining the staged copy changed the discontinued source');
     await reopened.close();
   });
 }
