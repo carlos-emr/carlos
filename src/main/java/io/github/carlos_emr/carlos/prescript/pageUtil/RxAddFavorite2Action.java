@@ -70,6 +70,8 @@ public final class RxAddFavorite2Action extends ActionSupport {
      * @return {@code success}, {@code NONE} after an error response, or {@code null} after a redirect
      * @throws SecurityException when the caller may not write Rx for the patient
      */
+    // All staged-card lookup and persistence shares the monitor used by edits and closes.
+    @SuppressWarnings("java:S2445")
     public String execute()
             throws IOException, ServletException {
         // Adding a favourite writes provider data: POST-only (CSRFGuard does not check GET) (#3908).
@@ -98,21 +100,23 @@ public final class RxAddFavorite2Action extends ActionSupport {
             return null;
         }
 
-        String providerNo = bean.getProviderNo();
+        synchronized (bean) {
+            String providerNo = bean.getProviderNo();
 
-        // The card's position in the named patient's stash; a malformed or out-of-range
-        // position names no staged item, so nothing is favourited.
-        int stashIndex;
-        try {
-            stashIndex = Integer.parseInt(this.getStashId());
-        } catch (NumberFormatException _) {
-            stashIndex = -1;
+            // The card's position in the named patient's stash; a malformed or out-of-range
+            // position names no staged item, so nothing is favourited.
+            int stashIndex;
+            try {
+                stashIndex = Integer.parseInt(this.getStashId());
+            } catch (NumberFormatException _) {
+                stashIndex = -1;
+            }
+            if (stashIndex < 0 || stashIndex >= bean.getStashSize()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            bean.getStashItem(stashIndex).AddToFavorites(providerNo, favoriteName);
         }
-        if (stashIndex < 0 || stashIndex >= bean.getStashSize()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-        bean.getStashItem(stashIndex).AddToFavorites(providerNo, favoriteName);
 
         return "success";
     }
@@ -128,6 +132,8 @@ public final class RxAddFavorite2Action extends ActionSupport {
      * @return {@code NONE}, or {@code null} after a redirect
      * @throws SecurityException when the caller may not write Rx for the patient
      */
+    // A close in another window cannot move the selected card before it is copied.
+    @SuppressWarnings("java:S2445")
     public String addFav2()
             throws IOException {
         // Adding a favourite writes provider data: POST-only (CSRFGuard does not check GET) (#3908).
@@ -153,20 +159,22 @@ public final class RxAddFavorite2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
-        String providerNo = bean.getProviderNo();
+        synchronized (bean) {
+            String providerNo = bean.getProviderNo();
 
-        int stashIndex;
-        try {
-            stashIndex = bean.getIndexFromRx(Integer.parseInt(randomId));
-        } catch (NumberFormatException _) {
-            stashIndex = -1;
+            int stashIndex;
+            try {
+                stashIndex = bean.getIndexFromRx(Integer.parseInt(randomId));
+            } catch (NumberFormatException _) {
+                stashIndex = -1;
+            }
+            if (stashIndex < 0) {
+                // No staged card carries this key (stale or malformed): favourite nothing.
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            bean.getStashItem(stashIndex).AddToFavorites(providerNo, favoriteName);
         }
-        if (stashIndex < 0) {
-            // No staged card carries this key (stale or malformed): favourite nothing.
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-        bean.getStashItem(stashIndex).AddToFavorites(providerNo, favoriteName);
        
         /*
         request.setAttribute("BoxNoFillFirstLoad", "true");

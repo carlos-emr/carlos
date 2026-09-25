@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import io.github.carlos_emr.carlos.commn.dao.FavoriteDao;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,18 +38,26 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -219,6 +229,150 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(403);
         verify(favoriteDao).remove(FAVORITE_ID);
     }
+    @ParameterizedTest(name = "AJAX={0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("a concurrent close cannot change which medication is added to favourites")
+    void shouldFavoriteRequestedCard_whenAnotherWindowClosesPrecedingCard(boolean ajax) throws Exception {
+        openRxForWrite(1001);
+        try (ConcurrentRxStashClose bean = new ConcurrentRxStashClose(111)) {
+            bean.setDemographicNo(1001);
+            bean.setProviderNo(PROVIDER_NO);
+            RxPrescriptionData.Prescription first = mock(RxPrescriptionData.Prescription.class);
+            RxPrescriptionData.Prescription selected = mock(RxPrescriptionData.Prescription.class);
+            RxPrescriptionData.Prescription third = mock(RxPrescriptionData.Prescription.class);
+            when(first.getRandomId()).thenReturn(111L);
+            when(selected.getRandomId()).thenReturn(222L);
+            when(third.getRandomId()).thenReturn(333L);
+            bean.getStashList().addAll(List.of(first, selected, third));
+            RxSessionBeanResolver.register(request.getSession(), bean);
+            RxAddFavorite2Action add = new RxAddFavorite2Action();
+            if (ajax) {
+                request.setParameter("randomId", "222");
+                request.setParameter("favoriteName", "chosen");
+                assertThat(add.addFav2()).isEqualTo(ActionSupport.NONE);
+            } else {
+                add.setStashId("1");
+                add.setFavoriteName("chosen");
+                bean.armSizeCheck();
+                assertThat(add.execute()).isEqualTo(ActionSupport.SUCCESS);
+            }
+            bean.awaitCompletion();
+
+            verify(selected).AddToFavorites(PROVIDER_NO, "chosen");
+            verify(first, never()).AddToFavorites(anyString(), anyString());
+            verify(third, never()).AddToFavorites(anyString(), anyString());
+            assertThat(bean.getStashList()).containsExactly(selected, third);
+        }
+    }
+
+    @ParameterizedTest(name = "AJAX={0}, patient={1}")
+    @CsvSource({"true, missing", "false, missing", "true, malformed", "false, malformed",
+            "true, unopened", "false, unopened"})
+    @DisplayName("favorite staging refuses an unresolved patient without a successful redirect")
+    void shouldRejectStaging_whenWorkspaceCannotBeResolved(boolean ajax, String patient) throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+        if ("missing".equals(patient)) request.removeParameter("demographicNo");
+        else request.setParameter("demographicNo", "unopened".equals(patient) ? "9999" : "invalid");
+
+        assertThat(stageFavorite(ajax)).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashSize()).isZero();
+        verifyNoInteractions(favoriteDao);
+    }
+
+    @ParameterizedTest(name = "AJAX={0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("favorite staging reports a failure when creating the draft fails")
+    void shouldReturnServerError_whenFavoriteStagingThrows(boolean ajax) throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+        RxPrescriptionData.Favorite favorite = mock(RxPrescriptionData.Favorite.class);
+        when(favorite.getProviderNo()).thenReturn(PROVIDER_NO);
+        try (var _ = mockConstruction(RxPrescriptionData.class, (data, context) -> {
+            when(data.getFavorite(FAVORITE_ID)).thenReturn(favorite);
+            when(data.newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Favorite.class)))
+                    .thenThrow(new IllegalStateException("draft creation failed"));
+        })) {
+            assertThat(stageFavorite(ajax)).isEqualTo(ActionSupport.NONE);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(bean.getStashSize()).isZero();
+        assertThat(request.getAttribute("listRxDrugs")).isNull();
+    }
+
+    @Test
+    @DisplayName("concurrent favorite staging cannot render a copy that was discarded as a duplicate")
+    void shouldRenderOnlyStoredCard_whenAnotherWindowStagesSameFavorite() throws Exception {
+        openRxForWrite(1001);
+        stored.setBn("AMOXICILLIN");
+        stored.setGcnSeqno("12345");
+        try (ConcurrentFavoriteStaging bean = new ConcurrentFavoriteStaging()) {
+            bean.setDemographicNo(1001);
+            bean.setProviderNo(PROVIDER_NO);
+            RxSessionBeanResolver.register(request.getSession(), bean);
+
+            assertThat(useFav2(String.valueOf(FAVORITE_ID))).isEqualTo("useFav2");
+            bean.awaitCompletion();
+
+            assertThat(bean.competingStateDuringInsert).isEqualTo(Thread.State.BLOCKED);
+            assertThat(bean.getStashSize()).isEqualTo(1);
+            List<?> renderedCards = (List<?>) request.getAttribute("listRxDrugs");
+            assertThat(renderedCards).hasSize(1);
+            assertThat(renderedCards.getFirst()).isSameAs(bean.getStashItem(0));
+            assertThat(bean.getStashItem(0).getRandomId()).isEqualTo(123L);
+            assertThat(bean.getCurrentStashItem()).isSameAs(bean.getStashItem(0));
+        }
+    }
+
+    private String stageFavorite(boolean ajax) throws Exception {
+        request.setParameter("favoriteId", String.valueOf(FAVORITE_ID));
+        request.setParameter("randomId", "123");
+        RxUseFavorite2Action use = new RxUseFavorite2Action();
+        use.setFavoriteId(String.valueOf(FAVORITE_ID));
+        return ajax ? use.useFav2() : use.execute();
+    }
+
+    /** Places another window's identical staging between the uniqueness check and insertion. */
+    private static final class ConcurrentFavoriteStaging extends RxSessionBean implements AutoCloseable {
+        private Thread competing;
+        private Thread.State competingStateDuringInsert;
+
+        @Override
+        public int addStashItem(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
+            RxPrescriptionData.Prescription other = new RxPrescriptionData.Prescription(0, PROVIDER_NO, 1001);
+            other.setRandomId(456);
+            other.setBrandName(item.getBrandName());
+            other.setGCN_SEQNO(item.getGCN_SEQNO());
+            competing = new Thread(() -> {
+                synchronized (this) {
+                    if (RxUtil.isRxUniqueInStash(this, other)) getStashList().add(other);
+                }
+            }, "concurrent-favorite-stage");
+            competing.start();
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (competing.isAlive() && competing.getState() != Thread.State.BLOCKED
+                    && System.nanoTime() < deadline) {
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+            }
+            competingStateDuringInsert = competing.getState();
+            return super.addStashItem(loggedInInfo, item);
+        }
+
+        void awaitCompletion() throws InterruptedException {
+            if (competing != null) {
+                competing.join(TimeUnit.SECONDS.toMillis(5));
+                assertThat(competing.isAlive()).isFalse();
+            }
+        }
+
+        @Override
+        public void close() throws InterruptedException {
+            awaitCompletion();
+        }
+    }
+
     /** Names the patient, grants patient-level Rx write, and opens that patient's bean. */
     private RxSessionBean openRxForWrite(int demographicNo) {
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(true);
