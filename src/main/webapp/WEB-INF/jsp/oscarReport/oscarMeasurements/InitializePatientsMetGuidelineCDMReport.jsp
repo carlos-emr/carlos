@@ -144,12 +144,12 @@
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="text" name='startDateA'
                                                 value='${carlos:forHtmlAttribute(lastYear)}' size="10"> <img
-                                                src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
+                                                src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
                                                 onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="text" name='endDateA' value='${carlos:forHtmlAttribute(today)}'
-                                                size="10"> <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
+                                                size="10"> <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
                                                                 onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsMetGuidelineCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
                                         <td width="450" class="fieldBox" bgcolor="#ddddff"></td>
@@ -208,16 +208,16 @@
                                             <input type="text" name="guidelineB" size="6" />
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff">
-                                            <input type="text" name="startDateB" value="${lastYear}" size="10">
-                                            <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
+                                            <input type="text" name="startDateB" value="${carlos:forHtmlAttribute(lastYear)}" size="10">
+                                            <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
                                                  onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateB[${ctr.index}]&amp;year=${curYear}&amp;month=${curMonth}&amp;form=RptInitializePatientsMetGuidelineCDMReportForm','','width=300,height=300')" />
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff">
-                                            <input type="text" name="endDateB" value="${today}" size="10">
-                                            <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
+                                            <input type="text" name="endDateB" value="${carlos:forHtmlAttribute(today)}" size="10">
+                                            <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
                                                  onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateB[${ctr.index}]&amp;year=${curYear}&amp;month=${curMonth}&amp;form=RptInitializePatientsMetGuidelineCDMReportForm','','width=300,height=300')" />
                                         </td>
-                                        <input type="hidden" name="value(measurementType${ctr.index})" value="${measurementType.type}" />
+                                        <input type="hidden" name="value(measurementType${ctr.index})" value="${carlos:forHtmlAttribute(measurementType.type)}" />
                                     </tr>
                                     <tr>
                                         <td width="2" class="fieldBox" bgcolor="#ddddff"></td>
@@ -225,20 +225,22 @@
                                         <td width="200" class="fieldBox" bgcolor="#ddddff"></td>
                                         <td width="200" class="fieldBox" bgcolor="#ddddff">
                                             <table>
-                                                <% int i = 0; %>
-                                                <c:forEach var="mInstrc" items="${measurementType.measuringInstrcVector}" varStatus="index">
+                                                <%-- The instruction list for row N is the Nth handler, built alongside the type
+                                                     rows by RptMeasurementTypesBeanHandler; it includes instructions still stored
+                                                     on older readings (e.g. AACP "Yes/No"), not only the type's current one. --%>
+                                                <c:set var="mInstrcList" value="${measurementTypes.measuringInstrcBeanVector[ctr.index].measuringInstrcVector}" />
+                                                <c:forEach var="mInstrc" items="${mInstrcList}" varStatus="index">
                                                     <tr>
                                                         <td>
                                                             <input type="checkbox" name="value(mInstrcsCheckbox${ctr.index}${index.index})" checked="checked"
-                                                                   value="${mInstrc.measuringInstrc}" />
+                                                                   value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" />
                                                             ${carlos:forHtml(mInstrc.measuringInstrc)}
                                                         </td>
                                                     </tr>
-                                                    <% i++; %>
                                                 </c:forEach>
                                             </table>
                                         </td>
-                                        <input type="hidden" name="value(mNbInstrcs${ctr.index})" value="${i}" />
+                                        <input type="hidden" name="value(mNbInstrcs${ctr.index})" value="${empty mInstrcList ? 0 : mInstrcList.size()}" />
                                         <td width="10" class="fieldBox" bgcolor="#ddddff"></td>
                                         <td width="50" class="fieldBox" bgcolor="#ddddff"></td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"></td>

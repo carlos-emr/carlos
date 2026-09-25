@@ -33,6 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -64,10 +65,13 @@ public class BillingClaimSubmissionService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister claimPersister;
     private final BillingOnLookupService lookupService;
+    private final BillingServiceDao billingServiceDao;
 
-    BillingClaimSubmissionService(BillingOnClaimPersister claimPersister, BillingOnLookupService lookupService) {
+    BillingClaimSubmissionService(BillingOnClaimPersister claimPersister, BillingOnLookupService lookupService,
+                                  BillingServiceDao billingServiceDao) {
         this.claimPersister = claimPersister;
         this.lookupService = lookupService;
+        this.billingServiceDao = billingServiceDao;
     }
 
     public record SaveResult(boolean saved, int billingId) {}
@@ -139,6 +143,9 @@ public class BillingClaimSubmissionService {
     @SuppressWarnings("rawtypes")
     SaveResult addABillingRecord(ArrayList val) {
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) val.get(0);
+        // Review-page validation can be bypassed by a stale or crafted final save request.
+        // Recheck private codes before any header, item or payment is written.
+        validatePrivateCodes(BillingClaimSubmission.fromLegacy(val));
         int billingNo = claimPersister.addOneClaimHeaderRecord(claim1Obj);
         if (billingNo == 0) {
             _logger.error("addABillingRecord failed: claim header persist returned billingNo=0");
@@ -156,6 +163,24 @@ public class BillingClaimSubmissionService {
 
         throw new BillingValidationException(
                 "No billing item envelope for billing # " + billingNo);
+    }
+
+    private void validatePrivateCodes(BillingClaimSubmission submission) {
+        for (BillingClaimItemDto item : submission.items()) {
+            String code = item.serviceCode();
+            if (code == null || !code.trim().startsWith("_")) {
+                continue;
+            }
+            String program = submission.header().payProgram();
+            if (program == null || !program.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+                throw new BillingValidationException("Save rejected: private service codes require a private billing program.");
+            }
+            String serviceDate = normalizeRequiredDateParam(item.serviceDate(), "service_date");
+            if (billingServiceDao.findBillingCodesByCodeAndTerminationDate(
+                    code.trim(), java.sql.Date.valueOf(serviceDate)).isEmpty()) {
+                throw new BillingValidationException("Save rejected: a private service code is not active on the service date. Return to edit the bill.");
+            }
+        }
     }
 
     /**

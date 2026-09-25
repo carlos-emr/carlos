@@ -56,6 +56,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     @Mock private BillingOnClaimPersister mockPersister;
     @Mock private BillingOnLookupService mockLookupService;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.BillingServiceDao mockBillingServiceDao;
     @Mock private HttpServletRequest mockRequest;
 
     private AutoCloseable mockitoCloseable;
@@ -64,12 +65,49 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
-        service = new BillingClaimSubmissionService(mockPersister, mockLookupService);
+        service = new BillingClaimSubmissionService(mockPersister, mockLookupService, mockBillingServiceDao);
     }
 
     @org.junit.jupiter.api.AfterEach
     void tearDown() throws Exception {
         if (mockitoCloseable != null) mockitoCloseable.close();
+    }
+
+    @Test
+    void shouldRejectInactivePrivateCode_whenFinalSaveBypassesReview() {
+        var submission = privateSubmission("PAT", "2026-02-28");
+        when(mockBillingServiceDao.findBillingCodesByCodeAndTerminationDate(
+                "_OMA_F10", java.sql.Date.valueOf("2026-02-28"))).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.addBillingRecord(submission))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("not active on the service date");
+        org.mockito.Mockito.verifyNoInteractions(mockPersister);
+    }
+
+    @Test
+    void shouldSaveActivePrivateCode_whenFinalSaveUsesEffectiveDate() {
+        var submission = privateSubmission("PAT", "2026-03-01");
+        when(mockBillingServiceDao.findBillingCodesByCodeAndTerminationDate(
+                "_OMA_F10", java.sql.Date.valueOf("2026-03-01"))).thenReturn(List.of("_OMA_F10"));
+        when(mockPersister.addOneClaimHeaderRecord(submission.header())).thenReturn(1234);
+
+        assertThat(service.addBillingRecord(submission).saved()).isTrue();
+        verify(mockPersister).addItemRecord(submission.items(), 1234);
+    }
+
+    @Test
+    void shouldRejectPrivateCode_whenFinalSaveUsesOhipProgram() {
+        assertThatThrownBy(() -> service.addBillingRecord(privateSubmission("HCP", "2026-03-01")))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("private billing program");
+        org.mockito.Mockito.verifyNoInteractions(mockPersister, mockBillingServiceDao);
+    }
+
+    private static BillingClaimSubmissionService.BillingClaimSubmission privateSubmission(String program, String serviceDate) {
+        return new BillingClaimSubmissionService.BillingClaimSubmission(
+                new BillingClaimHeaderDto().withPayProgram(program),
+                List.of(new BillingClaimItemDto().withServiceCode("_OMA_F10").withServiceDate(serviceDate)));
     }
 
     @Test

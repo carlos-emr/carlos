@@ -1154,6 +1154,32 @@
       ]
     },
     {
+      "name": "omd-flowsheet-conformance",
+      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "cdm-measurement-report",
+      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "echart-consult-specialist",
       "script": "scripts/echart-consult-specialist-playwright-checks.js",
       "tiers": [
