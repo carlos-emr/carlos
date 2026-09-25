@@ -650,6 +650,24 @@ class DynamicWSS4JInInterceptorUnitTest {
     }
 
     @Test
+    @DisplayName("should reject the message when key-transport-only EncryptedKeys exceed the bound")
+    void shouldRejectMessage_whenUncountedEncryptedKeysExceedBound() {
+        // A key without a ReferenceList predicts no Encrypt result, but WSS4J still performs an
+        // RSA unwrap for each direct key, so the DoS bound must count them too.
+        StringBuilder keys = new StringBuilder();
+        for (int i = 0; i <= DynamicWSS4JInInterceptor.MAX_ENCRYPTED_KEYS; i++) {
+            keys.append("<xenc:EncryptedKey Id=\"EK-transport-").append(i).append("\"><xenc:CipherData/></xenc:EncryptedKey>");
+        }
+        givenContent(envelope(0, false).replace("</wsse:Security>", keys + "</wsse:Security>"));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class)
+                .rootCause().hasMessageContaining("maximum of " + DynamicWSS4JInInterceptor.MAX_ENCRYPTED_KEYS);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
     @DisplayName("should reject the message when the XML is not well-formed")
     void shouldRejectMessage_whenXmlIsMalformed() {
         givenContent("<s:Envelope xmlns:s=\"" + SOAP_NS + "\"><s:Header><unclosed></s:Header></s:Envelope>");

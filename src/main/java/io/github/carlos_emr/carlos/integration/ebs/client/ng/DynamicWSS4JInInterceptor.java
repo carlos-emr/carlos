@@ -122,10 +122,13 @@ import java.util.Set;
 public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message> {
 
     /**
-     * Upper bound on the number of predicted {@code Encrypt} results (see
-     * {@link #scanEnvelope}) accepted in one response.
+     * Upper bound, applied separately, on the direct {@code EncryptedKey} children of the
+     * Security header, on its direct {@code EncryptedData} children, and on the predicted
+     * {@code Encrypt} results (see {@link #scanEnvelope}) in one response.
      *
-     * <p>Each one becomes one WSS4J {@code Encrypt} action, and so one RSA key-unwrap during
+     * <p>Each direct key costs WSS4J one RSA key-unwrap whether or not it decrypts anything
+     * (so a key-transport-only key that predicts no result still counts against the bound),
+     * and each predicted result becomes one WSS4J {@code Encrypt} action, and so one RSA key-unwrap during
      * security processing. MCEDT limits a download request to a handful of resources (one key
      * for the body plus one per attachment), so 20 leaves ample headroom while preventing a
      * hostile or corrupted response from forcing unbounded action-list construction and
@@ -827,6 +830,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             boolean inDirectKey = false;
             boolean inDirectReferenceList = false;
             boolean directKeyHasReference = false;
+            int directKeyCount = 0;
             Set<String> referencedIds = new HashSet<>();
             List<String> directEncryptedDataIds = new ArrayList<>();
             while (reader.hasNext()) {
@@ -861,6 +865,9 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                         }
                         case "EncryptedKey" -> {
                             if (direct) {
+                                // Bounded even when it will predict no result: WSS4J unwraps
+                                // every direct key with the private key before deciding that.
+                                requireWithinBound(++directKeyCount);
                                 inDirectKey = true;
                                 directKeyHasReference = false;
                             }
@@ -901,6 +908,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                         }
                         directEncryptedDataIds.clear();
                         referencedIds.clear();
+                        directKeyCount = 0;
                         securityDepth = -1;
                     }
                     depth--;
@@ -922,7 +930,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         return id != null ? id : reader.getAttributeValue(WSU_NS, "Id");
     }
 
-    /** Aborts the scan as soon as the prediction (or its pending part) exceeds the bound. */
+    /**
+     * Aborts the scan as soon as a bounded quantity (direct keys, direct {@code EncryptedData},
+     * or the prediction) exceeds {@link #MAX_ENCRYPTED_KEYS}.
+     */
     private static void requireWithinBound(int predicted) throws IOException {
         if (predicted > MAX_ENCRYPTED_KEYS) {
             throw new IOException("MCEDT response exceeds the maximum of " + MAX_ENCRYPTED_KEYS
