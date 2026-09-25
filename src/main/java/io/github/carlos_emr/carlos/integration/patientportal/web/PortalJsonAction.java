@@ -122,14 +122,15 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     private static boolean isSwitchValueError(Throwable exception) {
-        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+        // Spring wraps the settings failure two or three levels deep. The bound stops a cause
+        // cycle, which getCause() does not prevent once it spans more than one exception.
+        Throwable cause = exception;
+        for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++) {
             if (cause instanceof PatientPortalConfigurationException
                     && PatientPortalSettings.ENABLED_VALUE_MESSAGE.equals(cause.getMessage())) {
                 return true;
             }
-            if (cause.getCause() == cause) {
-                return false;
-            }
+            cause = cause.getCause();
         }
         return false;
     }
@@ -154,6 +155,7 @@ public abstract class PortalJsonAction extends ActionSupport {
 
     /** Jakarta's HttpServletResponse predates RFC 6585 and has no constant for this. */
     private static final int TOO_MANY_REQUESTS = 429;
+    private static final int MAX_CAUSE_DEPTH = 16;
     private static final String MISSING_PRIVILEGE = "missing required sec object (%s)";
 
     private static final String CONFLICT_DEFAULT =

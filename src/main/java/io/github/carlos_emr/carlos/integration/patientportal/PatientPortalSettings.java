@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -70,7 +71,7 @@ public record PatientPortalSettings(
         Set<String> certificatePins) {
 
     /**
-     * The master switch. The portal is off unless this is exactly {@code true}, so a clinic that
+     * The master switch. The portal is off unless this is {@code true}, in any case, so a clinic that
      * does not use it needs no other setting, and one that does can switch it off without removing
      * its credentials.
      */
@@ -166,7 +167,7 @@ public record PatientPortalSettings(
      */
     static PatientPortalSettings fromDeploymentProperties(Function<String, String> lookup) {
         String enabled = switchValue(lookup);
-        if (enabled.isEmpty() || "false".equals(enabled)) {
+        if (isOff(enabled)) {
             throw new PatientPortalConfigurationException(NOT_ENABLED_MESSAGE);
         }
         if (!"true".equals(enabled)) {
@@ -186,17 +187,29 @@ public record PatientPortalSettings(
      * same way.
      */
     public static boolean isConfigured() {
+        // get(), not getProperty(): this runs for every clinic, most of which have no portal, and
+        // getProperty() logs a missing-key warning that such a clinic should never see.
         return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
-        String enabled = switchValue(lookup);
-        return !enabled.isEmpty() && !"false".equals(enabled);
+        return !isOff(switchValue(lookup));
     }
 
+    private static boolean isOff(String enabled) {
+        return enabled.isEmpty() || "false".equals(enabled);
+    }
+
+    /**
+     * The switch value, stripped and lower-cased, so {@code FALSE} switches the portal off like
+     * {@code false} rather than being read as on, as CARLOS's other boolean settings are.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case folding of an on/off setting compared with the ASCII words
+    // true and false; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of an on/off setting compared with the ASCII words true and false; not a security or authorization decision")
     private static String switchValue(Function<String, String> lookup) {
         String value = lookup.apply(ENABLED_KEY);
-        return value == null ? "" : value.strip();
+        return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
     }
 
     /**
