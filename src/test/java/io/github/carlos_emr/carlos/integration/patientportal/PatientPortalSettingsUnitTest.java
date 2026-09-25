@@ -683,6 +683,9 @@ class PatientPortalSettingsUnitTest {
             Map<String, String> values = connection("   ");
 
             assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled");
         }
 
         @ParameterizedTest

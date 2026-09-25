@@ -152,7 +152,8 @@ public record PatientPortalSettings(
      * <p>The Spring wiring's entry point. Kept separate from {@link #fromProperties(Function)} so
      * the validation stays testable without the {@code CarlosProperties} singleton.
      *
-     * @throws PatientPortalConfigurationException if the portal is unconfigured or misconfigured
+     * @throws PatientPortalConfigurationException if the portal is switched off, the switch is
+     *     neither {@code true} nor {@code false}, or the connection settings are absent or invalid
      */
     public static PatientPortalSettings fromCarlosProperties() {
         return fromDeploymentProperties(key -> CarlosProperties.getInstance().getProperty(key));
@@ -185,6 +186,9 @@ public record PatientPortalSettings(
      * switch, like a partial configuration, must surface as a configuration error rather than
      * quietly looking like an absent portal. Once on, missing connection settings are reported the
      * same way.
+     *
+     * @return {@code true} if the switch is on or holds an invalid value; it does not mean the
+     *     connection settings are complete, which only {@link #fromCarlosProperties()} checks
      */
     public static boolean isConfigured() {
         // get(), not getProperty(): this runs for every clinic, most of which have no portal, and
@@ -202,7 +206,9 @@ public record PatientPortalSettings(
 
     /**
      * The switch value, stripped and lower-cased, so {@code FALSE} switches the portal off like
-     * {@code false} rather than being read as on, as CARLOS's other boolean settings are.
+     * {@code false}; CARLOS's other boolean settings are case-insensitive too. Unlike
+     * {@code CarlosProperties.isPropertyActive}, {@code yes} and {@code on} are not accepted: the
+     * switch has exactly two words, and anything else is reported rather than guessed at.
      */
     // FindSecBugs IMPROPER_UNICODE: case folding of an on/off setting compared with the ASCII words
     // true and false; not a security or authorization decision.
