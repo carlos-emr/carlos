@@ -10,12 +10,12 @@ run in CARLOS before signing.
 The portal is optional and off by default. It is used only when
 `patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
 setting it back to `false` switches the portal off without removing its
-credentials. With the portal off, the rest of CARLOS is unaffected and no portal
-call is made. Case does not matter and a blank value counts as off; any value
-other than `true` or `false`, including one followed by a `#` comment on the same
-line, is a configuration error, and the log names `patient_portal.enabled`. Anything
-waiting on the portal when it is switched off, such as an unresolved portal
-email, waits until it is switched back on.
+credentials. With the portal off, the rest of CARLOS is unaffected, no portal
+call is made, and portal actions report that the portal is not switched on. Case
+does not matter and a blank value counts as off; any value other than `true` or
+`false`, including one followed by a `#` comment on the same line, is a
+configuration error, and the log names `patient_portal.enabled`. A change takes
+effect when CARLOS restarts.
 
 `patient_portal.certificate.pins` is required whenever the integration is
 enabled. Missing, empty, or malformed pins prevent client initialization;

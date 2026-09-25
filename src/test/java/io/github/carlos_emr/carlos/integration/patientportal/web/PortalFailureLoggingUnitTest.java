@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mockStatic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -33,6 +34,7 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.Duration;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LogEvent;
@@ -236,6 +238,29 @@ class PortalFailureLoggingUnitTest {
 
         assertThat(configurationLogOf(wrapped))
                 .contains("patient_portal.enabled must be true or false");
+    }
+
+    @Test
+    @DisplayName("should stop walking a cause chain that loops back on itself")
+    void shouldLogGenerically_whenTheCauseChainLoops() {
+        // Thrown directly, as a configuration error reaches the action outside Spring. Wrapped in
+        // BeanCreationException it would never get here: Spring's own contains() check, which runs
+        // first, does not stop on a cycle either, but Spring never builds one.
+        Supplier<RuntimeException> looping =
+                () -> {
+                    RuntimeException first = new RuntimeException("first");
+                    RuntimeException second = new RuntimeException("second");
+                    PatientPortalConfigurationException top =
+                            new PatientPortalConfigurationException("another setting is invalid");
+                    top.initCause(first);
+                    first.initCause(second);
+                    second.initCause(first);
+                    return top;
+                };
+
+        String log = assertTimeoutPreemptively(
+                Duration.ofSeconds(5), () -> configurationLogOf(looping));
+        assertThat(log).contains("check deployment settings");
     }
 
     @Test
