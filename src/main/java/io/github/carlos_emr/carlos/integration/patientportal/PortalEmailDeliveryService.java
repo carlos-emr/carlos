@@ -120,28 +120,35 @@ public class PortalEmailDeliveryService {
 
     /**
      * Whether encrypted email passwords go to the Portal. A malformed rollout setting must not
-     * silently restore legacy password delivery, and neither may a Portal that is switched off or
-     * not configured: every encrypted send would then fail later with a generic "password could
-     * not be prepared". Both are reported as a configuration error, which the compose page and the
-     * send action turn into the misconfiguration alert before a draft is used.
+     * silently restore legacy password delivery, and neither may a Portal that cannot actually be
+     * used: switched off, mistyped, or only partly configured. Every encrypted send would then fail
+     * later, one at a time, with a generic "password could not be prepared". All of these are
+     * reported as a configuration error, which the compose page and the send action turn into the
+     * misconfiguration alert before a draft is used.
      *
      * @throws PatientPortalConfigurationException when the setting is not true/false, or it is
-     *         true while {@link PatientPortalSettings#isConfigured()} is false
+     *         true while the Portal connection settings do not build
      */
     public static boolean isEnabled() {
         return isEnabled(CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY),
-                PatientPortalSettings::isConfigured);
+                PatientPortalSettings::fromCarlosProperties);
     }
 
-    static boolean isEnabled(String raw, java.util.function.BooleanSupplier portalConfigured) {
+    static boolean isEnabled(String raw, Supplier<PatientPortalSettings> portalSettings) {
         String value = raw == null ? "false" : raw.strip();
         if ("false".equals(value)) return false;
         if (!"true".equals(value)) {
             throw new PatientPortalConfigurationException("patient_portal.email.enabled must be true or false");
         }
-        if (!portalConfigured.getAsBoolean()) {
+        // Build the settings rather than only checking that some are present: a mistyped master
+        // switch or a partial connection counts as present but can never send.
+        try {
+            portalSettings.get();
+        } catch (PatientPortalConfigurationException invalid) {
+            throw invalid;
+        } catch (RuntimeException invalid) {
             throw new PatientPortalConfigurationException(
-                    "patient_portal.email.enabled is true but the Patient Portal is not enabled and configured");
+                    "patient_portal.email.enabled is true but the Patient Portal settings are not valid", invalid);
         }
         return true;
     }
