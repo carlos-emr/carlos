@@ -84,12 +84,12 @@ public abstract class PortalJsonAction extends ActionSupport {
         } catch (SecurityException exception) {
             return forbidden(ServletActionContext.getResponse(), exception);
         } catch (PatientPortalConfigurationException exception) {
-            return configurationFailure(ServletActionContext.getResponse());
+            return configurationFailure(ServletActionContext.getResponse(), exception);
         } catch (BeanCreationException exception) {
             if (!exception.contains(PatientPortalConfigurationException.class)) {
                 throw exception;
             }
-            return configurationFailure(ServletActionContext.getResponse());
+            return configurationFailure(ServletActionContext.getResponse(), exception);
         } catch (PortalRequestPreparationException exception) {
             // CARLOS refused to build the request from its own data, e.g. a provider name the portal
             // cannot accept. Only this type is caught: any other IllegalArgumentException is a
@@ -105,12 +105,33 @@ public abstract class PortalJsonAction extends ActionSupport {
 
     protected abstract String handleRequest() throws IOException;
 
-    private String configurationFailure(HttpServletResponse response) throws IOException {
+    private String configurationFailure(HttpServletResponse response, Exception exception)
+            throws IOException {
         // BeanCreationException may contain configured values in a nested cause. Never log it.
-        logger.error("patient portal configuration is invalid; check deployment settings");
+        // The one exception is the master-switch message, a fixed string naming only its key, so a
+        // mistyped patient_portal.enabled can be found from the log.
+        if (isSwitchValueError(exception)) {
+            logger.error("patient portal configuration is invalid: {}",
+                    PatientPortalSettings.ENABLED_VALUE_MESSAGE);
+        } else {
+            logger.error("patient portal configuration is invalid; check deployment settings");
+        }
         return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
                 "portal_configuration_invalid",
                 "The patient portal connection is not configured correctly. Contact an administrator.");
+    }
+
+    private static boolean isSwitchValueError(Throwable exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof PatientPortalConfigurationException
+                    && PatientPortalSettings.ENABLED_VALUE_MESSAGE.equals(cause.getMessage())) {
+                return true;
+            }
+            if (cause.getCause() == cause) {
+                return false;
+            }
+        }
+        return false;
     }
 
     static void requirePatientAccess(SecurityInfoManager security, LoggedInInfo session, int patient) {
@@ -180,8 +201,8 @@ public abstract class PortalJsonAction extends ActionSupport {
             "This action must be requested with POST.";
     private static final String NOT_CONFIGURED =
             """
-            The patient portal is not configured on this CARLOS server. An administrator needs to \
-            set the portal connection before these actions can be used.""";
+            The patient portal is not switched on for this CARLOS server. An administrator can turn \
+            it on with the patient_portal.enabled setting.""";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -190,17 +211,17 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     /**
-     * Resolves the portal client, or {@code null} when this deployment has no portal.
+     * Resolves the portal client, or {@code null} when this deployment has the portal switched off.
      *
-     * <p>Resolved here rather than in a constructor so an unconfigured portal is answerable. The
-     * bean is lazy and its factory throws when the portal is unconfigured, so a constructor lookup
+     * <p>Resolved here rather than in a constructor so a switched-off portal is answerable. The
+     * bean is lazy and its factory throws when the portal is off, so a constructor lookup
      * would blow up while Struts was still instantiating the action — producing a stack trace where
      * a sentence would do, and giving the action no chance to say what is actually wrong.
      *
-     * <p>Absence is checked before construction is attempted. "No portal on this server" is the
+     * <p>The switch is checked before construction is attempted. "Portal off on this server" is the
      * normal state for most CARLOS deployments and must not be reported as a fault; a portal that
-     * <em>is</em> configured but invalid still throws, because a half-configured portal must not
-     * look like an absent one.
+     * <em>is</em> switched on but misconfigured still throws, because a half-configured portal must
+     * not look like an absent one.
      */
     PatientPortalService portalService() {
         if (injectedService != null) {
