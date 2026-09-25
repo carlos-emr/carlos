@@ -21,9 +21,12 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -298,5 +301,96 @@ class IncomingDocUtilUnitTest {
         IncomingDocUtil.deletePage("1", "Fax", pdf.getName(), "1");
 
         assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", pdf.getName())).isEqualTo(1);
+    }
+
+    private File queuedPdf(String name, int pages) throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        if (!faxDir.isDirectory()) {
+            assertThat(faxDir.mkdirs()).isTrue();
+        }
+        File pdf = new File(faxDir, name);
+        try (PDDocument document = new PDDocument()) {
+            for (int page = 0; page < pages; page++) {
+                document.addPage(new PDPage());
+            }
+            document.save(pdf);
+        }
+        return pdf;
+    }
+
+    private File queuedBytes(String name, String content) throws Exception {
+        File file = incomingRoot.resolve("1").resolve("Fax").resolve(name).toFile();
+        Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
+        return file;
+    }
+
+    private long scratchFilesLeft() throws Exception {
+        try (Stream<Path> files = Files.list(incomingRoot.resolve("1").resolve("Fax"))) {
+            return files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count();
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse an extraction whose output name is already queued, leaving both files as they were")
+    void shouldRefuseExtraction_whenExtractedNameAlreadyQueued() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        byte[] before = Files.readAllBytes(source.toPath());
+        File existing = queuedBytes("faxE3.pdf", "an unfiled document");
+
+        assertThatThrownBy(() -> IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2"))
+                .hasMessageContaining("already in this queue");
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.readString(existing.toPath(), StandardCharsets.UTF_8)).isEqualTo("an unfiled document");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should leave the source writable and unchanged when the extraction range is invalid")
+    void shouldLeaveSourceWritable_whenExtractionRangeInvalid() throws Exception {
+        File source = queuedPdf("scan.pdf", 3);
+        byte[] before = Files.readAllBytes(source.toPath());
+
+        assertThatThrownBy(() -> IncomingDocUtil.extractPage("1", "Fax", "scan.pdf", "1-3"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(new File(source.getParentFile(), "scanE3.pdf")).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should extract pages without touching a queued document named like the old scratch file")
+    void shouldExtractPages_withoutTouchingDocumentNamedLikeOldScratchFile() throws Exception {
+        queuedPdf("fax.pdf", 3);
+        File lookalike = queuedBytes("Tfax.pdf", "a different patient's fax");
+
+        IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "faxE3.pdf")).isEqualTo(1);
+        assertThat(Files.readString(lookalike.toPath(), StandardCharsets.UTF_8)).isEqualTo("a different patient's fax");
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should rotate and delete pages without touching a queued document named like the old scratch file")
+    void shouldRotateAndDeletePages_withoutTouchingDocumentNamedLikeOldScratchFile() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        File lookalike = queuedBytes("Tfax.pdf", "a different patient's fax");
+
+        IncomingDocUtil.rotatePage("1", "Fax", "fax.pdf", "1", 90);
+        IncomingDocUtil.rotateAlPages("1", "Fax", "fax.pdf", 180);
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(source)) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+            assertThat(document.getPage(0).getRotation()).isEqualTo(270);
+        }
+        assertThat(Files.readString(lookalike.toPath(), StandardCharsets.UTF_8)).isEqualTo("a different patient's fax");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(scratchFilesLeft()).isZero();
     }
 }

@@ -41,8 +41,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermission;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,6 +56,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -113,6 +119,70 @@ public final class IncomingDocUtil {
 
         int extensionIndex = pdfName.length() - 4;
         return pdfName.substring(0, extensionIndex) + suffix + pdfName.substring(extensionIndex);
+    }
+
+    /**
+     * Creates a fresh scratch file for rewriting a queued document. It lives in the queue's own
+     * directory so the final {@link Files#move} is a same-filesystem rename, and it has a unique
+     * name. The old fixed {@code "T" + name} scratch path overwrote any queued document that
+     * happened to carry that name. The {@code .tmp} suffix keeps it out of the queue listing,
+     * which shows only {@code *.pdf}.
+     *
+     * @param queueDir the validated queue directory
+     * @param permissions the source document's permissions, applied so the replacement keeps
+     *        them; {@code null} leaves the owner-only default
+     * @return the new, empty scratch file
+     * @throws IOException if the scratch file cannot be created
+     */
+    // queueDir comes from getIncomingDocumentFilePath (validated against INCOMINGDOCUMENT_DIR); the name is generated here
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "queueDir comes from getIncomingDocumentFilePath (validated against INCOMINGDOCUMENT_DIR); the name is generated here")
+    private static File newScratchFile(File queueDir, Set<PosixFilePermission> permissions) throws IOException {
+        Path scratch = Files.createTempFile(queueDir.toPath(), ".carlos-", ".tmp");
+        if (permissions != null) {
+            try {
+                Files.setPosixFilePermissions(scratch, permissions);
+            } catch (IOException | UnsupportedOperationException e) {
+                MiscUtils.getLogger().warn("Could not copy a queued document's permissions to its scratch file");
+            }
+        }
+        return scratch.toFile();
+    }
+
+    /** The document's POSIX permissions with owner read/write added, or null where unsupported. */
+    private static Set<PosixFilePermission> writablePermissionsOf(File file) {
+        try {
+            Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file.toPath());
+            permissions.add(PosixFilePermission.OWNER_READ);
+            permissions.add(PosixFilePermission.OWNER_WRITE);
+            return permissions;
+        } catch (IOException | UnsupportedOperationException e) {
+            return null;
+        }
+    }
+
+    /** Best-effort removal of a scratch or partial output file after a failed page operation. */
+    private static void deleteQuietly(File file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file.toPath());
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn("Could not remove a scratch file left by a failed incoming-document page operation");
+        }
+    }
+
+    /** Puts a source document's permissions back after a failed operation marked it read-only. */
+    private static void restorePermissions(File file, Set<PosixFilePermission> permissions) {
+        if (permissions == null) {
+            file.setWritable(true, true);
+            return;
+        }
+        try {
+            Files.setPosixFilePermissions(file.toPath(), permissions);
+        } catch (IOException | UnsupportedOperationException e) {
+            MiscUtils.getLogger().warn("Could not restore a queued document's permissions after a failed page operation");
+        }
     }
 
     /**
@@ -520,48 +590,39 @@ public final class IncomingDocUtil {
     // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotatePage(String queueId, String myPdfDir, String myPdfName, String MyPdfPageNumber, int degrees) throws Exception {
-        long lastModified;
-        String filePathName, tempFilePathName;
-        int rot;
-        int rotatedegrees;
-
-        // Validate myPdfName for temp file
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
-        
+
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
-        tempFilePathName = validatedTempFile.getPath();
-        filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
+        String filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
         filePathName = f.getPath();
-        lastModified = f.lastModified();
+        long lastModified = f.lastModified();
 
-        try (PdfReader reader = new PdfReader(filePathName);
-             FileOutputStream fos = new FileOutputStream(validatedTempFile)) {
-            rot = reader.getPageRotation(Integer.parseInt(MyPdfPageNumber));
-            rotatedegrees = rot + degrees;
-            rotatedegrees = rotatedegrees % 360;
-
-            reader.getPageN(Integer.parseInt(MyPdfPageNumber)).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
-            PdfStamper stp = new PdfStamper(reader, fos);
-            stp.close();
-        }
-
-
-        boolean success = f.delete();
-
-        if (success) {
-            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-            f1.setLastModified(lastModified);
-            success = f1.renameTo(f);
-            if (!success) {
-                throw new Exception("Error in renaming file from:" + tempFilePathName + " to " + filePathName);
+        File scratch = newScratchFile(new File(basePath), writablePermissionsOf(f));
+        boolean replaced = false;
+        try {
+            try (PdfReader reader = new PdfReader(filePathName);
+                 OutputStream fos = Files.newOutputStream(scratch.toPath())) {
+                int rotatedegrees = (reader.getPageRotation(Integer.parseInt(MyPdfPageNumber)) + degrees) % 360;
+                reader.getPageN(Integer.parseInt(MyPdfPageNumber)).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+                PdfStamper stp = new PdfStamper(reader, fos);
+                stp.close();
             }
-        } else {
-            throw new Exception("Error in deleting file:" + filePathName);
+            // One move instead of delete-then-rename: a failed rename after the delete lost the
+            // queued document outright.
+            Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            replaced = true;
+        } finally {
+            if (!replaced) {
+                deleteQuietly(scratch);
+            }
+        }
+        if (!f.setLastModified(lastModified)) {
+            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after rotating a page");
         }
     }
+
 
     /**
      * Rotates all pages of a PDF document by the specified number of degrees.
@@ -577,49 +638,40 @@ public final class IncomingDocUtil {
     // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotateAlPages(String queueId, String myPdfDir, String myPdfName, int degrees) throws Exception {
-        long lastModified;
-        String filePathName, tempFilePathName;
-        int rot;
-        int rotatedegrees;
-
-        // Validate myPdfName for temp file
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
-        
+
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
-        tempFilePathName = validatedTempFile.getPath();
-        filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
+        String filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
         filePathName = f.getPath();
-        lastModified = f.lastModified();
+        long lastModified = f.lastModified();
 
-        try (PdfReader reader = new PdfReader(filePathName);
-             FileOutputStream fos = new FileOutputStream(validatedTempFile)) {
-            for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
-                rot = reader.getPageRotation(p);
-                rotatedegrees = rot + degrees;
-                rotatedegrees = rotatedegrees % 360;
-
-                reader.getPageN(p).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+        File scratch = newScratchFile(new File(basePath), writablePermissionsOf(f));
+        boolean replaced = false;
+        try {
+            try (PdfReader reader = new PdfReader(filePathName);
+                 OutputStream fos = Files.newOutputStream(scratch.toPath())) {
+                for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
+                    int rotatedegrees = (reader.getPageRotation(p) + degrees) % 360;
+                    reader.getPageN(p).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+                }
+                PdfStamper stp = new PdfStamper(reader, fos);
+                stp.close();
             }
-            PdfStamper stp = new PdfStamper(reader, fos);
-            stp.close();
+            // One move instead of delete-then-rename, as in rotatePage.
+            Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            replaced = true;
+        } finally {
+            if (!replaced) {
+                deleteQuietly(scratch);
+            }
         }
-
-        boolean success = f.delete();
-
-        if (success) {
-            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-            f1.setLastModified(lastModified);
-            success = f1.renameTo(f);
-            if (!success) {
-                throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
-            }
-        } else {
-            throw new Exception("Error in deleting file:" + filePathName);
+        if (!f.setLastModified(lastModified)) {
+            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after rotating its pages");
         }
     }
+
 
     /**
      * Deletes a single page from a PDF document using OpenPDF PdfCopy. The deleted page
@@ -636,62 +688,65 @@ public final class IncomingDocUtil {
     // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void deletePage(String queueId, String myPdfDir, String myPdfName, String PageNumberToDelete) throws Exception {
-        long lastModified;
-        String filePathName, tempFilePathName;
-
-        // Validate myPdfName for temp file
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
-        
+
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
-        tempFilePathName = validatedTempFile.getPath();
-        filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
+        String filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
         filePathName = f.getPath();
-        lastModified = f.lastModified();
+        long lastModified = f.lastModified();
+        Set<PosixFilePermission> permissions = writablePermissionsOf(f);
         f.setReadOnly();
 
         File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
-        try (PdfReader reader = new PdfReader(filePathName);
-             FileOutputStream copyFos = new FileOutputStream(validatedTempFile)) {
-            String deleteFileName = addPdfNameSuffix(myPdfName,
-                    "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
-            validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
+        File scratch = newScratchFile(new File(basePath), permissions);
+        boolean replaced = false;
+        try {
+            try (PdfReader reader = new PdfReader(filePathName);
+                 OutputStream copyFos = Files.newOutputStream(scratch.toPath())) {
+                String deleteFileName = addPdfNameSuffix(myPdfName,
+                        "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
+                validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
 
-            try (FileOutputStream deleteFos = new FileOutputStream(validatedDeleteFile)) {
-                Document document = new Document(reader.getPageSizeWithRotation(1));
-                PdfCopy copy = new PdfCopy(document, copyFos);
-                PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
-                document.open();
+                try (FileOutputStream deleteFos = new FileOutputStream(validatedDeleteFile)) {
+                    Document document = new Document(reader.getPageSizeWithRotation(1));
+                    PdfCopy copy = new PdfCopy(document, copyFos);
+                    PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
+                    document.open();
 
-                try {
-                    for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                        if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
-                            copy.addPage(copy.getImportedPage(reader, pageNumber));
-                        } else {
-                            deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                    try {
+                        for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
+                            if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
+                                copy.addPage(copy.getImportedPage(reader, pageNumber));
+                            } else {
+                                deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                            }
                         }
+                    } finally {
+                        // PdfCopy must be closed before Document.close() to flush buffered pages
+                        copy.close();
+                        deleteCopy.close();
+                        document.close();
                     }
-                } finally {
-                    // PdfCopy must be closed before Document.close() to flush buffered pages
-                    copy.close();
-                    deleteCopy.close();
-                    document.close();
                 }
             }
+
+            deleteRecycledPageIfDisabled(validatedDeleteFile);
+
+            // Replace the queue entry in one move rather than deleting it and then renaming the
+            // replacement over the gap. Delete-then-rename lost the document outright whenever the
+            // rename failed (permissions, a cross-filesystem temp dir): the queue entry was already
+            // gone and the remaining pages were left stranded under the temp name.
+            Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            replaced = true;
+        } finally {
+            if (!replaced) {
+                deleteQuietly(scratch);
+                restorePermissions(f, permissions);
+            }
         }
-
-        deleteRecycledPageIfDisabled(validatedDeleteFile);
-
-        File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-
-        // Replace the queue entry in one move rather than deleting it and then renaming the
-        // replacement over the gap. Delete-then-rename lost the document outright whenever the
-        // rename failed (permissions, a cross-filesystem temp dir): the queue entry was already
-        // gone and the remaining pages were left stranded under the temp name.
-        Files.move(f1.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
         // Carrying the original mtime over is cosmetic and must not abort the operation:
         // File.setLastModified is best-effort and returns false on filesystems that do not
@@ -700,6 +755,7 @@ public final class IncomingDocUtil {
             MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after deleting a page");
         }
     }
+
 
     private static void deleteRecycledPageIfDisabled(File validatedDeleteFile) throws IOException {
         if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")
@@ -727,20 +783,15 @@ public final class IncomingDocUtil {
     // case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
-        long lastModified;
-        String filePathName, tempFilePathName;
-
-        // Validate myPdfName for temp file
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
-        
+
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
-        tempFilePathName = validatedTempFile.getPath();
-        filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
+        String filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = PathValidationUtils.validateExistingPath(new File(filePathName), new File(basePath));
         filePathName = f.getPath();
-        lastModified = f.lastModified();
+        long lastModified = f.lastModified();
+        Set<PosixFilePermission> permissions = writablePermissionsOf(f);
         f.setReadOnly();
 
         File extractBaseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
@@ -750,45 +801,69 @@ public final class IncomingDocUtil {
         Document document = null;
         PdfCopy copy = null;
         PdfCopy extractCopy = null;
-        FileOutputStream copyFos = null;
-        FileOutputStream extractFos = null;
-        String extractPath = null;
+        OutputStream copyFos = null;
+        OutputStream extractFos = null;
+        File validatedExtractFile = null;
+        File scratch = null;
+        boolean extractCreated = false;
+        boolean replaced = false;
 
         try {
-            reader = new PdfReader(filePathName);
-            String extractFileName = addPdfNameSuffix(myPdfName,
-                    "E" + Integer.toString(reader.getNumberOfPages()));
-            File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
-            extractPath = validatedExtractFile.getPath();
+            try {
+                reader = new PdfReader(filePathName);
+                String extractFileName = addPdfNameSuffix(myPdfName,
+                        "E" + Integer.toString(reader.getNumberOfPages()));
+                validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
 
-            extractList = buildExtractList(pageNumbersToExtract, reader.getNumberOfPages());
+                extractList = buildExtractList(pageNumbersToExtract, reader.getNumberOfPages());
 
-            document = new Document(reader.getPageSizeWithRotation(1));
-            copyFos = new FileOutputStream(validatedTempFile);
-            copy = new PdfCopy(document, copyFos);
-            extractFos = new FileOutputStream(validatedExtractFile);
-            extractCopy = new PdfCopy(document, extractFos);
-            document.open();
-            copyExtractedPages(reader, extractList, copy, extractCopy);
+                scratch = newScratchFile(new File(basePath), permissions);
+                copyFos = Files.newOutputStream(scratch.toPath());
+                // CREATE_NEW: an earlier extraction (or any queued document) under this name is
+                // someone's unfiled clinical document; overwriting it lost it without a trace.
+                try {
+                    extractFos = Files.newOutputStream(validatedExtractFile.toPath(),
+                            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                } catch (FileAlreadyExistsException e) {
+                    throw new Exception("A document named " + extractFileName
+                            + " is already in this queue. File or delete it, then extract again.", e);
+                }
+                extractCreated = true;
+
+                document = new Document(reader.getPageSizeWithRotation(1));
+                copy = new PdfCopy(document, copyFos);
+                extractCopy = new PdfCopy(document, extractFos);
+                document.open();
+                copyExtractedPages(reader, extractList, copy, extractCopy);
+            } finally {
+                closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader);
+            }
+
+            // One move instead of delete-then-rename, for the same reason as deletePage: a failed
+            // rename after an unconditional delete lost the queued document entirely.
+            Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            replaced = true;
         } finally {
-            closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader);
+            if (!replaced) {
+                // Leave the queue exactly as it was: the source untouched and writable again, no
+                // scratch file, and no half-written extract (but never one this call did not create).
+                deleteQuietly(scratch);
+                if (extractCreated) {
+                    deleteQuietly(validatedExtractFile);
+                }
+                restorePermissions(f, permissions);
+            }
         }
-
-        File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-
-        // One move instead of delete-then-rename, for the same reason as deletePage: a failed
-        // rename after an unconditional delete lost the queued document entirely.
-        Files.move(f1.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
         // Both mtime carry-overs are cosmetic and deliberately not fatal.
         if (!f.setLastModified(lastModified)) {
             MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after extracting pages");
         }
-        File f2 = PathValidationUtils.validateExistingPath(new File(extractPath), extractBaseDir);
-        if (!f2.setLastModified(lastModified)) {
+        if (!validatedExtractFile.setLastModified(lastModified)) {
             MiscUtils.getLogger().warn("Could not restore the last modified time of an extracted document");
         }
     }
+
 
     private static ArrayList<String> buildExtractList(String pageNumbersToExtract, int pageCount) {
         String sanitizedPageNumbersToExtract = LogSafe.sanitize(pageNumbersToExtract);
@@ -901,7 +976,7 @@ public final class IncomingDocUtil {
     }
 
     private static void closePageExtractionResources(PdfCopy copy, PdfCopy extractCopy, Document document,
-            FileOutputStream copyFos, FileOutputStream extractFos, PdfReader reader) {
+            OutputStream copyFos, OutputStream extractFos, PdfReader reader) {
         closePdfResource(copy, "Error closing copy writer during page extraction");
         closePdfResource(extractCopy, "Error closing extract writer during page extraction");
         closePdfResource(document, "Error closing PDF document during page extraction");
