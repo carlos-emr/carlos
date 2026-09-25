@@ -251,6 +251,7 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), ArgumentMatchers.<String>isNull())).thenReturn(true);
         for (String demographicId : new String[]{"9999999999", "2147483648", "12345678901234567890", "7x", "-7"}) {
             MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setMethod("POST");
             request.setParameter("transactionType", "DIRECT");
             request.setParameter("method", "sendDirectEmail");
             request.setParameter("demographicId", demographicId);
@@ -268,6 +269,69 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         }
         verifyNoInteractions(emailManager);
         verifyNoInteractions(demographicManager);
+    }
+
+    @Test
+    @DisplayName("should refuse GET and HEAD with 405 and Allow: POST before any send or lookup")
+    void shouldRejectWithMethodNotAllowed_whenRequestIsNotPost() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), ArgumentMatchers.<String>isNull())).thenReturn(true);
+        for (String httpMethod : new String[]{"GET", "HEAD"}) {
+            for (String dispatch : new String[]{"sendDirectEmail", "cancel", null}) {
+                MockHttpServletRequest request = new MockHttpServletRequest();
+                request.setMethod(httpMethod);
+                request.setParameter("transactionType", "DIRECT");
+                request.setParameter("demographicId", "7");
+                if (dispatch != null) {
+                    request.setParameter("method", dispatch);
+                }
+                LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+                MockHttpServletResponse response = new MockHttpServletResponse();
+                EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
+                        emailComposeManager, demographicManager);
+                action.request = request;
+                action.response = response;
+
+                String result = action.execute();
+
+                String label = httpMethod + " method=" + dispatch;
+                assertThat(result).as(label).isEqualTo(EmailSend2Action.NONE);
+                assertThat(response.getStatus()).as(label).isEqualTo(405);
+                assertThat(response.getHeader("Allow")).as(label).isEqualTo("POST");
+                assertThat(response.getRedirectedUrl()).as(label).isNull();
+            }
+        }
+        verifyNoInteractions(emailManager);
+        verifyNoInteractions(eformDataManager);
+        verifyNoInteractions(demographicManager);
+    }
+
+    @Test
+    @DisplayName("should dispatch the send when the request is a POST")
+    void shouldDispatchSend_whenRequestIsPost() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), ArgumentMatchers.<String>isNull())).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("demographicId", "7");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        EmailLog log = new EmailLog();
+        log.setStatus(EmailLog.EmailStatus.SUCCESS);
+        when(emailManager.sendEmail(any(), any())).thenReturn(log);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
+                emailComposeManager, demographicManager);
+        action.request = request;
+        action.response = response;
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(EmailSend2Action.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        verify(emailManager).sendEmail(any(), any());
     }
 
     @Test

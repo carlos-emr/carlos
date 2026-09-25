@@ -109,6 +109,9 @@ public class EmailSend2Action extends ActionSupport {
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
      *
+     * <p>Every workflow is a mutation, so the route is POST-only: a GET or HEAD is refused with
+     * 405 and an {@code Allow: POST} header before any parameter is read or side effect fires.</p>
+     *
      * <p>This method implements method-based routing for the following email workflows:</p>
      * <ul>
      *   <li><strong>sendDirectEmail</strong> - Sends email directly without EForm context</li>
@@ -123,6 +126,20 @@ public class EmailSend2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
             throw new SecurityException("missing required sec object (_email)");
+        }
+
+        // Every route mutates: sendDirectEmail and the default sendEFormEmail deliver mail and
+        // persist an EmailLog (and may delete the eForm), and cancel only ever arrives from the
+        // compose form's POST. HttpMethodGuardFilter does not classify this route, so the
+        // POST-only gate lives here, before any parameter is parsed or any side effect fires.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
         }
 
         // Every route parses demographicId into an int (EmailData.setDemographicNo, and the retry
