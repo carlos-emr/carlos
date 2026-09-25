@@ -1011,9 +1011,20 @@ except ValueError:
             # otherwise the rm -rf of the old home below pulls the working
             # directory from under a live browser, the old driver keeps the port,
             # and the new carlos-emr-render-browser fails to bind.
+            # If the stop fails the old driver is still running out of that home, so
+            # the home is kept and the operator is told how to finish; this block runs
+            # on every configure, so a later dpkg-reconfigure completes the move.
+            OLD_RENDERER_LIVE=0
             if [ -d /run/systemd/system ] \
                 && systemctl is-active --quiet carlos-emr-chromedriver.service; then
                 deb-systemd-invoke stop carlos-emr-chromedriver.service >/dev/null 2>&1 || true
+                if systemctl is-active --quiet carlos-emr-chromedriver.service; then
+                    OLD_RENDERER_LIVE=1
+                    echo "carlos-emr: WARNING: the old carlos-emr-chromedriver.service did not stop;" >&2
+                    echo "carlos-emr: keeping ${STATE}/render until it does. Stop it, then run:" >&2
+                    echo "carlos-emr:   sudo systemctl stop carlos-emr-chromedriver.service" >&2
+                    echo "carlos-emr:   sudo dpkg-reconfigure carlos-emr" >&2
+                fi
             fi
             if [ ! -e /usr/lib/systemd/system/carlos-emr-chromedriver.service ] \
                 && [ ! -e /lib/systemd/system/carlos-emr-chromedriver.service ]; then
@@ -1032,7 +1043,8 @@ except ValueError:
                     rm -f "${OLD_RENDER_ENV}"
                 fi
             fi
-            if [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
+            if [ "${OLD_RENDERER_LIVE}" = 0 ] \
+                && [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
                 rm -rf "${STATE}/render"
             fi
             if getent passwd carlos-render >/dev/null \
