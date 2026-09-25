@@ -110,8 +110,11 @@ Its modern replacement is the `CarlosTestBase` family (see [`README.md`](README.
 - **AuthUtils**: authentication/authorization test helpers
 - **ConfigUtils**: test configuration management (loaded `over_ride_config.properties`)
 
-Some of these utilities survive under `org.oscarehr.common.dao.*` for backward
-compatibility; the JUnit 4 tests that consumed them do not.
+These four helpers survived the migration unchanged and still live at
+`src/test/java/io/github/carlos_emr/carlos/commn/dao/utils/`. The current JUnit 5 suite
+imports `io.github.carlos_emr.carlos.commn.dao.utils.*` extensively, so they are live,
+reusable test infrastructure rather than legacy leftovers; only the JUnit 4 tests that
+originally consumed them are gone.
 
 ## How the Legacy Suite Ran
 
