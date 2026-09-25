@@ -53,6 +53,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doAnswer;
@@ -188,7 +189,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("concurrent close cannot shift a saved card's index onto another medication")
-    void shouldSaveSubmittedCards_whenAnotherWindowClosesPrecedingCard() throws Exception {
+    void shouldSaveSubmittedCards_whenAnotherWindowClosesCardDuringSave() throws Exception {
         try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(111111)) {
             concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
             concurrentBean.setProviderNo("999998");
@@ -200,11 +201,12 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             concurrentBean.getStashList().add(third);
             RxSessionBeanResolver.register(request.getSession(), concurrentBean);
             request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            request.setParameter("drugName_111111", "First medication");
             request.setParameter("drugName_222222", "Second medication");
             request.setParameter("drugName_333333", "Third medication");
             action = spy(action);
             doAnswer(invocation -> {
-                assertThat(concurrentBean.getStash()).containsExactly(second, third);
+                assertThat(concurrentBean.getStash()).containsExactly(first, second, third);
                 assertThat(second.getBrandName()).isEqualTo("Second medication");
                 assertThat(third.getBrandName()).isEqualTo("Third medication");
                 return "9001";
@@ -216,6 +218,76 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(concurrentBean.getStash()).containsExactly(second, third);
             verify(action).persistStash(mockLoggedInInfo, concurrentBean);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"draft", "customNote", "persisted"})
+    @DisplayName("a stale form cannot remove or save a card staged in another window")
+    void shouldPreserveAllState_whenSaveOmitsCurrentCard(String cardType) throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription first = draft(1, "original first");
+        RxPrescriptionData.Prescription unseen = new RxPrescriptionData.Prescription(
+                "persisted".equals(cardType) ? 9001 : 0, "999998", DEMOGRAPHIC_NO);
+        unseen.setRandomId(2);
+        unseen.setBrandName("unseen second");
+        unseen.setCustomNote("customNote".equals(cardType));
+        unseen.setDrugReferenceId(55);
+        bean.getStashList().add(first);
+        bean.getStashList().add(unseen);
+        bean.setStashIndex(1);
+        bean.addReRxDrugIdList("55");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "submitted change");
+        request.setParameter("instructions_1", "submitted new instruction");
+        RxSessionBean otherPatient = new RxSessionBean();
+        otherPatient.setDemographicNo(2002);
+        RxPrescriptionData.Prescription otherDraft = draft(3, "other patient");
+        otherPatient.getStashList().add(otherDraft);
+        RxSessionBeanResolver.register(request.getSession(), otherPatient);
+        RxSessionBean reprint = new RxSessionBean();
+        reprint.setDemographicNo(DEMOGRAPHIC_NO);
+        RxReprintWorkspace.Entry previous = RxReprintWorkspace.store(request.getSession(), reprint, "saved note");
+        action = spy(action);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentType()).isEqualTo("application/json");
+        assertThat(response.getContentAsString()).isEqualTo("{\"error\":\"STALE_RX_STASH\"}");
+        assertThat(bean.getStashList()).containsExactly(first, unseen);
+        assertThat(first.getBrandName()).isEqualTo("original first");
+        assertThat(first.getSpecial()).isEqualTo("Take daily");
+        assertThat(unseen.getBrandName()).isEqualTo("unseen second");
+        assertThat(bean.getStashIndex()).isEqualTo(1);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+        assertThat(otherPatient.getStashList()).containsExactly(otherDraft);
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO)).isSameAs(previous);
+        verify(action, never()).persistStash(any(), any());
+        verifyNoInteractions(mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("an acknowledged close is compatible with saving every remaining card")
+    void shouldSaveRemainingCards_whenClosedCardWasAlreadyRemoved() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription closed = draft(1, "closed");
+        RxPrescriptionData.Prescription remaining = draft(2, "remaining");
+        bean.getStashList().add(closed);
+        bean.getStashList().add(remaining);
+        bean.removeStashItem(0);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        // A stale extra field cannot bring the acknowledged-close card back.
+        request.setParameter("drugName_1", "closed stale form card");
+        request.setParameter("drugName_0002", "current remaining");
+        action = spy(action);
+        doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+        assertThat(bean.getStashList()).containsExactly(remaining);
+        assertThat(remaining.getBrandName()).isEqualTo("current remaining");
+        verify(action).persistStash(mockLoggedInInfo, bean);
     }
 
     @Test

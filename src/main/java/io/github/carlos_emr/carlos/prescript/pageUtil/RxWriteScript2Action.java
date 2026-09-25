@@ -74,7 +74,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -1299,8 +1298,9 @@ public final class RxWriteScript2Action extends ActionSupport {
     /**
      * Saves the staged prescription. POST-only; the request must name the window's patient, whose bean is
      * saved (409 otherwise), and the caller needs {@code _rx} write globally and for that patient with record
-     * access, checked before anything is pruned or saved. A save that names no staged card is refused (400)
-     * without touching the stash; re-prescribed sources are archived only when their replacement is saved.
+     * access, checked before anything is changed or saved. A save that names no staged card is refused (400);
+     * one omitting a current card is stale and refused (409), before changing any draft. Re-prescribed
+     * sources are archived only when their replacement is saved.
      *
      * @return {@code NONE} after an error response, otherwise {@code refresh}
      * @throws SecurityException when the caller may not write Rx for the patient
@@ -1310,7 +1310,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
         // Saves the prescription, its drugs and any ReRx archival: POST-only, checked before the
-        // stash is resolved or pruned (CSRFGuard does not check GET). SearchDrug3 posts it.
+        // stash is resolved or changed (CSRFGuard does not check GET). SearchDrug3 posts it.
         if (!"POST".equals(request.getMethod())) {
             response.setHeader(HEADER_ALLOW, "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED);
@@ -1326,14 +1326,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
-        // Before pruning or saving anything: patient-level _rx write and record access for the
+        // Before changing or saving anything: patient-level _rx write and record access for the
         // patient being saved, not only the global _rx write checked above (#3908).
         RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
                 bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
         RxReprintWorkspace.Entry previousReprint = RxReprintWorkspace.find(request.getSession(), bean.getDemographicNo());
         String result;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        // Keep card lookup, form updates, pruning and persistence together. A close from another
+        // Keep card-set validation, form updates and persistence together. A close from another
         // window must not shift a cached index onto another drug partway through this save.
         synchronized (bean) {
             result = updateSaveAllDrugsLocked(bean, loggedInInfo);
@@ -1348,12 +1348,10 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
     private String updateSaveAllDrugsLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) throws IOException {
-        List<String> paramList = new ArrayList<String>();
         Enumeration em = request.getParameterNames();
         List<String> randNum = new ArrayList<String>();
         while (em.hasMoreElements()) {
             String ele = em.nextElement().toString();
-            paramList.add(ele);
             if (ele.startsWith("drugName_")) {
                 String rNum = ele.substring(9);
                 if (!randNum.contains(rNum)) {
@@ -1362,7 +1360,10 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
         }
 
-        List<Integer> existingIndex = new ArrayList();
+        if (!validateSubmittedStash(bean, randNum)) {
+            return NONE;
+        }
+
         for (String num : randNum) {
             int randomId;
             try {
@@ -1376,7 +1377,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (stashIndex == -1) {
                     continue;
                 } else {
-                    existingIndex.add(stashIndex);
                     RxPrescriptionData.Prescription rx = bean.getStashItem(stashIndex);
 
                     Boolean patientCompliance = null;
@@ -1621,18 +1621,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 continue;
             }
         }
-        // A submission that names no staged card (no drugName_* field, or only stale random ids)
-        // is an empty save. Refuse it BEFORE pruning: removeClosedStashItems() treats every stash
-        // item missing from the form as closed, so pruning first would wipe the whole stash and
-        // only then have saveDrug() skip the save (#3869). The page blocks this too; a direct or
-        // stale POST must not be able to clear the prescriber's drafts.
-        if (existingIndex.isEmpty()) {
-            logger.info("Refused prescription save: the submission names no staged medication");
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-        removeClosedStashItems(bean, existingIndex);
-
         // The patient and permission were checked before taking the bean monitor. Re-resolving
         // through saveDrug here would acquire the session mutex while holding the bean lock.
         persistStash(loggedInInfo, bean);
@@ -1640,45 +1628,32 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     /**
-     * Drops every stash entry whose card was closed in the browser, i.e. every index that
-     * is not in {@code keptIndexes}.
-     *
-     * <p>Indexes are removed in descending order. {@link RxSessionBean#removeStashItem(int)}
-     * is a positional {@code ArrayList.remove}, so removing index 0 before index 2 shifts
-     * the old index 2 down to 1 and the second removal then deletes a card the prescriber
-     * kept. With two or more cards closed, that saved a drug the prescriber had dismissed
-     * and dropped one they meant to prescribe. The list of indexes is computed on a copy so
-     * the caller's list is never mutated.</p>
-     *
-     * <p>Package-private for {@code RxWriteScript2ActionStashRemovalUnitTest}.</p>
-     *
-     * @param bean        the Rx session whose stash is pruned
-     * @param keptIndexes stash indexes that still have a card on the submitted form
-     * @since 2026-09-24
+     * Checks the whole submitted card set before any draft is changed. A missing form field is
+     * not a close: another window may have staged that card after this form was rendered.
+     * Explicit close requests remove cards from the shared stash before acknowledging the UI.
+     * Called while holding the bean monitor, together with the subsequent updates and save.
      */
-    // The shared session bean is the lock used by all synchronized stash accessors. A separate
-    // action-local monitor would not serialize operations from two windows of the same patient.
-    @SuppressWarnings("java:S2445")
-    static void removeClosedStashItems(RxSessionBean bean, List<Integer> keptIndexes) {
-        synchronized (bean) {
-            removeClosedStashItemsLocked(bean, keptIndexes);
-        }
-    }
-
-    private static void removeClosedStashItemsLocked(RxSessionBean bean, List<Integer> keptIndexes) {
-        List<Integer> closedIndexes = new ArrayList<>();
-        for (int i = 0; i < bean.getStashSize(); i++) {
-            if (!keptIndexes.contains(i)) {
-                closedIndexes.add(i);
+    private boolean validateSubmittedStash(RxSessionBean bean, List<String> submittedKeys) throws IOException {
+        Set<Integer> submittedIndexes = new HashSet<>();
+        for (String key : submittedKeys) {
+            try {
+                int index = bean.getIndexFromRx(Integer.parseInt(key));
+                if (index >= 0) submittedIndexes.add(index);
+            } catch (NumberFormatException _) {
+                // Malformed or stale keys cannot name a current card.
             }
         }
-        closedIndexes.sort(Collections.reverseOrder());
-        for (int index : closedIndexes) {
-            bean.removeStashItem(index);
+        if (submittedIndexes.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return false;
         }
-        if (bean.getStashIndex() >= bean.getStashSize()) {
-            bean.setStashIndex(bean.getStashSize() - 1);
+        if (submittedIndexes.size() != bean.getStashSize()) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"STALE_RX_STASH\"}");
+            return false;
         }
+        return true;
     }
 
     /**
