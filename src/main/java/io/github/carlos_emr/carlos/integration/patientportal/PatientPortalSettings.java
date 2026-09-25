@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -69,6 +70,12 @@ public record PatientPortalSettings(
         Duration requestTimeout,
         Set<String> certificatePins) {
 
+    /**
+     * The master switch. The portal is off unless this is {@code true}, in any case, so a clinic that
+     * does not use it needs no other setting, and one that does can switch it off without removing
+     * its credentials.
+     */
+    public static final String ENABLED_KEY = "patient_portal.enabled";
     public static final String BASE_URL_KEY = "patient_portal.base_url";
     public static final String CLINIC_ID_KEY = "patient_portal.clinic_id";
     public static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
@@ -105,6 +112,10 @@ public record PatientPortalSettings(
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
+    private static final String NOT_ENABLED_MESSAGE =
+            "patient portal is not enabled: set " + ENABLED_KEY + "=true to use it";
+    /** A fixed message naming only the key, so callers may log it; it never carries a value. */
+    public static final String ENABLED_VALUE_MESSAGE = ENABLED_KEY + " must be true or false";
     private static final String PLAINTEXT_MESSAGE =
             "%s must begin with a lowercase https:// ; refusing to send the portal token over"
                     + " plaintext";
@@ -141,39 +152,70 @@ public record PatientPortalSettings(
      * <p>The Spring wiring's entry point. Kept separate from {@link #fromProperties(Function)} so
      * the validation stays testable without the {@code CarlosProperties} singleton.
      *
-     * @throws PatientPortalConfigurationException if the portal is unconfigured or misconfigured
+     * @throws PatientPortalConfigurationException if the portal is switched off, the switch is
+     *     neither {@code true} nor {@code false}, or the connection settings are absent or invalid
      */
     public static PatientPortalSettings fromCarlosProperties() {
-        return fromProperties(key -> CarlosProperties.getInstance().getProperty(key));
+        return fromDeploymentProperties(key -> CarlosProperties.getInstance().getProperty(key));
     }
 
     /**
-     * Reports whether any connection setting is present. Partial configurations proceed to
-     * validation so they produce a configuration error instead of looking like an absent portal.
+     * Reads the settings a deployment runs with: the master switch must be on, then the connection
+     * settings are validated as {@link #fromProperties(Function)} does.
+     *
+     * @throws PatientPortalConfigurationException if {@link #ENABLED_KEY} is not {@code true}, or
+     *     the connection settings are absent or invalid
+     */
+    static PatientPortalSettings fromDeploymentProperties(Function<String, String> lookup) {
+        String enabled = switchValue(lookup);
+        if (isOff(enabled)) {
+            throw new PatientPortalConfigurationException(NOT_ENABLED_MESSAGE);
+        }
+        if (!"true".equals(enabled)) {
+            throw new PatientPortalConfigurationException(ENABLED_VALUE_MESSAGE);
+        }
+        return fromProperties(lookup);
+    }
+
+    /**
+     * Reports whether the clinic has switched the portal on. Absent, blank or {@code false} means
+     * off, the normal state for a clinic that does not use it, whatever connection settings are
+     * present.
+     *
+     * <p>Any other value counts as on, so that constructing the settings reports it: a mistyped
+     * switch, like a partial configuration, must surface as a configuration error rather than
+     * quietly looking like an absent portal. Once on, missing connection settings are reported the
+     * same way.
+     *
+     * @return {@code true} if the switch is on or holds an invalid value; it does not mean the
+     *     connection settings are complete, which only {@link #fromCarlosProperties()} checks
      */
     public static boolean isConfigured() {
+        // get(), not getProperty(): this runs for every clinic, most of which have no portal, and
+        // getProperty() logs a missing-key warning that such a clinic should never see.
         return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
-        for (String key :
-                new String[] {
-                    BASE_URL_KEY,
-                    CLINIC_ID_KEY,
-                    SERVICE_TOKEN_KEY,
-                    STAFF_ASSERTION_KEY,
-                    STAFF_ASSERTION_KEY_ID,
-                    CONNECT_TIMEOUT_KEY,
-                    READ_TIMEOUT_KEY,
-                    REQUEST_TIMEOUT_KEY,
-                    CERTIFICATE_PINS_KEY
-                }) {
-            String value = lookup.apply(key);
-            if (value != null && !value.isBlank()) {
-                return true;
-            }
-        }
-        return false;
+        return !isOff(switchValue(lookup));
+    }
+
+    private static boolean isOff(String enabled) {
+        return enabled.isEmpty() || "false".equals(enabled);
+    }
+
+    /**
+     * The switch value, stripped and lower-cased, so {@code FALSE} switches the portal off like
+     * {@code false}; CARLOS's other boolean settings are case-insensitive too. Unlike
+     * {@code CarlosProperties.isPropertyActive}, {@code yes} and {@code on} are not accepted: the
+     * switch has exactly two words, and anything else is reported rather than guessed at.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case folding of an on/off setting compared with the ASCII words
+    // true and false; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of an on/off setting compared with the ASCII words true and false; not a security or authorization decision")
+    private static String switchValue(Function<String, String> lookup) {
+        String value = lookup.apply(ENABLED_KEY);
+        return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
     }
 
     /**
