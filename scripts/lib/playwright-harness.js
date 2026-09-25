@@ -815,8 +815,17 @@ async function launchBrowser(config) {
   return chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
 }
 
-async function newContext(browser, config) {
-  return browser.newContext({ ignoreHTTPSErrors: config.ignoreHTTPSErrors === true });
+/**
+ * A browser context for the application under test.
+ *
+ * `options` is merged over the defaults for the checks that need a context the
+ * default cannot express -- in particular a browser that asks for a language
+ * other than the runner's, which is how a locale check proves the server
+ * answers the BROWSER's Accept-Language rather than its own JVM locale. Callers
+ * that pass nothing get exactly the previous behaviour.
+ */
+async function newContext(browser, config, options = {}) {
+  return browser.newContext({ ...options, ignoreHTTPSErrors: config.ignoreHTTPSErrors === true });
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {

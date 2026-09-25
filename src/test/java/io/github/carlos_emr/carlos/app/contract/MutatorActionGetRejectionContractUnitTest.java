@@ -227,6 +227,13 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- document manager ---
             Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
                     "_edoc", "w"),
+            // --- HRM ---
+            // Every dispatch on this route mutates (comments, description, sign-off, patient and
+            // provider matching, category, sub-class) and none of its `method` values match
+            // HttpMethodGuardFilter's mutation vocabulary, so a GET reached the DAOs with no CSRF
+            // token at all until the gate was added. The gate runs before authorization.
+            Arguments.of("io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action",
+                    "_hrm", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
@@ -245,6 +252,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // an eForm with no CSRF token until the guard was added.
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action",
                     "_eform", "w"),
+            // Deletes an image from the eForm Image Library. Same shape and same reason as
+            // DelEForm2Action above: it had no method guard at all, so a GET (which
+            // CSRFGuard does not protect) could delete a file with no token check.
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelImage2Action",
+                    "_eform", "w"),
             // Replaces the shared antenatal risk-list configuration file. The HTTP
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
@@ -262,6 +274,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",
@@ -391,6 +404,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",

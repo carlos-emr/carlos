@@ -265,6 +265,7 @@
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
 
         <style>
 
@@ -387,7 +388,7 @@
             function onButRepeat() {
                 if (calculateEndTime()) {
                     document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking";
-                    document.forms[0].submit();
+                    CarlosAppointmentPatientLink.submitForm(document.forms[0]);
                 }
             }
 
@@ -445,7 +446,7 @@
                 }
                 document.EDITAPPT.displaymode.value = 'Update Appt';
                 document.EDITAPPT.buttoncancel.value = 'Cancel Appt';
-                document.EDITAPPT.submit();
+                CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);
             }
 
             function upCaseCtrl(ctrl) {
@@ -618,6 +619,10 @@
                 document.EDITAPPT.chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
+                // The pasted name and link belong together; make them the new baseline. ApptData
+                // carries no alert/status/MRP, so a different patient clears the MRP and hides
+                // the previous patient's banners rather than leave them describing the wrong chart.
+                CarlosAppointmentPatientLink.rebase(document.EDITAPPT.keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
@@ -631,7 +636,7 @@
             <% } %>
 
             function onCut() {
-                document.EDITAPPT.submit();
+                CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);
             }
 
 
@@ -731,6 +736,12 @@
 
                 var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
+                // Keeps #keyword and #demographic_no/#mrp in step and refreshes the patient
+                // banners on every link: commits a highlighted row on blur/submit and
+                // reconciles a hand-edited name (issue #3883). See
+                // js/appointmentPatientLink.js for the semantics.
+                var patientLink = CarlosAppointmentPatientLink.attach(document);
+
                 jQuery("#keyword").autocomplete({
                     source: function (req, res) {
                         jQuery.ajax({
@@ -744,43 +755,15 @@
                     minLength: 2,
 
                     focus: function (event, ui) {
-                        jQuery("#keyword").val(ui.item.formattedName);
+                        patientLink.highlight(ui.item);
                         return false;
                     },
                     select: function (event, ui) {
-                        jQuery("#demographic_no").val(ui.item.value);
-                        jQuery("#mrp").val(ui.item.provider);
-                        jQuery("#keyword").val(ui.item.formattedName);
-
-                        // Update patient alert banner
-                        var patientAlert = ui.item.alert || "";
-                        var alertBanner = document.getElementById('patientAlertBanner');
-                        if (alertBanner) {
-                            document.getElementById('patientAlertText').textContent = patientAlert;
-                            alertBanner.style.display = patientAlert ? '' : 'none';
-                        }
-
-                        // Update patient status banner
-                        var rawStatus = ui.item.status || "";
-                        var rawRoster = ui.item.rosterStatus || "";
-                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
-                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
-                        var statusBanner = document.getElementById('patientStatusBanner');
-                        if (statusBanner) {
-                            var statusTextEl = document.getElementById('patientStatusText');
-                            if (displayStatus || displayRoster) {
-                                var rosterLabel = statusBanner.getAttribute('data-roster-label') || 'Roster Status';
-                                var parts = [];
-                                if (displayStatus) parts.push(displayStatus);
-                                if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
-                                statusTextEl.textContent = parts.join("\u00a0");
-                                statusBanner.style.display = '';
-                            } else {
-                                statusBanner.style.display = 'none';
-                            }
-                        }
-
+                        patientLink.commit(ui.item);
                         return false;
+                    },
+                    close: function (event) {
+                        patientLink.menuClosed(event);
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
@@ -1447,7 +1430,7 @@
                     <input type="button"
                            name="noShowButton" id="noShowButton" class="btn btn-secondary"
                            value="<fmt:message key="appointment.editappointment.btnNoShow"/>"
-                           onClick="document.EDITAPPT.action='<%=request.getContextPath() %>/appointment/UpdateRecord';document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
+                           onClick="document.EDITAPPT.action='<%=request.getContextPath() %>/appointment/UpdateRecord';document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);">
                     <br>
                     <a class="btn"
                        onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentviewrecordcard?appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
@@ -1456,10 +1439,10 @@
                        onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=850,width=1000,resizable=yes,location=no,scrollbars=yes,menubars=no,toolbars=no')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');CarlosAppointmentPatientLink.submitForm(document.forms['EDITAPPT']);">
                         <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:message key="appointment.appointmentedit.cut"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/appointmentcopyrecord';document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/appointmentcopyrecord';document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');CarlosAppointmentPatientLink.submitForm(document.forms['EDITAPPT']);">
                         <i class="fa-solid fa-copy"></i>&nbsp;<fmt:message key="appointment.appointmentedit.copy"/> </a>
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="button" id="repeatButton" class="btn"

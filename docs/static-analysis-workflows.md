@@ -148,10 +148,12 @@ Suppresses known false positives:
 
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 
-- SpotBugs Maven Plugin: 4.10.4.1
-- SpotBugs Engine: 4.10.4
+- SpotBugs Maven Plugin: 4.10.2.0 — held here deliberately; 4.10.4.x requires Maven >= 3.8.9,
+  which the `carlos-tomcat-dev` image cannot supply from apt on noble. See the rationale comment
+  on the plugin declaration in `pom.xml`.
+- SpotBugs Engine: 4.10.2
 - Find Security Bugs: 1.14.0
-- `spotbugs-annotations` 4.10.4 (`provided` scope, in `pom.xml`) — supplies
+- `spotbugs-annotations` 4.10.2 (`provided` scope, in `pom.xml`) — supplies
   `edu.umd.cs.findbugs.annotations.SuppressFBWarnings` for per-site suppression
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)

@@ -150,7 +150,7 @@
         </action>
 
         <!-- View gates (_edoc r) -->
-        <action name="documentManager/ViewDocumentBrowser" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+        <action name="documentManager/ViewDocumentBrowser" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentBrowserRead2Action">
             <result name="success">/WEB-INF/jsp/documentManager/documentBrowser.jsp</result>
         </action>
         <action name="documentManager/ViewDocumentReport" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentReportRead2Action">
@@ -207,9 +207,13 @@
         <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
             <result name="display" type="dispatcher">/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
-        <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action">
-            <result name="ajax">/WEB-INF/jsp/hospitalReportManager/ajaxResponse.jsp</result>
-        </action>
+        <!--
+            Modify writes its own application/json body and returns NONE, so it declares no
+            result. It used to forward to an ajaxResponse.jsp fragment; because that reply was
+            text/html, the response-decorating filters appended their script block to it and the
+            viewer rendered that as literal JavaScript beside the comment box.
+        -->
+        <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action"/>
         <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
         <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>
         <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action"/>

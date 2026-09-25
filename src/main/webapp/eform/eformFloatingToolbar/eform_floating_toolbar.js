@@ -60,9 +60,18 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
     jQuery.post(context + "/eform/logEformError", eform);
 }
 
-function hideAdminPreviewSaveButton() {
+/**
+ * True when this eForm is open without a patient: the eForm manager's preview, which
+ * efmshowform_data.jsp renders with demographic "-1" precisely because it cannot be submitted.
+ * There is no chart to save into, so Print must not offer or attempt a chart save.
+ */
+function isAdminPreview() {
     const demographicNo = document.getElementById("demographicNo");
-    if (demographicNo?.value !== "-1") {
+    return demographicNo?.value === "-1";
+}
+
+function hideAdminPreviewSaveButton() {
+    if (!isAdminPreview()) {
         return;
     }
 
@@ -106,6 +115,14 @@ let editorLoadingBlockCount = 0;
  * clinician to "wait" forever. The (visible) alert is raised here so callers stay simple.
  */
 function editorStillLoading() {
+    if (typeof window.cancelPendingFaxSubmission === 'function') { window.cancelPendingFaxSubmission(); }
+    // Measurement loads must settle before any save/download/fax workflow flags or spinner.
+    if (typeof window.measurementHistoryStillLoading === 'function' && window.measurementHistoryStillLoading()) {
+        if (typeof window.cancelLetterOutput === 'function') { window.cancelLetterOutput(); }
+        window.needToConfirm = true;
+        alert('Measurements are still loading. Please wait before saving or printing this letter.');
+        return true;
+    }
 	// Scoped to the editor's OWN template dropdown (#template, created by editControl2.js and
 	// repopulated when efmformrtl_templates returns). The previous query was every `select option`
 	// in the document, and the "loading..." literal appears nowhere in CARLOS-shipped code — it can
@@ -548,6 +565,7 @@ function setHiddenFormInput(id, name, value) {
  * workflow (e.g. a stale faxEForm=true making a later Save enter the fax path).
  */
 function clearWorkflowFlags() {
+    if (typeof window.cancelPendingFaxSubmission === 'function') { window.cancelPendingFaxSubmission(); }
     // Scoped to toolbar-created nodes only (see setHiddenFormInput). Never select by bare id: the
     // surrounding eForm is author-supplied HTML and may own an element of the same name.
     document.querySelectorAll('[data-carlos-workflow-flag]').forEach(function (el) {
@@ -562,6 +580,10 @@ function clearWorkflowFlags() {
  * open the Oscar Email dialog.
  */
 function remoteEmail() {
+    // Reject a pending letter before asking for consent or changing workflow intent.
+    if (editorStillLoading()) {
+        return;
+    }
     if (!document.getElementById("hasValidRecipient") || !document.getElementById("emailConsentStatus") || !document.getElementById("emailConsentName")) {
         alert("Valid recipient or consent parameter is not defined in the EForm.");
         return;
@@ -583,11 +605,6 @@ function remoteEmail() {
         }
     }
 
-    // Check before appending emailEForm=true so an editor-still-loading abort does not leave it on
-    // the form for a later plain Save to ride into the email workflow.
-    if (editorStillLoading()) {
-        return;
-    }
     clearWorkflowFlags();
     setHiddenFormInput("emailAction", "emailEForm", "true");
     remoteSave();
@@ -610,11 +627,19 @@ function remoteEmail() {
  * the clinician's next plain Save would take the fax branch with the earlier recipient.
  */
 function remoteSaveOnly() {
+    // The manager preview has no patient to save into (demographic -1); refuse even when the
+    // Save button is reached before the toolbar guard hid it (#3904).
+    if (isAdminPreview()) {
+        return false;
+    }
     clearWorkflowFlags();
     return remoteSave();
 }
 
 function remotePrint() {
+    if (editorStillLoading()) {
+        return;
+    }
     // Same reason as remoteSaveOnly above: Print saves, and must not inherit a cancelled Fax's intent.
     clearWorkflowFlags();
 
@@ -655,22 +680,63 @@ function remotePrint() {
         hailMary()
     }
 
-		/*
-		 * Needs to be saved if this is
-		 * a new eForm or it has been altered.
-		 */
-		if(typeof needToConfirm !== 'undefined' && needToConfirm) {
-			console.log("eForm needs to be saved.")
-			remoteSave();
-		}
+    // The save follows the print, as it always has: remoteSave() submits the form and navigates this
+    // window away, so it must not run before the page has been handed to the printer.
+    // The manager preview has no patient, so Print only prints there. Before #3901 an edited
+    // preview, or one without dirty detection, still reached remoteSave() and posted a
+    // patientless form; the new prompt would otherwise also offer a meaningless chart save.
+    if (isAdminPreview()) {
+        return;
+    }
+    saveAfterPrint(typeof needToConfirm === 'undefined' ? undefined : needToConfirm);
+}
 
-		/*
-		 * for situations when the eForm does not contain dirty form
-		 * detection; save it everytime.
-		 */
-		else if(typeof needToConfirm === 'undefined') {
-			remoteSave();
-	}
+/**
+ * Decides what Print does about saving the eForm to the eChart, given the eForm's dirty flag.
+ *
+ * - "save": the form was edited (flag truthy), or it has no dirty-form detection at all (flag
+ *   undefined). Both keep their long-standing behaviour of saving on every print.
+ * - "confirm": the form has dirty detection and it reports no manual edit. This used to skip the
+ *   save silently, so a printed form was missing from the chart with no hint to the provider
+ *   (issue #3901). Clinicians routinely print forms whose content is entirely pre-filled from the
+ *   chart, so "not edited" does not mean "nothing worth keeping"; the provider decides.
+ *
+ * Adapted from MagentaHealth/Open-O b5dca89b7a, which also prompts for forms without dirty
+ * detection. CARLOS keeps saving those unconditionally: without a dirty flag the toolbar cannot
+ * tell an untouched form from an edited one, and prompting there would let a Cancel drop edits.
+ *
+ * @param {*} dirtyFlag the eForm's global needToConfirm, or undefined when the form declares none
+ * @returns {"save"|"confirm"}
+ */
+function printSaveDecision(dirtyFlag) {
+    if (typeof dirtyFlag === 'undefined' || dirtyFlag) {
+        return "save";
+    }
+    return "confirm";
+}
+
+/**
+ * Localized text for the "save the unedited form?" prompt, rendered by the server onto the
+ * toolbar fragment's root element. English fallback for when the fragment did not load.
+ */
+function printSaveUneditedConfirmMessage() {
+    const toolbar = document.getElementById("eform_floating_toolbar");
+    const message = toolbar ? toolbar.getAttribute("data-print-save-unedited-confirm") : null;
+    return message || "You haven't manually edited this eForm. Would you like to save a copy to the patient's chart anyway?";
+}
+
+/**
+ * Applies {@link printSaveDecision} once per Print click. The form has already been printed by the
+ * time this runs, so Cancel only declines the chart copy; it never withdraws the printout.
+ *
+ * @param {*} dirtyFlag see printSaveDecision
+ * @returns {boolean} true when a save was attempted and remoteSave() reported success
+ */
+function saveAfterPrint(dirtyFlag) {
+    if (printSaveDecision(dirtyFlag) === "confirm" && !confirm(printSaveUneditedConfirmMessage())) {
+        return false;
+    }
+    return remoteSave();
 }
 
 function hailMary() {
@@ -919,6 +985,9 @@ function includeHTML(elmnt) {
                 // event handlers — innerHTML is required for toolbar functionality.
                 toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
                 elmnt.append(toolbarWrapper);
+                // The toolbar arrives after DOMContentLoaded, so the preview guard that ran there
+                // found no Save button yet: hide it now that the fragment is in the DOM (#3904).
+                hideAdminPreviewSaveButton();
 
                 // After adding floating toolbar update number of attachments
                 jQuery('#remoteTotalAttachments').empty().append(jQuery('.delegateAttachment').length);

@@ -153,6 +153,7 @@
 <fmt:message key="faxAnnotateViewer.status.savedCopy" var="annotatesaved"/>
 <fmt:message key="faxAnnotateViewer.alert.saveFailed" var="annotatesaveFailed"/>
 <fmt:message key="faxAnnotateViewer.prompt.text" var="annotatepromptText"/>
+<fmt:message key="faxAnnotateViewer.prompt.editText" var="annotatepromptEditText"/>
 <fmt:message key="faxAnnotateViewer.label.signatureHere" var="annotatesignatureHere"/>
 <fmt:message key="faxAnnotateViewer.link.openSaved" var="annotateopenSaved"/>
 <script nonce="<%=cspNonce%>">
@@ -170,6 +171,7 @@
             saved: '<carlos:encode value="${annotatesaved}" context="javaScript"/>',
             saveFailed: '<carlos:encode value="${annotatesaveFailed}" context="javaScript"/>',
             promptText: '<carlos:encode value="${annotatepromptText}" context="javaScript"/>',
+            promptEditText: '<carlos:encode value="${annotatepromptEditText}" context="javaScript"/>',
             signatureHere: '<carlos:encode value="${annotatesignatureHere}" context="javaScript"/>',
             openSaved: '<carlos:encode value="${annotateopenSaved}" context="javaScript"/>'
         }
