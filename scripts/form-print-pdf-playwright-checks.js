@@ -131,21 +131,27 @@ function pdfText(buffer) {
   const zlib = require('zlib');
   const out = [];
   const haystack = buffer.toString('latin1');
-  const stream = /stream\r?\n/g;
+  // NOT PRECEDED BY "end". The closing keyword is "endstream", which contains "stream" --
+  // without the lookbehind the walk matches inside it, treats the gap to the NEXT endstream as
+  // a stream, fails to inflate that, and so reads only the first content stream of the file.
+  const stream = /(?<!end)stream\r?\n/g;
+  const CLOSE = 'endstream';
   let match;
   while ((match = stream.exec(haystack)) !== null) {
     const start = match.index + match[0].length;
-    const end = haystack.indexOf('endstream', start);
+    const end = haystack.indexOf(CLOSE, start);
     if (end < 0) break;
+    // Resume past the closing keyword whatever happens below, so a stream that does not inflate
+    // costs only itself.
+    stream.lastIndex = end + CLOSE.length;
     let text;
     try {
       text = zlib.inflateSync(Buffer.from(haystack.slice(start, end), 'latin1')).toString('latin1');
-    } catch { stream.lastIndex = end; continue; }
+    } catch { continue; }
     // \( and \) are escaped parentheses inside a PDF string, not its delimiters.
     for (const literal of text.matchAll(/\((?:\\.|[^\\()])*\)/g)) {
       out.push(literal[0].slice(1, -1).replace(/\\([()\\])/g, '$1'));
     }
-    stream.lastIndex = end;
   }
   return out.join('\n');
 }
@@ -491,4 +497,6 @@ if (require.main === module) {
   runCheck({ name: 'form-print-pdf', run: main, cleanup });
 }
 
-module.exports = { FORM_POST, FORM_TABLES, cleanup, fixture, formMenuUrl, main };
+module.exports = {
+  CLIENT_REFERENCE_LABEL, FORM_POST, FORM_TABLES, cleanup, fixture, formMenuUrl, main, pdfText,
+};
