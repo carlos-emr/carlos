@@ -38,7 +38,6 @@ import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfStamper;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -697,20 +696,29 @@ public final class IncomingDocUtil {
         filePathName = f.getPath();
         long lastModified = f.lastModified();
         Set<PosixFilePermission> permissions = writablePermissionsOf(f);
-        f.setReadOnly();
 
         File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
-        File scratch = newScratchFile(new File(basePath), permissions);
+        File scratch = null;
+        File recycleScratch = null;
         boolean replaced = false;
         try {
+            scratch = newScratchFile(new File(basePath), permissions);
+            // The removed page goes to a scratch file in the recycle directory and takes its
+            // recycle name only after the queue document has been replaced. A failed delete then
+            // leaves no recycled copy of a page that is still queued, and never overwrites an
+            // older recycle entry of the same name.
+            recycleScratch = newScratchFile(deleteDir, permissions);
+            // Only once setup has succeeded, so a failure above cannot leave the source read-only;
+            // the finally below restores its permissions whenever the replacement did not happen.
+            f.setReadOnly();
             try (PdfReader reader = new PdfReader(filePathName);
                  OutputStream copyFos = Files.newOutputStream(scratch.toPath())) {
                 String deleteFileName = addPdfNameSuffix(myPdfName,
                         "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
                 validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
 
-                try (FileOutputStream deleteFos = new FileOutputStream(validatedDeleteFile)) {
+                try (OutputStream deleteFos = Files.newOutputStream(recycleScratch.toPath())) {
                     Document document = new Document(reader.getPageSizeWithRotation(1));
                     PdfCopy copy = new PdfCopy(document, copyFos);
                     PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
@@ -733,8 +741,6 @@ public final class IncomingDocUtil {
                 }
             }
 
-            deleteRecycledPageIfDisabled(validatedDeleteFile);
-
             // Replace the queue entry in one move rather than deleting it and then renaming the
             // replacement over the gap. Delete-then-rename lost the document outright whenever the
             // rename failed (permissions, a cross-filesystem temp dir): the queue entry was already
@@ -744,8 +750,22 @@ public final class IncomingDocUtil {
         } finally {
             if (!replaced) {
                 deleteQuietly(scratch);
+                deleteQuietly(recycleScratch);
                 restorePermissions(f, permissions);
             }
+        }
+
+        // The queue now holds the remaining pages; file the removed one. The queue document is
+        // already correct, so a failure here is logged rather than reported as a failed delete.
+        if (recycleBinEnabled()) {
+            try {
+                Files.move(recycleScratch.toPath(), validatedDeleteFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                MiscUtils.getLogger().warn("Could not file a deleted incoming-document page in the recycle directory");
+                deleteQuietly(recycleScratch);
+            }
+        } else {
+            deleteQuietly(recycleScratch);
         }
 
         // Carrying the original mtime over is cosmetic and must not abort the operation:
@@ -757,12 +777,9 @@ public final class IncomingDocUtil {
     }
 
 
-    private static void deleteRecycledPageIfDisabled(File validatedDeleteFile) throws IOException {
-        if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")
-                || validatedDeleteFile == null) {
-            return;
-        }
-        Files.delete(validatedDeleteFile.toPath());
+    /** Whether a deleted page is kept in the recycle directory (INCOMINGDOCUMENT_RECYCLEBIN is active). */
+    private static boolean recycleBinEnabled() {
+        return CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true");
     }
 
     /**
@@ -792,7 +809,6 @@ public final class IncomingDocUtil {
         filePathName = f.getPath();
         long lastModified = f.lastModified();
         Set<PosixFilePermission> permissions = writablePermissionsOf(f);
-        f.setReadOnly();
 
         File extractBaseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
         ArrayList<String> extractList;
@@ -809,6 +825,8 @@ public final class IncomingDocUtil {
         boolean replaced = false;
 
         try {
+            // Inside the try, so the finally restores the source's permissions on any failure.
+            f.setReadOnly();
             try {
                 reader = new PdfReader(filePathName);
                 String extractFileName = addPdfNameSuffix(myPdfName,

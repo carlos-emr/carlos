@@ -393,4 +393,42 @@ class IncomingDocUtilUnitTest {
         assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
         assertThat(scratchFilesLeft()).isZero();
     }
+
+    @Test
+    @DisplayName("should leave the queue and an older recycle entry untouched when a page delete fails")
+    void shouldLeaveQueueAndRecycleEntryUntouched_whenPageDeleteFails() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path olderEntry = deleteDir.resolve("faxd5of2.pdf");
+        Files.writeString(olderEntry, "an earlier recycled page", StandardCharsets.UTF_8);
+
+        // Page 5 of a two-page document leaves the removed-page copy empty, which OpenPDF refuses.
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(Exception.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(Files.readString(olderEntry, StandardCharsets.UTF_8)).isEqualTo("an earlier recycled page");
+        assertThat(scratchFilesLeft()).isZero();
+        try (Stream<Path> files = Files.list(deleteDir)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("should file the removed page in the recycle directory after a successful delete")
+    void shouldFileRemovedPageInRecycleDirectory_whenDeleteSucceeds() throws Exception {
+        queuedPdf("fax.pdf", 3);
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        Path recycled = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax")).resolve("faxd2of3.pdf");
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(recycled.toFile())) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+        }
+        assertThat(scratchFilesLeft()).isZero();
+    }
 }
