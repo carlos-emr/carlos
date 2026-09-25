@@ -488,11 +488,6 @@
         }
     }
 
-    /**
-     * Called whenever a move ends, however it ends, to run a refit that waited for it. Moves are
-     * counted rather than flagged: a mouse and a pen can drag on two pages at once, and the
-     * first to finish must not release a refit under the other.
-     */
     /** Counts a highlight or ink stroke in progress, so Save is held until it is committed. */
     function strokeStarted() {
         state.strokes++;
@@ -505,6 +500,11 @@
         updateCounts();
     }
 
+    /**
+     * Called whenever a move ends, however it ends, to run a refit that waited for it. Moves are
+     * counted rather than flagged: a mouse and a pen can drag on two pages at once, and the
+     * first to finish must not release a refit under the other.
+     */
     function moveEnded() {
         state.moves = Math.max(0, state.moves - 1);
         updateCounts();
@@ -573,6 +573,8 @@
             return;
         }
         a.text = value;
+        // Two redraws by design: the new text must be rendered before its width can be measured,
+        // and only then can the note be fitted (and redrawn again if that moved it).
         annotationChanged(a);
         fitNote(a);
     }
