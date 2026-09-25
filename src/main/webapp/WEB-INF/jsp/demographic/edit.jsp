@@ -1086,7 +1086,7 @@
                                     <c:set var="__encSmsHistoryDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encSmsHistoryUrl" value="${pageContext.request.contextPath}/sms/ViewSmsHistory?demographic_no=${__encSmsHistoryDemoNo}" />
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(600,1000,'<carlos:encode value='${__encSmsHistoryUrl}' context="javaScriptAttribute"/>')">
+                                       onClick="popupPage(600,1500,'<carlos:encode value='${__encSmsHistoryUrl}' context="javaScriptAttribute"/>')">
                                         <fmt:message key="sms.history.title"/></a>
                                 </td>
                             </tr>
