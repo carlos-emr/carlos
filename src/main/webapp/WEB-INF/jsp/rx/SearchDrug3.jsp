@@ -78,10 +78,8 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%
 String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
-RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
 
 if (rx_enhance!=null && rx_enhance.equals("true")) {
 	if (request.getParameter("ID") != null) {
@@ -125,6 +123,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 <c:set var="ctx" value="${pageContext.request.contextPath}" />
 <%
 	RxSessionBean rxSessionBean = (RxSessionBean) pageContext.findAttribute("bean");
+    // Resolve clinical data only after the patient-level authorization guard has returned.
+    RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
 
 	String usefav = request.getParameter("usefav");
 	String favid = request.getParameter("favid");

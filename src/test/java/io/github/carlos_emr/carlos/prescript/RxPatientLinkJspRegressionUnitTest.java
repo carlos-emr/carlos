@@ -141,6 +141,29 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should authorize the patient's record before loading clinical data in Rx pages")
+    void shouldAuthorizeBeforePatientLoad_whenRenderingRxPages() throws IOException {
+        int patientLoadingPages = 0;
+        try (java.util.stream.Stream<Path> files = Files.list(JSP_ROOT.resolve("rx"))) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".jsp")).toList()) {
+                String jsp = Files.readString(file, StandardCharsets.UTF_8);
+                int load = jsp.indexOf("RxSessionBeanResolver.resolvePatient(request)");
+                if (load < 0) {
+                    continue;
+                }
+                patientLoadingPages++;
+                int authorize = jsp.indexOf("RxRequestedPatientAccess.resolveAuthorised(request,");
+                int refusal = jsp.indexOf("else { response.sendRedirect(\"error.html\"); return; }", authorize);
+                // An existing session workspace is not authorization: access may have been
+                // revoked since it opened. A refusal must return before loading patient data.
+                assertThat(authorize).as(file + " authorization").isGreaterThanOrEqualTo(0).isLessThan(load);
+                assertThat(refusal).as(file + " refusal before clinical read").isGreaterThan(authorize).isLessThan(load);
+            }
+        }
+        assertThat(patientLoadingPages).isGreaterThanOrEqualTo(7);
+    }
+
+    @Test
     @DisplayName("should answer a refused Rx request with the security-error page instead of a 500")
     void shouldMapRxSecurityExceptions_toSecurityErrorPage() throws IOException {
         String struts = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-prescription.xml"),
