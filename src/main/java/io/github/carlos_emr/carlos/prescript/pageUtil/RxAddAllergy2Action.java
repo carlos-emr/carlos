@@ -179,7 +179,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
                 if (archived) {
                     LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, "" + allergyToArchive, ip, "" + patient.getDemographicNo(), null);
                 }
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 MiscUtils.getLogger().warn("Ignoring non-numeric allergyToArchive parameter: {}",
                         io.github.carlos_emr.carlos.utility.LogSafe.sanitize(allergyToArchive, 40));
             }

@@ -139,7 +139,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             case "Add" -> pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
             case "Edit" -> pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
             case "Delete" -> pharmacy.deletePharmacy(this.getID());
-            default -> { }
+            default -> { /* unknown action: nothing to change */ }
         }
     }
 

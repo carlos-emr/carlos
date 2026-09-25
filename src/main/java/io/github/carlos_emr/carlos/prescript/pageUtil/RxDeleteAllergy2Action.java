@@ -95,7 +95,7 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
         int id;
         try {
             id = Integer.parseInt(idParam);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID parameter");
             return NONE;
         }

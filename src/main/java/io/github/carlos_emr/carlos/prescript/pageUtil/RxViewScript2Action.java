@@ -245,7 +245,7 @@ public final class RxViewScript2Action extends ActionSupport {
         }
         try {
             return Integer.parseInt(value) > 0;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }

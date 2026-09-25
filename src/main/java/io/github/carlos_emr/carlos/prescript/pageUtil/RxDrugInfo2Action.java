@@ -79,7 +79,7 @@ public final class RxDrugInfo2Action extends ActionSupport {
                 String genName = null;
                 try {
                     genName = drugData.getGenericName(BN);
-                } catch (Exception e) {
+                } catch (Exception _) {
                     genName = BN;
                 }
                 if (genName == null) {

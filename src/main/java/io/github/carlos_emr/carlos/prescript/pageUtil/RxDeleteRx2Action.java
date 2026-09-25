@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Optional;
 import java.util.Objects;
 
 import jakarta.servlet.ServletException;
@@ -159,11 +160,12 @@ public final class RxDeleteRx2Action extends ActionSupport {
             // Validate every requested drug before archiving any, so a list that mixes in another
             // patient's drug, or a malformed id, is refused as a whole rather than half-applied.
             // A malformed id used to end the loop early and still archive the ids before it (#3908).
-            List<Integer> drugIds = parseDrugIds(drugList);
-            if (drugIds == null) {
+            Optional<List<Integer>> parsedDrugIds = parseDrugIds(drugList);
+            if (parsedDrugIds.isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
+            List<Integer> drugIds = parsedDrugIds.get();
             List<Drug> drugsToDelete = new ArrayList<>();
             for (int drugId : drugIds) {
                 // get original drug; the primitive keeps the AbstractDao#find(int) overload this
@@ -187,20 +189,20 @@ public final class RxDeleteRx2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    /** The comma-separated drug ids of the request, or {@code null} when any of them is malformed. */
-    private static List<Integer> parseDrugIds(String drugList) {
+    /** The comma-separated drug ids of the request, or empty when any of them is malformed. */
+    private static Optional<List<Integer>> parseDrugIds(String drugList) {
         List<Integer> drugIds = new ArrayList<>();
         if (drugList == null || drugList.isBlank()) {
-            return drugIds;
+            return Optional.of(drugIds);
         }
         for (String rawId : drugList.split(",")) {
             String trimmed = rawId.trim();
             if (!trimmed.matches("\\d{1,9}")) {
-                return null;
+                return Optional.empty();
             }
             drugIds.add(Integer.valueOf(trimmed));
         }
-        return drugIds;
+        return Optional.of(drugIds);
     }
 
     /**
@@ -320,8 +322,15 @@ public final class RxDeleteRx2Action extends ActionSupport {
     }
 
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     /**
-     * Discontinues a drug by setting archived status and creating a case management note.
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} update, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Discontinues one of the patient's saved drugs (refused when the drug is another patient's) and files
+     * the discontinue note. The reason and comment are kept on the drug; a summary note in the echart is
+     * still to be added.
      * <p>
      * The method performs the following operations:
      * <ul>
@@ -341,19 +350,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * <li>drugSpecial - String drug special instructions</li>
      * </ul>
      * The note is filed against the Rx session's patient, never a request-supplied demographic.
-     *
-     * @return {@link #NONE} (writes JSON response directly to output stream)
-     * @throws IOException if response writing fails
-     */
-    //STILL NEED TO SAVE REASON AND COMMENT "would like to create a summary note in the echart"
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    /**
-     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
-     * most recently opened patient. Needs {@code _rx} update, and the same privilege for that patient plus record access
-     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
-     *
-     * Discontinues one of the patient's saved drugs (refused when the drug is another patient's) and files
-     * the discontinue note.
      *
      * @return the discontinue result, or {@code null} after a redirect
      * @throws SecurityException when the caller may not update Rx for the patient

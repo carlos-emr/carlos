@@ -253,7 +253,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             try {
                 rx.setDrugForm(drugData.getDrugForm(String.valueOf(this.getGCN_SEQNO())));
-            } catch (Exception e) {
+            } catch (Exception _) {
                 logger.error("Unable to get DrugForm from drugref");
             }
 
@@ -1661,9 +1661,8 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * @param request the current request
      * @throws SecurityException when the caller may not write Rx for the patient
-     * @throws Exception when persisting fails
      */
-    public void saveDrug(final HttpServletRequest request) throws Exception {
+    public void saveDrug(final HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
@@ -1806,7 +1805,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         int randomIdInt;
         try {
             randomIdInt = Integer.parseInt(randomId.trim());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write("{\"results\":[]}");
@@ -1961,7 +1960,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 case NOT_REPRESCRIBED -> notReprescribed++;
                 case FAILED -> failed++;
                 case REFUSED -> refused++;
-                default -> { } // ARCHIVED: nothing to count
+                default -> { /* ARCHIVED: nothing to count */ }
             }
         }
         if (malformed + failed + refused > 0) {
@@ -2274,7 +2273,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     public float getTakeMinFloat() {
         try {
             return Float.parseFloat(this.takeMin);
-        } catch (NumberFormatException | NullPointerException e) {
+        } catch (NumberFormatException | NullPointerException _) {
             // -1 is the legacy "unspecified" sentinel. Absent/empty input maps to it as intended; a
             // non-empty value that fails to parse is a data-quality problem, so surface it (previously
             // swallowed silently) rather than corrupting the dose to -1 with no signal.
@@ -2297,7 +2296,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     public float getTakeMaxFloat() {
         try {
             return Float.parseFloat(this.takeMax);
-        } catch (NumberFormatException | NullPointerException e) {
+        } catch (NumberFormatException | NullPointerException _) {
             if (this.takeMax != null && !this.takeMax.trim().isEmpty()) {
                 logger.warn("Unparseable takeMax dose value; defaulting to the -1 unspecified sentinel");
             }
@@ -2457,7 +2456,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (drugId != null) {
             try {
                 this.drugId = Integer.parseInt(drugId);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // Non-integer drugIds (like Vigilance composite IDs) are handled via request.getParameter()
             }
         }

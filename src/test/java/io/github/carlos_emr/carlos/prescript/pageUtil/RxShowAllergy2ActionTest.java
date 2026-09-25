@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
-import org.mockito.MockedConstruction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.atLeastOnce;
@@ -298,7 +297,7 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
         when(properties.getProperty("rx.disable_allergy_warnings", "false")).thenReturn("false");
         try (MockedStatic<CarlosProperties> propertyMock = mockStatic(CarlosProperties.class);
              MockedStatic<RxPatientData> patients = mockStatic(RxPatientData.class);
-             MockedConstruction<RxDrugData> _ = mockConstruction(RxDrugData.class, (mock, context) -> {
+             var _ = mockConstruction(RxDrugData.class, (mock, context) -> {
                  when(mock.getAllergyWarnings(eq("J01FA09"), eq(allergies), anyList())).thenAnswer(invocation -> {
                      if (failed) throw new IllegalStateException("reference unavailable");
                      invocation.<List<Allergy>>getArgument(2).addAll(unresolved);

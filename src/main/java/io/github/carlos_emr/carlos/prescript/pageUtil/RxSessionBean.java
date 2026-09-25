@@ -557,7 +557,7 @@ public class RxSessionBean implements java.io.Serializable {
             }
 
             end2 = System.currentTimeMillis() - start2;
-        } catch (Exception e2) {
+        } catch (Exception _) {
         }
         long end = System.currentTimeMillis() - start;
 

@@ -164,9 +164,9 @@
                                                     }
                                             %>
                                             <tr>
-                                                <td width="50%" valign="top" nowrap="nowrap"><%=drp%>
+                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><%=drp%>
                                                 </td>
-                                                <td width="50%" valign="top" nowrap="nowrap"><%=providerName %>
+                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><%=providerName %>
                                                 </td>
                                             </tr>
                                             <%

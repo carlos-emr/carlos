@@ -205,7 +205,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxPrescriptionData.Prescription ownSource = new RxPrescriptionData.Prescription(5, "999998", 1);
         ownSource.setBrandName("SOURCE DRUG");
         RxPrescriptionData.Prescription otherPatientsDrug = new RxPrescriptionData.Prescription(6, "999998", 2);
-        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
+        try (var _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) -> {
                     when(mock.getPrescription(5)).thenReturn(ownSource);
                     when(mock.getPrescription(6)).thenReturn(otherPatientsDrug);
@@ -255,7 +255,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
         RxPrescriptionData.Prescription ownSource = new RxPrescriptionData.Prescription(5, "999998", 1);
         ownSource.setBrandName("SOURCE DRUG");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = stagingData(ownSource)) {
+        try (var _ = stagingData(ownSource)) {
             if ("represcribe2".equals(method)) {
                 action.represcribe2();
             } else if ("represcribe".equals(method)) {
@@ -279,7 +279,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         request.setParameter("drugId", "6");
         RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
         RxPrescriptionData.Prescription otherPatientsDrug = new RxPrescriptionData.Prescription(6, "999998", 2);
-        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = stagingData(otherPatientsDrug)) {
+        try (var _ = stagingData(otherPatientsDrug)) {
             assertThat(action.saveReRxDrugIdToStash()).isEqualTo(ActionSupport.NONE);
         }
 
@@ -300,7 +300,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         first.setBrandName("FIRST DRUG");
         RxPrescriptionData.Prescription second = new RxPrescriptionData.Prescription(7, "999998", 1);
         second.setBrandName("SECOND DRUG");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
+        try (var _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) -> {
                     when(mock.getPrescription(5)).thenReturn(first);
                     when(mock.getPrescription(7)).thenReturn(second);
@@ -348,7 +348,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
         RxPrescriptionData.Prescription source = new RxPrescriptionData.Prescription(5, "999998", 1);
         source.setBrandName("SOURCE DRUG");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = stagingData(source)) {
+        try (var _ = stagingData(source)) {
             request.setParameter("drugIds", "5");
             action.represcribeMultiple();
             action.represcribeMultiple();
@@ -589,7 +589,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should refuse to touch a prescription belonging to a patient the caller cannot write")
-    void shouldRefuseSignatureUpdate_whenPrescriptionBelongsToAnotherPatient() throws Exception {
+    void shouldRefuseSignatureUpdate_whenPrescriptionBelongsToAnotherPatient() {
         request.setParameter("demographicNo", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
@@ -748,7 +748,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         request.setParameter("method", "reprint2");
         request.setParameter("demographicNo", "1");
         request.setParameter("scriptNo", "12");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
+        try (var _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) ->
                         when(mock.getPrescriptionsByScriptNo(12, 1)).thenReturn(new java.util.ArrayList<>()))) {
             assertThat(new RxRePrescribe2Action().execute()).isEqualTo(ActionSupport.NONE);
@@ -765,7 +765,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         request.setParameter("demographicNo", "1");
         RxRePrescribe2Action legacyReprint = new RxRePrescribe2Action();
         legacyReprint.setDrugList("12");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
+        try (var _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) ->
                         when(mock.getPrescriptionsByScriptNo(12, 1)).thenReturn(new java.util.ArrayList<>()))) {
             assertThat(legacyReprint.execute()).isEqualTo(ActionSupport.NONE);

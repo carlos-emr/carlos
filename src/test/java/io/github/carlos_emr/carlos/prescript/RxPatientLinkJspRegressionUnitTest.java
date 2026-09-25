@@ -165,14 +165,14 @@ class RxPatientLinkJspRegressionUnitTest {
     void shouldRefuseFallbackPatient_onStaticScriptPage() throws IOException {
         String jsp = read("rx/StaticScript2.jsp");
 
-        assertThat(jsp).contains("RxSessionBeanResolver.requestedDemographicNo(request)")
-                .doesNotContain("RxSessionBeanResolver.resolve(request)");
         // Its re-prescribe calls stage for the page's patient only.
         // Staging records the ReRx source itself; no separate, un-awaited list update (#3908).
-        assertThat(jsp).doesNotContain("parameterValue=updateReRxDrug");
-        assertThat(jsp).contains("/rx/rePrescribe2?method=saveReRxDrugIdToStash");
-        assertThat(jsp).contains("\"&demographicNo=\" + staticScriptDemographicNo");
-        assertThat(jsp).contains("/rx/searchDrug?demographicNo=\" + staticScriptDemographicNo");
+        assertThat(jsp).contains("RxSessionBeanResolver.requestedDemographicNo(request)")
+                .doesNotContain("RxSessionBeanResolver.resolve(request)")
+                .doesNotContain("parameterValue=updateReRxDrug")
+                .contains("/rx/rePrescribe2?method=saveReRxDrugIdToStash")
+                .contains("\"&demographicNo=\" + staticScriptDemographicNo")
+                .contains("/rx/searchDrug?demographicNo=\" + staticScriptDemographicNo");
         // A refused stage (403/409/CSRF error page) reports the refusal instead of opening the search.
         assertThat(jsp).contains("if (!response || !response.ok || response.redirected) {")
                 // The token is read when the POST is sent; reading it in <head> always got '' (#3908).

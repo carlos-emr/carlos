@@ -197,7 +197,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         String role;
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
-        } catch (Exception e) {
+        } catch (Exception _) {
             role = "0";
         }
         note.setReporter_caisi_role(role);

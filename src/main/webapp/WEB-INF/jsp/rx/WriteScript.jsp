@@ -926,38 +926,7 @@
             String drugId = thisForm.getGCN_SEQNO();
         }
     %>
-    <!--
-DemographicNo:   <%= thisForm.getDemographicNo() %><br>
-RxDate:          <%= thisForm.getRxDate() %><br>
-EndDate:         <%= thisForm.getEndDate() %><br>
-WrittenDate:     <%= thisForm.getWrittenDate() %><br>
-GenericName:     <%= thisForm.getGenericName() %><br>
-BrandName:       <%= thisForm.getBrandName() %><br>
-GCN_SEQNO:       <%= thisForm.getGCN_SEQNO() %><br>
-CustomName:      <%= thisForm.getCustomName() %><br>
-TakeMin:         <%= thisForm.getTakeMin() %><br>
-TakeMax:         <%= thisForm.getTakeMax() %><br>
-FrequencyCode:   <%= thisForm.getFrequencyCode() %><br>
-Duration:        <%= thisForm.getDuration() %><br>
-DurationUnit:    <%= thisForm.getDurationUnit() %><br>
-Quantity:        <%= thisForm.getQuantity() %><br>
-Repeat:          <%= thisForm.getRepeat() %><br>
-Nosubs:          <%= String.valueOf(thisForm.getNosubs()) %><br>
-Prn:             <%= String.valueOf(thisForm.getPrn()) %><br>
-Long Term Med:   <%= String.valueOf(thisForm.getLongTerm()) %><br>
-Past Med:	 <%= String.valueOf(thisForm.getPastMed()) %><br>
-Patient Complia: <%= String.valueOf(thisForm.getPatientCompliance()) %><br>
-Dosage:          <%= thisForm.getDosage() %><br>
-Special:         <%= thisForm.getSpecial() %><br>
-ATC:             <%= thisForm.getAtcCode() %><br>
-regional ident:  <%= thisForm.getRegionalIdentifier() %><br>
-Custom Instruct: <%= thisForm.getCustomInstr() %><br>
-Outside ProName: <%= thisForm.getOutsideProviderName() %><br>
-Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
-
-<% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
-
--->
+    <% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
     <%
 
         // set patient info

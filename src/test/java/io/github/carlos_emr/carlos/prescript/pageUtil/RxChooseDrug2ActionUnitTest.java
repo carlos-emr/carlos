@@ -116,7 +116,7 @@ class RxChooseDrug2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new RxChooseDrug2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
 
         assertThat(bean.getStashSize()).isEqualTo(1);
-        assertThat(bean.getStashIndex()).isEqualTo(0);
+        assertThat(bean.getStashIndex()).isZero();
         RxPrescriptionData.Prescription staged = bean.getStashItem(0);
         // A custom card has no brand and GCN "0" (prescribe.jsp keys the editable name on that);
         // Prescription normalises the empty custom name to null until the prescriber types one.

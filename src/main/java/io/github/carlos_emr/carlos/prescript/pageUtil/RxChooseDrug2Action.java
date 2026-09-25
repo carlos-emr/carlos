@@ -117,44 +117,8 @@ public final class RxChooseDrug2Action extends ActionSupport {
                 stageCustom(rx);
             } else {
                 try {
-
-                    RxDrugData.DrugMonograph f = drugData.getDrug(drugId);
-                    // Same key createNewRx stores: RxSessionBean.addStashItem de-dupes on brand
-                    // name + GCN_SEQNO, so leaving it null collapsed different products that share
-                    // a brand name into one stash entry.
-                    rx.setGCN_SEQNO(drugId);
-                    String genName = "";
-                    genName = f.name;
-                    rx.setAtcCode(f.atc);
-                    rx.setBrandName(f.product);
-                    rx.setRegionalIdentifier(f.regionalIdentifier);
-
-                    request.setAttribute("components", f.components);
-                    String dosage = "";
-                    for (int c = 0; c < f.components.size(); c++) {
-                        RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
-                        if (c == (f.components.size() - 1)) {
-                            dosage += dc.strength + " " + dc.unit;
-                        } else {
-                            dosage += dc.strength + " " + dc.unit + " / ";
-                        }
-                    }
-                    rx.setDosage(dosage);
-                    StringBuilder compString = null;
-                    if (f.components != null) {
-                        compString = new StringBuilder();
-                        for (int c = 0; c < f.components.size(); c++) {
-                            RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
-                            compString.append(dc.name + " " + dc.strength + " " + dc.unit + " ");
-                        }
-                    }
-
-                    if (compString != null) {
-                        rx.setGenericName(compString.toString());
-                    } else {
-                        rx.setGenericName(genName);
-                    }
-                } catch (java.lang.NumberFormatException numEx) {          // Custom
+                    stageFromMonograph(rx, drugData.getDrug(drugId), drugId);
+                } catch (java.lang.NumberFormatException _) {          // Custom
                     stageCustom(rx);
                 }
             }
@@ -173,6 +137,38 @@ public final class RxChooseDrug2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * Fills the staged card from the DrugRef monograph of the chosen product: the brand, generic
+     * name (its components), ATC, regional identifier and the combined strength as the dosage.
+     */
+    private void stageFromMonograph(RxPrescriptionData.Prescription rx, RxDrugData.DrugMonograph monograph, String drugId) {
+        // Same key createNewRx stores: RxSessionBean.addStashItem de-dupes on brand name +
+        // GCN_SEQNO, so leaving it null collapsed different products that share a brand name into
+        // one stash entry.
+        rx.setGCN_SEQNO(drugId);
+        rx.setAtcCode(monograph.atc);
+        rx.setBrandName(monograph.product);
+        rx.setRegionalIdentifier(monograph.regionalIdentifier);
+        request.setAttribute("components", monograph.components);
+        if (monograph.components == null) {
+            rx.setDosage("");
+            rx.setGenericName(monograph.name);
+            return;
+        }
+        StringBuilder dosage = new StringBuilder();
+        StringBuilder genericName = new StringBuilder();
+        for (Object component : monograph.components) {
+            RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) component;
+            if (!dosage.isEmpty()) {
+                dosage.append(" / ");
+            }
+            dosage.append(dc.strength).append(' ').append(dc.unit);
+            genericName.append(dc.name).append(' ').append(dc.strength).append(' ').append(dc.unit).append(' ');
+        }
+        rx.setDosage(dosage.toString());
+        rx.setGenericName(genericName.toString());
     }
 
     /** Marks the card as a custom drug the prescriber names on the write-script page. */

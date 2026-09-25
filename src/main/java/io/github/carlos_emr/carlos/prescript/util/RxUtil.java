@@ -72,7 +72,7 @@ public class RxUtil {
             SimpleDateFormat df = new SimpleDateFormat(pattern, locale);
 
             return df.parse(Expression);
-        } catch (Exception e) {
+        } catch (Exception _) {
             return null;
         }
     }
@@ -1166,7 +1166,7 @@ public class RxUtil {
 
             double amount = numerator / denominator;
             return Double.isFinite(amount) ? Double.toString(amount) : "0";
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return "0";
         }
     }

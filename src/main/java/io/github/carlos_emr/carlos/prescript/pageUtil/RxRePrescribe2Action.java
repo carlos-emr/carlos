@@ -109,9 +109,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         // Reprinting records a print on the script and puts the patient into reprint mode: POST-only
         // (#3908), and the script number is validated before any lookup instead of failing in
         // parseInt. The legacy rx/rePrescribe form posts it.
-        if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (refuseUnlessPost()) {
             return NONE;
         }
         if (this.getDrugList() == null || !this.getDrugList().matches("\\d{1,9}")) {
@@ -179,9 +177,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
     public String reprint2() throws IOException {
         // Records a print on the script and puts the patient into reprint mode: POST-only, like
         // reprint(), because CSRFGuard does not check GET (#3908). SearchDrug3's reprint2() posts.
-        if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (refuseUnlessPost()) {
             return NONE;
         }
 
@@ -794,7 +790,7 @@ public String saveDigitalSignature() throws IOException {
                             reRxDrugList.add(normalizedId);
                         }
                     }
-                } catch (NumberFormatException e) {
+                } catch (NumberFormatException _) {
                     malformedIds++;
                 }
             }

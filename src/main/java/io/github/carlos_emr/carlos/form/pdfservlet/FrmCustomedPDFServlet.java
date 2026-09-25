@@ -149,7 +149,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         try {
             org.openpdf.text.Image.getInstance(image);
             return true;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
