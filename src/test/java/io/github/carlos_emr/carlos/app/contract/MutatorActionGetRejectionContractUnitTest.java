@@ -98,8 +98,9 @@ import static org.mockito.Mockito.when;
  *
  * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
  * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
- * slice, or explicitly registered legacy class, containing both
- * {@code SC_METHOD_NOT_ALLOWED} and a POST method check
+ * slice, or explicitly registered legacy class, containing a POST method check
+ * plus either {@code SC_METHOD_NOT_ALLOWED} or a call to the shared
+ * {@code methodNotAllowed(...)} helper (as the patient portal actions use)
  * and fails the build if the class is not listed here. New mutators must be
  * registered in one of:
  *
@@ -249,7 +250,20 @@ class MutatorActionGetRejectionContractUnitTest {
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
-                    "_form", "w")
+                    "_form", "w"),
+            // --- patient portal ---
+            // Revokes portal invitations against the external portal service; create and resend
+            // answer 503 until durable delivery is wired, but the routes remain mutators.
+            // Unconditional: reading the invite list belongs to a separate read action, so every
+            // route on this class mutates and the method check runs before authorization.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
+                    "_portal.invite", "w"),
+            // Clears a lockout or disables an account. Unconditional for the same reason: the panel
+            // read lives in PortalPanel2Action, so nothing on this class is a view route. The
+            // declared object is the account one; the unlock route gates on the narrower
+            // _portal.account.unlock, which the focused test covers.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action",
+                    "_portal.account", "w")
         );
     }
 
@@ -355,6 +369,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * {@link #CONDITIONAL_MUTATORS} entry instead.
      */
     private static final Set<String> NON_MUTATOR_GATES = Set.of(
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
@@ -386,6 +401,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * follow-up waves.
      */
     private static final List<String> IN_SCOPE_PACKAGE_PREFIXES = List.of(
+        "io.github.carlos_emr.carlos.integration.patientportal.web.",
         "io.github.carlos_emr.carlos.appointment.",
         "io.github.carlos_emr.carlos.decision.",
         "io.github.carlos_emr.carlos.documentManager.",
@@ -664,8 +680,9 @@ class MutatorActionGetRejectionContractUnitTest {
 
     /**
      * Walks {@code src/main/java} and fails if any {@code *2Action.java}
-     * containing both a {@code SC_METHOD_NOT_ALLOWED} reference and a
-     * literal POST method comparison is not registered in one of
+     * containing a literal POST method comparison plus either a
+     * {@code SC_METHOD_NOT_ALLOWED} reference or a {@code methodNotAllowed(...)}
+     * helper call is not registered in one of
      * {@link #unconditionalMutators()}, {@link #CONDITIONAL_MUTATORS}, or
      * {@link #NON_MUTATOR_GATES}.
      *
@@ -674,7 +691,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * mutation intent and asserts 405 / SecurityException + no side-effects.
      */
     @Test
-    @DisplayName("discovery: every *2Action with a SC_METHOD_NOT_ALLOWED + POST check must be registered")
+    @DisplayName("discovery: every *2Action with a POST check and a 405 answer must be registered")
     void discoveryCandidatesMustBeRegistered() throws IOException {
         Path sourceRoot = Paths.get("src", "main", "java");
         // The test must run from the repo root (default for surefire). If the
@@ -699,8 +716,9 @@ class MutatorActionGetRejectionContractUnitTest {
         }
 
         assertThat(unregistered)
-            .as("New *2Action classes in the in-scope slices (%s) contain SC_METHOD_NOT_ALLOWED + POST "
-              + "checks but are not registered in MutatorActionGetRejectionContractUnitTest. "
+            .as("New *2Action classes in the in-scope slices (%s) contain a POST check plus "
+              + "SC_METHOD_NOT_ALLOWED or a methodNotAllowed(...) call, but are not registered in "
+              + "MutatorActionGetRejectionContractUnitTest. "
               + "Register each class in ONE of:\n"
               + "  - unconditionalMutators() — always rejects GET regardless of params\n"
               + "  - CONDITIONAL_MUTATORS     — rejects GET only for specific mutation-intent params "
@@ -731,7 +749,7 @@ class MutatorActionGetRejectionContractUnitTest {
                 throw new IOException("Unable to read in-scope 2Action source during mutator discovery: "
                         + actionSource, e);
             }
-            if (source.contains("SC_METHOD_NOT_ALLOWED")
+            if ((source.contains("SC_METHOD_NOT_ALLOWED") || source.contains("methodNotAllowed("))
                     && (source.contains("\"POST\".equals(")
                         || source.contains("\"POST\".equalsIgnoreCase(")
                         || source.contains(".equalsIgnoreCase(\"POST\")"))) {
@@ -740,6 +758,23 @@ class MutatorActionGetRejectionContractUnitTest {
         }
         Collections.sort(out);
         return out;
+    }
+
+    @Test
+    void shouldDiscoverNewPortalMutator_usingSharedMethodGuard(
+            @org.junit.jupiter.api.io.TempDir Path sourceRoot) throws Exception {
+        Path source = sourceRoot.resolve(
+                "io/github/carlos_emr/carlos/integration/patientportal/web/FuturePortal2Action.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                class FuturePortal2Action {
+                    void execute() {
+                        if (!"POST".equals(request.getMethod())) return methodNotAllowed(response);
+                    }
+                }
+                """);
+        assertThat(scanCandidates(sourceRoot)).contains(
+                "io.github.carlos_emr.carlos.integration.patientportal.web.FuturePortal2Action");
     }
 
     private static boolean isInScope(String fullyQualifiedClassName) {
