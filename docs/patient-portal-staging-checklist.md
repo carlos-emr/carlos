@@ -88,6 +88,10 @@ deployment secret manager, and never reuse staging values in production.
 
 Set these in the deployment's override properties, not in the committed `carlos.properties`:
 
+- [ ] `patient_portal.enabled=true`: the master switch, which is off by default (added in #3934). The
+      portal stays off, whatever else is set, until this is exactly `true`; any other value except
+      `false` or blank is a configuration error. Setting it back to `false` later switches the
+      portal off without removing the credentials below.
 - [ ] `patient_portal.base_url`: the internal API origin, `https://`, with no credentials, query or
       fragment.
 - [ ] `patient_portal.clinic_id`: the same value as the portal's.
@@ -141,6 +145,8 @@ and the result.
       shows no portal error.
 - [ ] Temporarily set a wrong pin and restart CARLOS: the page reports a portal failure and the
       portal receives nothing. Restore the pin.
+- [ ] Set `patient_portal.enabled=false` and restart CARLOS: the **Patient portal** entry disappears
+      from the record, and the rest of CARLOS works as before. Set it back to `true` and restart.
 
 **Invitation**
 
