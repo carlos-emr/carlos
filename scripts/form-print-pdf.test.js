@@ -20,7 +20,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const zlib = require('zlib');
 
-const { CLIENT_REFERENCE_LABEL, pdfText } = require('./form-print-pdf-playwright-checks');
+const { CLIENT_REFERENCE, pdfText } = require('./form-print-pdf-playwright-checks');
 
 /** A buffer shaped like the parts of a PDF this extractor looks at. */
 function pdf(...streams) {
@@ -76,9 +76,17 @@ test('finds nothing in a PDF that draws nothing', () => {
   assert.strictEqual(pdfText(pdf()).trim(), '');
 });
 
-test('the client reference label matches the rendered form and not a bare number', () => {
-  assert.ok(CLIENT_REFERENCE_LABEL.test('Client Reference No.:30'));
-  assert.ok(CLIENT_REFERENCE_LABEL.test('Client Reference No. : 30'));
-  assert.ok(!CLIENT_REFERENCE_LABEL.test('M9A 3N5'));
-  assert.ok(!CLIENT_REFERENCE_LABEL.test('30'));
+test('the client reference matches the rendered form and captures its id', () => {
+  assert.strictEqual(CLIENT_REFERENCE.exec('Client Reference No.:30')[1], '30');
+  assert.strictEqual(CLIENT_REFERENCE.exec('Client Reference No. : 30')[1], '30');
+  // The label is required, so a bare number elsewhere on the form is not mistaken for one.
+  assert.strictEqual(CLIENT_REFERENCE.exec('M9A 3N5'), null);
+  assert.strictEqual(CLIENT_REFERENCE.exec('30'), null);
+});
+
+test('the captured id is compared whole, not as a prefix', () => {
+  // 3 must not satisfy a check for row 30, which an unanchored substring match would allow.
+  const drawn = 'Client Reference No.:3\nother text';
+  assert.notStrictEqual(CLIENT_REFERENCE.exec(drawn)[1], '30');
+  assert.strictEqual(CLIENT_REFERENCE.exec(drawn)[1], '3');
 });

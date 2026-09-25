@@ -111,12 +111,15 @@ const FORM_TABLES = {
 const STAMP_FIELD = 'aci';
 
 /**
- * The label FrmLabReq07Record puts in front of the saved record's id on the printed page.
+ * The client reference as FrmLabReq07Record renders it, capturing the record id it carries.
  *
- * `encounter.form.labreq.clientreference` in the English bundle; matched rather than the id alone
- * because a bare number would also match a postal code or a phone number somewhere on the form.
+ * `encounter.form.labreq.clientreference` in the English bundle, then the id. The label is part of
+ * the pattern because a bare number would also match a postal code or a phone number elsewhere on
+ * the form; the id is a capture rather than interpolated into the pattern, so this stays one fixed
+ * literal and no regular expression is ever built from a value (Semgrep
+ * `detect-non-literal-regexp`, and the ReDoS class it guards against).
  */
-const CLIENT_REFERENCE_LABEL = /Client Reference No\.\s*:/;
+const CLIENT_REFERENCE = /Client Reference No\.\s*:\s*(\d+)/;
 
 /**
  * The literal text drawn inside a PDF, as far as a regression check needs to read it.
@@ -466,17 +469,17 @@ async function main() {
     // and its absence from the first print is the regression; if it appears in neither, the
     // setting is off and this half genuinely cannot be exercised here. The second print reprints
     // the row the first one saved -- this run's own -- so it writes nothing new to the chart.
-    const referenceFor = (id) => new RegExp(`${CLIENT_REFERENCE_LABEL.source}\\s*${id}\\b`);
-    if (CLIENT_REFERENCE_LABEL.test(drawn)) {
-      assert(referenceFor(savedIds[0]).test(drawn),
-        `the PDF shows a client reference, but not for row ${savedIds[0]} that Print had just `
+    const reference = CLIENT_REFERENCE.exec(drawn);
+    if (reference) {
+      assert(reference[1] === String(savedIds[0]),
+        `the PDF shows client reference ${reference[1]}, not row ${savedIds[0]} that Print had just `
         + 'saved, so FrmPDFServlet rendered some other record');
     } else {
       const startedUrl = await formMenuUrl(chartPage, formName, 'started');
       const control = startedUrl
         ? await printAndRead(context, config, startedUrl, { timeout, posts, pdfBodies })
         : '';
-      assert(!CLIENT_REFERENCE_LABEL.test(control),
+      assert(!CLIENT_REFERENCE.test(control),
         'reprinting the saved record shows a client reference while printing it the first time '
         + 'did not, so the id the save produced never reached FrmPDFServlet and the first print '
         + 'rendered the new-form defaults (issue #3935)');
@@ -498,5 +501,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  CLIENT_REFERENCE_LABEL, FORM_POST, FORM_TABLES, cleanup, fixture, formMenuUrl, main, pdfText,
+  CLIENT_REFERENCE, FORM_POST, FORM_TABLES, cleanup, fixture, formMenuUrl, main, pdfText,
 };
