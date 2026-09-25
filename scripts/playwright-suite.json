@@ -767,6 +767,22 @@
       "timeoutSec": 300
     },
     {
+      "name": "eform-print-save",
+      "script": "scripts/eform-print-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_PRINT_SAVE_DEMOGRAPHIC_NO",
+        "EFORM_PRINT_SAVE_FID"
+      ]
+    },
+    {
       "name": "eform-render",
       "script": "scripts/eform-render-playwright-checks.js",
       "tiers": [
