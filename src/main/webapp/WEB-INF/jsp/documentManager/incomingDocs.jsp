@@ -246,9 +246,18 @@
     // POST/PUT/DELETE/PATCH, so a GET carrying pdfAction from a link, an image tag or a
     // prefetch would otherwise change the file with no token. Refuse it before touching
     // anything; the PdfInfoForm posts, so real operators never see this.
-    if (!pdfAction.isEmpty() && !"POST".equalsIgnoreCase(request.getMethod())) {
+    if (!pdfAction.isEmpty() && !"POST".equals(request.getMethod())) {
         response.setHeader("Allow", "POST");
         response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return;
+    }
+    // The page itself only needs _edoc read (the gate above and ViewDocumentRead2Action), but
+    // a page action rewrites or deletes the queued file. Hold it to the same _edoc write that
+    // ManageDocument's addIncomingDocument requires, so a read-only user cannot change the
+    // queue with a CSRF-valid POST.
+    if (!pdfAction.isEmpty() && !ctx.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
         return;
     }
 

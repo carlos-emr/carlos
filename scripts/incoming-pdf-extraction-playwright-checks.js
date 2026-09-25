@@ -97,6 +97,36 @@ async function workflow(s) {
     h.assert(response.status() === 403, `POST without CSRF returned ${response.status()} instead of 403`);
     h.assert(fs.readFileSync(source).equals(original), 'A CSRF-rejected POST changed the synthetic PDF');
   });
+  await s.step('refuse a CSRF-valid page action from a user without _edoc write', async () => {
+    // The page is gated on _edoc read, so the page actions carry their own _edoc write check.
+    // Lower every _edoc grant the test login holds to read for one POST, then restore the rows
+    // exactly; the later extraction steps prove write access works again.
+    const roles = s.sql.rows(`SELECT role_name FROM secUserRole WHERE provider_no=${provider}`).map(row => row[0]);
+    roles.push(s.provider);
+    const inRoles = roles.map(h.sqlString).join(',');
+    const grants = s.sql.rows(`SELECT roleUserGroup,privilege FROM secObjPrivilege WHERE objectName='_edoc' AND roleUserGroup IN(${inRoles}) ORDER BY roleUserGroup`);
+    h.assert(grants.some(([, privilege]) => /[wx]/.test(privilege)), 'The test login holds no _edoc write grant to lower');
+    const restore = () => {
+      for (const [role, privilege] of grants) {
+        s.sql.execute(`UPDATE secObjPrivilege SET privilege=${h.sqlString(privilege)} WHERE objectName='_edoc' AND roleUserGroup=${h.sqlString(role)}`);
+      }
+      h.assert(JSON.stringify(s.sql.rows(`SELECT roleUserGroup,privilege FROM secObjPrivilege WHERE objectName='_edoc' AND roleUserGroup IN(${inRoles}) ORDER BY roleUserGroup`)) === JSON.stringify(grants), '_edoc grants were not restored');
+    };
+    s.cleanup(restore);
+    const form = await page.locator('form[name="PdfInfoForm"]').evaluate(form => ({
+      action: form.action, fields: Object.fromEntries([...new FormData(form)].map(([k, v]) => [k, String(v)])),
+    }));
+    h.assert(form.fields['CSRF-TOKEN'], 'The PdfInfoForm carries no CSRF token');
+    try {
+      s.sql.execute(`UPDATE secObjPrivilege SET privilege='r' WHERE objectName='_edoc' AND roleUserGroup IN(${inRoles})`);
+      const response = await s.context.request.post(form.action, {
+        form: { ...form.fields, pdfPageNumber: '1', pdfAction: 'Rotate90' },
+        headers: { Referer: page.url() }, maxRedirects: 0, failOnStatusCode: false,
+      });
+      h.assert(response.status() === 403, `A read-only CSRF-valid POST returned ${response.status()} instead of 403`);
+      h.assert(fs.readFileSync(source).equals(original), 'A read-only POST changed the synthetic PDF');
+    } finally { restore(); }
+  });
   await s.step('refuse extraction of the whole PDF without changing files', async () => {
     const dialogs = await h.withExpectedDialogs(page, () => extract().click(), { promptText: '1-3' });
     h.assert(dialogs.length === 2 && dialogs[0].type === 'prompt' && dialogs[1].type === 'alert', 'Whole-document extraction was not visibly refused');
