@@ -102,6 +102,8 @@ $SQL carlos < /scripts/demo-specialists.sql
 echo 'Preparing demographic and provider names for development environment...'
 $SQL carlos < /scripts/demo-name-sanitization.sql
 $SQL carlos < /scripts/demo-name-sanitization-on.sql
+echo 'Adding NHS synthetic development patients...'
+$SQL carlos < /scripts/nhs-synthetic/patients.sql
 echo 'Seeding Rich Text Letter eForm...'
 $SQL carlos < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'

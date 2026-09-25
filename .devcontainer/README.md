@@ -272,6 +272,11 @@ because the server answered. The container healthcheck therefore runs a real aut
 instead of a ping.
 
 ### **Database Volume Management:**
+The dev seed includes all 50 NHS England synthetic patients, searchable as
+`FAKE-NHS` or by chart numbers `NHSSYN001` through `NHSSYN050`, with 1,602 clinical
+notes; 19 of them have two hospital stays in one chart. They are added on fresh initialization and existing-container bootstrap
+without replacing existing charts. See the [source provenance and seed instructions](db/scripts/nhs-synthetic/README.md).
+
 Database volumes persist data between container restarts. This means that even after rebuilding containers, your database may contain old data unless the volume is explicitly removed.
 
 ```bash

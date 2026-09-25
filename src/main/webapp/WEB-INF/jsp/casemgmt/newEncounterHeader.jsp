@@ -85,6 +85,9 @@
     pageContext.setAttribute("popupPatientSex", popupPatientSex);
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
     pageContext.setAttribute("popupDemographicNo", demoNo);
+    pageContext.setAttribute("summaryDemographicNo", Integer.parseInt(demoNo));
+    pageContext.setAttribute("summaryPrototypeEnabled", "true".equals(CarlosProperties.getInstance()
+            .getProperty("clinical.ai_summary_prototype.enabled", "false")));
 
 %>
 
@@ -236,6 +239,9 @@ function fallbackCopy(text) {
         <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}"
            onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
     </div>
+    <c:if test="${summaryPrototypeEnabled}">
+        <div><a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(ctx)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}">Patient overview</a></div>
+    </c:if>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
         <div>
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>

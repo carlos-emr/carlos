@@ -1,0 +1,4767 @@
+[
+ {
+  "name": "R1-002-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 231.536,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 53,
+  "cost_usd": 0.01499,
+  "calls": [
+   {
+    "seconds": 231.334,
+    "prompt_tokens": 9103,
+    "completion_tokens": 6357,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01498975,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 53,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "completion_tokens": 6357
+ },
+ {
+  "name": "R2-002-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 283.833,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 58,
+  "cost_usd": 0.014838,
+  "calls": [
+   {
+    "seconds": 283.427,
+    "prompt_tokens": 9103,
+    "completion_tokens": 6281,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01483775,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 58,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "completion_tokens": 6281
+ },
+ {
+  "name": "R3-002-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 138.05,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 0,
+  "cost_usd": 0.012634,
+  "calls": [
+   {
+    "seconds": 138.046,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5179,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01263375,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ],
+  "completion_tokens": 5179
+ },
+ {
+  "name": "R4-001-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 270.6,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009417,
+  "calls": [
+   {
+    "seconds": 270.523,
+    "prompt_tokens": 7715,
+    "completion_tokens": 3744,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00941675,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "completion_tokens": 3744
+ },
+ {
+  "name": "R5-001-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 288.18,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009593,
+  "calls": [
+   {
+    "seconds": 288.128,
+    "prompt_tokens": 7715,
+    "completion_tokens": 3832,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00959275,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "completion_tokens": 3832
+ },
+ {
+  "name": "R6-003-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 204.423,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 28,
+  "cost_usd": 0.008489,
+  "calls": [
+   {
+    "seconds": 204.363,
+    "prompt_tokens": 6315,
+    "completion_tokens": 3455,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00848875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 28,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "completion_tokens": 3455
+ },
+ {
+  "name": "R7-003-default",
+  "note": "Uncached repeat of the default gateway configuration.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 257.986,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 32,
+  "cost_usd": 0.008899,
+  "calls": [
+   {
+    "seconds": 257.66,
+    "prompt_tokens": 6315,
+    "completion_tokens": 3660,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00889875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 32,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "completion_tokens": 3660
+ },
+ {
+  "name": "A1-002-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 174.158,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 48,
+  "completion_tokens": 4722,
+  "cost_usd": 0.011726,
+  "calls": [
+   {
+    "seconds": 174.037,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4722,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01172575,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 48,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "A2-001-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 79.879,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 28,
+  "completion_tokens": 2818,
+  "cost_usd": 0.007571,
+  "calls": [
+   {
+    "seconds": 79.785,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2818,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00757075,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 28,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "A3-003-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN003",
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 109.145,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 0,
+  "completion_tokens": 1,
+  "cost_usd": 0.001587,
+  "calls": [
+   {
+    "seconds": 109.143,
+    "prompt_tokens": 6339,
+    "completion_tokens": 1,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00158675,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "A4-003-uncited-coverage",
+  "note": "Default configuration after the model stopped reviewing cited sources.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 180.971,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 34,
+  "completion_tokens": 3253,
+  "cost_usd": 0.008091,
+  "calls": [
+   {
+    "seconds": 180.804,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3253,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00809075,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 34,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "T-qwen3.5-122b-a10b-alibaba-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.171,
+  "model": "qwen/qwen3.5-122b-a10b",
+  "provider": "alibaba",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.17,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-122b-a10b-atlas-cloud-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.163,
+  "model": "qwen/qwen3.5-122b-a10b",
+  "provider": "atlas-cloud",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.162,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-122b-a10b-siliconflow-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 141.955,
+  "model": "qwen/qwen3.5-122b-a10b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 51,
+  "completion_tokens": 6232,
+  "cost_usd": 0.015329,
+  "calls": [
+   {
+    "seconds": 141.83,
+    "prompt_tokens": 9103,
+    "completion_tokens": 6232,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01532934,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "ward-round-vitals-retained"
+   ],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-27b-alibaba-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.954,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "alibaba",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.952,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-27b-atlas-cloud-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.896,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "atlas-cloud",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.894,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-27b-deepinfra-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 94.271,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 26,
+  "completion_tokens": 3490,
+  "cost_usd": 0.011441,
+  "calls": [
+   {
+    "seconds": 94.234,
+    "prompt_tokens": 9103,
+    "completion_tokens": 3490,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01144078,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 26,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "ward-round-vitals-retained"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-alibaba-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.208,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "alibaba",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.208,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-atlas-cloud-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)",
+  "seconds": 0.17,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "atlas-cloud",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.169,
+    "error": "UpstreamError: No permitted model/provider endpoint (HTTP 404)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-deepinfra-002-r2",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)",
+  "seconds": 7.866,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 1.144,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.364,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.353,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-deepinfra-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)",
+  "seconds": 6.901,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 0,
+  "claims": 0,
+  "completion_tokens": 0,
+  "cost_usd": 0,
+  "calls": [
+   {
+    "seconds": 0.412,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.262,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 0.225,
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-parasail-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 153.981,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 46,
+  "completion_tokens": 5042,
+  "cost_usd": 0.006407,
+  "calls": [
+   {
+    "seconds": 153.871,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5042,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00640745,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 46,
+   "fact_recall": 0.864,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-siliconflow-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 112.827,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 0,
+  "completion_tokens": 1874,
+  "cost_usd": 0.005558,
+  "calls": [
+   {
+    "seconds": 112.826,
+    "prompt_tokens": 9103,
+    "completion_tokens": 1874,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00555792,
+    "finish_reasons": [
+     null
+    ]
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-venice-002-r2",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 53.224,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 50,
+  "completion_tokens": 5610,
+  "cost_usd": 0.008537,
+  "calls": [
+   {
+    "seconds": 53.093,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5610,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0085371875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 0.909,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-venice-002-r3",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Unknown or duplicate reference",
+  "seconds": 41.241,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 0,
+  "completion_tokens": 4988,
+  "cost_usd": 0.00776,
+  "calls": [
+   {
+    "seconds": 41.2,
+    "prompt_tokens": 9103,
+    "completion_tokens": 4988,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0077596875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "T-qwen3.5-35b-a3b-venice-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 59.134,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 54,
+  "completion_tokens": 5809,
+  "cost_usd": 0.010106,
+  "calls": [
+   {
+    "seconds": 59.082,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5809,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0101059375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-397b-a17b-deepinfra-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 160.768,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 39,
+  "completion_tokens": 5227,
+  "cost_usd": 0.019777,
+  "calls": [
+   {
+    "seconds": 160.714,
+    "prompt_tokens": 9103,
+    "completion_tokens": 5227,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01977735,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "T-qwen3.5-397b-a17b-venice-002",
+  "note": "Provider and model trial with the pre-change prompt and schema (ba4f017eec).",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 14.853,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 20,
+  "completion_tokens": 3473,
+  "cost_usd": 0.022456,
+  "calls": [
+   {
+    "seconds": 14.801,
+    "prompt_tokens": 9103,
+    "completion_tokens": 3473,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.02245575,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 20,
+   "fact_recall": 0.818,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "H1-002-deepinfra-host-checks",
+  "note": "First live runs with the observation and date guarantees.",
+  "fixture": "NHSSYN002",
+  "status": "rejected",
+  "error": "ValueError: Missing, unknown or duplicate source review",
+  "seconds": 32.059,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 0,
+  "host_statements": 0,
+  "completion_tokens": 2767,
+  "cost_usd": 0.009567,
+  "calls": [
+   {
+    "seconds": 32.033,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2767,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00956722,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "H2-002-deepinfra-host-checks",
+  "note": "First live runs with the observation and date guarantees.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 33.585,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 35,
+  "host_statements": 8,
+  "completion_tokens": 2723,
+  "cost_usd": 0.009453,
+  "calls": [
+   {
+    "seconds": 33.281,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2723,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00945282,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-001a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 35.585,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 31,
+  "host_statements": 7,
+  "completion_tokens": 2495,
+  "cost_usd": 0.008499,
+  "calls": [
+   {
+    "seconds": 34.76,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2495,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00849914,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 31,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-001b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 40.856,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 34,
+  "host_statements": 8,
+  "completion_tokens": 2908,
+  "cost_usd": 0.009573,
+  "calls": [
+   {
+    "seconds": 40.558,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2908,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00957294,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 34,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-002a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 41.328,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 35,
+  "host_statements": 8,
+  "completion_tokens": 2876,
+  "cost_usd": 0.009851,
+  "calls": [
+   {
+    "seconds": 40.506,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2876,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00985062,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-002b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 44.464,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 10,
+  "completion_tokens": 3004,
+  "cost_usd": 0.010183,
+  "calls": [
+   {
+    "seconds": 43.949,
+    "prompt_tokens": 9127,
+    "completion_tokens": 3004,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01018342,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-003a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 38.468,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 29,
+  "host_statements": 5,
+  "completion_tokens": 2491,
+  "cost_usd": 0.008125,
+  "calls": [
+   {
+    "seconds": 38.193,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2491,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00812474,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-27b-deepinfra-003b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 36.48,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 30,
+  "host_statements": 5,
+  "completion_tokens": 2592,
+  "cost_usd": 0.008387,
+  "calls": [
+   {
+    "seconds": 35.909,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2592,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00838734,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 30,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-001",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 23.912,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 8,
+  "completion_tokens": 3026,
+  "cost_usd": 0.004187,
+  "calls": [
+   {
+    "seconds": 23.499,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3026,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00418685,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-001b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.808,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 50,
+  "host_statements": 7,
+  "completion_tokens": 3717,
+  "cost_usd": 0.004878,
+  "calls": [
+   {
+    "seconds": 45.063,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3717,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00487785,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 0.85,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 1,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-parasail-001c",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "rejected",
+  "error": "ValueError: Unreadable or duplicate clinical claim",
+  "seconds": 28.328,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 0,
+  "host_statements": 0,
+  "completion_tokens": 3325,
+  "cost_usd": 0.004486,
+  "calls": [
+   {
+    "seconds": 28.293,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3325,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00448585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "S-35b-parasail-002",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 58.407,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 68,
+  "host_statements": 5,
+  "completion_tokens": 5923,
+  "cost_usd": 0.007292,
+  "calls": [
+   {
+    "seconds": 57.681,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5923,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00729205,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 68,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-002b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.662,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 60,
+  "host_statements": 8,
+  "completion_tokens": 4476,
+  "cost_usd": 0.005845,
+  "calls": [
+   {
+    "seconds": 48.428,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4476,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00584505,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 60,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-002c",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 47.8,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 56,
+  "host_statements": 8,
+  "completion_tokens": 4597,
+  "cost_usd": 0.005966,
+  "calls": [
+   {
+    "seconds": 46.046,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4597,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00596605,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 56,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-003",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 23.83,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 33,
+  "host_statements": 3,
+  "completion_tokens": 2818,
+  "cost_usd": 0.003769,
+  "calls": [
+   {
+    "seconds": 23.567,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2818,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00376885,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 33,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-parasail-003b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 31.73,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 7,
+  "completion_tokens": 2860,
+  "cost_usd": 0.003811,
+  "calls": [
+   {
+    "seconds": 30.961,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2860,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00381085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-parasail-003c",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 25.017,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 39,
+  "host_statements": 6,
+  "completion_tokens": 2941,
+  "cost_usd": 0.003892,
+  "calls": [
+   {
+    "seconds": 23.528,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2941,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00389185,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-venice-001a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 16.009,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 41,
+  "host_statements": 7,
+  "completion_tokens": 3282,
+  "cost_usd": 0.006521,
+  "calls": [
+   {
+    "seconds": 15.277,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3282,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0065209375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 41,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 5,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-venice-001b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 18.466,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 54,
+  "host_statements": 8,
+  "completion_tokens": 4026,
+  "cost_usd": 0.006296,
+  "calls": [
+   {
+    "seconds": 18.134,
+    "prompt_tokens": 7739,
+    "completion_tokens": 4026,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0062959375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-venice-002a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 20.467,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 54,
+  "host_statements": 8,
+  "completion_tokens": 4167,
+  "cost_usd": 0.008061,
+  "calls": [
+   {
+    "seconds": 19.678,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4167,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0080609375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-venice-002b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 35.547,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 51,
+  "host_statements": 8,
+  "completion_tokens": 4429,
+  "cost_usd": 0.007068,
+  "calls": [
+   {
+    "seconds": 35.096,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4429,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0070684375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-35b-venice-003a",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 14.289,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 38,
+  "host_statements": 5,
+  "completion_tokens": 2928,
+  "cost_usd": 0.005641,
+  "calls": [
+   {
+    "seconds": 13.797,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2928,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0056409375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 38,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-35b-venice-003b",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 14.076,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 40,
+  "host_statements": 6,
+  "completion_tokens": 3063,
+  "cost_usd": 0.00581,
+  "calls": [
+   {
+    "seconds": 13.76,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3063,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0058096875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 40,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "S-397b-venice-001",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 44.465,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 35,
+  "host_statements": 8,
+  "completion_tokens": 2654,
+  "cost_usd": 0.017747,
+  "calls": [
+   {
+    "seconds": 44.138,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2654,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01774725,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-397b-venice-002",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 195.439,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 36,
+  "host_statements": 10,
+  "completion_tokens": 2863,
+  "cost_usd": 0.019729,
+  "calls": [
+   {
+    "seconds": 194.566,
+    "prompt_tokens": 9127,
+    "completion_tokens": 2863,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01972875,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.955,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "S-397b-venice-003",
+  "note": "Live run with all three host guarantees applied.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 44.248,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "provider": "venice",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "claims": 32,
+  "host_statements": 5,
+  "completion_tokens": 2731,
+  "cost_usd": 0.017044,
+  "calls": [
+   {
+    "seconds": 43.571,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2731,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01704375,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 32,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-001a",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 25.922,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 42,
+  "host_statements": 9,
+  "completion_tokens": 2989,
+  "cost_usd": 0.00415,
+  "calls": [
+   {
+    "seconds": 25.423,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2989,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00414985,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 42,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-001b",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 42.657,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 48,
+  "host_statements": 9,
+  "completion_tokens": 3175,
+  "cost_usd": 0.004336,
+  "calls": [
+   {
+    "seconds": 42.244,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3175,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00433585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 48,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-001c",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.339,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 51,
+  "host_statements": 8,
+  "completion_tokens": 3810,
+  "cost_usd": 0.004971,
+  "calls": [
+   {
+    "seconds": 42.956,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3810,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00497085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 3,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-base2-002a",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 89.752,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 58,
+  "host_statements": 1,
+  "completion_tokens": 5300,
+  "cost_usd": 0.006669,
+  "calls": [
+   {
+    "seconds": 89.219,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5300,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00666905,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 58,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-002b",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 56.511,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 59,
+  "host_statements": 5,
+  "completion_tokens": 5089,
+  "cost_usd": 0.006458,
+  "calls": [
+   {
+    "seconds": 55.863,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5089,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00645805,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 59,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-002c",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 68.211,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 54,
+  "host_statements": 7,
+  "completion_tokens": 4988,
+  "cost_usd": 0.006357,
+  "calls": [
+   {
+    "seconds": 66.602,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4988,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00635705,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 54,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-003a",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 28.867,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 33,
+  "host_statements": 3,
+  "completion_tokens": 2846,
+  "cost_usd": 0.003797,
+  "calls": [
+   {
+    "seconds": 28.593,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2846,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00379685,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 33,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-base2-003b",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.925,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 35,
+  "host_statements": 3,
+  "completion_tokens": 2985,
+  "cost_usd": 0.003936,
+  "calls": [
+   {
+    "seconds": 49.161,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2985,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00393585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 35,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-base2-003c",
+  "note": "Baseline in the same hour as both2.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 62.689,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 40,
+  "host_statements": 3,
+  "completion_tokens": 3230,
+  "cost_usd": 0.004181,
+  "calls": [
+   {
+    "seconds": 62.065,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3230,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00418085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 40,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both-001a",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.324,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 48,
+  "host_statements": 8,
+  "completion_tokens": 3699,
+  "cost_usd": 0.004997,
+  "calls": [
+   {
+    "seconds": 37.025,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3627,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00478785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 8.238,
+    "prompt_tokens": 917,
+    "completion_tokens": 72,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00020955,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 48,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-001b",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 32.041,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 44,
+  "host_statements": 9,
+  "completion_tokens": 3230,
+  "cost_usd": 0.004476,
+  "calls": [
+   {
+    "seconds": 29.4,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3182,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00434285,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.575,
+    "prompt_tokens": 570,
+    "completion_tokens": 48,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0001335,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 44,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-001c",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 28.187,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 38,
+  "host_statements": 7,
+  "completion_tokens": 3068,
+  "cost_usd": 0.004336,
+  "calls": [
+   {
+    "seconds": 26.51,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2996,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00415685,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.939,
+    "prompt_tokens": 714,
+    "completion_tokens": 72,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0001791,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 38,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-002a",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.396,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 58,
+  "host_statements": 8,
+  "completion_tokens": 4570,
+  "cost_usd": 0.006095,
+  "calls": [
+   {
+    "seconds": 46.645,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4504,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00587305,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.274,
+    "prompt_tokens": 1042,
+    "completion_tokens": 66,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002223,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 58,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both-002b",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 71.678,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 53,
+  "host_statements": 10,
+  "completion_tokens": 4275,
+  "cost_usd": 0.005801,
+  "calls": [
+   {
+    "seconds": 66.842,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4205,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00557405,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.056,
+    "prompt_tokens": 1046,
+    "completion_tokens": 70,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002269,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 53,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both-002c",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 56.748,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 60,
+  "host_statements": 8,
+  "completion_tokens": 4732,
+  "cost_usd": 0.006101,
+  "calls": [
+   {
+    "seconds": 55.752,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4732,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00610105,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 60,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-003a",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 47.554,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 36,
+  "host_statements": 6,
+  "completion_tokens": 2794,
+  "cost_usd": 0.003836,
+  "calls": [
+   {
+    "seconds": 38.678,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2788,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00373885,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 7.766,
+    "prompt_tokens": 606,
+    "completion_tokens": 6,
+    "reasoning_tokens": 0,
+    "cost_usd": 9.69e-05,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-003b",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 38.006,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 41,
+  "host_statements": 2,
+  "completion_tokens": 3416,
+  "cost_usd": 0.004367,
+  "calls": [
+   {
+    "seconds": 37.413,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3416,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00436685,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 41,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both-003c",
+  "note": "Ideas 1+2+3 combined, before the per-minute and date-wording fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 38.768,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 36,
+  "host_statements": 5,
+  "completion_tokens": 2941,
+  "cost_usd": 0.003955,
+  "calls": [
+   {
+    "seconds": 37.372,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2874,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00382485,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.916,
+    "prompt_tokens": 423,
+    "completion_tokens": 67,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00013045,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-001a",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 45.886,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 51,
+  "host_statements": 8,
+  "completion_tokens": 3998,
+  "cost_usd": 0.005269,
+  "calls": [
+   {
+    "seconds": 35.952,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3907,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00506785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 8.864,
+    "prompt_tokens": 732,
+    "completion_tokens": 91,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002008,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-001b",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 37.488,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 46,
+  "host_statements": 8,
+  "completion_tokens": 3938,
+  "cost_usd": 0.005467,
+  "calls": [
+   {
+    "seconds": 35.543,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3847,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00500785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.06,
+    "prompt_tokens": 2453,
+    "completion_tokens": 91,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00045895,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 46,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-both2-001c",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 63.256,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 47,
+  "host_statements": 9,
+  "completion_tokens": 3307,
+  "cost_usd": 0.004831,
+  "calls": [
+   {
+    "seconds": 60.716,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3231,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00439185,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.239,
+    "prompt_tokens": 2423,
+    "completion_tokens": 76,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00043945,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 47,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-002a",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 41.164,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 2,
+  "merged_statements": 0,
+  "claims": 44,
+  "host_statements": 8,
+  "completion_tokens": 3909,
+  "cost_usd": 0.005517,
+  "calls": [
+   {
+    "seconds": 38.216,
+    "prompt_tokens": 9127,
+    "completion_tokens": 3762,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00513105,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.898,
+    "prompt_tokens": 1594,
+    "completion_tokens": 147,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0003861,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 44,
+   "fact_recall": 0.909,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-002b",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 43.894,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 50,
+  "host_statements": 8,
+  "completion_tokens": 3987,
+  "cost_usd": 0.005462,
+  "calls": [
+   {
+    "seconds": 40.027,
+    "prompt_tokens": 9127,
+    "completion_tokens": 3887,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00525605,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.889,
+    "prompt_tokens": 708,
+    "completion_tokens": 100,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0002062,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-002c",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 92.064,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 57,
+  "host_statements": 3,
+  "completion_tokens": 5050,
+  "cost_usd": 0.006419,
+  "calls": [
+   {
+    "seconds": 90.427,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5050,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00641905,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 57,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-003a",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 32.875,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 46,
+  "host_statements": 1,
+  "completion_tokens": 3899,
+  "cost_usd": 0.00485,
+  "calls": [
+   {
+    "seconds": 32.456,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3899,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00484985,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 46,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-003b",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 28.374,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": 1,
+  "merged_statements": 0,
+  "claims": 36,
+  "host_statements": 4,
+  "completion_tokens": 2910,
+  "cost_usd": 0.003923,
+  "calls": [
+   {
+    "seconds": 26.843,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2852,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00380285,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.049,
+    "prompt_tokens": 414,
+    "completion_tokens": 58,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0001201,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-both2-003c",
+  "note": "Ideas 1+2+3 combined, after those fixes.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 32.899,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": 0,
+  "merged_statements": 0,
+  "claims": 42,
+  "host_statements": 4,
+  "completion_tokens": 2564,
+  "cost_usd": 0.003515,
+  "calls": [
+   {
+    "seconds": 30.753,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2564,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00351485,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 42,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-001a",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 50.283,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 52,
+  "host_statements": 2,
+  "completion_tokens": 4714,
+  "cost_usd": 0.005875,
+  "calls": [
+   {
+    "seconds": 48.668,
+    "prompt_tokens": 7739,
+    "completion_tokens": 4714,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00587485,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 52,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 5,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-001b",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 25.123,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 39,
+  "host_statements": 9,
+  "completion_tokens": 2653,
+  "cost_usd": 0.003814,
+  "calls": [
+   {
+    "seconds": 23.555,
+    "prompt_tokens": 7739,
+    "completion_tokens": 2653,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00381385,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-001c",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 39.633,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 44,
+  "host_statements": 8,
+  "completion_tokens": 3158,
+  "cost_usd": 0.004319,
+  "calls": [
+   {
+    "seconds": 39.216,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3158,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00431885,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 44,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-002a",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 66.731,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 64,
+  "host_statements": 8,
+  "completion_tokens": 4923,
+  "cost_usd": 0.006292,
+  "calls": [
+   {
+    "seconds": 64.338,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4923,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00629205,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 64,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-002b",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 46.748,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 59,
+  "host_statements": 8,
+  "completion_tokens": 4853,
+  "cost_usd": 0.006222,
+  "calls": [
+   {
+    "seconds": 45.857,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4853,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00622205,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 59,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-002c",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 49.367,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 57,
+  "host_statements": 10,
+  "completion_tokens": 4451,
+  "cost_usd": 0.00582,
+  "calls": [
+   {
+    "seconds": 46.057,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4451,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00582005,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 57,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-003a",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 24.3,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 39,
+  "host_statements": 6,
+  "completion_tokens": 2279,
+  "cost_usd": 0.00323,
+  "calls": [
+   {
+    "seconds": 23.659,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2279,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00322985,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 39,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-merge-003b",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 45.902,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 34,
+  "host_statements": 4,
+  "completion_tokens": 2833,
+  "cost_usd": 0.003784,
+  "calls": [
+   {
+    "seconds": 44.471,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2833,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00378385,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 34,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 1,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-merge-003c",
+  "note": "Idea 1 alone: identical statements merged instead of failing the draft.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 37.576,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": true,
+  "host_repair": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 36,
+  "host_statements": 4,
+  "completion_tokens": 2933,
+  "cost_usd": 0.003884,
+  "calls": [
+   {
+    "seconds": 37.281,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2933,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00388385,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-001a",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 51.059,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 50,
+  "host_statements": 9,
+  "completion_tokens": 4081,
+  "cost_usd": 0.005701,
+  "calls": [
+   {
+    "seconds": 44.801,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3699,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00485985,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 5.209,
+    "prompt_tokens": 3062,
+    "completion_tokens": 382,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0008413,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 50,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-001b",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 36.254,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 45,
+  "host_statements": 8,
+  "completion_tokens": 3795,
+  "cost_usd": 0.005368,
+  "calls": [
+   {
+    "seconds": 30.884,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3467,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00462785,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 3.763,
+    "prompt_tokens": 2749,
+    "completion_tokens": 328,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00074035,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 45,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-001c",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 47.091,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 43,
+  "host_statements": 9,
+  "completion_tokens": 3119,
+  "cost_usd": 0.004377,
+  "calls": [
+   {
+    "seconds": 45.813,
+    "prompt_tokens": 7739,
+    "completion_tokens": 3109,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00426985,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.527,
+    "prompt_tokens": 645,
+    "completion_tokens": 10,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00010675,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 43,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-002a",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 52.769,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 61,
+  "host_statements": 8,
+  "completion_tokens": 4798,
+  "cost_usd": 0.006269,
+  "calls": [
+   {
+    "seconds": 50.127,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4743,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00611205,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.256,
+    "prompt_tokens": 680,
+    "completion_tokens": 55,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000157,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 61,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-002b",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 51.857,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 64,
+  "host_statements": 8,
+  "completion_tokens": 4892,
+  "cost_usd": 0.006261,
+  "calls": [
+   {
+    "seconds": 48.815,
+    "prompt_tokens": 9127,
+    "completion_tokens": 4892,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00626105,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 64,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-002c",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 68.682,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 65,
+  "host_statements": 1,
+  "completion_tokens": 6043,
+  "cost_usd": 0.007643,
+  "calls": [
+   {
+    "seconds": 63.411,
+    "prompt_tokens": 9127,
+    "completion_tokens": 5918,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00728705,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 2.308,
+    "prompt_tokens": 1540,
+    "completion_tokens": 125,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.000356,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 65,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ },
+ {
+  "name": "X-repair-003a",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 17.589,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 29,
+  "host_statements": 6,
+  "completion_tokens": 1795,
+  "cost_usd": 0.002746,
+  "calls": [
+   {
+    "seconds": 16.202,
+    "prompt_tokens": 6339,
+    "completion_tokens": 1795,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00274585,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-003b",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 27.706,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 0,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 37,
+  "host_statements": 5,
+  "completion_tokens": 2890,
+  "cost_usd": 0.003841,
+  "calls": [
+   {
+    "seconds": 27.096,
+    "prompt_tokens": 6339,
+    "completion_tokens": 2890,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00384085,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "metrics": {
+   "claims": 37,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  }
+ },
+ {
+  "name": "X-repair-003c",
+  "note": "Idea 3 alone: one targeted repair call for host-faulted statements.",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 39.918,
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "temperature": 0.0,
+  "section_passes": false,
+  "timeout_seconds": 420,
+  "request_bytes": 50000,
+  "host_merge_duplicates": false,
+  "host_repair": true,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0a6cf9d9f891313810728857363d9aeed3bb0ce522fb7ff74ed08c862590a786",
+  "passes": 1,
+  "repair_calls": 1,
+  "repaired_statements": null,
+  "merged_statements": null,
+  "claims": 38,
+  "host_statements": 6,
+  "completion_tokens": 3155,
+  "cost_usd": 0.004369,
+  "calls": [
+   {
+    "seconds": 37.502,
+    "prompt_tokens": 6339,
+    "completion_tokens": 3065,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00401585,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 1.981,
+    "prompt_tokens": 1756,
+    "completion_tokens": 90,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0003534,
+    "finish_reasons": [
+     "stop"
+    ],
+    "repair": true
+   }
+  ],
+  "metrics": {
+   "claims": 38,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 1,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  }
+ }
+]

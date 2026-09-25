@@ -1,0 +1,341 @@
+{
+  "fixture": "NHSSYN001",
+  "settings": {
+    "model": "qwen/qwen3.5-27b",
+    "provider": "phala",
+    "port": 11437,
+    "timeout_seconds": 300,
+    "max_tokens": 16384,
+    "cache_seconds": 0,
+    "temperature": 0.0,
+    "request_bytes": 50000,
+    "reasoning_tokens": 0,
+    "section_passes": false,
+    "section_workers": 2
+  },
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "clinical_accuracy": "Unverified; inspect every statement and omission against the sources.",
+  "output": {
+    "claims": [
+      {
+        "id": "c1",
+        "text": "The patient presented with a severe headache rated 8/10 in intensity, described as sudden 'thunderclap' onset after exertion, throbbing, diffuse, and associated with mild nausea but no vomiting, visual changes, photophobia, or neck stiffness.",
+        "source_ids": [
+          "note-1",
+          "note-2",
+          "note-3",
+          "note-4",
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c2",
+        "text": "The patient reported no past medical history, no current medications, and no known allergies.",
+        "source_ids": [
+          "note-1",
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c3",
+        "text": "Social history indicates the patient lives alone, is independent in daily activities, works as a primary school teacher, engages in regular jogging, denies smoking or recreational drug use, and consumes alcohol in moderation (approximately 6 units per week).",
+        "source_ids": [
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c4",
+        "text": "Family history is negative for cerebrovascular accidents, aneurysms, migraines, or neurological conditions; the mother has type 2 diabetes and the father has hypertension.",
+        "source_ids": [
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c5",
+        "text": "Initial triage on 2026-01-07 recorded blood pressure at 160/90 mmHg and heart rate at 88 bpm.",
+        "source_ids": [
+          "note-1",
+          "note-2",
+          "note-3",
+          "note-4"
+        ]
+      },
+      {
+        "id": "c6",
+        "text": "Initial neurological examination on 2026-01-07 revealed no abnormalities, with the patient alert, oriented, and having intact cranial nerves, motor, and sensory function.",
+        "source_ids": [
+          "note-2",
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c7",
+        "text": "A CT head scan performed on 2026-01-07 showed no evidence of intracranial hemorrhage, mass lesion, or other abnormalities.",
+        "source_ids": [
+          "note-3",
+          "note-4",
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c8",
+        "text": "Blood tests collected on 2026-01-07 showed mild leukocytosis (WBC 12.5 x 10^9/L), CRP 8 mg/L, and normal renal and liver function tests.",
+        "source_ids": [
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c9",
+        "text": "The patient was admitted to the Neurology ward with a diagnosis of Reversible Cerebral Vasoconstriction Syndrome (RCVS).",
+        "source_ids": [
+          "note-1",
+          "note-5",
+          "note-6"
+        ]
+      },
+      {
+        "id": "c10",
+        "text": "On 2026-01-07, the headache persisted at 7/10 intensity, blood pressure was 150/92 mmHg, and blood tests showed mild hypokalemia (K+ 3.3 mmol/L) and marginally elevated CRP (12 mg/L).",
+        "source_ids": [
+          "note-7"
+        ]
+      },
+      {
+        "id": "c11",
+        "text": "MRI/MRA performed on 2026-01-07 confirmed the diagnosis of RCVS.",
+        "source_ids": [
+          "note-9"
+        ]
+      },
+      {
+        "id": "c12",
+        "text": "On 2026-01-08, headache severity reduced to 5/10, blood pressure was 135/85 mmHg, CRP was 12 mg/L, and mild hypokalemia (K+ 3.3 mmol/L) persisted.",
+        "source_ids": [
+          "note-9"
+        ]
+      },
+      {
+        "id": "c13",
+        "text": "On 2026-01-09, headache severity reduced to 3/10, blood pressure was 125/80 mmHg, and blood tests showed mild hyponatremia (Na 132 mmol/L).",
+        "source_ids": [
+          "note-11"
+        ]
+      },
+      {
+        "id": "c14",
+        "text": "On 2026-01-10, headache severity reduced to 2/10, blood pressure was 125/80 mmHg, and mild hyponatremia (Na 132 mmol/L) was noted.",
+        "source_ids": [
+          "note-13"
+        ]
+      },
+      {
+        "id": "c15",
+        "text": "On 2026-01-11, headache severity remained at 2/10, blood pressure was 125/78 mmHg, and a repeat MRA showed significant improvement in cerebral vasoconstriction.",
+        "source_ids": [
+          "note-15",
+          "note-16"
+        ]
+      },
+      {
+        "id": "c16",
+        "text": "On 2026-01-12, the patient reported no further headaches, blood pressure was 130/80 mmHg, and a repeat MRA confirmed resolution of vasoconstriction.",
+        "source_ids": [
+          "note-17"
+        ]
+      },
+      {
+        "id": "c17",
+        "text": "Medication records conflict regarding the discharge regimen: one source documents nimodipine 30 mg orally every 4 hours to be tapered over 2 weeks, while another source documents amlodipine 5 mg orally once daily.",
+        "source_ids": [
+          "note-17",
+          "note-18"
+        ]
+      },
+      {
+        "id": "c18",
+        "text": "The patient was discharged on 2026-01-12 with plans for outpatient neurology follow-up in 4 weeks and outpatient physiotherapy to address mild residual neck stiffness.",
+        "source_ids": [
+          "note-12",
+          "note-16",
+          "note-17"
+        ]
+      },
+      {
+        "id": "c19",
+        "text": "The patient received education on avoiding triggers such as intense physical exertion, stress, triptans, and ergotamines, and was provided with discharge planning materials.",
+        "source_ids": [
+          "note-10",
+          "note-14",
+          "note-17"
+        ]
+      },
+      {
+        "id": "c20",
+        "text": "The GP was contacted on 2026-01-07 and again on 2026-01-12 to provide updates on the admission, diagnosis, and discharge plan.",
+        "source_ids": [
+          "note-8",
+          "note-18",
+          "note-19"
+        ]
+      }
+    ],
+    "sections": [
+      {
+        "id": "clinical_overview",
+        "title": "Clinical overview",
+        "claim_ids": [
+          "c1",
+          "c2",
+          "c3",
+          "c4",
+          "c5",
+          "c6"
+        ]
+      },
+      {
+        "id": "active_problems",
+        "title": "Active problems",
+        "claim_ids": [
+          "c9",
+          "c10",
+          "c11",
+          "c12",
+          "c13",
+          "c14",
+          "c15",
+          "c16"
+        ]
+      },
+      {
+        "id": "medications_allergies",
+        "title": "Medications and allergies",
+        "claim_ids": [
+          "c17"
+        ]
+      },
+      {
+        "id": "results_observations",
+        "title": "Results and observations",
+        "claim_ids": [
+          "c7",
+          "c8"
+        ]
+      },
+      {
+        "id": "plan_follow_up",
+        "title": "Plan and follow-up",
+        "claim_ids": [
+          "c18",
+          "c19",
+          "c20"
+        ]
+      }
+    ],
+    "coverage": [
+      {
+        "source_id": "note-1",
+        "status": "cited",
+        "reason": "note-1: Provides initial triage details, chief complaint, vital signs, and initial diagnosis."
+      },
+      {
+        "source_id": "note-2",
+        "status": "cited",
+        "reason": "note-2: Confirms initial presentation, vital signs, and neurological examination findings."
+      },
+      {
+        "source_id": "note-3",
+        "status": "cited",
+        "reason": "note-3: Documents CT head results and initial observations."
+      },
+      {
+        "source_id": "note-4",
+        "status": "cited",
+        "reason": "note-4: Summarizes initial triage, CT results, and blood test collection."
+      },
+      {
+        "source_id": "note-5",
+        "status": "cited",
+        "reason": "note-5: Provides detailed history, examination, initial lab results, and admission plan."
+      },
+      {
+        "source_id": "note-6",
+        "status": "cited",
+        "reason": "note-6: Provides detailed history, examination, and initial management plan."
+      },
+      {
+        "source_id": "note-7",
+        "status": "cited",
+        "reason": "note-7: Documents ward round findings, headache progression, and initial medication orders."
+      },
+      {
+        "source_id": "note-8",
+        "status": "cited",
+        "reason": "note-8: Records GP contact on 2026-01-07."
+      },
+      {
+        "source_id": "note-9",
+        "status": "cited",
+        "reason": "note-9: Documents MRI/MRA confirmation of RCVS and clinical status on 2026-01-08."
+      },
+      {
+        "source_id": "note-10",
+        "status": "cited",
+        "reason": "note-10: Records patient education on triggers and lifestyle modifications."
+      },
+      {
+        "source_id": "note-11",
+        "status": "cited",
+        "reason": "note-11: Documents clinical status, headache reduction, and hyponatremia on 2026-01-09."
+      },
+      {
+        "source_id": "note-12",
+        "status": "cited",
+        "reason": "note-12: Documents rehab assessment and plan for outpatient physiotherapy."
+      },
+      {
+        "source_id": "note-13",
+        "status": "cited",
+        "reason": "note-13: Documents clinical status and headache reduction on 2026-01-10."
+      },
+      {
+        "source_id": "note-14",
+        "status": "cited",
+        "reason": "note-14: Records provision of discharge planning booklet and education."
+      },
+      {
+        "source_id": "note-15",
+        "status": "cited",
+        "reason": "note-15: Documents clinical status and headache reduction on 2026-01-11."
+      },
+      {
+        "source_id": "note-16",
+        "status": "cited",
+        "reason": "note-16: Documents repeat MRA results showing improvement and discharge planning."
+      },
+      {
+        "source_id": "note-17",
+        "status": "cited",
+        "reason": "note-17: Documents final ward round, resolution of symptoms, and discharge plan including nimodipine regimen."
+      },
+      {
+        "source_id": "note-18",
+        "status": "cited",
+        "reason": "note-18: Records GP contact on 2026-01-12 and documents conflicting discharge medication (amlodipine)."
+      },
+      {
+        "source_id": "note-19",
+        "status": "cited",
+        "reason": "note-19: Confirms GP contact and follow-up arrangement on 2026-01-12."
+      }
+    ]
+  }
+}
