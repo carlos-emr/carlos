@@ -187,4 +187,36 @@ class EmailConfigSecretsUnitTest {
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Unable to decrypt email transport credentials");
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "{\"host\":\"smtp.example.test\",\"password\":\"secret\"}",
+            "{\"api_key\":\"key\"}",
+            "{\"password\":12345}",
+            "not json",
+            "[\"password\"]"})
+    @DisplayName("should report a transport secret for credentials, and for values it cannot parse")
+    void shouldReportTransportSecret_forCredentialOrUnparseableValue(String configDetails) {
+        assertThat(EmailConfigSecrets.holdsTransportSecret(configDetails)).isTrue();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "   ",
+            "{\"host\":\"127.0.0.1\",\"port\":\"25\"}",
+            "{\"host\":\"127.0.0.1\",\"password\":\"\"}",
+            "{\"password\":null}"})
+    @DisplayName("should report no transport secret for a relay without credentials")
+    void shouldReportNoTransportSecret_forRelayWithoutCredentials(String configDetails) {
+        assertThat(EmailConfigSecrets.holdsTransportSecret(configDetails)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should report an already encrypted credential as a transport secret")
+    void shouldReportTransportSecret_whenCredentialIsEncrypted() throws Exception {
+        String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"secret\"}");
+
+        assertThat(EmailConfigSecrets.holdsTransportSecret(encrypted)).isTrue();
+    }
 }

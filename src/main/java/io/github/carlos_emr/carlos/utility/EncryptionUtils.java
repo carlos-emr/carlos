@@ -267,6 +267,18 @@ public final class EncryptionUtils {
     }
 
     /**
+     * Reports whether a usable application encryption key has been prepared. Read-only: it never
+     * prepares, generates or replaces a key. An invalid configured key fails startup, so at run
+     * time the answer is false only when the key is missing or blank.
+     *
+     * @return true when {@link #encrypt(String)} and {@link #decrypt(String)} have a key to use
+     * @since 2026-09-24
+     */
+    public static boolean isKeyConfigured() {
+        return SECRET_KEY_SPEC != null;
+    }
+
+    /**
      * Generates a secure hash of the given password using the PasswordHashHelper.
      *
      * @see PasswordHashHelper#encodePassword(CharSequence) 
