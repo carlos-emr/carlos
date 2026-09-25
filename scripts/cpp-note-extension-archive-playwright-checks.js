@@ -147,20 +147,34 @@ function readChartSnapshot(sql, demographicNo) {
   // belt-and-braces half and would only start mattering if the column became nullable. The half
   // that is live now is the other reading -- a provider recorded as the literal string 'NULL'
   // comes back as JS null, and without the mapping below the restore would write 'null'.
+  // THE ROW THE SAVE WILL PICK, BY THE SAME RULE IT PICKS IT. casemgmt_cpp is not unique by
+  // demographic -- idx_casemgmt_cpp_demographic_no is a non-unique index -- and
+  // CaseManagementCPPDAO.getCPP() takes `order by update_date desc` and keeps the first. An
+  // unordered snapshot could therefore capture a different row from the one issueNoteSave()
+  // updates, and cleanup keyed on demographic_no alone would strip the wrong row while reporting
+  // success. Every CPP predicate below is scoped to this id instead.
   const cpp = sql.rows(
-    `SELECT provider_no, provider_no IS NULL FROM casemgmt_cpp WHERE demographic_no = ${demographicNo}`,
+    `SELECT id, provider_no, provider_no IS NULL FROM casemgmt_cpp `
+    + `WHERE demographic_no = ${demographicNo} ORDER BY update_date DESC LIMIT 1`,
+  );
+  // The run's own row, when the patient has none, is the one newer than every id here.
+  const cppMaxId = sql.value(
+    `SELECT COALESCE(MAX(id), 0) FROM casemgmt_cpp WHERE demographic_no = ${demographicNo}`,
   );
   const echartLast = sql.rows(
     `SELECT eChartId FROM eChart WHERE demographicNo = ${demographicNo} ORDER BY eChartId DESC LIMIT 1`,
   );
   return {
     cppExisted: cpp.length > 0,
+    /** The row getCPP() would return, which is the row the save updates. */
+    cppId: cpp.length ? String(cpp[0][0]) : '',
+    cppMaxId: String(cppMaxId || '0'),
     /** SQL literal that restores the provider exactly, NULL and the string 'NULL' included. */
     cppProviderLiteral: cpp.length
-      ? (cpp[0][1] === '1' ? 'NULL' : sqlString(cpp[0][0] === null ? 'NULL' : cpp[0][0]))
+      ? (cpp[0][2] === '1' ? 'NULL' : sqlString(cpp[0][1] === null ? 'NULL' : cpp[0][1]))
       : 'NULL',
     /** The same value for comparison, or null when the column was SQL NULL. */
-    cppProviderNo: cpp.length && cpp[0][1] !== '1' ? (cpp[0][0] === null ? 'NULL' : cpp[0][0]) : null,
+    cppProviderNo: cpp.length && cpp[0][2] !== '1' ? (cpp[0][1] === null ? 'NULL' : cpp[0][1]) : null,
     echartMaxId: echartLast.length ? String(echartLast[0][0]) : '0',
     echartLastId: echartLast.length ? String(echartLast[0][0]) : '',
   };
@@ -282,7 +296,9 @@ async function cleanup() {
       + `AND eChartId > ${chartBefore.echartMaxId} AND (${echartStamped})`]);
 
     // Rows that ALREADY EXISTED: the run only appended to them, so only the appended blocks go.
-    stripFrom.push(['casemgmt_cpp', `demographic_no = ${demographicNo}`, CHART_TEXT_COLUMNS]);
+    if (chartBefore.cppId) {
+      stripFrom.push(['casemgmt_cpp', `id = ${chartBefore.cppId}`, CHART_TEXT_COLUMNS]);
+    }
     if (chartBefore.echartLastId) {
       stripFrom.push(['eChart', `eChartId = ${chartBefore.echartLastId}`, ECHART_TEXT_COLUMNS]);
     }
@@ -290,15 +306,18 @@ async function cleanup() {
     if (!chartBefore.cppExisted) {
       // The patient had no CPP row at all, so saveCPP() made one. Removed only once it is empty
       // again -- if a concurrent save has put real text in it, the row stays.
+      // Bounded by id as well as by emptiness: a pre-existing row that merely happens to be blank
+      // is not this run's to remove.
       const emptied = CHART_TEXT_COLUMNS.map((column) => `COALESCE(${column}, '') = ''`).join(' AND ');
       statements.push(['the CPP summary row this run created',
-        `DELETE FROM casemgmt_cpp WHERE demographic_no = ${demographicNo} AND ${emptied}`]);
+        `DELETE FROM casemgmt_cpp WHERE demographic_no = ${demographicNo} `
+        + `AND id > ${chartBefore.cppMaxId} AND ${emptied}`]);
     } else if (providerNo && chartBefore.cppProviderNo !== providerNo) {
       // saveCPP() also stamps the row with whoever saved. Put the previous provider back, but only
       // while the row still records this run's -- a save since then is not ours to rewind.
       statements.push(["the CPP summary's provider",
         `UPDATE casemgmt_cpp SET provider_no = ${chartBefore.cppProviderLiteral} `
-        + `WHERE demographic_no = ${demographicNo} AND provider_no = ${sqlString(providerNo)}`]);
+        + `WHERE id = ${chartBefore.cppId} AND provider_no = ${sqlString(providerNo)}`]);
     }
     // NOT REWOUND, DELIBERATELY: casemgmt_cpp.update_date and eChart.timeStamp. Both record when
     // the row last changed, which this run genuinely did; and a concurrent save cannot be told
