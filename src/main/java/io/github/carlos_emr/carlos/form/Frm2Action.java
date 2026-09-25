@@ -266,15 +266,26 @@ public final class Frm2Action extends ActionSupport {
              */
             if (newID > -1) {
                 String strAction = rec.findActionValue(submitType);
-                actionForward = strAction;
-                actionForward = rec.createActionURL(actionForward, strAction, demographicNo+"", "" + newID);
-                if (actionForward.startsWith(SAVE_ACTION_PREFIX)) {
+                String actionUrl = rec.createActionURL(strAction, strAction, demographicNo + "", "" + newID);
+                if (actionUrl.startsWith(SAVE_ACTION_PREFIX)) {
                     sendForwardNameRedirect(forwardNameRedirectUrl(
                             request.getContextPath(),
                             request.getParameter("form_link"),
-                            actionForward));
+                            actionUrl));
                     return null;
                 }
+                // A STRUTS 2 RESULT IS A NAME, NOT A PATH. createActionURL() builds a Struts 1
+                // style forward -- "printAll?demographic_no=1&formId=6" -- which was returned
+                // verbatim as the result name. No <result> is called that, so every print ended
+                // as "No result defined for action ... and result printAll?demographic_no=..."
+                // and the clinician got the error page instead of the PDF (issue #3735). The
+                // save branch above is the one case that still needs the built URL, because it
+                // redirects through /form/forwardname; every other action forwards internally,
+                // and the forward carries this request's own parameters -- demographic_no,
+                // formId, form_class, __title, __template and __cfgfile are all in the POST that
+                // FrmPDFServlet reads -- so the identifiers in the discarded query string were
+                // never what carried them.
+                actionForward = strAction;
             }
 
         } catch (Exception ex) {
