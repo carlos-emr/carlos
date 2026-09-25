@@ -42,6 +42,10 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { randomBytes } = require('node:crypto');
+const h = require('./lib/playwright-harness');
+const { cleanupOwnedWorkflow } = require('./lib/workflow-session');
+const { openRx, stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 const {
   assert,
   assertNotErrorPage,
@@ -68,7 +72,7 @@ const demographicNo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
 assert(/^\d+$/.test(scriptId), `PRESCRIPTION_SCRIPT_ID must be numeric, got ${scriptId}`);
 assert(/^\d+$/.test(demographicNo), `PRESCRIPTION_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
 
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = h.validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -131,12 +135,43 @@ async function assertPreviewRenders(hostFrame, label) {
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   initMysqlDefaults();
   let stagedLinkIds = null;
+  let foreignPatient = null;
+  const foreignMarker = `FAKE-PW${randomBytes(8).toString('hex')}`;
   try {
     stagedLinkIds = stageNoPharmacy();
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
     await schedulePage.close();
+
+    // Own a complete foreign-patient prescription, so an ownership refusal cannot pass merely
+    // because the requested script has no drugs. Create its medication through the prescribing UI.
+    const provider = sql(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
+    assert(provider, 'the test login has no provider');
+    foreignPatient = sql(`INSERT INTO demographic
+      (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+       provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (${h.sqlString(foreignMarker)},'Preview','1980','01','02','F','AC',
+        ${h.sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    assert(/^[1-9]\d*$/.test(foreignPatient), 'the foreign patient fixture was not created');
+    const foreignPage = await openRx({ context, config }, foreignPatient);
+    wirePage(foreignPage, 'rx-foreign-fixture', recorder);
+    await stageCustomDrug(foreignPage, foreignMarker);
+    const [foreignSave] = await Promise.all([
+      foreignPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url())),
+      foreignPage.locator('#saveOnlyButton').click(),
+    ]);
+    assert(foreignSave.ok(), 'the foreign prescription fixture was not saved');
+    const foreignScript = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no
+      WHERE p.demographic_no=${foreignPatient} AND d.demographic_no=${foreignPatient}
+        AND d.customName=${h.sqlString(foreignMarker)}`);
+    assert(/^[1-9]\d*$/.test(foreignScript), 'the foreign fixture has no saved prescription and drug');
+    const ownPreview = await context.request.get(
+      `${config.baseUrl}/rx/ViewPreview2?demographicNo=${foreignPatient}&scriptId=${foreignScript}`);
+    assert(ownPreview.ok() && (await ownPreview.text()).includes(foreignMarker),
+      'the foreign fixture must render for its actual patient before testing its ownership gate');
+    await foreignPage.close();
 
     // User path: the patient's Rx module, the Reprint panel, the script row.
     const rxPage = await context.newPage();
@@ -187,8 +222,6 @@ async function assertPreviewRenders(hostFrame, label) {
 
     // Explicit saved-script previews must refuse invalid/foreign identities even while a
     // valid same-patient reprint is open; neither may silently render the current workspace.
-    const foreignScript = sql(`SELECT script_no FROM prescription WHERE demographic_no<>${demographicNo} ORDER BY script_no LIMIT 1`);
-    assert(/^\d+$/.test(foreignScript), 'preview ownership coverage requires a prescription for another patient');
     for (const [candidate, expectedStatus] of [['bad', 400], ['', 400], [foreignScript, 404]]) {
       const response = await context.request.get(
         `${config.baseUrl}/rx/ViewPreview2?demographicNo=${demographicNo}&scriptId=${encodeURIComponent(candidate)}`);
@@ -228,7 +261,7 @@ async function assertPreviewRenders(hostFrame, label) {
     assert(fatal500s.length === 0, `preview flow produced 5xx responses: ${JSON.stringify(fatal500s)}`);
 
     await context.close();
-    console.log(`PASS rx preview renders for script ${scriptId} with no-pharmacy and "null" pharmacyId`);
+    console.log(`PASS rx preview pharmacy handling, patient ownership, and saved-script identity for script ${scriptId}`);
   } catch (error) {
     console.error('FAIL rx preview pharmacyId Playwright check');
     console.error(error.stack || error.message);
@@ -240,7 +273,17 @@ async function assertPreviewRenders(hostFrame, label) {
     } catch (restoreError) {
       console.error(`WARN failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
     }
+    try {
+      await cleanupOwnedWorkflow({
+        browser,
+        sql: { value: sql, execute: sql, dispose() {} }, patient: foreignPatient, marker: foreignMarker,
+        cleanups: foreignPatient ? [() => sql(`DELETE FROM drugs WHERE demographic_no=${foreignPatient};
+          DELETE FROM prescription WHERE demographic_no=${foreignPatient}`)] : [],
+      });
+    } catch (cleanupError) {
+      console.error(`FAIL owned preview fixture cleanup: ${cleanupError.message}`);
+      process.exitCode = 1;
+    }
     cleanupMysqlDefaults();
-    await browser.close();
   }
 })();
