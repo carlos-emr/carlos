@@ -186,7 +186,7 @@ public record PatientPortalSettings(
      * same way.
      */
     public static boolean isConfigured() {
-        return isConfigured(key -> CarlosProperties.getInstance().getProperty(key));
+        return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
