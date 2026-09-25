@@ -565,8 +565,11 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # It creates one prescription through the UI and removes it (with its drugs row and stored
 # signature) in a finally; it reprints and re-prescribes only that row, so no pre-existing patient
 # record is touched, and it writes no files. Like the fax check it stages, and then restores, a fax
-# number on the patient's active pharmacies — ViewScript2 folds `hasFaxNumber` into the Fax button,
-# so without one the pad assertions would not isolate the stamp.
+# number on the patient's active pharmacies, and it stages (and removes) its own active fax gateway
+# account (fax_config) on a per-run 416 number: ViewScript2 folds `hasFaxNumber` into the Fax button
+# and only offers a destination through an active sender account, so without both the pad
+# assertions would not isolate the stamp. Its only operator prerequisites are therefore the two
+# above (rx_fax_enabled=true and the stamp PNG).
 # It reaches the reprint list the way an operator does: the "Reprint" link in the drug-profile
 # section head reveals a cell that starts hidden, and that link only renders with `_rx` write
 # access. It tolerates one known pre-existing page error (issue #3578, expandPreview writing into

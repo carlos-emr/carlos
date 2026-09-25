@@ -35,6 +35,7 @@
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
@@ -70,24 +71,29 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="WriteScript.title"/></title>
 
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-        <c:if test="${sessionScope.RxSessionBean == null}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+        <c:if test="${pageScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>
         </c:if>
 
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
 
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>
 
             <c:if test="${bean.stashIndex == -1}">
-                <c:redirect url="/rx/searchDrug"/>
+                <c:redirect url="/rx/searchDrug"><c:param name="demographicNo" value="${bean.demographicNo}"/></c:redirect>
             </c:if>
         </c:if>
 
@@ -123,8 +129,10 @@
                 }
             }
 
-            var frm = document.forms.RxWriteScriptForm;
-            oscarLog("frm=" + frm);
+            // The write-script form is name="frm" (below); the legacy binding named the Struts 1
+            // form bean, so every field handler on this page threw. This script runs in <head>,
+            // before the form exists, so it is bound in pageLoad() (#3908).
+            var frm = null;
             var freqMin;
             var freqMax;
             var orig = null;
@@ -581,7 +589,7 @@
                 if (!disabled) {
                     if (first == false) {
 
-                        var frm2 = document.forms.RxWriteScriptForm;
+                        var frm2 = document.forms.frm;
 
                         var orig2 = frm.special.value;
                         var preStr = "";
@@ -719,6 +727,7 @@
             }
 
             function pageLoad() {
+                frm = document.forms.frm;
                 calcQty();
                 var txtQty = frm.quantity;
                 if (txtQty.restrict) alert("YES");
@@ -832,8 +841,10 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
     <form id="addFavoriteWriteScriptForm" method="post" action="<%= request.getContextPath() %>/rx/addFavoriteWriteScript" style="display:none">
-        <input type="hidden" name="stashId" value=""/>
+        <input type="hidden" name="randomId" value=""/>
         <input type="hidden" name="favoriteName" value=""/>
+        <%-- The staged card is looked up in this window's patient's stash only (#3875). --%>
+        <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
     </form>
 
     <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
@@ -891,7 +902,7 @@
                 thisForm.setPrn(rx.getPrn());
 
                 if (rx.getSpecial() == null || rx.getSpecial().length() < 6)
-                    MiscUtils.getLogger().error("The drug special passed to the display of the user was already blank :" + rx.getSpecial());
+                    MiscUtils.getLogger().warn("The drug instructions passed to the display were blank or truncated");
 
                 thisForm.setSpecial(rx.getSpecial());
                 thisForm.setLongTerm(rx.getLongTerm());
@@ -915,38 +926,7 @@
             String drugId = thisForm.getGCN_SEQNO();
         }
     %>
-    <!--
-DemographicNo:   <%= thisForm.getDemographicNo() %><br>
-RxDate:          <%= thisForm.getRxDate() %><br>
-EndDate:         <%= thisForm.getEndDate() %><br>
-WrittenDate:     <%= thisForm.getWrittenDate() %><br>
-GenericName:     <%= thisForm.getGenericName() %><br>
-BrandName:       <%= thisForm.getBrandName() %><br>
-GCN_SEQNO:       <%= thisForm.getGCN_SEQNO() %><br>
-CustomName:      <%= thisForm.getCustomName() %><br>
-TakeMin:         <%= thisForm.getTakeMin() %><br>
-TakeMax:         <%= thisForm.getTakeMax() %><br>
-FrequencyCode:   <%= thisForm.getFrequencyCode() %><br>
-Duration:        <%= thisForm.getDuration() %><br>
-DurationUnit:    <%= thisForm.getDurationUnit() %><br>
-Quantity:        <%= thisForm.getQuantity() %><br>
-Repeat:          <%= thisForm.getRepeat() %><br>
-Nosubs:          <%= String.valueOf(thisForm.getNosubs()) %><br>
-Prn:             <%= String.valueOf(thisForm.getPrn()) %><br>
-Long Term Med:   <%= String.valueOf(thisForm.getLongTerm()) %><br>
-Past Med:	 <%= String.valueOf(thisForm.getPastMed()) %><br>
-Patient Complia: <%= String.valueOf(thisForm.getPatientCompliance()) %><br>
-Dosage:          <%= thisForm.getDosage() %><br>
-Special:         <%= thisForm.getSpecial() %><br>
-ATC:             <%= thisForm.getAtcCode() %><br>
-regional ident:  <%= thisForm.getRegionalIdentifier() %><br>
-Custom Instruct: <%= thisForm.getCustomInstr() %><br>
-Outside ProName: <%= thisForm.getOutsideProviderName() %><br>
-Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
-
-<% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
-
--->
+    <% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
     <%
 
         // set patient info
@@ -995,7 +975,9 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
         <%}%>
     </script>
 
-    <input type="hidden" name="demographicNo" id="demographicNo"/>
+    <%-- Carries the window's patient: the per-patient Rx bean is resolved from it, and a save that
+         does not name its patient is refused (#3875). --%>
+    <input type="hidden" name="demographicNo" id="demographicNo" value="<%= bean.getDemographicNo() %>"/>
     <input type="hidden" name="GCN_SEQNO" id="GCN_SEQNO"/>
     <input type="hidden" name="atcCode" id="atcCode"/>
     <input type="hidden" name="regionalIdentifier" id="regionalIdentifier"/>
@@ -1013,7 +995,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> >
+                                <a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<%= bean.getDemographicNo() %>"> <fmt:message key="SearchDrug.title"/></a> >
                                 <fmt:message key="ChooseDrug.title"/> >
                                 <b><fmt:message key="WriteScript.title"/></b>
                             </div>
@@ -1180,7 +1162,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     </select> <input type="hidden" name="takeMin" id="takeMin"/>
                                         <input type="hidden" name="takeMax" id="takeMax"/>
                                         <script language=javascript>
-                                            var frm = document.forms.RxWriteScriptForm;
+                                            var frm = document.forms.frm;
 
 
                                             if (frm.takeMin.value == frm.takeMax.value) {
@@ -1336,7 +1318,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <input type="checkbox" name="customInstr"/><fmt:message key="WriteScript.msgCustomInstructions"/>
                                         <script language=javascript>
                                             function cmdSpecial_click() {
-                                                var frm = document.forms.RxWriteScriptForm;
+                                                var frm = document.forms.frm;
                                                 if (frm.selSpecial.selectedIndex > -1) {
                                                     var s = frm.selSpecial.value;
 
@@ -1476,6 +1458,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                             </script>
                             <form action="${pageContext.request.contextPath}/rx/stash" method="post">
                                 <input type="hidden" name="action" value="">
+                                <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
                                 <input type="hidden" name="stashId"/>
                             </form>
                       </td>
@@ -1496,13 +1479,13 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                 }
 
-                                function addFavorite(stashId, brandName) {
+                                function addFavorite(randomId, brandName) {
                                     var favoriteName = window.prompt('Please enter a name for the Favorite:',
                                         brandName);
 
                                     if (favoriteName !== null && favoriteName.length > 0) {
                                         var form = document.getElementById('addFavoriteWriteScriptForm');
-                                        form.elements['stashId'].value = stashId;
+                                        form.elements['randomId'].value = randomId;
                                         form.elements['favoriteName'].value = favoriteName;
                                         form.submit();
                                     }
@@ -1545,7 +1528,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>
@@ -1595,9 +1578,9 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                 function customQty(quan) {
                     if (calcQuantity() == quan || quan == null) {
-                        document.forms.RxWriteScriptForm.autoQty.checked = true;
+                        document.forms.frm.autoQty.checked = true;
                     } else {
-                        document.forms.RxWriteScriptForm.autoQty.checked = false;
+                        document.forms.frm.autoQty.checked = false;
                     }
                 }
 

@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
@@ -50,11 +51,16 @@
         <title>Edit Favorites</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:if test="${empty RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>
         <c:if test="${not empty RxSessionBean}">
-            <c:set var="bean" value="${RxSessionBean}" scope="session"/>
+            <c:set var="bean" value="${RxSessionBean}" scope="page"/>
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>
@@ -223,7 +229,7 @@
                 <table style="width:100%; height:100%">
                     <tr>
                         <td style="width:10%; vertical-align:top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> > <b><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> <fmt:message key="SearchDrug.title"/></a> > <b><fmt:message key="StaticScript.title.EditFavorites"/></b></div>
                         </td>
                     </tr>
 
@@ -235,7 +241,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}';"/>
                             </div>
                         </td>
                     </tr>
@@ -255,11 +261,11 @@
                                                 style = "style='background-color:#F5F5F5'";
                                         %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line1">
-                                            <td colspan=2><b>Favorite Name:</b><input type=hidden
+                                            <td colspan=2><label for="fldFavoriteName<%= i%>"><b>Favorite Name:</b></label><input type=hidden
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
-                                                <input type=text size="50" name="fldFavoriteName<%= i%>"
-                                                       class=tblRow size=80 value="<%= f.getFavoriteName() %>"/>&nbsp;&nbsp;&nbsp;
+                                                <input type=text size="50" name="fldFavoriteName<%= i%>" id="fldFavoriteName<%= i%>"
+                                                       class=tblRow size=80 value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
                                                 <a id="saveSuccess_<%=i%>" style="display:none;color:red">Changes
@@ -411,7 +417,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}';"/>
                             </div>
                         </td>
                     </tr>

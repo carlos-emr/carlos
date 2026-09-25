@@ -36,6 +36,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -73,18 +74,23 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
 
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
+        <c:if test="${not empty pageScope.RxSessionBean}">
             <%
                 // Directly access the RxSessionBean from the session
-                bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+                bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
                 if (bean != null && !bean.isValid()) {
                     response.sendRedirect("error.html");
                     return; // Ensure no further JSP processing
                 }
-                RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+                RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
                 if (patient != null) {
                     surname = patient.getSurname();
                     firstName = patient.getFirstName();
@@ -330,6 +336,14 @@
 
             function openPharmacyModal(url) {
                 var iframe = document.getElementById('pharmacyModalIframe');
+                // The modal page resolves its Rx patient from the request: name this page's patient,
+                // or it would render for whichever patient's Rx was opened last (#3908). An iframe
+                // src is not a request rx-patient-context.js can tag.
+                var demoField = document.getElementById("demographicNo");
+                var demo = demoField ? demoField.value : "";
+                if (demo) {
+                    url += (url.indexOf('?') >= 0 ? '&' : '?') + "demographicNo=" + encodeURIComponent(demo);
+                }
                 iframe.src = url;
                 var modal = new bootstrap.Modal(document.getElementById('pharmacyModal'));
                 modal.show();

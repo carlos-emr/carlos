@@ -57,8 +57,15 @@
  * the stored stamp signature) through the UI, identified by a per-run-unique
  * custom drug name, and removes exactly those rows in a finally and on
  * SIGINT/SIGTERM. It reprints and re-prescribes only rows it created itself, so
- * no pre-existing patient record is mutated. It writes no files; the fax servlet
- * is not exercised here (that is the sibling check's job).
+ * no pre-existing patient record is mutated. It also stages, and removes in the
+ * same finally, one active fax gateway account (fax_config) on a per-run 416
+ * number, and a per-run unroutable 555 fax number on the patient's pharmacies;
+ * ViewScript2 only renders a faxable destination with both. It writes no files
+ * and never clicks Fax; the fax servlet is not exercised here (that is the
+ * sibling check's job).
+ *
+ * Operator prerequisites (the only ones): rx_fax_enabled=true in carlos.properties
+ * and the provider stamp PNG, as for rx-fax-signature-stamp.
  *
  * Env contract:
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
@@ -118,6 +125,12 @@ const runSuffix = String(randomInt(1000000, 10000000));
 // never reach a real fax machine. Unique per run so the cleanup predicate can tell THIS run's
 // fixture from a concurrent run's and never restores over one still in use.
 const FIXTURE_FAX_NUMBER = `555${runSuffix}`;
+// The sender account ViewScript2 needs before it will render hasFaxNumber=true: it only offers a
+// pharmacy destination through an active fax gateway account. fax_config.faxNumber/faxReply are
+// varchar(10), so '416' + the 7-digit run suffix, as in rx-fax-signature-stamp. This check never
+// clicks Fax, so the account never sends anything; it exists only for the page's fax state.
+const FIXTURE_SENDER_FAX_NUMBER = `416${runSuffix}`;
+let stagedFaxConfig = null;
 const customDrugName = `PW RX REPRINT ${Date.now()}${runSuffix}`;
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
@@ -125,6 +138,8 @@ if (!/^\d+$/.test(providerNo)) throw new Error(`RX_FAX_PROVIDER_NO must be numer
 
 const findings = [];
 const visited = [];
+// Fixed workflow labels only: browser exceptions can contain clinical data.
+let checkPhase = 'initialization';
 let mysqlDefaults = null;
 let expectingCustomDrugConfirm = false;
 
@@ -292,6 +307,7 @@ const seededPharmacyFaxes = [];
  *     concurrent run or an operator edit made during the check is never overwritten.
  */
 function seedPharmacyFax() {
+  checkPhase = 'pharmacy-fixture';
   const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
     JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
     WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
@@ -307,6 +323,26 @@ function seedPharmacyFax() {
   }
   visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.map((r) => r.recordId), active: rows.length });
   return rows.length > 0;
+}
+
+/**
+ * An active SRFax gateway account for this run, reusing one already on this run's number. A clean
+ * install ships only the inactive, blank default fax_config row, so without this ViewScript2 has no
+ * usable sender and renders hasFaxNumber=false whatever the pharmacy fixture holds.
+ */
+function stageFaxConfig() {
+  checkPhase = 'fax-account-fixture';
+  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${FIXTURE_SENDER_FAX_NUMBER}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
+  if (/^\d+$/.test(existing)) {
+    stagedFaxConfig = { id: existing, created: false };
+    return;
+  }
+  const id = sql(
+    `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
+    + `VALUES ('SRFAX', 1, '${FIXTURE_SENDER_FAX_NUMBER}', '${FIXTURE_SENDER_FAX_NUMBER}', 'Playwright Reprint', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
+  ).trim();
+  stagedFaxConfig = { id, created: /^\d+$/.test(id) };
+  visited.push({ label: 'fax-config', created: stagedFaxConfig.created });
 }
 
 // --- cleanup -----------------------------------------------------------------
@@ -332,6 +368,12 @@ function cleanupFixtures() {
     });
     attempt('drugs', () => sql(`DELETE FROM drugs WHERE script_no IN (${list});`));
     attempt('prescription', () => sql(`DELETE FROM prescription WHERE script_no IN (${list});`));
+  }
+  if (stagedFaxConfig && stagedFaxConfig.created) {
+    const { id } = stagedFaxConfig;
+    stagedFaxConfig = null;
+    attempt('fax_config', () => sql(
+      `DELETE FROM fax_config WHERE id=${id} AND faxNumber='${FIXTURE_SENDER_FAX_NUMBER}';`));
   }
   while (seededPharmacyFaxes.length) {
     const { recordId, wasNull } = seededPharmacyFaxes.pop();
@@ -380,6 +422,7 @@ function wirePage(page, label) {
 }
 
 async function login(context) {
+  checkPhase = 'login';
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
@@ -410,6 +453,7 @@ async function login(context) {
  * carlos-build.properties -> BuildInfo -> CarlosProperties.getBuildTag() chain survived packaging.
  */
 async function checkBuildStamp(context) {
+  checkPhase = 'about-build-stamp';
   const page = await context.newPage();
   wirePage(page, 'about');
   await gotoApp(page, '/encounter/ViewAbout');
@@ -437,11 +481,13 @@ async function checkBuildStamp(context) {
 
 /** Write one script through the real controls; returns its script number and the modal frame. */
 async function writeScriptThroughUi(page) {
+  checkPhase = 'open-prescription-page';
   await gotoApp(page, `/rx/choosePatient?demographicNo=${demographicNo}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   visited.push({ label: 'rx-module', url: safeUrl(page.url()) });
 
   await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+  checkPhase = 'stage-custom-drug';
   await page.locator('#searchString').fill(customDrugName);
   expectingCustomDrugConfirm = true;
   try {
@@ -450,11 +496,14 @@ async function writeScriptThroughUi(page) {
     expectingCustomDrugConfirm = false;
   }
   await page.locator("[id^='drugName_'], [id^='quantity_']").first().waitFor({ state: 'attached', timeout: 30000 });
+  checkPhase = 'save-and-print';
   await page.locator('#saveButton').click();
 
+  checkPhase = 'render-prescription-preview';
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
 
+  checkPhase = 'verify-created-prescription';
   const scripts = createdScriptNos();
   if (!scripts.length) throw new Error('no prescription row was created for the fixture custom drug');
   const scriptId = String(Math.max(...scripts.map(Number)));
@@ -488,6 +537,7 @@ async function openReprintPanel(page) {
  * nothing: no extra prescription row, and the reprinted script's own signature and date untouched.
  */
 async function checkReprintIsReadOnly(page, scriptId) {
+  checkPhase = 'historical-reprint';
   const before = prescriptionSnapshot(scriptId);
   const countBefore = prescriptionCount();
 
@@ -541,6 +591,7 @@ async function checkReprintIsReadOnly(page, scriptId) {
  * the page and assert the historical script is byte-identical afterwards.
  */
 async function checkRePrescribeThenReprint(page, scriptId) {
+  checkPhase = 'represcribe-and-reprint';
   const before = prescriptionSnapshot(scriptId);
   const countBefore = prescriptionCount();
 
@@ -626,6 +677,7 @@ async function checkRePrescribeThenReprint(page, scriptId) {
  * must not grey out a script the server would still fax from its stored signature.
  */
 async function checkStampSurvivesPadActivity(modalFrame, scriptId) {
+  checkPhase = 'signature-pad-stamp';
   // Recorded because both assertions below are only meaningful when the page believes it has
   // somewhere to fax to; a false value here explains a disabled button without implicating the stamp.
   const pageFaxState = await modalFrame.locator('body').evaluate(() => ({
@@ -697,6 +749,7 @@ async function runChecks(context) {
   try {
     await checkBuildStamp(context);
 
+    stageFaxConfig();
     if (!seedPharmacyFax()) {
       findings.push({
         label: 'pharmacy-fax', type: 'no-active-pharmacy',
@@ -708,6 +761,7 @@ async function runChecks(context) {
     if (createdCount !== 1) {
       findings.push({ label: 'save-and-print', type: 'duplicate', text: `one Save And Print created ${createdCount} prescriptions, expected 1` });
     }
+    checkPhase = 'verify-stored-stamp';
     const stamped = prescriptionSnapshot(scriptId);
     if (!/^\d+$/.test(stamped.signatureId)) {
       findings.push({ label: 'stamp', type: 'not-signed', text: `script ${scriptId} carries no stored signature; the stamp was not applied` });
@@ -767,6 +821,6 @@ async function runChecks(context) {
   }
 })().catch((error) => {
   try { cleanupFixtures(); } finally { removeSecretsDir(); }
-  console.error(`FAIL rx-fax-reprint-represcribe: ${browserErrorClass(error)}`);
+  console.error(`FAIL rx-fax-reprint-represcribe: ${checkPhase}: ${browserErrorClass(error)}`);
   process.exit(1);
 });

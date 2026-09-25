@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -80,22 +81,27 @@
             RxSessionBean rxBean = null;
         %>
         <%
-            if (request.getParameter("demographicNo") != null) {
-                rxBean = new RxSessionBean();
-
-                rxBean.setProviderNo((String) session.getAttribute("user"));
-                rxBean.setDemographicNo(Integer.parseInt(request.getParameter("demographicNo")));
-
-                request.getSession().setAttribute("RxSessionBean", rxBean);
+            // This page lists a patient's saved drugs and offers to re-prescribe them, so it must be
+            // opened for an explicitly named patient. It never falls back to the most recently
+            // opened Rx patient: a link without demographicNo (the eChart Prescriptions tab, the
+            // drug profile) would otherwise show, and re-prescribe, another patient's medication
+            // (#3875). Reuse the named patient's bean so a stash staged for them survives.
+            // The gate (ViewStaticScript2) authorises the named patient, but this page is also the
+            // result of rx/addFavoriteStaticScript, which only authorises the favourited drug's
+            // patient; so the page authorises the patient it opens itself (#3908).
+            int staticScriptDemographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+            if (staticScriptDemographicNo > 0) {
+                rxBean = RxRequestedPatientAccess.activateAuthorised(request, staticScriptDemographicNo,
+                        (String) session.getAttribute("user"), "_rx", "r");
+                pageContext.setAttribute("RxSessionBean", rxBean);
             }
         %>
-
-        <c:if test="${sessionScope.RxSessionBean == null}">
+        <c:if test="${pageScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>
         </c:if>
 
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>
@@ -135,9 +141,30 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
 
+        <fmt:message key="StaticScript.js.reRxRefused" var="msg_reRxRefused"/>
         <script language="javascript">
-            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            var csrfToken = csrfEl ? csrfEl.value : '';
+            /**
+             * The CSRF token, read when a request is sent. Reading it while <head> parses (as this
+             * page used to) always got '' because the token input is only filled in after the body
+             * renders, so every re-prescribe POST was refused (#3908). csrf-token.jspf in the body
+             * fetches the token; wait for it when the input is still empty.
+             */
+            async function staticScriptCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                if ((!el || !el.value) && window.csrfTokenReady) {
+                    try {
+                        await window.csrfTokenReady;
+                    } catch (e) {
+                        // Fall through: the POST is sent without a token and refused visibly.
+                    }
+                    el = document.querySelector('input[name="CSRF-TOKEN"]');
+                }
+                return el ? el.value : '';
+            }
+            // Every Rx request from this page names its patient; staging refuses a request that
+            // does not (per-patient Rx state, #3875).
+            var staticScriptReRxRefused = '<carlos:encode value="${msg_reRxRefused}" context="javaScriptBlock"/>';
+            var staticScriptDemographicNo = encodeURIComponent('<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptBlock"/>');
 
             function addFavorite2(drugId, brandName) {
                 var favoriteName = window.prompt('Please enter a name for the Favorite:', brandName);
@@ -147,39 +174,58 @@
                     oscarLog(url);
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                        credentials: 'same-origin',
-                        body: data
+                    staticScriptCsrfToken().then(function (csrfToken) {
+                        return fetch(url, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                            credentials: 'same-origin',
+                            body: data
+                        });
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
-                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>';
+                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>' + "&demographicNo=" + staticScriptDemographicNo;
                     });
                 }
             }
 
             //represcribe a drug
             async function reRxDrugSearch3(reRxDrugId) {
-                var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-                var urlUpdateId = "${carlos:forJavaScript(ctx)}" + "/rx/WriteScript";
-                fetch(urlUpdateId, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                    credentials: 'same-origin',
-                    body: dataUpdateId + "&parameterValue=updateReRxDrug"
-                });
+                // One request: saveReRxDrugIdToStash stages the copy and records the source for
+                // ReRx archival together, after its ownership check. A separate, un-awaited
+                // addToReRxDrugIdList request could lose the race (or fail), leaving the old
+                // medication active after the replacement was saved (#3908).
 
-                var data = "drugId=" + encodeURIComponent(reRxDrugId);
+                var data = "drugId=" + encodeURIComponent(reRxDrugId) + "&demographicNo=" + staticScriptDemographicNo;
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
-                await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                    credentials: 'same-origin',
-                    body: data
-                });
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                var response = null;
+                try {
+                    var csrfToken = await staticScriptCsrfToken();
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                        credentials: 'same-origin',
+                        body: data
+                    });
+                } catch (e) {
+                    response = null;
+                }
+                // A refused stage (403 not this patient's drug, 409 no open Rx for the patient, or a
+                // CSRF/HTML error page) must not look like success by opening the drug search.
+                // A followed redirect (to the login or error page) is not a staged drug either.
+                if (!response || !response.ok || response.redirected) {
+                    alert(staticScriptReRxRefused + ' (HTTP ' + (response ? response.status : '?') + ')');
+                    return;
+                }
+                // fetch resolves on headers; read the body to completion before leaving the page,
+                // otherwise the navigation aborts the still-open response (net::ERR_ABORTED).
+                try {
+                    await response.text();
+                } catch (e) {
+                    // The stage was accepted (2xx); a truncated body changes nothing.
+                }
+                // Open the prescribing pad so the staged card and safety warnings are visible.
+                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/choosePatient?demographicNo=" + staticScriptDemographicNo;
             }
 
         </script>
@@ -188,6 +234,8 @@
     </head>
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <%-- The page may have no POST form (local drugs only), so CSRFGuard would inject no token. --%>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111"
            width="100%" id="AutoNumber1" height="100%">
         <%@ include file="TopLinks.jsp"%><!-- Row One included here-->
@@ -198,7 +246,7 @@
                        width="100%" height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:message key="StaticScript.title"/></b>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="uriComponent"/>"> <fmt:message key="SearchDrug.title"/></a> &gt; <b><fmt:message key="StaticScript.title"/></b>
                             </div>
                         </td>
                     </tr>
@@ -355,7 +403,7 @@
             <td><br/>
                 <br/>
                 <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/></td>
+                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptAttribute"/>';"/></td>
         </tr>
         <!----End new rows here-->
         <tr height="100%">

@@ -30,6 +30,9 @@
 --%>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -95,11 +98,16 @@
         <title><fmt:message key="ViewScript.title"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+        <c:if test="${empty pageScope.RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>
@@ -133,6 +141,10 @@
         %>
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
+            // The patient of the window that opened this preview. Every Rx request from this page
+            // names it so the server resolves that patient's bean, not the most recently opened
+            // chart's (per-patient Rx state, #3875).
+            int viewScriptDemographicNo = bean.getDemographicNo();
             Provider provider = providerManager.getProvider(bean.getProviderNo());
             String providerFax = provider.getWorkPhone();
             if (providerFax == null) {
@@ -149,14 +161,16 @@
             vecPageSizeValues.add("PageSize.A6");
             vecPageSizeValues.add("PageSize.Letter");
 //are we printing in the past?
-//String reprint = (String)request.getAttribute("rePrint") != null ? (String)request.getAttribute("rePrint") : "false";
 
-            String reprint = (String) request.getSession().getAttribute("rePrint") != null ? (String) request.getSession().getAttribute("rePrint") : "false";
+            // Reprint state is per patient (#3908): only a reprint loaded for THIS window's patient
+            // switches the page into reprint mode, and only that patient's reprinted script renders.
+            RxReprintWorkspace.Entry reprintEntry = RxReprintWorkspace.findForRequest(request, session, viewScriptDemographicNo);
+            String reprint = reprintEntry != null ? "true" : "false";
 
             String createAnewRx;
-            if (reprint.equalsIgnoreCase("true")) {
-                bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug'";
+            if (reprintEntry != null) {
+                bean = reprintEntry.bean();
+                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug?demographicNo=" + bean.getDemographicNo() + "'";
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
@@ -167,8 +181,27 @@
             // all use this same server-selected target.
             String scriptIdForFax = firstValidScriptId(
                     request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
-                    (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
+                    (reprintEntry != null && bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
                             ? bean.getStashItem(0).getScript_no() : "");
+            RxPreviewSnapshot previewSnapshot = null;
+            if (!scriptIdForFax.isEmpty()) {
+                previewSnapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
+                if (previewSnapshot == null) {
+                    previewSnapshot = RxPreviewSnapshot.load(viewScriptDemographicNo, scriptIdForFax);
+                }
+                if (previewSnapshot == null) {
+                    response.sendError(404);
+                    return;
+                }
+                bean = previewSnapshot.bean();
+            } else {
+                // An empty action result must stay empty if another request stages a drug
+                // before this JSP renders. The action alone selects ordinary saved scripts.
+                RxSessionBean emptyPreview = new RxSessionBean();
+                emptyPreview.setDemographicNo(viewScriptDemographicNo);
+                emptyPreview.setProviderNo(bean.getProviderNo());
+                bean = emptyPreview;
+            }
 // for satellite clinics
             Vector vecAddressName = null;
             Vector vecAddress = null;
@@ -268,8 +301,9 @@
                     vecAddress.add(addressHtml);
                 }
             }
-            String comment = request.getSession().getAttribute("comment") != null ? request.getSession().getAttribute("comment").toString() : "";
-            request.getSession().removeAttribute("comment");
+            // The script comment belongs to this patient's reprint, never to another window's.
+            String comment = reprintEntry != null ? reprintEntry.comment()
+                    : previewSnapshot != null ? previewSnapshot.comment() : "";
             String pharmacyId = request.getParameter("pharmacyId");
             RxPharmacyData pharmacyData = new RxPharmacyData();
             PharmacyInfo pharmacy = null;
@@ -309,6 +343,7 @@
         <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
         <fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="msg_noteSaveFailed"/>
+        <fmt:message key="SearchDrug.js.removeRefused" var="msg_removeRefused"/>
 
         <script type="text/javascript">
             /*
@@ -330,24 +365,37 @@
             function resetStash() {
                 cancelPendingFax();
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
-                fetch(url, {
+                return fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
-                    body: ''
-                }).then(function() {
-                    parent.document.getElementById('rxText').textContent = "";//make pending prescriptions disappear.
-                    parent.document.getElementById('searchString').focus();
-                });
-            }
-
-            function resetReRxDrugList() {
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
-                fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
-                    credentials: 'same-origin',
-                    body: ''
+                    body: 'demographicNo=<%= viewScriptDemographicNo %>'
+                }).then(function(response) {
+                    if (!response.ok) throw new Error('Prescription reset was refused');
+                    if (typeof parent.clearStashDisplay === 'function') {
+                        parent.clearStashDisplay();
+                        var modalElement = parent.document.getElementById('carlosModal');
+                        var modalApi = parent.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
+                        var modal = modalElement && modalApi && modalApi.Modal
+                            ? modalApi.Modal.getInstance(modalElement) : null;
+                        if (modal && modalElement.classList.contains('show')) {
+                            // Bootstrap ignores hide() while its opening transition runs. Retry
+                            // after shown, and discard the retry when hidden so it cannot close
+                            // the next prescription opened in this same modal element.
+                            var hideAfterOpening = function () { modal.hide(); };
+                            modalElement.addEventListener('shown.bs.modal', hideAfterOpening, { once: true });
+                            modalElement.addEventListener('hidden.bs.modal', function () {
+                                modalElement.removeEventListener('shown.bs.modal', hideAfterOpening);
+                            }, { once: true });
+                            modal.hide();
+                        }
+                    } else {
+                        window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
+                    }
+                    return true;
+                }).catch(function() {
+                    alert('${carlos:forJavaScript(msg_removeRefused)}');
+                    return false;
                 });
             }
 
@@ -774,6 +822,7 @@
 				credentials: 'same-origin',
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
+						"&demographicNo=<%= bean.getDemographicNo() %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};
@@ -1305,7 +1354,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 		method: 'POST',
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 		credentials: 'same-origin',
+		// Names the window's patient: the server refuses a script of any other patient (#3908).
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
+			+ '&demographicNo=<%= viewScriptDemographicNo %>'
 	}).then(function (response) {
 		if (!response.ok || response.redirected || response.headers.get('X-Carlos-Signature-Write') !== 'written') {
             throw new Error('Signature association was not confirmed');
@@ -1382,7 +1433,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
@@ -1390,6 +1441,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
+                                    <input type="hidden" name="demographicNo" value="<%= viewScriptDemographicNo %>"/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>
@@ -1627,7 +1679,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                              value="<fmt:message key="ViewScript.msgCreateNewRx"/>"
                                                              class="btn btn-outline-secondary"
                                                              style="width: 210px"
-                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){var bs=(typeof parent.bootstrap!=='undefined')?parent.bootstrap:(typeof bootstrap!=='undefined'?bootstrap:null);if(bs){var modal=bs.Modal.getInstance(m);if(modal){modal.hide();}}}}catch(e){}"/></span>
+                                                             onClick="resetStash();"/></span>
                                             </td>
                                         </tr>
                                         <tr>
@@ -1638,7 +1690,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             </td>
                                         </tr>
                                         <%
-                                            if (request.getSession().getAttribute("rePrint") == null) {%>
+                                            if (reprintEntry == null) {%>
 
                                         <tr>
                                             <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgAddNotesRx"/></span></td>

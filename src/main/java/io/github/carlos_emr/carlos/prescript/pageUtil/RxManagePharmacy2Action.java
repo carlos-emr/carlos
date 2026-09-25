@@ -36,6 +36,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.HashMap;
@@ -77,52 +79,83 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
 
     public String execute() throws IOException, ServletException {
+        // Linking, unlinking and preferring a patient's pharmacy, and adding, editing or deleting a
+        // pharmacy record, are writes: POST-only, refused before anything else. CSRFGuard does not
+        // check GET, and unlink/setPreferred authorise any patient the caller may access (#3908).
+        // Every caller ($.post in SelectPharmacy2 / ManagePharmacy2) POSTs; the read methods
+        // (search, getPharmacyInfo, ...) stay verb-open.
+        if (isWriteRequest() && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+        String method = request.getParameter("method");
+        // Only named lookups are read-only; the management view and legacy forms require write.
+        String privilege = !isWriteRequest() && method != null && READ_METHODS.contains(method) ? "r" : "w";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        String method = request.getParameter("method");
-        if ("delete".equals(method)) {
-            return delete();
-        } else if ("unlink".equals(method)) {
-            return unlink();
-        } else if ("getPharmacyFromDemographic".equals(method)) {
-            return getPharmacyFromDemographic();
-        } else if ("setPreferred".equals(method)) {
-            return setPreferred();
-        } else if ("add".equals(method)) {
-            return add();
-        } else if ("save".equals(method)) {
-            return save();
-        } else if ("search".equals(method)) {
-            return search();
-        } else if ("searchCity".equals(method)) {
-            return searchCity();
-        } else if ("getPharmacyInfo".equals(method)) {
-            return getPharmacyInfo();
-        } else if ("getTotalDemographicsPreferedToPharmacy".equals(method)) {
-            return getTotalDemographicsPreferedToPharmacy();
+        switch (method == null ? "" : method) {
+            case "delete":
+                return delete();
+            case "unlink":
+                unlink();
+                return NONE;
+            case "getPharmacyFromDemographic":
+                return getPharmacyFromDemographic();
+            case "setPreferred":
+                setPreferred();
+                return NONE;
+            case "add":
+                return add();
+            case "save":
+                return save();
+            case "search":
+                return search();
+            case "searchCity":
+                return searchCity();
+            case "getPharmacyInfo":
+                return getPharmacyInfo();
+            case "getTotalDemographicsPreferedToPharmacy":
+                return getTotalDemographicsPreferedToPharmacy();
+            default:
+                break;
         }
 
         String actionType = this.getPharmacyAction();
         if (StringUtils.isNullOrEmpty(actionType)) {
             return SUCCESS;
         }
-
-        RxPharmacyData pharmacy = new RxPharmacyData();
-
-        if ("Add".equals(actionType)) {
-            pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if ("Edit".equals(actionType)) {
-            pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if ("Delete".equals(actionType)) {
-            pharmacy.deletePharmacy(this.getID());
-        }
+        applyPharmacyAction(actionType);
 
         return SUCCESS;
     }
+
+    /** The legacy {@code pharmacyAction} form: add, edit or delete a pharmacy record. */
+    private void applyPharmacyAction(String actionType) {
+        RxPharmacyData pharmacy = new RxPharmacyData();
+        switch (actionType) {
+            case "Add" -> pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
+            case "Edit" -> pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
+            case "Delete" -> pharmacy.deletePharmacy(this.getID());
+            default -> { /* unknown action: nothing to change */ }
+        }
+    }
+
+    /** Whether this request names a pharmacy write (a mutating {@code method} or legacy {@code pharmacyAction}). */
+    private boolean isWriteRequest() {
+        String method = request.getParameter("method");
+        return (method != null && WRITE_METHODS.contains(method))
+                || !StringUtils.isNullOrEmpty(request.getParameter("pharmacyAction"))
+                || !StringUtils.isNullOrEmpty(this.getPharmacyAction());
+    }
+
+    private static final java.util.Set<String> READ_METHODS = java.util.Set.of("getPharmacyFromDemographic",
+            "search", "searchCity", "getPharmacyInfo", "getTotalDemographicsPreferedToPharmacy");
+
+    private static final java.util.Set<String> WRITE_METHODS = java.util.Set.of("delete", "unlink", "setPreferred", "add", "save");
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
@@ -148,17 +181,28 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
         response.getWriter().write(jsonObject.toString());
 
-        return null;
+        return NONE;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    /**
+     * Unlinks a pharmacy from the patient the request names. Authorises that patient ({@code _rx} write and
+     * record access) without requiring the patient's Rx bean, so an open selector keeps working after the
+     * bean was evicted.
+     *
+     * The JSON result is written directly; {@link #execute} answers {@code NONE}.
+     */
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    public String unlink() {
+    public void unlink() {
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
             String pharmId = request.getParameter("pharmacyId");
-            String demographicNo = request.getParameter("demographicNo");
+            String demographicNo = authorisedRequestedPatient("w");
+            if (demographicNo == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
 
             RxPharmacyData pharmacy = new RxPharmacyData();
 
@@ -179,17 +223,19 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Cannot write unlink response", e);
         }
-
-        return null;
     }
 
     public String getPharmacyFromDemographic() throws IOException {
 
-        String demographicNo = request.getParameter("demographicNo");
-
-        if (demographicNo == null || demographicNo.isEmpty() || !demographicNo.matches("\\d+")) {
-            return null;
-	}
+        // The patient's pharmacy links, for the patient the request names, provided the caller may
+        // read that patient's prescriptions. A missing,
+        // malformed, out-of-range or conflicting demographicNo used to reach Integer.parseInt and
+        // answer 500 on overflow; it is refused here instead (#3908).
+        String demographicNo = authorisedRequestedPatient("r");
+        if (demographicNo == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
         RxPharmacyData pharmacyData = new RxPharmacyData();
         List<PharmacyInfo> pharmacyList;
@@ -198,20 +244,48 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         response.setContentType("application/json");
         objectMapper.writeValue(response.getWriter(), pharmacyList);
 
-        return null;
+        return NONE;
     }
 
-    public String setPreferred() {
+    /**
+     * The patient a pharmacy link lookup or change may touch: the {@code demographicNo} the request names
+     * explicitly (never the session's fallback Rx patient; malformed or conflicting values are
+     * refused), provided the caller holds the requested {@code _rx} privilege for that patient and may open that
+     * patient's record. The request value alone was trusted before, so any chart's pharmacy
+     * links could be changed (ported from draft PR #3304). Authorising the patient, rather than
+     * requiring that patient's Rx bean to still be in the session, keeps an open pharmacy selector
+     * working after the bean was evicted by the per-session cap.
+     *
+     * @return the demographic number as a string, or {@code null} when the request names no valid
+     *         patient or the caller lacks the requested access to that patient's pharmacies
+     */
+    private String authorisedRequestedPatient(String privilege) {
+        int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        if (demographicNo <= 0) {
+            return null;
+        }
+        // The shared patient-level Rx authorization check (#3908).
+        if (!RxRequestedPatientAccess.mayAccessPatient(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "_rx", privilege)) {
+            return null;
+        }
+        return String.valueOf(demographicNo);
+    }
+
+    public void setPreferred() {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
-            PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), request.getParameter("demographicNo"), request.getParameter("preferredOrder"));
+            String demographicNo = authorisedRequestedPatient("w");
+            if (demographicNo == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+            PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), demographicNo, request.getParameter("preferredOrder"));
             response.setContentType("application/json");
             objectMapper.writeValue(response.getWriter(), pharmacyInfo);
         } catch (Exception e) {
             MiscUtils.getLogger().error("ERROR SETTING PREFERRED ORDER", e);
         }
-
-        return null;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -245,15 +319,24 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("Cannot write response", e);
         }
 
-        return null;
+        return NONE;
     }
 
     public String save() {
 
 
+        String rawPharmacyId = request.getParameter("pharmacyId");
+        if (rawPharmacyId == null || !rawPharmacyId.trim().matches("\\d{1,9}")) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            } catch (IOException e) {
+                MiscUtils.getLogger().error("Cannot write save response", e);
+            }
+            return NONE;
+        }
         RxPharmacyData pharmacy = new RxPharmacyData();
         PharmacyInfo pharmacyInfo = new PharmacyInfo();
-        pharmacyInfo.setId(Integer.parseInt(request.getParameter("pharmacyId")));
+        pharmacyInfo.setId(Integer.parseInt(rawPharmacyId.trim()));
         pharmacyInfo.setName(request.getParameter("pharmacyName"));
         pharmacyInfo.setAddress(request.getParameter("pharmacyAddress"));
         pharmacyInfo.setCity(request.getParameter("pharmacyCity"));
@@ -272,7 +355,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
                     request.getParameter("pharmacyFax"), request.getParameter("pharmacyEmail"), request.getParameter("pharmacyServiceLocationId"), request.getParameter("pharmacyNotes"));
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error Updating Pharmacy " + request.getParameter("pharmacyId"), e);
-            return null;
+            return NONE;
         }
 
         try {
@@ -283,7 +366,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error writing response", e);
         }
 
-        return null;
+        return NONE;
     }
 
     public String search() {
@@ -302,7 +385,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }
 
-        return null;
+        return NONE;
 
     }
 
@@ -322,13 +405,13 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }
 
-        return null;
+        return NONE;
     }
 
     public String getPharmacyInfo() throws IOException {
         String pharmacyId = request.getParameter("pharmacyId");
         MiscUtils.getLogger().debug("pharmacyId=" + pharmacyId);
-        if (pharmacyId == null) return null;
+        if (pharmacyId == null) return NONE;
         RxPharmacyData pharmacyData = new RxPharmacyData();
         PharmacyInfo pharmacy = pharmacyData.getPharmacy(pharmacyId);
         HashMap<String, String> hm = new HashMap<String, String>();
@@ -350,7 +433,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
             response.getOutputStream().write(jsonObject.toString().getBytes());
         }
-        return null;
+        return NONE;
     }
 
     public String getTotalDemographicsPreferedToPharmacy() throws IOException {
@@ -360,7 +443,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put("totalDemographics", totalDemographics);
         response.getOutputStream().write(jsonObject.toString().getBytes());
-        return null;
+        return NONE;
     }
 
     /**

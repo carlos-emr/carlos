@@ -1,0 +1,340 @@
+#!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
+ * The prescription stash saves exactly what the prescriber sees, for the patient on the page
+ * (#3908: issues #3869, #3870, #3872 and #3875; adapted from MagentaHealth/Open-O and the CARLOS
+ * contributors credited on that PR).
+ *
+ *   1. Closing one of two staged drugs with its X saves only the other. The X sent the drug id
+ *      rather than the card's stash key, so the server kept the closed card and saved it anyway.
+ *   2. With Rx open for a second patient in another tab, saving the first tab saves to the first
+ *      patient. The module kept ONE session bean, so opening the second patient's Rx switched the
+ *      first tab's stash to the second patient: a medication staged for one patient was saved to
+ *      another's chart.
+ *   3. Unticking ReRx removes the staged card for that drug, and the source prescription is not
+ *      archived by a ReRx that was never saved.
+ *   4. The Rx Print patient chooser renders its search form for a session that has not opened
+ *      any patient's Rx yet (it runs first, before this check opens one). It resolved a per-patient
+ *      Rx bean and sent such a session to error.html before the form.
+ *   5. Re-prescribing a saved drug from the static-script page stages it. The page read its CSRF
+ *      token while <head> parsed, before the token existed, so the POST was refused.
+ *
+ * The check owns two synthetic patients and every drug row it saves (removed afterwards). It
+ * stages custom drugs through the Custom Drug button, so it needs no DrugRef lookup.
+ *
+ * Environment (see docs/ui-tests/deb-install-validation.md section 6):
+ *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*
+ */
+
+const h = require('./lib/playwright-harness');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
+
+async function openRx(session, demographicNo) {
+  const page = await session.context.newPage();
+  await h.gotoApp(page, session.config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await h.assertNotErrorPage(page, 'Rx page');
+  await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+  return page;
+}
+
+/** Stage a custom drug the prescriber's way; returns the card's stash key (random id). */
+async function stageCustomDrug(page, name) {
+  const before = await page.locator("[id^='drugName_']").evaluateAll((els) => els.map((el) => el.id));
+  await page.locator('#searchString').fill(name);
+  // The Custom Drug button confirms first; accept it like the prescriber does.
+  await h.withExpectedDialogs(page, () => page.locator('#customDrug').click(), { accept: true });
+  await page.waitForFunction((count) => document.querySelectorAll("[id^='drugName_']").length > count,
+    before.length, { timeout: 30000 });
+  const after = await page.locator("[id^='drugName_']").evaluateAll((els) => els.map((el) => el.id));
+  const added = after.filter((id) => !before.includes(id));
+  h.assert(added.length === 1, `staging ${name} added ${added.length} cards`);
+  return added[0].split('_')[1];
+}
+
+/**
+ * "Save Only" saves the stash over AJAX. Callers wait on the database (expectValue polls), which
+ * is the outcome that matters; racing waitForLoadState against the click could not tell the
+ * post-save page from the pre-save one.
+ */
+async function saveOnly(page) {
+  // Wait for the save itself so a refused or failed save is reported with its status and the
+  // server's answer, not only as a missing row once the database poll times out.
+  const saved = page.waitForResponse((response) => response.request().method() === 'POST'
+    && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url()), { timeout: 30000 });
+  await page.locator('#saveOnlyButton').click();
+  const response = await saved;
+  if (response.status() >= 400) {
+    const body = (await response.text().catch(() => '')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+    throw new Error(`Save Only answered HTTP ${response.status()}: ${body}`);
+  }
+}
+
+function drugsFor(sql, demographicNo, marker) {
+  return sql.rows(`SELECT customName, archived FROM drugs WHERE demographic_no=${demographicNo}
+    AND customName LIKE ${h.sqlString(`${marker}%`)} ORDER BY drugid`);
+}
+
+// Only consume the exact HTTP conflict asserted by a negative workflow step. All other
+// browser errors, responses, failed requests and dialogs remain subject to strict checks.
+function consumeExpectedConflict(recorder, response, since, baseUrl) {
+  const appUrl = new URL(baseUrl);
+  const contextPath = appUrl.pathname.replace(/\/$/, '');
+  const responseUrl = new URL(response.url());
+  h.assert(responseUrl.origin === appUrl.origin && responseUrl.pathname === `${contextPath}/rx/WriteScript`,
+    'the expected conflict must belong to this application prescription endpoint');
+  const errors = recorder.badResponses.slice(since.responses);
+  h.assert(errors.length === 1 && errors[0].url === response.url() && errors[0].status === 409
+    && errors[0].method === 'POST', 'the negative probe produced an unexpected HTTP failure');
+  recorder.badResponses.splice(since.responses, 1);
+  const csrfGuardUrl = new URL(`${contextPath}/csrfguard`, appUrl.origin).href;
+  for (let i = recorder.consoleIssues.length - 1; i >= since.console; i--) {
+    const entry = recorder.consoleIssues[i];
+    // Chromium can attribute the native resource failure to CSRFGuard's XHR wrapper.
+    // Allow its exact same-context script URL only after verifying this one failed POST.
+    const expectedLocation = entry.location && (entry.location.url === response.url()
+      || entry.location.url === csrfGuardUrl);
+    if (expectedLocation && entry.label === errors[0].label && entry.type === 'error'
+      && /^Failed to load resource: the server responded with a status of 409 \((?:Conflict)?\)$/.test(entry.text)) {
+      recorder.consoleIssues.splice(i, 1);
+      break; // One POST permits one native warning; other errors remain strict.
+    }
+  }
+}
+
+async function workflow(session) {
+  const { sql, patient, provider, marker } = session;
+  const second = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
+    date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status, lastUpdateDate)
+    VALUES (${h.sqlString(marker)}, 'Second', '1975', '03', '04', 'M', 'AC', ${h.sqlString(provider)},
+    'ON', 'ON', 'NR', NOW()); SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(second), 'the second patient fixture was not created');
+  const clearDrugs = (demo) => sql.execute(`DELETE FROM prescription WHERE demographic_no=${demo}
+    AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${demo}
+      AND customName LIKE ${h.sqlString(`${marker}%`)});
+    DELETE FROM drugs WHERE demographic_no=${demo} AND customName LIKE ${h.sqlString(`${marker}%`)}`);
+  session.cleanup(() => sql.execute(`DELETE FROM demographic WHERE demographic_no=${second}
+    AND last_name=${h.sqlString(marker)}`));
+  session.cleanup(() => clearDrugs(second));
+  session.cleanup(() => clearDrugs(patient));
+
+  // First, while this login has not opened any patient's Rx.
+  await session.step('the Print patient chooser renders with no Rx patient open', async () => {
+    const page = await session.context.newPage();
+    await h.gotoApp(page, session.config.baseUrl, '/rx/ViewPrint');
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await h.assertNotErrorPage(page, 'Rx Print patient chooser');
+    h.assert(new URL(page.url()).pathname.endsWith('/rx/ViewPrint'),
+      'the Rx Print patient chooser redirected away without an Rx patient');
+    await page.locator('form[action$="/rx/searchPatient"] input[name="surname"]')
+      .waitFor({ state: 'visible', timeout: 20000 });
+    await page.close();
+  });
+
+  await session.step('closing one staged drug saves only the other', async () => {
+    const rx = await openRx(session, patient);
+    const closed = await stageCustomDrug(rx, `${marker}-A`);
+    await stageCustomDrug(rx, `${marker}-B`);
+    // The X on the card, as the prescriber clicks it.
+    await rx.locator(`#set_${closed} a[onclick^='removePrescribingDrug']`).first().click();
+    await rx.locator(`#drugName_${closed}`).waitFor({ state: 'detached', timeout: 10000 });
+    await saveOnly(rx);
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-B`)}`, '1', 'the drug left on the pad was not saved');
+    h.assert(!drugsFor(sql, patient, marker).some(([name]) => name === `${marker}-A`),
+      'the drug closed with its X was saved anyway');
+    await rx.close();
+  });
+
+  await session.step('a second patient opened in another tab does not capture the first tab\'s stash', async () => {
+    const first = await openRx(session, patient);
+    await stageCustomDrug(first, `${marker}-C`);
+    const other = await openRx(session, second);
+    await saveOnly(first);
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-C`)}`, '1', 'the first tab\'s drug was not saved to the first patient');
+    h.assert(drugsFor(sql, second, marker).length === 0,
+      'a drug staged for one patient was saved to the patient open in the other tab');
+    await other.close();
+    await first.close();
+  });
+
+  await session.step('a stale same-patient save preserves newer cards until the current form is saved', async () => {
+    const nameA = `${marker}-stale-A`;
+    const nameB = `${marker}-stale-B`;
+    const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-C`)} AND archived=0`);
+    h.assert(/^[1-9]\d*$/.test(source), 'the stale-save fixture has no active source prescription');
+    const first = await openRx(session, patient);
+    const keyA = await stageCustomDrug(first, nameA);
+    const newer = await openRx(session, patient);
+    await newer.locator(`#set_${keyA}`).waitFor({ state: 'visible' });
+    const keyB = await stageCustomDrug(newer, nameB);
+    await newer.locator(`#reRxCheckBox_${source}`).check();
+    await newer.locator('#reRxConfirmBox input[name="stage"]').click();
+    await newer.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible' });
+    h.assert(await first.locator(`#set_${keyB}`).count() === 0, 'the first form did not remain stale');
+    const beforeScripts = sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`);
+    const beforeDrugs = sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`);
+    const since = { responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length };
+    let refusal;
+    const dialogs = await h.withExpectedDialogs(first, async () => {
+      const [response] = await Promise.all([
+        first.waitForResponse(response => response.request().method() === 'POST'
+          && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url())),
+        first.waitForEvent('dialog'),
+        first.locator('#saveOnlyButton').click(),
+      ]);
+      refusal = response;
+      h.assert(response.status() === 409, 'saving a stale form must refuse the omitted server cards');
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert'
+      && dialogs[0].text === await first.evaluate(() => jsMsg.staleDraft),
+      'the stale-save refusal did not explain how to review the current draft');
+    h.assert(await first.locator(`#drugName_${keyA}`).inputValue() === nameA,
+      'the stale-save refusal discarded edits in the original window');
+    consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl);
+    h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === beforeScripts,
+      'the refused stale save created a prescription');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`) === beforeDrugs,
+      'the refused stale save persisted a drug');
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${source}`) === '0',
+      'the refused stale save archived its source');
+    await first.close();
+    await newer.close();
+    const current = await openRx(session, patient);
+    for (const [key, name] of [[keyA, nameA], [keyB, nameB]]) {
+      h.assert(await current.locator(`#drugName_${key}`).inputValue() === name,
+        'reopening after stale save lost a staged custom drug');
+    }
+    await current.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible' });
+    await saveOnly(current);
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName IN (${h.sqlString(nameA)},${h.sqlString(nameB)})`, '2',
+      'saving the current form did not preserve both windows custom drugs');
+    await expectValue(sql, `SELECT archived FROM drugs WHERE drugid=${source}`, '1',
+      'saving the current form did not archive its successfully replaced source');
+    h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === String(Number(beforeScripts) + 1),
+      'saving the current form did not create exactly one prescription');
+    await current.close();
+  });
+
+  await session.step('refused ReRx untick retains its card and successful retry removes it', async () => {
+    const rx = await openRx(session, patient);
+    const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-B`)} AND archived=0`);
+    h.assert(/^\d+$/.test(source), 'the saved drug is not available to re-prescribe');
+    const box = rx.locator(`#reRxCheckBox_${source}`);
+    await box.waitFor({ state: 'attached', timeout: 20000 });
+    await box.check();
+    await rx.locator('#reRxConfirmBox input[name="stage"]').click();
+    const card = rx.locator(`fieldset[data-drug-ref-id="${source}"]`);
+    await card.waitFor({ state: 'visible', timeout: 30000 });
+    // Refuse a real removal for a valid patient whose Rx workspace was never opened. The
+    // browser retains its original patient; only this held request's binding is changed.
+    const unopened = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth,
+      month_of_birth, date_of_birth, sex, patient_status, provider_no, hc_type, province,
+      roster_status, lastUpdateDate) VALUES (${h.sqlString(marker)}, 'Unopened', '1980', '01',
+      '02', 'F', 'AC', ${h.sqlString(provider)}, 'ON', 'ON', 'NR', NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(unopened), 'the unopened patient fixture was not created');
+    session.cleanup(() => sql.execute(`DELETE FROM demographic WHERE demographic_no=${unopened}
+      AND last_name=${h.sqlString(marker)}`));
+    const isRemoval = request => request.method() === 'POST'
+      && new URL(request.url()).pathname.endsWith('/rx/WriteScript')
+      && new URLSearchParams(request.postData() || '').get('action') === 'removeFromReRxDrugIdList';
+    let release;
+    let intercepted;
+    const hold = new Promise(resolve => { release = resolve; });
+    const received = new Promise(resolve => { intercepted = resolve; });
+    const routePattern = /\/rx\/WriteScript(?:\?|$)/;
+    const handler = async route => {
+      const request = route.request();
+      if (!isRemoval(request)) return route.continue();
+      intercepted(request);
+      await hold;
+      const data = new URLSearchParams(request.postData() || '');
+      data.set('demographicNo', unopened);
+      data.delete('demographic_no');
+      const url = new URL(request.url());
+      url.searchParams.delete('demographicNo');
+      url.searchParams.delete('demographic_no');
+      // Forward to the real endpoint but keep the browser's original URL for its failure
+      // event, so strict diagnostics can identify exactly this deliberately refused response.
+      const response = await route.fetch({ url: url.toString(), postData: data.toString() });
+      await route.fulfill({ response });
+    };
+    const since = { responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length };
+    await rx.route(routePattern, handler);
+    try {
+      let refusal;
+      const dialogs = await h.withExpectedDialogs(rx, async () => {
+        const response = rx.waitForResponse(response => isRemoval(response.request()));
+        await box.uncheck();
+        await Promise.race([received, rx.waitForTimeout(10000).then(() => {
+          throw new Error('unticking ReRx did not request removal');
+        })]);
+        h.assert(await card.isVisible(), 'unticking ReRx hid its card before server acknowledgement');
+        release();
+        refusal = await response;
+        h.assert(refusal.status() === 409, 'missing-workspace removal must return HTTP 409 rather than a successful error page');
+        await rx.waitForFunction(id => document.getElementById(id).checked, `reRxCheckBox_${source}`);
+        h.assert(await card.isVisible(), 'refused ReRx removal hid the staged card');
+      });
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'refused ReRx removal did not explain its failure');
+      consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl);
+    } finally {
+      release();
+      await rx.unroute(routePattern, handler);
+    }
+    // Retry the unmodified browser action against the original patient's still-staged card.
+    await box.uncheck();
+    await card.waitFor({ state: 'detached', timeout: 10000 });
+    await rx.close();
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${source}`) === '0',
+      'a ReRx that was never saved archived its source prescription');
+  });
+
+  await session.step('re-prescribing from the static-script page stages the drug', async () => {
+    const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-B`)} AND archived=0`);
+    h.assert(/^\d+$/.test(source), 'the saved drug is not available to re-prescribe');
+    const page = await session.context.newPage();
+    await h.gotoApp(page, session.config.baseUrl, `/rx/ViewStaticScript2?demographicNo=${patient}`
+      + `&cn=${encodeURIComponent(`${marker}-B`)}`);
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await h.assertNotErrorPage(page, 'static-script page');
+    const button = page.locator(`input[value="Represcribe"][onclick*="'${source}'"]`);
+    await button.waitFor({ state: 'visible', timeout: 20000 });
+    // A refused stage raises an alert (failing the strict page) instead of opening the search.
+    await Promise.all([
+      page.waitForURL(/\/rx\/choosePatient/, { timeout: 30000 }),
+      button.click(),
+    ]);
+    await page.locator(`fieldset[data-drug-ref-id="${source}"]`).waitFor({ state: 'visible', timeout: 30000 });
+    await page.close();
+  });
+}
+
+if (require.main === module) runWorkflow('rx-stash-patient-isolation', workflow);
+module.exports = { workflow, openRx, stageCustomDrug, consumeExpectedConflict };

@@ -80,19 +80,29 @@ public class RxSessionBean implements java.io.Serializable {
         randomIdDrugIdPair.put(r, d);
     }
 
-    public void addReRxDrugIdList(String s) {
+    /**
+     * Adds a source drug id to the ReRx list; {@code saveDrug()} archives a listed source when its
+     * replacement is saved. Callers that stage a copy use {@code RxRePrescribe2Action.recordReRxSource},
+     * which adds an id once.
+     *
+     * @param s the source drug id
+     */
+    public synchronized void addReRxDrugIdList(String s) {
         reRxDrugIdList.add(s);
     }
 
-    public void setReRxDrugIdList(List<String> sList) {
+    public synchronized void setReRxDrugIdList(List<String> sList) {
         reRxDrugIdList = (CopyOnWriteArrayList) sList;
     }
 
-    public CopyOnWriteArrayList<String> getReRxDrugIdList() {
+    public synchronized CopyOnWriteArrayList<String> getReRxDrugIdList() {
         return reRxDrugIdList;
     }
 
-    public void clearReRxDrugIdList() {
+    /**
+     * Empties the ReRx list (after a completed save or an explicit reset).
+     */
+    public synchronized void clearReRxDrugIdList() {
         reRxDrugIdList = new CopyOnWriteArrayList<>();
     }
 
@@ -130,21 +140,42 @@ public class RxSessionBean implements java.io.Serializable {
 
     //--------------------------------------------------------------------------
 
-    public int getStashIndex() {
+    /**
+     * The selected staged item (the cursor), or -1 when none is selected. Always within the
+     * stash: a cursor left past the end by a removal that bypassed {@link #removeStashItem}
+     * (for example an iterator over {@link #getStashList()}) is pulled back to the last item.
+     */
+    public synchronized int getStashIndex() {
+        if (this.stashIndex >= this.stash.size()) {
+            this.stashIndex = this.stash.size() - 1;
+        }
         return this.stashIndex;
     }
 
-    public void setStashIndex(int RHS) {
-        if (RHS < this.getStashSize()) {
-            this.stashIndex = RHS;
+    /**
+     * Moves the cursor. Only -1 (nothing selected) or an index of a staged item is accepted; any
+     * other value (negative, past the end) is ignored, so a bad index from a request can never
+     * point the cursor at nothing and later make a write fail or touch the wrong item.
+     */
+    public synchronized void setStashIndex(int index) {
+        if (index >= -1 && index < this.getStashSize()) {
+            this.stashIndex = index;
         }
     }
 
-    public int getStashSize() {
+    /**
+     * The staged item the cursor selects, or {@code null} when nothing (valid) is selected.
+     */
+    public synchronized RxPrescriptionData.Prescription getCurrentStashItem() {
+        int index = getStashIndex();
+        return index >= 0 ? this.stash.get(index) : null;
+    }
+
+    public synchronized int getStashSize() {
         return this.stash.size();
     }
 
-    public int getIndexFromRx(int randomId) {
+    public synchronized int getIndexFromRx(int randomId) {
         int ret = -1;
         for (int i = 0; i < stash.size(); i++) {
             if (stash.get(i).getRandomId() == randomId) {
@@ -156,7 +187,7 @@ public class RxSessionBean implements java.io.Serializable {
         return ret;
     }
 
-    public RxPrescriptionData.Prescription[] getStash() {
+    public synchronized RxPrescriptionData.Prescription[] getStash() {
         RxPrescriptionData.Prescription[] arr = {};
 
         arr = stash.toArray(arr);
@@ -164,11 +195,15 @@ public class RxSessionBean implements java.io.Serializable {
         return arr;
     }
 
+    /**
+     * The live stash list. Callers that iterate or mutate it must hold this bean's monitor
+     * ({@code synchronized (bean)}), as the accessors above do.
+     */
     public ArrayList<RxPrescriptionData.Prescription> getStashList() {
         return this.stash;
     }
 
-    public RxPrescriptionData.Prescription getStashItem(int index) {
+    public synchronized RxPrescriptionData.Prescription getStashItem(int index) {
         return stash.get(index);
     }
 
@@ -188,78 +223,161 @@ public class RxSessionBean implements java.io.Serializable {
      * modal only opens from the success callback, a 500 is a control that does nothing
      * at all.</p>
      */
-    public RxPrescriptionData.Prescription getStashItem2(int randomId) {
-        RxPrescriptionData.Prescription psp = null;
+    public synchronized RxPrescriptionData.Prescription getStashItem2(int randomId) {
+        // The first match, as getIndexFromRx: keys are unique per stash, so there is only one.
         for (RxPrescriptionData.Prescription rx : stash) {
             if (rx != null && rx.getRandomId() == randomId) {
-                psp = rx;
+                return rx;
             }
         }
-        return psp;
+        return null;
     }
 
-    public void setStashItem(int index, RxPrescriptionData.Prescription item) {
+    public synchronized void setStashItem(int index, RxPrescriptionData.Prescription item) {
         //this.clearDAM();
         //this.clearDDI();
         stash.set(index, item);
     }
 
-    public int addStashItem(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
+    /**
+     * Stages a prescription for this bean's patient. An item equal to one already staged (same drug, by
+     * value) is not added twice; the returned index is the item's position either way.
+     *
+     * @param loggedInInfo the logged-in provider, for allergy and interaction checks
+     * @param item         the prescription to stage
+     * @return the item's index in the stash
+     */
+    public synchronized int addStashItem(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
+        // Two windows of the same patient share this bean. Every stash read and mutation runs
+        // under the bean's monitor, the same one RxStashIds allocates keys under, so a key two
+        // concurrent staging requests both saw as free cannot end up on two cards, and a card
+        // closed from one window cannot shift the indexes another is reading (#3908).
+        return addStashItemLocked(loggedInInfo, item);
+    }
 
-        int ret = -1;
+    private int addStashItemLocked(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
+        // A card for the same drug is not staged twice: return the existing card's position.
+        int existing = indexOfSameCard(item);
+        if (existing > -1) {
+            return existing;
+        }
+        // A staged card is identified by its key when it is closed, edited or saved, so a key
+        // another card already carries (a draw that raced with another window) is replaced
+        // before the card is added; the caller renders the card from this same object.
+        if (RxStashIds.inUseByAnother(this, item, item.getRandomId())) {
+            item.setRandomId(RxStashIds.nextUniqueLocked(this, RxStashIds.DEFAULT_BOUND));
+        }
+        stash.add(item);
+        preloadInteractions();
+        preloadAllergyWarnings(loggedInInfo, item.getAtcCode());
+        return this.getStashSize() - 1;
+    }
 
-        int i;
-        RxPrescriptionData.Prescription rx;
-
-        //check to see if the item already exists
-        //by checking for duplicate brandname and gcn seq no
-        //if it exists, return it, else add it.
-        for (i = 0; i < this.getStashSize(); i++) {
-            rx = this.getStashItem(i);
-
-            if (item.isCustom()) {
-                if (rx.isCustom() && rx.getCustomName() != null && item.getCustomName() != null) {
-                    if (rx.getCustomName().equals(item.getCustomName())) {
-                        ret = i;
-                        break;
-                    }
-                }
-            } else {
-                if (rx.getBrandName() != null && item.getBrandName() != null) {
-                    if (rx.getBrandName().equals(item.getBrandName())
-                            && rx.getGCN_SEQNO() == item.getGCN_SEQNO()) {
-                        ret = i;
-                        break;
-                    }
-                }
+    /** The position of the staged card for the same drug as {@code item}, or -1 when there is none. */
+    private int indexOfSameCard(RxPrescriptionData.Prescription item) {
+        for (int i = 0; i < this.getStashSize(); i++) {
+            if (isSameCard(this.getStashItem(i), item)) {
+                return i;
             }
         }
-
-        if (ret > -1) {
-
-
-            return ret;
-        } else {
-            stash.add(item);
-            preloadInteractions();
-            preloadAllergyWarnings(loggedInInfo, item.getAtcCode());
-
-
-            return this.getStashSize() - 1;
-        }
-
+        return -1;
     }
 
-    public void removeStashItem(int index) {
+    /**
+     * Custom cards are the same card when their custom names match; catalogue cards when brand
+     * name and GCN sequence number match. GCN_SEQNO is a String: {@code ==} compared references, so
+     * two stash entries for the same drug built from different requests never matched.
+     */
+    private static boolean isSameCard(RxPrescriptionData.Prescription rx, RxPrescriptionData.Prescription item) {
+        // Copies of two different saved drugs are two cards even when they are the same product
+        // (same brand and GCN, different sig): collapsing them would leave the second source
+        // ticked for ReRx with no replacement to save (#3908).
+        if (rx.getDrugReferenceId() != item.getDrugReferenceId()) {
+            return false;
+        }
+        if (item.isCustom()) {
+            return rx.isCustom() && rx.getCustomName() != null && rx.getCustomName().equals(item.getCustomName());
+        }
+        return rx.getBrandName() != null && rx.getBrandName().equals(item.getBrandName())
+                && Objects.equals(rx.getGCN_SEQNO(), item.getGCN_SEQNO());
+    }
+
+    /**
+     * A stash key no staged card carries, drawn under this bean's monitor: the monitor
+     * {@link #addStashItem} inserts under, so a key two concurrent staging requests both saw as
+     * free cannot end up on two cards (#3908). {@link RxStashIds#nextUnique} delegates here.
+     *
+     * @param bound the largest key, see {@link RxStashIds#DEFAULT_BOUND}
+     * @return an unused key
+     */
+    public synchronized long nextUniqueStashKey(int bound) {
+        return RxStashIds.nextUniqueLocked(this, bound);
+    }
+
+    /**
+     * {@link RxStashIds#acceptOrNext}: the client's proposed key when it is well formed and unused,
+     * else a fresh unique key, decided under this bean's monitor.
+     *
+     * @param clientKey the proposed key, may be {@code null} or malformed
+     * @param bound     the range for a fresh key
+     * @return a key no other staged card uses
+     */
+    public synchronized long acceptOrNextStashKey(String clientKey, int bound) {
+        return RxStashIds.acceptOrNextLocked(this, clientKey, bound);
+    }
+
+    /**
+     * Removes one staged item and keeps the cursor on the same item where it still exists: a
+     * removal before the cursor shifts it down with the list, and a removal of the selected (last)
+     * item leaves it on the new last item. An index outside the stash is ignored.
+     */
+    public synchronized void removeStashItem(int index) {
         //    this.clearDDI();
         //    this.clearDAM();
+        if (index < 0 || index >= stash.size()) {
+            return;
+        }
         stash.remove(index);
+        if (index < stashIndex) {
+            stashIndex--;
+        } else if (stashIndex >= stash.size()) {
+            stashIndex = stash.size() - 1;
+        }
     }
 
-    public void clearStash() {
+    /**
+     * Discards every staged card and pending ReRx selection, and resets the cursor to -1.
+     * Both explicit discard actions use this atomic reset; saved chart drugs are unaffected.
+     */
+    public synchronized void clearStash() {
         //    this.clearDDI();
         //    this.clearDAM();
         stash = new ArrayList();
+        stashIndex = -1;
+        clearReRxDrugIdList();
+    }
+
+    /**
+     * Drops stash items that a completed save already persisted, keeping unsaved drafts and the
+     * selected draft's position.
+     *
+     * <p>A patient's bean is reused when Rx is reopened ({@link RxSessionBeanResolver#activate}),
+     * so without this a prescription saved just before the window was closed would reappear
+     * staged and could be saved twice. {@code drugId} is 0 until {@code Prescription.Save}
+     * writes the row, so {@code drugId > 0} means "already saved". {@code script_no} is not a
+     * safe signal: a staged re-prescription copies its source drug's script number.</p>
+     *
+     * @since 2026-09-24
+     */
+    public synchronized void removePersistedStashItems() {
+        RxPrescriptionData.Prescription selected =
+                (stashIndex >= 0 && stashIndex < stash.size()) ? stash.get(stashIndex) : null;
+        stash.removeIf(rx -> rx != null && rx.getDrugId() > 0);
+        if (selected != null && stash.contains(selected)) {
+            stashIndex = stash.indexOf(selected);
+        } else {
+            stashIndex = stash.size() - 1;
+        }
     }
 
     public HashMap<Integer, Long> getFavIdRandomIdMaps() {
@@ -310,7 +428,8 @@ public class RxSessionBean implements java.io.Serializable {
             addToWorkingAllergyWarnings(atccode, worker);
             worker.start();
         } catch (Exception e) {
-            logger.error("Error for demographic " + getDemographicNo(), e);
+            // The demographic number is a PHI-correlating identifier; log only the failure.
+            logger.error("Allergy warning check failed ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -345,7 +464,6 @@ public class RxSessionBean implements java.io.Serializable {
         //Check to see if Allergy checking property is on and if atccode is not null and if atccode is not "" or "null"
 
         if (CarlosProperties.getInstance().getBooleanProperty("RX_ALLERGY_CHECKING", "yes") && atccode != null && !atccode.equals("") && !atccode.equals("null")) {
-            logger.debug("Checking allergy reaction : " + atccode);
             if (allergyWarnings.containsKey(atccode)) {
 
                 allergies = (Allergy[]) allergyWarnings.get(atccode);
@@ -421,7 +539,6 @@ public class RxSessionBean implements java.io.Serializable {
             RxInteractionData rxInteract = RxInteractionData.getInstance();
             Vector atcCodes = rxData.getCurrentATCCodesByPatient(this.getDemographicNo());
 
-            logger.debug("atccode " + atcCodes);
             RxPrescriptionData.Prescription rx;
             for (int i = 0; i < this.getStashSize(); i++) {
                 rx = this.getStashItem(i);
@@ -429,14 +546,12 @@ public class RxSessionBean implements java.io.Serializable {
                     atcCodes.add(rx.getAtcCode());
                 }
             }
-            logger.debug("atccode 2" + atcCodes);
+            // Counts only: the patient's ATC codes and interactions describe their medications.
+            logger.debug("Interaction check over {} ATC code(s)", atcCodes == null ? 0 : atcCodes.size());
             if (atcCodes != null && atcCodes.size() > 1) {
                 try {
                     interactions = rxInteract.getInteractions(atcCodes);
-                    logger.debug("interactions " + interactions.length);
-                    for (int i = 0; i < interactions.length; i++) {
-                        logger.debug(interactions[i].affectingatc + " " + interactions[i].effect + " " + interactions[i].affectedatc);
-                    }
+                    logger.debug("interactions {}", interactions.length);
                     Arrays.sort(interactions);
                 } catch (Exception e) {
                     logger.error("Error", e);
@@ -444,7 +559,8 @@ public class RxSessionBean implements java.io.Serializable {
             }
 
             end2 = System.currentTimeMillis() - start2;
-        } catch (Exception e2) {
+        } catch (Exception _) {
+            // Preserve the legacy unavailable-result fallback if interaction lookup cannot start.
         }
         long end = System.currentTimeMillis() - start;
 

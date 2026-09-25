@@ -30,11 +30,16 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.List;
+import java.util.Optional;
+import java.util.Objects;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -76,8 +81,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * <li>Deleting single or multiple prescriptions</li>
  * <li>Discontinuing prescriptions with reason tracking</li>
  * <li>Clearing prescription stash and re-prescription lists</li>
- * <li>Deleting prescriptions when closing the prescription dialog box</li>
  * </ul>
+ * <p>
+ * Every operation that archives a saved drug first confirms the drug belongs to the patient of
+ * the caller's Rx session, so a drug id from another chart is refused with 403.
  * <p>
  * All deletion operations archive the drug record rather than performing hard deletes,
  * maintaining audit trail compliance for healthcare data.
@@ -100,7 +107,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * Routes to:
      * <ul>
      * <li>Delete2() - Single prescription deletion by ID</li>
-     * <li>DeleteRxOnCloseRxBox() - Delete prescription when closing dialog</li>
      * <li>clearStash() - Clear prescription stash</li>
      * <li>clearReRxDrugList() - Clear re-prescription list</li>
      * <li>Discontinue() - Discontinue prescription with reason</li>
@@ -121,51 +127,84 @@ public final class RxDeleteRx2Action extends ActionSupport {
     @Override
     public String execute()
             throws IOException, ServletException {
+        // Every dispatch of this action archives drugs or clears staged state: POST-only,
+        // refused before anything else (#3908). CSRFGuard does not check GET.
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         String method = request.getParameter("parameterValue");
-        if ("Delete2".equals(method)) {
-            return Delete2();
-        } else if ("DeleteRxOnCloseRxBox".equals(method)) {
-            return DeleteRxOnCloseRxBox();
-        } else if ("clearStash".equals(method)) {
-            return clearStash();
-        } else if ("clearReRxDrugList".equals(method)) {
-            return clearReRxDrugList();
-        } else if ("Discontinue".equals(method)) {
-            return Discontinue();
+        switch (method == null ? "" : method) {
+            case "Delete2":
+                return Delete2();
+            case "clearStash":
+                return clearStash();
+            case "clearReRxDrugList":
+                return clearReRxDrugList();
+            case "Discontinue":
+                return Discontinue();
+            default:
+                break;
         }
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Setup variables
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         String ip = request.getRemoteAddr();
         try {
 
-            String[] drugArr = drugList.split(",");
-            int drugId;
-            int i;
-
-            for (i = 0; i < drugArr.length; i++) {
-                try {
-                    drugId = Integer.parseInt(drugArr[i]);
-
-                } catch (Exception e) {
-                    break;
-                }
-                // get original drug
+            // Validate every requested drug before archiving any, so a list that mixes in another
+            // patient's drug, or a malformed id, is refused as a whole rather than half-applied.
+            // A malformed id used to end the loop early and still archive the ids before it (#3908).
+            Optional<List<Integer>> parsedDrugIds = parseDrugIds(drugList);
+            if (parsedDrugIds.isEmpty()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            List<Integer> drugIds = parsedDrugIds.get();
+            List<Drug> drugsToDelete = new ArrayList<>();
+            for (int drugId : drugIds) {
+                // get original drug; the primitive keeps the AbstractDao#find(int) overload this
+                // path has always used (a boxed id would silently pick find(Object)).
                 Drug drug = drugDao.find(drugId);
+                if (!isOwnedBySessionPatient(drug, bean)) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return NONE;
+                }
+                drugsToDelete.add(drug);
+            }
+            for (Drug drug : drugsToDelete) {
                 setDrugDelete(drug);
                 drugDao.merge(drug);
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, String.valueOf(drug.getId()), ip, "" + bean.getDemographicNo(), drug.getAuditString());
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         return SUCCESS;
+    }
+
+    /** The comma-separated drug ids of the request, or empty when any of them is malformed. */
+    private static Optional<List<Integer>> parseDrugIds(String drugList) {
+        List<Integer> drugIds = new ArrayList<>();
+        if (drugList == null || drugList.isBlank()) {
+            return Optional.of(drugIds);
+        }
+        for (String rawId : drugList.split(",", -1)) {
+            String trimmed = rawId.trim();
+            if (!trimmed.matches("\\d{1,9}")) {
+                return Optional.empty();
+            }
+            drugIds.add(Integer.valueOf(trimmed));
+        }
+        return Optional.of(drugIds);
     }
 
     /**
@@ -194,90 +233,46 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * </ul>
      *
      * @return null (AJAX response, no page navigation)
-     * @throws IOException if response redirect fails
+     * @throws IOException if the response cannot be written
      */
     public String Delete2()
             throws IOException {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         MiscUtils.getLogger().debug("===========================Delete2 RxDeleteRx2Action========================");
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
         // Setup variables
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         String ip = request.getRemoteAddr();
+        String rawId = request.getParameter("deleteRxId");
+        if (rawId == null || !rawId.matches("[^_]+_\\d{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        String deleteRxId = rawId.substring(rawId.indexOf('_') + 1);
         try {
-            String deleteRxId = (request.getParameter("deleteRxId").split("_"))[1];
-
             Drug drug = drugDao.find(Integer.parseInt(deleteRxId));
+            if (!isOwnedBySessionPatient(drug, bean)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             setDrugDelete(drug);
             drugDao.merge(drug);
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
         MiscUtils.getLogger().debug("===========================END Delete2 RxDeleteRx2Action========================");
-        return null;
-    }
-
-    /**
-     * Deletes a prescription when the prescription dialog box is closed.
-     * <p>
-     * Uses a random ID to look up the actual drug ID from the session's random ID mapping,
-     * then archives the prescription and returns the drug ID as JSON.
-     *
-     * Expected request parameters:
-     * <ul>
-     * <li>randomId - String random identifier mapped to the actual drug ID in the session</li>
-     * </ul>
-     *
-     * @return null (writes JSON response with drug ID directly to output stream)
-     * @throws IOException if response writing fails
-     */
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    public String DeleteRxOnCloseRxBox()
-            throws IOException {
-
-        MiscUtils.getLogger().debug("===========================DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
-        checkPrivilege(request, PRIVILEGE_UPDATE);
-
-        String randomId = request.getParameter("randomId");
-
-
-        // Setup variables
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-        if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
-        }
-        if (randomId != null) {
-            HashMap rd = bean.getRandomIdDrugIdPair();
-            Integer drugId = (Integer) rd.get(Long.parseLong(randomId));
-            MiscUtils.getLogger().debug("111drugId=" + drugId + "--randomId=" + randomId);
-            if (drugId != null) {
-                String ip = request.getRemoteAddr();
-                try {
-                    Drug drug = drugDao.find(drugId);
-                    setDrugDelete(drug);
-                    drugDao.merge(drug);
-                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString());
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
-                }
-            }
-            HashMap hm = new HashMap();
-            hm.put("drugId", drugId);
-            ObjectNode jsonObject = objectMapper.valueToTree(hm);
-            MiscUtils.getLogger().debug("jsonObject=" + jsonObject.toString());
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            response.getWriter().write(jsonObject.toString());
-        }
-        MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
         return null;
     }
 
@@ -288,14 +283,20 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * worked on but not yet finalized.
      *
      * @return String "successClearStash" action result
-     * @throws IOException if response redirect fails
+     * @throws IOException if the response cannot be written
      */
     public String clearStash()
             throws IOException {
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
+        // The other write paths of this action check _rx update; clearing the stash is a write too.
+        checkPrivilege(request, PRIVILEGE_UPDATE);
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         bean.clearStash();
         return "successClearStash";
@@ -308,16 +309,20 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * (renewed) for the patient. This method clears that list.
      *
      * @return null (AJAX response, no page navigation)
-     * @throws IOException if response redirect fails
+     * @throws IOException if the response cannot be written
      */
     public String clearReRxDrugList()
             throws IOException {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         bean.clearReRxDrugIdList();
         //return "successClearStash";
@@ -325,8 +330,15 @@ public final class RxDeleteRx2Action extends ActionSupport {
     }
 
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     /**
-     * Discontinues a drug by setting archived status and creating a case management note.
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} update, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Discontinues one of the patient's saved drugs (refused when the drug is another patient's) and files
+     * the discontinue note. The reason and comment are kept on the drug; a summary note in the echart is
+     * still to be added.
      * <p>
      * The method performs the following operations:
      * <ul>
@@ -343,28 +355,50 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * <li>drugId - Integer ID of the drug to discontinue</li>
      * <li>reason - String reason for discontinuation</li>
      * <li>comment - String additional comments (optional)</li>
-     * <li>demoNo - String demographic number</li>
      * <li>drugSpecial - String drug special instructions</li>
      * </ul>
+     * The note is filed against the Rx session's patient, never a request-supplied demographic.
      *
-     * @return null (writes JSON response directly to output stream)
-     * @throws IOException if response writing fails
+     * @return {@code NONE}; a missing patient workspace receives HTTP 409
+     * @throws SecurityException when the caller may not update Rx for the patient
      */
-    //STILL NEED TO SAVE REASON AND COMMENT "would like to create a summary note in the echart"
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String Discontinue() throws IOException {
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
+        // Archives drugs or clears staged Rx state: only the named patient's bean, never the fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_UPDATE);
+        if (bean == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+
         String idStr = request.getParameter("drugId");
-        int id = Integer.parseInt(idStr);
+        int id;
+        try {
+            id = Integer.parseInt(idStr);
+        } catch (NumberFormatException _) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         String reason = request.getParameter("reason");
+        if (reason == null || reason.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         //String comment = request.getParameter("comment"); //TODO: PUT this in a note
 
         String ip = request.getRemoteAddr();
 
         Drug drug = drugDao.find(id);
+        if (!isOwnedBySessionPatient(drug, bean)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
         Date date = new Date();
         String logStatement = drug + " Changing end date to :" + date;
@@ -393,7 +427,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             MiscUtils.getLogger().debug("value="+request.getSession().getAttribute(s));
         }*/
         try {
-            createDiscontinueNote(request);
+            createDiscontinueNote(request, bean.getDemographicNo());
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -407,7 +441,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
         response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
-        return null;
+        return NONE;
     }
 
     /**
@@ -427,22 +461,22 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * Expected request parameters:
      * <ul>
      * <li>drugId - String ID of the discontinued drug</li>
-     * <li>demoNo - String demographic number of the patient</li>
      * <li>drugSpecial - String special instructions for the drug</li>
      * <li>reason - String reason for discontinuation</li>
      * <li>comment - String additional comments about discontinuation</li>
      * </ul>
      *
      * @param request HttpServletRequest containing discontinuation details
+     * @param sessionDemographicNo the Rx session's patient, already verified to own the drug
      */
-    private void createDiscontinueNote(HttpServletRequest request) {
+    private void createDiscontinueNote(HttpServletRequest request, int sessionDemographicNo) {
         //create a note and store this info in casemanagement_note table
         //note_id, update_date, observation_date, demographic_no, provider_no, note:, signed, include_issue_innote, archived, position, uuid
         //signing_provider_no, encounter_type:  billing_code:  program_no, reporter_caisi_role, reporter_program_team, history, password, locked
         CaseManagementNote cmn = new CaseManagementNote();
         //get parameter values
         Date now = EDocUtil.getDmsDateTimeAsDate();
-        String demoNo = request.getParameter("demoNo");
+        String demoNo = String.valueOf(sessionDemographicNo);
         String idStr = request.getParameter("drugId");
         String user = request.getSession().getAttribute("user").toString();
         String strNote = request.getParameter("drugSpecial") + "\nDiscontinued reason: " + request.getParameter("reason") + "\nDiscontinued comment: " + request.getParameter("comment");
@@ -472,8 +506,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
         CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
 
         Long note_id = cmm.saveNoteSimpleReturnID(cmn);
-        // Debugging purposes on the live server
-        MiscUtils.getLogger().info("Document Note ID: " + note_id.toString());
 
         //create an entry in casemgmt note link
         CaseManagementNoteLink cmnl = new CaseManagementNoteLink();
@@ -486,18 +518,33 @@ public final class RxDeleteRx2Action extends ActionSupport {
     }
 
     /**
-     * Checks if the current user has the required privilege for prescription operations.
-     * <p>
-     * Validates that the logged-in user has the specified privilege level (read, update, delete)
-     * for the "_rx" security object. Throws RuntimeException if privilege check fails.
-     *
-     * @param request HttpServletRequest containing the logged-in user session
-     * @param privilege String privilege level to check ("r" for read, "u" for update, "d" for delete)
-     * @throws RuntimeException if the user lacks the required privilege
+     * Whether {@code drug} exists and belongs to the patient of the caller's Rx session. The
+     * {@code _rx} privilege says the caller may prescribe, not that a request-supplied drug id is
+     * theirs to archive; without this a drug id from another chart could be deleted or
+     * discontinued. {@code Drug.getDemographicId()} is a nullable {@code Integer}.
      */
+    private static boolean isOwnedBySessionPatient(Drug drug, RxSessionBean bean) {
+        return drug != null && Objects.equals(drug.getDemographicId(), bean.getDemographicNo());
+    }
+
+    /**
+     * Answers a non-POST request with 405 and {@code Allow: POST}.
+     *
+     * @return {@code true} when the request was refused and the caller must return {@code NONE}
+     * @throws IOException when the error cannot be sent
+     */
+    private boolean refuseUnlessPost() throws IOException {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return true;
+    }
+
     private void checkPrivilege(HttpServletRequest request, String privilege) {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
     }
 

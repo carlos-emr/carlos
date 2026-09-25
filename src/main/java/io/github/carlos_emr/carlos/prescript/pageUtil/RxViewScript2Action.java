@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -87,52 +89,107 @@ public final class RxViewScript2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         // Setup variables
 
 
         HttpSession session = request.getSession();
-        RxSessionBean bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
         }
 
-        // Reprint mode. reprint2 (RxRePrescribe2Action) loads the reprinted script into tmpBeanRX
-        // and flags the session with rePrint=true; ViewScript2.jsp then renders tmpBeanRX, NOT the
-        // live RxSessionBean. Nothing may be persisted or stamped here: the live stash is whatever
-        // the prescriber has pending — possibly nothing (saving it would insert an orphan
-        // prescription row) or re-prescribed items that still carry their ORIGINAL script number
-        // (saving would be skipped and that historical script would be re-signed). A reprint shows
-        // the signature stored when the script was first printed, or the pad if it never was.
-        if (isReprintMode(session)) {
-            RxSessionBean reprinted = (RxSessionBean) session.getAttribute("tmpBeanRX");
-            if (reprinted == null) {
-                // reprint2 always stores both; a marker without its bean is a stale/inconsistent
-                // session and ViewScript2.jsp would dereference the missing bean. Clear the marker
-                // so the next view is a normal one, and bail out the way a missing session does.
-                // nosemgrep: tainted-session-from-http-request -- value is null literal (clearing session attribute), not user input
-                session.setAttribute("rePrint", null);
-                response.sendRedirect("error.html");
-                return null;
-            }
-            String reprintedScriptId = persistedScriptId(reprinted);
+        // Reprint's AJAX response opens a separate view request. Another window may have
+        // selected a different reprint in between; authorize and pin the requested saved script
+        // instead of adopting that newer workspace. Legacy Save And Print sends literal "null".
+        String requestedScriptId = request.getParameter("scriptId");
+        if ("true".equals(request.getParameter("saveAndPrint"))
+                && (requestedScriptId == null || requestedScriptId.isEmpty() || "null".equals(requestedScriptId))) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (requestedScriptId != null && !requestedScriptId.isEmpty() && !"null".equals(requestedScriptId)) {
+            return viewRequestedScript(bean, requestedScriptId, loggedInInfo);
+        }
+
+        // Reprint mode. reprint2 (RxRePrescribe2Action) loads the reprinted script into this
+        // patient's RxReprintWorkspace entry; ViewScript2.jsp then renders that entry, NOT the
+        // live RxSessionBean. The entry is looked up for the patient this request resolved to, so
+        // a reprint in another patient's window neither switches this view into reprint mode nor
+        // renders that patient's script here (#3908). Nothing may be persisted or stamped here: the
+        // live stash is whatever the prescriber has pending — possibly nothing (saving it would
+        // insert an orphan prescription row) or re-prescribed items that still carry their
+        // ORIGINAL script number (saving would be skipped and that historical script would be
+        // re-signed). A reprint shows the signature stored when the script was first printed, or
+        // the pad if it never was.
+        RxReprintWorkspace.Entry reprint = RxReprintWorkspace.find(session, bean.getDemographicNo());
+        RxReprintWorkspace.pinForRequest(request, reprint);
+        if (reprint != null) {
+            String reprintedScriptId = persistedScriptId(reprint.bean());
             if (reprintedScriptId != null) {
                 request.setAttribute("scriptId", reprintedScriptId);
             }
             return "viewScript";
         }
 
+        // Resolve the session/reprint first, then hold only the bean monitor through the save
+        // preconditions and persistence. Closing a card cannot invalidate a preview mid-save.
+        synchronized (bean) {
+            return viewStashLocked(bean, loggedInInfo);
+        }
+    }
+
+    private String viewRequestedScript(RxSessionBean liveBean, String scriptId, LoggedInInfo loggedInInfo) throws IOException {
+        boolean saveAndPrint = "true".equals(request.getParameter("saveAndPrint"));
+        if (saveAndPrint) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!RxSessionBeanResolver.isRequestForBeanPatient(request, liveBean)) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+                throw new SecurityException("missing required sec object (_rx)");
+            }
+            RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                    liveBean.getDemographicNo(), "_rx", "w");
+        }
+        RxPreviewSnapshot snapshot;
+        try {
+            snapshot = RxPreviewSnapshot.load(liveBean.getDemographicNo(), scriptId);
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (snapshot == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        // Sign exactly the saved result acknowledged to this window, never whichever live stash
+        // or reprint another window selected afterward. The service rechecks persisted ownership
+        // and updates these request-local drugs with the new signature for immediate rendering.
+        if (saveAndPrint && signatureStampService.applyStampToScript(loggedInInfo, snapshot.bean(), snapshot.scriptId()) != null) {
+            request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
+        }
+        request.setAttribute("scriptId", snapshot.scriptId());
+        request.setAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE, snapshot);
+        RxReprintWorkspace.pinForRequest(request, saveAndPrint ? null
+                : new RxReprintWorkspace.Entry(snapshot.bean(), snapshot.comment()));
+        return "viewScript";
+    }
+
+    private String viewStashLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) throws IOException {
         // Viewing an empty/new prescription is not a write. In particular, do not
         // create an orphan prescription row or apply a stamp when there are no drugs.
         if (bean.getStashSize() == 0) {
             return "viewScript";
         }
-
-        RxPrescriptionData.Prescription rx;
-        RxPrescriptionData prescription = new RxPrescriptionData();
 
         // Reuse an already-persisted script instead of writing a duplicate. This action is reached
         // via popForm2 after "Save And Print", where updateSaveAllDrugs already persisted the stash
@@ -151,12 +208,26 @@ public final class RxViewScript2Action extends ActionSupport {
             request.setAttribute("scriptId", scriptId);
             return "viewScript";
         }
+        // From here the request may save the stash and stamp a signature. The bean above may be
+        // the active-patient fallback, which with two charts open is the other patient's draft, so
+        // a write must name the bean's patient explicitly; refuse it with 409 as the other save
+        // paths do (#3875). popForm2 posts with the window's demographicNo.
+        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, bean)) {
+            MiscUtils.getLogger().warn("Refused prescription save: request does not name the prescribing window's patient");
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        // The global _rx check above only admits the caller to the Rx module. Saving the stash and
+        // stamping a signature change THIS patient's chart, so they need patient-level _rx write
+        // and access to the patient's record (#3908).
+        boolean patientWrite = RxRequestedPatientAccess.mayAccessPatient(securityInfoManager, loggedInInfo,
+                bean.getDemographicNo(), "_rx", "w");
         if (scriptId == null) {
             // Persisting a prescription and its drugs rows is a write. Every path that normally
             // feeds this page (updateSaveAllDrugs, updateAndPrint) already requires _rx write, so
             // only a caller who arrived here with an unsaved stash under read-only privilege can
             // reach this branch, and they must not create a script the write paths would refuse.
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null) || !patientWrite) {
                 throw new SecurityException("missing required sec object (_rx)");
             }
             // persistedScriptId() answers null for BOTH "not yet saved" and "malformed stash", so a
@@ -165,18 +236,13 @@ public final class RxViewScript2Action extends ActionSupport {
             for (int i = 0; i < bean.getStashSize(); i++) {
                 if (bean.getStashItem(i) == null) {
                     MiscUtils.getLogger().warn("Refusing to save a prescription: its session stash has a missing item");
-                    session.setAttribute("rePrint", null);
                     response.sendRedirect("error.html");
                     return null;
                 }
             }
-            scriptId = prescription.saveScript(loggedInInfo, bean);
-            for (int i = 0; i < bean.getStashSize(); i++) {
-                rx = bean.getStashItem(i);
-                rx.Save(scriptId);
-                rx.setScript_no(scriptId);
-                rx = null;
-            }
+            // The same persistence as updateSaveAllDrugs / updateAndPrint: it also archives the
+            // re-prescribed sources, which this fallback used to leave active (#3908).
+            scriptId = new RxWriteScript2Action().persistStash(loggedInInfo, bean);
         }
 
         // Expose the saved script id so ViewScript2.jsp builds the fax/print request for THIS
@@ -190,22 +256,12 @@ public final class RxViewScript2Action extends ActionSupport {
         // trigger it, matching the manual signature-save path. Eligibility ("is this row already
         // signed, and did the logged-in provider write it?") is decided inside the service from the
         // PERSISTED prescription row.
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)
+        if (securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null) && patientWrite
                 && signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
             request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
         }
 
         return "viewScript";
-    }
-
-    /**
-     * Mirrors the ViewScript2.jsp test for "render the reprinted tmpBeanRX instead of the live
-     * stash": the session-scoped {@code rePrint} flag set by reprint2 and cleared by the save paths.
-     */
-    static boolean isReprintMode(HttpSession session) {
-        // reprint2 stores the literal "true" and the save paths store null; an exact match is
-        // enough and avoids a locale-sensitive case fold on a flag the code fully controls.
-        return "true".equals(session.getAttribute("rePrint"));
     }
 
     /**
@@ -253,7 +309,7 @@ public final class RxViewScript2Action extends ActionSupport {
         }
         try {
             return Integer.parseInt(value) > 0;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }

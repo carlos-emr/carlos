@@ -1,0 +1,333 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.prescript.pageUtil;
+
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+
+/**
+ * Focused GET-rejection and stash-key coverage for {@link RxStash2Action} (issue #3871). This is
+ * the conditional-mutator test the GET-rejection contract manifest requires: removing a staged
+ * card is POST-only, while the stash-cursor dispatches stay verb-open.
+ *
+ * @since 2026-09-24
+ */
+@DisplayName("RxStash2Action stash removal")
+@Tag("unit")
+@Tag("prescript")
+@Tag("security")
+class RxStash2ActionUnitTest extends CarlosUnitTestBase {
+
+    private static final int DEMOGRAPHIC_NO = 1001;
+
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mocks;
+
+    @Mock
+    private SecurityInfoManager mockSecurityInfoManager;
+    @Mock
+    private LoggedInInfo mockLoggedInInfo;
+
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private RxSessionBean bean;
+
+    @BeforeEach
+    void setUp() {
+        mocks = MockitoAnnotations.openMocks(this);
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
+
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
+        request.setMethod("POST");
+        // The staging page names its patient on every Rx request; removal refuses one that does not (#3875).
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        bean = new RxSessionBean();
+        bean.setDemographicNo(DEMOGRAPHIC_NO);
+        bean.setProviderNo("999998");
+        bean.getStashList().add(staged(111111L, 55));
+        bean.getStashList().add(staged(222222L, 0));
+        bean.setStashIndex(1);
+        putBeanInSession(bean);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
+        }
+        if (mocks != null) {
+            mocks.close();
+        }
+    }
+
+    /** Puts the bean where the action looks it up. */
+    private void putBeanInSession(RxSessionBean rxBean) {
+        RxSessionBeanResolver.register(request.getSession(), rxBean);
+    }
+
+    private static RxPrescriptionData.Prescription staged(long randomId, int drugReferenceId) {
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", DEMOGRAPHIC_NO);
+        rx.setRandomId(randomId);
+        rx.setDrugReferenceId(drugReferenceId);
+        return rx;
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should reject a non-POST deletePrescribe without touching the stash")
+    void shouldRejectDeletePrescribe_whenMethodIsNotPost(String httpMethod) throws Exception {
+        request.setMethod(httpMethod);
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        String result = new RxStash2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should reject a GET legacy action=delete without touching the stash")
+    void shouldRejectLegacyDelete_whenMethodIsGet() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("action", "delete");
+        request.setParameter("stashId", "0");
+
+        String result = new RxStash2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @ParameterizedTest(name = "parameterValue=\"{0}\"")
+    @ValueSource(strings = {"", "unrelated", "iterateStash"})
+    @DisplayName("should reject a GET legacy action=delete whatever non-dispatch parameterValue it carries")
+    void shouldRejectLegacyDelete_whenGetCarriesOtherParameterValue(String parameterValue) throws Exception {
+        request.setMethod("GET");
+        request.setParameter("parameterValue", parameterValue);
+        request.setParameter("action", "delete");
+        request.setParameter("stashId", "0");
+        RxStash2Action action = new RxStash2Action();
+        action.setAction("delete");
+        action.setStashId(0);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should still allow GET for the legacy action=edit cursor move")
+    void shouldAllowGet_forLegacyEdit() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("action", "edit");
+        RxStash2Action action = new RxStash2Action();
+        action.setAction("edit");
+        action.setStashId(0);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(bean.getStashIndex()).isZero();
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should remove exactly the card whose random id was posted")
+    void shouldRemoveCard_byStashRandomId() throws Exception {
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        new RxStash2Action().execute();
+
+        assertThat(bean.getStashSize()).isEqualTo(1);
+        assertThat(bean.getStashItem(0).getRandomId()).isEqualTo(222222L);
+    }
+
+    @Test
+    @DisplayName("concurrent closes remove their own cards without shifting onto a third medication")
+    void shouldRemoveRequestedCards_whenAnotherWindowClosesPrecedingCard() throws Exception {
+        try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(111111)) {
+            concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
+            concurrentBean.setProviderNo("999998");
+            concurrentBean.getStashList().add(staged(111111L, 0));
+            concurrentBean.getStashList().add(staged(222222L, 55));
+            concurrentBean.getStashList().add(staged(333333L, 0));
+            concurrentBean.addReRxDrugIdList("55");
+            putBeanInSession(concurrentBean);
+            request.setParameter("parameterValue", "deletePrescribe");
+            request.setParameter("randomId", "222222");
+
+            new RxStash2Action().execute();
+            concurrentBean.awaitCompletion();
+
+            assertThat(concurrentBean.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                    .containsExactly(333333L);
+            assertThat(concurrentBean.getReRxDrugIdList()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should un-tick the ReRx source when its re-prescribed card is closed")
+    void shouldDropReRxSource_whenReprescribedCardRemoved() throws Exception {
+        // The card X button's only server call (#3908): removing the re-prescribed card also takes
+        // its source off the ReRx list, so no second removeFromReRxDrugIdList request is needed.
+        bean.addReRxDrugIdList("55");
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        new RxStash2Action().execute();
+
+        assertThat(bean.getStashSize()).isEqualTo(1);
+        assertThat(bean.getStashItem(0).getRandomId()).isEqualTo(222222L);
+        assertThat(bean.getReRxDrugIdList()).doesNotContain("55");
+    }
+
+    @Test
+    @DisplayName("should keep the ReRx source listed while another staged card still re-prescribes it")
+    void shouldKeepReRxSource_whenAnotherCardStillStagesIt() throws Exception {
+        bean.getStashList().add(staged(333333L, 55));
+        bean.addReRxDrugIdList("55");
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        new RxStash2Action().execute();
+
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+    }
+
+    @Test
+    @DisplayName("should leave the stash alone when a drug id is posted instead of a random id")
+    void shouldKeepStash_whenDrugIdPostedInsteadOfRandomId() throws Exception {
+        // The pre-#3871 X button sent the ReRx source drug id (55) here. It never matches a stash
+        // key, which is why the "closed" card was still saved; the fix sends the random id.
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "55");
+
+        new RxStash2Action().execute();
+
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should not remove a card through the fallback patient when the request names none")
+    void shouldKeepStash_whenRequestNamesNoPatient() throws Exception {
+        request.removeParameter("demographicNo");
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should answer conflict when the named patient's workspace has expired")
+    void shouldRejectDelete_whenNamedPatientWorkspaceMissing() throws Exception {
+        request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should answer 400 when randomId is not a number")
+    void shouldRejectRequest_whenRandomIdMalformed() throws Exception {
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "not-a-number");
+
+        String result = new RxStash2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should still allow GET for the setStashIndex cursor move")
+    void shouldAllowGet_forSetStashIndex() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("parameterValue", "setStashIndex");
+        request.setParameter("randomId", "111111");
+
+        String result = new RxStash2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(bean.getStashIndex()).isZero();
+    }
+}

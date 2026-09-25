@@ -261,7 +261,42 @@ class MutatorActionGetRejectionContractUnitTest {
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
-                    "_form", "w")
+                    "_form", "w"),
+            // --- prescription ---
+            // Clears the named patient's staged prescriptions. Unconditional: it rejects non-POST
+            // before resolving any bean; ViewScript2's form POSTs (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
+                    "_rx", "w"),
+            // Every dispatch (Delete, Delete2, Discontinue, clearStash, clearReRxDrugList) archives
+            // drugs or clears staged state; all reject non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+                    "_rx", "u"),
+            // Deleting / re-activating an allergy, staging a favourite, adding a favourite and
+            // editing or deleting one are writes; each rejects non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action",
+                    "_allergy", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
+                    "_rx", "u"),
+            // Hiding a drug from the CPP list and swapping two drugs' display positions change the
+            // chart; both reject non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
+                    "_rx", "u"),
+            // Choosing a drug stages a card in the patient's stash (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
+                    "_rx", "w"),
+            // Adding an allergy and writing the script to the encounter note are chart writes.
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
+                    "_allergy", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
+                    "_rx", "w")
         );
     }
 
@@ -316,8 +351,35 @@ class MutatorActionGetRejectionContractUnitTest {
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
-        // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
+        // Prescription: the reprint methods permit GET; the staging methods (represcribe,
+        // represcribe2, saveReRxDrugIdToStash, repcbAllLongTerm, represcribeMultiple) and
+        // saveDigitalSignature are POST-only (#3908). Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        // Pharmacies: search/getPharmacyInfo/... permit GET; delete, unlink, setPreferred, add,
+        // save and the legacy pharmacyAction form are POST-only (#3908). Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+        // Drug-form editor gate: GET renders it for a readable patient; action=update changes the
+        // drug and rejects GET/HEAD (#3908). Covered by ViewUpdateForm2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
+        // Allergy display: the page and allergyData stay GET-compatible; method=reorder rewrites
+        // allergy positions and rejects non-POST with 405 (#3908). Covered by
+        // RxShowAllergy2ActionTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
+        // Prescription stash: deletePrescribe and the legacy action=delete remove a staged card and
+        // are POST-only; setStashIndex / action=edit cursor moves stay verb-open. Issue #3871.
+        // Covered by RxStash2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
+        // Prescription write: updateSaveAllDrugs, the action=update* stash rewrite/save and
+        // updateReRxDrug are POST-only; the read dispatches (listPreviousInstructions,
+        // getInstructionsAutocomplete, ...) stay verb-open. Covered by
+        // RxWriteScript2ActionWriteIsolationUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
+        // Drug reasons: the popup view (GET, no method) stays verb-open; method=addDrugReason /
+        // archiveReason write the chart and reject GET/HEAD. Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectReasonWrite_whenMethodIsNotPost.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -447,7 +509,36 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
         // demographic slice: AddDemographicRelationship2Action is the only migrated mutator gated so
         // far; the demographic package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
-        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action"
+        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
+        // prescript slice: RxStash2Action's stash removal is POST-only; the prescript package is not
+        // in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator). Issue #3871.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
+        // prescript slice: RxWriteScript2Action's save and update dispatches are POST-only
+        // (conditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
+        // prescript slice: RxClearPending2Action clears the named patient's stash and is POST-only
+        // (unconditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
+        // prescript slice: RxReason2Action's add/archive drug-reason writes are POST-only; the popup
+        // view stays GET (conditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+        // prescript slice (#3908): re-prescribe staging, drug deletion/discontinue/clears and
+        // pharmacy links are POST-only.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
+        "io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

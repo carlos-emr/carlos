@@ -50,6 +50,10 @@ public final class ViewCompleteMedRec2Action extends ActionSupport {
             return NONE;
         }
 
+        // completeMedRec.jsp records a measurement for the patient the request names
+        // (demographicNo); authorise a write on that patient, not only the module (#3908).
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_measurement", "w");
+
         return SUCCESS;
     }
 }

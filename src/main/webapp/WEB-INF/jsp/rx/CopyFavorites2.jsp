@@ -30,8 +30,11 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FavoritesDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Favorites" %>
@@ -69,6 +72,11 @@
         <title><fmt:message key="SearchDrug.title.CopyFavorites"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:choose>
             <c:when test="${empty RxSessionBean}">
                 <c:redirect url="error.html"/>
@@ -109,7 +117,7 @@
                             <tr>
                                 <td>
                                     <div class="DivCCBreadCrumbs">
-                                        <a href="<%= request.getContextPath() %>/rx/searchDrug"> 
+                                        <a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> 
                                             <fmt:message key="SearchDrug.title"/>
                                         </a> > 
                                         <b>
@@ -121,7 +129,7 @@
                             <tr>
                                 <td>
                                     <div class="DivContentPadding">
-                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}';"/>
                                     </div>
                                 </td>
                             </tr>
@@ -164,9 +172,9 @@
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line1">
                                                     <td colspan="2">
-                                                        <b>Favorite Name:</b>
+                                                        <label for="fldFavoriteName${i}"><b>Favorite Name:</b></label>
                                                         <input type="hidden" name="fldFavoriteId${i}" value="${fav.id}"/>
-                                                        <input type="text" size="50" name="fldFavoriteName${i}" class="tblRow" value="${fav.favoriteName}"/>
+                                                        <input type="text" size="50" name="fldFavoriteName${i}" id="fldFavoriteName${i}" class="tblRow" value="${carlos:forHtmlAttribute(fav.favoriteName)}"/>
                                                     </td>
                                                 </tr>
                                                 
@@ -176,10 +184,10 @@
                                                 </tr>
 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line3">
-                                                    <td><b>Take:</b>
-                                                        <input type="text" name="fldTakeMin${i}" class="tblRow" size="3" value="${fav.takeMin}"/>
-                                                        <span>to</span>
-                                                        <input type="text" name="fldTakeMax${i}" class="tblRow" size="3" value="${fav.takeMax}"/>
+                                                    <td><label for="fldTakeMin${i}"><b>Take:</b></label>
+                                                        <input type="text" name="fldTakeMin${i}" id="fldTakeMin${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMin)}"/>
+                                                        <label for="fldTakeMax${i}">to</label>
+                                                        <input type="text" name="fldTakeMax${i}" id="fldTakeMax${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMax)}"/>
                                                     </td>
                                                 </tr>
                                             </c:forEach>

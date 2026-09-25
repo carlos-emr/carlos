@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +62,6 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class RxRePrescribe2Action extends ActionSupport {
@@ -74,6 +75,13 @@ public final class RxRePrescribe2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Dispatches on {@code method}: reprints read the named patient's Rx; every re-prescribe method stages
+     * copies into the explicitly named patient's stash and needs {@code _rx} write for that patient;
+     * {@code saveDigitalSignature} is POST-only.
+     *
+     * @return the dispatched method's result
+     */
     public String execute() throws IOException {
         String method = request.getParameter("method");
         if ("reprint2".equals(method)) {
@@ -92,15 +100,32 @@ public final class RxRePrescribe2Action extends ActionSupport {
         return reprint();
     }
 
+    /**
+     * Loads a saved script for reprinting, for the explicitly named patient ({@code _rx} read).
+     *
+     * @return the reprint result, or {@code NONE} after an error response
+     */
     public String reprint() throws IOException {
+        // Reprinting records a print on the script and puts the patient into reprint mode: POST-only
+        // (#3908), and the script number is validated before any lookup instead of failing in
+        // parseInt. The legacy rx/rePrescribe form posts it.
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
+        if (this.getDrugList() == null || !this.getDrugList().matches("\\d{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-        RxSessionBean sessionBeanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-        if (sessionBeanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+        RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
+        // Printing updates persisted print history, so even this read-privileged operation
+        // must name its patient instead of using another window's active-patient fallback.
+        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, sessionBeanRX)) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         RxSessionBean beanRX = new RxSessionBean();
@@ -113,6 +138,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         RxPrescriptionData rxData = new RxPrescriptionData();
         List<Prescription> list = rxData.getPrescriptionsByScriptNo(Integer.parseInt(script_no), sessionBeanRX.getDemographicNo());
+        if (list.isEmpty()) {
+            // Not this patient's script (or none): nothing to reprint, and neither the script's
+            // comment nor an empty reprint entry may be exposed under this patient (#3908).
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         RxPrescriptionData.Prescription p = null;
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
@@ -128,8 +159,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         String comment = rxData.getScriptComment(script_no);
 
-        // script_no passed through Integer.parseInt() before DB lookup; beanRX data sourced from database prescriptions
-        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The reprint is kept per patient, never session-wide, so another patient's window cannot
+        // render it (#3908). beanRX holds database prescriptions of the resolved patient only.
+        RxReprintWorkspace.Entry stored = RxReprintWorkspace.store(request.getSession(), beanRX, comment);
+        RxReprintWorkspace.pinForRequest(request, stored);
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
@@ -138,15 +171,29 @@ public final class RxRePrescribe2Action extends ActionSupport {
         return "reprint";
     }
 
+    /**
+     * Loads a saved script of the explicitly named patient into that patient's {@link RxReprintWorkspace}
+     * entry; the script is looked up for that patient only ({@code _rx} read).
+     *
+     * @return {@code null} when ViewScript2 can render the reprint, or {@code NONE} after an error response
+     */
     public String reprint2() throws IOException {
+        // Records a print on the script and puts the patient into reprint mode: POST-only, like
+        // reprint(), because CSRFGuard does not check GET (#3908). SearchDrug3's reprint2() posts.
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-        RxSessionBean sessionBeanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-        if (sessionBeanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+        RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
+        // Print-history updates must use the explicitly named patient, never the fallback.
+        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, sessionBeanRX)) {
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         RxSessionBean beanRX = new RxSessionBean();
@@ -157,7 +204,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         if (script_no == null || !script_no.matches("\\d{1,9}")) {
             logger.warn("Invalid scriptNo in reprint2");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-            return null;
+            return NONE;
         }
         long parsedScriptNo = Long.parseLong(script_no);
         if (parsedScriptNo > Integer.MAX_VALUE) {
@@ -167,6 +214,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         RxPrescriptionData rxData = new RxPrescriptionData();
         List<Prescription> list = rxData.getPrescriptionsByScriptNo(scriptNo, sessionBeanRX.getDemographicNo());
+        if (list.isEmpty()) {
+            // Not this patient's script (or none): nothing to reprint, and neither the script's
+            // comment nor an empty reprint entry may be exposed under this patient (#3908).
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         RxPrescriptionData.Prescription p = null;
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
@@ -181,20 +234,41 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         String comment = rxData.getScriptComment(script_no);
-        // script_no passed through Integer.parseInt() before DB lookup; beanRX and comment data sourced from database
-        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("rePrint", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep - constant string literal
-        request.getSession().setAttribute("comment", comment); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The reprinted script, its comment and the "reprinting" state are kept per patient: the
+        // old session-wide tmpBeanRX / rePrint / comment put every other open Rx window into
+        // reprint mode showing this patient's script (#3908). beanRX and comment come from the
+        // database for the resolved patient only.
+        RxReprintWorkspace.Entry stored = RxReprintWorkspace.store(request.getSession(), beanRX, comment);
+        RxReprintWorkspace.pinForRequest(request, stored);
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
 
         return null;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Legacy form path: stages copies of the drugs in {@code drugList}.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return {@code represcribe}, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String represcribe() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean beanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
             response.sendRedirect("error.html");
             return null;
@@ -203,38 +277,59 @@ public final class RxRePrescribe2Action extends ActionSupport {
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
 
-            //String drugList = frm.getDrugList();
-
-            String[] drugArr = drugList.split(",");
-
-            int drugId;
-            int i;
-
-            for (i = 0; i < drugArr.length; i++) {
-                try {
-                    drugId = Integer.parseInt(drugArr[i]);
-                } catch (Exception e) {
-                    logger.error("Unexpected error. ({})", e.getClass().getSimpleName());
+            for (String rawDrugId : drugList.split(",")) {
+                int drugId = parseLegacyDrugId(rawDrugId);
+                if (drugId < 0) {
                     break;
                 }
-
                 // get original drug
                 RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
-
-                // create copy of Prescription
-                RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
-
-                beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, rx));
-                auditStr.append(rx.getAuditString() + "\n");
-
-                // p("beanRX.getStashIndex() in represcribe after", "" + beanRX.getStashIndex());
-                request.setAttribute("BoxNoFillFirstLoad", "true");
+                if (isOwnedByBeanPatient(oldRx, beanRX)) {
+                    auditStr.append(stageLegacyCopy(loggedInInfo, beanRX, rxData, drugId, oldRx));
+                } else {
+                    logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
+                }
             }
         } catch (Exception e) {
             logger.error("Unexpected error occurred. ({})", e.getClass().getSimpleName());
         }
 
         return SUCCESS;
+    }
+
+    /** The ids of the patient's long-term drugs: every prescription with {@code showall}, else the current ones. */
+    private static List<Integer> longTermDrugIds(CaseManagementManager caseManagementManager, LoggedInInfo loggedInInfo,
+                                                 Integer demoNo, boolean showall) {
+        List<Drug> prescriptDrugs = showall
+                ? caseManagementManager.getPrescriptions(loggedInInfo, demoNo, true)
+                : caseManagementManager.getCurrentPrescriptions(demoNo);
+        List<Integer> listLongTermMed = new ArrayList<>();
+        for (Drug prescriptDrug : prescriptDrugs) {
+            if (prescriptDrug.isLongTerm()) {
+                listLongTermMed.add(prescriptDrug.getId());
+            }
+        }
+        return listLongTermMed;
+    }
+
+    /** The legacy drug list's next id, or -1 for a malformed one, which ends the list as it always did. */
+    private static int parseLegacyDrugId(String rawDrugId) {
+        try {
+            return Integer.parseInt(rawDrugId);
+        } catch (NumberFormatException e) {
+            logger.error("Unexpected error. ({})", e.getClass().getSimpleName());
+            return -1;
+        }
+    }
+
+    /** Stages a copy of {@code oldRx} for the legacy re-prescribe and returns its audit line. */
+    private String stageLegacyCopy(LoggedInInfo loggedInInfo, RxSessionBean beanRX, RxPrescriptionData rxData,
+                                   int drugId, RxPrescriptionData.Prescription oldRx) {
+        // create copy of Prescription
+        RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
+        stageReRxCopy(loggedInInfo, beanRX, rx, drugId, null);
+        request.setAttribute("BoxNoFillFirstLoad", "true");
+        return rx.getAuditString() + "\n";
     }
 
 /**
@@ -263,20 +358,16 @@ public String saveDigitalSignature() throws IOException {
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-    // Retrieve and validate the prescription session bean
+    // The window's patient, named explicitly (ViewScript2 posts demographicNo) and authorised at
+    // patient level; never the active-patient fallback, which with two charts open is the other
+    // patient (#3908). The script below must belong to this patient.
     RxSessionBean sessionBeanRX =
-        (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_WRITE);
     if (sessionBeanRX == null) {
-        response.sendRedirect("error.html");
-        return null;
+        response.sendError(HttpServletResponse.SC_CONFLICT);
+        return NONE;
     }
-    
-    // Create a new session bean with current demographic and providers info
-    // This ensures we're working with the correct patient/providers context
-    RxSessionBean beanRX = new RxSessionBean();
-    beanRX.setDemographicNo(sessionBeanRX.getDemographicNo());
-    beanRX.setProviderNo(sessionBeanRX.getProviderNo());
-    
+
     // Extract and validate digital signature ID from request (can be null to remove signature)
     String digitalSignatureIdParam = request.getParameter("digitalSignatureId");
     // A null parameter is legitimate: it CLEARS the link. A present one must name a real signature,
@@ -329,15 +420,20 @@ public String saveDigitalSignature() throws IOException {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
         return NONE;
     }
-    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
-            String.valueOf(targetPrescription.getDemographicId()))) {
-        throw new SecurityException("missing required sec object (_rx)");
+    if (targetPrescription.getDemographicId() != sessionBeanRX.getDemographicNo()) {
+        // A script of another patient than the window's: refuse before any change.
+        logger.warn("Digital signature not linked: prescription does not belong to the window's patient");
+        response.sendError(HttpServletResponse.SC_CONFLICT);
+        return NONE;
     }
+    RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+            targetPrescription.getDemographicId(), "_rx", PRIVILEGE_WRITE);
     // Signing and clearing are prescriber acts, not merely patient-chart mutations. A covering
     // provider with patient Rx write must not replay this prescriber's existing signature onto a
     // different script, or clear the prescriber's signed link, even when the patient is the same.
     if (!Objects.equals(loggedInInfo.getLoggedInProviderNo(), targetPrescription.getProviderNo())) {
-        throw new SecurityException("only the prescription's prescriber may change its signature");
+        // Paren form, as every failed security-object check reports (the reason is in the comment above).
+        throw new SecurityException("missing required sec object (_rx)");
     }
     if (digitalSignatureId != null) {
         DigitalSignature signature = SpringUtils.getBean(DigitalSignatureManager.class)
@@ -378,178 +474,235 @@ public String saveDigitalSignature() throws IOException {
     return NONE;
 }
 
+    /** Validate the source before loading any saved drug or changing the patient's draft. */
+    private Integer requestedDrugId() throws IOException {
+        String value = request.getParameter("drugId");
+        if (value != null && value.matches("[0-9]{1,10}")) {
+            try {
+                int id = Integer.parseInt(value);
+                if (id > 0) {
+                    return id;
+                }
+            } catch (NumberFormatException e) {
+                // Ten digits can still exceed the database's integer identifier range.
+            }
+        }
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return null;
+    }
+
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages a copy of one saved drug ({@code drugId}) in the same request that records it for ReRx
+     * archival.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return {@code null} (AJAX) or after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String saveReRxDrugIdToStash() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Staging a copy of a saved drug is an Rx write; this entry point had no privilege check.
+        checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         StringBuilder auditStr = new StringBuilder();
 
-        RxPrescriptionData rxData = new RxPrescriptionData();
-
-        // String strId = (request.getParameter("drugId").split("_"))[1];
-        String strId = request.getParameter("drugId");
+        Integer drugId = requestedDrugId();
+        if (drugId == null) {
+            return NONE;
+        }
         try {
-            int drugId = Integer.parseInt(strId);
+            RxPrescriptionData rxData = new RxPrescriptionData();
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            if (!isOwnedByBeanPatient(oldRx, bean)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = RxStashIds.nextUnique(bean, RxStashIds.DEFAULT_BOUND);
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
             List<RxPrescriptionData.Prescription> listReRx = new ArrayList<Prescription>();
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
-            // add prescript to prescript list
-            if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                listReRx.add(rx);
-            }
-            // save prescript to stash
-            int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
-            bean.setStashIndex(rxStashIndex);
+            stageReRxCopy(loggedInInfo, bean, rx, drugId, listReRx);
 
             auditStr.append(rx.getAuditString() + "\n");
 
             // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+            MiscUtils.getLogger().error("Error staging prescription ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
         MiscUtils.getLogger().debug("================end saveReRxDrugIdToStash of RxRePrescribe2Action.java=================");
         return null;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages a copy of one saved drug ({@code drugId}).
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return the staged-card result, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String represcribe2() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         MiscUtils.getLogger().debug("================in represcribe2 of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean beanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         StringBuilder auditStr = new StringBuilder();
-        RxPrescriptionData rxData = new RxPrescriptionData();
-
-        String strId = request.getParameter("drugId");
+        Integer drugId = requestedDrugId();
+        if (drugId == null) {
+            return NONE;
+        }
         try {
-            int drugId = Integer.parseInt(strId);
+            RxPrescriptionData rxData = new RxPrescriptionData();
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            if (!isOwnedByBeanPatient(oldRx, beanRX)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
 
-            Long rand;
-            try {
-              	 rand = Long.parseLong(request.getParameter("rand"));
-	    }  catch (NumberFormatException e) {
-		rand = Math.round(Math.random() * 10001);
-            }
+            // The page names this card's key (rand = its UI ref id) before the reply renders it; keep
+            // it only when it is well formed and unused in this stash, else draw a unique one (#3908).
+            long rand = RxStashIds.acceptOrNext(beanRX, request.getParameter("rand"), 10_001);
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
             List<RxPrescriptionData.Prescription> listReRx = new ArrayList<Prescription>();
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
-            // add prescript to prescript list
-            if (RxUtil.isRxUniqueInStash(beanRX, rx)) {
-                listReRx.add(rx);
-            }
-            // save prescript to stash
-            int rxStashIndex = beanRX.addStashItem(loggedInInfo, rx);
-            beanRX.setStashIndex(rxStashIndex);
+            stageReRxCopy(loggedInInfo, beanRX, rx, drugId, listReRx);
 
             auditStr.append(rx.getAuditString() + "\n");
 
             // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+            MiscUtils.getLogger().error("Error staging prescription ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         return "represcribe";
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages copies of all of the patient's long-term medications.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return the staged-card result, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String repcbAllLongTerm() throws IOException {
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
         CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
 
-        RxSessionBean beanRX = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean beanRX = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (beanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         StringBuilder auditStr = new StringBuilder();
         // String idList = request.getParameter("drugIdList");
 
         Integer demoNo = Integer.parseInt(request.getParameter("demoNo"));
-        String strShow = request.getParameter("showall");
-
-        boolean showall = false;
-        if (strShow.equalsIgnoreCase("true")) {
-            showall = true;
+        // Only stage the long-term drugs of the patient this Rx window belongs to (#3875; also the
+        // follow-up noted on PR #3369): demoNo is request input.
+        if (demoNo.intValue() != beanRX.getDemographicNo()) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
         }
-        // get a list of long term meds
-        List<Drug> prescriptDrugs;
-        if (showall) {
-            prescriptDrugs = caseManagementManager.getPrescriptions(loggedInInfo, demoNo, true);
-        } else {
-            prescriptDrugs = caseManagementManager.getCurrentPrescriptions(demoNo);
-        }
-        List<Integer> listLongTermMed = new ArrayList<Integer>();
-        for (Drug prescriptDrug : prescriptDrugs) {
-            // add all long term med drugIds to an array.
-            if (prescriptDrug.isLongTerm()) {
-                listLongTermMed.add(prescriptDrug.getId());
-            }
-        }
+        // showall is a flag value, not a security decision (IMPROPER_UNICODE is suppressed above).
+        boolean showall = "true".equalsIgnoreCase(request.getParameter("showall"));
+        List<Integer> listLongTermMed = longTermDrugIds(caseManagementManager, loggedInInfo, demoNo, showall);
 
-
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-
-        List<String> reRxDrugIdList = bean.getReRxDrugIdList();
 
         List<RxPrescriptionData.Prescription> listLongTerm = new ArrayList<Prescription>();
         for (int i = 0; i < listLongTermMed.size(); i++) {
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = RxStashIds.nextUnique(beanRX, RxStashIds.DEFAULT_BOUND);
 
             // loop this
             int drugId = listLongTermMed.get(i);
-
-            //add drug to re-prescribe drug list
-            reRxDrugIdList.add(Integer.toString(drugId));
 
             // get original drug
             RxPrescriptionData rxData = new RxPrescriptionData();
@@ -563,21 +716,14 @@ public String saveDigitalSignature() throws IOException {
             // give prescript a random id.
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
-            if (RxUtil.isRxUniqueInStash(beanRX, rx)) {
-                listLongTerm.add(rx);
-            }
-            int rxStashIndex = beanRX.addStashItem(loggedInInfo, rx);
-            beanRX.setStashIndex(rxStashIndex);
+            stageReRxCopy(loggedInInfo, beanRX, rx, drugId, listLongTerm);
             auditStr.append(rx.getAuditString() + "\n");
 
         }
@@ -587,15 +733,36 @@ public String saveDigitalSignature() throws IOException {
         return "repcbLongTerm";
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages copies of the drugs in {@code drugIds} (or, without it, of the ReRx list). Staged sources are
+     * added to the ReRx list, never replacing it, so a source staged by an earlier batch is still archived.
+     *
+     * Each source drug must belong to the patient (a drug of another patient is skipped or refused), and each
+     * staged source id is recorded once on the ReRx list so {@code saveDrug()} archives it when its
+     * replacement is saved.
+     *
+     * @return {@code represcribe}, or {@code null} after a redirect
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String represcribeMultiple() throws IOException {
-        MiscUtils.getLogger().debug("================in represcribeMultiple of RxRePrescribe2Action.java=================");
+        // Staging changes the patient's stash: POST-only, refused before anything else (#3908).
+        if (refuseUnlessPost()) {
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Staging must name its window's patient; never stage on the no-patient fallback (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
+            // answer 409 instead (#3908).
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
         // Accept drug IDs passed directly in request to avoid race condition with
         // the async session-update call from the checkbox handler.
@@ -605,6 +772,7 @@ public String saveDigitalSignature() throws IOException {
         List<String> reRxDrugList;
         if (drugIdsParam != null && !drugIdsParam.isBlank()) {
             reRxDrugList = new ArrayList<>();
+            int malformedIds = 0;
             for (String id : drugIdsParam.split(",")) {
                 String trimmed = id.trim();
                 if (trimmed.isEmpty()) {
@@ -618,42 +786,49 @@ public String saveDigitalSignature() throws IOException {
                             reRxDrugList.add(normalizedId);
                         }
                     }
-                } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().warn("Skipping invalid drugId in represcribeMultiple: " + Encode.forJava(trimmed));
+                } catch (NumberFormatException _) {
+                    malformedIds++;
                 }
+            }
+            if (malformedIds > 0) {
+                logger.warn("represcribeMultiple: skipped {} malformed drug id(s)", malformedIds);
             }
         } else {
             reRxDrugList = new ArrayList<>(bean.getReRxDrugIdList());
         }
-        MiscUtils.getLogger().debug(reRxDrugList);
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
+        // Source ids staged below. Each must be on the bean's ReRx list until the save: saveDrug()
+        // archives a re-prescribed source only when its id is in that list (archiveReRxDrugs).
+        int staged = 0;
         for (String drugId : reRxDrugList) {
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = RxStashIds.nextUnique(bean, RxStashIds.DEFAULT_BOUND);
             RxPrescriptionData rxData = new RxPrescriptionData();
-            RxPrescriptionData.Prescription oldRx = rxData.getPrescription(Integer.parseInt(drugId));
+            RxPrescriptionData.Prescription oldRx;
+            try {
+                oldRx = rxData.getPrescription(Integer.parseInt(drugId));
+            } catch (RuntimeException _) {
+                // getPrescription throws for a missing row; one bad id must not drop the rest.
+                oldRx = null;
+            }
+            if (!isOwnedByBeanPatient(oldRx, bean)) {
+                logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
+                continue;
+            }
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx);
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
-            if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                listReRxDrug.add(rx);
-            }
-            int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
-            bean.setStashIndex(rxStashIndex);
+            stageReRxCopy(loggedInInfo, bean, rx, Integer.parseInt(drugId), listReRxDrug);
+            staged++;
         }
-        // Clear the session list after staging so the same drugs can be re-staged later
-        bean.clearReRxDrugIdList();
-        MiscUtils.getLogger().debug(listReRxDrug);
+        // Counts only: drug ids and prescriptions correlate to the patient's chart.
+        logger.debug("represcribeMultiple: {} requested, {} staged", reRxDrugList.size(), staged);
         request.setAttribute("listRxDrugs", listReRxDrug);
-        MiscUtils.getLogger().debug("================END represcribeMultiple of RxRePrescribe2Action.java=================");
         return "represcribe";
     }
 
@@ -666,9 +841,72 @@ public String saveDigitalSignature() throws IOException {
     }
 
 
+    /** Publishes the completed replacement and its archival source together to concurrent saves. */
+    // This is the same application-owned monitor as the bean's synchronized stash accessors.
+    @SuppressWarnings("java:S2445")
+    static void stageReRxCopy(LoggedInInfo loggedInInfo, RxSessionBean bean,
+                             RxPrescriptionData.Prescription rx, int sourceDrugId,
+                             List<RxPrescriptionData.Prescription> renderedCards) {
+        synchronized (bean) {
+            if (renderedCards != null && RxUtil.isRxUniqueInStash(bean, rx)) {
+                renderedCards.add(rx);
+            }
+            // addStashItem preloads interactions after inserting. Keep the source recorded even
+            // if that preload fails; archival still requires a successfully saved replacement.
+            recordReRxSource(bean, sourceDrugId);
+            bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
+        }
+    }
+
+    /**
+     * Records an ownership-checked source drug on the bean's ReRx list, once. {@code saveDrug()}
+     * archives a re-prescribed source only when its id is listed and its replacement was saved, so
+     * every staging path records its source here; a repeated id is not added twice, and ids staged
+     * by earlier requests are kept (#3908).
+     *
+     * @param bean         the Rx window's bean, whose patient owns the source drug
+     * @param sourceDrugId the saved drug being re-prescribed
+     */
+    static void recordReRxSource(RxSessionBean bean, int sourceDrugId) {
+        String id = String.valueOf(sourceDrugId);
+        if (!bean.getReRxDrugIdList().contains(id)) {
+            bean.addReRxDrugIdList(id);
+        }
+    }
+
+    /**
+     * Answers a non-POST request with 405 and {@code Allow: POST}. CSRFGuard does not check GET, so
+     * a link or image tag could otherwise stage drugs into a patient's stash.
+     *
+     * @return {@code true} when the request was refused and the caller must return {@code NONE}
+     * @throws IOException when the error cannot be sent
+     */
+    private boolean refuseUnlessPost() throws IOException {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return true;
+    }
+
+    /**
+     * Whether a saved drug belongs to the Rx window's patient. The drug ids the staging calls take
+     * are request input: without this a drug id from another chart was copied, with its dosing and
+     * instructions, into this patient's stash and could be saved for them (#3875).
+     *
+     * @param source the saved drug being copied, or {@code null} when it was not found
+     * @param bean   the Rx window's bean
+     * @return {@code true} only when both are present and belong to the same patient
+     */
+    static boolean isOwnedByBeanPatient(RxPrescriptionData.Prescription source, RxSessionBean bean) {
+        return source != null && bean != null && bean.getDemographicNo() > 0
+                && source.getDemographicNo() == bean.getDemographicNo();
+    }
+
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
     }
 
@@ -680,7 +918,7 @@ public String saveDigitalSignature() throws IOException {
         try {
             int parsed = Integer.parseInt(value);
             return parsed > 0 ? parsed : -1;
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
             return -1;
         }
     }

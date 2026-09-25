@@ -72,7 +72,7 @@ public class RxUtil {
             SimpleDateFormat df = new SimpleDateFormat(pattern, locale);
 
             return df.parse(Expression);
-        } catch (Exception e) {
+        } catch (Exception _) {
             return null;
         }
     }
@@ -1166,7 +1166,7 @@ public class RxUtil {
 
             double amount = numerator / denominator;
             return Double.isFinite(amount) ? Double.toString(amount) : "0";
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return "0";
         }
     }
@@ -1720,9 +1720,13 @@ public class RxUtil {
 
     public static <T> HashMap<Long, T> createKeyValPair(List<T> lst) {
         HashMap<Long, T> ret = new HashMap<Long, T>();
-        Long rand;
         for (T t : lst) {
-            rand = Math.round(Math.random() * 1000000);
+            // Draw until the key is unused: a repeated key silently replaced an earlier entry (#3908).
+            long rand;
+            do {
+                rand = io.github.carlos_emr.carlos.prescript.pageUtil.RxStashIds.next(
+                        io.github.carlos_emr.carlos.prescript.pageUtil.RxStashIds.DEFAULT_BOUND);
+            } while (ret.containsKey(rand));
             ret.put(rand, t);
         }
         return ret;

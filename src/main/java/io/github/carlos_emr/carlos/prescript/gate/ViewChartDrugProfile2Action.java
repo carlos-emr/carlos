@@ -42,6 +42,10 @@ public final class ViewChartDrugProfile2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
+        // chartDrugProfile.jsp renders the prescriptions of the patient the request names
+        // (demographic_no); authorise that patient, not only the module (#3908).
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
+
         return SUCCESS;
     }
 }

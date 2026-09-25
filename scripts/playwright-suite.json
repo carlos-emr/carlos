@@ -1138,6 +1138,44 @@
       ]
     },
     {
+      "name": "rx-stash-patient-isolation",
+      "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": []
+    },
+    {
+      "name": "rx-stash-deletion",
+      "script": "scripts/rx-stash-deletion-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180
+    },
+    {
+      "name": "rx-favorites-choose-drug",
+      "script": "scripts/rx-favorites-choose-drug-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "echart-consult-specialist",
       "script": "scripts/echart-consult-specialist-playwright-checks.js",
       "tiers": [

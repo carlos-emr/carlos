@@ -270,8 +270,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgRefillDurationError" var="i18nRefillDurationError"/>
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
-<fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
+<%-- data-drug-ref-id links a ReRx card to its source drug so unticking ReRx can find the card (#3872); 0 for a new drug. --%>
+<fieldset style="margin-top:2px;" id="<%=fieldSetId%>" data-drug-ref-id="<carlos:encode value='<%= String.valueOf(DrugReferenceId) %>' context="htmlAttribute"/>">
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(this.closest('fieldset'), <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
 
@@ -756,33 +757,26 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             checkIfInactive('<%=rand%>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptBlock"/>');
 
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;
-            //oscarLog("isDiscon "+isDiscontinuedLatest);
-            //pause(1000);
-            var archR='<%=archivedReason%>';
-            if(isDiscontinuedLatest && archR!="represcribed"){
-               var archD='<%=archivedDate%>';
-               //oscarLog("in js discon "+archR+"--"+archD);
-
-                    if(confirm('This drug was discontinued on <%=archivedDate%> because of <%=archivedReason%> are you sure you want to continue it?')==true){
-                        //do nothing
-                    }
-                    else{
-                        document.getElementById('<%=fieldSetId%>').remove();
-                        //call java class to delete it from stash pool.
-                        var randId='<%=rand%>';
-                        deletePrescribe(randId);
-                    }
+            var keepStagedRx = true;
+            var archR='<carlos:encode value='<%= archivedReason %>' context="javaScriptBlock"/>';
+            if (isDiscontinuedLatest && archR !== "represcribed") {
+                var archD='<carlos:encode value='<%= archivedDate %>' context="javaScriptBlock"/>';
+                if (!confirm('This drug was discontinued on ' + archD + ' because of ' + archR
+                        + ' are you sure you want to continue it?')) {
+                    keepStagedRx = false;
+                    // Keep the draft visible until its removal succeeds, just like the card X.
+                    removePrescribingDrug(document.getElementById('<%=fieldSetId%>'), <%=DrugReferenceId%>);
+                }
             }
             var listRxDrugSize=<%=listRxDrugs.size()%>;
             //oscarLog("listRxDrugsSize="+listRxDrugSize);
             counterRx++;
             //oscarLog("counterRx="+counterRx);
            var gcn_val="<%=gcnCode%>";
-           if(gcn_val === "0"){
-               document.getElementById('drugName_<%=rand%>').focus();
-           } else if(counterRx==listRxDrugSize){
-               //oscarLog("counterRx="+counterRx+"--listRxDrugSize="+listRxDrugSize);
-               document.getElementById('instructions_<%=rand%>').focus();
+           if (keepStagedRx) {
+               var focusInput = gcn_val === "0" ? document.getElementById('drugName_<%=rand%>')
+                       : counterRx === listRxDrugSize ? document.getElementById('instructions_<%=rand%>') : null;
+               if (focusInput) focusInput.focus();
            }
         </script>
                 <%}%>
