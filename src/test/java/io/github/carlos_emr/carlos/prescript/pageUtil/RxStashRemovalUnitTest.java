@@ -151,6 +151,36 @@ class RxStashRemovalUnitTest extends CarlosUnitTestBase {
         assertThat(bean.getStashSize()).isEqualTo(1);
     }
     @Test
+    @DisplayName("should stage copies of two different saved drugs of one product as two cards")
+    void shouldStageBothCards_whenSameProductCopiesDifferentSources() {
+        // Two active rows of the same product (same brand and GCN, different sig) re-prescribed
+        // together used to collapse into one card, leaving the second source ticked for ReRx with
+        // no replacement to save (#3908).
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class));
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class,
+                mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.AllergyDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.AllergyDao.class));
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(1);
+        RxPrescriptionData.Prescription first = staged(5, "DRUG A", "111");
+        first.setDrugReferenceId(10);
+        RxPrescriptionData.Prescription second = staged(6, "DRUG A", "111");
+        second.setDrugReferenceId(11);
+
+        assertThat(bean.addStashItem(null, first)).isZero();
+        assertThat(bean.addStashItem(null, second)).isEqualTo(1);
+
+        assertThat(bean.getStashSize()).isEqualTo(2);
+        // A second copy of the SAME source is still the same card.
+        RxPrescriptionData.Prescription again = staged(7, "DRUG A", "111");
+        again.setDrugReferenceId(10);
+        assertThat(bean.addStashItem(null, again)).isZero();
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("should re-key a card whose key another staged card already carries")
     void shouldRekeyLaterCard_whenTwoCardsCarryOneKey() {
         // Two windows of one patient can both draw the same key before either card is added

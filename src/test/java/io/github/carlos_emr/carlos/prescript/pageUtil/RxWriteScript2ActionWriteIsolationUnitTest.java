@@ -290,6 +290,8 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     void shouldReturnNone_afterWritingSpecialInstructionJson() throws Exception {
         // A named result forwarded prescribe.jsp over the JSON the autocomplete reads.
         request.setParameter("query", "take");
+        // Dispatched before execute(): the read requires global _rx read (#3908).
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull())).thenReturn(true);
         when(mockRxManager.getStoredInstructionsMatching("take")).thenReturn(java.util.Set.of("take one daily"));
 
         String result = action.searchSpecialInstructions();

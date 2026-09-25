@@ -639,7 +639,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
         assertThatThrownBy(() -> action.saveDigitalSignature())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("prescriber");
+                .hasMessageContaining("missing required sec object (_rx)");
 
         verify(mockDigitalSignatureManager, never()).getDigitalSignatureMetadata(any(Integer.class));
         verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
@@ -658,7 +658,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
         assertThatThrownBy(() -> action.saveDigitalSignature())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("prescriber");
+                .hasMessageContaining("missing required sec object (_rx)");
 
         verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
     }
@@ -736,6 +736,43 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should answer 404 and open no reprint when reprint2 names a script that is not the patient's")
+    void shouldRejectReprint2_whenScriptIsNotThePatients() throws Exception {
+        // getPrescriptionsByScriptNo is scoped to the patient: an empty answer means the script
+        // is another patient's or does not exist. The comment must not be read and no (empty)
+        // reprint entry stored under this patient (#3908).
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("method", "reprint2");
+        request.setParameter("demographicNo", "1");
+        request.setParameter("scriptNo", "12");
+        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
+                RxPrescriptionData.class, (mock, context) ->
+                        when(mock.getPrescriptionsByScriptNo(12, 1)).thenReturn(new java.util.ArrayList<>()))) {
+            assertThat(new RxRePrescribe2Action().execute()).isEqualTo(ActionSupport.NONE);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should answer 404 and open no reprint when the legacy reprint names a script that is not the patient's")
+    void shouldRejectLegacyReprint_whenScriptIsNotThePatients() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("demographicNo", "1");
+        RxRePrescribe2Action legacyReprint = new RxRePrescribe2Action();
+        legacyReprint.setDrugList("12");
+        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
+                RxPrescriptionData.class, (mock, context) ->
+                        when(mock.getPrescriptionsByScriptNo(12, 1)).thenReturn(new java.util.ArrayList<>()))) {
+            assertThat(legacyReprint.execute()).isEqualTo(ActionSupport.NONE);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
     }
 
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")

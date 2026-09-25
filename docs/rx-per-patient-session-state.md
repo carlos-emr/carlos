@@ -88,4 +88,6 @@ POST). Pages that post with `fetch` (for example `ViewScript2.jsp`) put `demogra
 
 * Two windows open for the *same* patient share that patient's stash (by design: it is what lets
   a reopen keep drafts).
-* Reprint mode still uses the session-wide `rePrint` / `tmpBeanRX` attributes.
+* Reprint mode is per patient too: `RxReprintWorkspace` keeps one entry per demographic number
+  (the reprinted script, its comment and the "reprinting" flag), replacing the session-wide
+  `rePrint` / `tmpBeanRX` attributes.

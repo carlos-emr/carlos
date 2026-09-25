@@ -531,6 +531,43 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         assertThat(bean.getReRxDrugIdList()).containsExactly("3003");
     }
 
+    @Test
+    @DisplayName("should archive the re-prescribed sources once and clear the ReRx list when the stash is persisted")
+    void shouldArchiveSourcesAndClearReRxList_whenStashPersisted() throws Exception {
+        // persistStash is the one persistence every save path uses (updateSaveAllDrugs,
+        // updateAndPrint, the write-script fallback), so the ReRx invariant holds on all of them,
+        // and a second save from the same window cannot archive the sources again (#3908).
+        RxSessionBean bean = stageReRxSession(1001);
+        bean.setProviderNo("999998");
+        bean.getReRxDrugIdList().add("3003");
+        bean.getReRxDrugIdList().add("4004"); // ticked but never staged: stays active
+        RxPrescriptionData.Prescription replacement = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        replacement.setDrugReferenceId(3003);
+        replacement.setBrandName("SOURCE DRUG");
+        bean.getStashList().add(replacement);
+        doAnswer(invocation -> {
+            Drug savedDrug = invocation.getArgument(0);
+            savedDrug.setId(5005);
+            return null;
+        }).when(mockDrugDao).persist(any(Drug.class));
+        when(mockRxManager.archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED))).thenReturn(true);
+
+        String scriptId;
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
+             org.mockito.MockedConstruction<io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData> _ =
+                     org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.class,
+                             (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
+            scriptId = action.persistStash(mockLoggedInInfo, bean);
+            verifyAudited(logAction, 3003);
+        }
+
+        assertThat(scriptId).isEqualTo("77");
+        assertThat(replacement.getScript_no()).isEqualTo("77");
+        verify(mockRxManager).archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED));
+        verify(mockRxManager, never()).archiveDrug(any(), eq(4004), anyInt(), any(String.class));
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+    }
+
     // #3875: a save must name the prescribing window's patient; the no-patient fallback is read-only.
     @Test
     @DisplayName("should refuse a save that names no patient even though a fallback bean exists")

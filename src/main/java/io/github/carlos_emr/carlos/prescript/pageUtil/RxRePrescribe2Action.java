@@ -138,6 +138,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         RxPrescriptionData rxData = new RxPrescriptionData();
         List<Prescription> list = rxData.getPrescriptionsByScriptNo(Integer.parseInt(script_no), sessionBeanRX.getDemographicNo());
+        if (list.isEmpty()) {
+            // Not this patient's script (or none): nothing to reprint, and neither the script's
+            // comment nor an empty reprint entry may be exposed under this patient (#3908).
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         RxPrescriptionData.Prescription p = null;
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
@@ -208,6 +214,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         RxPrescriptionData rxData = new RxPrescriptionData();
         List<Prescription> list = rxData.getPrescriptionsByScriptNo(scriptNo, sessionBeanRX.getDemographicNo());
+        if (list.isEmpty()) {
+            // Not this patient's script (or none): nothing to reprint, and neither the script's
+            // comment nor an empty reprint entry may be exposed under this patient (#3908).
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         RxPrescriptionData.Prescription p = null;
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
@@ -422,7 +434,8 @@ public String saveDigitalSignature() throws IOException {
     // provider with patient Rx write must not replay this prescriber's existing signature onto a
     // different script, or clear the prescriber's signed link, even when the patient is the same.
     if (!Objects.equals(loggedInInfo.getLoggedInProviderNo(), targetPrescription.getProviderNo())) {
-        throw new SecurityException("only the prescription's prescriber may change its signature");
+        // Paren form, as every failed security-object check reports (the reason is in the comment above).
+        throw new SecurityException("missing required sec object (_rx)");
     }
     if (digitalSignatureId != null) {
         DigitalSignature signature = SpringUtils.getBean(DigitalSignatureManager.class)

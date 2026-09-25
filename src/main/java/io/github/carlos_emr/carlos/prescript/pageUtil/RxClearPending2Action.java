@@ -90,6 +90,9 @@ public final class RxClearPending2Action extends ActionSupport {
 
 
         bean.clearStash();
+        // "Create a new Rx" also ends a pending reprint of this patient; otherwise ViewScript2
+        // would still render the reprinted script after the next save (#3908).
+        RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
 
         if ("close".equals(action)) {
             return "close";

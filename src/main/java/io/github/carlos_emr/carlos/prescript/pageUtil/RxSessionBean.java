@@ -145,7 +145,7 @@ public class RxSessionBean implements java.io.Serializable {
      * stash: a cursor left past the end by a removal that bypassed {@link #removeStashItem}
      * (for example an iterator over {@link #getStashList()}) is pulled back to the last item.
      */
-    public int getStashIndex() {
+    public synchronized int getStashIndex() {
         if (this.stashIndex >= this.stash.size()) {
             this.stashIndex = this.stash.size() - 1;
         }
@@ -157,7 +157,7 @@ public class RxSessionBean implements java.io.Serializable {
      * other value (negative, past the end) is ignored, so a bad index from a request can never
      * point the cursor at nothing and later make a write fail or touch the wrong item.
      */
-    public void setStashIndex(int RHS) {
+    public synchronized void setStashIndex(int RHS) {
         if (RHS >= -1 && RHS < this.getStashSize()) {
             this.stashIndex = RHS;
         }
@@ -166,16 +166,16 @@ public class RxSessionBean implements java.io.Serializable {
     /**
      * The staged item the cursor selects, or {@code null} when nothing (valid) is selected.
      */
-    public RxPrescriptionData.Prescription getCurrentStashItem() {
+    public synchronized RxPrescriptionData.Prescription getCurrentStashItem() {
         int index = getStashIndex();
         return index >= 0 ? this.stash.get(index) : null;
     }
 
-    public int getStashSize() {
+    public synchronized int getStashSize() {
         return this.stash.size();
     }
 
-    public int getIndexFromRx(int randomId) {
+    public synchronized int getIndexFromRx(int randomId) {
         int ret = -1;
         for (int i = 0; i < stash.size(); i++) {
             if (stash.get(i).getRandomId() == randomId) {
@@ -187,7 +187,7 @@ public class RxSessionBean implements java.io.Serializable {
         return ret;
     }
 
-    public RxPrescriptionData.Prescription[] getStash() {
+    public synchronized RxPrescriptionData.Prescription[] getStash() {
         RxPrescriptionData.Prescription[] arr = {};
 
         arr = stash.toArray(arr);
@@ -195,11 +195,15 @@ public class RxSessionBean implements java.io.Serializable {
         return arr;
     }
 
+    /**
+     * The live stash list. Callers that iterate or mutate it must hold this bean's monitor
+     * ({@code synchronized (bean)}), as the accessors above do.
+     */
     public ArrayList<RxPrescriptionData.Prescription> getStashList() {
         return this.stash;
     }
 
-    public RxPrescriptionData.Prescription getStashItem(int index) {
+    public synchronized RxPrescriptionData.Prescription getStashItem(int index) {
         return stash.get(index);
     }
 
@@ -219,17 +223,17 @@ public class RxSessionBean implements java.io.Serializable {
      * modal only opens from the success callback, a 500 is a control that does nothing
      * at all.</p>
      */
-    public RxPrescriptionData.Prescription getStashItem2(int randomId) {
-        RxPrescriptionData.Prescription psp = null;
+    public synchronized RxPrescriptionData.Prescription getStashItem2(int randomId) {
+        // The first match, as getIndexFromRx: keys are unique per stash, so there is only one.
         for (RxPrescriptionData.Prescription rx : stash) {
             if (rx != null && rx.getRandomId() == randomId) {
-                psp = rx;
+                return rx;
             }
         }
-        return psp;
+        return null;
     }
 
-    public void setStashItem(int index, RxPrescriptionData.Prescription item) {
+    public synchronized void setStashItem(int index, RxPrescriptionData.Prescription item) {
         //this.clearDAM();
         //this.clearDDI();
         stash.set(index, item);
@@ -243,13 +247,12 @@ public class RxSessionBean implements java.io.Serializable {
      * @param item         the prescription to stage
      * @return the item's index in the stash
      */
-    public int addStashItem(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
-        // Two windows of the same patient share this bean. Insertion runs under the bean's
-        // monitor, the same one RxStashIds allocates keys under, so a key two concurrent staging
-        // requests both saw as free cannot end up on two cards (#3908).
-        synchronized (this) {
-            return addStashItemLocked(loggedInInfo, item);
-        }
+    public synchronized int addStashItem(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
+        // Two windows of the same patient share this bean. Every stash read and mutation runs
+        // under the bean's monitor, the same one RxStashIds allocates keys under, so a key two
+        // concurrent staging requests both saw as free cannot end up on two cards, and a card
+        // closed from one window cannot shift the indexes another is reading (#3908).
+        return addStashItemLocked(loggedInInfo, item);
     }
 
     private int addStashItemLocked(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
@@ -286,6 +289,12 @@ public class RxSessionBean implements java.io.Serializable {
      * two stash entries for the same drug built from different requests never matched.
      */
     private static boolean isSameCard(RxPrescriptionData.Prescription rx, RxPrescriptionData.Prescription item) {
+        // Copies of two different saved drugs are two cards even when they are the same product
+        // (same brand and GCN, different sig): collapsing them would leave the second source
+        // ticked for ReRx with no replacement to save (#3908).
+        if (rx.getDrugReferenceId() != item.getDrugReferenceId()) {
+            return false;
+        }
         if (item.isCustom()) {
             return rx.isCustom() && rx.getCustomName() != null && rx.getCustomName().equals(item.getCustomName());
         }
@@ -322,7 +331,7 @@ public class RxSessionBean implements java.io.Serializable {
      * removal before the cursor shifts it down with the list, and a removal of the selected (last)
      * item leaves it on the new last item. An index outside the stash is ignored.
      */
-    public void removeStashItem(int index) {
+    public synchronized void removeStashItem(int index) {
         //    this.clearDDI();
         //    this.clearDAM();
         if (index < 0 || index >= stash.size()) {
@@ -339,7 +348,7 @@ public class RxSessionBean implements java.io.Serializable {
     /**
      * Discards every staged card and resets the cursor to -1.
      */
-    public void clearStash() {
+    public synchronized void clearStash() {
         //    this.clearDDI();
         //    this.clearDAM();
         stash = new ArrayList();
@@ -358,7 +367,7 @@ public class RxSessionBean implements java.io.Serializable {
      *
      * @since 2026-09-24
      */
-    public void removePersistedStashItems() {
+    public synchronized void removePersistedStashItems() {
         RxPrescriptionData.Prescription selected =
                 (stashIndex >= 0 && stashIndex < stash.size()) ? stash.get(stashIndex) : null;
         stash.removeIf(rx -> rx != null && rx.getDrugId() > 0);

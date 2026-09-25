@@ -278,31 +278,16 @@ public final class RxWriteScript2Action extends ActionSupport {
                     response.sendError(HttpServletResponse.SC_CONFLICT);
                     return NONE;
                 }
-                // SAVE THE DRUG
-                int i;
-                String scriptId = prescription.saveScript(loggedInInfo, bean);
-                StringBuilder auditStr = new StringBuilder();
-                for (i = 0; i < bean.getStashSize(); i++) {
-                    rx = bean.getStashItem(i);
-
-                    rx.Save(scriptId);
-                    // Record the script on the stash item, as updateSaveAllDrugs does: ViewScript2
-                    // builds the preview URL and the pad's signature-override POST from the stash
-                    // item's script_no, so leaving it null would preview the wrong script and send
-                    // scriptId=null when the prescriber overrides the stamp by hand.
-                    rx.setScript_no(scriptId);
-                    auditStr.append(rx.getAuditString());
-                    auditStr.append("\n");
-
-                    rx = null;
-                }
+                // SAVE THE DRUG through the shared persistence, which records the script on each
+                // stash item (ViewScript2 builds the preview URL and the pad's signature-override
+                // POST from it) and archives the re-prescribed sources; this path used to save the
+                // replacement and leave the source active (#3908).
+                String scriptId = persistStash(loggedInInfo, bean);
                 fwd = "viewScript";
                 // A reprint earlier for this patient leaves its RxReprintWorkspace entry behind and
                 // ViewScript2.jsp would then render the reprinted script instead of the one just
                 // written, so only this patient's entry is cleared (#3908).
                 RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
-                String ip = request.getRemoteAddr();
-                request.setAttribute("scriptId", scriptId);
                 // Same stamp-on-write as RxViewScript2Action: a stamp on file signs the freshly
                 // written script so it can be faxed without the pad. This action already runs under
                 // _rx write (checkPrivilege above). Eligibility is decided inside the service from
@@ -310,7 +295,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
                     request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
                 }
-                LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
             }
         }
         return fwd;
@@ -1165,7 +1149,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
-        RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+        RxPrescriptionData.Prescription rx = stagedCard(bean, randomId);
+        if (rx == null || specialInstruction == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         if (specialInstruction.trim().length() > 0 && !specialInstruction.trim().equalsIgnoreCase("Enter Special Instruction")) {
             rx.setSpecialInstruction(specialInstruction.trim());
         } else {
@@ -1207,7 +1195,12 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (strArr.length > 1) {
                 String num = strArr[1];
                 num = num.trim();
-                RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(num));
+                RxPrescriptionData.Prescription rx = stagedCard(bean, num);
+                if (rx == null) {
+                    // A malformed or stale card key names nothing to update: 400, not a 500.
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
                 if (elem.equals("method_" + num)) {
                     if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setMethod(val);
                 } else if (elem.equals("route_" + num)) {
@@ -1579,6 +1572,12 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @since 2026-09-24
      */
     static void removeClosedStashItems(RxSessionBean bean, List<Integer> keptIndexes) {
+        synchronized (bean) {
+            removeClosedStashItemsLocked(bean, keptIndexes);
+        }
+    }
+
+    private static void removeClosedStashItemsLocked(RxSessionBean bean, List<Integer> keptIndexes) {
         List<Integer> closedIndexes = new ArrayList<>();
         for (int i = 0; i < bean.getStashSize(); i++) {
             if (!keptIndexes.contains(i)) {
@@ -1685,6 +1684,30 @@ public final class RxWriteScript2Action extends ActionSupport {
             return;
         }
 
+        persistStash(loggedInInfo, bean);
+    }
+
+    /**
+     * Persists the stash as one prescription and settles its re-prescriptions: every staged item
+     * is written under the new script, the sources whose replacement was just written are
+     * archived as REPRESCRIBED, and the ReRx list is cleared so a later save cannot archive them
+     * again. Every path that writes the stash (updateSaveAllDrugs, updateAndPrint and the
+     * write-script fallback in RxViewScript2Action) goes through here, so the ReRx invariant -- a
+     * source is archived exactly when its replacement is saved -- holds on all of them (#3908).
+     * Runs under the bean's monitor: a card closed from another window of the same patient
+     * mid-save can neither shift the indexes being written nor be half-saved.
+     *
+     * @param loggedInInfo the prescriber
+     * @param bean         the patient's Rx bean, already authorised for write and non-empty
+     * @return the new script id
+     */
+    String persistStash(LoggedInInfo loggedInInfo, RxSessionBean bean) {
+        synchronized (bean) {
+            return persistStashLocked(loggedInInfo, bean);
+        }
+    }
+
+    private String persistStashLocked(LoggedInInfo loggedInInfo, RxSessionBean bean) {
         RxPrescriptionData.Prescription rx = null;
         RxPrescriptionData prescription = new RxPrescriptionData();
         String scriptId = prescription.saveScript(loggedInInfo, bean);
@@ -1738,10 +1761,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         // to override the stamp. Ordinary GET/HEAD preview navigation never stamps or saves.
 
         archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, auditStr.toString());
+        // The sources are settled: a later save from this window (Edit Rx after Save & Print)
+        // must not archive them again with a second audit trail.
+        bean.clearReRxDrugIdList();
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
-        return;
+        return scriptId;
     }
 
     /**
@@ -1827,6 +1853,8 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @return {@code NONE}; the JSON is written directly
      */
     public String searchSpecialInstructions() throws IOException {
+        // Dispatched before execute()'s common privilege check; stored instructions are Rx data.
+        checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_READ);
 		String str = request.getParameter("query");
 		Set<String> set = this.rxManager.getStoredInstructionsMatching(str);
 
@@ -1849,6 +1877,9 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @return {@code NONE}; the JSON is written directly
      */
     public String checkNoStashItem() throws IOException, Exception {
+        // Dispatched before execute()'s common privilege check: the staged count is Rx state, so
+        // require global _rx read here and, through resolveForRead, for the patient (#3908).
+        checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_READ);
         RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         // No Rx session for this request's patient: report an empty stash rather than a 500.
         int n = bean == null ? 0 : bean.getStashSize();
@@ -1940,6 +1971,14 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (notReprescribed > 0) {
             logger.info("Skipped re-Rx archival: {} staged source(s) not re-prescribed in this save", notReprescribed);
         }
+    }
+
+    /** The staged card carrying the request's key, or {@code null} for a malformed or unknown key. */
+    private static RxPrescriptionData.Prescription stagedCard(RxSessionBean bean, String rawKey) {
+        if (rawKey == null || !rawKey.trim().matches("\\d{1,9}")) {
+            return null;
+        }
+        return bean.getStashItem2(Integer.parseInt(rawKey.trim()));
     }
 
     /** Why one staged re-Rx source was, or was not, archived by {@link #archiveReRxDrugs}. */

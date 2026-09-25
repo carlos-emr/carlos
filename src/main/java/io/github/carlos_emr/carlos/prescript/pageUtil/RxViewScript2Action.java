@@ -127,9 +127,6 @@ public final class RxViewScript2Action extends ActionSupport {
             return "viewScript";
         }
 
-        RxPrescriptionData.Prescription rx;
-        RxPrescriptionData prescription = new RxPrescriptionData();
-
         // Reuse an already-persisted script instead of writing a duplicate. This action is reached
         // via popForm2 after "Save And Print", where updateSaveAllDrugs already persisted the stash
         // (each item now carries its drugs row id and the shared script_no). Calling saveScript
@@ -179,13 +176,9 @@ public final class RxViewScript2Action extends ActionSupport {
                     return null;
                 }
             }
-            scriptId = prescription.saveScript(loggedInInfo, bean);
-            for (int i = 0; i < bean.getStashSize(); i++) {
-                rx = bean.getStashItem(i);
-                rx.Save(scriptId);
-                rx.setScript_no(scriptId);
-                rx = null;
-            }
+            // The same persistence as updateSaveAllDrugs / updateAndPrint: it also archives the
+            // re-prescribed sources, which this fallback used to leave active (#3908).
+            scriptId = new RxWriteScript2Action().persistStash(loggedInInfo, bean);
         }
 
         // Expose the saved script id so ViewScript2.jsp builds the fax/print request for THIS

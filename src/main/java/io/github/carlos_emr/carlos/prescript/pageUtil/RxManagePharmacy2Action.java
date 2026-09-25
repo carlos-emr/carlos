@@ -321,9 +321,18 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     public String save() {
 
 
+        String rawPharmacyId = request.getParameter("pharmacyId");
+        if (rawPharmacyId == null || !rawPharmacyId.trim().matches("\\d{1,9}")) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            } catch (IOException e) {
+                MiscUtils.getLogger().error("Cannot write save response", e);
+            }
+            return NONE;
+        }
         RxPharmacyData pharmacy = new RxPharmacyData();
         PharmacyInfo pharmacyInfo = new PharmacyInfo();
-        pharmacyInfo.setId(Integer.parseInt(request.getParameter("pharmacyId")));
+        pharmacyInfo.setId(Integer.parseInt(rawPharmacyId.trim()));
         pharmacyInfo.setName(request.getParameter("pharmacyName"));
         pharmacyInfo.setAddress(request.getParameter("pharmacyAddress"));
         pharmacyInfo.setCity(request.getParameter("pharmacyCity"));
