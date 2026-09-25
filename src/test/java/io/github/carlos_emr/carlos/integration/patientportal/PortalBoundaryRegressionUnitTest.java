@@ -198,11 +198,14 @@ class PortalBoundaryRegressionUnitTest {
     void shouldDistinguishPartialConfiguration_fromAbsentPortal() {
         assertThat(PatientPortalSettings.isConfigured(key -> null)).isFalse();
         // A switched-on portal with only some settings is a configuration error, not an absent portal.
-        assertThat(PatientPortalSettings.isConfigured(key -> switch (key) {
+        java.util.function.Function<String, String> partial = key -> switch (key) {
             case PatientPortalSettings.ENABLED_KEY -> "true";
             case PatientPortalSettings.BASE_URL_KEY -> "https://portal.example";
             default -> null;
-        })).isTrue();
+        };
+        assertThat(PatientPortalSettings.isConfigured(partial)).isTrue();
+        assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(partial))
+                .isInstanceOf(PatientPortalConfigurationException.class);
     }
 
     @Test

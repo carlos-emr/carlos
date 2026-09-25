@@ -22,11 +22,16 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mockStatic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
+import org.apache.struts2.ServletActionContext;
+import org.mockito.MockedStatic;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -167,5 +172,49 @@ class PortalFailureLoggingUnitTest {
             return PatientPortalException.ofMalformedResponse(
                     200, "/internal/carlos/patients/{id}/portal-account", parseFailure);
         }
+    }
+
+    private static final class MisconfiguredAction extends PortalJsonAction {
+        private static final long serialVersionUID = 1L;
+        private final String message;
+
+        MisconfiguredAction(String message) {
+            this.message = message;
+        }
+
+        @Override
+        protected String handleRequest() {
+            throw new PatientPortalConfigurationException(message);
+        }
+    }
+
+    private String configurationLogOf(String message) throws IOException {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
+                LogCapture capture = LogCapture.forLogger(PortalJsonAction.class)) {
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new MisconfiguredAction(message).execute();
+            assertThat(response.getStatus()).isEqualTo(503);
+            StringBuilder all = new StringBuilder();
+            for (LogEvent event : capture.events()) {
+                all.append(rendered(event));
+            }
+            return all.toString();
+        }
+    }
+
+    @Test
+    @DisplayName("should name the master switch in the log when its value is mistyped")
+    void shouldNameTheSwitch_whenItsValueIsMistyped() throws IOException {
+        assertThat(configurationLogOf(PatientPortalSettings.ENABLED_VALUE_MESSAGE))
+                .contains("patient_portal.enabled must be true or false");
+    }
+
+    @Test
+    @DisplayName("should keep other configuration messages out of the log")
+    void shouldOmitOtherConfigurationMessages_fromTheLog() throws IOException {
+        assertThat(configurationLogOf("secret-token-value is not valid"))
+                .contains("check deployment settings")
+                .doesNotContain("secret-token-value");
     }
 }

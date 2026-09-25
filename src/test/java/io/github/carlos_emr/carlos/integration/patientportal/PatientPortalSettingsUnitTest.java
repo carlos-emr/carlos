@@ -678,6 +678,14 @@ class PatientPortalSettingsUnitTest {
         }
 
         @Test
+        @DisplayName("should treat a blank switch as off")
+        void shouldBeOff_whenSwitchIsBlank() {
+            Map<String, String> values = connection("   ");
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
+        }
+
+        @Test
         @DisplayName("should let a clinic switch the portal off without removing its credentials")
         void shouldBeOff_whenSwitchIsFalse() {
             Map<String, String> values = connection(" false ");

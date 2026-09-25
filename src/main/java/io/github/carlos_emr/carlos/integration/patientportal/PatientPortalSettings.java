@@ -113,7 +113,8 @@ public record PatientPortalSettings(
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
     private static final String NOT_ENABLED_MESSAGE =
             "patient portal is not enabled: set " + ENABLED_KEY + "=true to use it";
-    private static final String ENABLED_VALUE_MESSAGE = ENABLED_KEY + " must be true or false";
+    /** A fixed message naming only the key, so callers may log it; it never carries a value. */
+    public static final String ENABLED_VALUE_MESSAGE = ENABLED_KEY + " must be true or false";
     private static final String PLAINTEXT_MESSAGE =
             "%s must begin with a lowercase https:// ; refusing to send the portal token over"
                     + " plaintext";
@@ -175,8 +176,9 @@ public record PatientPortalSettings(
     }
 
     /**
-     * Reports whether the clinic has switched the portal on. Absent or {@code false} means off, the
-     * normal state for a clinic that does not use it, whatever connection settings are present.
+     * Reports whether the clinic has switched the portal on. Absent, blank or {@code false} means
+     * off, the normal state for a clinic that does not use it, whatever connection settings are
+     * present.
      *
      * <p>Any other value counts as on, so that constructing the settings reports it: a mistyped
      * switch, like a partial configuration, must surface as a configuration error rather than

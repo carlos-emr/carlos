@@ -195,6 +195,9 @@ class PatientPortalSpringWiringUnitTest {
         assertThat(PatientPortalSettings.isConfigured(present::get)).isFalse();
         present.put(PatientPortalSettings.ENABLED_KEY, "true");
         assertThat(PatientPortalSettings.isConfigured(present::get)).isTrue();
+        // Switched on, the invalid http:// URL is reported rather than hidden.
+        assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(present::get))
+                .isInstanceOf(PatientPortalConfigurationException.class);
     }
 
     /**
