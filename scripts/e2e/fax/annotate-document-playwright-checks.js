@@ -941,9 +941,14 @@ async function main() {
     // start at the text origin, so a press on the leading spaces grabs the note rather than
     // placing a new one.
     page.once('dialog', dialog => dialog.accept(' '.repeat(12) + 'Synthetic note with leading spaces'));
-    await page.mouse.click(spaceBox.x + 40, spaceBox.y + 300);
+    // Placed hard against the left edge, so the note's origin is 0: a valid origin the hit box
+    // must keep, not a missing one to fall back from.
+    await page.mouse.click(spaceBox.x + 1, spaceBox.y + 300);
     const leadingNote = page.locator('svg.overlay').first().locator('text.mark').last();
     const leadingOrigin = await leadingNote.evaluate(text => ({ x: Number(text.getAttribute('x')), y: text.getBBox().y + text.getBBox().height / 2 }));
+    const leadingHitX = await page.locator('svg.overlay').first().locator('rect.mark-hit').last().getAttribute('x');
+    check('a note at the left edge keeps its hit box at the zero origin',
+      leadingOrigin.x === 0 && Number(leadingHitX) === 0, JSON.stringify([leadingOrigin, leadingHitX]));
     const leadingBefore = await leadingNote.boundingBox();
     const marksBeforeLeading = await markCount();
     let promptedOnLeading = false;

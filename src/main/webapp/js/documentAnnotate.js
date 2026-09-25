@@ -218,8 +218,10 @@
         if (!box || !width || !box.height) { return; }
         var hit = document.createElementNS(SVG_NS, 'rect');
         // From the text origin, not the painted glyph bound: a note that begins with spaces paints
-        // its first glyph after them, and the box must cover the leading spaces as well.
-        hit.setAttribute('x', Number(textEl.getAttribute('x')) || box.x);
+        // its first glyph after them, and the box must cover the leading spaces as well. An origin
+        // of 0 (a note at the left edge) is a valid origin, not a missing one.
+        var origin = parseFloat(textEl.getAttribute('x'));
+        hit.setAttribute('x', isNaN(origin) ? box.x : origin);
         hit.setAttribute('y', box.y);
         // The full advance, so a press on a note's trailing spaces still grabs it.
         hit.setAttribute('width', width);
