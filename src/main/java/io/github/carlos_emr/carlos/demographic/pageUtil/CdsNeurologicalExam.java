@@ -155,29 +155,27 @@ public final class CdsNeurologicalExam {
                 continue;
             }
             for (ResidualInformation ri : category.getResidualInfoArray()) {
-                String type = null;
-                String ordinal = null;
-                String date = "";
-                String result = "";
-                for (DataElement element : ri.getDataElementArray()) {
-                    String name = element.getName();
-                    String content = element.getContent() == null ? "" : element.getContent().trim();
-                    if (ELEMENT_TYPE.equals(name)) {
-                        type = content;
-                    } else if (ELEMENT_ORDINAL.equals(name)) {
-                        ordinal = content;
-                    } else if (ELEMENT_DATE.equals(name)) {
-                        date = content;
-                    } else if (ELEMENT_RESULT.equals(name)) {
-                        result = content;
-                    }
-                }
-                if (NRTF.equals(type)) {
-                    markers.add(ordinal, date, result);
-                }
+                addMarker(markers, ri);
             }
         }
         return markers;
+    }
+
+    /** Adds the marker carried by one residual-information block when it is an NRTF marker. */
+    private static void addMarker(NrtfMarkers markers, ResidualInformation ri) {
+        Map<String, String> elements = new HashMap<>();
+        for (DataElement element : ri.getDataElementArray()) {
+            elements.put(element.getName(), elementContent(element));
+        }
+        if (NRTF.equals(elements.get(ELEMENT_TYPE))) {
+            markers.add(elements.get(ELEMENT_ORDINAL),
+                    elements.getOrDefault(ELEMENT_DATE, ""),
+                    elements.getOrDefault(ELEMENT_RESULT, ""));
+        }
+    }
+
+    private static String elementContent(DataElement element) {
+        return element.getContent() == null ? "" : element.getContent().trim();
     }
 
     /**
@@ -232,7 +230,7 @@ public final class CdsNeurologicalExam {
                     // First marker for an ordinal wins; a duplicate is ignored rather than guessed at.
                     byOrdinal.putIfAbsent(index, new String[] {date, result});
                 }
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // A malformed ordinal cannot be tied to a screening, so the marker is ignored.
             }
         }

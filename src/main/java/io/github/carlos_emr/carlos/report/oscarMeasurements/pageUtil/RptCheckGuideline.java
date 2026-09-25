@@ -154,29 +154,15 @@ public class RptCheckGuideline {
      * @return boolean
      ******************************************************************************************/
     public boolean isYesNoMetGuideline(String dataEntry, String guideline) {
-        boolean passAllTests = false;
+        boolean passAllTests;
 
         MiscUtils.getLogger().debug("this is yes/no question");
-        if (guideline.compareTo("YES") == 0 || guideline.compareTo("yes") == 0
-                || guideline.compareTo("Y") == 0 || guideline.compareTo("Yes") == 0) {
-            if (dataEntry.compareTo("YES") == 0 || dataEntry.compareTo("yes") == 0
-                    || dataEntry.compareTo("Y") == 0 || dataEntry.compareTo("Yes") == 0) {
-                passAllTests = true;
-                MiscUtils.getLogger().debug("Pass yesno test");
-            } else {
-                passAllTests = false;
-                MiscUtils.getLogger().debug("fail yesno test");
-            }
-        } else if (guideline.compareTo("NO") == 0 || guideline.compareTo("No") == 0
-                || guideline.compareTo("N") == 0 || guideline.compareTo("no") == 0) {
-            if (dataEntry.compareTo("NO") == 0 || dataEntry.compareTo("No") == 0
-                    || dataEntry.compareTo("N") == 0 || dataEntry.compareTo("no") == 0) {
-                passAllTests = true;
-                MiscUtils.getLogger().debug("Pass yesno test");
-            } else {
-                passAllTests = false;
-                MiscUtils.getLogger().debug("fail yesno test");
-            }
+        if (isYes(guideline)) {
+            passAllTests = isYes(dataEntry);
+            MiscUtils.getLogger().debug(passAllTests ? "Pass yesno test" : "fail yesno test");
+        } else if (isNo(guideline)) {
+            passAllTests = isNo(dataEntry);
+            MiscUtils.getLogger().debug(passAllTests ? "Pass yesno test" : "fail yesno test");
         } else if (isNotApplicable(guideline)) {
             // The seeded Yes/No/NA rule accepts both "NA" and "NotApplicable" for the same answer,
             // so a not-applicable guideline matches either spelling, as the yes and no branches do
@@ -190,6 +176,16 @@ public class RptCheckGuideline {
             passAllTests = !guideline.isBlank() && dataEntry != null && guideline.trim().equals(dataEntry.trim());
         }
         return passAllTests;
+    }
+
+    /** The exact yes spellings the seeded Yes/No rules accept ({@code YES|yes|Yes|Y}). */
+    private static boolean isYes(String value) {
+        return value != null && ("YES".equals(value) || "yes".equals(value) || "Y".equals(value) || "Yes".equals(value));
+    }
+
+    /** The exact no spellings the seeded Yes/No rules accept ({@code NO|no|No|N}). */
+    private static boolean isNo(String value) {
+        return value != null && ("NO".equals(value) || "No".equals(value) || "N".equals(value) || "no".equals(value));
     }
 
     /**

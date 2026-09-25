@@ -50,12 +50,25 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
  * legacy readings stay reportable next to the new ones.</p>
  *
  * <p>Stored instructions are user-entered text (the entry form's {@code inputMInstrc-*} field),
- * so every page that renders them must encode them for its context.</p>
+ * so a reading may carry any string, including patient-specific free text. This list is shown
+ * to every {@code _report} reader for the whole clinic, so a stored instruction is offered only
+ * when it is controlled: either an instruction some {@code measurementType} row of the same type
+ * defines, or one of the retired instruction spellings in {@link #LEGACY_INSTRUCTIONS}. Free
+ * text stays out of the list, and every page that renders the list must still encode it for its
+ * context.</p>
  *
  * <p>Built by {@link RptMeasurementTypesBeanHandler}, which looks up the stored instructions of
  * every listed type in one query and passes the result in.</p>
  */
 public class RptMeasuringInstructionBeanHandler {
+
+    /**
+     * Instruction spellings a {@code measurementType} row no longer carries but that readings
+     * still hold: the Asthma Action Plan was seeded with {@code Yes/No} (rule {@code Yes/No/NA})
+     * before migration V1.0.33 moved it to {@code Provided/Revised/Reviewed}. These are fixed
+     * seed values, never free text, so they are safe to offer clinic-wide.
+     */
+    static final Set<String> LEGACY_INSTRUCTIONS = Set.of("Yes/No", "Yes/No/NA");
 
     Vector<RptMeasuringInstructionBean> measuringInstrcVector = new Vector<RptMeasuringInstructionBean>();
 
@@ -71,9 +84,10 @@ public class RptMeasuringInstructionBeanHandler {
         for (MeasurementType mt : typesForDisplayName) {
             instructions.add(mt.getMeasuringInstruction());
         }
+        Set<String> defined = new LinkedHashSet<>(instructions);
         for (MeasurementType mt : typesForDisplayName) {
             for (String stored : storedInstructionsByType.getOrDefault(mt.getType(), Collections.emptyList())) {
-                if (stored != null && !stored.isBlank()) {
+                if (isControlled(stored, defined)) {
                     instructions.add(stored);
                 }
             }
@@ -81,6 +95,20 @@ public class RptMeasuringInstructionBeanHandler {
         for (String instruction : instructions) {
             measuringInstrcVector.add(new RptMeasuringInstructionBean(instruction));
         }
+    }
+
+    /**
+     * Whether a stored instruction may be offered clinic-wide: one a {@code measurementType} row
+     * defines, or a retired seed spelling. Anything else is treated as free text and dropped.
+     *
+     * @param stored the {@code measurements.measuringInstruction} value; may be {@code null}
+     * @param defined the instructions the type definitions carry
+     */
+    static boolean isControlled(String stored, Set<String> defined) {
+        if (stored == null || stored.isBlank()) {
+            return false;
+        }
+        return defined.contains(stored) || LEGACY_INSTRUCTIONS.contains(stored);
     }
 
     public Vector<RptMeasuringInstructionBean> getMeasuringInstrcVector() {

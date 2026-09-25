@@ -22,26 +22,62 @@
 
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
+import io.github.carlos_emr.carlos.commn.dao.forms.FormsDao;
+import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for the SQL-injection guard on the CDM "patients who met guideline" report: the
- * submitted above/below operator selects a constant statement and is never concatenated.
+ * Unit tests for the request guards on the CDM "patients who met guideline" report: the
+ * submitted above/below operator selects a constant statement and is never concatenated, and a
+ * row's hidden type/instruction fields must match what the server rendered for that row.
  */
 @Tag("unit")
 @Tag("report")
 @Tag("security")
-@DisplayName("RptInitializePatientsMetGuidelineCDMReport2Action comparator guard")
-class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest {
+@DisplayName("RptInitializePatientsMetGuidelineCDMReport2Action request guards")
+class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should accept the two operators the met-guideline form offers")
@@ -66,10 +102,149 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest {
                 RptInitializePatientsMetGuidelineCDMReport2Action.SQL_MET_BELOW_WITH_INSTRUCTION,
                 RptInitializePatientsMetGuidelineCDMReport2Action.SQL_MET_ABOVE,
                 RptInitializePatientsMetGuidelineCDMReport2Action.SQL_MET_BELOW);
-        assertThat(statements).allSatisfy(sql -> assertThat(sql).matches(".* AND dataField [<>] :guideline"));
+        assertThat(statements).isNotEmpty().allSatisfy(sql -> assertThat(sql).matches(".* AND dataField [<>] :guideline"));
         assertThat(RptInitializePatientsMetGuidelineCDMReport2Action.SQL_MET_ABOVE_WITH_INSTRUCTION)
                 .contains("measuringInstruction = :measuringInstruction").endsWith("> :guideline");
         assertThat(RptInitializePatientsMetGuidelineCDMReport2Action.SQL_MET_BELOW).endsWith("< :guideline")
                 .doesNotContain("measuringInstruction");
+    }
+
+    /**
+     * Drives {@code execute()} with the raw {@code value(...)} request parameters, as Tomcat
+     * delivers them, against a session whose {@code measurementTypes} lists one AACP row.
+     */
+    @Nested
+    @DisplayName("tampered row selectors")
+    class TamperedSelectors {
+
+        private static final String GROUP = "FAKE-OMD-CDM";
+        private static final String CURRENT = "Provided/Revised/Reviewed";
+
+        private MockedStatic<ServletActionContext> servletActionContext;
+        private MockedStatic<LoggedInInfo> loggedInInfo;
+        private HttpServletRequest request;
+        private HttpServletResponse response;
+        private MeasurementDao measurementDao;
+        private FormsDao formsDao;
+
+        @BeforeEach
+        void setUp() {
+            SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+            MeasurementGroupDao groupDao = createAndRegisterMock(MeasurementGroupDao.class);
+            MeasurementTypeDao typeDao = createAndRegisterMock(MeasurementTypeDao.class);
+            createAndRegisterMock(ValidationsDao.class);
+            measurementDao = createAndRegisterMock(MeasurementDao.class);
+            formsDao = createAndRegisterMock(FormsDao.class);
+
+            request = mock(HttpServletRequest.class);
+            response = mock(HttpServletResponse.class);
+            HttpSession session = mock(HttpSession.class);
+            when(request.getSession(false)).thenReturn(session);
+            servletActionContext = mockStatic(ServletActionContext.class);
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+            LoggedInInfo loggedIn = mock(LoggedInInfo.class);
+            loggedInInfo = mockStatic(LoggedInInfo.class);
+            loggedInInfo.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedIn);
+            when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_report"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            MeasurementGroup groupRow = new MeasurementGroup();
+            groupRow.setName(GROUP);
+            groupRow.setTypeDisplayName("Asthma Action Plan");
+            when(groupDao.findByName(GROUP)).thenReturn(new ArrayList<>(List.of(groupRow)));
+            MeasurementType aacp = mock(MeasurementType.class);
+            when(aacp.getId()).thenReturn(6);
+            when(aacp.getType()).thenReturn("AACP");
+            when(aacp.getTypeDisplayName()).thenReturn("Asthma Action Plan");
+            when(aacp.getTypeDescription()).thenReturn("Asthma Action Plan");
+            when(aacp.getMeasuringInstruction()).thenReturn(CURRENT);
+            when(aacp.getValidation()).thenReturn("18");
+            when(typeDao.findByTypeDisplayName("Asthma Action Plan")).thenReturn(List.of(aacp));
+            when(measurementDao.findDistinctMeasuringInstructionsByTypes(anyCollection()))
+                    .thenReturn(Map.of("AACP", List.of("Yes/No")));
+            // The same definitions the CDM setup page stores for the report forms, built before the
+            // session stub so its DAO calls are not caught inside an in-progress when().
+            RptMeasurementTypesBeanHandler definitions = new RptMeasurementTypesBeanHandler(GROUP);
+            when(session.getAttribute("measurementTypes")).thenReturn(definitions);
+            clearInvocations(measurementDao);
+        }
+
+        @AfterEach
+        void tearDown() {
+            loggedInInfo.close();
+            servletActionContext.close();
+        }
+
+        private RptInitializePatientsMetGuidelineCDMReport2Action actionForRow0(String type, String instruction) {
+            when(request.getParameter("value(measurementType0)")).thenReturn(type);
+            when(request.getParameter("value(mNbInstrcs0)")).thenReturn("1");
+            when(request.getParameter("value(mInstrcsCheckbox00)")).thenReturn(instruction);
+            when(request.getParameter("value(aboveBelow0)")).thenReturn(">");
+            RptInitializePatientsMetGuidelineCDMReport2Action action = new TestableAction();
+            action.setGuidelineCheckbox(new String[] {"0"});
+            action.setStartDateB(new String[] {"2025-01-01"});
+            action.setEndDateB(new String[] {"2026-01-01"});
+            action.setGuidelineB(new String[] {"Provided"});
+            return action;
+        }
+
+        @Test
+        @DisplayName("should not query any patient data for a row whose type is not the rendered one")
+        void shouldSkipRow_whenMeasurementTypeIsTampered() throws Exception {
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("HIV", CURRENT);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("success");
+            verifyNoInteractions(measurementDao);
+            verifyNoInteractions(formsDao);
+            verify(response, never()).sendRedirect(anyString());
+        }
+
+        @Test
+        @DisplayName("should not query with an instruction that is not one rendered for the row")
+        void shouldSkipInstruction_whenMeasuringInstructionIsTampered() throws Exception {
+            RptInitializePatientsMetGuidelineCDMReport2Action action =
+                    actionForRow0("AACP", "FAKE-Patient Smith asked about inhaler");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("success");
+            verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString(), anyString());
+            verifyNoInteractions(formsDao);
+        }
+
+        @Test
+        @DisplayName("should still report a row whose type and instruction match the rendered ones")
+        void shouldQueryRow_whenSelectorsMatchRenderedRow() throws Exception {
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", "Yes/No");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("success");
+            verify(measurementDao).findLastEntered(any(Date.class), any(Date.class), eq("AACP"), eq("Yes/No"));
+            verify(measurementDao).findLastEntered(any(Date.class), any(Date.class), eq("AACP"));
+        }
+    }
+
+    /** Resolves message keys without a Struts container. */
+    private static final class TestableAction extends RptInitializePatientsMetGuidelineCDMReport2Action {
+
+        @Override
+        public String getText(String key) {
+            return key;
+        }
+
+        @Override
+        public String getText(String key, String defaultValue) {
+            return key;
+        }
+
+        @Override
+        public String getText(String key, String[] args) {
+            return key;
+        }
     }
 }

@@ -150,7 +150,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String PATIENTID = "Patient";
@@ -181,24 +181,24 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
-    ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-    AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-    DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-    DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
-    DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-    ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-    PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
-    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-    PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-    ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-    MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
-    IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
-    DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
+    transient ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
+    transient AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
+    transient AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
+    transient CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
+    transient DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
+    transient DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
+    transient DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
+    transient ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
+    transient PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
+    transient DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
+    transient OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+    transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+    transient ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
+    transient MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
+    transient IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
+    transient DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
 
-    private final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
+    private final transient NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
     private LabUploadWs labUpload = new LabUploadWs();
 
@@ -270,7 +270,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         try {
             filePath = PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir).toPath();
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
         }
 
@@ -2296,7 +2296,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 	                    			drug.setGcnSeqNo(dm.drugId + "");
                             }
                         }
-                    } catch (Exception e) {
+                    } catch (Exception _) {
                         logger.warn("Error looking up DIN");
                     }
                 }
@@ -2634,7 +2634,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                         try {
                             hrmDocProvider.setSignedOffTimestamp(f.parse(reviewDateTime));
-                        } catch (ParseException e) {
+                        } catch (ParseException _) {
 
                         }
 
@@ -3375,7 +3375,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             try {
                 File withExt = PathValidationUtils.validateGeneratedChildPath(candidate.getName() + contentType, candidate.getParentFile());
                 return tryValidateExisting(withExt, allowedRoot, originalPath);
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 logger.warn("Skipping report candidate with invalid generated name");
                 return null;
             }
@@ -3731,7 +3731,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             } else {
                 return "";
             }
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dtfp);
             return "";
@@ -3754,7 +3754,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             } else {
                 return "";
             }
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -3768,7 +3768,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             if (dfp.getYearMonth() != null) return PartialDate.YEARMONTH;
             else if (dfp.getYearOnly() != null) return PartialDate.YEARONLY;
             else return "";
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -3782,7 +3782,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             if (dfp.getYearMonth() != null) return PartialDate.YEARMONTH;
             else if (dfp.getYearOnly() != null) return PartialDate.YEARONLY;
             else return "";
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -4499,28 +4499,28 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy");
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat(DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
@@ -4944,7 +4944,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             UploadedFile uploaded = uploadedFiles.get(0);
             try {
                 this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
                 this.importFile = null;
                 this.importFileFileName = null;
@@ -4952,7 +4952,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             }
             try {
                 this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
-            } catch (FileValidationException e) {
+            } catch (FileValidationException _) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
                 this.importFileFileName = null;
             }

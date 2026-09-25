@@ -279,6 +279,11 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      * saved as {@code Yes/No} before it moved to {@code Provided/Revised/Reviewed}). The CDM
      * reports call this once per request for all the types they list.</p>
      *
+     * <p>The column holds whatever the entry form posted, so a value may be patient-specific
+     * free text. Callers that show the result to other users must filter it to controlled
+     * instructions first, as {@code RptMeasuringInstructionBeanHandler} does; never render the
+     * raw list clinic-wide.</p>
+     *
      * @param types the measurement type codes, for example {@code AACP}; may be empty
      * @return the distinct stored instructions keyed by type code, in no particular order; a type
      *         with no readings has no entry

@@ -231,7 +231,7 @@ public class BillingOnReviewValidator {
         }
         try {
             return Integer.parseInt(demoNo);
-        } catch (NumberFormatException nfe) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }

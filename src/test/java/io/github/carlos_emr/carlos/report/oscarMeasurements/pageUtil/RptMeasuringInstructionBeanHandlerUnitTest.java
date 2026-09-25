@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,11 +54,16 @@ import static org.mockito.Mockito.when;
  * so readings saved before an instruction change (AACP Yes/No, issue #3893) stay reportable, and
  * that the stored instructions are read in one query per report rather than one per type.
  *
+ * <p>The list is shown clinic-wide to every {@code _report} reader while readings store whatever
+ * the entry form posted, so only controlled instructions (type definitions and the retired seed
+ * spellings) may be promoted from the {@code measurements} table into it.</p>
+ *
  * @since 2026-09-24
  */
 @Tag("unit")
 @Tag("fast")
 @Tag("measurement")
+@Tag("security")
 class RptMeasuringInstructionBeanHandlerUnitTest extends CarlosUnitTestBase {
 
     private final MeasurementGroupDao measurementGroupDao = mock(MeasurementGroupDao.class);
@@ -120,6 +126,44 @@ class RptMeasuringInstructionBeanHandlerUnitTest extends CarlosUnitTestBase {
         assertThat(instructions(report.getMeasuringInstrcBeanVector().get(0)))
                 .containsExactly("Provided/Revised/Reviewed", "Yes/No");
         assertThat(instructions(report.getMeasuringInstrcBeanVector().get(1))).containsExactly("sitting position");
+    }
+
+    @Test
+    @DisplayName("should never offer stored free text, only the definition and legacy Yes/No instructions")
+    void shouldOfferControlledInstructionsOnly_whenReadingsHoldFreeText() {
+        RptMeasuringInstructionBeanHandler handler = new RptMeasuringInstructionBeanHandler(
+                List.of(type("AACP", "Asthma Action Plan ", "Provided/Revised/Reviewed")),
+                Map.of("AACP", List.of(
+                        "Yes/No",
+                        "FAKE-Patient Smith asked about inhaler on 2026-01-02",
+                        "' OR 1=1 --",
+                        "Provided/Revised/Reviewed")));
+
+        assertThat(instructions(handler)).containsExactly("Provided/Revised/Reviewed", "Yes/No");
+    }
+
+    @Test
+    @DisplayName("should offer an instruction another definition row of the same type carries")
+    void shouldOfferInstruction_fromSiblingDefinitionRow() {
+        RptMeasuringInstructionBeanHandler handler = new RptMeasuringInstructionBeanHandler(
+                List.of(type("WT", "Weight", "kg"), type("WT", "Weight", "lbs")),
+                Map.of("WT", List.of("lbs", "weighed at home by FAKE-Patient")));
+
+        assertThat(instructions(handler)).containsExactly("kg", "lbs");
+    }
+
+    @Test
+    @DisplayName("should treat only definition and legacy seed instructions as controlled")
+    void shouldClassifyInstructions_forControlledCheck() {
+        Set<String> defined = Set.of("Provided/Revised/Reviewed");
+
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Provided/Revised/Reviewed", defined)).isTrue();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Yes/No", defined)).isTrue();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Yes/No/NA", defined)).isTrue();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("yes/no", defined)).isFalse();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("Provided", defined)).isFalse();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled(null, defined)).isFalse();
+        assertThat(RptMeasuringInstructionBeanHandler.isControlled("  ", defined)).isFalse();
     }
 
     /** A mock, because the entity has no id setter and the report bean unboxes the id. */

@@ -112,6 +112,9 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         String[] guidelineCheckbox = this.getGuidelineCheckbox();
 
         boolean valid = true;
+        // The hidden type/instruction fields are echoes of the session definitions; anything else
+        // is a tampered request and its row is skipped, here and in the report loop.
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (guidelineCheckbox != null) {
             for (int i = 0; i < guidelineCheckbox.length; i++) {
@@ -119,7 +122,10 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 String startDate = startDateB[ctr];
                 String endDate = endDateB[ctr];
                 String guideline = guidelineB[ctr];
-                String measurementType = (String) this.getValue("measurementType" + ctr);
+                String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementType" + ctr));
+                if (measurementType == null) {
+                    continue;
+                }
                 String sNumMInstrc = (String) this.getValue("mNbInstrcs" + ctr);
                 int iNumMInstrc = Integer.parseInt(sNumMInstrc);
 
@@ -133,7 +139,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 }
                 for (int j = 0; j < iNumMInstrc; j++) {
 
-                    String mInstrc = (String) this.getValue("mInstrcsCheckbox" + ctr + j);
+                    String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckbox" + ctr + j));
                     if (mInstrc != null) {
                         List<Validations> vs = ectValidation.getValidationType(measurementType, mInstrc);
                         String regExp = null;
@@ -208,6 +214,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         String[] guidelineB = this.getGuidelineB();
         String[] guidelineCheckbox = this.getGuidelineCheckbox();
         RptCheckGuideline checkGuideline = new RptCheckGuideline();
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (guidelineCheckbox == null) {
             return metGLPercentageMsg;
@@ -222,11 +229,15 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
             String startDate = startDateB[ctr];
             String endDate = endDateB[ctr];
             String guideline = guidelineB[ctr];
-            String measurementType = (String) this.getValue("measurementType" + ctr);
-            // The comparison operator is spliced into SQL below, so only the two operators the
-            // form offers are accepted; anything else (a tampered request) skips this row.
-            String aboveBelow = guidelineComparator((String) this.getValue("aboveBelow" + ctr));
-            if (aboveBelow == null) {
+            // Only a type the server rendered for this row may drive the patient-wide queries.
+            String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementType" + ctr));
+            if (measurementType == null) {
+                continue;
+            }
+            // The comparison operator selects a constant statement below, so only the two operators
+            // the form offers are accepted; anything else (a tampered request) skips this row.
+            String comparator = guidelineComparator((String) this.getValue("aboveBelow" + ctr));
+            if (comparator == null) {
                 MiscUtils.getLogger().warn("CDM met-guideline report: rejected an unsupported guideline comparator");
                 continue;
             }
@@ -238,7 +249,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
             for (int j = 0; j < iNumMInstrc; j++) {
                 metGLPercentage = 0;
                 nbMetGL = 0;
-                String mInstrc = (String) this.getValue("mInstrcsCheckbox" + ctr + j);
+                String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckbox" + ctr + j));
 
                 if (mInstrc != null) {
                     double nbGeneral = 0;
@@ -250,7 +261,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                             Integer demographicNo = (Integer) o[0];
                             Date maxDateEntered = (Date) o[1];
                             for (Measurement m : dao.findByDemographicNoTypeAndDate(demographicNo, maxDateEntered, measurementType, mInstrc)) {
-                                if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, aboveBelow)) {
+                                if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, comparator)) {
                                     nbMetGL++;
                                 }
                             }
@@ -259,7 +270,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                         if (nbGeneral != 0) {
                             metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                         }
-                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
                         String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                         MiscUtils.getLogger().debug(msg);
                         metGLPercentageMsg.add(msg);
@@ -268,7 +279,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                             Integer demographicNo = (Integer) o[0];
                             Date maxDateEntered = (Date) o[1];
 
-                            String sql = ABOVE.equals(aboveBelow) ? SQL_MET_ABOVE_WITH_INSTRUCTION : SQL_MET_BELOW_WITH_INSTRUCTION;
+                            String sql = ABOVE.equals(comparator) ? SQL_MET_ABOVE_WITH_INSTRUCTION : SQL_MET_BELOW_WITH_INSTRUCTION;
                             List<Object[]> rs = fDao.runParameterizedNativeQuery(sql, 
                                 "dateEntered", ConversionUtils.toDateString(maxDateEntered),
                                 "demographicNo", demographicNo,
@@ -285,7 +296,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                         if (nbGeneral != 0) {
                             metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                         }
-                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
 
                         String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                         MiscUtils.getLogger().debug(msg);
@@ -328,7 +339,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                     Date maxDateEntered = (Date) o[1];
 
                     for (Measurement m : dao.findByDemoNoDateAndType(demographicNo, maxDateEntered, measurementType)) {
-                        if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, aboveBelow)) {
+                        if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, comparator)) {
                             nbMetGL++;
                         }
                         break;
@@ -339,7 +350,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                     metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                 }
 
-                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
                 String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                 MiscUtils.getLogger().debug(msg);
                 metGLPercentageMsg.add(msg);
@@ -348,7 +359,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                     Integer demographicNo = (Integer) o[0];
                     Date maxDateEntered = (Date) o[1];
 
-                    String sql = ABOVE.equals(aboveBelow) ? SQL_MET_ABOVE : SQL_MET_BELOW;
+                    String sql = ABOVE.equals(comparator) ? SQL_MET_ABOVE : SQL_MET_BELOW;
                     List<Object[]> rs = fDao.runParameterizedNativeQuery(sql,
                         "dateEntered", ConversionUtils.toDateString(maxDateEntered),
                         "demographicNo", demographicNo,
@@ -363,7 +374,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 if (nbGeneral != 0) {
                     metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                 }
-                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
                 String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                 MiscUtils.getLogger().debug(msg);
                 metGLPercentageMsg.add(msg);

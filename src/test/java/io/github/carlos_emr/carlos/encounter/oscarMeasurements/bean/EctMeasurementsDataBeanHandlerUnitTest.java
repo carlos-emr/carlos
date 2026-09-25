@@ -85,10 +85,10 @@ class EctMeasurementsDataBeanHandlerUnitTest extends CarlosUnitTestBase {
 
         Hashtable<String, Object> data = EctMeasurementsDataBeanHandler.getMeasurementDataById("7");
 
-        assertThat(data.get("value")).isEqualTo("Yes");
+        assertThat(data).containsEntry("value", "Yes");
         assertThat(data.get("comments")).isNull();
         assertThat(data.get("dateObserved_date")).isNull();
-        assertThat(data.get("provider_last")).isEqualTo("Tester");
+        assertThat(data).containsEntry("provider_last", "Tester");
     }
 
     @Test
@@ -102,8 +102,8 @@ class EctMeasurementsDataBeanHandlerUnitTest extends CarlosUnitTestBase {
 
         Hashtable<String, Object> data = EctMeasurementsDataBeanHandler.getLast("3", "AACP");
 
-        assertThat(data.get("comments")).isEqualTo("reviewed");
-        assertThat(data.get("dateObserved_date")).isEqualTo(observed);
-        assertThat(data.get("typeDisplayName")).isEqualTo("Asthma Action Plan");
+        assertThat(data).containsEntry("comments", "reviewed");
+        assertThat(data).containsEntry("dateObserved_date", observed);
+        assertThat(data).containsEntry("typeDisplayName", "Asthma Action Plan");
     }
 }

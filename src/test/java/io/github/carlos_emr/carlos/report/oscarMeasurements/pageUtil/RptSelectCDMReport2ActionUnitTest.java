@@ -91,11 +91,13 @@ class RptSelectCDMReport2ActionUnitTest extends CarlosUnitTestBase {
         when(request.getSession()).thenReturn(session);
 
         servletActionContext = mockStatic(ServletActionContext.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContext.when(ServletActionContext::getResponse).thenReturn(mock(HttpServletResponse.class));
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+        LoggedInInfo loggedIn = mock(LoggedInInfo.class);
         loggedInInfo = mockStatic(LoggedInInfo.class);
         loggedInInfo.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(mock(LoggedInInfo.class));
+                .thenReturn(loggedIn);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_report"), eq("r"), isNull()))
                 .thenReturn(true);
 
@@ -113,7 +115,8 @@ class RptSelectCDMReport2ActionUnitTest extends CarlosUnitTestBase {
         when(aacp.getValidation()).thenReturn("18");
         when(typeDao.findByTypeDisplayName(AACP_NAME)).thenReturn(List.of(aacp));
         when(measurementDao.findDistinctMeasuringInstructionsByTypes(anyCollection()))
-                .thenReturn(Map.of("AACP", List.of("Yes/No", "Provided/Revised/Reviewed")));
+                .thenReturn(Map.of("AACP", List.of("Yes/No", "Provided/Revised/Reviewed",
+                        "FAKE-Patient Smith asked about inhaler on 2026-01-02")));
     }
 
     @AfterEach
@@ -139,6 +142,11 @@ class RptSelectCDMReport2ActionUnitTest extends CarlosUnitTestBase {
         List<RptMeasurementTypesBean> rows =
                 ((RptMeasurementTypesBeanHandler) handler.getValue()).getMeasurementTypeVector();
         assertThat(rows).extracting(RptMeasurementTypesBean::getType).containsExactly("AACP");
+        // Stored free text never reaches the clinic-wide setup page; only controlled instructions do.
+        assertThat(((RptMeasurementTypesBeanHandler) handler.getValue()).getMeasuringInstrcBeanVector().get(0)
+                .getMeasuringInstrcVector())
+                .extracting(RptMeasuringInstructionBean::getMeasuringInstrc)
+                .containsExactly("Provided/Revised/Reviewed", "Yes/No");
     }
 
     @Test

@@ -115,10 +115,10 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
                 .filter(line -> !line.stripLeading().startsWith("--"))
                 .collect(Collectors.joining("\n"));
 
-        assertThat(sql).contains("'" + NRTF_LABEL + "'");
         // measurementType has no unique key on `type`, so the insert must be existence-guarded.
-        assertThat(sql).contains("WHERE NOT EXISTS (SELECT 1 FROM `measurementType` WHERE `type` = 'NRTF')");
-        assertThat(sql).doesNotContainIgnoringCase("ON DUPLICATE KEY");
+        assertThat(sql).contains("'" + NRTF_LABEL + "'")
+                .contains("WHERE NOT EXISTS (SELECT 1 FROM `measurementType` WHERE `type` = 'NRTF')")
+                .doesNotContainIgnoringCase("ON DUPLICATE KEY");
     }
 
     @Test
@@ -140,12 +140,12 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
         assertThat(sql.split(java.util.regex.Pattern.quote(
                 "AND EXISTS (SELECT 1 FROM `validations` vr WHERE vr.`id` = ftls.`validation`)"), -1))
                 .hasSize(3);
-        assertThat(sql).doesNotContain("`validation`           = '7'");
-        assertThat(sql).doesNotContain("       '7',\n");
-        assertThat(sql).contains("`validation`           = @carlos_nrtf_validation");
         // No last-resort fixed id either: on a double miss the rule is recreated, then resolved.
-        assertThat(sql).doesNotContain("IFNULL(@carlos_nrtf_validation, 7)");
-        assertThat(sql).doesNotContainPattern("@carlos_nrtf_validation\\s*=\\s*'?\\d+'?\\s*;");
+        assertThat(sql).doesNotContain("`validation`           = '7'")
+                .doesNotContain("       '7',\n")
+                .contains("`validation`           = @carlos_nrtf_validation")
+                .doesNotContain("IFNULL(@carlos_nrtf_validation, 7)")
+                .doesNotContainPattern("@carlos_nrtf_validation\\s*=\\s*'?\\d+'?\\s*;");
     }
 
     @Test
@@ -160,12 +160,13 @@ class DiabetesFlowsheetNeurologicalExamUnitTest {
         assertThat(ruleInsert).as("Yes/No/NA rule insert").isNotNegative();
         assertThat(ruleInsert).as("rule is recreated before it is resolved").isLessThan(resolve);
         String insert = sql.substring(ruleInsert, resolve);
-        assertThat(insert).contains("'Yes/No/NA', 'YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA'");
-        // Only on a double miss, and never as a duplicate of an existing rule.
-        assertThat(insert).contains("WHERE ftls.`type` = 'FTLS' AND ftls.`validation` IS NOT NULL");
-        assertThat(insert).contains("WHERE `name` = 'Yes/No/NA'");
-        // The rule is inserted by name and pattern; it never names an id of its own.
-        assertThat(insert).contains("INSERT INTO `validations` (`name`, `regularExp`)").doesNotContain("(`id`");
+        // Only on a double miss, and never as a duplicate of an existing rule. The rule is
+        // inserted by name and pattern; it never names an id of its own.
+        assertThat(insert).contains("'Yes/No/NA', 'YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA'")
+                .contains("WHERE ftls.`type` = 'FTLS' AND ftls.`validation` IS NOT NULL")
+                .contains("WHERE `name` = 'Yes/No/NA'")
+                .contains("INSERT INTO `validations` (`name`, `regularExp`)")
+                .doesNotContain("(`id`");
     }
 
     private static Element parse(String resource) throws Exception {

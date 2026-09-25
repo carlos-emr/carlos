@@ -115,13 +115,13 @@ class AsthmaActionPlanDropdownRegressionTest {
         String jsp = Files.readString(ADD_MEASUREMENT_JSP, StandardCharsets.UTF_8);
 
         // The legacy option is the only carrier of the value and stays disabled: no hidden
-        // inputValue-* re-posts an old reading as new data.
+        // inputValue-* re-posts an old reading as new data. Viewing a saved reading is
+        // read-only: every control is disabled and only Delete posts.
         assertThat(jsp).doesNotContain("type=\"hidden\" name=\"<%= \"inputValue-\"")
                 .doesNotContain("type=\"hidden\" name=\"<%=\"inputValue-\"")
                 .contains("<span class=\"legacyValueNote\" id=\"<%=\"legacyValueNote-\"+ctr%>\">"
-                        + "Recorded under an earlier option list; shown for reference only and not saved again.</span>");
-        // Viewing a saved reading is read-only: every control is disabled and only Delete posts.
-        assertThat(jsp).contains("saveAction = \"encounter/oscarMeasurements/DeleteData2\";")
+                        + "Recorded under an earlier option list; shown for reference only and not saved again.</span>")
+                .contains("saveAction = \"encounter/oscarMeasurements/DeleteData2\";")
                 .contains("Array.from(f.elements).forEach(function(el) { el.disabled = true; });")
                 .contains("<input type=\"submit\" name=\"delete\" value=\"Delete\" id=\"deleteButton\"/>");
     }

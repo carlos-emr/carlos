@@ -109,6 +109,9 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         String[] lowerBound = this.getLowerBound();
         String[] abnormalCheckbox = this.getAbnormalCheckbox();
         boolean valid = true;
+        // The hidden type/instruction fields are echoes of the session definitions; anything else
+        // is a tampered request and its row is skipped, here and in the report loop.
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (abnormalCheckbox != null) {
 
@@ -118,7 +121,10 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 String endDate = endDateC[ctr];
                 String upper = upperBound[ctr];
                 String lower = lowerBound[ctr];
-                String measurementType = (String) this.getValue("measurementTypeC" + ctr);
+                String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeC" + ctr));
+                if (measurementType == null) {
+                    continue;
+                }
                 String sNumMInstrc = (String) this.getValue("mNbInstrcsC" + ctr);
                 int iNumMInstrc = Integer.parseInt(sNumMInstrc);
                 String upperMsg = "The upper bound value of " + measurementType;
@@ -136,7 +142,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 }
                 for (int j = 0; j < iNumMInstrc; j++) {
 
-                    String mInstrc = (String) this.getValue("mInstrcsCheckboxC" + ctr + j);
+                    String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckboxC" + ctr + j));
                     if (mInstrc != null) {
                         List<Validations> vs = ectValidation.getValidationType(measurementType, mInstrc);
                         String regExp = null;
@@ -198,6 +204,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         String[] abnormalCheckbox = this.getAbnormalCheckbox();
         RptCheckGuideline checkGuideline = new RptCheckGuideline();
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (abnormalCheckbox != null) {
             try {
@@ -210,7 +217,11 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                     String endDate = endDateC[ctr];
                     String upper = upperBound[ctr];
                     String lower = lowerBound[ctr];
-                    String measurementType = (String) this.getValue("measurementTypeC" + ctr);
+                    // Only a type the server rendered for this row may drive the patient-wide queries.
+                    String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeC" + ctr));
+                    if (measurementType == null) {
+                        continue;
+                    }
                     String sNumMInstrc = (String) this.getValue("mNbInstrcsC" + ctr);
                     int iNumMInstrc = Integer.parseInt(sNumMInstrc);
                     double nbMetGL = 0;
@@ -220,7 +231,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                         metGLPercentage = 0;
                         nbMetGL = 0;
 
-                        String mInstrc = (String) this.getValue("mInstrcsCheckboxC" + ctr + j);
+                        String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckboxC" + ctr + j));
                         if (mInstrc != null) {
                             List<Object[]> os = dao.findLastEntered(ConversionUtils.fromDateString(startDate),
                                     ConversionUtils.fromDateString(endDate), measurementType, mInstrc);
