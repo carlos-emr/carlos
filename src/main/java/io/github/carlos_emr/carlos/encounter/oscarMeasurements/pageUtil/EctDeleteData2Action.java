@@ -63,6 +63,17 @@ public class EctDeleteData2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
+        // Deleting is a mutation: every caller (DisplayHistory.jsp, newHistoryIndex.jsp,
+        // AddMeasurementData.jsp and the Health Tracker's fetch) posts, and CSRFGuard only
+        // protects POST/PUT/DELETE/PATCH, so a GET here would let a link or an image tag in a
+        // logged-in session tombstone and delete a measurement without any token. Refuse it
+        // before any lookup, as HealthTrackerUpdate2Action does.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "d", null)) {
             throw new SecurityException("missing required sec object (_measurement)");

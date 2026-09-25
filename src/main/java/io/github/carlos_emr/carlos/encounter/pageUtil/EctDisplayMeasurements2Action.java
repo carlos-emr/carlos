@@ -121,7 +121,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             // Health Tracker: a single nav entry for the "tracker" flowsheet, which is
             // deliberately not registered as universal or dx-triggered so it never shows
             // up in either loop above. Off unless the health_tracker property is enabled.
-            if (CarlosProperties.getInstance().getBooleanProperty("health_tracker", "true")
+            if (CarlosProperties.getInstance().getBooleanProperty("health_tracker", "false")
                     && securityMgr.hasReadAccess("_flowsheet.tracker", roleName$)) {
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                 String dispname = getText("encounter.LeftNavBar.Tracker");

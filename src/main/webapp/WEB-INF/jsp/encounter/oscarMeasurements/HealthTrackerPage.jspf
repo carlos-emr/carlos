@@ -897,7 +897,7 @@
                                          + "&demographic_no=" + safeDemoNoUri) %>','addPreventionData')"
                                  data-bs-toggle="popover" data-bs-html="true" data-bs-trigger="hover focus"
                                  data-bs-content="<%= SafeEncode.forHtmlAttribute("Entered by: "
-                                         + SafeEncode.forHtmlContent(String.valueOf(hdata.get("provider_name")))
+                                         + SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull((String) hdata.get("provider_name")))
                                          + (com == null || com.isBlank() ? "" : "<br>" + SafeEncode.forHtmlContent(com))) %>">
                                 <p class="value">
                                     <% if ("pending".equals(presult) && "Completed".equals(refusedLabel)) { %>Pending<% } else { %><carlos:encode
