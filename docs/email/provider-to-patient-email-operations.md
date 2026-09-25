@@ -72,6 +72,60 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Credential Encryption Key
+
+Sender accounts that authenticate (an SMTP password, or a provider API key such
+as SendGrid's) store that secret in `emailConfig.configDetails`. CARLOS encrypts
+it at rest with the application key `encryption.util.secret.key`, the same key
+fax credentials use. A plaintext row inserted by hand is encrypted the first
+time it is used to send. An unauthenticated `LOCAL` relay never uses a secret
+and is never affected; a secret left on a `LOCAL` row is reported once so it can
+be removed.
+
+**Where the key comes from.** On its first start, CARLOS generates a key and
+saves it to the override properties file if none is set, and it refuses to start
+with an invalid one. A running server therefore always has a key. That makes the
+key itself the thing to protect:
+
+- **Back it up** with the rest of the server's configuration. Everything
+  encrypted with it, email and fax credentials alike, can only be decrypted with
+  that exact key.
+- **Never replace it** on a server that has been running. A new key does not
+  decrypt what the old one encrypted.
+- **If it is lost**, CARLOS starts with a newly generated key, written to the
+  override file, and the old credentials stop working. Replace that generated
+  key with the original and restart. Any credential entered while the generated
+  key was in use then stops working in turn, so re-enter it. If the original
+  cannot be recovered, keep the new key and re-enter every account's password or
+  API key.
+
+**What a send does** before it opens any connection:
+
+| Sender account | Result |
+|---|---|
+| Encrypted credentials that decrypt with the current key | Sent. |
+| Encrypted credentials that do **not** decrypt (the key was changed or regenerated) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
+| Plaintext credentials, key available | Encrypted at rest (best-effort: if that write fails, it is retried on the next send), then sent. |
+| Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured." |
+
+Every refusal is written to the audit log as
+`EmailManager.sendEmail.refusedCredentialKey`. Logs name the account id and the
+setting only. They never contain the credential, the configuration JSON or the
+key. At startup CARLOS logs whether the enforcement setting is on, and warns if
+its value is not one it recognises.
+
+### Rollout
+
+1. Confirm `encryption.util.secret.key` is present in the override properties
+   on every server and is backed up. Do not generate or paste in a new one on a
+   server that is already running.
+2. Send a non-PHI test message from each credentialed account. Each plaintext
+   row is encrypted on that first send.
+3. Optionally set `email.credentials.require_encryption_key=true` and restart.
+   With Startup in place this changes nothing day to day. It is a guard for
+   deployments or tools that run CARLOS code without Startup, and against a
+   future change to key creation.
+
 ## Local Development
 
 Local development must not send real patient email.
@@ -221,6 +275,8 @@ subjects, body text, and password clues accordingly.
 - Email transport secrets and PDF password exposure:
   [issue #3112](https://github.com/carlos-emr/carlos/issues/3112) /
   [PR #3130](https://github.com/carlos-emr/carlos/pull/3130).
+- Require the encryption key for credentialed email:
+  [issue #3673](https://github.com/carlos-emr/carlos/issues/3673).
 - Temp PDF cleanup:
   [issue #3114](https://github.com/carlos-emr/carlos/issues/3114).
 - Single message field:
