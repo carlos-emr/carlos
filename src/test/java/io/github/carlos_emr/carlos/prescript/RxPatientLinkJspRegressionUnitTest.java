@@ -309,6 +309,16 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("legacy favorite forms submit the rendered card key instead of its movable position")
+    void shouldSubmitStableKey_whenFavoritingLegacyStagedCard() throws IOException {
+        assertThat(read("rx/WriteScript.jsp"))
+                .contains("name=\"randomId\" value=\"\"")
+                .contains("form.elements['randomId'].value = randomId")
+                .contains("javascript:addFavorite('${rx2.randomId}'")
+                .doesNotContain("javascript:addFavorite('${loopStatus.index}'");
+    }
+
+    @Test
     @DisplayName("should render the Rx Print patient chooser without any per-patient Rx state")
     void shouldRenderPrintChooser_withoutRxPatient() throws IOException {
         // The chooser runs before a patient is chosen; resolving a bean sent a session with no open

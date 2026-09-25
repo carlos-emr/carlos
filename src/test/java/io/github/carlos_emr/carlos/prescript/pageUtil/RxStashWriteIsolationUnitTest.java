@@ -492,7 +492,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         @DisplayName("should not favourite a staged card when the request names no patient")
         void shouldNotFavouriteStagedCard_whenRequestNamesNoPatient() throws Exception {
             RxAddFavorite2Action action = new RxAddFavorite2Action();
-            action.setStashId("0");
+            request.setParameter("randomId", "111111");
             action.setFavoriteName("fav");
 
             action.execute();
@@ -506,7 +506,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         void shouldFavouriteStagedCard_whenRequestNamesPatient() throws Exception {
             namePatient();
             RxAddFavorite2Action action = new RxAddFavorite2Action();
-            action.setStashId("0");
+            request.setParameter("randomId", "111111");
             action.setFavoriteName("fav");
 
             String result = action.execute();
@@ -602,13 +602,13 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        @ParameterizedTest(name = "stashId={0}")
+        @ParameterizedTest(name = "randomId={0}")
         @ValueSource(strings = {"2", "99", "-1", "abc"})
-        @DisplayName("should favourite nothing for an out-of-range or malformed card position")
-        void shouldRejectFavourite_whenCardPositionInvalid(String stashId) throws Exception {
+        @DisplayName("should favourite nothing for an unknown or malformed card key")
+        void shouldRejectFavourite_whenCardKeyInvalid(String randomId) throws Exception {
             namePatient();
             RxAddFavorite2Action action = new RxAddFavorite2Action();
-            action.setStashId(stashId);
+            request.setParameter("randomId", randomId);
             action.setFavoriteName("fav");
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);

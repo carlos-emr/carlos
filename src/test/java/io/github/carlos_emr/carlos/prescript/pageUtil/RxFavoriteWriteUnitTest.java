@@ -251,9 +251,8 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
                 request.setParameter("favoriteName", "chosen");
                 assertThat(add.addFav2()).isEqualTo(ActionSupport.NONE);
             } else {
-                add.setStashId("1");
+                request.setParameter("randomId", "222");
                 add.setFavoriteName("chosen");
-                bean.armSizeCheck();
                 assertThat(add.execute()).isEqualTo(ActionSupport.SUCCESS);
             }
             bean.awaitCompletion();
@@ -263,6 +262,49 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
             verify(third, never()).AddToFavorites(anyString(), anyString());
             assertThat(bean.getStashList()).containsExactly(selected, third);
         }
+    }
+
+    @Test
+    @DisplayName("a legacy favorite form keeps its target after an earlier card was already closed")
+    void shouldFavoriteByStableKey_whenEarlierCardWasClosedBeforeRequest() throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+        RxPrescriptionData.Prescription first = mock(RxPrescriptionData.Prescription.class);
+        RxPrescriptionData.Prescription selected = mock(RxPrescriptionData.Prescription.class);
+        RxPrescriptionData.Prescription third = mock(RxPrescriptionData.Prescription.class);
+        when(selected.getRandomId()).thenReturn(222L);
+        when(third.getRandomId()).thenReturn(333L);
+        bean.getStashList().addAll(List.of(first, selected, third));
+        bean.removeStashItem(0);
+        RxAddFavorite2Action add = new RxAddFavorite2Action();
+        add.setStashId("1"); // The former position now belongs to a different medication.
+        add.setFavoriteName("chosen");
+        request.setParameter("randomId", "222");
+
+        assertThat(add.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(selected).AddToFavorites(PROVIDER_NO, "chosen");
+        verify(third, never()).AddToFavorites(anyString(), anyString());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {"invalid", "999999"})
+    @DisplayName("legacy positional-only or stale favorite requests cannot save another card")
+    void shouldRejectLegacyFavorite_whenStableKeyIsMissingOrInvalid(String key) throws Exception {
+        RxSessionBean bean = openRxForWrite(1001);
+        RxPrescriptionData.Prescription card = mock(RxPrescriptionData.Prescription.class);
+        when(card.getRandomId()).thenReturn(222L);
+        bean.getStashList().add(card);
+        RxAddFavorite2Action add = new RxAddFavorite2Action();
+        add.setStashId("0");
+        add.setFavoriteName("chosen");
+        if (key != null) request.setParameter("randomId", key);
+
+        assertThat(add.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(card, never()).AddToFavorites(anyString(), anyString());
+        assertThat(bean.getStashList()).containsExactly(card);
     }
 
     @ParameterizedTest(name = "AJAX={0}, patient={1}")

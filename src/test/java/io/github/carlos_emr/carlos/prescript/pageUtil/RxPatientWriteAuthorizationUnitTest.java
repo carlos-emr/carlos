@@ -596,7 +596,7 @@ class RxPatientWriteAuthorizationUnitTest {
             case "addFavorite.execute":
                 return () -> {
                     RxAddFavorite2Action action = new RxAddFavorite2Action();
-                    action.setStashId("0");
+                    request.setParameter("randomId", String.valueOf(cardKey));
                     action.setFavoriteName("fav");
                     action.execute();
                 };

@@ -841,7 +841,7 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
     <form id="addFavoriteWriteScriptForm" method="post" action="<%= request.getContextPath() %>/rx/addFavoriteWriteScript" style="display:none">
-        <input type="hidden" name="stashId" value=""/>
+        <input type="hidden" name="randomId" value=""/>
         <input type="hidden" name="favoriteName" value=""/>
         <%-- The staged card is looked up in this window's patient's stash only (#3875). --%>
         <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
@@ -1479,13 +1479,13 @@
                                         "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                 }
 
-                                function addFavorite(stashId, brandName) {
+                                function addFavorite(randomId, brandName) {
                                     var favoriteName = window.prompt('Please enter a name for the Favorite:',
                                         brandName);
 
                                     if (favoriteName !== null && favoriteName.length > 0) {
                                         var form = document.getElementById('addFavoriteWriteScriptForm');
-                                        form.elements['stashId'].value = stashId;
+                                        form.elements['randomId'].value = randomId;
                                         form.elements['favoriteName'].value = favoriteName;
                                         form.submit();
                                     }
@@ -1528,7 +1528,7 @@
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>

@@ -65,7 +65,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
      * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
      *
      * A saved drug ({@code drugId}) is favourited without touching any stash; a staged card is chosen by
-     * its position in the named patient's stash, and a malformed or out-of-range position is a 400.
+     * its stable key in the named patient's stash; a missing, malformed or stale key is a 400.
      *
      * @return {@code success}, {@code NONE} after an error response, or {@code null} after a redirect
      * @throws SecurityException when the caller may not write Rx for the patient
@@ -88,7 +88,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
         }
 
         // A saved drug is favourited without touching any stash, but only after authorising the
-        // patient that drug belongs to (#3908). A staged card is looked up by position in the named
+        // patient that drug belongs to (#3908). A staged card is looked up by key in the named
         // patient's stash, never the no-patient fallback, so a stale window cannot favourite
         // another patient's draft (#3875).
         if (this.getDrugId() != null) {
@@ -103,11 +103,11 @@ public final class RxAddFavorite2Action extends ActionSupport {
         synchronized (bean) {
             String providerNo = bean.getProviderNo();
 
-            // The card's position in the named patient's stash; a malformed or out-of-range
-            // position names no staged item, so nothing is favourited.
+            // The rendered card's key remains stable when another window closes an earlier
+            // card. A positional stashId from an older page must never select a different drug.
             int stashIndex;
             try {
-                stashIndex = Integer.parseInt(this.getStashId());
+                stashIndex = bean.getIndexFromRx(Integer.parseInt(request.getParameter("randomId")));
             } catch (NumberFormatException _) {
                 stashIndex = -1;
             }
