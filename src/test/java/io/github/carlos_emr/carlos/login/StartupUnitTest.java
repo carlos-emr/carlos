@@ -1,14 +1,17 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.security.NoSuchAlgorithmException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -27,6 +30,7 @@ import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -40,6 +44,12 @@ import static org.mockito.Mockito.when;
 @Isolated
 @Tag("unit")
 class StartupUnitTest extends CarlosUnitTestBase {
+
+    /**
+     * The placeholder key defined by {@code /WEB-INF/carlosmergekey.properties}. Kept in sync with that
+     * fixture; it is the value that must never overwrite a real generated key.
+     */
+    private static final String WEB_INF_PLACEHOLDER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
     @Test
     @Tag("delete")
@@ -313,8 +323,9 @@ class StartupUnitTest extends CarlosUnitTestBase {
         Object originalKeySpec = keySpecField.get(null);
 
         CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
         String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
 
         Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
         Files.createDirectories(webappRoot);
@@ -325,6 +336,9 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
         try {
             System.setProperty("user.home", tempDir.toString());
+            // Key-handling test, so give Startup real deployment config to find: packaged defaults no
+            // longer count, so without a config file it fails fast (shouldAbortStartup_whenNoConfigFileExists).
+            writeDeploymentConfig(tempDir, "carlos");
             String existingKey = EncryptionUtils.generateSecretKey();
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, existingKey);
             keySpecField.set(null, null);
@@ -339,7 +353,8 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
         } finally {
             restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
+            props.clear();
+            props.putAll(snapshot);
             keySpecField.set(null, originalKeySpec);
         }
     }
@@ -406,13 +421,16 @@ class StartupUnitTest extends CarlosUnitTestBase {
         Object originalKeySpec = keySpecField.get(null);
 
         CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
         String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
 
         ServletContextEvent event = newStartupEvent(tempDir);
 
         try {
             System.setProperty("user.home", tempDir.toString());
+            // See the sibling key test: config must exist before Startup reaches key generation.
+            writeDeploymentConfig(tempDir, "carlos");
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
             keySpecField.set(null, null);
 
@@ -428,7 +446,8 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
         } finally {
             restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
+            props.clear();
+            props.putAll(snapshot);
             keySpecField.set(null, originalKeySpec);
         }
     }
@@ -463,6 +482,407 @@ class StartupUnitTest extends CarlosUnitTestBase {
             restoreUserHome(originalUserHome);
             props.clear();
             props.putAll(snapshot);
+        }
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should treat missing or key-only DB config as insufficient for the WEB-INF merge")
+    void shouldFlagMissingDbConfig_asInsufficientForWebInfMerge() {
+        // The fallback is keyed on a usable DB connection, not the size of the properties bag:
+        // a key-only stub and non-DB boilerplate both count as "no DB config yet".
+        Properties keyOnly = new Properties();
+        keyOnly.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
+        assertThat(Startup.hasDatabaseConfiguration(keyOnly)).isFalse();
+
+        // Empty set: no DB config.
+        assertThat(Startup.hasDatabaseConfiguration(new Properties())).isFalse();
+
+        // Non-DB boilerplate only (classpath /carlos.properties pollution): still no DB config.
+        Properties boilerplate = new Properties();
+        boilerplate.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
+        boilerplate.setProperty("buildVersion", "test-build");
+        boilerplate.setProperty("confidentiality_statement.v1", "synthetic notice");
+        assertThat(Startup.hasDatabaseConfiguration(boilerplate)).isFalse();
+
+        // A blank db_username is treated as absent, not as usable config.
+        Properties blankUsername = new Properties();
+        blankUsername.setProperty("db_username", "   ");
+        assertThat(Startup.hasDatabaseConfiguration(blankUsername)).isFalse();
+
+        // Real DB config present (with or without a key) must NOT trigger a re-read.
+        Properties keyPlusConfig = new Properties();
+        keyPlusConfig.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
+        keyPlusConfig.setProperty("db_username", "carlos_test_user");
+        assertThat(Startup.hasDatabaseConfiguration(keyPlusConfig)).isTrue();
+
+        Properties configNoKey = new Properties();
+        configNoKey.setProperty("db_username", "carlos_test_user");
+        assertThat(Startup.hasDatabaseConfiguration(configNoKey)).isTrue();
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should preserve WEB-INF config when a second startup sees a key-only user-home stub")
+    void shouldPreserveWebInfConfig_whenSecondStartupSeesKeyOnlyUserHomeStub(@TempDir Path tempDir) throws Exception {
+        // Regression for issue #2969, the exact two-startup scenario the maintainer asked to cover.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+
+        // CarlosProperties is a process-wide singleton pre-populated from /carlos.properties. Snapshot
+        // and clear it so each simulated boot starts from a known-empty set (a fresh JVM). Restored
+        // in finally so other tests in the JVM are unaffected.
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmerge" -> propName "carlosmerge.properties" -> WEB-INF resource
+        // /WEB-INF/carlosmerge.properties (src/test/resources). The unique name keeps this test from
+        // colliding with shouldAbortStartup_whenNoConfigFileExists, which drives "carlos" and relies
+        // on the WEB-INF read failing.
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmerge");
+        Path userHomeStub = tempDir.resolve("carlosmerge.properties");
+
+        try {
+            System.setProperty("user.home", tempDir.toString()); // no carlosmerge.properties here yet
+
+            // --- Boot 1: user-home empty; config comes from WEB-INF (no key) -> key generated+persisted.
+            props.clear();
+            keySpecField.set(null, null);
+
+            new Startup().contextInitialized(event);
+
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            String generatedKey = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            assertThat(generatedKey).isNotBlank();
+
+            // The persisted user-home file is a stub containing ONLY the key - the shadowing hazard.
+            assertThat(userHomeStub).exists();
+            Properties stub = new Properties();
+            try (var in = Files.newInputStream(userHomeStub)) {
+                stub.load(in);
+            }
+            assertThat(stub).containsOnlyKeys(EncryptionUtils.SECRET_KEY_ENV_VAR);
+
+            // --- Boot 2: fresh JVM (clear singleton). user-home now holds the key-only stub.
+            props.clear();
+            keySpecField.set(null, null);
+
+            new Startup().contextInitialized(event);
+
+            // The fix: the key-only stub must NOT suppress the WEB-INF config. Before the fix, the
+            // p.isEmpty()==false guard skipped WEB-INF and the app booted with a key but no DB config.
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // The previously generated key is reused as-is (not rotated).
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(generatedKey);
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should keep the user-home key when the WEB-INF fallback carries a different placeholder key")
+    void shouldKeepUserHomeKey_whenWebInfFallbackHasDifferentPlaceholderKey(@TempDir Path tempDir) throws Exception {
+        // Regression for the issue #2969 review follow-up: when the user-home stub holds a real
+        // generated key and the WEB-INF fallback ALSO defines encryption.util.secret.key (a
+        // default/placeholder), a plain Properties.load() merge would overwrite the real key with the
+        // placeholder, breaking decryption of everything encrypted since the key was generated. The
+        // merge must load DB config from WEB-INF while preserving the user-home key.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+
+        // CarlosProperties is a process-wide singleton; snapshot and clear so this boot starts from a
+        // known-empty set (a fresh JVM). Restored in finally so other tests are unaffected.
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmergekey" -> /WEB-INF/carlosmergekey.properties (DB config + placeholder key).
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmergekey");
+
+        // The user-home stub already holds ONLY a real, valid generated key: the prior-boot state that
+        // #2969 leaves behind. Written directly here so the scenario is deterministic (no reliance on a
+        // preceding boot).
+        String userHomeKey = EncryptionUtils.generateSecretKey();
+        Path userHomeStub = tempDir.resolve("carlosmergekey.properties");
+        Properties stub = new Properties();
+        stub.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, userHomeKey);
+        try (var out = Files.newOutputStream(userHomeStub)) {
+            stub.store(out, "issue #2969 regression stub - key only");
+        }
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            props.clear();
+            keySpecField.set(null, null);
+
+            new Startup().contextInitialized(event);
+
+            // DB config is loaded from WEB-INF...
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // ...but the real user-home key survives the merge - the WEB-INF placeholder must not win.
+            // The overwrite hazard comes from Properties.load() of a /WEB-INF/ file that also defines
+            // encryption.util.secret.key; the retain-existingKey line above guards it.
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(userHomeKey);
+
+            // The preserved key is valid and prepared, so encryption round-trips under the real key.
+            assertThat(keySpecField.get(null)).isNotNull();
+            String encrypted = EncryptionUtils.encrypt("merge-guard-password");
+            assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("merge-guard-password");
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should load WEB-INF config when singleton carries only non-DB defaults and user-home is a key-only stub")
+    void shouldLoadWebInfConfig_whenSingletonHasNonDbDefaultsAndUserHomeIsKeyOnlyStub(@TempDir Path tempDir) throws Exception {
+        // The singleton is pre-loaded from classpath /carlos.properties (non-DB boilerplate). With no DB
+        // config there, a key-only user-home stub must still trigger the WEB-INF merge - so this test
+        // seeds boilerplate instead of clearing the singleton, unlike the sibling tests.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmerge" -> /WEB-INF/carlosmerge.properties (db config, no key).
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmerge");
+        Path userHomeStub = tempDir.resolve("carlosmerge.properties");
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            keySpecField.set(null, null);
+
+            // Classpath /carlos.properties contribution: non-DB boilerplate, no DB config.
+            props.clear();
+            props.setProperty("buildVersion", "test-build");
+            props.setProperty("confidentiality_statement.v1", "synthetic notice");
+
+            // user-home holds ONLY a real generated key - the second-boot stub.
+            String userHomeKey = EncryptionUtils.generateSecretKey();
+            Properties stub = new Properties();
+            stub.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, userHomeKey);
+            try (var out = Files.newOutputStream(userHomeStub)) {
+                stub.store(out, "issue #2969 key-only stub");
+            }
+
+            new Startup().contextInitialized(event);
+
+            // The key-only user-home stub must NOT suppress the WEB-INF DB config merge.
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // The real user-home key survives (carlosmerge WEB-INF defines no key of its own).
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(userHomeKey);
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should load WEB-INF config when the packaged defaults already supply a db username")
+    void shouldLoadWebInfConfig_whenPackagedDefaultsAlreadySupplyDbUsername(@TempDir Path tempDir) throws Exception {
+        // The deployed shape the sibling test hand-seeds away: CarlosProperties pre-loads the packaged
+        // /carlos.properties (shipped in the WAR at WEB-INF/classes/), which supplies a db_username. A
+        // guard reading the merged singleton therefore sees "configured", skips the /WEB-INF/ fallback,
+        // and leaves the deployment on packaged defaults - the #2969 symptom. Loads the real resource
+        // rather than a stand-in so the test stays honest if those defaults change.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmerge" -> /WEB-INF/carlosmerge.properties (db config, no key).
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmerge");
+        Path userHomeStub = tempDir.resolve("carlosmerge.properties");
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            keySpecField.set(null, null);
+
+            // The real packaged defaults, exactly as the CarlosProperties constructor loads them.
+            props.clear();
+            props.readFromFile("/carlos.properties");
+            assertThat(props.getProperty("db_username"))
+                    .as("packaged /carlos.properties must ship a db_username; without it this test no "
+                            + "longer reproduces the #2969 regression")
+                    .isNotBlank();
+            // Keeps the trailing BASE_DOCUMENT_DIR block from calling mkdirs() outside @TempDir.
+            props.remove("BASE_DOCUMENT_DIR");
+
+            // user-home holds ONLY a real generated key - the second-boot stub.
+            String userHomeKey = EncryptionUtils.generateSecretKey();
+            Properties stub = new Properties();
+            stub.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, userHomeKey);
+            try (var out = Files.newOutputStream(userHomeStub)) {
+                stub.store(out, "issue #2969 key-only stub");
+            }
+
+            new Startup().contextInitialized(event);
+
+            // Packaged defaults are not real configuration: the WEB-INF merge must still run and win.
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // The real user-home key survives (carlosmerge WEB-INF defines no key of its own).
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(userHomeKey);
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should abort startup when the user-home config exists but cannot be read")
+    void shouldAbortStartup_whenUserHomeConfigExistsButIsUnreadable(@TempDir Path tempDir) throws Exception {
+        // Regression for the issue #2969 review follow-up (cubic-dev-ai P2): a config file that exists
+        // but cannot be opened (wrong permissions, wrong Tomcat user, untraversable parent directory)
+        // must not be mistaken for an absent one. If it is, the deployment key never reaches
+        // existingKey, the /WEB-INF/ placeholder key wins, and CARLOS boots unable to decrypt anything
+        // stored since the real key was generated. Startup must refuse to boot instead.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+        Startup.ConfigFileOpener originalOpener = Startup.configFileOpener;
+
+        // Context "carlosmergekey" -> /WEB-INF/carlosmergekey.properties, which defines a placeholder
+        // key. That placeholder is exactly what must not win when the real key is unreachable.
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmergekey");
+
+        String userHomeKey = EncryptionUtils.generateSecretKey();
+        Path userHomeStub = tempDir.resolve("carlosmergekey.properties");
+        Properties stub = new Properties();
+        stub.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, userHomeKey);
+        try (var out = Files.newOutputStream(userHomeStub)) {
+            stub.store(out, "issue #2969 regression stub - key only, made unreadable below");
+        }
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            props.clear();
+            keySpecField.set(null, null);
+
+            // The file is present on disk; only opening it fails, which is exactly what
+            // AccessDeniedException reports. Permissions cannot express this when the suite runs as
+            // root, so the seam stands in for the OS. Matched on the file name rather than the full
+            // path because production canonicalizes the path before opening it.
+            Startup.configFileOpener = file -> {
+                if (file.getFileName().toString().equals("carlosmergekey.properties")) {
+                    throw new AccessDeniedException(file.toString(), null, "Permission denied");
+                }
+                return Files.newInputStream(file);
+            };
+
+            Throwable thrown = catchThrowable(() -> new Startup().contextInitialized(event));
+
+            // Asserted before the abort so a regression reports the actual harm - the placeholder key
+            // being adopted - rather than only the missing exception.
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR))
+                    .as("the /WEB-INF/ placeholder key must not be adopted when the real key is "
+                            + "unreachable; booting on with it silently breaks decryption of everything "
+                            + "stored since the real key was generated")
+                    .isNotEqualTo(WEB_INF_PLACEHOLDER_KEY);
+
+            assertThat(thrown)
+                    .as("an unreadable deployment config must abort startup, not fall through to the "
+                            + "/WEB-INF/ placeholder key")
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("carlosmergekey.properties")
+                    // Pin the abort to the unreadable-config path specifically. The competing abort -
+                    // "Configuration file <name> not found in user home or WEB-INF" - carries the same
+                    // file name, so without these two the test would also pass on the wrong failure.
+                    .hasMessageContaining("could not be read")
+                    .hasRootCauseInstanceOf(AccessDeniedException.class);
+        } finally {
+            Startup.configFileOpener = originalOpener;
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should report an absent user-home config once, not once per read pass")
+    void shouldReportAbsentUserHomeConfigOnce_whenFallingBackToWebInf(@TempDir Path tempDir) throws Exception {
+        // Regression for the issue #2969 review follow-up (cubic-dev-ai P3): the user-home file used to
+        // be opened twice per startup - once by readDeploymentProperties to decide the /WEB-INF/
+        // fallback, and again by a second p.readFromFile pass. A duplicate read leaves no trace in the
+        // resulting Properties, so the observable symptom is the duplicated "not found" line. Asserting
+        // on that pins single-read behaviour without reaching into the I/O layer.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmerge" -> /WEB-INF/carlosmerge.properties, which supplies DB config and no
+        // key, so startup completes through the fallback instead of aborting.
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmerge");
+        String absentConfig = tempDir.resolve("carlosmerge.properties").toString();
+
+        try {
+            System.setProperty("user.home", tempDir.toString()); // deliberately holds no config file
+            props.clear();
+            keySpecField.set(null, null);
+
+            List<String> messages;
+            try (LogCapture capture = LogCapture.forLogger(Startup.class)) {
+                new Startup().contextInitialized(event);
+                messages = capture.messages();
+            }
+
+            assertThat(messages)
+                    .as("an absent user-home config must be reported once per startup; two identical "
+                            + "lines mean the file is still being opened twice")
+                    .filteredOn(message -> message.equals(absentConfig + " not found"))
+                    .hasSize(1);
+
+            // Sanity check: the fallback still ran, so the single read is not masking a skipped load.
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
         }
     }
 
@@ -504,13 +924,35 @@ class StartupUnitTest extends CarlosUnitTestBase {
     }
 
     private static ServletContextEvent newStartupEvent(Path tempDir) throws Exception {
-        Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
+        return newStartupEvent(tempDir, "carlos");
+    }
+
+    /**
+     * Builds a startup event whose webapp context resolves to {@code contextName}. Startup derives the
+     * properties file name ({@code <contextName>.properties}) from the webapp directory name, which in
+     * turn selects the {@code /WEB-INF/<contextName>.properties} resource read on the fallback path.
+     */
+    private static ServletContextEvent newStartupEvent(Path tempDir, String contextName) throws Exception {
+        Path webappRoot = tempDir.resolve("webapps").resolve(contextName);
         Files.createDirectories(webappRoot);
         ServletContextEvent event = mock(ServletContextEvent.class);
         ServletContext servletContext = mock(ServletContext.class);
         when(event.getServletContext()).thenReturn(servletContext);
         when(servletContext.getResource("/")).thenReturn(webappRoot.toUri().toURL());
         return event;
+    }
+
+    /**
+     * Writes the minimal deployment-supplied config Startup needs to get past the {@code /WEB-INF/}
+     * fallback decision. Synthetic values only - no real credentials.
+     */
+    private static void writeDeploymentConfig(Path tempDir, String contextName) throws IOException {
+        Properties config = new Properties();
+        config.setProperty("db_username", "carlos_test_user");
+        config.setProperty("db_name", "carlos_test_db");
+        try (var out = Files.newOutputStream(tempDir.resolve(contextName + ".properties"))) {
+            config.store(out, "deployment-supplied config for StartupUnitTest");
+        }
     }
 
     private static void restoreUserHome(String originalUserHome) {
