@@ -99,11 +99,22 @@ const FORM_TABLES = {
   'Lab Req': 'formLabReq',
 };
 
+/**
+ * The field this check stamps so the row it creates can be told from every other row.
+ *
+ * "Additional Clinical Information" is a free-text area on all three requisitions, and it lands in
+ * the `aci` column of each of their tables. Stamping it is what makes cleanup an identity rather
+ * than a guess: a snapshot difference or an id range would also capture a row a clinician or a
+ * concurrent check saved for the same patient while this one was running, and that is real chart
+ * data.
+ */
+const STAMP_FIELD = 'aci';
+
 const fixture = {
   sql: null,
   table: '',
-  /** Ids present BEFORE this run, so cleanup can delete the difference and nothing else. */
-  idsBefore: null,
+  /** The marker this run types into the form; the only thing that identifies its row. */
+  stamp: '',
   demographicNo: '',
   sessionId: '',
 };
@@ -122,43 +133,39 @@ function sqlNumber(value, what) {
  * PASS the assertions earned.
  */
 async function cleanup() {
-  const { sql, table, idsBefore, demographicNo, sessionId } = fixture;
+  const { sql, table, stamp, demographicNo, sessionId } = fixture;
   if (!sql) {
     return;
   }
   const statements = [];
-  if (table && idsBefore && demographicNo) {
-    // THE DIFFERENCE OF TWO SNAPSHOTS, NOT A RANGE. Print saves the record before it renders, so an
-    // assertion that fails after the POST still leaves a row behind -- which is why this is resolved
-    // in the cleanup hook rather than at the end of the run. It deletes only ids that were ABSENT
-    // before this run started: a range like "id > mark" would also take a row a clinician or another
-    // check wrote for the same patient while this one was running, and that row is real chart data.
-    let created = [];
-    try {
-      created = sql.rows(`SELECT ID FROM ${table} WHERE demographic_no = ${demographicNo}`)
-        .map((row) => row[0])
-        .filter((id) => /^\d+$/.test(id) && !idsBefore.has(id));
-    } catch (error) {
-      throw new Error(`the check could not list what it wrote (${(error && error.message) || 'query failed'})`);
-    }
-    if (created.length) {
-      statements.push(['the form rows this run saved',
-        `DELETE FROM ${table} WHERE ID IN (${created.join(',')})`]);
-    }
+  if (table && stamp) {
+    // IDENTIFIED BY THE STAMP THIS RUN TYPED, not by an id range or a snapshot difference: both of
+    // those also match a row a clinician or a concurrent check saved for the same patient while
+    // this one was running. Resolved in the cleanup hook rather than at the end of the run because
+    // Print saves the record before it renders, so an assertion that fails after the POST would
+    // otherwise leave the row behind.
+    statements.push(['the form rows this run saved',
+      `DELETE FROM ${table} WHERE ${STAMP_FIELD} LIKE '${stamp}%'`]);
   }
   if (demographicNo && sessionId) {
     statements.push(['this session\'s note lock',
       `DELETE FROM casemgmt_note_lock WHERE demographic_no = ${demographicNo} AND session_id = '${sessionId}'`]);
   }
   const failures = [];
-  for (const [what, statement] of statements) {
-    try {
-      sql.execute(statement);
-    } catch (error) {
-      failures.push(`${what}: ${(error && error.message) || 'delete failed'}`);
+  try {
+    for (const [what, statement] of statements) {
+      try {
+        sql.execute(statement);
+      } catch (error) {
+        failures.push(`${what}: ${(error && error.message) || 'delete failed'}`);
+      }
     }
+  } finally {
+    // ALWAYS, EVEN ON THE WAY OUT OF A THROW. createSqlRunner() writes MYSQL_PASSWORD into a
+    // temporary client.cnf, and dispose() is what removes it; a failure that skipped this would
+    // leave the credential on disk.
+    sql.dispose();
   }
-  sql.dispose();
   if (failures.length) {
     throw new Error(`the check could not remove what it wrote (${failures.join('; ')})`);
   }
@@ -241,14 +248,11 @@ async function main() {
     const menuUrl = await formMenuUrl(chartPage, formName);
     assert(menuUrl, `the chart's Forms menu offers no entry for ${formName}, so the print flow cannot be driven`);
 
-    // THE SNAPSHOT, TAKEN BEFORE ANYTHING IS WRITTEN. Print saves the record, and the cleanup has
-    // to remove that row without touching a clinician's: it deletes the difference between this set
-    // and the one it reads afterwards, so a row somebody else writes for the same patient meanwhile
-    // is not in range.
-    fixture.idsBefore = new Set(
-      sql.rows(`SELECT ID FROM ${table} WHERE demographic_no = ${fixture.demographicNo}`)
-        .map((row) => row[0]),
-    );
+    // THE STAMP, RECORDED BEFORE ANYTHING IS WRITTEN. Print saves the record, and cleanup has to
+    // remove that row without touching a clinician's. Typed into the form below, so the row carries
+    // it and can be named exactly -- unlike an id range or a snapshot difference, both of which also
+    // match whatever somebody else saved for this patient while the check was running.
+    fixture.stamp = `PW_FORM_PRINT_${Date.now()}`;
 
     // Every response the form window and its popups make for this action, with
     // the status and content type each answered.
@@ -267,6 +271,13 @@ async function main() {
     formPage.on('response', record);
     await formPage.goto(new URL(menuUrl, config.baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- the URL comes from the application's own rendered Forms menu, resolved against the validated base URL
     await formPage.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
+
+    // Stamp the record before printing: Print saves it, so the stamp is what cleanup will find.
+    const stampField = formPage.locator(`textarea[name="${STAMP_FIELD}"], input[name="${STAMP_FIELD}"]`).first();
+    assert(await stampField.count() > 0,
+      `${formName} renders no ${STAMP_FIELD} field, so the row this check is about to create could `
+      + 'not be told apart from a clinician\'s afterwards');
+    await stampField.fill(fixture.stamp);
 
     const printButton = formPage.locator('input[value*="Print" i], button:has-text("Print"), a:has-text("Print")').first();
     assert(await printButton.count() > 0,
@@ -296,11 +307,11 @@ async function main() {
       `Print answered ${JSON.stringify(posts.map((post) => post.contentType))} rather than application/pdf; `
       + 'the request succeeded but what came back is not the form');
 
-    // Print saves the record before it renders, so a row this run did not see before must exist.
-    const created = sql.rows(`SELECT ID FROM ${table} WHERE demographic_no = ${fixture.demographicNo}`)
-      .map((row) => row[0])
-      .filter((id) => !fixture.idsBefore.has(id));
-    assert(created.length > 0,
+    // Print saves the record before it renders, so the stamped row must exist.
+    const created = Number(sql.value(
+      `SELECT COUNT(*) FROM ${table} WHERE ${STAMP_FIELD} LIKE '${fixture.stamp}%'`,
+    ) || '0');
+    assert(created > 0,
       'Print returned a PDF but saved no form row, so the record it printed was never stored');
 
     console.log(`  ${formName}: Print answered 200 application/pdf for the selected patient`);
