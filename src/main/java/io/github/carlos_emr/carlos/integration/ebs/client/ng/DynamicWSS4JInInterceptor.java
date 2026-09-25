@@ -28,9 +28,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * CXF interceptor that configures the inbound WSS4J action list from the content of the
@@ -43,19 +47,20 @@ import java.util.Map;
  * previous implementation only ever configured one or two, which broke multi-file EDT, RA and
  * report downloads (issue #3868).</p>
  *
- * <p>Only {@code EncryptedKey} elements that are <em>direct</em> children of
- * {@code wsse:Security} are counted, because those are the only ones WSS4J's security engine
- * processes into an {@code Encrypt} result. Note also that WSS4J
- * ({@code WSHandler.checkReceiverResultsAnyOrder}) skips an {@code Encrypt} result that
- * decrypted nothing, so the exact invariant is one action per key that references at least one
- * {@code EncryptedData}; every MCEDT key does, so counting keys is equivalent here.</p>
+ * <p>The count is a prediction of the {@code Encrypt} results WSS4J will produce, not a raw
+ * element count: WSS4J's engine dispatches only the <em>direct</em> children of
+ * {@code wsse:Security}, and {@code WSHandler.checkReceiverResultsAnyOrder} skips an
+ * {@code Encrypt} result that decrypted nothing. {@link #scanEnvelope} documents the exact
+ * rule; for the MCEDT shape (one {@code EncryptedKey} per resource, each with a
+ * {@code ReferenceList}, and the attachments' {@code EncryptedData} in the header referenced by
+ * those keys) it reduces to one action per {@code EncryptedKey}.</p>
  *
  * <p>The resulting action list is:</p>
  * <ul>
  *   <li>0 {@code EncryptedKey} and no {@code EncryptedData}: {@code Timestamp Signature}</li>
  *   <li>0 {@code EncryptedKey} but {@code EncryptedData} present: one {@code Encrypt}
  *       (legacy fallback, logged as a warning)</li>
- *   <li>N {@code EncryptedKey} (1 &lt;= N &lt;= {@link #MAX_ENCRYPTED_KEYS}):
+ *   <li>N predicted {@code Encrypt} results (1 &lt;= N &lt;= {@link #MAX_ENCRYPTED_KEYS}):
  *       N {@code Encrypt} actions</li>
  *   <li>more than {@link #MAX_ENCRYPTED_KEYS}, or a malformed envelope or root part: the
  *       message is rejected with a {@link Fault} before WSS4J is configured (attachment parts
@@ -117,9 +122,10 @@ import java.util.Map;
 public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message> {
 
     /**
-     * Upper bound on the number of {@code EncryptedKey} elements accepted in one response.
+     * Upper bound on the number of predicted {@code Encrypt} results (see
+     * {@link #scanEnvelope}) accepted in one response.
      *
-     * <p>Each key becomes one WSS4J {@code Encrypt} action, and so one RSA key-unwrap during
+     * <p>Each one becomes one WSS4J {@code Encrypt} action, and so one RSA key-unwrap during
      * security processing. MCEDT limits a download request to a handful of resources (one key
      * for the body plus one per attachment), so 20 leaves ample headroom while preventing a
      * hostile or corrupted response from forcing unbounded action-list construction and
@@ -166,6 +172,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
 
     private static final String WSSE_NS = WSS4JConstants.WSSE_NS;
     private static final String XENC_NS = WSS4JConstants.ENC_NS;
+    private static final String WSU_NS = WSS4JConstants.WSU_NS;
     private static final String SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/";
     private static final String SOAP12_NS = "http://www.w3.org/2003/05/soap-envelope";
 
@@ -267,7 +274,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                 .append(ConfigurationConstants.TIMESTAMP).append(' ')
                 .append(ConfigurationConstants.SIGNATURE);
 
-        int encryptionCount = detection.encryptedKeyCount;
+        int encryptionCount = detection.encryptCount;
         if (encryptionCount == 0 && detection.hasEncryptedData) {
             // Preserves the pre-#3868 behaviour of one Encrypt action whenever EncryptedData was
             // present. Not expected from MCEDT, so surface it for diagnosis.
@@ -285,8 +292,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     static final class EncryptionDetectionResult {
         /** Whether any {@code xenc:EncryptedData} element appears in the envelope. */
         boolean hasEncryptedData;
-        /** Number of {@code xenc:EncryptedKey} elements inside {@code wsse:Security} headers. */
-        int encryptedKeyCount;
+        /**
+         * Predicted number of WSS4J {@code Encrypt} results from the {@code wsse:Security}
+         * headers; see {@link #scanEnvelope} for the rule.
+         */
+        int encryptCount;
     }
 
     /**
@@ -470,8 +480,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
 
         EncryptionDetectionResult result = scanEnvelope(
                 locateEnvelope(prefix, start, contentType, truncated));
-        logger.debug("Encryption detection result: hasEncryptedData={}, encryptedKeyCount={}",
-                result.hasEncryptedData, result.encryptedKeyCount);
+        logger.debug("Encryption detection result: hasEncryptedData={}, encryptCount={}",
+                result.hasEncryptedData, result.encryptCount);
         return result;
     }
 
@@ -778,15 +788,30 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Streams the envelope and counts {@code xenc:EncryptedKey} elements that are direct
-     * children of a {@code wsse:Security} header block ({@code Envelope/Header/Security}), the
-     * only ones WSS4J processes, and notes whether any {@code xenc:EncryptedData} is present.
-     * After the envelope only the XML epilog (whitespace, comments, processing instructions) is
-     * accepted.
+     * Streams the envelope and predicts how many {@code Encrypt} results WSS4J will produce
+     * from the {@code wsse:Security} header ({@code Envelope/Header/Security}), and notes
+     * whether any {@code xenc:EncryptedData} is present anywhere. WSS4J's engine dispatches only
+     * the <em>direct</em> children of {@code Security}, and its action check counts only results
+     * that decrypted something, so the prediction is:
+     * <ul>
+     *   <li>one per direct {@code xenc:EncryptedKey} that carries a {@code ReferenceList} (a
+     *       key-transport-only {@code EncryptedKey} yields a result with no data references,
+     *       which WSS4J skips);</li>
+     *   <li>one per direct {@code xenc:ReferenceList};</li>
+     *   <li>one per direct {@code xenc:EncryptedData} that no {@code DataReference} of those
+     *       direct children points at. A referenced one (the SwA attachment shape MCEDT uses)
+     *       is decrypted by the key that references it and removed from the header
+     *       ({@code EncryptionUtils.decryptAttachment}), so the engine never dispatches it
+     *       separately.</li>
+     * </ul>
+     * Keys nested inside other header elements (for example an {@code EncryptedData/KeyInfo})
+     * are not counted: the engine does not dispatch them, and the result the enclosing
+     * {@code EncryptedData} produces is what the third rule counts. After the envelope only the
+     * XML epilog (whitespace, comments, processing instructions) is accepted.
      *
      * @throws XMLStreamException if the XML is not well-formed or contains a DTD
      * @throws IOException if the document is not a SOAP envelope, has trailing content, or
-     *                     exceeds {@link #MAX_ENCRYPTED_KEYS}
+     *                     the prediction exceeds {@link #MAX_ENCRYPTED_KEYS}
      */
     static EncryptionDetectionResult scanEnvelope(InputStream xml)
             throws XMLStreamException, IOException {
@@ -796,6 +821,14 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             int depth = 0;
             int securityDepth = -1;
             boolean inHeader = false;
+            // Per Security header: which kind of direct child is open, whether an open direct
+            // EncryptedKey has shown a DataReference, the Ids referenced by direct children, and
+            // the Ids of direct EncryptedData children (null when the element has no Id).
+            boolean inDirectKey = false;
+            boolean inDirectReferenceList = false;
+            boolean directKeyHasReference = false;
+            Set<String> referencedIds = new HashSet<>();
+            List<String> directEncryptedDataIds = new ArrayList<>();
             while (reader.hasNext()) {
                 int event = reader.next();
                 if (event == XMLStreamConstants.DTD) {
@@ -814,18 +847,60 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                     } else if (depth == 3 && inHeader && "Security".equals(local) && WSSE_NS.equals(ns)) {
                         securityDepth = depth;
                     }
-
-                    if (XENC_NS.equals(ns)) {
-                        if ("EncryptedData".equals(local)) {
+                    if (!XENC_NS.equals(ns)) {
+                        continue;
+                    }
+                    boolean direct = securityDepth > 0 && depth == securityDepth + 1;
+                    switch (local) {
+                        case "EncryptedData" -> {
                             result.hasEncryptedData = true;
-                        } else if ("EncryptedKey".equals(local) && depth == securityDepth + 1
-                                && ++result.encryptedKeyCount > MAX_ENCRYPTED_KEYS) {
-                            throw new IOException("MCEDT response exceeds the maximum of "
-                                    + MAX_ENCRYPTED_KEYS + " EncryptedKey elements");
+                            if (direct) {
+                                directEncryptedDataIds.add(elementId(reader));
+                                requireWithinBound(directEncryptedDataIds.size());
+                            }
+                        }
+                        case "EncryptedKey" -> {
+                            if (direct) {
+                                inDirectKey = true;
+                                directKeyHasReference = false;
+                            }
+                        }
+                        case "ReferenceList" -> {
+                            if (direct) {
+                                inDirectReferenceList = true;
+                                requireWithinBound(++result.encryptCount);
+                            }
+                        }
+                        case "DataReference" -> {
+                            if (inDirectKey || inDirectReferenceList) {
+                                directKeyHasReference = true;
+                                String uri = reader.getAttributeValue(null, "URI");
+                                if (uri != null) {
+                                    referencedIds.add(uri.startsWith("#") ? uri.substring(1) : uri);
+                                }
+                            }
+                        }
+                        default -> {
+                            // other xenc elements (CipherData, EncryptionMethod, ...) carry no result
                         }
                     }
                 } else if (event == XMLStreamConstants.END_ELEMENT) {
-                    if (depth == securityDepth) {
+                    if (securityDepth > 0 && depth == securityDepth + 1) {
+                        // A direct child of Security closes.
+                        if (inDirectKey && directKeyHasReference) {
+                            requireWithinBound(++result.encryptCount);
+                        }
+                        inDirectKey = false;
+                        inDirectReferenceList = false;
+                    } else if (depth == securityDepth) {
+                        // Security closes: only now are all DataReferences known.
+                        for (String id : directEncryptedDataIds) {
+                            if (id == null || !referencedIds.contains(id)) {
+                                requireWithinBound(++result.encryptCount);
+                            }
+                        }
+                        directEncryptedDataIds.clear();
+                        referencedIds.clear();
                         securityDepth = -1;
                     }
                     depth--;
@@ -838,6 +913,21 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             throw new XMLStreamException("MCEDT response SOAP Envelope is not closed");
         } finally {
             StaxUtils.close(reader);
+        }
+    }
+
+    /** The {@code Id} (or {@code wsu:Id}) of the element the reader is on, or {@code null}. */
+    private static String elementId(XMLStreamReader reader) {
+        String id = reader.getAttributeValue(null, "Id");
+        return id != null ? id : reader.getAttributeValue(WSU_NS, "Id");
+    }
+
+    /** Aborts the scan as soon as the prediction (or its pending part) exceeds the bound. */
+    private static void requireWithinBound(int predicted) throws IOException {
+        if (predicted > MAX_ENCRYPTED_KEYS) {
+            throw new IOException("MCEDT response exceeds the maximum of " + MAX_ENCRYPTED_KEYS
+                    + " encryption results (EncryptedKey, ReferenceList and EncryptedData elements)"
+                    + " in the Security header");
         }
     }
 

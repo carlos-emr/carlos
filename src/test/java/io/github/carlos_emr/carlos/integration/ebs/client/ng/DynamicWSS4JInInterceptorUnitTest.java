@@ -524,7 +524,8 @@ class DynamicWSS4JInInterceptorUnitTest {
                 + "<!-- <xenc:EncryptedKey> -->"
                 + "<note><![CDATA[<xenc:EncryptedKey>]]></note>"
                 + "<other:EncryptedKey xmlns:other=\"urn:not-xenc\"/>"
-                + "<e:EncryptedKey Id=\"EK-1\"><e:CipherData/></e:EncryptedKey>"
+                + "<e:EncryptedKey Id=\"EK-1\"><e:CipherData/>"
+                + "<e:ReferenceList><e:DataReference URI=\"#ED-1\"/></e:ReferenceList></e:EncryptedKey>"
                 + "</w:Security></s:Header>"
                 + "<s:Body><e:EncryptedKey xmlns:e=\"" + XENC_NS + "\"/></s:Body>"
                 + "</s:Envelope>";
@@ -536,24 +537,67 @@ class DynamicWSS4JInInterceptorUnitTest {
     }
 
     @Test
-    @DisplayName("should count only EncryptedKeys that are direct children of the Security header")
-    void shouldCountOnlyDirectChildrenOfSecurity_whenEncryptedKeyIsNested() {
-        // WSS4J's security engine only processes direct children of wsse:Security, so a key
-        // nested inside another header element never becomes an Encrypt result.
+    @DisplayName("should count a header EncryptedData with an embedded key once, not the nested key")
+    void shouldCountHeaderEncryptedDataNotNestedKey_whenKeyIsEmbeddedInKeyInfo() {
+        // WSS4J dispatches the direct EncryptedData (one result, via its embedded key) and the
+        // direct EncryptedKey with references (one result). The nested key is never dispatched.
         String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                 + "<s:Envelope xmlns:s=\"" + SOAP_NS + "\">"
                 + "<s:Header><w:Security xmlns:w=\"" + WSSE_NS + "\" xmlns:e=\"" + XENC_NS + "\">"
                 + "<e:EncryptedData Id=\"ED-hdr\"><ds:KeyInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">"
                 + "<e:EncryptedKey Id=\"EK-nested\"/></ds:KeyInfo></e:EncryptedData>"
-                + "<e:EncryptedKey Id=\"EK-top\"><e:CipherData/></e:EncryptedKey>"
+                + "<e:EncryptedKey Id=\"EK-top\"><e:CipherData/>"
+                + "<e:ReferenceList><e:DataReference URI=\"#ED-body\"/></e:ReferenceList></e:EncryptedKey>"
                 + "</w:Security></s:Header>"
-                + "<s:Body/>"
+                + "<s:Body><e:EncryptedData xmlns:e=\"" + XENC_NS + "\" Id=\"ED-body\"/></s:Body>"
                 + "</s:Envelope>";
         givenContent(xml);
 
         interceptor.handleMessage(message);
 
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should not count a key-transport-only EncryptedKey that has no ReferenceList")
+    void shouldNotCountEncryptedKey_whenItHasNoReferenceList() {
+        // WSS4J skips an Encrypt result with no data references (WSHandler.checkReceiverResultsAnyOrder).
+        String xml = envelope(1, true).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-transport\"><xenc:CipherData/></xenc:EncryptedKey></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
         assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
+    }
+
+    @Test
+    @DisplayName("should count a standalone ReferenceList in the Security header")
+    void shouldCountStandaloneReferenceList_whenKeyCarriesNoReferences() {
+        String xml = envelope(0, true).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-transport\"><xenc:CipherData/></xenc:EncryptedKey>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ED-0\"/></xenc:ReferenceList></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
+    }
+
+    @Test
+    @DisplayName("should count a header EncryptedData that no key references, but not one that is referenced")
+    void shouldCountUnreferencedHeaderEncryptedData_whenNoKeyReferencesIt() {
+        // envelope(3): three keys, and the two attachment EncryptedData in the header are
+        // referenced by keys 1 and 2 (removed by WSS4J after decryption, so never dispatched).
+        // An extra unreferenced one is dispatched to EncryptedDataProcessor: one more result.
+        String xml = envelope(3, true).replace("</wsse:Security>",
+                "<xenc:EncryptedData Id=\"ED-extra\"><ds:KeyInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"/>"
+                + "</xenc:EncryptedData></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(4));
     }
 
     // ---------------------------------------------------------------- stream handling
@@ -1221,8 +1265,9 @@ class DynamicWSS4JInInterceptorUnitTest {
 
     /**
      * Builds a synthetic MCEDT-shaped response: {@code keys} EncryptedKey blocks in the Security
-     * header (the first for the body, the rest for attachments), plus EncryptedData in the Body
-     * when requested. No real data.
+     * header (the first for the body, the rest for attachments), each with a ReferenceList to its
+     * EncryptedData; the attachments' EncryptedData sit in the Security header (SwA profile) and
+     * the body's in the Body, when requested. No real data.
      */
     private static String envelope(int keys, boolean encryptedBody) {
         StringBuilder sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
@@ -1234,6 +1279,8 @@ class DynamicWSS4JInInterceptorUnitTest {
         for (int i = 0; i < keys; i++) {
             sb.append("<xenc:EncryptedKey Id=\"EK-").append(i).append("\">")
                     .append("<xenc:CipherData><xenc:CipherValue>AAAA</xenc:CipherValue></xenc:CipherData>")
+                    .append("<xenc:ReferenceList><xenc:DataReference URI=\"#ED-").append(i)
+                    .append("\"/></xenc:ReferenceList>")
                     .append("</xenc:EncryptedKey>");
             if (i > 0) {
                 sb.append("<xenc:EncryptedData Id=\"ED-").append(i)
