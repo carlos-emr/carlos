@@ -11,9 +11,11 @@ passphrases, or patient data. Pins are public-key hashes and may be recorded.
 
 ---
 
-**Clinic:**
-**Record owner:**
-**Last updated:**
+| | |
+|---|---|
+| Clinic | |
+| Record owner | |
+| Last updated | |
 
 ## 1. Addresses
 
@@ -59,6 +61,7 @@ passphrases, or patient data. Pins are public-key hashes and may be recorded.
 | Item | Answer |
 |---|---|
 | Renewal method (self-generated key and CSR, or certbot-managed with key reuse) | |
+| Renewal job (timer or cron, and where its script lives) | |
 | Renewal schedule, and who is told when it fails | |
 | Post-renewal pin check (automated or manual, by whom) | |
 | Where the standby private key is stored | |
