@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -384,5 +385,42 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         delivery.recover(user, 45, "retry", false);
         verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.SUCCESS), eq(EmailStatus.SUCCESS), eq(""), eq(log.getTimestamp()));
         assertThat(log.getErrorMessage()).isEmpty();
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("isEnabled")
+    class IsEnabled {
+
+        @Test
+        @DisplayName("should enable portal delivery when the setting is true and the Portal is configured")
+        void shouldEnable_whenTrueAndPortalConfigured() {
+            assertThat(PortalEmailDeliveryService.isEnabled(" true ", () -> true)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should stay off, without consulting the Portal, when the setting is false or absent")
+        void shouldStayOff_whenFalseOrAbsent() {
+            java.util.function.BooleanSupplier unused = () -> {
+                throw new AssertionError("the Portal must not be consulted when email delivery is off");
+            };
+            assertThat(PortalEmailDeliveryService.isEnabled("false", unused)).isFalse();
+            assertThat(PortalEmailDeliveryService.isEnabled(null, unused)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should report a misconfiguration when the setting is true but the Portal is not configured")
+        void shouldReportMisconfiguration_whenTrueButPortalNotConfigured() {
+            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("true", () -> false))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled and configured");
+        }
+
+        @Test
+        @DisplayName("should report a misconfiguration for a value that is neither true nor false")
+        void shouldReportMisconfiguration_whenValueMalformed() {
+            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("yes", () -> true))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("must be true or false");
+        }
     }
 }
