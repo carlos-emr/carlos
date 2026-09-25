@@ -75,6 +75,9 @@
             <result name="compose">/WEB-INF/jsp/email/emailCompose.jsp</result>
             <result name="eFormError">/eform/efmshowform_data?error=true</result>
         </action>
+        <action name="email/portalDelivery" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalEmailDelivery2Action">
+            <result name="success">/WEB-INF/jsp/email/portalDelivery.jsp</result>
+        </action>
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
             <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
         </action>

@@ -46,6 +46,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private String errorMessage;
     private Date created;
     private boolean resolvable;
+    private boolean portalPasswordPending;
     private EmailConsentStatus consentStatus;
     private Integer consentId;
     private Date consentLastUpdateDate;
@@ -500,6 +501,18 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
 
     public void setResolvable(boolean resolvable) {
         this.resolvable = resolvable;
+    }
+
+    /**
+     * Indicates that the email's patient-portal password is neither published nor revoked, so
+     * staff must finish it on the recovery page. The transport status alone does not show this.
+     */
+    public boolean isPortalPasswordPending() {
+        return portalPasswordPending;
+    }
+
+    public void setPortalPasswordPending(boolean portalPasswordPending) {
+        this.portalPasswordPending = portalPasswordPending;
     }
 
     /**

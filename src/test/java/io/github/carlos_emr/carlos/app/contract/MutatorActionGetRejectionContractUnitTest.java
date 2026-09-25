@@ -276,6 +276,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Portal email recovery: GET only renders the stored state, whatever parameters it
+        // carries; only POST runs a recovery operation. Covered by PortalEmailDelivery2ActionUnitTest.
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalEmailDelivery2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",

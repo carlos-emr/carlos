@@ -59,16 +59,31 @@ class EmailComposeEncryptionStateJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should collapse the composer after acceptance or an unconfirmed outcome")
-    void shouldCollapseComposer_whenAcceptedOrUnconfirmed() throws IOException {
+    @DisplayName("should collapse the composer after acceptance, an unconfirmed outcome or an unresolved portal delivery")
+    void shouldCollapseComposer_whenAcceptedUnconfirmedOrAwaitingPortalRecovery() throws IOException {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
 
         int slideUp = jsp.indexOf("$(\"#page-body\").slideUp");
         int successOnlyGuard = jsp.lastIndexOf(
-                "<c:if test=\"${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true }\">", slideUp);
+                "<c:if test=\"${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true or portalDeliveryNeedsRecovery }\">", slideUp);
 
         assertThat(slideUp).isGreaterThanOrEqualTo(0);
         assertThat(successOnlyGuard).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("should hide and blank the manual password controls when portal delivery is enabled")
+    void shouldHideAndBlankPasswordControls_whenPortalDeliveryIsEnabled() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("value=\"${carlos:forHtmlAttribute(portalEmailEnabled ? '' : emailPDFPassword)}\"")
+                .contains("${carlos:forHtmlContent(portalEmailEnabled ? '' : emailPDFPasswordClue)}");
+        int passwordRow = jsp.indexOf("for=\"emailPDFPassword\"");
+        int clueRow = jsp.indexOf("for=\"emailPDFPasswordClue\"");
+        String hiddenRow = "<div class=\"row mt-3 mb-3 align-items-center ${portalEmailEnabled ? 'd-none' : ''}\">";
+        assertThat(jsp.lastIndexOf(hiddenRow, passwordRow)).isGreaterThanOrEqualTo(0);
+        assertThat(jsp.lastIndexOf(hiddenRow, clueRow)).isGreaterThan(jsp.lastIndexOf(hiddenRow, passwordRow));
     }
 
     @Test

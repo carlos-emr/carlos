@@ -19,6 +19,24 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
+<%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException" %>
+<%
+    // A malformed setting must not break unencrypted email. Treat it as portal delivery so no
+    // manual password is collected; the send path refuses encrypted email until it is fixed.
+    boolean portalEmailMisconfigured = false;
+    boolean portalEmailEnabled;
+    try {
+        portalEmailEnabled = PortalEmailDeliveryService.isEnabled();
+    } catch (PatientPortalConfigurationException malformed) {
+        portalEmailEnabled = true;
+        portalEmailMisconfigured = true;
+    }
+    request.setAttribute("portalEmailEnabled", portalEmailEnabled);
+    request.setAttribute("portalEmailMisconfigured", portalEmailMisconfigured);
+%>
+<c:set var="portalDeliveryNeedsRecovery" value="${not empty emailLog and emailLog.portalDeliveryUnresolved}"/>
+
 
 <html>
 <head>
@@ -68,6 +86,7 @@
     <fmt:message key="email.compose.btn.close" var="emailComposeClose"/>
     <fmt:message key="email.compose.msg.subjectRequired" var="emailComposeSubjectRequired"/>
     <fmt:message key="email.compose.msg.messageRequired" var="emailComposeMessageRequired"/>
+    <fmt:message key="email.compose.portal.misconfigured" var="emailComposePortalMisconfigured"/>
     <fmt:message key="email.compose.msg.passwordRequired" var="emailComposePasswordRequired"/>
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
@@ -101,7 +120,7 @@
         Action return flashy confirmation messages.
     --%>
     <%-- Keep failed sends editable for retry; only a successful send collapses the composer. --%>
-    <c:if test="${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true }">
+    <c:if test="${ isEmailSuccessful eq true or isEmailDeliveryUnconfirmed eq true or portalDeliveryNeedsRecovery }">
         <script type="text/javascript">
             $(document).ready(function () {
                 $("#page-body").slideUp("slow");
@@ -519,24 +538,30 @@
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
+                        <c:if test="${portalEmailMisconfigured}">
+                            <div class="alert alert-danger" role="alert"><fmt:message key="email.compose.portal.misconfigured"/></div>
+                        </c:if>
+                        <c:if test="${portalEmailEnabled and not portalEmailMisconfigured}">
+                            <p><fmt:message key="email.compose.portal.notice"/></p>
+                        </c:if>
                         <div class="container">
                             <%-- The message content itself now lives in the single "Message" field above;
                                  this card only carries the password / clue / encrypt-attachments controls
                                  that govern how that message (and any attachments) are protected. --%>
-                            <div class="row mt-3 mb-3 align-items-center">
+                            <div class="row mt-3 mb-3 align-items-center ${portalEmailEnabled ? 'd-none' : ''}">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-9">
                                     <input class="form-control" type="text"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
-                                           value="${carlos:forHtmlAttribute(emailPDFPassword)}"
+                                           value="${carlos:forHtmlAttribute(portalEmailEnabled ? '' : emailPDFPassword)}"
                                            autocomplete="off" spellcheck="false" autocapitalize="none"
                                            autocorrect="off" readonly/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3 align-items-center">
+                            <div class="row mt-3 mb-3 align-items-center ${portalEmailEnabled ? 'd-none' : ''}">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPasswordClue">${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="right"
@@ -544,7 +569,7 @@
                                 </div>
                                 <div class="col-sm-9">
                                     <textarea class="form-control" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(emailPDFPasswordClue)}</textarea>
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(portalEmailEnabled ? '' : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
@@ -704,7 +729,7 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
+                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 ${emailComposeSend}
                             </button>
@@ -723,6 +748,12 @@
         <%-- the confirmation tags. --%>
         <c:if test="${ not empty isEmailSuccessful }">
             <c:choose>
+                <c:when test="${portalDeliveryNeedsRecovery}">
+                    <div class="alert alert-warning" role="alert">
+                        <p><fmt:message key="email.compose.portal.needsRecovery"/></p>
+                        <a href="${carlos:forHtmlAttribute(ctx)}/email/portalDelivery?emailLogId=${carlos:forUriComponent(emailLog.id)}"><fmt:message key="email.compose.portal.checkDelivery"/></a>
+                    </div>
+                </c:when>
                 <c:when test="${ isEmailSuccessful }">
 					<div class="alert alert-success" role="alert" id="successMessage">
 						<p>${carlos:forHtml(emailComposeSentTo)} <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> ${carlos:forHtml(emailComposeAcceptedForDelivery)}</p>
@@ -804,16 +835,23 @@
 
         // A successful send is terminal for this composer. A failed send deliberately continues
         // through normal initialization below so the fully restored form remains usable for retry.
+        const portalDeliveryNeedsRecovery = ${portalDeliveryNeedsRecovery};
         if (document.getElementById('isEmailSuccessful').value === 'true') {
+            // The email was delivered even when its portal password still needs attention, so
+            // the eForm steps still run; only the auto-close waits for the recovery link.
             openEFormAfterSend();
 
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
-                    && !document.getElementById('emailFollowUpWarning')) {
+                    && !document.getElementById('emailFollowUpWarning')
+                    && !portalDeliveryNeedsRecovery) {
                 // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
                 // window closed before anyone could, which made the notice decorative.
                 setTimeout(() => window.close(), 8000);
             }
             return;
+        }
+        if (portalDeliveryNeedsRecovery) {
+            return; // Recovery never resends the email.
         }
 
         if (document.getElementById('deliveryUnconfirmedWarning')) {
@@ -848,6 +886,7 @@
 
     const emailComposeSubjectRequiredMsg = "<carlos:encode value='${emailComposeSubjectRequired}' context="javaScript"/>";
     const emailComposeMessageRequiredMsg = "<carlos:encode value='${emailComposeMessageRequired}' context="javaScript"/>";
+    const emailComposePortalMisconfiguredMsg = "<carlos:encode value='${emailComposePortalMisconfigured}' context="javaScript"/>";
     const emailComposePasswordRequiredMsg = "<carlos:encode value='${emailComposePasswordRequired}' context="javaScript"/>";
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
@@ -890,13 +929,20 @@
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
         validateField(message, emailComposeMessageRequiredMsg, errors, 'messageError');
-        const needsPdfPassword = isEncrypted || (hasAttachments && isAttachmentEncrypted);
+        const needsPdfPassword = !${portalEmailEnabled} && (isEncrypted || (hasAttachments && isAttachmentEncrypted));
         if (needsPdfPassword) {
             validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
             validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
         } else {
             clearError('emailPDFPasswordError');
             clearError('emailPDFPasswordClueError');
+        }
+        // A malformed portal setting refuses encrypted email on the server. Stop it here instead, so
+        // staff stay on this draft and can turn encryption off rather than land on a bare error page.
+        const portalEmailMisconfigured = ${portalEmailMisconfigured};
+        if (portalEmailMisconfigured && (isEncrypted || (hasAttachments && isAttachmentEncrypted))) {
+            errors.portalEmailMisconfigured = emailComposePortalMisconfiguredMsg;
+            displayError('messageError', emailComposePortalMisconfiguredMsg, message);
         }
         if (consentOverride && consentOverride.checked) {
             validateField(consentOverrideReason, emailComposeConsentOverrideReasonRequiredMsg, errors, 'consentOverrideReasonError');
