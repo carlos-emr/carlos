@@ -797,10 +797,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * the <em>direct</em> children of {@code Security}, and its action check counts only results
      * that decrypted something, so the prediction is:
      * <ul>
-     *   <li>one per direct {@code xenc:EncryptedKey} whose own direct-child {@code ReferenceList}
-     *       holds at least one {@code DataReference} ({@code EncryptedKeyProcessor} reads the list
-     *       as a direct child of the key and the references as direct children of the list, so a
-     *       wrapped or deeper reference is ignored; a key-transport-only {@code EncryptedKey}
+     *   <li>one per direct {@code xenc:EncryptedKey} whose first direct-child
+     *       {@code ReferenceList} holds at least one {@code DataReference}
+     *       ({@code EncryptedKeyProcessor} reads that one list with {@code getDirectChildElement}
+     *       and the references as its direct children, so a second list, a wrapped list or a
+     *       deeper reference is ignored; a key-transport-only {@code EncryptedKey}
      *       yields a result with no data references, which WSS4J skips);</li>
      *   <li>one per direct {@code xenc:ReferenceList};</li>
      *   <li>one per direct {@code xenc:EncryptedData} that no {@code DataReference} of those
@@ -832,6 +833,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             // the Ids those lists reference, and the Ids of direct EncryptedData children (null
             // when the element has no Id).
             boolean inDirectKey = false;
+            boolean keyListSelected = false;
             int referenceListDepth = -1;
             boolean directKeyHasReference = false;
             int directKeyCount = 0;
@@ -873,6 +875,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                                 // every direct key with the private key before deciding that.
                                 requireWithinBound(++directKeyCount);
                                 inDirectKey = true;
+                                keyListSelected = false;
                                 directKeyHasReference = false;
                             }
                         }
@@ -880,9 +883,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                             if (direct) {
                                 referenceListDepth = depth;
                                 requireWithinBound(++result.encryptCount);
-                            } else if (inDirectKey && depth == securityDepth + 2) {
-                                // The key's own list: EncryptedKeyProcessor reads it only as a
-                                // direct child of the key.
+                            } else if (inDirectKey && depth == securityDepth + 2 && !keyListSelected) {
+                                // The key's own list: EncryptedKeyProcessor reads it with
+                                // getDirectChildElement, so only the FIRST direct list counts.
+                                keyListSelected = true;
                                 referenceListDepth = depth;
                             }
                         }

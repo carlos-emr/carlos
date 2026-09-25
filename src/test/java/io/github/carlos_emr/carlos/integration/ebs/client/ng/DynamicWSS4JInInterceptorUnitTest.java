@@ -604,6 +604,26 @@ class DynamicWSS4JInInterceptorUnitTest {
     }
 
     @Test
+    @DisplayName("should read only the first ReferenceList of an EncryptedKey, as WSS4J does")
+    void shouldIgnoreSecondReferenceList_whenKeyHasTwoLists() {
+        // getDirectChildElement returns the first list only. The key decrypts the body via that
+        // list (one result); the second list's reference to the header EncryptedData is never
+        // followed, so WSS4J dispatches that EncryptedData separately (a second result).
+        String xml = envelope(0, true).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-two-lists\"><xenc:CipherData/>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ED-0\"/></xenc:ReferenceList>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ED-extra\"/></xenc:ReferenceList>"
+                + "</xenc:EncryptedKey>"
+                + "<xenc:EncryptedData Id=\"ED-extra\"><ds:KeyInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"/>"
+                + "</xenc:EncryptedData></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
     @DisplayName("should count a standalone ReferenceList in the Security header")
     void shouldCountStandaloneReferenceList_whenKeyCarriesNoReferences() {
         String xml = envelope(0, true).replace("</wsse:Security>",
