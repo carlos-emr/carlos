@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -280,24 +283,24 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not log archive when archived allergy belongs to a different patient")
-    void shouldNotLogArchive_whenAllergyBelongsToDifferentPatient() throws Exception {
+    @DisplayName("should reject a stale or foreign allergy edit before adding its replacement")
+    void shouldRejectEdit_whenAllergyDoesNotBelongToPatient() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockRxPatient).deleteAllergy(42);
-        logActionMock.verify(() -> LogAction.addLog(
-                any(String.class), eq(LogConst.ARCHIVE), any(String.class),
-                any(String.class), any(String.class), any(String.class), any()), never());
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
     @DisplayName("should log archive when archived allergy belongs to the session patient")
     void shouldLogArchive_whenAllergyBelongsToSessionPatient() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
         when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
 
         String result = action.execute();
@@ -310,18 +313,34 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should ignore a non-numeric allergyToArchive instead of throwing")
-    void shouldIgnoreArchiveAttempt_whenAllergyToArchiveIsNotNumeric() throws Exception {
-        mockRequest.setParameter("allergyToArchive", "abc");
+    @DisplayName("should only audit archival when the previously validated allergy was archived")
+    void shouldNotAuditArchive_whenArchiveFailsAfterValidation() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
+        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
 
-        String result = action.execute();
+        action.execute();
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockRxPatient, never()).deleteAllergy(anyInt());
         logActionMock.verify(() -> LogAction.addLog(
                 any(String.class), eq(LogConst.ARCHIVE), any(String.class),
                 any(String.class), any(String.class), any(String.class), any()), never());
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "0", "-1", "2147483648"})
+    @DisplayName("should reject a malformed allergy edit before adding its replacement")
+    void shouldRejectEdit_whenAllergyToArchiveIsMalformed(String archiveId) throws Exception {
+        mockRequest.setParameter("allergyToArchive", archiveId);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
     /**
      * Opens Rx for patient 123 in this session (per-patient Rx state, #3875) and seeds the
      * resolver's per-request patient cache with the mock, so no demographic lookup runs.

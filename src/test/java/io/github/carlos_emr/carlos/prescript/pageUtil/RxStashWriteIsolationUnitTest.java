@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -242,7 +243,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"77,not-an-id", "not-an-id,77", "77,,78", "77,-1", "77,1234567890"})
+        @ValueSource(strings = {"77,not-an-id", "not-an-id,77", "77,,78", "77,-1", "77,1234567890", "77,", ","})
         @DisplayName("should refuse the whole bulk delete when any drug id is malformed")
         void shouldRefuseWholeBulkDelete_whenAnyDrugIdMalformed(String drugList) throws Exception {
             // A malformed id used to stop validation early and still archive the ids before it (#3908).
@@ -253,6 +254,79 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockDrugDao);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(strings = {"", "77", "del_", "del_77_extra", "del_bad", "del_2147483648"})
+        @DisplayName("should reject malformed single-delete ids without reporting success")
+        void shouldRejectSingleDelete_whenIdMalformed(String rawId) throws Exception {
+            namePatient();
+            if (rawId != null) {
+                request.setParameter("deleteRxId", rawId);
+            }
+
+            assertThat(new RxDeleteRx2Action().Delete2()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockDrugDao);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should archive a valid single-delete target belonging to the requested patient")
+        void shouldArchiveSingleDrug_whenPatientOwnsDrug() throws Exception {
+            namePatient();
+            request.setParameter("deleteRxId", "del_77");
+            io.github.carlos_emr.carlos.commn.model.Drug drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+            drug.setId(77);
+            drug.setDemographicId(DEMOGRAPHIC_NO);
+            when(mockDrugDao.find(77)).thenReturn(drug);
+
+            new RxDeleteRx2Action().Delete2();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(drug.isArchived()).isTrue();
+            verify(mockDrugDao).merge(drug);
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        @DisplayName("should report failed delete persistence to the browser")
+        void shouldReportFailure_whenDeletePersistenceFails(boolean bulk) throws Exception {
+            namePatient();
+            request.setParameter("deleteRxId", "del_77");
+            io.github.carlos_emr.carlos.commn.model.Drug drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+            drug.setId(77);
+            drug.setDemographicId(DEMOGRAPHIC_NO);
+            when(mockDrugDao.find(77)).thenReturn(drug);
+            org.mockito.Mockito.doThrow(new IllegalStateException("Persistence unavailable"))
+                    .when(mockDrugDao).merge(drug);
+
+            RxDeleteRx2Action action = new RxDeleteRx2Action();
+            action.setDrugList("77");
+            assertThat(bulk ? action.execute() : action.Delete2()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(strings = {"", " "})
+        @DisplayName("should reject discontinuation without a reason before archiving")
+        void shouldRejectDiscontinue_whenReasonMissing(String reason) throws Exception {
+            namePatient();
+            request.setParameter("drugId", "77");
+            if (reason != null) {
+                request.setParameter("reason", reason);
+            }
+
+            assertThat(new RxDeleteRx2Action().Discontinue()).isEqualTo(ActionSupport.NONE);
+
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockDrugDao);
             logActionMock.verifyNoInteractions();
