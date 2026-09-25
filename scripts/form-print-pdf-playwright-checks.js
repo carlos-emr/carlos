@@ -110,6 +110,38 @@ const FORM_TABLES = {
  */
 const STAMP_FIELD = 'aci';
 
+/**
+ * The literal text drawn inside a PDF, as far as a regression check needs to read it.
+ *
+ * Not a PDF parser and not trying to be one. iText writes page content into Flate-compressed
+ * streams and shows text with `(...)Tj` / `[...]TJ`, so inflating every stream and pulling the
+ * string literals out is enough to answer the only question asked here: did this text reach the
+ * page? Streams that do not inflate (images, fonts, anything not Flate) are skipped rather than
+ * failed -- they hold no drawn text to miss.
+ */
+function pdfText(buffer) {
+  const zlib = require('zlib');
+  const out = [];
+  const haystack = buffer.toString('latin1');
+  const stream = /stream\r?\n/g;
+  let match;
+  while ((match = stream.exec(haystack)) !== null) {
+    const start = match.index + match[0].length;
+    const end = haystack.indexOf('endstream', start);
+    if (end < 0) break;
+    let text;
+    try {
+      text = zlib.inflateSync(Buffer.from(haystack.slice(start, end), 'latin1')).toString('latin1');
+    } catch { stream.lastIndex = end; continue; }
+    // \( and \) are escaped parentheses inside a PDF string, not its delimiters.
+    for (const literal of text.matchAll(/\((?:\\.|[^\\()])*\)/g)) {
+      out.push(literal[0].slice(1, -1).replace(/\\([()\\])/g, '$1'));
+    }
+    stream.lastIndex = end;
+  }
+  return out.join('\n');
+}
+
 const fixture = {
   sql: null,
   table: '',
@@ -144,8 +176,13 @@ async function cleanup() {
     // this one was running. Resolved in the cleanup hook rather than at the end of the run because
     // Print saves the record before it renders, so an assertion that fails after the POST would
     // otherwise leave the row behind.
+    // EXACT MATCH, NOT LIKE. The stamp contains underscores and `_` is a single-character
+    // wildcard in LIKE, so `LIKE 'PW_FORM_PRINT_17...%'` also matches a clinician's note that
+    // happens to differ in exactly those positions. Scoped to the patient this run opened as
+    // well, so a stamp collision cannot reach another chart's rows.
     statements.push(['the form rows this run saved',
-      `DELETE FROM ${table} WHERE ${STAMP_FIELD} LIKE '${stamp}%'`]);
+      `DELETE FROM ${table} WHERE ${STAMP_FIELD} = '${stamp}'`
+      + (demographicNo ? ` AND demographic_no = ${demographicNo}` : '')]);
   }
   if (demographicNo && sessionId) {
     statements.push(['this session\'s note lock',
@@ -181,14 +218,26 @@ async function cleanup() {
 async function formMenuUrl(chartPage, formName) {
   return chartPage.evaluate((name) => {
     for (const anchor of document.querySelectorAll('a')) {
-      if ((anchor.textContent || '').trim().startsWith(name)) {
+      // THE LABEL CAN BE DECORATED. EctDisplayForm2Action wraps a started Lab Req 2007 in
+      // asterisks when no lab report is linked to it, so the raw text of that entry reads
+      // "*Lab Req 2007*". Strip the decoration before comparing rather than matching the
+      // raw text, so the menu's own presentation cannot decide whether this check runs.
+      const label = (anchor.textContent || '').trim().replace(/^\*+|\*+$/g, '');
+      if (label.startsWith(name)) {
         const match = /popupPage\([^,]+,[^,]+,\s*'[^']*'\s*,\s*'([^']+)'/.exec(anchor.getAttribute('onclick') || '');
-        if (match) {
-          // ONE PASS OVER THE SOURCE, both spellings in the same alternation. The JSP escapes the
-          // ampersands twice over -- once for the JavaScript string literal (\x26) and once for
-          // the HTML attribute (&amp;) -- and decoding them in two chained replaces would rescan
-          // the output of the first, so a literal "\x26amp;" would come out as a bare "&".
-          return match[1].replace(/\\x26|&amp;/g, '&');
+        // THE BLANK FORM, NOT A STARTED ONE. The same menu lists both: a started form links to
+        // /form/forwardshortcutname?...&formId=latest, a blank one to the form route with
+        // formId=0. Pressing Print on a started form UPDATES a record somebody else saved, and
+        // cleanup would then delete a clinician's row. Requiring formId=0 keeps this check to a
+        // record it created itself, and it is also why undecorating the label above is safe.
+        // ONE PASS OVER THE SOURCE, both spellings in the same alternation. The JSP escapes the
+        // ampersands twice over -- once for the JavaScript string literal (\x26) and once for
+        // the HTML attribute (&amp;) -- and decoding them in two chained replaces would rescan
+        // the output of the first, so a literal "\x26amp;" would come out as a bare "&".
+        // Decoded BEFORE the formId test below, or that test reads "\x26formId=0" and never matches.
+        const url = match ? match[1].replace(/\\x26|&amp;/g, '&') : '';
+        if (/[?&]formId=0(&|$)/.test(url)) {
+          return url;
         }
       }
     }
@@ -265,6 +314,25 @@ async function main() {
         });
       }
     };
+
+    // The bytes the server sent, which the response listener above cannot give.
+    //
+    // WHY A ROUTE AND NOT response.body(). A PDF navigation is handed to Chromium's built-in
+    // viewer, and by the time the response object is readable its body is the viewer's own
+    // wrapper markup ("<embed ... type='application/pdf' src='about:blank'>", ~345 bytes) --
+    // never the document. Routing the request instead lets the check read the real response
+    // and then hand that same response to the renderer, so the flow is still the one a
+    // clinician drives and exactly one form row is saved.
+    const pdfBodies = [];
+    await context.route(FORM_POST, async (route) => {
+      let answer;
+      try {
+        answer = await route.fetch();
+      } catch { await route.continue().catch(() => {}); return; }
+      const buffer = await answer.body().catch(() => null);
+      if (buffer) pdfBodies.push(buffer);
+      await route.fulfill({ response: answer, body: buffer || undefined }).catch(() => {});
+    });
     context.on('page', (page) => page.on('response', record));
 
     const formPage = await context.newPage();
@@ -307,9 +375,21 @@ async function main() {
       `Print answered ${JSON.stringify(posts.map((post) => post.contentType))} rather than application/pdf; `
       + 'the request succeeded but what came back is not the form');
 
+    // THE PAGE, NOT JUST THE ENVELOPE. The print forwards to /form/createpdf with its own
+    // query string, and a forward's query string is AGGREGATED with the request's parameters
+    // (Servlet spec, "Query String") rather than replacing them -- but nothing in a status
+    // line says so. If __cfgfile or __template were lost on the way, FrmPDFServlet would
+    // still answer 200 application/pdf and simply draw nothing. Asserting the text this run
+    // typed is what tells a real requisition from an empty one.
+    const drawn = pdfBodies.map((body) => pdfText(body)).join('\n');
+    assert(drawn.includes(fixture.stamp),
+      'the PDF came back but carries none of the text this run typed into the form, so the print '
+      + 'lost the parameters that place the fields (__cfgfile/__template) on the way to the servlet');
+
     // Print saves the record before it renders, so the stamped row must exist.
     const created = Number(sql.value(
-      `SELECT COUNT(*) FROM ${table} WHERE ${STAMP_FIELD} LIKE '${fixture.stamp}%'`,
+      `SELECT COUNT(*) FROM ${table} WHERE ${STAMP_FIELD} = '${fixture.stamp}' `
+      + `AND demographic_no = ${sqlNumber(fixture.demographicNo, 'the patient key')}`,
     ) || '0');
     assert(created > 0,
       'Print returned a PDF but saved no form row, so the record it printed was never stored');
