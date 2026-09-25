@@ -214,8 +214,9 @@ These exclusions were retired together with the suite.
 
 ## Working With Tests Today
 
-- New tests use the JUnit 5 framework and conventions in [`README.md`](README.md) and
-  [`test-writing-guide.md`](test-writing-guide.md).
+- New tests use the JUnit 5 framework and conventions: start with
+  [`modern-test-framework-guide.md`](modern-test-framework-guide.md), then
+  [`test-writing-guide.md`](test-writing-guide.md) for context configuration patterns.
 - Do not add JUnit 4 annotations, `DaoTestFixtures`, or `junit.framework` imports; the
   dependencies and base classes are gone.
 - Test logs are still written to `target/surefire-reports/`.
