@@ -474,6 +474,23 @@ public String saveDigitalSignature() throws IOException {
     return NONE;
 }
 
+    /** Validate the source before loading any saved drug or changing the patient's draft. */
+    private Integer requestedDrugId() throws IOException {
+        String value = request.getParameter("drugId");
+        if (value != null && value.matches("[0-9]{1,10}")) {
+            try {
+                int id = Integer.parseInt(value);
+                if (id > 0) {
+                    return id;
+                }
+            } catch (NumberFormatException e) {
+                // Ten digits can still exceed the database's integer identifier range.
+            }
+        }
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return null;
+    }
+
     /**
      * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
      * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
@@ -509,12 +526,12 @@ public String saveDigitalSignature() throws IOException {
         }
         StringBuilder auditStr = new StringBuilder();
 
-        RxPrescriptionData rxData = new RxPrescriptionData();
-
-        // String strId = (request.getParameter("drugId").split("_"))[1];
-        String strId = request.getParameter("drugId");
+        Integer drugId = requestedDrugId();
+        if (drugId == null) {
+            return NONE;
+        }
         try {
-            int drugId = Integer.parseInt(strId);
+            RxPrescriptionData rxData = new RxPrescriptionData();
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
             if (!isOwnedByBeanPatient(oldRx, bean)) {
@@ -544,7 +561,9 @@ public String saveDigitalSignature() throws IOException {
 
             // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+            MiscUtils.getLogger().error("Error staging prescription ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
         MiscUtils.getLogger().debug("================end saveReRxDrugIdToStash of RxRePrescribe2Action.java=================");
         return null;
@@ -583,11 +602,12 @@ public String saveDigitalSignature() throws IOException {
         }
 
         StringBuilder auditStr = new StringBuilder();
-        RxPrescriptionData rxData = new RxPrescriptionData();
-
-        String strId = request.getParameter("drugId");
+        Integer drugId = requestedDrugId();
+        if (drugId == null) {
+            return NONE;
+        }
         try {
-            int drugId = Integer.parseInt(strId);
+            RxPrescriptionData rxData = new RxPrescriptionData();
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
             if (!isOwnedByBeanPatient(oldRx, beanRX)) {
@@ -621,7 +641,9 @@ public String saveDigitalSignature() throws IOException {
             // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+            MiscUtils.getLogger().error("Error staging prescription ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         return "represcribe";

@@ -161,6 +161,53 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "saveReRxDrugIdToStash,", "saveReRxDrugIdToStash,''", "saveReRxDrugIdToStash,abc",
+            "saveReRxDrugIdToStash,0", "saveReRxDrugIdToStash,-1", "saveReRxDrugIdToStash,2147483648",
+            "represcribe2,", "represcribe2,''", "represcribe2,abc",
+            "represcribe2,0", "represcribe2,-1", "represcribe2,2147483648"})
+    @DisplayName("invalid source IDs fail before loading or staging a prescription")
+    void shouldReturnBadRequest_whenReRxDrugIdIsInvalid(String method, String drugId) throws Exception {
+        request.setParameter("demographicNo", "1");
+        if (drugId != null) {
+            request.setParameter("drugId", drugId);
+        }
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
+            String result = "represcribe2".equals(method) ? action.represcribe2() : action.saveReRxDrugIdToStash();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(data.constructed()).isEmpty();
+        }
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(bean.getStashSize()).isZero();
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+        assertThat(request.getAttribute("listRxDrugs")).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"saveReRxDrugIdToStash", "represcribe2"})
+    @DisplayName("failed replacement creation cannot report successful staging")
+    void shouldReturnServerError_whenReRxCopyCreationFails(String method) throws Exception {
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugId", "5");
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        RxPrescriptionData.Prescription source = new RxPrescriptionData.Prescription(5, "999998", 1);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) -> {
+            when(mock.getPrescription(5)).thenReturn(source);
+            when(mock.newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Prescription.class)))
+                    .thenThrow(new IllegalStateException("simulated staging failure"));
+        })) {
+            String result = "represcribe2".equals(method) ? action.represcribe2() : action.saveReRxDrugIdToStash();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(data.constructed()).hasSize(1);
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(bean.getStashSize()).isZero();
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+        assertThat(request.getAttribute("listRxDrugs")).isNull();
+    }
+
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
     @org.junit.jupiter.params.provider.ValueSource(strings = {"saveReRxDrugIdToStash", "represcribe2", "represcribe", "represcribeMultiple"})
     @DisplayName("concurrent saves observe a replacement and its ReRx source together")

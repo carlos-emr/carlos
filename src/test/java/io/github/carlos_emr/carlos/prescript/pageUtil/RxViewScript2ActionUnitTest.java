@@ -138,6 +138,106 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    @DisplayName("explicit saved preview keeps its prescription after another reprint or workspace clear")
+    void shouldPinRequestedSavedScript_whenReprintWorkspaceChanges(boolean newerReprint) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("scriptId", "000123");
+        liveBean.getStashList().add(rePrescribedItem("789"));
+        RxSessionBean reprintA = new RxSessionBean();
+        reprintA.setDemographicNo(DEMOGRAPHIC_NO);
+        reprintA.getStashList().add(savedItem(11, "123"));
+        RxReprintWorkspace.store(request.getSession(), reprintA, "first comment");
+        RxReprintWorkspace.Entry latest = null;
+        if (newerReprint) {
+            RxSessionBean reprintB = new RxSessionBean();
+            reprintB.setDemographicNo(DEMOGRAPHIC_NO);
+            reprintB.getStashList().add(savedItem(22, "456"));
+            latest = RxReprintWorkspace.store(request.getSession(), reprintB, "second comment");
+        } else {
+            RxReprintWorkspace.clear(request.getSession(), DEMOGRAPHIC_NO);
+        }
+        var header = new io.github.carlos_emr.carlos.commn.model.Prescription();
+        header.setDemographicId(DEMOGRAPHIC_NO);
+        header.setProviderNo(PROVIDER_NO);
+        header.setComments("first comment");
+        when(prescriptionDao.find(123)).thenReturn(header);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), anyInt())).thenReturn(false);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) ->
+                when(mock.getPrescriptionsByScriptNo(123, DEMOGRAPHIC_NO))
+                        .thenReturn(java.util.List.of(savedItem(11, "123"), savedItem(12, "123"))))) {
+            assertThat(newAction().execute()).isEqualTo("viewScript");
+            assertThat(data.constructed()).hasSize(1);
+        }
+        var snapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
+        assertThat(snapshot.scriptId()).isEqualTo("123");
+        assertThat(snapshot.bean().getStashSize()).isEqualTo(2);
+        assertThat(request.getAttribute("scriptId")).isEqualTo("123");
+        var pinned = RxReprintWorkspace.findForRequest(request, request.getSession(), DEMOGRAPHIC_NO);
+        assertThat(pinned.bean()).isSameAs(snapshot.bean());
+        assertThat(pinned.comment()).isEqualTo("first comment");
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO)).isSameAs(latest);
+        assertThat(liveBean.getStashItem(0).getDrugId()).isZero();
+        assertThat(liveBean.getStashItem(0).getScript_no()).isEqualTo("789");
+        verifyNoInteractions(stampService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"abc", "-1", "0", "2147483648", "12345678901"})
+    @DisplayName("invalid explicit saved targets cannot fall through to saving the live draft")
+    void shouldRefuseInvalidSavedTarget_whenExplicitScriptIsMalformed(String scriptId) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("scriptId", scriptId);
+        liveBean.getStashList().add(rePrescribedItem("789"));
+        assertThat(newAction().execute()).isEqualTo(RxViewScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE)).isNull();
+        assertThat(liveBean.getStashItem(0).getDrugId()).isZero();
+        verifyNoInteractions(stampService, prescriptionDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    @DisplayName("missing and foreign explicit saved targets cannot reuse the current reprint")
+    void shouldRefuseSavedTarget_whenMissingOrOwnedByAnotherPatient(boolean foreign) throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("scriptId", "123");
+        RxSessionBean current = new RxSessionBean();
+        current.setDemographicNo(DEMOGRAPHIC_NO);
+        current.getStashList().add(savedItem(22, "456"));
+        var existing = RxReprintWorkspace.store(request.getSession(), current, "current comment");
+        if (foreign) {
+            var header = new io.github.carlos_emr.carlos.commn.model.Prescription();
+            header.setDemographicId(DEMOGRAPHIC_NO + 1);
+            when(prescriptionDao.find(123)).thenReturn(header);
+        }
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
+            assertThat(newAction().execute()).isEqualTo(RxViewScript2Action.NONE);
+            assertThat(data.constructed()).isEmpty();
+        }
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(request.getAttribute("scriptId")).isNull();
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO)).isSameAs(existing);
+        verifyNoInteractions(stampService);
+    }
+
+    @Test
+    @DisplayName("legacy Save And Print literal null still stamps its saved live prescription")
+    void shouldUseLiveSavedScript_whenLegacySaveAndPrintSendsNull() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("scriptId", "null");
+        liveBean.getStashList().add(savedItem(22, "456"));
+        assertThat(newAction().execute()).isEqualTo("viewScript");
+        assertThat(request.getAttribute("scriptId")).isEqualTo("456");
+        verify(stampService).applyStampToScript(loggedInInfo, liveBean, "456");
+        verifyNoInteractions(prescriptionDao);
+    }
+
     /** A stash item as {@code Prescription.Save} leaves it: a drugs row id and its script number. */
     private static RxPrescriptionData.Prescription savedItem(int drugId, String scriptNo) {
         RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(drugId, PROVIDER_NO, DEMOGRAPHIC_NO);
@@ -161,7 +261,6 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     void shouldKeepPreviewReadOnly_whenRequestIsNotPost(String method, boolean saved) throws Exception {
         request.setMethod(method);
         liveBean.getStashList().add(saved ? savedItem(5, "789") : rePrescribedItem("123"));
-        request.setParameter("scriptId", "123");
         String result = newAction().execute();
         if (saved) {
             assertThat(result).isEqualTo("viewScript");

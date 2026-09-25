@@ -102,6 +102,14 @@ public final class RxViewScript2Action extends ActionSupport {
             return null;
         }
 
+        // Reprint's AJAX response opens a separate view request. Another window may have
+        // selected a different reprint in between; authorize and pin the requested saved script
+        // instead of adopting that newer workspace. Legacy Save And Print sends literal "null".
+        String requestedScriptId = request.getParameter("scriptId");
+        if (requestedScriptId != null && !requestedScriptId.isEmpty() && !"null".equals(requestedScriptId)) {
+            return viewRequestedScript(bean.getDemographicNo(), requestedScriptId);
+        }
+
         // Reprint mode. reprint2 (RxRePrescribe2Action) loads the reprinted script into this
         // patient's RxReprintWorkspace entry; ViewScript2.jsp then renders that entry, NOT the
         // live RxSessionBean. The entry is looked up for the patient this request resolved to, so
@@ -127,6 +135,24 @@ public final class RxViewScript2Action extends ActionSupport {
         synchronized (bean) {
             return viewStashLocked(bean, loggedInInfo);
         }
+    }
+
+    private String viewRequestedScript(int demographicNo, String scriptId) throws IOException {
+        RxPreviewSnapshot snapshot;
+        try {
+            snapshot = RxPreviewSnapshot.load(demographicNo, scriptId);
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (snapshot == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        request.setAttribute("scriptId", snapshot.scriptId());
+        request.setAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE, snapshot);
+        RxReprintWorkspace.pinForRequest(request, new RxReprintWorkspace.Entry(snapshot.bean(), snapshot.comment()));
+        return "viewScript";
     }
 
     private String viewStashLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) throws IOException {
