@@ -218,10 +218,10 @@ class DynamicWSS4JInInterceptorUnitTest {
     // ---------------------------------------------------------------- review follow-ups (PR #3898)
 
     @Test
-    @DisplayName("should reject the message when the start parameter names a part other than the first")
-    void shouldRejectMessage_whenStartNamesLaterPart() {
-        // CXF's AttachmentDeserializer always treats the FIRST part as the envelope, so counting
-        // keys in the start-named part would configure WSS4J for an envelope it never processes.
+    @DisplayName("should scan the first part when the start parameter names a later part, as CXF does")
+    void shouldUseFirstPart_whenStartNamesLaterPart() {
+        // CXF's AttachmentDeserializer ignores start and always treats the FIRST part as the
+        // envelope, so the key count must come from the first part, whatever start says.
         when(message.get(Message.CONTENT_TYPE)).thenReturn(
                 "multipart/related; boundary=b1; type=\"application/xop+xml\"; start=\"<soap-root@carlos>\"");
         givenContent("--b1\r\n"
@@ -234,15 +234,41 @@ class DynamicWSS4JInInterceptorUnitTest {
                 + envelope(3, true)
                 + "\r\n--b1--");
 
-        assertThatThrownBy(() -> interceptor.handleMessage(message))
-                .isInstanceOf(Fault.class)
-                .hasRootCauseInstanceOf(IOException.class);
-        assertNoWssInterceptorAdded();
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(9));
     }
 
     @Test
-    @DisplayName("should match an unquoted start parameter against a bracketed, folded Content-ID")
-    void shouldMatchStartParameter_withUnquotedStartAndBracketedContentId() {
+    @DisplayName("should accept a first part whose Content-ID differs from the start parameter")
+    void shouldUseFirstPart_whenStartDiffersFromFirstPartContentId() {
+        // A gateway may label its root part differently from start; CXF accepts that, so must we.
+        when(message.get(Message.CONTENT_TYPE)).thenReturn(
+                "multipart/related; boundary=b1; start=\"<rootpart@soapui.org>\"");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n"
+                + "Content-ID: <root.message@cxf.apache.org>\r\n\r\n"
+                + envelope(2, true)
+                + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should accept a first part with no Content-ID when start is present")
+    void shouldUseFirstPart_whenRootPartHasNoContentId() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1; start=\"<root>\"");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n\r\n" + envelope(3, true) + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+    }
+
+    @Test
+    @DisplayName("should scan the first part with an unquoted start parameter and a folded Content-ID")
+    void shouldUseFirstPart_withUnquotedStartAndFoldedContentId() {
         when(message.get(Message.CONTENT_TYPE)).thenReturn(
                 "Multipart/Related;BOUNDARY=b1;start=soap-root@carlos");
         givenContent("--b1\r\n"
@@ -294,15 +320,14 @@ class DynamicWSS4JInInterceptorUnitTest {
     }
 
     @Test
-    @DisplayName("should reject the message when no part matches the start parameter")
-    void shouldRejectMessage_whenNoPartMatchesStartParameter() {
+    @DisplayName("should scan the first part when no part matches the start parameter")
+    void shouldUseFirstPart_whenNoPartMatchesStartParameter() {
         when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1; start=\"<missing>\"");
         givenContent("--b1\r\nContent-ID: <root>\r\n\r\n" + envelope(1, true) + "\r\n--b1--\r\n");
 
-        assertThatThrownBy(() -> interceptor.handleMessage(message))
-                .isInstanceOf(Fault.class)
-                .hasRootCauseInstanceOf(IOException.class);
-        assertNoWssInterceptorAdded();
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
     }
 
     @Test
@@ -499,7 +524,8 @@ class DynamicWSS4JInInterceptorUnitTest {
                 + "<!-- <xenc:EncryptedKey> -->"
                 + "<note><![CDATA[<xenc:EncryptedKey>]]></note>"
                 + "<other:EncryptedKey xmlns:other=\"urn:not-xenc\"/>"
-                + "<e:EncryptedKey Id=\"EK-1\"><e:CipherData/></e:EncryptedKey>"
+                + "<e:EncryptedKey Id=\"EK-1\"><e:CipherData/>"
+                + "<e:ReferenceList><e:DataReference URI=\"#ED-1\"/></e:ReferenceList></e:EncryptedKey>"
                 + "</w:Security></s:Header>"
                 + "<s:Body><e:EncryptedKey xmlns:e=\"" + XENC_NS + "\"/></s:Body>"
                 + "</s:Envelope>";
@@ -508,6 +534,166 @@ class DynamicWSS4JInInterceptorUnitTest {
         interceptor.handleMessage(message);
 
         assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
+    }
+
+    @Test
+    @DisplayName("should count a header EncryptedData with an embedded key once, not the nested key")
+    void shouldCountHeaderEncryptedDataNotNestedKey_whenKeyIsEmbeddedInKeyInfo() {
+        // WSS4J dispatches the direct EncryptedData (one result, via its embedded key) and the
+        // direct EncryptedKey with references (one result). The nested key is never dispatched.
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<s:Envelope xmlns:s=\"" + SOAP_NS + "\">"
+                + "<s:Header><w:Security xmlns:w=\"" + WSSE_NS + "\" xmlns:e=\"" + XENC_NS + "\">"
+                + "<e:EncryptedData Id=\"ED-hdr\"><ds:KeyInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">"
+                + "<e:EncryptedKey Id=\"EK-nested\"/></ds:KeyInfo></e:EncryptedData>"
+                + "<e:EncryptedKey Id=\"EK-top\"><e:CipherData/>"
+                + "<e:ReferenceList><e:DataReference URI=\"#ED-body\"/></e:ReferenceList></e:EncryptedKey>"
+                + "</w:Security></s:Header>"
+                + "<s:Body><e:EncryptedData xmlns:e=\"" + XENC_NS + "\" Id=\"ED-body\"/></s:Body>"
+                + "</s:Envelope>";
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should not count a key-transport-only EncryptedKey that has no ReferenceList")
+    void shouldNotCountEncryptedKey_whenItHasNoReferenceList() {
+        // WSS4J skips an Encrypt result with no data references (WSHandler.checkReceiverResultsAnyOrder).
+        String xml = envelope(1, true).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-transport\"><xenc:CipherData/></xenc:EncryptedKey></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
+    }
+
+    @Test
+    @DisplayName("should not count an EncryptedKey whose ReferenceList is wrapped in another element")
+    void shouldNotCountEncryptedKey_whenReferenceListIsWrapped() {
+        // EncryptedKeyProcessor reads ReferenceList only as a direct child of the key, so a
+        // wrapped list decrypts nothing: WSS4J skips the key, and no Encrypt action may be
+        // configured for it. No EncryptedData anywhere, so the legacy fallback stays off.
+        String xml = envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-wrapped\"><xenc:CipherData/>"
+                + "<wrap><xenc:ReferenceList><xenc:DataReference URI=\"#ED-0\"/></xenc:ReferenceList></wrap>"
+                + "</xenc:EncryptedKey></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
+    @DisplayName("should not treat a DataReference nested below the list's children as a reference")
+    void shouldNotCountNestedDataReference_whenItIsNotAListChild() {
+        // decryptDataRefs walks the list's direct children only.
+        String xml = envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-deep\"><xenc:CipherData/>"
+                + "<xenc:ReferenceList><note><xenc:DataReference URI=\"#ED-0\"/></note></xenc:ReferenceList>"
+                + "</xenc:EncryptedKey></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
+    @DisplayName("should read only the first ReferenceList of an EncryptedKey, as WSS4J does")
+    void shouldIgnoreSecondReferenceList_whenKeyHasTwoLists() {
+        // getDirectChildElement returns the first list only. The key decrypts the body via that
+        // list (one result); the second list's reference to the header EncryptedData is never
+        // followed, so WSS4J dispatches that EncryptedData separately (a second result).
+        String xml = envelope(0, true).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-two-lists\"><xenc:CipherData/>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ED-0\"/></xenc:ReferenceList>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ED-extra\"/></xenc:ReferenceList>"
+                + "</xenc:EncryptedKey>"
+                + "<xenc:EncryptedData Id=\"ED-extra\"><ds:KeyInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"/>"
+                + "</xenc:EncryptedData></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should count a standalone ReferenceList in the Security header")
+    void shouldCountStandaloneReferenceList_whenKeyCarriesNoReferences() {
+        String xml = envelope(0, true).replace("</wsse:Security>",
+                "<xenc:EncryptedKey Id=\"EK-transport\"><xenc:CipherData/></xenc:EncryptedKey>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ED-0\"/></xenc:ReferenceList></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
+    }
+
+    @Test
+    @DisplayName("should count a header EncryptedData that no key references, but not one that is referenced")
+    void shouldCountUnreferencedHeaderEncryptedData_whenNoKeyReferencesIt() {
+        // envelope(3): three keys, and the two attachment EncryptedData in the header are
+        // referenced by keys 1 and 2 (removed by WSS4J after decryption, so never dispatched).
+        // An extra unreferenced one is dispatched to EncryptedDataProcessor: one more result.
+        String xml = envelope(3, true).replace("</wsse:Security>",
+                "<xenc:EncryptedData Id=\"ED-extra\"><ds:KeyInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"/>"
+                + "</xenc:EncryptedData></wsse:Security>");
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(4));
+    }
+
+    @Test
+    void shouldIgnoreEmptyReferenceList_whenNoDataIsEncrypted() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:ReferenceList/></wsse:Security>"));
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
+    void shouldIgnoreNestedDataReference_whenItIsNotAListChild() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey><xenc:EncryptionProperties><xenc:DataReference URI=\"#ignored\"/>"
+                + "</xenc:EncryptionProperties></xenc:EncryptedKey></wsse:Security>"));
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
+    }
+
+    @Test
+    void shouldRejectExcessiveReferenceLists_whenTheirResultsWouldBeEmpty() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:ReferenceList/>".repeat(DynamicWSS4JInInterceptor.MAX_ENCRYPTED_KEYS + 1)
+                + "</wsse:Security>"));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class).hasRootCauseInstanceOf(IOException.class);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    void shouldIgnoreLaterKeyReferenceLists_whenTheFirstListIsEmpty() {
+        givenContent(envelope(0, false).replace("</wsse:Security>",
+                "<xenc:EncryptedKey><xenc:ReferenceList/>"
+                + "<xenc:ReferenceList><xenc:DataReference URI=\"#ignored\"/></xenc:ReferenceList>"
+                + "</xenc:EncryptedKey></wsse:Security>"));
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(TS_SIG);
     }
 
     // ---------------------------------------------------------------- stream handling
@@ -551,6 +737,24 @@ class DynamicWSS4JInInterceptorUnitTest {
     @DisplayName("should reject the message when EncryptedKeys exceed the bound")
     void shouldRejectMessage_whenEncryptedKeysExceedBound() {
         givenContent(envelope(DynamicWSS4JInInterceptor.MAX_ENCRYPTED_KEYS + 1, true));
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
+                .isInstanceOf(Fault.class)
+                .hasRootCauseInstanceOf(IOException.class)
+                .rootCause().hasMessageContaining("maximum of " + DynamicWSS4JInInterceptor.MAX_ENCRYPTED_KEYS);
+        assertNoWssInterceptorAdded();
+    }
+
+    @Test
+    @DisplayName("should reject the message when key-transport-only EncryptedKeys exceed the bound")
+    void shouldRejectMessage_whenUncountedEncryptedKeysExceedBound() {
+        // A key without a ReferenceList predicts no Encrypt result, but WSS4J still performs an
+        // RSA unwrap for each direct key, so the DoS bound must count them too.
+        StringBuilder keys = new StringBuilder();
+        for (int i = 0; i <= DynamicWSS4JInInterceptor.MAX_ENCRYPTED_KEYS; i++) {
+            keys.append("<xenc:EncryptedKey Id=\"EK-transport-").append(i).append("\"><xenc:CipherData/></xenc:EncryptedKey>");
+        }
+        givenContent(envelope(0, false).replace("</wsse:Security>", keys + "</wsse:Security>"));
 
         assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class)
@@ -1175,8 +1379,9 @@ class DynamicWSS4JInInterceptorUnitTest {
 
     /**
      * Builds a synthetic MCEDT-shaped response: {@code keys} EncryptedKey blocks in the Security
-     * header (the first for the body, the rest for attachments), plus EncryptedData in the Body
-     * when requested. No real data.
+     * header (the first for the body, the rest for attachments), each with a ReferenceList to its
+     * EncryptedData; the attachments' EncryptedData sit in the Security header (SwA profile) and
+     * the body's in the Body, when requested. No real data.
      */
     private static String envelope(int keys, boolean encryptedBody) {
         StringBuilder sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
@@ -1188,6 +1393,8 @@ class DynamicWSS4JInInterceptorUnitTest {
         for (int i = 0; i < keys; i++) {
             sb.append("<xenc:EncryptedKey Id=\"EK-").append(i).append("\">")
                     .append("<xenc:CipherData><xenc:CipherValue>AAAA</xenc:CipherValue></xenc:CipherData>")
+                    .append("<xenc:ReferenceList><xenc:DataReference URI=\"#ED-").append(i)
+                    .append("\"/></xenc:ReferenceList>")
                     .append("</xenc:EncryptedKey>");
             if (i > 0) {
                 sb.append("<xenc:EncryptedData Id=\"ED-").append(i)
