@@ -338,7 +338,7 @@ test('dismissal after the fax POST starts never resets an uncertain in-flight op
 });
 
 test('prescription reset and clear actions cancel the deferred fax before changing the stash', () => {
-  assert.match(browserFunction('resetStash', 'resetReRxDrugList'), /function resetStash\(\)\s*\{\s*cancelPendingFax\(\);/);
+  assert.match(browserFunction('resetStash', 'cancelPendingFax'), /function resetStash\(\)\s*\{\s*cancelPendingFax\(\);/);
   assert.match(browserFunction('clearPending', 'clearPendingFax'), /function clearPending\(actionValue\)\s*\{\s*cancelPendingFax\(\);/);
 });
 

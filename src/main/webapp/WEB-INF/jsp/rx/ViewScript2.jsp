@@ -340,6 +340,7 @@
         <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
         <fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="msg_noteSaveFailed"/>
+        <fmt:message key="SearchDrug.js.removeRefused" var="msg_removeRefused"/>
 
         <script type="text/javascript">
             /*
@@ -361,24 +362,25 @@
             function resetStash() {
                 cancelPendingFax();
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
-                fetch(url, {
+                return fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
                     body: 'demographicNo=<%= viewScriptDemographicNo %>'
-                }).then(function() {
-                    parent.document.getElementById('rxText').textContent = "";//make pending prescriptions disappear.
-                    parent.document.getElementById('searchString').focus();
-                });
-            }
-
-            function resetReRxDrugList() {
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
-                fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
-                    credentials: 'same-origin',
-                    body: 'demographicNo=<%= viewScriptDemographicNo %>'
+                }).then(function(response) {
+                    if (!response.ok) throw new Error('Prescription reset was refused');
+                    if (typeof parent.clearStashDisplay === 'function') {
+                        parent.clearStashDisplay();
+                        var modalElement = parent.document.getElementById('carlosModal');
+                        var modal = modalElement && parent.bootstrap.Modal.getInstance(modalElement);
+                        if (modal) modal.hide();
+                    } else {
+                        window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
+                    }
+                    return true;
+                }).catch(function() {
+                    alert('${carlos:forJavaScript(msg_removeRefused)}');
+                    return false;
                 });
             }
 
@@ -1662,7 +1664,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                              value="<fmt:message key="ViewScript.msgCreateNewRx"/>"
                                                              class="btn btn-outline-secondary"
                                                              style="width: 210px"
-                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){var bs=(typeof parent.bootstrap!=='undefined')?parent.bootstrap:(typeof bootstrap!=='undefined'?bootstrap:null);if(bs){var modal=bs.Modal.getInstance(m);if(modal){modal.hide();}}}}catch(e){}"/></span>
+                                                             onClick="resetStash();"/></span>
                                             </td>
                                         </tr>
                                         <tr>

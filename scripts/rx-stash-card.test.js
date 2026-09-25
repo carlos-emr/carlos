@@ -174,3 +174,78 @@ for (const helper of ['updateQty', 'parseIntr']) {
         assert.equal(touchedMissingField, false);
     });
 }
+
+test('complete reset keeps cards and ReRx selection until the server accepts it', () => {
+    const requests = [];
+    const alerts = [];
+    const pane = { textContent: 'staged prescription' };
+    const checkbox = { checked: true };
+    let focused = false;
+    const context = {
+        ctx: '/carlos', selectedReRxIDs: [42],
+        document: {
+            getElementById(id) { return id === 'rxText' ? pane : { focus() { focused = true; } }; },
+            querySelectorAll() { return [checkbox]; },
+        },
+        CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
+        renderRxStage() {}, updateReRxStageConfirmBoxVisibility() {},
+        reportRefusedRemoval() { alerts.push('refused'); },
+    };
+    vm.runInNewContext(slice('function clearStashDisplay(', 'function iterateStash('), context);
+    context.resetStash();
+    assert.equal(requests.length, 1);
+    assert.equal(pane.textContent, 'staged prescription');
+    assert.equal(checkbox.checked, true);
+    requests[0].options.onFailure();
+    assert.equal(pane.textContent, 'staged prescription');
+    assert.equal(checkbox.checked, true);
+    assert.deepEqual(alerts, ['refused']);
+    context.resetStash();
+    requests[1].options.onSuccess();
+    assert.equal(pane.textContent, '');
+    assert.equal(checkbox.checked, false);
+    assert.equal(context.selectedReRxIDs.length, 0);
+    assert.equal(focused, true);
+});
+
+const printJsp = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp'), 'utf8');
+const resetStart = printJsp.indexOf('function resetStash(');
+const printReset = printJsp.slice(resetStart, printJsp.indexOf('\n\n            /*', resetStart))
+    .replace(/<%[\s\S]*?%>/g, '42');
+for (const result of ['success', 'refused', 'network failure']) {
+    test(`preview reset preserves cards and modal until acknowledgement: ${result}`, async () => {
+        let resolve;
+        let reject;
+        let cleared = 0;
+        let hidden = 0;
+        let cancelled = 0;
+        const alerts = [];
+        const context = {
+            cancelPendingFax() { cancelled++; }, getCsrfToken() { return 'token'; },
+            fetch() { return new Promise((ok, fail) => { resolve = ok; reject = fail; }); },
+            parent: {
+                clearStashDisplay() { cleared++; },
+                document: { getElementById() { return {}; } },
+                bootstrap: { Modal: { getInstance() { return { hide() { hidden++; } }; } } },
+            },
+            alert(message) { alerts.push(message); },
+        };
+        vm.runInNewContext(printReset, context);
+        const pending = context.resetStash();
+        assert.equal(cancelled, 1);
+        assert.equal(cleared, 0);
+        assert.equal(hidden, 0);
+        if (result === 'network failure') reject(new Error('offline'));
+        else resolve({ ok: result === 'success' });
+        assert.equal(await pending, result === 'success');
+        assert.equal(cleared, result === 'success' ? 1 : 0);
+        assert.equal(hidden, result === 'success' ? 1 : 0);
+        assert.equal(alerts.length, result === 'success' ? 0 : 1);
+    });
+}
+
+test('save and reset flows do not send a second unordered ReRx clear request', () => {
+    assert.doesNotMatch(jsp, /resetReRxDrugList|parameterValue=clearReRxDrugList/);
+    assert.doesNotMatch(printJsp, /resetReRxDrugList|parameterValue=clearReRxDrugList/);
+    assert.match(printJsp, /onClick="resetStash\(\);"/);
+});

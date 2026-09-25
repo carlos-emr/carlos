@@ -336,17 +336,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
             }
           }
 
-			function resetReRxDrugList() {
-				var rand = Math.floor(Math.random() * 10001);
-				var url = ctx + "/rx/deleteRx?parameterValue=clearReRxDrugList";
-				var data = "rand=" + rand;
-				CarlosAjax.request(url, {
-					method: 'post', parameters: data, onSuccess: function (transport) {
-						// updateCurrentInteractions();
-					}
-				});
-			}
-
 			function onPrint(cfgPage) {
 				var docF = document.getElementById('printFormDD');
 
@@ -691,7 +680,6 @@ function renderRxStage() {
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
   			callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
-            resetReRxDrugList();
             resetStash();
   		  }
   		});
@@ -703,7 +691,6 @@ function renderRxStage() {
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
     			  callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
-                  resetReRxDrugList();
                   resetStash();
     		  }
     		});
@@ -1494,15 +1481,25 @@ function renderRxStage() {
             document.getElementById("drugName_"+randomId).value=origDrugName;
         }
     }
-    function resetStash(){
-               var url=ctx + "/rx/deleteRx?parameterValue=clearStash";
-               var data = "rand=" + Math.floor(Math.random()*10001);
-               CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
-                            // updateCurrentInteractions();
-            }});
-               document.getElementById('rxText').textContent="";//make pending prescriptions disappear.
-	            renderRxStage();
-               document.getElementById("searchString").focus();
+    function clearStashDisplay() {
+        document.getElementById('rxText').textContent = '';
+        document.querySelectorAll('input[id^="reRxCheckBox_"]').forEach(function (checkbox) {
+            checkbox.checked = false;
+        });
+        selectedReRxIDs = [];
+        updateReRxStageConfirmBoxVisibility();
+        renderRxStage();
+        document.getElementById('searchString').focus();
+    }
+
+    function resetStash() {
+        var url = ctx + "/rx/deleteRx?parameterValue=clearStash";
+        var data = "rand=" + Math.floor(Math.random()*10001);
+        CarlosAjax.request(url, {
+            method: 'post', parameters: data,
+            onSuccess: clearStashDisplay,
+            onFailure: reportRefusedRemoval
+        });
     }
 
 			/*
@@ -2810,7 +2807,6 @@ function updateQty(element){
                 } else {
                     alert(jsMsg.pleaseAddDrugFirst);
                 }
-                resetReRxDrugList();
             },
             // The server refuses (409) a save that does not name an open Rx window's patient, e.g.
             // after the session's per-patient state was dropped. Say so: failing silently leaves
@@ -2839,7 +2835,6 @@ function updateQty(element){
         {method: 'post',postBody:data,synchronous:true,
             onSuccess:function(transport){
                 callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
-                resetReRxDrugList();
                 resetStash();
             },
             onFailure: reportRefusedSave});
