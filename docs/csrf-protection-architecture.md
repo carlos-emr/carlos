@@ -115,6 +115,50 @@ The `csrfguard.js` script (served by the JavascriptServlet) automatically handle
   or the `postForm()` wrapper which handles this automatically. See
   `src/main/webapp/share/javascript/oscarMDSIndex.js` for the implementation.
 
+### `X-Requested-With` is a LIST, not a single value
+
+CSRFGuard's client script sets `X-Requested-With` to the value of
+`org.owasp.csrfguard.JavascriptServlet.xRequestedWith` in `Owasp.CsrfGuard.properties`
+(currently `OWASP CSRFGuard Project`) from inside its `XMLHttpRequest.send()` hijack. jQuery has already
+called `setRequestHeader("X-Requested-With", "XMLHttpRequest")` by then, and the XHR
+specification says a repeated `setRequestHeader` **combines** values with `", "` rather than
+replacing them. So a plain `jQuery.ajax()` POST arrives at the server as:
+
+```
+X-Requested-With: XMLHttpRequest, OWASP CSRFGuard Project
+```
+
+`carlos-ajax.js` deliberately leaves the header to CSRFGuard (setting it itself would
+duplicate `CSRF-TOKEN` the same way and fail validation), so its requests carry only the
+marker.
+
+**Never compare this header with `equals`.** Use
+`io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)`, which splits the
+header and accepts either marker. An exact-match check classifies essentially every browser XHR
+in CARLOS as a browser page request; `LogoutBroadcastFilter` then appends its heartbeat
+`<script>` block to `text/html` AJAX replies, and any caller that renders the response body
+shows that JavaScript to the user as text. That is exactly how the HRM report viewer came to
+print JavaScript beside its comment box.
+
+Every server-side reader of this header in CARLOS goes through `RequestNegotiation.isAjax`:
+
+| Caller | What the misclassification cost |
+|--------|--------------------------------|
+| `LogoutBroadcastFilter` | appended its heartbeat `<script>` to `text/html` AJAX replies |
+| `CsrfGuardScriptInjectionFilter` | injected the CSRFGuard `<script>` tag into AJAX replies |
+| `PrivacyStatementAppendingFilter` | appended the confidentiality statement into AJAX reply bodies |
+| `EctDisplayAction.finalizeForward` | took `forward()` instead of `include()`, so Tomcat 11 truncated the encounter panel at the 8KB buffer boundary |
+| `CaseManagementView2Action.listNotes` | same truncation, for the notes list |
+| `providercontrol.jsp` / `provideraddstatus.jsp` | left the appointment-status reply as `text/html` instead of `text/plain`, so the decorating filters appended their script blocks to it |
+| `efmformmanager.jsp` / `efmimagemanager.jsp` | would have re-emitted the jQuery `<script>` tags into an AJAX fragment (these two already split the header; they now share the one implementation) |
+
+JSPs call it fully qualified in a scriptlet:
+`io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)`.
+
+`PrivacyStatementAppendingFilter.HTTP_HEADER_NAME_AJAX_REQUESTED_WITH` and
+`...HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH` remain as deprecated public constants; they name the
+header and the jQuery value correctly, but comparing a raw header against them is the mistake.
+
 ### Property Key Gotchas
 
 CSRFGuard 4.5 has inconsistent property key naming. Several keys differ from what the

@@ -1,6 +1,8 @@
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%-- Encounter Header Bar: patient info, family doctor, search form --%>
 <div class="encounter-header d-flex align-items-center hidePrint">
@@ -11,7 +13,7 @@
             <carlos:encode value='${famDocName}' context="html"/>&nbsp;<carlos:encode value='${famDocSurname}' context="html"/>
         </span>
         <a href="#"
-           onclick="popupPage(150,200,'calculatorWin','${ctx}/encounter/ViewCalculators?sex='+encodeURIComponent(encounterConfig.patientSex)+'&amp;age='+encodeURIComponent(encounterConfig.pAge)); return false;"
+           onclick="popupPage(150,200,'calculatorWin','${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(bean.demographicNo)}'); return false;"
            title="<fmt:message key="encounter.Index.calculators"/>">
             <img alt="<fmt:message key="encounter.Index.calculators"/>" src="graphics/calculator.gif">
         </a>

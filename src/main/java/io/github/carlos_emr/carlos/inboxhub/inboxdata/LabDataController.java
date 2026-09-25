@@ -151,7 +151,7 @@ public class LabDataController {
      *
      * <p>Supported result types and their display destinations:</p>
      * <ul>
-     *   <li><b>MDS</b>: Routed to /SegmentDisplay.jsp for Medical Data Systems results</li>
+     *   <li><b>MDS</b>: Routed to /oscarMDS/ViewSegmentDisplay for Medical Data Systems results</li>
      *   <li><b>CML</b>: Routed to /lab/CA/ON/ViewCMLDisplay for Ontario CML lab results</li>
      *   <li><b>HL7 TEXT</b>: Routes based on discipline/category:
      *     <ul>
@@ -182,7 +182,7 @@ public class LabDataController {
             LabResultData labResult = results.get(i);
             //Setting inbox item type:
             if (labResult.isMDS()) {
-                url.append("/SegmentDisplay.jsp?");
+                url.append("/oscarMDS/ViewSegmentDisplay?");
             }
             else if (labResult.isCML()) {
                 url.append("/lab/CA/ON/ViewCMLDisplay?");
@@ -201,14 +201,18 @@ public class LabDataController {
                 url.append("/documentManager/ViewShowDocument?inWindow=true");
             }
             else if (labResult.isHRM()) {
-                url.append("/hospitalReportManager/Display?");
+                // inWindow marks a report the INBOX opened, the same way the HL7 and document
+                // links above do. The HRM viewer closes itself after a sign-off only when it sees
+                // this: ticklers and the eChart open the very same route in a popup, and closing
+                // those would take away the revoke affordance they rely on.
+                url.append("/hospitalReportManager/Display?inWindow=true");
                 StringBuilder duplicateLabIds=new StringBuilder();
                 for (Integer duplicateLabId : labResult.getDuplicateLabIds())
                 {
                     if (duplicateLabIds.length()>0) duplicateLabIds.append(',');
                     duplicateLabIds.append(duplicateLabId);
                 }
-                url.append("duplicateLabIds=");
+                url.append("&duplicateLabIds=");
                 url.append(encodeURL(duplicateLabIds.toString()));
                 url.append("&id=");
                 url.append(encodeURL(labResult.getSegmentID()));

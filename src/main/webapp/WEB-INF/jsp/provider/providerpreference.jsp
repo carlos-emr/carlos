@@ -1509,7 +1509,7 @@ function checkTypeInAll() {
  * Submits a quick link action (add/remove) via POST form.
  * @param {string} action - The action to perform ('add' or 'remove')
  * @param {string} name - The quick link name
- * @param {string} url - The quick link URL; omitted from form when falsy (e.g., for 'remove')
+ * @param {string} url - The quick link URL; always submitted, or an empty string when falsy
  */
 function submitQuickLinkAction(action, name, url) {
     var form = document.getElementById('quickLinkActionForm');
