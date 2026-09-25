@@ -92,15 +92,17 @@ test('unticking ReRx waits for success before removing every card for the source
     assert.equal(other.removed, false);
 });
 
-test('a refused ReRx removal restores its checkbox and retains the staged card', () => {
-    const staged = card('set_222', '4242');
-    const checkbox = { id: 'reRxCheckBox_4242', checked: false };
-    const { requests, alerts } = run('removeDrugFromReRxList(4242);', [staged, checkbox]);
-    requests[0].options.onFailure({status: 403});
-    assert.equal(staged.removed, false);
-    assert.equal(checkbox.checked, true);
-    assert.deepEqual(alerts, ['Removal failed']);
-});
+for (const status of [403, 409]) {
+    test(`a ReRx removal refused with ${status} restores its checkbox and retains the card`, () => {
+        const staged = card('set_222', '4242');
+        const checkbox = { id: 'reRxCheckBox_4242', checked: false };
+        const { requests, alerts } = run('removeDrugFromReRxList(4242);', [staged, checkbox]);
+        requests[0].options.onFailure({status});
+        assert.equal(staged.removed, false);
+        assert.equal(checkbox.checked, true);
+        assert.deepEqual(alerts, ['Removal failed']);
+    });
+}
 
 test('archive-on-close mechanism is gone (#3871)', () => {
     assert.ok(!jsp.includes('deleteOnCloseRxBox'));

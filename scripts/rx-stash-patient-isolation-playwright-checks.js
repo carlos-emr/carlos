@@ -153,7 +153,7 @@ async function workflow(session) {
     await first.close();
   });
 
-  await session.step('unticking ReRx removes its card and does not archive the source', async () => {
+  await session.step('refused ReRx untick retains its card and successful retry removes it', async () => {
     const rx = await openRx(session, patient);
     const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(`${marker}-B`)} AND archived=0`);
@@ -164,7 +164,71 @@ async function workflow(session) {
     await rx.locator('#reRxConfirmBox input[name="stage"]').click();
     const card = rx.locator(`fieldset[data-drug-ref-id="${source}"]`);
     await card.waitFor({ state: 'visible', timeout: 30000 });
-    await rx.locator(`#reRxCheckBox_${source}`).uncheck();
+    // Refuse a real removal for a valid patient whose Rx workspace was never opened. The
+    // browser retains its original patient; only this held request's binding is changed.
+    const unopened = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth,
+      month_of_birth, date_of_birth, sex, patient_status, provider_no, hc_type, province,
+      roster_status, lastUpdateDate) VALUES (${h.sqlString(marker)}, 'Unopened', '1980', '01',
+      '02', 'F', 'AC', ${h.sqlString(provider)}, 'ON', 'ON', 'NR', NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(unopened), 'the unopened patient fixture was not created');
+    session.cleanup(() => sql.execute(`DELETE FROM demographic WHERE demographic_no=${unopened}
+      AND last_name=${h.sqlString(marker)}`));
+    const isRemoval = request => request.method() === 'POST'
+      && new URL(request.url()).pathname.endsWith('/rx/WriteScript')
+      && new URLSearchParams(request.postData() || '').get('action') === 'removeFromReRxDrugIdList';
+    let release;
+    let intercepted;
+    const hold = new Promise(resolve => { release = resolve; });
+    const received = new Promise(resolve => { intercepted = resolve; });
+    const routePattern = /\/rx\/WriteScript(?:\?|$)/;
+    const handler = async route => {
+      const request = route.request();
+      if (!isRemoval(request)) return route.continue();
+      intercepted(request);
+      await hold;
+      const data = new URLSearchParams(request.postData() || '');
+      data.set('demographicNo', unopened);
+      data.delete('demographic_no');
+      const url = new URL(request.url());
+      url.searchParams.delete('demographicNo');
+      url.searchParams.delete('demographic_no');
+      await route.continue({ url: url.toString(), postData: data.toString() });
+    };
+    const since = { responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length };
+    await rx.route(routePattern, handler);
+    try {
+      let refusal;
+      const dialogs = await h.withExpectedDialogs(rx, async () => {
+        const response = rx.waitForResponse(response => isRemoval(response.request()));
+        await box.uncheck();
+        await Promise.race([received, rx.waitForTimeout(10000).then(() => {
+          throw new Error('unticking ReRx did not request removal');
+        })]);
+        h.assert(await card.isVisible(), 'unticking ReRx hid its card before server acknowledgement');
+        release();
+        refusal = await response;
+        h.assert(refusal.status() === 409, 'missing-workspace removal must return HTTP 409 rather than a successful error page');
+        await rx.waitForFunction(id => document.getElementById(id).checked, `reRxCheckBox_${source}`);
+        h.assert(await card.isVisible(), 'refused ReRx removal hid the staged card');
+      });
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'refused ReRx removal did not explain its failure');
+      // Consume only the exact expected HTTP failure and its matching browser resource warning.
+      // All unrelated responses, errors, failed requests and dialogs remain strict.
+      const errors = session.recorder.badResponses.slice(since.responses);
+      h.assert(errors.length === 1 && errors[0].url === refusal.url() && errors[0].status === 409
+        && errors[0].method === 'POST', 'the removal probe produced an unexpected HTTP failure');
+      session.recorder.badResponses.splice(since.responses, 1);
+      for (let i = session.recorder.consoleIssues.length - 1; i >= since.console; i--) {
+        const entry = session.recorder.consoleIssues[i];
+        if (entry.location.url === refusal.url() && entry.text.startsWith('Failed to load resource:')
+          && entry.text.includes('status of 409 (')) session.recorder.consoleIssues.splice(i, 1);
+      }
+    } finally {
+      release();
+      await rx.unroute(routePattern, handler);
+    }
+    // Retry the unmodified browser action against the original patient's still-staged card.
+    await box.uncheck();
     await card.waitFor({ state: 'detached', timeout: 10000 });
     await rx.close();
     h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${source}`) === '0',
