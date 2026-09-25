@@ -392,15 +392,15 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     class IsEnabled {
 
         @Test
-        @DisplayName("should enable portal delivery when the setting is true and the Portal is configured")
-        void shouldEnable_whenTrueAndPortalConfigured() {
-            assertThat(PortalEmailDeliveryService.isEnabled(" true ", () -> true)).isTrue();
+        @DisplayName("should enable portal delivery when the setting is true and the Portal settings build")
+        void shouldEnable_whenTrueAndPortalSettingsBuild() {
+            assertThat(PortalEmailDeliveryService.isEnabled(" true ", () -> null)).isTrue();
         }
 
         @Test
         @DisplayName("should stay off, without consulting the Portal, when the setting is false or absent")
         void shouldStayOff_whenFalseOrAbsent() {
-            java.util.function.BooleanSupplier unused = () -> {
+            java.util.function.Supplier<PatientPortalSettings> unused = () -> {
                 throw new AssertionError("the Portal must not be consulted when email delivery is off");
             };
             assertThat(PortalEmailDeliveryService.isEnabled("false", unused)).isFalse();
@@ -408,17 +408,39 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should report a misconfiguration when the setting is true but the Portal is not configured")
-        void shouldReportMisconfiguration_whenTrueButPortalNotConfigured() {
-            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("true", () -> false))
+        @DisplayName("should report the Portal's own error when the setting is true but the Portal settings do not build")
+        void shouldReportMisconfiguration_whenTrueButPortalSettingsInvalid() {
+            // Covers a switched-off Portal, a mistyped master switch and a partial connection alike.
+            PatientPortalConfigurationException invalid = new PatientPortalConfigurationException("portal not configured");
+
+            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("true", () -> { throw invalid; }))
+                    .isSameAs(invalid);
+        }
+
+        @Test
+        @DisplayName("should report any other settings failure as a configuration error")
+        void shouldWrapUnexpectedFailure_asConfigurationError() {
+            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("true",
+                    () -> { throw new IllegalArgumentException("bad key"); }))
                     .isInstanceOf(PatientPortalConfigurationException.class)
-                    .hasMessageContaining("not enabled and configured");
+                    .hasMessageContaining("settings are not valid")
+                    .hasMessageNotContaining("bad key");
+        }
+
+        @Test
+        @DisplayName("should reject a partial Portal configuration built from real properties")
+        void shouldReportMisconfiguration_forPartialRealConfiguration() {
+            java.util.Map<String, String> partial = java.util.Map.of("patient_portal.base_url", "https://portal.example.test");
+
+            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("true",
+                    () -> PatientPortalSettings.fromProperties(partial::get)))
+                    .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
         @Test
         @DisplayName("should report a misconfiguration for a value that is neither true nor false")
         void shouldReportMisconfiguration_whenValueMalformed() {
-            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("yes", () -> true))
+            assertThatThrownBy(() -> PortalEmailDeliveryService.isEnabled("yes", () -> null))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining("must be true or false");
         }
