@@ -290,7 +290,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should treat an invalid key as missing")
         void shouldRefuse_whenKeyIsInvalid() {
-            CarlosProperties.getInstance().setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "not-a-base64-aes-key!");
+            CarlosProperties.getInstance().setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "not base64");
             assertThatThrownBy(EncryptionUtils::prepareSecretKeySpec).isInstanceOf(IllegalArgumentException.class);
             requireKey(true);
 
