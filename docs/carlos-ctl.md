@@ -66,7 +66,7 @@ covers this end to end; the short version, in the order that retires the most
 risk first:
 
 1. **Verify** — `sudo carlos-ctl check`, and confirm the eForm render browser
-   (`sudo systemctl status carlos-emr-chromedriver`).
+   (`sudo systemctl status carlos-emr-render-browser`).
 2. **Credentials** — `sudo cat /etc/carlos-emr/initial-admin.txt`, log in,
    complete the forced password reset, create real named accounts, disable
    the seeded `carlosdoc` account, delete the file. If the install-time

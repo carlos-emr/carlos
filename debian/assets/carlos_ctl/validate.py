@@ -5,12 +5,14 @@ check: prove the DEPLOYED system end to end, probing live behaviour rather
 than trusting configuration files to describe it."""
 
 import os
+from typing import Optional
 import re
 import time
 
 from . import config, dbops, provision, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
+    BACKUP_ENV, CHROMIUM_DIR, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RENDER_BROWSER_ENV, RESET,
+    REINSTALL_HINT, YELLOW, need_root, out, package_ships, render_payload_installed, run,
 )
 
 _failures = 0
@@ -93,6 +95,46 @@ def _check_front_door(bind_ip: str) -> None:
     else:
         _bad(f"nginx is not listening on {', '.join(missing)} — the front door is not "
              "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
+
+
+def _check_render_payload(chromium_dir: str, render_env: str,
+                          shipped: Optional[bool] = None) -> bool:
+    """Report whether the render browser is present and provisioned.
+
+    Returns True when both binaries are executable and the postinst has written
+    renderer.env, i.e. when the service-level checks are meaningful. Gates
+    on the BINARIES, not on renderer.env, which the postinst generates and
+    only purge removes.
+
+    `shipped` is whether the installed carlos-emr lists the browser binary
+    (util.package_ships; injectable for tests). It decides what an absent
+    payload means: a full build whose browser is gone is damage, a
+    SKIP_EFORM_RENDERER build is a NOTE -- even when a renderer.env from an
+    earlier full build is still on disk.
+    """
+    print("\neForm render browser")
+    if render_payload_installed(chromium_dir):
+        if os.path.exists(render_env):
+            return True
+        _bad("the render browser is installed but renderer.env is missing — the "
+             f"carlos-emr postinst never completed ({REINSTALL_HINT})")
+        return False
+    if shipped is None:
+        shipped = package_ships(os.path.join(chromium_dir, "chrome"))
+    if os.path.exists(chromium_dir) or shipped:
+        # Part of the tree is there, or dpkg says this package shipped the
+        # browser: a payload that was installed and is now incomplete.
+        _bad(f"the render browser under {chromium_dir} is missing or incomplete (chrome and "
+             "chromedriver must both be executable) — saved-eForm print, fax and archive "
+             f"fail ({REINSTALL_HINT})")
+        return False
+    leftover = ""
+    if os.path.exists(render_env):
+        leftover = (f"; {render_env} is left over from an earlier build that shipped the "
+                    "browser (purge removes it)")
+    _note("this carlos-emr build carries no render browser (a SKIP_EFORM_RENDERER "
+          f"development build); saved-eForm print, fax and archive are unavailable{leftover}")
+    return False
 
 
 def cmd_check(argv) -> int:
@@ -209,34 +251,23 @@ def cmd_check(argv) -> int:
             _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
                  "MariaDB drop-in documents is missing")
 
-    # The eForm render browser is optional (Recommends:), so probe it only when its
-    # env file says it is installed. Every check here maps to a way it silently breaks:
-    # the unit not running, the AppArmor userns grant missing on a kernel that enforces
+    # The eForm render browser ships inside carlos-emr (it was the separate
+    # carlos-emr-eform-renderer package through 2026.08.0~alpha13). Only a
+    # SKIP_EFORM_RENDERER dev build lacks it. Every check here maps to a way it
+    # silently breaks: the payload or its token missing, the unit not running, the
+    # AppArmor userns grant missing on a kernel that enforces
     # apparmor_restrict_unprivileged_userns (Chromium aborts "No usable sandbox!" and
     # every eForm print/fax/archive fails closed), or carlos.properties pointing the
-    # JVM at a different port/token than the driver actually serves.
-    # Gate on the chromedriver BINARY, which a plain `apt remove` deletes — not on
-    # render-browser.env, which survives until purge: keying on the env file made check
-    # report a broken renderer on hosts where the operator deliberately removed the
-    # package. Binary-present-but-env-missing IS a fault (postinst never completed).
-    render_env = "/etc/carlos-emr/render-browser.env"
-    render_driver = "/usr/lib/carlos-emr/chromium/chromedriver"
-    if os.path.exists(render_driver) and not os.path.exists(render_env):
-        print("\neForm render browser")
-        _bad("the renderer package is installed but render-browser.env is missing — its "
-             "postinst never completed (sudo apt install --reinstall carlos-emr-eform-renderer)")
-    elif not os.path.exists(render_driver) and os.path.exists(render_env):
-        print("\neForm render browser")
-        _note("render-browser.env is left over from a removed carlos-emr-eform-renderer "
-              "(it holds the url-base token and is deleted on purge); the renderer itself "
-              "is not installed, so its checks are skipped")
-    elif os.path.exists(render_driver):
-        print("\neForm render browser")
-        if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
-            _ok("carlos-emr-chromedriver is running")
+    # JVM at a different port/token than the driver actually serves. `check` is the
+    # durable signal for all of these: the postinst reports them but deliberately
+    # does NOT record them in the install-incomplete marker, which finish-install
+    # clears without repairing the renderer.
+    if _check_render_payload(CHROMIUM_DIR, RENDER_BROWSER_ENV):
+        if run(["systemctl", "is-active", "--quiet", "carlos-emr-render-browser"]).returncode == 0:
+            _ok("carlos-emr-render-browser is running")
         else:
-            _bad("carlos-emr-chromedriver is NOT running "
-                 "(systemctl status carlos-emr-chromedriver)")
+            _bad("carlos-emr-render-browser is NOT running "
+                 "(systemctl status carlos-emr-render-browser)")
         try:
             with open(profiles, encoding="utf-8", errors="replace") as fh:
                 entries = fh.read()
@@ -272,23 +303,22 @@ def cmd_check(argv) -> int:
             pass
         # Mirror config.py's composition exactly, including the empty-url-base shape it
         # deliberately writes mid-install: a base-less URL is then EXPECTED, and the broken
-        # thing is the missing token — whose fix is the renderer postinst, not init-config.
+        # thing is the missing token — whose fix is the carlos-emr postinst, not init-config.
         expected = None
         if port:
             expected = f"http://127.0.0.1:{port}/{url_base}" if url_base else f"http://127.0.0.1:{port}"
         if prop_url and expected and prop_url == expected:
             if url_base:
-                _ok("eform_pdf_browser_service_url matches render-browser.env")
+                _ok("eform_pdf_browser_service_url matches renderer.env")
             else:
-                _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
-                     "unit refuses to start without the token; reinstall the renderer package "
-                     "(its postinst regenerates it): sudo apt install --reinstall "
-                     "carlos-emr-eform-renderer")
+                _bad("CARLOS_RENDER_URL_BASE is empty in renderer.env — the chromedriver "
+                     "unit refuses to start without the token; the carlos-emr postinst "
+                     f"regenerates it: {REINSTALL_HINT}")
         elif prop_url is None:
             _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
                  "reach the render browser (sudo carlos-ctl init-config)")
         else:
-            _bad("eform_pdf_browser_service_url does not match render-browser.env — the JVM "
+            _bad("eform_pdf_browser_service_url does not match renderer.env — the JVM "
                  "and chromedriver disagree on port or url-base token "
                  "(sudo carlos-ctl init-config, then systemctl restart carlos-emr)")
 
@@ -425,7 +455,8 @@ def cmd_check(argv) -> int:
                     engine = m.group(1)
                     break
     except OSError as e:
-        _bad(f"cannot read the WAF policy: {e} — reinstall carlos-emr to restore it")
+        _bad(f"cannot read the WAF policy: {e} — reinstall carlos-emr to restore it "
+             f"({REINSTALL_HINT})")
     if engine == "On":
         _ok("ModSecurity rule engine is On (blocking)")
     else:

@@ -215,8 +215,8 @@ KEYS = {
     "carlos.flyway.locations": {"d": "deploy-owned"},
     "carlos.flyway.onBoot": {"d": "deploy-owned"},
     "eform_pdf_browser_startup_check": {"d": "deploy-owned"},
-    # the renderer package's install decides these two (config.py writes
-    # them when carlos-emr-eform-renderer is present, comments them out
+    # the render browser decides these two (config.py writes them when
+    # carlos-emr's bundled Chromium is present, comments them out
     # otherwise); a clinic's OSCAR 19 file never carried them
     "eform_pdf_browser_chromium_path": {"d": "deploy-owned"},
     "eform_pdf_browser_service_url": {"d": "deploy-owned"},
