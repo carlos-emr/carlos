@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -19,7 +20,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -126,8 +129,8 @@ class JpaSmsSendRateLimitServiceUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire inserts SMS provider limiter row before locking")
-    void shouldInsertRateLimitRowBeforeLock_whenProviderIsUsed() {
+    @DisplayName("tryAcquire locks the seeded SMS provider limiter row without inserting")
+    void shouldLockWithoutInsert_whenLimiterRowExists() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(
                 SmsProviderType.CLOUDLI,
@@ -143,10 +146,38 @@ class JpaSmsSendRateLimitServiceUnitTest {
 
         assertThat(limiter.tryAcquire(SmsProviderType.CLOUDLI)).isTrue();
 
-        verify(rateLimitDao).insertIfMissing(SmsProviderType.CLOUDLI, Date.from(clock.instant()));
+        // An INSERT IGNORE on an existing row takes a shared lock, and upgrading it to FOR UPDATE can
+        // deadlock two concurrent senders, so the seeded row is locked directly.
+        verify(rateLimitDao, never()).insertIfMissing(any(SmsProviderType.class), any(Date.class));
         verify(rateLimitDao, never()).persist(any(SmsProviderRateLimit.class));
         verify(rateLimitDao).merge(rateLimit);
         verify(rateLimitDao).flush();
+    }
+
+    @Test
+    @DisplayName("tryAcquire inserts and then locks the SMS provider limiter row when it is missing")
+    void shouldInsertThenLock_whenLimiterRowIsMissing() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
+        SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(
+                SmsProviderType.CLOUDLI,
+                Date.from(clock.instant())
+        );
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
+                rateLimitDao,
+                60,
+                Duration.ofMinutes(1),
+                clock
+        );
+        when(rateLimitDao.findByProviderTypeForUpdate(SmsProviderType.CLOUDLI))
+                .thenReturn(Optional.empty(), Optional.of(rateLimit));
+
+        assertThat(limiter.tryAcquire(SmsProviderType.CLOUDLI)).isTrue();
+
+        InOrder order = inOrder(rateLimitDao);
+        order.verify(rateLimitDao).findByProviderTypeForUpdate(SmsProviderType.CLOUDLI);
+        order.verify(rateLimitDao).insertIfMissing(SmsProviderType.CLOUDLI, Date.from(clock.instant()));
+        order.verify(rateLimitDao).findByProviderTypeForUpdate(SmsProviderType.CLOUDLI);
+        order.verify(rateLimitDao).merge(rateLimit);
     }
 
     @Test
@@ -164,6 +195,7 @@ class JpaSmsSendRateLimitServiceUnitTest {
         assertThat(limiter.tryAcquire(SmsProviderType.CLOUDLI)).isFalse();
 
         verify(rateLimitDao).insertIfMissing(SmsProviderType.CLOUDLI, Date.from(clock.instant()));
+        verify(rateLimitDao, times(2)).findByProviderTypeForUpdate(SmsProviderType.CLOUDLI);
         verify(rateLimitDao, never()).persist(any(SmsProviderRateLimit.class));
         verify(rateLimitDao, never()).merge(any(SmsProviderRateLimit.class));
         verify(rateLimitDao, never()).flush();
