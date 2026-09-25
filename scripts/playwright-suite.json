@@ -2480,6 +2480,7 @@
       ],
       "timeoutSec": 300,
       "env": [
+        "MYSQL_PASSWORD",
         "CPP_EXT_SEARCH",
         "CPP_EXT_DEMOGRAPHIC_NO",
         "CPP_EXT_TIMEOUT_MS"

@@ -66,7 +66,10 @@
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   CPP_EXT_SEARCH=FAKE-           surname prefix used to reach a patient
- *   CPP_EXT_DEMOGRAPHIC_NO=1       which patient's chart to open
+ *   CPP_EXT_DEMOGRAPHIC_NO=2       which patient's chart to open. Defaults to 2, not 1: the
+ *                                  shared helper records that demographic 1's chart answers 500 on
+ *                                  the demo dataset, because its HRM rows point at report files
+ *                                  that never shipped
  *   CPP_EXT_TIMEOUT_MS=45000       per-step allowance
  */
 
@@ -119,6 +122,13 @@ async function cleanup() {
   }
   const statements = [];
   if (stamp) {
+    // THE SIGNATURE ROW TOO. issueNoteSave marks the note signed, and
+    // CaseManagementManagerImpl hashes a signed note into hash_audit (type "enc", the note id in
+    // the `id` column, which the entity calls id2). Deleting the note without it leaves an audit
+    // row pointing at a note that no longer exists, once per save this check makes.
+    statements.push(['the stamped item\'s hash audit rows',
+      `DELETE h FROM hash_audit h JOIN casemgmt_note n ON n.note_id = h.id `
+      + `WHERE h.type = 'enc' AND n.note LIKE '${stamp}%'`]);
     // CHILDREN BEFORE THE PARENT, and the note row is what identifies them all,
     // so every child delete joins back to it and the note goes last.
     // casemgmt_note_ext and casemgmt_issue_notes carry real foreign keys to
@@ -166,6 +176,11 @@ async function clickDialogButton(page, titlePattern, what) {
   throw new Error(`the CPP item editor offers no ${what} button, so the flow this check exists for cannot be driven`);
 }
 
+/** The POST the CPP dialog makes, whichever button was pressed. */
+function isNoteSave(response) {
+  return /method=issueNoteSave/.test(response.url()) && response.request().method() === 'POST';
+}
+
 /** Did updateCPPNote()'s onFailure handler repaint the box with an HTTP status? */
 async function boxErrorText(page) {
   const html = await page.locator(`#${BOX_ID}`).innerHTML().catch(() => '');
@@ -184,7 +199,7 @@ function extensionRows(sql, stamp) {
 async function main() {
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
   const searchTerm = process.env.CPP_EXT_SEARCH || 'FAKE-';
-  const preferredDemographicNo = process.env.CPP_EXT_DEMOGRAPHIC_NO || '1';
+  const preferredDemographicNo = process.env.CPP_EXT_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CPP_EXT_TIMEOUT_MS || '45000');
   // The stamp leads the note text so the cleanup can anchor its LIKE.
   const stamp = `PW_CPP_EXT_${Date.now()}`;
@@ -234,13 +249,14 @@ async function main() {
     await chartPage.locator('#noteEditTxt').fill(`${stamp} CPP extension regression item`);
     await chartPage.locator('#startdate').fill(START_DATE);
     await chartPage.locator('#resolutiondate').fill(RESOLUTION_DATE);
+    // WAIT FOR THE SAVE ITSELF. An earlier version waited on a DOM predicate that every element
+    // satisfies -- the box is already visible and `dataset` is never undefined -- so it returned at
+    // once and a fixed sleep decided whether the database had been written yet. The POST is the
+    // event that matters, so wait for it, then let the box finish repainting from its reply.
+    const saveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
     await clickDialogButton(chartPage, /sign|save/i, 'save');
-    await chartPage.waitForFunction(
-      (id) => !/Error:\s*\d{3}/.test((document.getElementById(id) || {}).innerHTML || '')
-        && (document.getElementById(id) || {}).dataset !== undefined,
-      BOX_ID, { timeout },
-    ).catch(() => {});
-    await chartPage.waitForTimeout(3000);
+    await saveArrived;
+    await chartPage.waitForTimeout(1500);
 
     const savedError = await boxErrorText(chartPage);
     const failedSaves = saves.filter((save) => save.status >= 500);
@@ -277,8 +293,10 @@ async function main() {
 
     // --- archive it: the same write path, over rows that already exist ---
     const savesBeforeArchive = saves.length;
+    const archiveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
     await clickDialogButton(chartPage, /archive/i, 'archive');
-    await chartPage.waitForTimeout(5000);
+    await archiveArrived;
+    await chartPage.waitForTimeout(1500);
     const archiveSaves = saves.slice(savesBeforeArchive);
     assert(archiveSaves.length > 0, 'clicking Archive posted nothing, so the archive path was never exercised');
     const failedArchives = archiveSaves.filter((save) => save.status >= 500);
