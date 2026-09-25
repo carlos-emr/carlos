@@ -98,12 +98,19 @@
             wrap.dataset.page = String(page);
 
             var img = document.createElement('img');
+            img.className = 'pending';
             img.alt = t('pageLabel', 'Page') + ' ' + page;
             img.loading = page <= 2 ? 'eager' : 'lazy';
             img.dataset.page = String(page);
             img.addEventListener('load', function () {
+                this.classList.remove('pending');
                 this.parentNode.classList.remove('load-failed');
                 sizeOverlay(this.parentNode);
+                // A loaded page grows from its placeholder height and pushes the pages after it
+                // down. Pages that were near the viewport a moment ago may be off it now, and
+                // others may have come into it, with no scroll event to notice. Without this a
+                // jump to the end of a long fax left the last pages blank until the next scroll.
+                scheduleVisiblePageLoad();
             });
             img.addEventListener('error', function () {
                 this.parentNode.classList.add('load-failed');
@@ -126,7 +133,16 @@
             pagesEl.appendChild(wrap);
             attachPointer(wrap);
         }
+        setPlaceholderWidth();
         loadVisiblePages();
+    }
+
+    // A page that has not loaded yet reserves a letter-shaped box at the width the current
+    // zoom renders at (documentAnnotate.css, img.pending), so pages further down sit about
+    // where they will end up and the lazy loader's "near the viewport" test stays true.
+    function setPlaceholderWidth() {
+        pagesEl.style.setProperty('--page-placeholder-width',
+            Math.round(8.5 * DPI_STEPS[state.dpiIndex]) + 'px');
     }
 
     function pageImageUrl(page) {
@@ -149,6 +165,18 @@
                 img.setAttribute('src', wanted);
             }
         }
+    }
+
+    var visiblePageLoadPending = false;
+
+    /** Runs loadVisiblePages once per frame however many page images finish loading in it. */
+    function scheduleVisiblePageLoad() {
+        if (visiblePageLoadPending) { return; }
+        visiblePageLoadPending = true;
+        window.requestAnimationFrame(function () {
+            visiblePageLoadPending = false;
+            loadVisiblePages();
+        });
     }
 
     function sizeOverlay(wrap) {
@@ -1203,8 +1231,12 @@
         var next = state.dpiIndex + direction;
         if (next < 0 || next >= DPI_STEPS.length) { return; }
         state.dpiIndex = next;
+        setPlaceholderWidth();
         var images = pagesEl.querySelectorAll('img[data-page]');
-        for (var i = 0; i < images.length; i++) { images[i].removeAttribute('src'); }
+        for (var i = 0; i < images.length; i++) {
+            images[i].removeAttribute('src');
+            images[i].classList.add('pending');
+        }
         loadVisiblePages();
     }
 
