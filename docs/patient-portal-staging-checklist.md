@@ -147,8 +147,9 @@ and the result.
       for a user without portal rights, and when the integration is not configured.
 - [ ] Open it: it loads in the same window with the patient header, left navigation and panels, and
       shows no portal error.
-- [ ] Temporarily set a wrong pin and restart CARLOS: the page reports a portal failure and the
-      portal receives nothing. Restore the pin.
+- [ ] Temporarily set a wrong but well-formed pin (the pin of a throwaway key) and restart CARLOS:
+      the page reports a portal failure, the CARLOS log shows `portal transport failed: TLS
+      handshake`, and the portal receives nothing. Restore the pin.
 - [ ] Set `patient_portal.enabled=false` and restart CARLOS: the **Patient portal** entry disappears
       from the record, and the rest of CARLOS works as before. Set it back to `true` and restart.
 
