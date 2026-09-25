@@ -67,8 +67,9 @@ public class EctDeleteData2Action extends ActionSupport {
         // AddMeasurementData.jsp and the Health Tracker's fetch) posts, and CSRFGuard only
         // protects POST/PUT/DELETE/PATCH, so a GET here would let a link or an image tag in a
         // logged-in session tombstone and delete a measurement without any token. Refuse it
-        // before any lookup, as HealthTrackerUpdate2Action does.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // before any lookup, as HealthTrackerUpdate2Action does. HTTP method names are
+        // case-sensitive (RFC 9110 section 9.1), so compare exactly.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
