@@ -617,6 +617,11 @@
     function setSaving(saving) {
         state.saving = saving;
         pagesEl.toggleAttribute('data-saving', saving);
+        // Marks are frozen (or thawed) as a whole; a hover computed before the change no longer
+        // says what a press would do, so it is dropped until the next pointer move recomputes it.
+        Array.prototype.forEach.call(pagesEl.querySelectorAll('svg[data-grab]'), function (svg) {
+            svg.removeAttribute('data-grab');
+        });
     }
 
     /* ---------- pointer interaction ---------- */
@@ -725,10 +730,14 @@
             var droppedMove = moving !== null;
             var droppedStroke = dragging !== null;
             if (!droppedMove && !droppedStroke) { return; }
+            var pointerId = (moving || dragging).pointerId;
             if (droppedMove) { delete state.previews[moving.a.id]; }
             delete state.strokePreviews[page];
             moving = null;
             dragging = null;
+            // The dropped pointer's capture goes with its gesture; cleared after the gesture so
+            // the lostpointercapture this raises finds nothing to abandon.
+            if (svg.hasPointerCapture(pointerId)) { svg.releasePointerCapture(pointerId); }
             redrawPage(page);
             if (droppedMove) { moveEnded(); }
             if (droppedStroke) { strokeEnded(); }
