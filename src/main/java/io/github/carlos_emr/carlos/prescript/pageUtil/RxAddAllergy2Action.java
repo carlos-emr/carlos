@@ -111,6 +111,25 @@ public final class RxAddAllergy2Action extends ActionSupport {
         String lifeStage = request.getParameter("lifeStage");
         String allergyToArchive = request.getParameter("allergyToArchive");
 
+        // An edit must name an existing allergy of this patient before its replacement is
+        // persisted. Otherwise a stale or cross-patient form silently becomes a new allergy.
+        Integer archiveId = null;
+        if (allergyToArchive != null && !allergyToArchive.isEmpty() && !"null".equals(allergyToArchive)) {
+            try {
+                archiveId = Integer.valueOf(allergyToArchive);
+                if (archiveId <= 0) {
+                    throw new NumberFormatException("Non-positive allergy id");
+                }
+            } catch (NumberFormatException _) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            if (patient.getAllergy(archiveId) == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
+        }
+
         String nonDrug = request.getParameter("nonDrug");
 
         Allergy allergy = new Allergy();
@@ -172,17 +191,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
 
-        // Archive old allergy if modifying an existing one
-        if (allergyToArchive != null && !allergyToArchive.isEmpty() && !"null".equals(allergyToArchive)) {
-            try {
-                boolean archived = patient.deleteAllergy(Integer.parseInt(allergyToArchive));
-                if (archived) {
-                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, "" + allergyToArchive, ip, "" + patient.getDemographicNo(), null);
-                }
-            } catch (NumberFormatException _) {
-                MiscUtils.getLogger().warn("Ignoring non-numeric allergyToArchive parameter: {}",
-                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(allergyToArchive, 40));
-            }
+        // Archive only the allergy whose ownership was checked before adding its replacement.
+        if (archiveId != null && patient.deleteAllergy(archiveId)) {
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, String.valueOf(archiveId), ip, "" + patient.getDemographicNo(), null);
         }
 
         return SUCCESS;

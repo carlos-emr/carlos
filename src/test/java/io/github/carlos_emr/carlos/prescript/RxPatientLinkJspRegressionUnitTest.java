@@ -183,6 +183,52 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should encode stored allergy and favourite text for each sidebar output context")
+    void shouldEncodeStoredSidebarText() throws IOException {
+        for (String name : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
+                "rx/SideLinksNoEditFavorites2.jsp"}) {
+            String jsp = read(name);
+            assertThat(jsp).as(name).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
+            for (String value : new String[] {"allergies[j].getDescription()", "allergies[j].getReaction()",
+                    "favorites[j].getFavoriteName()"}) {
+                assertThat(jsp).as(name + " attribute " + value)
+                        .contains("<carlos:encode value='<%= " + value + " %>' context=\"htmlAttribute\"/>");
+            }
+            for (String value : new String[] {"allergies[j].getShortDesc(13, 8, \"...\")",
+                    "favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""}) {
+                assertThat(jsp).as(name + " text " + value)
+                        .contains("<carlos:encode value='<%= " + value + " %>' context=\"html\"/>");
+            }
+            // A raw title lets persisted quotes create attributes; a raw text label permits markup.
+            assertThat(jsp).doesNotContain("title=\"<%= allergies", "title=\"<%= favorites",
+                    "<%=allergies[j].getShortDesc", "<%= favorites[j].getFavoriteName() %> <%}");
+        }
+    }
+
+    @Test
+    @DisplayName("should allow shared Rx sidebars with either permission and authorize clinical sections independently")
+    void shouldSeparatePrescriptionAndAllergySidebarPermissions() throws IOException {
+        for (String name : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
+                "rx/SideLinksNoEditFavorites2.jsp"}) {
+            String jsp = read(name);
+            assertThat(jsp).as(name)
+                    .contains("RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, \"_rx\", \"r\")")
+                    .contains("RxSessionBean rxSidebarAllergyBean = RxRequestedPatientAccess.resolveAuthorised(request, \"_allergy\", \"r\")")
+                    .contains("if (bean2 == null) bean2 = rxSidebarAllergyBean;")
+                    .contains("Allergy[] allergies = rxSidebarAllergyBean == null ? new Allergy[0]")
+                    .contains("<% if (rxSidebarAllergyBean != null) { %>")
+                    .contains("rxSidebarAllergyBean.getDemographicNo()).getActiveAllergies()");
+            // Missing or unauthorized patient still stops the fragment before any data access.
+            assertThat(jsp.indexOf("if (bean2 == null) {"))
+                    .isGreaterThan(jsp.indexOf("if (bean2 == null) bean2 = rxSidebarAllergyBean;"))
+                    .isLessThan(jsp.indexOf("Allergy[] allergies"));
+        }
+        assertThat(read("rx/SideLinksEditFavorites2.jsp"))
+                .contains("<% if (rxSidebarMayReadRx) { %>")
+                .contains("<% if (RxRequestedPatientAccess.resolveAuthorised(request, \"_rxresearch\", \"r\") != null) { %>");
+    }
+
+    @Test
     @DisplayName("should keep favourite and add-favourite navigations on the window's patient")
     void shouldNamePatient_onStagingPageNavigations() throws IOException {
         for (String jsp : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",

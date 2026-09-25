@@ -184,6 +184,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         return SUCCESS;
@@ -195,7 +197,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         if (drugList == null || drugList.isBlank()) {
             return Optional.of(drugIds);
         }
-        for (String rawId : drugList.split(",")) {
+        for (String rawId : drugList.split(",", -1)) {
             String trimmed = rawId.trim();
             if (!trimmed.matches("\\d{1,9}")) {
                 return Optional.empty();
@@ -250,9 +252,13 @@ public final class RxDeleteRx2Action extends ActionSupport {
             return null;
         }
         String ip = request.getRemoteAddr();
+        String rawId = request.getParameter("deleteRxId");
+        if (rawId == null || !rawId.matches("[^_]+_[0-9]{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        String deleteRxId = rawId.substring(rawId.indexOf('_') + 1);
         try {
-            String deleteRxId = (request.getParameter("deleteRxId").split("_"))[1];
-
             Drug drug = drugDao.find(Integer.parseInt(deleteRxId));
             if (!isOwnedBySessionPatient(drug, bean)) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
@@ -263,6 +269,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
         MiscUtils.getLogger().debug("===========================END Delete2 RxDeleteRx2Action========================");
         return null;
@@ -378,6 +386,10 @@ public final class RxDeleteRx2Action extends ActionSupport {
         }
 
         String reason = request.getParameter("reason");
+        if (reason == null || reason.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         //String comment = request.getParameter("comment"); //TODO: PUT this in a note
 
         String ip = request.getRemoteAddr();

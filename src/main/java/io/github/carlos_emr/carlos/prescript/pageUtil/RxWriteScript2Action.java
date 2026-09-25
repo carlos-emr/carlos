@@ -339,6 +339,12 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
+        synchronized (bean) {
+            return updateReRxDrugLocked(bean);
+        }
+    }
+
+    private String updateReRxDrugLocked(RxSessionBean bean) throws IOException {
         List<String> reRxDrugIdList = bean.getReRxDrugIdList();
         String action = request.getParameter("action");
         String drugId = request.getParameter("reRxDrugId");
@@ -1263,6 +1269,23 @@ public final class RxWriteScript2Action extends ActionSupport {
         // patient being saved, not only the global _rx write checked above (#3908).
         RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
                 bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
+        String result;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Keep card lookup, form updates, pruning and persistence together. A close from another
+        // window must not shift a cached index onto another drug partway through this save.
+        synchronized (bean) {
+            result = updateSaveAllDrugsLocked(bean, loggedInInfo);
+        }
+        if ("refresh".equals(result)) {
+            // Acquire the session mutex only after releasing the bean monitor: opening Rx takes
+            // these locks in the opposite order while removing persisted drafts.
+            RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
+        }
+        return result;
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
+    private String updateSaveAllDrugsLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) throws IOException {
         List<String> paramList = new ArrayList<String>();
         Enumeration em = request.getParameterNames();
         List<String> randNum = new ArrayList<String>();
@@ -1311,7 +1334,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                         String elem = (String) em.nextElement();
                         String val = request.getParameter(elem);
                         val = val.trim();
-                        if (elem.startsWith("drugName_" + num)) {
+                        if (elem.equals("drugName_" + num)) {
                             if (rx.isCustom()) {
                                 rx.setCustomName(val);
                                 rx.setBrandName(null);
@@ -1548,10 +1571,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
         removeClosedStashItems(bean, existingIndex);
 
-        saveDrug(request);
-        // Only a completed save ends this patient's reprint (not another window's): an empty or
-        // stale submission was refused above and must leave the pending reprint alone (#3908).
-        RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
+        // The patient and permission were checked before taking the bean monitor. Re-resolving
+        // through saveDrug here would acquire the session mutex while holding the bean lock.
+        persistStash(loggedInInfo, bean);
         return "refresh";
     }
 
@@ -2025,7 +2047,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     /**
-     * Removes the staged card re-prescribed from {@code drugId}, if any. Through removeStashItem,
+     * Removes every staged card re-prescribed from {@code drugId}, if any. Through removeStashItem,
      * which keeps the cursor on the same card; an iterator removal left it pointing one card too
      * far (#3908).
      */
@@ -2037,10 +2059,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.error("Prescription update failed ({})", e.getClass().getSimpleName());
             return;
         }
-        for (int i = 0; i < bean.getStashSize(); i++) {
-            if (bean.getStashItem(i).getDrugReferenceId() == sourceId) {
-                bean.removeStashItem(i);
-                return;
+        synchronized (bean) {
+            for (int i = bean.getStashSize() - 1; i >= 0; i--) {
+                if (bean.getStashItem(i).getDrugReferenceId() == sourceId) {
+                    bean.removeStashItem(i);
+                }
             }
         }
     }

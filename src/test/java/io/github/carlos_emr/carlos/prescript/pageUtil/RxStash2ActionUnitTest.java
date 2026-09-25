@@ -212,6 +212,29 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("concurrent closes remove their own cards without shifting onto a third medication")
+    void shouldRemoveRequestedCards_whenAnotherWindowClosesPrecedingCard() throws Exception {
+        try (ConcurrentRxStashClose concurrentBean = new ConcurrentRxStashClose(111111)) {
+            concurrentBean.setDemographicNo(DEMOGRAPHIC_NO);
+            concurrentBean.setProviderNo("999998");
+            concurrentBean.getStashList().add(staged(111111L, 0));
+            concurrentBean.getStashList().add(staged(222222L, 55));
+            concurrentBean.getStashList().add(staged(333333L, 0));
+            concurrentBean.addReRxDrugIdList("55");
+            putBeanInSession(concurrentBean);
+            request.setParameter("parameterValue", "deletePrescribe");
+            request.setParameter("randomId", "222222");
+
+            new RxStash2Action().execute();
+            concurrentBean.awaitCompletion();
+
+            assertThat(concurrentBean.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                    .containsExactly(333333L);
+            assertThat(concurrentBean.getReRxDrugIdList()).isEmpty();
+        }
+    }
+
+    @Test
     @DisplayName("should un-tick the ReRx source when its re-prescribed card is closed")
     void shouldDropReRxSource_whenReprescribedCardRemoved() throws Exception {
         // The card X button's only server call (#3908): removing the re-prescribed card also takes
