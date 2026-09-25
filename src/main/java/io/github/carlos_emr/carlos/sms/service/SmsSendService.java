@@ -1,23 +1,31 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 
 @Service
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsSendService {
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
+    /** Returned, without recording anything, while SMS is turned off in Administration &gt; SMS. */
+    public static final String SMS_TURNED_OFF_MESSAGE = "SMS sending is turned off in Administration > SMS.";
+    /** Fixed, synthetic body for the Administration &gt; SMS system test; never patient content. */
+    static final String SYSTEM_TEST_BODY = "CARLOS SMS system test. No reply needed.";
 
     private final SmsSendValidator validator;
     private final SmsConsentService consentService;
@@ -25,6 +33,7 @@ public class SmsSendService {
     private final SmsTransactionService transactionRecorder;
     private final SmsSendRateLimitService rateLimiter;
     private final SmsDefaultProviderResolver providerSelector;
+    private final SmsConfigService configService;
 
     public SmsSendService(
             SmsSendValidator validator,
@@ -40,6 +49,53 @@ public class SmsSendService {
         this.transactionRecorder = transactionRecorder;
         this.rateLimiter = rateLimiter;
         this.providerSelector = providerSelector;
+        this.configService = null;
+    }
+
+    @Autowired
+    public SmsSendService(
+            SmsSendValidator validator,
+            SmsConsentService consentService,
+            SmsProviderClientResolver providerResolver,
+            SmsTransactionService transactionRecorder,
+            SmsSendRateLimitService rateLimiter,
+            SmsDefaultProviderResolver providerSelector,
+            SmsConfigService configService
+    ) {
+        this.validator = validator;
+        this.consentService = consentService;
+        this.providerResolver = providerResolver;
+        this.transactionRecorder = transactionRecorder;
+        this.rateLimiter = rateLimiter;
+        this.providerSelector = providerSelector;
+        this.configService = configService;
+    }
+
+    /**
+     * Sends the fixed system-test text to a number an administrator typed, through the STUB provider only,
+     * so Administration &gt; SMS can be checked before any real provider is set up. It is sent even while
+     * SMS is turned off (checking the setup is the point), but still honours {@code sms.systemTest.enabled}
+     * through the consent service. There is no patient; callers must hold {@code _admin.sms} write and
+     * must not take the number from a chart.
+     *
+     * @param recipientPhoneNumber  the number the administrator typed
+     * @param requestedByProviderNo the administrator's provider number
+     * @param requestedBySecurityNo the administrator's security record
+     * @return the send result; {@code CONSENT_BLOCKED} when system tests are switched off
+     */
+    public SmsSendResultDto sendSystemTest(String recipientPhoneNumber, String requestedByProviderNo,
+                                           Integer requestedBySecurityNo) {
+        SmsSendCommand command = new SmsSendCommand(
+                null,
+                recipientPhoneNumber,
+                SmsRecipientPhoneType.CELL,
+                SYSTEM_TEST_BODY,
+                SmsMessagePurpose.SYSTEM_TEST,
+                requestedByProviderNo,
+                requestedBySecurityNo,
+                null
+        );
+        return sendThrough(command, SmsProviderType.STUB);
     }
 
     /**
@@ -49,12 +105,20 @@ public class SmsSendService {
      * be enabled wherever this path is used.
      */
     public SmsSendResultDto send(SmsSendCommand command) {
+        if (configService != null && !configService.sendingEnabled()) {
+            return SmsSendResultDto.validationFailed(List.of(SMS_TURNED_OFF_MESSAGE));
+        }
+        return sendThrough(command, null);
+    }
+
+    /** @param forcedProvider the provider to use, or {@code null} for the configured default */
+    private SmsSendResultDto sendThrough(SmsSendCommand command, SmsProviderType forcedProvider) {
         SmsSendValidator.Result validation = validator.validate(command);
         if (!validation.valid()) {
             return SmsSendResultDto.validationFailed(validation.messages());
         }
 
-        SmsProviderType providerType = providerSelector.configuredDefault();
+        SmsProviderType providerType = forcedProvider != null ? forcedProvider : providerSelector.configuredDefault();
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
         SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);

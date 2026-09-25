@@ -61,9 +61,15 @@ It took `V1.0.31` because `V1.0.29` and `V1.0.30` were held by open PRs (#3763, 
 #3681) when it was written; whichever of those merges after it must renumber above the
 then-current high-water mark.
 
+`V1.0.34__add_sms_config.sql` adds `sms_config`, the settings saved from Administration > SMS
+(provider, sending and scheduler switches, sender number, and the encrypted webhook secret and
+provider credentials). It seeds no row, so the `sms.*` properties keep applying until an
+administrator saves the page. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#configuration-and-validation).
+It took `V1.0.34` because `V1.0.32` and `V1.0.33` were held by open branches when it was written.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.31`
-(also the highest shared one), so the next free version for ANY location is `V1.0.32`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.34`
+(also the highest shared one), so the next free version for ANY location is `V1.0.35`
 (see `../README.md`).
