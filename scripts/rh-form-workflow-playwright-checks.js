@@ -65,6 +65,9 @@ async function workflow(s) {
     // the end of a long title, so count the entries and click the title's visible left edge.
     const entries = chart.locator('#leftNavBar li, #rightNavBar li')
       .filter({ has: chart.locator('a[onclick*="/form/forwardshortcutname"]') });
+    // The navbars fill their sections asynchronously after waitForNavbars returns; wait for the
+    // forms section to render its entry before counting, or a slow load reads as zero.
+    await entries.first().waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
     h.assert(await entries.count() === 1, 'Owned patient should have exactly one saved form entry');
     page = await ui.clickOpensPopup(chart, entries.first().locator('a[onclick*="/form/forwardshortcutname"]').first(),
       { context: s.context, recorder: s.recorder, label: 'rh-reopen', timeout: 20000, position: { x: 8, y: 9 } });
