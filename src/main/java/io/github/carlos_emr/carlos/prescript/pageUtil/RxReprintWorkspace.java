@@ -74,7 +74,11 @@ public final class RxReprintWorkspace {
      * @param comment     the script comment, or {@code null}
      */
     public static void store(HttpSession session, RxSessionBean reprintBean, String comment) {
-        map(session, true).put(reprintBean.getDemographicNo(), new Entry(reprintBean, comment == null ? "" : comment));
+        // Lookup and put under the same session mutex, so a save that clears this patient's reprint
+        // in another window cannot interleave between them and leave a stale entry behind.
+        synchronized (WebUtils.getSessionMutex(session)) {
+            map(session, true).put(reprintBean.getDemographicNo(), new Entry(reprintBean, comment == null ? "" : comment));
+        }
     }
 
     /**
@@ -112,7 +116,9 @@ public final class RxReprintWorkspace {
         if (session == null || demographicNo == null) {
             return;
         }
-        map(session, false).remove(demographicNo);
+        synchronized (WebUtils.getSessionMutex(session)) {
+            map(session, false).remove(demographicNo);
+        }
     }
 
     @SuppressWarnings("unchecked")
