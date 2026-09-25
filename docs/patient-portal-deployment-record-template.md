@@ -7,7 +7,7 @@ One record per clinic installation, filled in by the clinic following
 repository or its issues.** It names people, hosts and procedures specific to one installation.
 
 **Never write into it:** private keys, the service token, staff-assertion private keys, passwords,
-or patient data. Pins are public-key hashes and may be recorded.
+passphrases, or patient data. Pins are public-key hashes and may be recorded.
 
 ---
 
@@ -52,12 +52,14 @@ or patient data. Pins are public-key hashes and may be recorded.
 | Where the approved pins are kept | |
 | Live pin | `sha256/` |
 | Standby pin | `sha256/` |
+| New pin, during a rotation only | `sha256/` |
 
 ## 5. Renewal and rotation
 
 | Item | Answer |
 |---|---|
-| Renewal method and key-reuse setting | |
+| Renewal method (self-generated key and CSR, or certbot-managed with key reuse) | |
+| Renewal schedule, and who is told when it fails | |
 | Post-renewal pin check (automated or manual, by whom) | |
 | Where the standby private key is stored | |
 | Rotation interval | |
@@ -84,6 +86,6 @@ or patient data. Pins are public-key hashes and may be recorded.
 
 ## Change log
 
-| Date | Change (renewal, rotation, standby used, owner change) | By |
+| Date | Change (rotation, standby used, key compromise, owner change) | By |
 |---|---|---|
 | | | |
