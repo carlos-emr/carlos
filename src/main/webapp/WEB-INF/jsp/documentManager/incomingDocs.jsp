@@ -241,6 +241,17 @@
     }
     String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
 
+    // pdfAction rotates, deletes or extracts pages of the queued PDF: a mutation. The page
+    // is reached through the read gate (ViewDocumentRead2Action) and CSRFGuard protects only
+    // POST/PUT/DELETE/PATCH, so a GET carrying pdfAction from a link, an image tag or a
+    // prefetch would otherwise change the file with no token. Refuse it before touching
+    // anything; the PdfInfoForm posts, so real operators never see this.
+    if (!pdfAction.isEmpty() && !"POST".equalsIgnoreCase(request.getMethod())) {
+        response.setHeader("Allow", "POST");
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return;
+    }
+
     try {
         IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale);
     } catch (Exception e) {
