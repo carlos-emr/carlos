@@ -92,9 +92,12 @@ key itself the thing to protect:
   that exact key.
 - **Never replace it** on a server that has been running. A new key does not
   decrypt what the old one encrypted.
-- **If it is lost**, CARLOS starts with a newly generated key and the old
-  credentials stop working. Restore the original key and restart. If it cannot
-  be recovered, re-enter each account's password or API key.
+- **If it is lost**, CARLOS starts with a newly generated key, written to the
+  override file, and the old credentials stop working. Replace that generated
+  key with the original and restart. Any credential entered while the generated
+  key was in use then stops working in turn, so re-enter it. If the original
+  cannot be recovered, keep the new key and re-enter every account's password or
+  API key.
 
 **What a send does** before it opens any connection:
 
@@ -102,7 +105,7 @@ key itself the thing to protect:
 |---|---|
 | Encrypted credentials that decrypt with the current key | Sent. |
 | Encrypted credentials that do **not** decrypt (the key was changed or regenerated) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
-| Plaintext credentials, key available | Encrypted at rest, then sent. |
+| Plaintext credentials, key available | Encrypted at rest (best-effort: if that write fails, it is retried on the next send), then sent. |
 | Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured." |
 
 Every refusal is written to the audit log as

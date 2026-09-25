@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
@@ -335,10 +336,11 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isNull();
         }
 
-        @Test
+        @ParameterizedTest
+        @ValueSource(strings = {"ture", "1", "enabled"})
         @DisplayName("should warn at construction when the setting has an unrecognised value")
-        void shouldWarnAtStartup_whenSettingUnrecognised() {
-            CarlosProperties.getInstance().setProperty(EmailManager.REQUIRE_CREDENTIAL_KEY_PROPERTY, "ture");
+        void shouldWarnAtStartup_whenSettingUnrecognised(String value) {
+            CarlosProperties.getInstance().setProperty(EmailManager.REQUIRE_CREDENTIAL_KEY_PROPERTY, value);
 
             try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
                 new EmailManager(mock(EmailConsentResolver.class), new EmailSenderFactory(),
@@ -381,7 +383,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should fail before any transport, with an actionable reason, when enforcement refuses")
+        @DisplayName("should fail before any transport, with an actionable reason and an audit entry, when enforcement refuses")
         void shouldFailBeforeTransport_whenEnforcementRefuses() throws Exception {
             removeKey();
             requireKey(true);
@@ -390,10 +392,36 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
 
                 assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
+                assertThat(result.isTransportOutcomeRecorded()).isTrue();
                 assertThat(transports.constructed()).isEmpty();
                 verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
                         eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR), any());
                 verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
+                verify(archiveService, never()).archive(any(), any());
+                // CarlosUnitTestBase keeps LogAction statically mocked for every test.
+                logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
+                        eq("Email"), eq("emailLogId=81&senderConfigId=12"), eq("123"), eq("")));
+            }
+        }
+
+        @Test
+        @DisplayName("should refuse credentials encrypted under a replaced key before any transport, with enforcement off")
+        void shouldFailBeforeTransport_whenKeyWasReplaced() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            EmailConfig stale = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
+                    EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP));
+            injectDependency(stale, "id", 12);
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(false);
+            when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(stale);
+
+            try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class)) {
+                EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+                assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
+                assertThat(transports.constructed()).isEmpty();
+                verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR), any());
                 verify(archiveService, never()).archive(any(), any());
             }
         }
