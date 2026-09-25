@@ -55,7 +55,10 @@
         }
         // Browsers drop leading whitespace before resolving an href.
         var candidate = url.trim();
-        if (candidate === '') {
+        // URL parsers remove embedded tabs and newlines before recognizing a scheme/host.
+        // Reject controls before our lexical checks so an obfuscated external URL cannot
+        // acquire the patient's id (for example ht\ttps://other.example/rx/...).
+        if (candidate === '' || /[\u0000-\u001f\u007f]/.test(candidate)) {
             return false;
         }
         // The patient id must never leave this origin. A protocol-relative URL (//host/rx/...,

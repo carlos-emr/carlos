@@ -32,6 +32,9 @@ test('withPatient does not touch non-Rx or cross-origin URLs', () => {
 test('isRxUrl never classifies an off-origin or non-http URL as an Rx route', () => {
     for (const url of [
         '//other.example/rx/WriteScript',
+        'ht\ttps://other.example/rx/WriteScript',
+        'htt\nps://other.example/rx/WriteScript',
+        '/\r/other.example/rx/WriteScript',
         '  //other.example/rx/WriteScript',
         '/\\other.example/rx/WriteScript',
         '\\\\other.example/rx/WriteScript',
@@ -71,6 +74,15 @@ test('isRxUrl accepts relative Rx routes and absolute http(s) Rx URLs on this or
         } else {
             delete globalThis.location;
         }
+    }
+});
+
+test('withPatient never adds a patient to a URL with embedded control characters', () => {
+    const rx = context.create('1001');
+    for (const url of ['ht\ttps://other.example/rx/x', '/\n/other.example/rx/x']) {
+        // Browsers normalize these URLs into cross-origin navigations.
+        assert.equal(new URL(url, 'https://emr.example/carlos/').origin, 'https://other.example');
+        assert.equal(rx.withPatient(url), url);
     }
 });
 
