@@ -121,7 +121,7 @@ public final class DbTicklerAdd2Action extends ActionSupport {
         }
 
         String moduleId = request.getParameter("demographic_no");
-        String docCreator = Objects.toString(request.getParameter("user_no"), "");
+        String docCreator = Objects.toString(loggedInInfo.getLoggedInProviderNo(), "");
         String docDate = request.getParameter("xml_appointment_date");
         String ticklerMessage = Objects.toString(request.getParameter("ticklerMessage"), "");
         String priority = request.getParameter("priority");
