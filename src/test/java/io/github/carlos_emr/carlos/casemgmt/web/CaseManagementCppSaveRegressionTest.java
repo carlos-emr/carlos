@@ -328,6 +328,36 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
+    @DisplayName("change detection should treat disagreeing duplicate rows as a change (#3739)")
+    void shouldTreatDivergentDuplicatesAsChange_inIssueNoteSave() throws IOException {
+        // THE RECONCILIATION IS UNREACHABLE IF THE SAVE RETURNS FIRST. getExtByNote() orders id
+        // desc, so stopping at the first matching row reads the NEWEST, while
+        // NotesService.getNote() assigns from every row and ends on the OLDEST. On a note that
+        // already holds two rows for one key, submitting the value the newest row has looked like
+        // "nothing changed": issueNoteSave returned early and the write loop that refreshes every
+        // row never ran, so the chart kept showing the older value. The inner loop must therefore
+        // walk EVERY row for the key rather than break at the first.
+        String action = read(Path.of("src", "main", "java", "io", "github", "carlos_emr", "carlos",
+                "casemgmt", "web", "CaseManagementEntry2Action.java"));
+
+        int blockStart = action.indexOf("List<CaseManagementNoteExt> cmeList = caseManagementNoteExtDao.getExtByNote(");
+        assertThat(blockStart)
+                .as("issueNoteSave still reads the note's existing extensions for change detection")
+                .isGreaterThan(-1);
+        String block = action.substring(blockStart, action.indexOf("// if note has not changed don't save", blockStart));
+
+        assertThat(block)
+                .as("every row for the key is compared, so a disagreeing duplicate is itself a change")
+                .contains("extKeyMatched = true;")
+                .doesNotContain("extKeyMatched = true;\n                    break;");
+        assertThat(block)
+                .as("the date comparison is resolved once per key; re-normalising an already "
+                        + "normalised value on a second row would compare the wrong thing")
+                .contains("String comparableDate =")
+                .contains("String comparableValue =");
+    }
+
+    @Test
     @DisplayName("the note route should upsert one note extension per key (#3739)")
     void shouldUpsertOneNoteExtensionPerKey_inIssueNoteSave() throws IOException {
         // Two regressions have to stay shut here, and only one of them is about allocation.

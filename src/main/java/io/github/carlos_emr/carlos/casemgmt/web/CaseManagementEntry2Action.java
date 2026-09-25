@@ -1032,29 +1032,37 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             boolean extChanged = false;
             List<CaseManagementNoteExt> cmeList = caseManagementNoteExtDao.getExtByNote(Long.valueOf(noteId));
 
+            // EVERY ROW A KEY HOLDS, NOT JUST THE FIRST. getExtByNote() orders id desc, and this
+            // loop used to stop at the first match -- the NEWEST row. A note that already carries
+            // several rows for one key can hold different values in them, and NotesService.getNote()
+            // reads to the end of that list, so it reports the OLDEST. Submitting the value the
+            // newest row already has therefore looked like "nothing changed": the save returned
+            // early below, the reconciliation further down never ran, and the chart went on showing
+            // the older value. Disagreement between the rows for a key is itself a change.
             extNames:
             for (int i = 0; i < extNames.length; i++) {
                 boolean extKeyMatched = false;
 
-                String val = request.getParameter(extNames[i]);
+                String submitted = request.getParameter(extNames[i]);
+                // Resolved once per key: the date fields are normalised for comparison, and
+                // re-normalising an already-normalised value on a second row would compare the
+                // wrong thing.
+                String comparableDate = i <= 2 ? partialFullDate(submitted, partialDateFormat(submitted)) : null;
+                String comparableValue = i <= 2 ? partialDateFormat(submitted) : submitted;
                 for (CaseManagementNoteExt cme : cmeList) {
                     if (!cme.getKeyVal().equals(extKeys[i])) continue;
 
-                    if (i <= 2) {
-                        if (!nullEmptyEqual(cme.getDateValueStr(), partialFullDate(val, partialDateFormat(val)))) {
-                            extChanged = true;
-                            break extNames;
-                        }
-                        val = partialDateFormat(val);
+                    if (i <= 2 && !nullEmptyEqual(cme.getDateValueStr(), comparableDate)) {
+                        extChanged = true;
+                        break extNames;
                     }
-                    if (!nullEmptyEqual(cme.getValue(), val)) {
+                    if (!nullEmptyEqual(cme.getValue(), comparableValue)) {
                         extChanged = true;
                         break extNames;
                     }
                     extKeyMatched = true;
-                    break;
                 }
-                if (filled(val) && !extKeyMatched) { // new ext value(s) added
+                if (filled(comparableValue) && !extKeyMatched) { // new ext value(s) added
                     extChanged = true;
                     break extNames;
                 }
