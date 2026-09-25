@@ -105,7 +105,17 @@ test('renderer provisioning and restart are gated on the provisioning lock', () 
     const gateIndent = /^ */.exec(postinst.slice(postinst.lastIndexOf('\n', gate) + 1))[0];
     assert.doesNotMatch(postinst.slice(gate, at), new RegExp(`^${gateIndent}fi$`, 'm'));
   }
-  assert.match(postinst, /if \[ "\$\{RENDER_PAYLOAD:-0\}" = 1 \] && \[ "\$\{RENDER_PROVISION:-1\}" = 1 \]; then\n        sd_invoke restart carlos-emr-render-browser\.service/);
+  // The restart is also held back while a legacy carlos-emr-chromedriver that would not
+  // stop still owns the port (OLD_RENDERER_LIVE, set by the move off the old names).
+  assert.match(postinst, /if \[ "\$\{RENDER_PAYLOAD:-0\}" = 1 \] && \[ "\$\{RENDER_PROVISION:-1\}" = 1 \] \\\n        && \[ "\$\{OLD_RENDERER_LIVE:-0\}" = 0 \]; then\n        sd_invoke restart carlos-emr-render-browser\.service/);
+});
+
+// A legacy renderer that refuses to stop keeps its home and blocks the new browser's start,
+// rather than having its working directory deleted from under it.
+test('a legacy renderer that would not stop keeps its home and holds the new browser', () => {
+  const postinst = fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8');
+  assert.match(postinst, /deb-systemd-invoke stop carlos-emr-chromedriver\.service >\/dev\/null 2>&1 \|\| true\n +if systemctl is-active --quiet carlos-emr-chromedriver\.service; then\n +OLD_RENDERER_LIVE=1/);
+  assert.match(postinst, /if \[ "\$\{OLD_RENDERER_LIVE\}" = 0 \] \\\n +&& \[ -d "\$\{STATE\}\/render" \] && \[ ! -L "\$\{STATE\}\/render" \]; then\n +rm -rf "\$\{STATE\}\/render"/);
 });
 
 // A SKIP_EFORM_RENDERER build over a full one removes the render browser's unit
