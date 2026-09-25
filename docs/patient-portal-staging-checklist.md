@@ -77,9 +77,10 @@ deployment secret manager, and never reuse staging values in production.
 - [ ] Key pair generated with the `openssl` commands in `carlos.properties`. The private key goes
       only to CARLOS; the portal gets the raw public key in its keyring JSON,
       `{"<key-id>":"<public-key>"}`.
-- [ ] Pin set as in section 4 of the TLS runbook: from a key you generated, or from the **verified
-      certificate file** obtained from whoever runs nginx, checked by a second person. Do not copy a
-      pin from a live connection or from a mismatch error: that trusts whatever answered.
+- [ ] Key and pin set up as in section 4 of the TLS runbook: a key you generated, with its pin
+      checked by a second person (a portal already on another tool's key follows the runbook's
+      migration). Do not copy a pin from a live connection or from a mismatch error: that trusts
+      whatever answered.
 - [ ] A standby pin is configured alongside the live one (runbook section 5).
 - [ ] The portal's certificate also validates normally: the CARLOS JVM truststore trusts its issuer,
       and the hostname matches. A pin is checked in addition to normal validation, not instead of

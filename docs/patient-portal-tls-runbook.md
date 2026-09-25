@@ -40,7 +40,9 @@ These rules are fixed in code, and no choice below loosens them.
   state while a pin problem is fixed. To switch it off: set `patient_portal.enabled=false` (added in
   #3934; on a build without it, remove every `patient_portal.*` setting instead), restart CARLOS,
   and confirm the **Patient portal** entry is gone from a patient's record. To switch it on again:
-  `patient_portal.enabled=true` (or restore the settings), restart, and open the page.
+  `patient_portal.enabled=true` (or restore the removed settings, except
+  `patient_portal.certificate.pins`, which keeps the value you set since), restart, and open the
+  page.
 
 ## 1. Choose the addresses
 
@@ -127,9 +129,13 @@ nginx must serve the **full chain**: Java does not fetch missing intermediates, 
   once (`certbot register`), and use your usual validation options (for example
   `--webroot -w /var/www/certbot`) wherever the commands below say `<validation>`. Renewal is then
   automatic (section 5).
-- **A certificate authority that takes an uploaded CSR**: upload the `.csr` file wherever the
-  commands below run certbot, and save what it returns as the same three files. Renewal is then a
-  manual reissue on a calendar, with the same pin checks as the renewal script.
+- **A certificate authority that takes an uploaded CSR**: wherever the commands below run certbot,
+  upload the named `.csr` file instead and save what the CA returns under the file names that
+  certbot command gives (certificate, intermediates, and both together). There is no automatic
+  renewal: the renewal job fails daily from 30 days before expiry, which is the reminder. Renew by
+  uploading `live.csr`, saving the result as `new-cert.pem`, `new-chain.pem` and
+  `new-fullchain.pem` in `/etc/portal-tls`, and running the renewal job, which checks and installs
+  them (see its `new-` handling below).
 
 ### First setup
 
@@ -193,11 +199,14 @@ Otherwise:
 1. Do the first setup above, steps up to 3, keeping the current pin in CARLOS and in
    `approved-pins.txt` alongside the new and standby pins. Restart CARLOS and open the page; it
    must load.
-2. Step 4 of the first setup: nginx now serves the new key. Open the page; it must load.
+2. Step 4 of the first setup: nginx now serves the new key. Open the page; it must load. If it
+   does not, point `ssl_certificate` and `ssl_certificate_key` back at the old files, reload nginx,
+   and stop.
 3. Install the renewal job (section 5).
 4. Remove the old key's pin from the setting and from `approved-pins.txt`, restart CARLOS and open
    the page.
-5. Retire the old tool's certificate so nothing keeps renewing it: for certbot,
+5. Retire the old tool's certificate so nothing keeps renewing it: for certbot, first check with
+   `nginx -T | grep letsencrypt` that nothing else still uses it, then
    `certbot delete --cert-name <name>`, which also deletes its key. If that key was compromised,
    revoke first: `certbot revoke --cert-path /etc/letsencrypt/live/<name>/cert.pem --key-path
    /etc/letsencrypt/live/<name>/privkey.pem --reason keycompromise`.
@@ -215,43 +224,57 @@ key.
 ### The renewal job
 
 `certbot renew` does not renew certificates issued from a CSR. Save this as
-`/usr/local/sbin/portal-tls-renew`, set `HOST` and `<validation>`, and run it daily from a
-`portal-tls-renew.timer` systemd timer (or cron), with failures reported to the owner.
+`/usr/local/sbin/portal-tls-renew`, set `HOST`, `CONNECT` (an address nginx listens on for the
+portal) and `<validation>`, and run it daily from a `portal-tls-renew.timer` systemd timer (or
+cron), with failures reported to the owner.
 
-It refuses to proceed unless `live.key` is an approved key and `live.csr` is for that key; reissues
-only when fewer than 30 days remain; installs a new certificate only if it is for `live.key`; and
-reloads nginx whenever nginx is not serving the certificate on disk, so one failed reload is retried
-the next day rather than forgotten.
+What it does:
+- It takes a lock, so it never runs alongside itself or a manual change (see below).
+- It refuses to go on unless `live.key` is an approved key and `live.csr` is for that key.
+- It reissues when fewer than 30 days remain, and installs a new certificate (from certbot, or
+  `new-*.pem` saved by hand) only if it is for `live.key`.
+- It reloads nginx whenever nginx is not serving `fullchain.pem`, then checks again and fails if
+  it still is not, so a failed reload is reported every day rather than forgotten.
 
 ```sh
 #!/bin/sh
 set -eu
 HOST=portal.example.ca
+CONNECT=127.0.0.1:443
 cd /etc/portal-tls
+exec 9>.lock; flock -w 600 9 || { echo "portal-tls-renew: another run holds the lock" >&2; exit 1; }
 pin_of() { openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64; }
 fail() { echo "portal-tls-renew: $*" >&2; exit 1; }
+served() { openssl s_client -connect "$CONNECT" -servername "$HOST" </dev/null 2>/dev/null \
+  | openssl x509 -noout -fingerprint -sha256 2>/dev/null || true; }
 
 key_pin=$(openssl pkey -in live.key -pubout | pin_of)
 grep -qxF "sha256/$key_pin" approved-pins.txt || fail "live.key is not an approved key"
 [ "$(openssl req -in live.csr -pubkey -noout | pin_of)" = "$key_pin" ] || fail "live.csr is not for live.key"
 
-if ! openssl x509 -in cert.pem -noout -checkend $((30 * 86400)) >/dev/null 2>&1; then
-  rm -f new-cert.pem new-chain.pem new-fullchain.pem
+if [ ! -e new-fullchain.pem ] && ! openssl x509 -in fullchain.pem -noout -checkend $((30 * 86400)) >/dev/null 2>&1; then
+  rm -f new-cert.pem new-chain.pem
   certbot certonly --non-interactive --csr live.csr <validation> \
     --cert-path new-cert.pem --chain-path new-chain.pem --fullchain-path new-fullchain.pem
-  [ "$(openssl x509 -in new-cert.pem -pubkey -noout | pin_of)" = "$key_pin" ] \
-    || fail "new certificate is not for live.key"
-  mv new-cert.pem cert.pem && mv new-chain.pem chain.pem && mv new-fullchain.pem fullchain.pem
+fi
+if [ -e new-fullchain.pem ]; then
+  [ "$(openssl x509 -in new-fullchain.pem -pubkey -noout | pin_of)" = "$key_pin" ] \
+    || fail "new-fullchain.pem is not for live.key"
+  mv new-fullchain.pem fullchain.pem
+  mv new-cert.pem cert.pem 2>/dev/null || true; mv new-chain.pem chain.pem 2>/dev/null || true
 fi
 
-served=$(openssl s_client -connect 127.0.0.1:443 -servername "$HOST" </dev/null 2>/dev/null \
-  | openssl x509 -noout -fingerprint -sha256 2>/dev/null || true)
-[ "$served" = "$(openssl x509 -in cert.pem -noout -fingerprint -sha256)" ] && exit 0
-nginx -t && systemctl reload nginx
+want=$(openssl x509 -in fullchain.pem -noout -fingerprint -sha256)
+[ "$(served)" = "$want" ] && exit 0
+nginx -t 9>&- && systemctl reload nginx 9>&-   # the reload must not inherit the lock
+sleep 5
+[ "$(served)" = "$want" ] || fail "nginx does not serve fullchain.pem after a reload (check CONNECT and HOST)"
 ```
 
-Before any manual change in `/etc/portal-tls`, stop the job and wait for a running one to finish:
-`systemctl stop portal-tls-renew.timer portal-tls-renew.service`. Start the timer again afterwards.
+**Stopping the job** before any manual change in `/etc/portal-tls`: run
+`systemctl stop portal-tls-renew.timer` (or comment out the cron line), then
+`flock /etc/portal-tls/.lock true`, which returns once any run in progress has finished.
+**Starting it again**: `systemctl start portal-tls-renew.timer` (or restore the cron line).
 
 ### Keep a standby key pinned
 
@@ -283,38 +306,50 @@ follow the next section instead.
    setup commands, replacing `live` with `next`, and have the pin checked by a second person.
 2. Add the new pin to `patient_portal.certificate.pins` (now live, next and standby) and to
    `approved-pins.txt`. Restart CARLOS and open a patient's **Patient portal** page; it must load
-   without a portal error. If it does not, remove the new pin again, restart, start the renewal
-   timer, and stop here.
-3. Issue a certificate for `next.csr` and make it the live set, keeping the old set until the end:
+   without a portal error. If it does not, remove the new pin from the setting and from
+   `approved-pins.txt`, restart, start the renewal job, and stop here.
+3. Issue a certificate for `next.csr` and make it the live set, keeping the old set until the end.
+   The block stops at the first error, and it moves nothing until the new certificate is issued
+   and checked:
 
    ```sh
-   cd /etc/portal-tls
-   rm -f next-cert.pem next-chain.pem next-fullchain.pem
-   certbot certonly --csr next.csr <validation> \
-     --cert-path next-cert.pem --chain-path next-chain.pem --fullchain-path next-fullchain.pem
-   for f in live.key live.csr cert.pem chain.pem fullchain.pem; do mv "$f" "previous-$f"; done
-   mv next.key live.key && mv next.csr live.csr
-   mv next-cert.pem cert.pem && mv next-chain.pem chain.pem && mv next-fullchain.pem fullchain.pem
-   nginx -t && systemctl reload nginx
+   ( set -eu; cd /etc/portal-tls
+     [ ! -e previous-live.key ] || { echo "previous-* exist: finish or roll back the last change" >&2; exit 1; }
+     pin_of() { openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64; }
+     rm -f next-cert.pem next-chain.pem next-fullchain.pem
+     certbot certonly --csr next.csr <validation> \
+       --cert-path next-cert.pem --chain-path next-chain.pem --fullchain-path next-fullchain.pem
+     [ "$(openssl x509 -in next-fullchain.pem -pubkey -noout | pin_of)" = \
+       "$(openssl pkey -in next.key -pubout | pin_of)" ] || { echo "certificate is not for next.key" >&2; exit 1; }
+     for f in live.key live.csr cert.pem chain.pem fullchain.pem; do mv "$f" "previous-$f"; done
+     mv next.key live.key; mv next.csr live.csr
+     mv next-cert.pem cert.pem; mv next-chain.pem chain.pem; mv next-fullchain.pem fullchain.pem
+     nginx -t && systemctl reload nginx )
    ```
 
-   If certbot fails, nothing has been moved: remove the new pin, restart, start the renewal timer,
-   and stop.
-4. Open the **Patient portal** page again; it must load. If `nginx -t` in step 3 or this check
-   fails, the swap has happened; roll it back and stop:
+   If it stops before the swap (`previous-live.key` does not exist), nothing has moved: remove the
+   new pin from the setting and from `approved-pins.txt`, restart CARLOS, start the renewal job,
+   and stop. If it stops after the swap, roll back as in step 4.
+4. Open the **Patient portal** page again; it must load. If it does not, or step 3 stopped after the
+   swap, roll back and stop:
 
    ```sh
-   cd /etc/portal-tls
-   mv live.key next.key && mv live.csr next.csr
-   mv cert.pem next-cert.pem && mv chain.pem next-chain.pem && mv fullchain.pem next-fullchain.pem
-   for f in live.key live.csr cert.pem chain.pem fullchain.pem; do mv "previous-$f" "$f"; done
-   nginx -t && systemctl reload nginx
+   ( set -eu; cd /etc/portal-tls
+     [ -e previous-live.key ] || { echo "no previous-* files: nothing to roll back" >&2; exit 1; }
+     for f in live.key live.csr; do [ ! -e "$f" ] || mv "$f" "next.${f#live.}"; done
+     for f in cert.pem chain.pem fullchain.pem; do [ ! -e "$f" ] || mv "$f" "next-$f"; done
+     for f in live.key live.csr cert.pem chain.pem fullchain.pem; do mv "previous-$f" "$f"; done
+     nginx -t && systemctl reload nginx )
    ```
 
-   Then open the page, remove the new pin (or leave it to retry later), and start the renewal
-   timer.
+   Then open the page; it must load. Remove the new pin from the setting and from
+   `approved-pins.txt` (or leave it to retry later), restart CARLOS, and start the renewal job.
 5. Remove the old pin from the setting and from `approved-pins.txt`. Restart CARLOS and open the
-   page once more. Delete the `previous-` files and start the renewal timer.
+   page once more. Delete the `previous-` files and start the renewal job.
+
+An aborted rotation can leave `next.key` behind; the first setup commands then refuse to overwrite
+it and print no pin. Compute its pin with the last line of those commands, or delete it and start
+again.
 
 ### When the live key is compromised or lost
 
@@ -323,8 +358,14 @@ revocation by default. Removing its pin is the only thing that stops CARLOS trus
 once. If the steps below cannot be finished quickly, switch the portal off (see
 [What CARLOS enforces](#what-carlos-enforces)) rather than leave the stolen key pinned.
 
-**If the portal host itself may be compromised**, switch the portal off and rebuild the host first.
-Never bring the standby key onto a host that may be in an attacker's hands.
+**If the portal host itself may be compromised**, switch the portal off and rebuild the host.
+Never bring the standby key onto a host that may be in an attacker's hands. On the rebuilt host,
+do the first setup with `standby.key` and `standby.csr` copied in as `live.key` and `live.csr` (the
+guard then skips key generation), set the pins to that key's pin **only**, and switch the portal on.
+Then revoke the old certificate and create a new standby as below.
+
+**If the key is lost but not compromised** (the host still serves it from its files), there is no
+need to switch off: do a scheduled rotation.
 
 **With a standby key:**
 
@@ -332,12 +373,13 @@ Never bring the standby key onto a host that may be in an attacker's hands.
    and `next.csr`, then issue and install them with the rotation step 3 commands. CARLOS already
    trusts this key, so nothing breaks.
 2. Set `patient_portal.certificate.pins` and `approved-pins.txt` to the new live pin **only**.
-   Restart CARLOS and open the **Patient portal** page; it must load.
+   Restart CARLOS and open the **Patient portal** page; it must load. If step 1 or this check
+   fails, switch the portal off and leave the renewal job stopped until it is fixed.
 3. If the key was compromised, revoke its certificate, proving it with the key itself so the CA can
    block the key:
    `certbot revoke --cert-path previous-cert.pem --key-path previous-live.key --reason keycompromise`,
    or through your certificate authority.
-4. Delete the `previous-` files and start the renewal timer.
+4. Delete the `previous-` files and start the renewal job.
 5. Generate a new standby key and add its pin, as above.
 6. Record what happened in the deployment record's change log.
 
@@ -407,8 +449,8 @@ To find the cause, compute the pin of the certificate nginx serves, from the fil
 
 - **It is not a configured pin: the key on the server changed.** If someone changed it on purpose,
   verify the new key through the section 4 channel, add its pin, restart CARLOS and check the page.
-  Otherwise put the `previous-` files or a backup back as in the rotation rollback, and find out who
-  changed it; if nobody on the clinic side did, treat the host as possibly compromised (section 5).
+  Otherwise, with the renewal job stopped, restore the files: the rotation step 4 rollback if
+  `previous-live.key` exists, or a backup; then start the job again and find out who changed it; if nobody on the clinic side did, treat the host as possibly compromised (section 5).
 - **It is a configured pin: the server's key is right, so check the rest.**
   - The certificate is in date (`openssl x509 -in <file> -noout -enddate`), and nginx serves the full
     chain for the hostname and port in `patient_portal.base_url`.
