@@ -161,7 +161,7 @@ class RxSessionBeanRequestListenerUnitTest {
     }
 
     @Test
-    void shouldLeaveUnrelatedRequestsWithoutASession() {
+    void shouldAvoidCreatingSession_whenRequestIsUnrelated() {
         MockHttpServletRequest request = new MockHttpServletRequest();
 
         finish(request);

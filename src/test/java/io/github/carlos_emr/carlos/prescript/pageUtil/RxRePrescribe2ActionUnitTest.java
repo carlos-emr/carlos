@@ -164,7 +164,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
     @org.junit.jupiter.params.provider.ValueSource(strings = {"saveReRxDrugIdToStash", "represcribe2", "represcribe", "represcribeMultiple"})
     @DisplayName("concurrent saves observe a replacement and its ReRx source together")
-    void shouldPublishReplacementAndSourceTogether(String method) throws Exception {
+    void shouldPublishReplacementAndSourceTogether_whenReprescribing(String method) throws Exception {
         try (ConcurrentSaveBean concurrentBean = new ConcurrentSaveBean()) {
             concurrentBean.setDemographicNo(1);
             concurrentBean.setProviderNo("999998");

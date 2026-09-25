@@ -135,7 +135,7 @@ class RxReprintWorkspaceUnitTest {
 
     @Test
     @DisplayName("compare-and-clear preserves a newer workspace even with the same values")
-    void shouldClearOnlyCapturedEntry() {
+    void shouldClearOnlyCapturedEntry_whenWorkspaceWasReplaced() {
         RxSessionBean reprint = openPatient(1);
         RxReprintWorkspace.store(session, reprint, "same comment");
         RxReprintWorkspace.Entry original = RxReprintWorkspace.find(session, 1);
@@ -150,7 +150,7 @@ class RxReprintWorkspaceUnitTest {
 
     @Test
     @DisplayName("a view keeps its chosen workspace when another reprint opens")
-    void shouldPinWorkspaceForCurrentRender() {
+    void shouldPinWorkspace_whenRenderingCurrentRequest() {
         openPatient(1);
         org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
         RxReprintWorkspace.store(session, reprintFor(1), "original");

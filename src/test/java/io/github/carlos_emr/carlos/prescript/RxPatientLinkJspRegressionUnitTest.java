@@ -207,7 +207,7 @@ class RxPatientLinkJspRegressionUnitTest {
 
     @Test
     @DisplayName("should encode stored provider names and reprint dates in print history")
-    void shouldEncodePrintHistoryText() throws IOException {
+    void shouldEncodeText_whenRenderingPrintHistory() throws IOException {
         String jsp = read("rx/ShowPreviousPrints.jsp");
         for (String value : new String[] {"providerDao.getProvider(originalProviderNo).getFormattedName()",
                 "drp", "providerName"}) {
@@ -219,7 +219,7 @@ class RxPatientLinkJspRegressionUnitTest {
 
     @Test
     @DisplayName("should encode stored allergy and favourite text for each sidebar output context")
-    void shouldEncodeStoredSidebarText() throws IOException {
+    void shouldEncodeStoredText_whenRenderingSidebar() throws IOException {
         for (String name : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
                 "rx/SideLinksNoEditFavorites2.jsp"}) {
             String jsp = read(name);
@@ -242,7 +242,7 @@ class RxPatientLinkJspRegressionUnitTest {
 
     @Test
     @DisplayName("should allow shared Rx sidebars with either permission and authorize clinical sections independently")
-    void shouldSeparatePrescriptionAndAllergySidebarPermissions() throws IOException {
+    void shouldCheckSeparatePermissions_whenRenderingPrescriptionAndAllergySidebars() throws IOException {
         for (String name : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
                 "rx/SideLinksNoEditFavorites2.jsp"}) {
             String jsp = read(name);

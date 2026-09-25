@@ -172,7 +172,7 @@ class RxFaxPipelineRegressionUnitTest {
 
     @Test
     @DisplayName("should render the selected saved script independently of later session changes")
-    void shouldRenderRequestLocalSnapshot() throws IOException {
+    void shouldRenderSnapshot_whenBoundToRequest() throws IOException {
         String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
         String preview2 = Files.readString(PREVIEW2_JSP);
         assertThat(viewScript2)
