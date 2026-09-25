@@ -183,6 +183,29 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should allow shared Rx sidebars with either permission and authorize clinical sections independently")
+    void shouldSeparatePrescriptionAndAllergySidebarPermissions() throws IOException {
+        for (String name : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
+                "rx/SideLinksNoEditFavorites2.jsp"}) {
+            String jsp = read(name);
+            assertThat(jsp).as(name)
+                    .contains("RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, \"_rx\", \"r\")")
+                    .contains("RxSessionBean rxSidebarAllergyBean = RxRequestedPatientAccess.resolveAuthorised(request, \"_allergy\", \"r\")")
+                    .contains("if (bean2 == null) bean2 = rxSidebarAllergyBean;")
+                    .contains("Allergy[] allergies = rxSidebarAllergyBean == null ? new Allergy[0]")
+                    .contains("<% if (rxSidebarAllergyBean != null) { %>")
+                    .contains("rxSidebarAllergyBean.getDemographicNo()).getActiveAllergies()");
+            // Missing or unauthorized patient still stops the fragment before any data access.
+            assertThat(jsp.indexOf("if (bean2 == null) {"))
+                    .isGreaterThan(jsp.indexOf("if (bean2 == null) bean2 = rxSidebarAllergyBean;"))
+                    .isLessThan(jsp.indexOf("Allergy[] allergies"));
+        }
+        assertThat(read("rx/SideLinksEditFavorites2.jsp"))
+                .contains("<% if (rxSidebarMayReadRx) { %>")
+                .contains("<% if (RxRequestedPatientAccess.resolveAuthorised(request, \"_rxresearch\", \"r\") != null) { %>");
+    }
+
+    @Test
     @DisplayName("should keep favourite and add-favourite navigations on the window's patient")
     void shouldNamePatient_onStagingPageNavigations() throws IOException {
         for (String jsp : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",

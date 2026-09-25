@@ -42,7 +42,11 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
+    // This fragment is shared by prescription and allergy pages. Authorize each clinical
+    // section separately: lacking allergy access must not terminate an authorized Rx page.
+    RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
+    RxSessionBean rxSidebarAllergyBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
+    if (bean2 == null) bean2 = rxSidebarAllergyBean;
     if (bean2 == null) {
         // No Rx open for the request's patient (or a malformed demographicNo): nothing to render,
         // and never another patient's (#3908).
@@ -50,7 +54,9 @@
         return;
     }
 
-    Allergy[] allergies = RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request), bean2.getDemographicNo()).getActiveAllergies();
+    Allergy[] allergies = rxSidebarAllergyBean == null ? new Allergy[0]
+            : RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request),
+                    rxSidebarAllergyBean.getDemographicNo()).getActiveAllergies();
     String alle = "";
     if (allergies.length > 0) {
         alle = "Red";
@@ -61,6 +67,7 @@
 
 <div class="PropSheetMenu">
 
+    <% if (rxSidebarAllergyBean != null) { %>
     <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=false%>">
 
         <p class="PropSheetLevel1CurrentItem<%=alle%>"><fmt:message key="oscarRx.sideLinks.msgAllergies"/></p>
@@ -75,6 +82,7 @@
 
 
     </security:oscarSec>
+    <% } %>
 
     <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/></p>
     <p class="PropSheetMenuItemLevel1">
