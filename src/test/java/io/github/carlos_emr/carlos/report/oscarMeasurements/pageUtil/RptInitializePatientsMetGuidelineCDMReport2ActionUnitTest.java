@@ -64,6 +64,8 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.startsWith;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -178,16 +180,83 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         }
 
         private RptInitializePatientsMetGuidelineCDMReport2Action actionForRow0(String type, String instruction) {
-            when(request.getParameter("value(measurementType0)")).thenReturn(type);
-            when(request.getParameter("value(mNbInstrcs0)")).thenReturn("1");
-            when(request.getParameter("value(mInstrcsCheckbox00)")).thenReturn(instruction);
-            when(request.getParameter("value(aboveBelow0)")).thenReturn(">");
+            return actionForRow(0, type, instruction);
+        }
+
+        private RptInitializePatientsMetGuidelineCDMReport2Action actionForRow(int row, String type, String instruction) {
+            when(request.getParameter("value(measurementType" + row + ")")).thenReturn(type);
+            when(request.getParameter("value(mNbInstrcs" + row + ")")).thenReturn("1");
+            when(request.getParameter("value(mInstrcsCheckbox" + row + "0)")).thenReturn(instruction);
+            when(request.getParameter("value(aboveBelow" + row + ")")).thenReturn(">");
             RptInitializePatientsMetGuidelineCDMReport2Action action = new TestableAction();
-            action.setGuidelineCheckbox(new String[] {"0"});
+            action.setGuidelineCheckbox(new String[] {Integer.toString(row)});
             action.setStartDateB(new String[] {"2025-01-01"});
             action.setEndDateB(new String[] {"2026-01-01"});
             action.setGuidelineB(new String[] {"Provided"});
             return action;
+        }
+
+        private RptInitializePatientsMetGuidelineCDMReport2Action actionForRawIndex(String rawIndex) {
+            when(request.getParameter("value(measurementType0)")).thenReturn("AACP");
+            when(request.getParameter("value(mNbInstrcs0)")).thenReturn("1");
+            when(request.getParameter("value(mInstrcsCheckbox00)")).thenReturn("Yes/No");
+            when(request.getParameter("value(aboveBelow0)")).thenReturn(">");
+            RptInitializePatientsMetGuidelineCDMReport2Action action = new TestableAction();
+            action.setGuidelineCheckbox(new String[] {rawIndex});
+            action.setStartDateB(new String[] {"2025-01-01"});
+            action.setEndDateB(new String[] {"2026-01-01"});
+            action.setGuidelineB(new String[] {"Provided"});
+            return action;
+        }
+
+        @Test
+        @DisplayName("should bound the instruction loop by the rendered list when a huge count is posted")
+        void shouldIgnorePostedCount_whenInstructionCountIsHuge() throws Exception {
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", "Yes/No");
+            when(request.getParameter("value(mNbInstrcs0)")).thenReturn(Integer.toString(Integer.MAX_VALUE));
+            when(request.getParameter("value(mInstrcsCheckbox01)")).thenReturn(CURRENT);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("success");
+            // Two instructions were rendered for row 0, so validate + report read exactly two
+            // checkbox fields each and never probe a third; the DAO sees one query per instruction.
+            verify(request, times(2)).getParameter("value(mInstrcsCheckbox00)");
+            verify(request, times(2)).getParameter("value(mInstrcsCheckbox01)");
+            verify(request, never()).getParameter(startsWith("value(mInstrcsCheckbox02"));
+            verify(measurementDao, times(2)).findLastEntered(any(Date.class), any(Date.class), eq("AACP"), anyString());
+        }
+
+        @Test
+        @DisplayName("should skip a row whose index is not numeric instead of failing with a 500")
+        void shouldSkipRow_whenIndexIsNotNumeric() throws Exception {
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRawIndex("abc");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("success");
+            verifyNoInteractions(measurementDao);
+            verifyNoInteractions(formsDao);
+            verify(response, never()).sendRedirect(anyString());
+        }
+
+        @Test
+        @DisplayName("should skip a row whose index is past the rendered rows or the posted arrays")
+        void shouldSkipRow_whenIndexIsOutOfRange() throws Exception {
+            RptInitializePatientsMetGuidelineCDMReport2Action past = actionForRawIndex("7");
+            assertThat(past.execute()).isEqualTo("success");
+
+            RptInitializePatientsMetGuidelineCDMReport2Action negative = actionForRawIndex("-1");
+            assertThat(negative.execute()).isEqualTo("success");
+
+            // Row 0 is rendered, but the posted arrays are empty: no array may be indexed.
+            RptInitializePatientsMetGuidelineCDMReport2Action shortArrays = actionForRawIndex("0");
+            shortArrays.setStartDateB(new String[0]);
+            assertThat(shortArrays.execute()).isEqualTo("success");
+
+            verifyNoInteractions(measurementDao);
+            verifyNoInteractions(formsDao);
+            verify(response, never()).sendRedirect(anyString());
         }
 
         @Test

@@ -118,7 +118,12 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
         if (guidelineCheckbox != null) {
             for (int i = 0; i < guidelineCheckbox.length; i++) {
-                int ctr = Integer.parseInt(guidelineCheckbox[i]);
+                // The index is request data: parse and range-check it before any array access.
+                int ctr = selection.acceptedRow(guidelineCheckbox[i], CdmReportSelectionValidator.length(startDateB),
+                        CdmReportSelectionValidator.length(endDateB), CdmReportSelectionValidator.length(guidelineB));
+                if (ctr < 0) {
+                    continue;
+                }
                 String startDate = startDateB[ctr];
                 String endDate = endDateB[ctr];
                 String guideline = guidelineB[ctr];
@@ -126,8 +131,8 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 if (measurementType == null) {
                     continue;
                 }
-                String sNumMInstrc = (String) this.getValue("mNbInstrcs" + ctr);
-                int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+                // The posted value(mNbInstrcsN) count is ignored: the rendered list bounds the loop.
+                int iNumMInstrc = selection.instructionCount(ctr);
 
                 if (!ectValidation.isDate(startDate)) {
                     addActionError(getText("errors.invalidDate", measurementType));
@@ -224,8 +229,13 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         FormsDao fDao = SpringUtils.getBean(FormsDao.class);
         MiscUtils.getLogger().debug("the length of guideline checkbox is " + guidelineCheckbox.length);
         for (int i = 0; i < guidelineCheckbox.length; i++) {
-            int ctr = Integer.parseInt(guidelineCheckbox[i]);
-            MiscUtils.getLogger().debug("the value of guildline Checkbox is: " + guidelineCheckbox[i]);
+            // The index is request data: parse and range-check it before any array access.
+            int ctr = selection.acceptedRow(guidelineCheckbox[i], CdmReportSelectionValidator.length(startDateB),
+                    CdmReportSelectionValidator.length(endDateB), CdmReportSelectionValidator.length(guidelineB));
+            if (ctr < 0) {
+                continue;
+            }
+            MiscUtils.getLogger().debug("the value of guildline Checkbox is: " + ctr);
             String startDate = startDateB[ctr];
             String endDate = endDateB[ctr];
             String guideline = guidelineB[ctr];
@@ -241,8 +251,8 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 MiscUtils.getLogger().warn("CDM met-guideline report: rejected an unsupported guideline comparator");
                 continue;
             }
-            String sNumMInstrc = (String) this.getValue("mNbInstrcs" + ctr);
-            int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+            // The posted value(mNbInstrcsN) count is ignored: the rendered list bounds the loop.
+            int iNumMInstrc = selection.instructionCount(ctr);
             double metGLPercentage = 0;
             double nbMetGL = 0;
 

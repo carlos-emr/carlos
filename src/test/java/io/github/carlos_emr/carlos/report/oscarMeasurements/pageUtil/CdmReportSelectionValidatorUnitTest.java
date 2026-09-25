@@ -117,6 +117,40 @@ class CdmReportSelectionValidatorUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should accept a posted row index only when it names a rendered row every array can be indexed by")
+    void shouldAcceptRowIndex_whenRenderedAndIndexable() {
+        CdmReportSelectionValidator validator = new CdmReportSelectionValidator(definitions);
+
+        assertThat(validator.rowCount()).isEqualTo(2);
+        assertThat(validator.acceptedRow("0", 2, 2)).isZero();
+        assertThat(validator.acceptedRow("1", 2, 2, 2)).isEqualTo(1);
+        assertThat(validator.acceptedRow("1", 2, 1)).as("one array too short").isEqualTo(-1);
+        assertThat(validator.acceptedRow("2", 5, 5)).as("past the rendered rows").isEqualTo(-1);
+        assertThat(validator.acceptedRow("-1", 5)).isEqualTo(-1);
+        assertThat(validator.acceptedRow("abc", 5)).isEqualTo(-1);
+        assertThat(validator.acceptedRow("", 5)).isEqualTo(-1);
+        assertThat(validator.acceptedRow(null, 5)).isEqualTo(-1);
+        assertThat(validator.acceptedRow("99999999999", 5)).as("would overflow int").isEqualTo(-1);
+        assertThat(validator.acceptedRow("0 OR 1=1", 5)).isEqualTo(-1);
+        assertThat(new CdmReportSelectionValidator(null).acceptedRow("0", 5)).isEqualTo(-1);
+    }
+
+    @Test
+    @DisplayName("should bound the instruction loop by the rendered list, never by the posted count")
+    void shouldReturnRenderedInstructionCount_forRow() {
+        CdmReportSelectionValidator validator = new CdmReportSelectionValidator(definitions);
+
+        assertThat(validator.instructionCount(0)).as("Provided/Revised/Reviewed and legacy Yes/No").isEqualTo(2);
+        assertThat(validator.instructionCount(1)).isEqualTo(1);
+        assertThat(validator.instructionCount(2)).isZero();
+        assertThat(validator.instructionCount(-1)).isZero();
+        assertThat(new CdmReportSelectionValidator(null).instructionCount(0)).isZero();
+        assertThat(CdmReportSelectionValidator.length((String[]) null)).isZero();
+        assertThat(CdmReportSelectionValidator.length((int[]) null)).isZero();
+        assertThat(CdmReportSelectionValidator.length(new int[] {1, 2, 3})).isEqualTo(3);
+    }
+
+    @Test
     @DisplayName("should pass an unticked (null) instruction through unchanged")
     void shouldReturnNull_forUntickedInstruction() {
         CdmReportSelectionValidator validator = new CdmReportSelectionValidator(definitions);

@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * row's selectors only when they match the session definitions for that row index and skip the
  * row otherwise, as they already do for an unsupported above/below comparator.</p>
  *
+ * <p>The row index itself ({@code guidelineCheckbox} and friends) and the per-row instruction
+ * count ({@code value(mNbInstrcsN)}) are request data too. {@link #acceptedRow} parses and
+ * range-checks the index against the rendered rows and the posted arrays before any array is
+ * indexed, and {@link #instructionCount} replaces the posted count with the size of the rendered
+ * instruction list, so a crafted count can neither exhaust the CPU nor probe beyond the list.</p>
+ *
  * @since 2026-09-25
  */
 public final class CdmReportSelectionValidator {
@@ -63,6 +69,65 @@ public final class CdmReportSelectionValidator {
         Object stored = session == null ? null : session.getAttribute(SESSION_MEASUREMENT_TYPES);
         return new CdmReportSelectionValidator(
                 stored instanceof RptMeasurementTypesBeanHandler handler ? handler : null);
+    }
+
+    /** The number of rows the server rendered for the selected group; 0 without definitions. */
+    public int rowCount() {
+        return definitions == null ? 0 : definitions.getMeasurementTypeVector().size();
+    }
+
+    /**
+     * The number of measuring instructions the server rendered for form row {@code row}, which
+     * is the only loop bound the report loops may use; 0 for an unknown row.
+     */
+    public int instructionCount(int row) {
+        if (definitions == null) {
+            return 0;
+        }
+        List<RptMeasuringInstructionBeanHandler> rows = definitions.getMeasuringInstrcBeanVector();
+        return row >= 0 && row < rows.size() ? rows.get(row).getMeasuringInstrcVector().size() : 0;
+    }
+
+    /**
+     * Parses a posted row index and accepts it only when it names a rendered row and every
+     * posted per-row array is long enough to be indexed by it.
+     *
+     * @param rawIndex the posted checkbox value, e.g. {@code "0"}
+     * @param arrayLengths the lengths of the per-row arrays the caller will index (see
+     *                     {@link #length(Object[])} and {@link #length(int[])})
+     * @return the index, or {@code -1} after a warning when it is not numeric, not a rendered
+     *         row, or past the end of one of the arrays
+     */
+    public int acceptedRow(String rawIndex, int... arrayLengths) {
+        int row = parseRow(rawIndex);
+        if (row >= 0 && row < rowCount()) {
+            boolean indexable = true;
+            for (int arrayLength : arrayLengths) {
+                indexable &= row < arrayLength;
+            }
+            if (indexable) {
+                return row;
+            }
+        }
+        MiscUtils.getLogger().warn("CDM report: rejected a row index that names no rendered row");
+        return -1;
+    }
+
+    /** Length of a possibly unposted (null) per-row array. */
+    public static int length(Object[] array) {
+        return array == null ? 0 : array.length;
+    }
+
+    /** Length of a possibly unposted (null) per-row array. */
+    public static int length(int[] array) {
+        return array == null ? 0 : array.length;
+    }
+
+    private static int parseRow(String rawIndex) {
+        if (rawIndex == null || rawIndex.isEmpty() || rawIndex.length() > 6 || !rawIndex.chars().allMatch(Character::isDigit)) {
+            return -1;
+        }
+        return Integer.parseInt(rawIndex);
     }
 
     /**

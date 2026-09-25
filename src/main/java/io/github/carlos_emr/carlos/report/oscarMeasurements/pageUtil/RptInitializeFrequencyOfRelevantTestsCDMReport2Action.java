@@ -119,7 +119,12 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         if (frequencyCheckbox != null) {
 
             for (int i = 0; i < frequencyCheckbox.length; i++) {
-                int ctr = Integer.parseInt(frequencyCheckbox[i]);
+                // The index is request data: parse and range-check it before any array access.
+                int ctr = selection.acceptedRow(frequencyCheckbox[i], CdmReportSelectionValidator.length(startDateD),
+                        CdmReportSelectionValidator.length(endDateD));
+                if (ctr < 0) {
+                    continue;
+                }
                 String startDate = startDateD[ctr];
                 String endDate = endDateD[ctr];
                 String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeD" + ctr));
@@ -162,7 +167,13 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
             try {
 
                 for (int i = 0; i < frequencyCheckbox.length; i++) {
-                    int ctr = Integer.parseInt(frequencyCheckbox[i]);
+                    // The index is request data: parse and range-check it before any array access.
+                    int ctr = selection.acceptedRow(frequencyCheckbox[i], CdmReportSelectionValidator.length(startDateD),
+                            CdmReportSelectionValidator.length(endDateD), CdmReportSelectionValidator.length(exactly),
+                            CdmReportSelectionValidator.length(moreThan), CdmReportSelectionValidator.length(lessThan));
+                    if (ctr < 0) {
+                        continue;
+                    }
                     String startDate = startDateD[ctr];
                     String endDate = endDateD[ctr];
                     int exact = exactly[ctr];
@@ -174,8 +185,8 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                     if (measurementType == null) {
                         continue;
                     }
-                    String sNumMInstrc = (String) this.getValue("mNbInstrcsD" + ctr);
-                    int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+                    // The posted value(mNbInstrcsDN) count is ignored: the rendered list bounds the loop.
+                    int iNumMInstrc = selection.instructionCount(ctr);
                     ArrayList patients = mData.getPatientsSeen(startDate, endDate);
                     int nbPatients = patients.size();
 

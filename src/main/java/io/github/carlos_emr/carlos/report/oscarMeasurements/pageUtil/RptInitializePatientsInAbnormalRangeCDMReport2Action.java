@@ -116,7 +116,13 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         if (abnormalCheckbox != null) {
 
             for (int i = 0; i < abnormalCheckbox.length; i++) {
-                int ctr = Integer.parseInt(abnormalCheckbox[i]);
+                // The index is request data: parse and range-check it before any array access.
+                int ctr = selection.acceptedRow(abnormalCheckbox[i], CdmReportSelectionValidator.length(startDateC),
+                        CdmReportSelectionValidator.length(endDateC), CdmReportSelectionValidator.length(upperBound),
+                        CdmReportSelectionValidator.length(lowerBound));
+                if (ctr < 0) {
+                    continue;
+                }
                 String startDate = startDateC[ctr];
                 String endDate = endDateC[ctr];
                 String upper = upperBound[ctr];
@@ -125,8 +131,8 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 if (measurementType == null) {
                     continue;
                 }
-                String sNumMInstrc = (String) this.getValue("mNbInstrcsC" + ctr);
-                int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+                // The posted value(mNbInstrcsCN) count is ignored: the rendered list bounds the loop.
+                int iNumMInstrc = selection.instructionCount(ctr);
                 String upperMsg = "The upper bound value of " + measurementType;
                 String lowerMsg = "The lower bound value of " + measurementType;
 
@@ -211,8 +217,14 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 MiscUtils.getLogger().debug("the length of abnormal range checkbox is " + abnormalCheckbox.length);
 
                 for (int i = 0; i < abnormalCheckbox.length; i++) {
-                    int ctr = Integer.parseInt(abnormalCheckbox[i]);
-                    MiscUtils.getLogger().debug("the value of abnormal range Checkbox is: " + abnormalCheckbox[i]);
+                    // The index is request data: parse and range-check it before any array access.
+                    int ctr = selection.acceptedRow(abnormalCheckbox[i], CdmReportSelectionValidator.length(startDateC),
+                            CdmReportSelectionValidator.length(endDateC), CdmReportSelectionValidator.length(upperBound),
+                            CdmReportSelectionValidator.length(lowerBound));
+                    if (ctr < 0) {
+                        continue;
+                    }
+                    MiscUtils.getLogger().debug("the value of abnormal range Checkbox is: " + ctr);
                     String startDate = startDateC[ctr];
                     String endDate = endDateC[ctr];
                     String upper = upperBound[ctr];
@@ -222,8 +234,8 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                     if (measurementType == null) {
                         continue;
                     }
-                    String sNumMInstrc = (String) this.getValue("mNbInstrcsC" + ctr);
-                    int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+                    // The posted value(mNbInstrcsCN) count is ignored: the rendered list bounds the loop.
+                    int iNumMInstrc = selection.instructionCount(ctr);
                     double nbMetGL = 0;
                     double metGLPercentage = 0;
 
