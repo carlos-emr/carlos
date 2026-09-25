@@ -1002,10 +1002,19 @@ except ValueError:
             # so it is removed rather than kept; the old unit is stopped (its driver
             # still holds the port) and forgotten.
             # Stop the old unit first -- its driver holds the port and runs out of
-            # the old home -- but only once no package ships the old unit any more
-            # (always true here: the old renderer's exact dependency on the
-            # carlos-emr it came with means it has been upgraded to the transitional
-            # package or removed by now).
+            # the old home. Under apt every unpack precedes every configure, so the
+            # transitional package (or the removal) has already deleted the old unit
+            # file by now and the enablement is purged below. A bare
+            # `dpkg -i --auto-deconfigure` of this package alone only DECONFIGURES
+            # the old renderer: its unit file is still present and its driver still
+            # running, so the stop is keyed on the unit being active as well --
+            # otherwise the rm -rf of the old home below pulls the working
+            # directory from under a live browser, the old driver keeps the port,
+            # and the new carlos-emr-render-browser fails to bind.
+            if [ -d /run/systemd/system ] \
+                && systemctl is-active --quiet carlos-emr-chromedriver.service; then
+                deb-systemd-invoke stop carlos-emr-chromedriver.service >/dev/null 2>&1 || true
+            fi
             if [ ! -e /usr/lib/systemd/system/carlos-emr-chromedriver.service ] \
                 && [ ! -e /lib/systemd/system/carlos-emr-chromedriver.service ]; then
                 if [ -d /run/systemd/system ]; then

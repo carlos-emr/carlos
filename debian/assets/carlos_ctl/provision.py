@@ -38,6 +38,7 @@ nonzero when any requested step fails.
 import os
 import time
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 from . import config, dbops, util
@@ -47,6 +48,19 @@ from .util import PROPERTIES, REINSTALL_HINT, STATE, die, log, need_root, run, w
 # failed; removed by a successful configure and by finish-install. Plain
 # KEY=value so both the shell that writes it and util.env_get can read it.
 MARKER = os.path.join(STATE, ".install-incomplete")
+
+START_VETO = Path("/run/carlos-emr/.start-vetoed")
+
+
+def _clear_start_veto() -> None:
+    """Remove the package configure's stale start veto after a successful hand start."""
+    try:
+        START_VETO.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        warn(f"could not remove {START_VETO}: {exc}")
+
 
 # The postinst's own fail-closed sentinel: while it exists the seeded
 # 'carlosdoc' credential published in the source repository is still live and
@@ -523,6 +537,13 @@ def cmd_finish_install(argv) -> int:
             warn(f"could not restore {MARKER}: {exc}; retry finish-install manually")
         warn("the application server did not start — journalctl -u carlos-emr -n 200")
         return 1
+    # The package's configure writes /run/carlos-emr/.start-vetoed when it held the
+    # EMR back (schema not ready, seeded credential live) so the carlos-emr-restart
+    # trigger leaves a stopped unit alone. This hand repair has just started it, so
+    # the veto is stale: left behind, a later DrugRef-only transaction would decline
+    # to restart an EMR that merely happened to be down, citing a hold-back that no
+    # longer exists.
+    _clear_start_veto()
     log("database provisioning is complete; the EMR is deploying. "
         "It answers in about two minutes. Then run "
         "'carlos-ctl check'.")
