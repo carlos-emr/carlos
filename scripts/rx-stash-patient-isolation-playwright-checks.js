@@ -195,4 +195,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-stash-patient-isolation', workflow);
-module.exports = { workflow };
+module.exports = { workflow, openRx, stageCustomDrug };

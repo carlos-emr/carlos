@@ -72,6 +72,7 @@
 <%@page import="java.util.List"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -265,6 +266,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
+        <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
         <script type="text/javascript">
@@ -294,7 +296,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 unstagedReRxMultiple: '${carlos:forJavaScript(msg_unstagedReRxMultiple)}',
                 saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
                 savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
-                saveRefused: '${carlos:forJavaScript(msg_saveRefused)}'
+                saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
+                removeRefused: '${carlos:forJavaScript(msg_removeRefused)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -1551,16 +1554,16 @@ function renderRxStage() {
      * @param randomId the card's stash random id (the <rand> in set_<rand>), NOT a drug id.
      *                 rx/rxStashDelete is POST-only; CarlosAjax adds the CSRF token.
      */
-    function deletePrescribe(randomId){
+    function deletePrescribe(randomId, onRemoved){
         var data="randomId="+encodeURIComponent(randomId);
         var url=ctx + "/rx/rxStashDelete";
         data += "&parameterValue=deletePrescribe";
-        CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
-						jQuery("#set_" + randomId).remove();
-						jQuery("#prescriptionMoreLessLink_" + randomId).remove();
-						jQuery("#deleteMedicationFromPrescription_" + randomId).remove();
-					}
-				});
+        CarlosAjax.request(url, {method: 'post', parameters: data, onSuccess: function () {
+            jQuery("#set_" + randomId).remove();
+            jQuery("#prescriptionMoreLessLink_" + randomId).remove();
+            jQuery("#deleteMedicationFromPrescription_" + randomId).remove();
+            if (onRemoved) onRemoved();
+        }, onFailure: reportRefusedRemoval});
     }
 
     skipParseInstr = false;
@@ -2205,12 +2208,17 @@ function addFav(randomId,brandName){
 			}
 
 
-function removeReRxDrugId(drugId) {
+function removeReRxDrugId(drugId, onRemoved, onFailure) {
     if (drugId != null) {
         const data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
         const url = ctx + "/rx/WriteScript";
-        CarlosAjax.request(url, {method: 'post', parameters: data});
+        CarlosAjax.request(url, {method: 'post', parameters: data,
+            onSuccess: onRemoved, onFailure: onFailure || reportRefusedRemoval});
     }
+}
+
+function reportRefusedRemoval() {
+    alert(jsMsg.removeRefused);
 }
 
 //represcribe a drug
@@ -2262,7 +2270,6 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
         selectedReRxIDs.push(drugId);
     } else {
         removeDrugFromReRxList(drugId);
-        selectedReRxIDs = selectedReRxIDs.filter(id => id !== drugId);
     }
     updateReRxStageConfirmBoxVisibility();
 }
@@ -2359,15 +2366,22 @@ function addDrugToReRxListInSession(uiRefId, drugId) {
  * @param drugId The database ID of the source drug to remove.
  */
 function removeDrugFromReRxList(drugId) {
-    const stagingPane = document.getElementById('rxText');
-    if (stagingPane) {
-        stagingPane.querySelectorAll('fieldset[data-drug-ref-id]').forEach(function (card) {
-            if (card.getAttribute('data-drug-ref-id') === String(drugId)) {
-                removeElementFromUI(card);
-            }
-        });
-    }
-    removeReRxDrugId(drugId);
+    removeReRxDrugId(drugId, function () {
+        selectedReRxIDs = selectedReRxIDs.filter(id => id !== drugId);
+        updateReRxStageConfirmBoxVisibility();
+        const stagingPane = document.getElementById('rxText');
+        if (stagingPane) {
+            stagingPane.querySelectorAll('fieldset[data-drug-ref-id]').forEach(function (card) {
+                if (card.getAttribute('data-drug-ref-id') === String(drugId)) {
+                    removeElementFromUI(card);
+                }
+            });
+        }
+    }, function () {
+        const checkbox = getReRxCheckboxByUiRefId(drugId);
+        if (checkbox) checkbox.checked = true;
+        reportRefusedRemoval();
+    });
 }
 
 /**
@@ -2381,25 +2395,12 @@ function removePrescribingDrug(cardId, drugId) {
     // re-prescribed card, also drops the source from the ReRx list. Sending
     // removeFromReRxDrugIdList as well (as this used to) made a second, unordered request that
     // removes the first stash entry for the source and could drop a different draft (#3908).
-    deletePrescribingDrugFromUI(uiRefId);
-    if (drugId) {
-        const checkbox = getReRxCheckboxByUiRefId(drugId);
-        if (checkbox)
-            checkbox.checked = false;
-    }
-}
-
-/**
- * Deletes a prescribing drug from UI and calls deletePrescribe.
- *
- * The stash is keyed by the card's random id. Passing the drug id here (as this used to) sent
- * an id the stash never holds, so the server kept the card's prescription and saved it anyway.
- *
- * @param uiRefId The card's random id, which is also its stash key.
- */
-function deletePrescribingDrugFromUI(uiRefId) {
-    removeElementFromUI(getPrescribingDrugCardByUiRefId(uiRefId));
-    deletePrescribe(uiRefId);
+    deletePrescribe(uiRefId, function () {
+        if (drugId) {
+            const checkbox = getReRxCheckboxByUiRefId(drugId);
+            if (checkbox) checkbox.checked = false;
+        }
+    });
 }
 
 /**

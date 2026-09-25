@@ -34,56 +34,72 @@ function card(id, drugRefId) {
 }
 
 function run(script, cards) {
-    const calls = { deletePrescribe: [], removeReRxDrugId: [] };
+    const requests = [];
+    const alerts = [];
     const byId = Object.fromEntries(cards.map(c => [c.id, c]));
-    const pane = {
-        querySelectorAll(selector) {
-            assert.equal(selector, 'fieldset[data-drug-ref-id]');
-            return cards;
-        },
-    };
+    const pane = { querySelectorAll() { return cards.filter(c => c.id.startsWith('set_')); } };
     const context = {
-        document: {
-            getElementById(id) { return id === 'rxText' ? pane : (byId[id] || null); },
-        },
-        deletePrescribe: randomId => calls.deletePrescribe.push(randomId),
-        removeReRxDrugId: drugId => calls.removeReRxDrugId.push(drugId),
+        document: { getElementById(id) { return id === 'rxText' ? pane : (byId[id] || null); } },
+        jQuery(selector) { return { remove() { const el = byId[selector.slice(1)]; if (el) el.remove(); } }; },
+        CarlosAjax: { request(url, options) { requests.push({url, options}); } },
+        ctx: '/carlos',
+        jsMsg: { removeRefused: 'Removal failed' },
+        alert: message => alerts.push(message),
+        selectedReRxIDs: [],
+        updateReRxStageConfirmBoxVisibility() {},
         String,
     };
-    vm.runInNewContext(`${helpers}\n${script}`, context);
-    return calls;
+    const deleteHelper = slice('function deletePrescribe(', '    skipParseInstr = false;');
+    const removeHelper = slice('function removeReRxDrugId(', '//represcribe a drug');
+    vm.runInNewContext(`${deleteHelper}\n${removeHelper}\n${helpers}\n${script}`, context);
+    return { requests, alerts, context };
 }
 
-test('card X button on a ReRx card sends only the stash deletion by random id (#3871, #3908)', () => {
+test('card X waits for deletion success before hiding the card and unchecking ReRx', () => {
     const staged = card('set_734512', '4242');
-    const checkbox = { id: 'reRxCheckBox_4242', checked: true, getAttribute() { return null; } };
-    const calls = run('removePrescribingDrug(document.getElementById("set_734512"), 4242);', [staged, checkbox]);
-
-    // deletePrescribe removes exactly this card and un-ticks its source server-side. A second
-    // removeFromReRxDrugIdList request would remove the first stash entry for the source in an
-    // unordered request and could drop another draft.
-    assert.deepEqual(calls.deletePrescribe, ['734512']);
+    const checkbox = { id: 'reRxCheckBox_4242', checked: true };
+    const { requests } = run('removePrescribingDrug(document.getElementById("set_734512"), 4242);', [staged, checkbox]);
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].options.parameters, /^randomId=734512&/);
+    assert.equal(staged.removed, false);
+    assert.equal(checkbox.checked, true);
+    requests[0].options.onSuccess();
     assert.equal(staged.removed, true);
-    assert.deepEqual(calls.removeReRxDrugId, []);
     assert.equal(checkbox.checked, false);
 });
 
-test('card X button on a new drug does not touch the ReRx list (#3871)', () => {
+test('a refused card deletion stays visible and can be retried', () => {
     const staged = card('set_900001', '0');
-    const calls = run('removePrescribingDrug(document.getElementById("set_900001"), 0);', [staged]);
-
-    assert.deepEqual(calls.deletePrescribe, ['900001']);
-    assert.deepEqual(calls.removeReRxDrugId, []);
+    const { requests, alerts, context } = run('removePrescribingDrug(document.getElementById("set_900001"), 0);', [staged]);
+    requests[0].options.onFailure({status: 409});
+    assert.equal(staged.removed, false);
+    assert.deepEqual(alerts, ['Removal failed']);
+    context.removePrescribingDrug(staged, 0);
+    requests[1].options.onSuccess();
+    assert.equal(staged.removed, true);
 });
 
-test('unticking ReRx removes the card linked by data-drug-ref-id (#3872)', () => {
+test('unticking ReRx waits for success before removing every card for the source', () => {
     const other = card('set_111', '77');
     const target = card('set_222', '4242');
-    const calls = run('removeDrugFromReRxList(4242);', [other, target]);
-
+    const duplicate = card('set_333', '4242');
+    const { requests } = run('removeDrugFromReRxList(4242);', [other, target, duplicate]);
+    assert.equal(target.removed, false);
+    assert.match(requests[0].options.parameters, /^reRxDrugId=4242&action=removeFromReRxDrugIdList/);
+    requests[0].options.onSuccess();
     assert.equal(target.removed, true);
+    assert.equal(duplicate.removed, true);
     assert.equal(other.removed, false);
-    assert.deepEqual(calls.removeReRxDrugId, [4242]);
+});
+
+test('a refused ReRx removal restores its checkbox and retains the staged card', () => {
+    const staged = card('set_222', '4242');
+    const checkbox = { id: 'reRxCheckBox_4242', checked: false };
+    const { requests, alerts } = run('removeDrugFromReRxList(4242);', [staged, checkbox]);
+    requests[0].options.onFailure({status: 403});
+    assert.equal(staged.removed, false);
+    assert.equal(checkbox.checked, true);
+    assert.deepEqual(alerts, ['Removal failed']);
 });
 
 test('archive-on-close mechanism is gone (#3871)', () => {

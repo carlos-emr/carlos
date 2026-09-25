@@ -16,6 +16,7 @@
     "test:playwright-smoke": "node scripts/run-playwright-suite.js --tier smoke",
     "test:playwright-list": "node scripts/run-playwright-suite.js --list",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:rx-stash-deletion-playwright": "node scripts/rx-stash-deletion-playwright-checks.js",
     "test:rx-stash-patient-isolation-playwright": "node scripts/rx-stash-patient-isolation-playwright-checks.js",
     "test:rx-favorites-choose-drug-playwright": "node scripts/rx-favorites-choose-drug-playwright-checks.js",
     "test:echart-consult-specialist-playwright": "node scripts/echart-consult-specialist-playwright-checks.js",
