@@ -13,6 +13,9 @@
 package io.github.carlos_emr.carlos.prescript.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -52,6 +55,27 @@ public final class ViewPreview22Action extends ActionSupport {
         // The JSP renders the patient the request names; authorise that patient too (#3875).
         RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
 
+        String scriptId = request.getParameter("scriptId");
+        if (scriptId != null) {
+            RxSessionBean patient = RxRequestedPatientAccess.resolveForRead(
+                    securityInfoManager, request, "_rx", "r");
+            if (patient == null) {
+                ServletActionContext.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            RxPreviewSnapshot snapshot;
+            try {
+                snapshot = RxPreviewSnapshot.load(patient.getDemographicNo(), scriptId);
+            } catch (IllegalArgumentException e) {
+                ServletActionContext.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            if (snapshot == null) {
+                ServletActionContext.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            request.setAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE, snapshot);
+        }
         return SUCCESS;
     }
 }

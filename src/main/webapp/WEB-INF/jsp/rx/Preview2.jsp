@@ -55,6 +55,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
@@ -81,7 +82,7 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
-    String scriptid = request.getParameter("scriptId");
+    RxPreviewSnapshot previewSnapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
     String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
     RxSessionBean bean = null;
 %>
@@ -189,12 +190,14 @@
 //String rePrint = request.getParameter("rePrint");
         // Reprint state is per patient (#3908): only a reprint loaded for the patient this request
         // resolved to renders here, never another open window's reprint.
-        RxReprintWorkspace.Entry reprintEntry = RxReprintWorkspace.find(session, bean == null ? null : bean.getDemographicNo());
-        String rePrint = reprintEntry != null ? "true" : null;
+        RxReprintWorkspace.Entry reprintEntry = previewSnapshot == null ? RxReprintWorkspace.findForRequest(request, session, bean.getDemographicNo()) : null;
+        String rePrint = previewSnapshot != null
+                ? ("true".equals(request.getParameter("rePrint")) ? "true" : "")
+                : reprintEntry != null ? "true" : null;
         RxProviderData.Provider provider;
         String signingProvider;
-        if (reprintEntry != null) {
-            bean = reprintEntry.bean();
+        if (previewSnapshot != null || reprintEntry != null) {
+            bean = previewSnapshot != null ? previewSnapshot.bean() : reprintEntry.bean();
             signingProvider = bean.getStashItem(0).getProviderNo();
             rxDate = bean.getStashItem(0).getRxDate();
             provider = new RxProviderData().getProvider(signingProvider);
@@ -601,8 +604,8 @@
 
                                     if (bean.getStashSize() > 0 && Objects.nonNull(bean.getStashItem(0).getDigitalSignatureId())) {
                                         startimageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=" + bean.getStashItem(0).getDigitalSignatureId();
-                                    } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
-                                        // Only apply the stamp on new prescriptions; reprints use the stored digital signature only.
+                                    } else if (previewSnapshot == null && !"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
+                                        // Persisted previews always use the saved signature, regardless of caller-supplied rePrint.
                                         // When the signing provider differs from the session user, request the actual signing provider's stamp.
                                         startimageUrl = request.getContextPath() + "/provider/providerSignatureImage?providerNo=" + SafeEncode.forUriComponent(signingProvider);
                                     }

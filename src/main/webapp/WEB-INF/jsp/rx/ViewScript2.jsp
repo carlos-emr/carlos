@@ -32,6 +32,7 @@
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -163,7 +164,7 @@
 
             // Reprint state is per patient (#3908): only a reprint loaded for THIS window's patient
             // switches the page into reprint mode, and only that patient's reprinted script renders.
-            RxReprintWorkspace.Entry reprintEntry = RxReprintWorkspace.find(session, viewScriptDemographicNo);
+            RxReprintWorkspace.Entry reprintEntry = RxReprintWorkspace.findForRequest(request, session, viewScriptDemographicNo);
             String reprint = reprintEntry != null ? "true" : "false";
 
             String createAnewRx;
@@ -180,8 +181,24 @@
             // all use this same server-selected target.
             String scriptIdForFax = firstValidScriptId(
                     request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
-                    (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
+                    (reprintEntry != null && bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
                             ? bean.getStashItem(0).getScript_no() : "");
+            RxPreviewSnapshot previewSnapshot = null;
+            if (!scriptIdForFax.isEmpty()) {
+                previewSnapshot = RxPreviewSnapshot.load(viewScriptDemographicNo, scriptIdForFax);
+                if (previewSnapshot == null) {
+                    response.sendError(404);
+                    return;
+                }
+                bean = previewSnapshot.bean();
+            } else {
+                // An empty action result must stay empty if another request stages a drug
+                // before this JSP renders. The action alone selects ordinary saved scripts.
+                RxSessionBean emptyPreview = new RxSessionBean();
+                emptyPreview.setDemographicNo(viewScriptDemographicNo);
+                emptyPreview.setProviderNo(bean.getProviderNo());
+                bean = emptyPreview;
+            }
 // for satellite clinics
             Vector vecAddressName = null;
             Vector vecAddress = null;
@@ -282,7 +299,8 @@
                 }
             }
             // The script comment belongs to this patient's reprint, never to another window's.
-            String comment = reprintEntry != null ? reprintEntry.comment() : "";
+            String comment = reprintEntry != null ? reprintEntry.comment()
+                    : previewSnapshot != null ? previewSnapshot.comment() : "";
             String pharmacyId = request.getParameter("pharmacyId");
             RxPharmacyData pharmacyData = new RxPharmacyData();
             PharmacyInfo pharmacy = null;

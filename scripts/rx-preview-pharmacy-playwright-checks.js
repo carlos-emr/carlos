@@ -185,6 +185,42 @@ async function assertPreviewRenders(hostFrame, label) {
     await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');
     await screenshot(nullPage, config.screenshotDir, 'rx-preview-pharmacy-null-literal');
 
+    // Explicit saved-script previews must refuse invalid/foreign identities even while a
+    // valid same-patient reprint is open; neither may silently render the current workspace.
+    const foreignScript = sql(`SELECT script_no FROM prescription WHERE demographic_no<>${demographicNo} ORDER BY script_no LIMIT 1`);
+    assert(/^\d+$/.test(foreignScript), 'preview ownership coverage requires a prescription for another patient');
+    for (const [candidate, expectedStatus] of [['bad', 400], ['', 400], [foreignScript, 404]]) {
+      const response = await context.request.get(
+        `${config.baseUrl}/rx/ViewPreview2?demographicNo=${demographicNo}&scriptId=${encodeURIComponent(candidate)}`);
+      assert(response.status() === expectedStatus, 'explicit invalid or foreign prescription preview was not refused');
+    }
+
+    // Replacing this patient's reprint workspace must not retarget an already-open preview.
+    const originalPreview = nullPage.frames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
+    const originalText = await originalPreview.locator('input[name="rx_no_newlines"]').inputValue();
+    const originalUrl = originalPreview.url();
+    const alternateScript = sql(`SELECT DISTINCT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} AND p.script_no<>${scriptId} ORDER BY p.script_no LIMIT 1`);
+    assert(/^\d+$/.test(alternateScript), 'preview identity coverage requires two saved prescriptions for the patient');
+    await rxPage.locator(`#reprint a[onclick*="reprint2('${alternateScript}')"]`).first().click();
+    await rxPage.waitForFunction((id) => Array.from(document.querySelectorAll('iframe')).some(
+      (frame) => frame.src.includes('/rx/viewScript') && new URL(frame.src).searchParams.get('scriptId') === id), alternateScript);
+    let alternateHost = null;
+    for (let attempt = 0; attempt < 30 && !alternateHost; attempt += 1) {
+      alternateHost = rxPage.frames().find((frame) => frame.url().includes('/rx/viewScript')
+        && new URL(frame.url()).searchParams.get('scriptId') === alternateScript);
+      if (!alternateHost) await rxPage.waitForTimeout(1000);
+    }
+    assert(alternateHost, 'alternate reprint did not load');
+    await assertPreviewRenders(alternateHost, 'alternate reprint');
+    const alternatePreview = alternateHost.childFrames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
+    assert(await alternatePreview.locator('input[name="rx_no_newlines"]').inputValue() !== originalText,
+      'preview identity coverage requires saved prescriptions with different drug text');
+    const pinnedPage = await context.newPage();
+    wirePage(pinnedPage, 'rx-pinned-preview', recorder);
+    await pinnedPage.goto(originalUrl, { waitUntil: 'networkidle' });
+    assert(await pinnedPage.locator('input[name="rx_no_newlines"]').inputValue() === originalText,
+      'an older preview changed drugs after a newer same-patient reprint');
+
     const fatal500s = recorder.badResponses.filter((r) => r.status >= 500);
     assert(fatal500s.length === 0, `preview flow produced 5xx responses: ${JSON.stringify(fatal500s)}`);
 
