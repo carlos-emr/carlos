@@ -63,6 +63,97 @@ not respond to cancellation retains its slot until it actually exits, preventing
 unbounded replacement threads. A timed-out mutation may already have applied;
 check current state before retrying.
 
+## Inviting a patient
+
+Staff invite a patient from the **Patient portal** link on the demographic record. The link appears
+only when the portal is configured and the user holds `_portal.invite` or `_portal.account` read for
+the patient. Resolving an unfinished delivery needs `_portal.invite` and `_email` write, the same
+email privilege the rest of CARLOS requires to create or close an outbox row. Sending also needs
+`_edoc` write, because every sent email is archived as a patient document. Both are checked before the
+portal is asked for anything, and the page shows only the controls the user's rights allow.
+
+`V1.0.31` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
+only non-admin role the baseline grants `_email`. Unlocking a portal account stays with `admin`, where
+`V1.0.30` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
+in Administration > Security lets them see and revoke invitations, but not send one or resolve an
+unfinished delivery.
+
+Two settings are required, and invitations are refused until both are set:
+
+| Property | Meaning |
+|---|---|
+| `patient_portal.public_base_url` | The address patients open, `https://` only. It is not the pinned internal API origin and usually differs from it. |
+| `patient_portal.invite.sender_email` | The sender address of an active CARLOS email account. |
+
+The portal's two-phase contract decides the order of every invitation. `PortalInviteDeliveryService`
+records each step in `patient_portal_invite_delivery` before the next network call:
+
+1. **Prepare.** The portal returns an inactive code for a new operation id. A lost response is
+   retried once with the same operation id, which the portal answers with the same code.
+2. **Store.** The email carrying the code is written to `emailLog` as `PENDING`. This is the durable
+   job the portal requires before it activates anything.
+3. **Commit.** Inside `EmailManager.DispatchGate`, once the email row exists and the message is built and
+   archived, immediately before the transport sends it, CARLOS calls `commit-delivery` with
+   `delivery_reference=emaillog:<id>`. Every local step that could still fail has already succeeded, so a
+   commit is followed by nothing but the send. A lost answer is retried once; the portal treats a repeat
+   with the same operation id and reference as the same commit. The portal activates the code and starts
+   its seven-day lifetime. If the commit fails for any reason, nothing is sent.
+4. **Send.** The normal email stack sends the message, and the attempt records `SENT`, `SEND_FAILED`
+   or `SEND_UNCERTAIN`.
+
+An attempt stopped before the commit is `ABANDONED`, and CARLOS revokes the prepared code on the
+portal: a live preparation otherwise blocks every new invitation for the patient until it expires.
+After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
+issues a new code and keeps the old one valid until the replacement is committed. The one uncertain
+case before the send is a commit whose answer is lost twice: CARLOS withdraws the new code, and since
+the portal may already have retired the old one while activating the new, the page tells staff that a
+replaced invitation may no longer work and a new one should be sent.
+
+Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
+with a separate `revoke_failed` flag when an unused code could not be withdrawn and will expire on its
+own. The row holds no prose and nothing from a portal response; the staff page translates the codes.
+
+The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
+placed in a URL, a log, or a browser-visible message.
+
+The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
+It lives in the outbox row only between the store and the send, which is the window the portal's
+contract requires; once the send resolves either way, or staff resolve an unfinished delivery, the
+stored body is replaced with a note saying the code is not kept. One exception: when the send fails
+before the portal activates the code (an archive or permission refusal, say), the code is withdrawn on
+the portal but can stay in that failed outbox row; it can no longer activate anything. The outbound
+email archive, a
+permanent patient document, never holds it: the service names the code in
+`EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
+`[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or
+`API_PAYLOAD_REDACTED`), so the copy is never mistaken for the
+exact bytes sent. If the code cannot be found verbatim in the prepared message, the send is refused
+before the portal activates anything. Reopening a portal invitation in the email compose window is refused outright, so the
+message history cannot hand the credential to a reader who holds email access but no portal rights. A
+patient who never received their email gets a resend, which issues a new code; CARLOS never re-sends the
+stored one. The email passes through the same consent gate as every patient email: `OPT_IN`, or
+`UNKNOWN` with a documented override reason. Text-message invitations are reserved until CARLOS has
+an SMS provider.
+
+An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
+staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
+not arrive; revoke it** after it. Recovery re-checks that the patient and the portal connection match
+the attempt. Nothing runs in the background.
+
+An attempt stuck before the commit usually leaves a prepared code on the portal, which blocks every new
+invitation for that patient until it expires. So when staff next invite or resend, an attempt stuck that
+way for 15 minutes on the same portal connection is refused with `stale_attempt_exists`; the page asks
+whether to withdraw it, and on confirmation (`withdrawStale=true`) withdraws it exactly as **Stop and
+withdraw the code** would, then sends. Nothing from such an attempt reached the patient. An attempt
+whose code went live is never withdrawn this way: only staff can know whether its email arrived.
+
+A sent invitation is recorded on the patient's chart as a short signed note naming the address it went
+to, never the email itself: a chart note is permanent, and the email carries the account credential. The
+note is written when the send succeeds, or when staff confirm an uncertain one arrived. If the note
+cannot be written, the invitation stays sent and the attempt records `chart_note_failed`, which the page
+shows so staff can add the note by hand. Other patient emails can copy their full content to the chart;
+portal invitations must never be switched to that.
+
 ## Verification
 
 Run the CARLOS regression suite:

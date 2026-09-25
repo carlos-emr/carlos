@@ -29,6 +29,8 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPrepar
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -68,12 +70,20 @@ public abstract class PortalJsonAction extends ActionSupport {
     /** Non-null only when a test supplied the client directly. */
     private final transient PatientPortalService injectedService;
 
+    /** Non-null only when a test supplied the invitation workflow directly. */
+    private final transient PortalInviteDeliveryService injectedInviteService;
+
     PortalJsonAction() {
         this(null);
     }
 
     PortalJsonAction(PatientPortalService injectedService) {
+        this(injectedService, null);
+    }
+
+    PortalJsonAction(PatientPortalService injectedService, PortalInviteDeliveryService injectedInviteService) {
         this.injectedService = injectedService;
+        this.injectedInviteService = injectedInviteService;
     }
 
     /** All JSON actions translate only known access/configuration failures at the same boundary. */
@@ -212,10 +222,24 @@ public abstract class PortalJsonAction extends ActionSupport {
         return SpringUtils.getBean(PatientPortalService.class);
     }
 
-    String invitationUnavailable(HttpServletResponse response) throws IOException {
-        return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
-                "portal_invitation_unavailable",
-                "Sending patient portal invitations is not available yet. No invitation was issued.");
+    /**
+     * Resolves the invitation workflow, or {@code null} when this deployment has no portal. It holds the
+     * portal client, so it follows the same rule as {@link #portalService()}.
+     */
+    PortalInviteDeliveryService inviteDeliveryService() {
+        if (injectedInviteService != null) {
+            return injectedInviteService;
+        }
+        if (!PatientPortalSettings.isConfigured()) {
+            return null;
+        }
+        return SpringUtils.getBean(PortalInviteDeliveryService.class);
+    }
+
+    /** Answers an invitation the workflow refused, with the reason's code and fixed message. */
+    String inviteRefused(HttpServletResponse response, PortalInviteException exception) throws IOException {
+        return failure(response, InviteDeliveryJson.statusFor(exception.reason()), exception.reason().code(),
+                exception.getMessage());
     }
 
     /** Answers a request made against a CARLOS server that has no portal configured. */

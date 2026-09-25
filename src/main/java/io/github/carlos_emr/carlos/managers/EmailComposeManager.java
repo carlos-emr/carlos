@@ -99,6 +99,12 @@ public class EmailComposeManager {
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("Access to the email patient record is denied");
         }
+        if (EmailLog.TransactionType.PORTAL_INVITE.equals(emailLog.getTransactionType())) {
+            // A portal invitation carried a one-time code that activates a patient's portal account.
+            // Reopening it in the compose window would hand that credential to anyone who may read the
+            // patient's email history, so the invitation is resent from the portal panel instead.
+            throw new SecurityException("portal invitation emails cannot be reopened");
+        }
         return emailLog;
     }
 

@@ -26,15 +26,24 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDaoImpl;
+import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition;
+import org.springframework.beans.factory.config.RuntimeBeanReference;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
-import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.context.annotation.AnnotationBeanNameGenerator;
+import org.springframework.context.support.GenericApplicationContext;
 
 /**
  * The Spring wiring, and specifically the properties every CARLOS deployment depends on.
@@ -83,6 +92,38 @@ class PatientPortalSpringWiringUnitTest {
         factory.registerSingleton("securityInfoManagerImpl", mock(SecurityInfoManager.class));
         new XmlBeanDefinitionReader(context).loadBeanDefinitions(CONTEXT);
         return context;
+    }
+
+    /**
+     * The invite service is wired by bean name to component-scanned classes. Those names come from the
+     * class names, so a rename would break invitations at first use rather than at start-up; this pins
+     * each referenced name to the class that must register it.
+     */
+    @Test
+    @DisplayName("should reference collaborators by the names their classes register under")
+    void shouldReferenceScannedCollaborators_byTheirDerivedBeanNames() {
+        Map<String, Class<?>> expected = Map.of(
+                "emailManager", EmailManager.class,
+                "patientPortalInviteDeliveryDaoImpl",
+                PatientPortalInviteDeliveryDaoImpl.class,
+                "emailConfigDaoImpl", EmailConfigDaoImpl.class,
+                "emailLogDaoImpl", EmailLogDaoImpl.class);
+        try (GenericApplicationContext context = contextWithSecurityManager()) {
+            var arguments = context.getBeanFactory().getBeanDefinition("portalInviteDeliveryService")
+                    .getConstructorArgumentValues().getIndexedArgumentValues().values();
+            Set<String> referenced = new HashSet<>();
+            for (var argument : arguments) {
+                referenced.add(((RuntimeBeanReference) argument.getValue())
+                        .getBeanName());
+            }
+            assertThat(referenced).containsAll(expected.keySet());
+            expected.forEach((name, type) -> assertThat(
+                    AnnotationBeanNameGenerator.INSTANCE.generateBeanName(
+                            new AnnotatedGenericBeanDefinition(type),
+                            context.getDefaultListableBeanFactory()))
+                    .as("bean name registered by %s", type.getSimpleName())
+                    .isEqualTo(name));
+        }
     }
 
     /**

@@ -12,8 +12,10 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -98,6 +100,8 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 public class EmailManager {
     private static final String ARCHIVE_FAILURE_MESSAGE = "Failed to archive outbound email";
     private static final String SEND_FAILURE_MESSAGE = "Failed to send email";
+    /** What an archived copy shows in place of a value the sender asked the archive not to keep. */
+    static final String ARCHIVE_REDACTION = "[redacted]";
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
@@ -168,7 +172,7 @@ public class EmailManager {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
-        return sendEmailInternal(loggedInInfo, emailData).getEmailLog();
+        return sendEmailInternal(loggedInInfo, emailData, null).getEmailLog();
     }
 
     /**
@@ -181,12 +185,54 @@ public class EmailManager {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData) {
-        return sendEmailInternal(loggedInInfo, emailData);
+        return sendEmailInternal(loggedInInfo, emailData, null);
+    }
+
+    /**
+     * Runs once the outbox row is durable, consent allows the send, and the message is built and
+     * archived: immediately before the transport is asked to send it.
+     *
+     * <p>A caller that must record something elsewhere between "the email job exists" and "the email
+     * leaves" does it here. The patient portal invite workflow commits the invitation inside the gate,
+     * because the portal may only activate a token once the email carrying it is durable, and the email
+     * must not leave if that commit fails. Running last means every local step that could still fail
+     * (sender setup, message building, archiving) has already succeeded, so a commit is followed by
+     * nothing but the transport.
+     *
+     * <p>Throwing {@link EmailSendingException} records a definite failure: nothing was sent. Any other
+     * exception is treated like a transport fault whose outcome is unknown, so a gate that knows it
+     * stopped the send must throw {@code EmailSendingException}.
+     */
+    @FunctionalInterface
+    public interface DispatchGate {
+        void beforeDispatch(EmailLog emailLog) throws EmailSendingException;
+    }
+
+    /**
+     * Sends an email as {@link #sendEmailWithResult(LoggedInInfo, EmailData)} does, with a gate that runs
+     * between the durable outbox write and dispatch. The gate does not run when consent blocks the send.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData,
+            DispatchGate dispatchGate) {
+        return sendEmailInternal(loggedInInfo, emailData, dispatchGate);
+    }
+
+    /**
+     * Reports whether the consent gate a send applies would block this email, without persisting or
+     * sending anything.
+     *
+     * @return the message a blocked send would record, or {@code null} when the send is allowed
+     */
+    public String consentBlockMessage(LoggedInInfo loggedInInfo, EmailData emailData) {
+        EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
+        return isBlockedByConsent(consentResult, emailData) ? getConsentBlockMessage(consentResult) : null;
     }
 
     // FindSecBugs HARD_CODE_PASSWORD: empty values erase request credentials when the send attempt finishes.
     @SuppressFBWarnings(value = "HARD_CODE_PASSWORD", justification = "Empty strings clear secrets; they are not authentication credentials")
-    private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData) {
+    private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData,
+            DispatchGate dispatchGate) {
         boolean ownsWorkingDirectory = emailData.getWorkingDirectory() == null;
         try {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
@@ -219,7 +265,8 @@ public class EmailManager {
                     encryptEmail(emailData);
                 }
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
-                Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog);
+                Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog,
+                        emailData.getArchiveRedactions(), dispatchGate);
                 // EmailLog is the authoritative record, so its SUCCESS is written first. The
                 // archive write takes a row lock; ahead of this it could hold an accepted send
                 // at PENDING for the length of a lock wait, inviting a duplicate send.
@@ -239,17 +286,21 @@ public class EmailManager {
     }
 
     /**
-     * Archives the prepared message, then dispatches it.
+     * Archives the prepared message, runs the dispatch gate, then dispatches it.
      *
      * @return the archive identifier once the transport has accepted the message, for the caller
      *         to record ACCEPTED against after the EmailLog outcome; null when archiving
      *         produced no row
      */
-    private Integer sendWithArchive(LoggedInInfo loggedInInfo, EmailSender sender, EmailLog log)
-            throws EmailSendingException {
+    private Integer sendWithArchive(LoggedInInfo loggedInInfo, EmailSender sender, EmailLog log,
+            List<String> archiveRedactions, DispatchGate dispatchGate) throws EmailSendingException {
         Integer archiveId = null;
         try {
-            archiveId = archiveOutboundEmail(loggedInInfo, sender, log);
+            archiveId = archiveOutboundEmail(loggedInInfo, sender, log, archiveRedactions);
+            if (dispatchGate != null) {
+                // A refusal is a definite "not sent": the catch below records the archive as FAILED.
+                dispatchGate.beforeDispatch(log);
+            }
             recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.ATTEMPTED);
             sender.sendPrepared();
             return archiveId;
@@ -278,6 +329,33 @@ public class EmailManager {
         } finally {
             discardPreparedQuietly(sender, null);
         }
+    }
+
+    /**
+     * Replaces each value the caller named in the archived copy, and marks the artifact as redacted.
+     *
+     * <p>The archive otherwise keeps the exact bytes sent. A one-time credential that stays usable after
+     * the send (a patient portal invitation code) must not live on in a permanent patient document, so
+     * that copy keeps everything but the value. Fails closed: a value that cannot be found verbatim in
+     * the prepared message (a transfer encoding split it, say) stops the send rather than archive it.
+     */
+    private void redactArchive(OutboundEmailArchiveDto archiveRequest, List<String> values)
+            throws EmailSendingException {
+        // ISO-8859-1 maps each byte to one char and back, so matching and replacing is byte-exact.
+        String artifact = new String(archiveRequest.getArtifactBytes(), StandardCharsets.ISO_8859_1);
+        for (String value : values) {
+            String needle = new String(value.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1);
+            if (value.isEmpty() || !artifact.contains(needle)) {
+                // Said plainly, since the caller sees only a refused send: were a transfer encoding ever
+                // to split the value, every such email would fail here the same way.
+                logger.warn("Outbound email not sent: a value the archive must not keep was not found in the "
+                        + "prepared message");
+                throw new EmailSendingException(SEND_FAILURE_MESSAGE);
+            }
+            artifact = artifact.replace(needle, ARCHIVE_REDACTION);
+        }
+        archiveRequest.setArtifactBytes(artifact.getBytes(StandardCharsets.ISO_8859_1));
+        archiveRequest.setArtifactType(archiveRequest.getArtifactType() + OutboundEmailArchive.REDACTED_SUFFIX);
     }
 
     /**
@@ -434,7 +512,8 @@ public class EmailManager {
     /**
      * @return the persisted archive identifier, so the caller can advance its send lifecycle
      */
-    private Integer archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
+    private Integer archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog,
+            List<String> archiveRedactions) throws EmailSendingException {
         OutboundEmailArchiveDto archiveRequest;
         try {
             // Message preparation, NOT archive storage. This validates SMTP configuration
@@ -454,6 +533,14 @@ public class EmailManager {
             // is the wrong outcome for an ordinary preparation fault.
             discardAfterPreparationFailure(emailSender, e);
             throw new EmailSendingException(SEND_FAILURE_MESSAGE, e);
+        }
+        if (!archiveRedactions.isEmpty()) {
+            try {
+                redactArchive(archiveRequest, archiveRedactions);
+            } catch (EmailSendingException e) {
+                discardAfterPreparationFailure(emailSender, e);
+                throw e;
+            }
         }
 
         try {
@@ -942,15 +1029,36 @@ public class EmailManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
         }
+        addEmailNote(loggedInInfo, emailLog, new EmailNoteUtil(loggedInInfo, emailLog).createNote());
+    }
 
-        EmailNoteUtil emailNoteUtil = new EmailNoteUtil(loggedInInfo, emailLog);
-        String emailNote = emailNoteUtil.createNote();
+    /**
+     * Records an email on the patient chart with caller-supplied text instead of the email's content.
+     *
+     * <p>For an email whose body must not reach the chart: a patient portal invitation carries an
+     * account credential, and a chart note is permanent. The note is signed, filed and linked to the
+     * email log exactly as {@link #addEmailNote(LoggedInInfo, EmailLog)} does.
+     *
+     * @param loggedInInfo the logged-in user, who signs the note
+     * @param emailLog the sent email the note documents
+     * @param emailNote the note text; it must not contain anything the chart may not hold
+     * @throws RuntimeException if user lacks _email READ privilege
+     * @since 2026-09-22
+     */
+    public void addEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog, String emailNote) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new RuntimeException("missing required sec object (_email)");
+        }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String programId = new EctProgram(loggedInInfo.getSession()).getProgram(providerNo);
         Date creationDate = new Date();
 
-        ProgramProvider programProvider = programManager.getProgramProvider(providerNo, programId);
+        // EctProgram answers "0" for a provider with no program, which the lookup rejects outright. Such a
+        // note takes the doctor role below, as a provider without a program-specific role already does.
+        ProgramProvider programProvider = NumberUtils.toLong(programId) > 0
+                ? programManager.getProgramProvider(providerNo, programId)
+                : null;
         SecRole doctorRole = caseManagementManager.getSecRoleByRoleName("doctor");
         String role = programProvider != null ? String.valueOf(programProvider.getRoleId()) : String.valueOf(doctorRole.getId());
 

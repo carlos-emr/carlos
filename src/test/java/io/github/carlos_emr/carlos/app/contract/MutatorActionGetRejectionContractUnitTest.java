@@ -252,8 +252,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
                     "_form", "w"),
             // --- patient portal ---
-            // Revokes portal invitations against the external portal service; create and resend
-            // answer 503 until durable delivery is wired, but the routes remain mutators.
+            // Invites, resends, revokes, and resolves unfinished invitation deliveries against the
+            // external portal service; every route sends a mutation to the portal or its email.
             // Unconditional: reading the invite list belongs to a separate read action, so every
             // route on this class mutates and the method check runs before authorization.
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
@@ -370,6 +370,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> NON_MUTATOR_GATES = Set.of(
         "io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action",
+        // The patient portal staff page: GET only, it renders the page and changes nothing.
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalManage2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
