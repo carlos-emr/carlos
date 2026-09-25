@@ -60,7 +60,10 @@
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   CONSULT_PREVIEW_SEARCH=FAKE-          surname prefix used to reach a patient
- *   CONSULT_PREVIEW_DEMOGRAPHIC_NO=1      which patient's chart to open
+ *   CONSULT_PREVIEW_DEMOGRAPHIC_NO=2      which patient's chart to open. Defaults to 2, not 1:
+ *                                         demographic 1's chart answers 500 on the demo dataset,
+ *                                         because its HRM rows point at report files that never
+ *                                         shipped
  *   CONSULT_PREVIEW_TIMEOUT_MS=45000      per-step allowance
  */
 
@@ -168,7 +171,7 @@ async function chooseService(page, timeout) {
 async function main() {
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
   const searchTerm = process.env.CONSULT_PREVIEW_SEARCH || 'FAKE-';
-  const preferredDemographicNo = process.env.CONSULT_PREVIEW_DEMOGRAPHIC_NO || '1';
+  const preferredDemographicNo = process.env.CONSULT_PREVIEW_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CONSULT_PREVIEW_TIMEOUT_MS || '45000');
   const saved = `PW_CONSULT_SAVED_${Date.now()}`;
   const typed = `PW_CONSULT_TYPED_${Date.now()}`;
