@@ -22,15 +22,23 @@ All adapters implement `send(command, clientReferenceId)`. There is no overload 
 
 ## Admission, dispatch and recovery
 
-1. Validate the request and evaluate consent before persisting it. A consent exception or missing decision must not leave claimable work behind.
+1. Validate the request and evaluate consent before persisting it. A consent exception or missing decision must not leave claimable work behind. A body must fit one encoded SMS segment: 160 GSM-7 characters (extension characters such as `€` or `{` count twice), or 70 when any character needs UCS-2. VoIP.ms rejects SMS over 160 characters and does not guarantee delivery of accented characters. `SYSTEM_TEST` messages are synthetic and need no patient.
 2. Persist the consent decision with the initial row in one transaction. A blocked row retains the body length/hash but discards the full body.
-3. Before a queued send, recheck consent, including the current system-test switch, then acquire a rate-limit permit. Send and worker entry points suspend any caller transaction so the claim commits before the external send.
+3. Before a queued send, recheck consent, including the current system-test switch, then acquire a rate-limit permit. Both the direct send and the worker claim the row before taking a permit, and release the claim back to `QUEUED` if the permit is denied, so a lost claim never uses up a permit. Send and worker entry points suspend any caller transaction so the claim commits before the external send.
 4. Only a definite provider rejection is eligible for a retry. An exception, null result or explicit uncertain result leaves the row `SENDING`, with an operator message explaining that its outcome is unknown.
 5. Stale `SENDING` rows are reconciled through provider status lookup. A confirmed result updates the row; a definitive not-found result permits a bounded retry. An unavailable lookup ends in a failure requiring manual review. A timeout is not evidence that nothing was sent. Do not manually resend without reconciling with the provider.
 
 A direct-send response reflects the persisted result, including a delivery webhook that arrived before the adapter response was saved. Callback identifiers must match the stored outbound message and its authenticated SMS backend. Callbacks cannot introduce internal queue/consent states. Opaque provider identifiers are case-sensitive and must not be silently truncated.
 
 ## Configuration and validation
+
+Administration > SMS (`admin/ConfigureSms`, `_admin.sms` read to view, write to save) stores the settings in `sms_config` (`V1.0.34`). Until someone saves that page, the properties below still apply; once saved, the stored values win:
+
+- **Provider:** only providers with an installed client can be chosen, because sends through any other would fail. Today that is `STUB` only.
+- **Sending on/off:** while off, `SmsSendService.send` and `SmsQueueService.enqueue` refuse new messages without recording them, and the scheduler leaves already-queued messages (and stale-send recovery) alone until sending is turned back on. The system test still works, so the setup can be checked before sending is turned on.
+- **Queue scheduler on/off:** applied at once on the server where it is saved (the scheduler starts or stops after the save commits); other servers pick it up at their next start.
+- **Sender number, webhook secret and provider credentials:** the secret and every credential value are encrypted at rest with `EncryptionUtils` (`encryption.util.secret.key`, outside the database). The page never shows them back; a blank field keeps the stored value. Only the credential fields the chosen provider declares (`SmsProviderClient.credentialFields()`) are kept.
+- **Send system test:** sends the fixed text "CARLOS SMS system test. No reply needed." to a number the administrator types, through `STUB` only, as a `SYSTEM_TEST` with no patient. It still needs `sms.systemTest.enabled=true`; never type a patient's number.
 
 - `sms.provider.default=STUB`: optional default for synthetic tests. An explicit unknown value blocks outbound SMS instead of silently simulating success. Known but unimplemented adapters are reported at startup.
 - `sms.systemTest.enabled=true`: permits only `SYSTEM_TEST` messages. Normal patient messages remain consent-blocked.
@@ -40,7 +48,7 @@ A direct-send response reflects the persisted result, including a delivery webho
 
 Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and competing-transaction tests. Tests use synthetic data. There is no browser flow to validate until a UI/API entry point is implemented.
 
-Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.31__add_sms_security_objects.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+Schema installation uses `V1.0.25__add_sms_system_of_record.sql`, `V1.0.31__add_sms_security_objects.sql` and `V1.0.34__add_sms_config.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
 
 ## Security objects
 
@@ -69,6 +77,6 @@ The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 a
 - Patient consent/opt-out integration and an agreed policy for changes while messages are queued.
 - Message-body encryption, retention and purge policy. Allowed system-test and inbound bodies still use clear database text; keep them synthetic. Hashes are correlation data, not anonymization.
 - Authorized, redacted UI/API DTOs and operational views for queue backlog, uncertain sends and failures. Do not expose JPA entities or internal send commands directly.
-- Carrier-level integration tests, encoding/segment billing limits and operational rollout validation. The current 160-character input limit does not guarantee one encoded SMS segment for every alphabet.
+- Carrier-level integration tests and operational rollout validation, including how the chosen provider handles UCS-2 text within its limits.
 
 Record diagnostics are redacted. Full body retrieval goes through authorization and a committed audit record. These code boundaries do not replace database access controls or the production data policy above.

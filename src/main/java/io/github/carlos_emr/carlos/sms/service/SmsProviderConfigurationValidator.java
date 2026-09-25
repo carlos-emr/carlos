@@ -38,6 +38,12 @@ public class SmsProviderConfigurationValidator {
         } catch (IllegalStateException e) {
             LOGGER.error("Invalid sms.provider.default; outbound SMS is blocked until configuration is corrected.");
             return;
+        } catch (RuntimeException e) {
+            // Reading the saved SMS settings failed, typically because V1.0.34 (sms_config) has not been
+            // applied yet. SMS cannot work until it is, but that must not stop the rest of CARLOS starting.
+            LOGGER.error("SMS settings could not be read at startup; outbound SMS will fail until the sms_config "
+                    + "table is available. exceptionClass={}", e.getClass().getName());
+            return;
         }
         if (configuredDefaultHasRegisteredClient()) {
             LOGGER.info("SMS default provider {} resolved to a registered client.", configuredDefault);

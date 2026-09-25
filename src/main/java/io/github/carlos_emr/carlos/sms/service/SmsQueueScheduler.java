@@ -1,13 +1,18 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.sms.event.SmsConfigChangedEvent;
 import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -23,10 +28,37 @@ public class SmsQueueScheduler {
     private static final int DEFAULT_BATCH_SIZE = 60;
 
     private final SmsQueueProcessingService smsQueueWorker;
+    private final SmsConfigService configService;
     private ScheduledExecutorService executorService;
 
-    public SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
+    /** For tests: no stored settings, so the scheduler follows the property. */
+    SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
+        this(smsQueueWorker, null);
+    }
+
+    @Autowired
+    public SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker, SmsConfigService configService) {
         this.smsQueueWorker = smsQueueWorker;
+        this.configService = configService;
+    }
+
+    /** @return whether the scheduler is running in this server right now */
+    public synchronized boolean isRunning() {
+        return executorService != null;
+    }
+
+    /**
+     * Applies a saved Administration &gt; SMS scheduler setting without a restart. Runs after the save
+     * commits (or at once outside a transaction), and only affects this server; other servers pick the
+     * setting up when they start.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onConfigChanged(SmsConfigChangedEvent event) {
+        if (event.schedulerEnabled()) {
+            startExecutor();
+        } else {
+            stop();
+        }
     }
 
     @PostConstruct
@@ -35,10 +67,18 @@ public class SmsQueueScheduler {
             // Make the dependency visible: queued work (including direct sends deferred by the rate
             // limiter and scheduled retries) is only drained by this scheduler or by enqueueAndProcessNow.
             LOGGER.info(
-                    "SMS queue scheduler is disabled ({}=false); queued and rate-limited SMS will not be "
-                            + "drained automatically. Enable it before relying on queued/retried delivery.",
+                    "SMS queue scheduler is off (Administration > SMS, or {} while nothing is saved there); "
+                            + "queued and rate-limited SMS will not be drained automatically. Turn it on before "
+                            + "relying on queued/retried delivery.",
                     ENABLED_PROPERTY
             );
+            return;
+        }
+        startExecutor();
+    }
+
+    private synchronized void startExecutor() {
+        if (executorService != null) {
             return;
         }
         LOGGER.info(
@@ -58,13 +98,21 @@ public class SmsQueueScheduler {
     }
 
     @PreDestroy
-    public void stop() {
+    public synchronized void stop() {
         if (executorService != null) {
             executorService.shutdownNow();
+            executorService = null;
         }
     }
 
+    /**
+     * Drains one batch of due messages, unless SMS is turned off in Administration &gt; SMS: then queued
+     * messages stay queued (not failed) and go out once it is turned back on.
+     */
     public int runOnce() {
+        if (configService != null && !configService.sendingEnabled()) {
+            return 0;
+        }
         return smsQueueWorker.processDueMessages(batchSize());
     }
 
@@ -76,8 +124,21 @@ public class SmsQueueScheduler {
         }
     }
 
+    /**
+     * The setting saved in Administration &gt; SMS, or {@code sms.queue.scheduler.enabled} while nothing is
+     * saved or the settings cannot be read at startup.
+     */
     private boolean schedulerEnabled() {
-        return CarlosProperties.getInstance().isPropertyActive(ENABLED_PROPERTY);
+        Optional<Boolean> stored = Optional.empty();
+        if (configService != null) {
+            try {
+                stored = configService.storedSchedulerEnabled();
+            } catch (RuntimeException e) {
+                LOGGER.warn("SMS settings could not be read at startup; using {}. exceptionClass={}",
+                        ENABLED_PROPERTY, exceptionClass(e));
+            }
+        }
+        return stored.orElseGet(() -> CarlosProperties.getInstance().isPropertyActive(ENABLED_PROPERTY));
     }
 
     private long intervalSeconds() {
