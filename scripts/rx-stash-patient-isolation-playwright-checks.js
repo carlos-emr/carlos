@@ -192,7 +192,10 @@ async function workflow(session) {
       const url = new URL(request.url());
       url.searchParams.delete('demographicNo');
       url.searchParams.delete('demographic_no');
-      await route.continue({ url: url.toString(), postData: data.toString() });
+      // Forward to the real endpoint but keep the browser's original URL for its failure
+      // event, so strict diagnostics can identify exactly this deliberately refused response.
+      const response = await route.fetch({ url: url.toString(), postData: data.toString() });
+      await route.fulfill({ response });
     };
     const since = { responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length };
     await rx.route(routePattern, handler);
