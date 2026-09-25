@@ -119,35 +119,79 @@ public final class EmailConfigSecrets {
         return changed ? configObject.toString() : configDetailsJson;
     }
 
+    /** What a {@code configDetails} value holds in its credential fields. */
+    public enum TransportSecretState {
+        /** No non-empty password or API key: an unauthenticated relay. */
+        NONE,
+        /** Every credential is still plaintext. */
+        PLAINTEXT,
+        /** At least one credential carries the {@code {ENC}} marker. */
+        ENCRYPTED,
+        /** The value is not a JSON object, so it cannot be shown to hold no credential. */
+        UNPARSEABLE
+    }
+
     /**
-     * Reports whether a {@code configDetails} value carries a transport credential (an SMTP
-     * password or a provider API key), encrypted or not. An unauthenticated LOCAL relay carries
-     * none. A value that cannot be parsed counts as carrying one: it cannot be shown not to.
+     * Classifies the credential fields (an SMTP password or a provider API key) of a
+     * {@code configDetails} value without decrypting anything.
      *
      * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
-     * @return true when a non-empty secret field is present, or the value is unparseable
+     * @return the state of its credential fields; never null
      * @since 2026-09-24
      */
-    public static boolean holdsTransportSecret(String configDetailsJson) {
+    public static TransportSecretState transportSecretState(String configDetailsJson) {
         if (configDetailsJson == null || configDetailsJson.isBlank()) {
-            return false;
+            return TransportSecretState.NONE;
         }
         JsonNode root;
         try {
             root = OBJECT_MAPPER.readTree(configDetailsJson);
         } catch (Exception e) {
-            return true;
+            return TransportSecretState.UNPARSEABLE;
         }
         if (root == null || !root.isObject()) {
-            return true;
+            return TransportSecretState.UNPARSEABLE;
         }
+        TransportSecretState state = TransportSecretState.NONE;
         for (String field : SECRET_FIELDS) {
             JsonNode value = root.get(field);
-            if (value != null && !value.isNull() && !(value.isValueNode() && value.asText().isEmpty())) {
-                return true;
+            if (value == null || value.isNull() || (value.isValueNode() && value.asText().isEmpty())) {
+                continue;
             }
+            if (value.isValueNode() && EncryptionUtils.isEncrypted(value.asText())) {
+                return TransportSecretState.ENCRYPTED;
+            }
+            state = TransportSecretState.PLAINTEXT;
         }
-        return false;
+        return state;
+    }
+
+    /**
+     * Reports whether every encrypted credential in a {@code configDetails} value decrypts with
+     * the current key. False means the credentials were encrypted under a different key, which is
+     * what a lost key replaced by a newly generated one leaves behind. Plaintext and empty fields
+     * pass. Nothing decrypted is returned or kept.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @return false only when an {@code {ENC}} credential cannot be decrypted
+     * @since 2026-09-24
+     */
+    public static boolean encryptedSecretsDecrypt(String configDetailsJson) {
+        if (transportSecretState(configDetailsJson) != TransportSecretState.ENCRYPTED) {
+            return true;
+        }
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(configDetailsJson);
+            for (String field : SECRET_FIELDS) {
+                JsonNode value = root.get(field);
+                if (value != null && value.isValueNode() && EncryptionUtils.isEncrypted(value.asText())) {
+                    decryptSecret(value.asText());
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static String encryptSecret(String plaintext) throws EmailSendingException {

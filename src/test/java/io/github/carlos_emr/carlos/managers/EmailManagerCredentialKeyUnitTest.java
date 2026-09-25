@@ -23,6 +23,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
@@ -46,6 +47,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 import org.springframework.mail.javamail.JavaMailSender;
 
@@ -84,6 +87,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
     private EmailConfigDaoImpl emailConfigDao;
     private EmailLogDaoImpl emailLogDao;
     private LoggedInInfo loggedInInfo;
+    private OutboundEmailArchiveService archiveService;
     private EmailManager emailManager;
 
     @BeforeEach
@@ -105,9 +109,9 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         EmailConsentResolver consentResolver = mock(EmailConsentResolver.class);
         when(consentResolver.resolve(any(), any())).thenReturn(
                 new EmailConsentResult("Email", EmailLog.EmailConsentStatus.OPT_IN, null, null));
-        emailManager = new EmailManager(consentResolver, new EmailSenderFactory(), securityInfoManager,
-                mock(OutboundEmailArchiveService.class));
-        injectDependency(emailManager, "oscarLogDao", mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
+        archiveService = mock(OutboundEmailArchiveService.class);
+        emailManager = new EmailManager(consentResolver, new EmailSenderFactory(), securityInfoManager, archiveService);
+        injectDependency(emailManager, "oscarLogDao", mock(OscarLogDao.class));
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -162,27 +166,87 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
-    @DisplayName("isRefusedForUnprotectedCredentials")
+    @DisplayName("credentialKeyRefusal")
     class Policy {
 
         @Test
-        @DisplayName("should allow credentialed email when the key is configured, even with enforcement on")
-        void shouldAllowCredentialedSend_whenKeyConfigured() throws Exception {
+        @DisplayName("should allow plaintext credentials when the key is configured, even with enforcement on")
+        void shouldAllowPlaintextCredentials_whenKeyConfigured() throws Exception {
             EncryptionKeyTestSupport.seedFreshKey();
             requireKey(true);
 
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isFalse();
+            assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isNull();
         }
 
         @Test
-        @DisplayName("should never require the key for an unauthenticated LOCAL relay")
+        @DisplayName("should allow encrypted credentials that decrypt with the current key")
+        void shouldAllowEncryptedCredentials_whenKeyMatches() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(true);
+            EmailConfig config = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
+                    EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP));
+
+            assertThat(emailManager.credentialKeyRefusal(config)).isNull();
+        }
+
+        @Test
+        @DisplayName("should refuse encrypted credentials after the key was replaced, whatever the setting")
+        void shouldRefuseEncryptedCredentials_whenKeyWasReplaced() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String encrypted = EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP);
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(false);
+            EmailConfig config = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, encrypted);
+            injectDependency(config, "id", 14);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(config)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=14").contains("Restore the original key"));
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .containsAnyOf("plain-secret", "{ENC}", "{\""));
+            }
+        }
+
+        @Test
+        @DisplayName("should refuse encrypted credentials when no key is available")
+        void shouldRefuseEncryptedCredentials_whenKeyMissing() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String encrypted = EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP);
+            removeKey();
+            requireKey(false);
+            EmailConfig config = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, encrypted);
+
+            assertThat(emailManager.credentialKeyRefusal(config)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
+        }
+
+        @Test
+        @DisplayName("should never refuse an unauthenticated LOCAL relay")
         void shouldAllowLocalRelay_whenKeyMissingAndEnforced() {
             removeKey();
             requireKey(true);
             EmailConfig relay = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL,
                     "{\"host\":\"127.0.0.1\",\"port\":\"25\"}");
 
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(relay)).isFalse();
+            assertThat(emailManager.credentialKeyRefusal(relay)).isNull();
+        }
+
+        @Test
+        @DisplayName("should not refuse a LOCAL relay that carries an unused leftover password")
+        void shouldAllowLocalRelay_whenItHoldsUnusedPassword() {
+            removeKey();
+            requireKey(true);
+            EmailConfig relay = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL,
+                    "{\"host\":\"127.0.0.1\",\"port\":\"25\",\"password\":\"stale-secret\"}");
+            injectDependency(relay, "id", 15);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(relay)).isNull();
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=15").contains("never uses").doesNotContain("stale-secret"));
+            }
         }
 
         @Test
@@ -192,7 +256,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             requireKey(true);
 
             try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
-                assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isTrue();
+                assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isEqualTo(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR);
 
                 assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
                         .contains("refused").contains("config id=12").contains(EncryptionUtils.SECRET_KEY_ENV_VAR));
@@ -209,19 +273,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID,
                     "{\"api_key\":\"sg-secret\"}");
 
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(sendGrid)).isTrue();
-        }
-
-        @Test
-        @DisplayName("should refuse an encrypted row too when the key is missing and enforcement is on")
-        void shouldRefuseEncryptedCredentials_whenKeyMissingAndEnforced() throws Exception {
-            EncryptionKeyTestSupport.seedFreshKey();
-            String encrypted = EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP);
-            removeKey();
-            requireKey(true);
-            EmailConfig config = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, encrypted);
-
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(config)).isTrue();
+            assertThat(emailManager.credentialKeyRefusal(sendGrid)).isEqualTo(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR);
         }
 
         @Test
@@ -231,7 +283,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             EncryptionUtils.prepareSecretKeySpec();
             requireKey(true);
 
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isTrue();
+            assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isEqualTo(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR);
         }
 
         @Test
@@ -241,7 +293,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(EncryptionUtils::prepareSecretKeySpec).isInstanceOf(IllegalArgumentException.class);
             requireKey(true);
 
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isTrue();
+            assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isEqualTo(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR);
         }
 
         @Test
@@ -251,11 +303,11 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             requireKey(false);
 
             try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
-                assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isFalse();
-                assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isFalse();
+                assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isNull();
+                assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isNull();
 
                 List<String> warnings = capture.messages().stream()
-                        .filter(message -> message.contains("stored unencrypted")).toList();
+                        .filter(message -> message.contains("stay unencrypted")).toList();
                 assertThat(warnings).hasSize(1);
                 assertThat(warnings.get(0)).contains("config id=12")
                         .contains(EmailManager.REQUIRE_CREDENTIAL_KEY_PROPERTY)
@@ -263,24 +315,38 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        @org.junit.jupiter.params.ParameterizedTest
-        @org.junit.jupiter.params.provider.ValueSource(strings = {"true", "yes", "on", " TRUE "})
+        @ParameterizedTest
+        @ValueSource(strings = {"true", "yes", "on", " TRUE "})
         @DisplayName("should enforce for any value CARLOS treats as on")
         void shouldEnforce_whenSettingIsActive(String value) {
             removeKey();
             CarlosProperties.getInstance().setProperty(EmailManager.REQUIRE_CREDENTIAL_KEY_PROPERTY, value);
 
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isTrue();
+            assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isNotNull();
         }
 
-        @org.junit.jupiter.params.ParameterizedTest
-        @org.junit.jupiter.params.provider.ValueSource(strings = {"false", "no", "off", "", "1"})
+        @ParameterizedTest
+        @ValueSource(strings = {"false", "no", "off", "", "1"})
         @DisplayName("should only warn for any value CARLOS does not treat as on")
         void shouldNotEnforce_whenSettingIsInactive(String value) {
             removeKey();
             CarlosProperties.getInstance().setProperty(EmailManager.REQUIRE_CREDENTIAL_KEY_PROPERTY, value);
 
-            assertThat(emailManager.isRefusedForUnprotectedCredentials(plaintextSmtp())).isFalse();
+            assertThat(emailManager.credentialKeyRefusal(plaintextSmtp())).isNull();
+        }
+
+        @Test
+        @DisplayName("should warn at construction when the setting has an unrecognised value")
+        void shouldWarnAtStartup_whenSettingUnrecognised() {
+            CarlosProperties.getInstance().setProperty(EmailManager.REQUIRE_CREDENTIAL_KEY_PROPERTY, "ture");
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                new EmailManager(mock(EmailConsentResolver.class), new EmailSenderFactory(),
+                        mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class));
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("unrecognised value").contains("OFF"));
+            }
         }
     }
 
@@ -316,7 +382,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should fail before any transport, with an actionable reason, when enforcement refuses")
-        void shouldFailBeforeTransport_whenEnforcementRefuses() {
+        void shouldFailBeforeTransport_whenEnforcementRefuses() throws Exception {
             removeKey();
             requireKey(true);
 
@@ -328,6 +394,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
                         eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR), any());
                 verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
+                verify(archiveService, never()).archive(any(), any());
             }
         }
 

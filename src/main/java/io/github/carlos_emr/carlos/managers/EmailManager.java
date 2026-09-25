@@ -105,13 +105,16 @@ public class EmailManager {
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     /**
      * Opt-in enforcement (#3673): when on ("true", "yes" or "on", as for every CARLOS switch), a
-     * sender account holding transport credentials is refused while the application encryption
-     * key is missing, instead of sending with credentials that stay in plaintext at rest. Absent
-     * or any other value warns only.
+     * sender account holding plaintext credentials is refused while the application encryption
+     * key is unavailable, instead of sending with credentials that cannot be protected at rest.
+     * Absent or off only warns. The servlet Startup listener creates and saves a key when none is
+     * set, so this matters for entry points that bypass Startup and as a guard should that change.
      */
     static final String REQUIRE_CREDENTIAL_KEY_PROPERTY = "email.credentials.require_encryption_key";
     static final String CREDENTIAL_KEY_REQUIRED_ERROR =
             "Email sender account cannot be used until the server encryption key is configured. Contact your administrator.";
+    static final String CREDENTIAL_KEY_MISMATCH_ERROR =
+            "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
     private static final String SENDER_NAME_PART = "Sender";
@@ -150,8 +153,8 @@ public class EmailManager {
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
-    /** Sender config ids already warned about unprotected credentials in this server run. */
-    private final Set<Integer> unprotectedCredentialWarnings = ConcurrentHashMap.newKeySet();
+    /** Sender config ids already reported for a credential key problem in this server run. */
+    private final Set<Integer> credentialKeyWarnings = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates an email manager with the consent gate and sender factory used by the send path.
@@ -168,6 +171,24 @@ public class EmailManager {
         this.emailSenderFactory = emailSenderFactory;
         this.outboundEmailArchiveService = outboundEmailArchiveService;
         this.securityInfoManager = securityInfoManager;
+        logCredentialKeyEnforcement();
+    }
+
+    /**
+     * States once, at startup, whether credential key enforcement is on, so a mistyped value is
+     * not silently read as off.
+     */
+    private void logCredentialKeyEnforcement() {
+        String raw = CarlosProperties.getInstance().getProperty(REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        boolean enforced = CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        String value = raw == null ? "" : raw.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!enforced && !value.isEmpty() && !java.util.Set.of("false", "no", "off").contains(value)) {
+            logger.warn("{} has an unrecognised value, so email credential key enforcement is OFF. "
+                    + "Use true, yes or on to enable it.", REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        } else {
+            logger.info("Email credential key enforcement ({}): {}", REQUIRE_CREDENTIAL_KEY_PROPERTY,
+                    enforced ? "on" : "off");
+        }
     }
 
     /**
@@ -229,9 +250,13 @@ public class EmailManager {
                 return EmailSendResult.failed(emailLog, true);
             }
 
-            if (isRefusedForUnprotectedCredentials(emailLog.getEmailConfig())) {
-                updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, CREDENTIAL_KEY_REQUIRED_ERROR);
-                return EmailSendResult.failed(emailLog, true);
+            String credentialRefusal = credentialKeyRefusal(emailLog.getEmailConfig());
+            if (credentialRefusal != null) {
+                updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, credentialRefusal);
+                LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.refusedCredentialKey", EMAIL_AUDIT_CONTENT,
+                        "emailLogId=" + emailLog.getId() + "&senderConfigId=" + emailLog.getEmailConfig().getId(),
+                        String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+                return EmailSendResult.failed(emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
             }
 
             try {
@@ -588,9 +613,10 @@ public class EmailManager {
      * first use (the send path), so hand-inserted plaintext {@code emailConfig.configDetails} rows
      * are migrated the first time they are used to send.
      *
-     * <p>The upgrade is best-effort: if the encryption key is unavailable, or the persistence of the
-     * re-encrypted row fails, the row is left as-is and the send proceeds with the existing
-     * (plaintext) value rather than blocking outbound mail. Already-encrypted rows are detected by
+     * <p>The upgrade is best-effort. Without an encryption key it does nothing (see
+     * {@link #credentialKeyRefusal}); if encrypting or persisting the re-encrypted row fails, the
+     * row is left as-is and the send proceeds with the existing (plaintext) value rather than
+     * blocking outbound mail. Already-encrypted rows are detected by
      * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
      * {@code configDetails} JSON is ever logged.</p>
      *
@@ -601,8 +627,8 @@ public class EmailManager {
             return;
         }
         if (!EncryptionUtils.isKeyConfigured()) {
-            // Nothing can be encrypted without the key. isRefusedForUnprotectedCredentials reports
-            // that once per account; attempting here would log a stack trace on every send.
+            // Nothing can be encrypted without the key. credentialKeyRefusal reports that once per
+            // account; attempting here would log a stack trace on every send.
             return;
         }
         String original = emailConfig.getConfigDetailsJson();
@@ -613,8 +639,8 @@ public class EmailManager {
                 emailConfig.setConfigDetailsJson(encrypted);
             }
         } catch (EmailSendingException | RuntimeException e) {
-            // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
-            // (RuntimeException, e.g. DataAccessException) may block outbound mail. The detached
+            // Best-effort: neither an encryption failure (EmailSendingException) nor a persistence
+            // failure (RuntimeException, e.g. DataAccessException) may block outbound mail. The detached
             // object is changed only after persistence succeeds. The DAO binds only the account ID
             // and encrypted JSON, never the plaintext credential, keeping database errors safe.
             logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
@@ -623,36 +649,70 @@ public class EmailManager {
     }
 
     /**
-     * Decides whether a sender account must be refused because its transport credentials cannot
-     * be protected at rest (#3673). Only an account holding a credential is affected; an
-     * unauthenticated LOCAL relay never needs the key.
+     * Decides, before any transport is created, whether a sender account must be refused because
+     * of its credentials and the application encryption key (#3673).
      *
-     * <p>With the application encryption key present, nothing is refused: plaintext credentials
-     * are migrated by {@link #upgradeConfigCredentialsAtRest} and encrypted ones decrypt. Without
-     * it, the account is refused when {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on.
-     * Otherwise the send proceeds as before, with one warning per account per server run so the
-     * gap is visible without flooding the log. Neither the credential nor the configuration JSON
-     * is logged.</p>
+     * <ul>
+     *   <li>An unauthenticated LOCAL relay never uses a credential, so it is never refused. A
+     *       leftover secret on such a row is reported once.</li>
+     *   <li>Encrypted credentials that do not decrypt with the current key are always refused:
+     *       the send would fail anyway, and the likely cause (the key was lost and a new one
+     *       generated) needs an administrator to restore the original key, not a retry.</li>
+     *   <li>Plaintext credentials with no key available are refused only when
+     *       {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on; otherwise they are reported once
+     *       and sent. With a key, they are encrypted by {@link #upgradeConfigCredentialsAtRest}.</li>
+     * </ul>
      *
-     * @return true when the send must stop before any transport is created
+     * <p>Each report is logged once per account per server run, whatever its later edits. Logs
+     * name the account id and the setting, never the credential, the key or the JSON.</p>
+     *
+     * @return the staff-facing reason to record, or null when the send may proceed
      */
-    boolean isRefusedForUnprotectedCredentials(EmailConfig emailConfig) {
-        if (emailConfig == null || EncryptionUtils.isKeyConfigured()
-                || !EmailConfigSecrets.holdsTransportSecret(emailConfig.getConfigDetailsJson())) {
-            return false;
+    String credentialKeyRefusal(EmailConfig emailConfig) {
+        if (emailConfig == null) {
+            return null;
+        }
+        EmailConfigSecrets.TransportSecretState state =
+                EmailConfigSecrets.transportSecretState(emailConfig.getConfigDetailsJson());
+        if (state == EmailConfigSecrets.TransportSecretState.NONE) {
+            return null;
+        }
+        Integer id = emailConfig.getId();
+        if (emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL) {
+            if (firstReport(id)) {
+                logger.warn("Sender config id={} is a LOCAL relay but holds a credential it never uses; remove it.", id);
+            }
+            return null;
+        }
+        boolean keyConfigured = EncryptionUtils.isKeyConfigured();
+        if (state == EmailConfigSecrets.TransportSecretState.ENCRYPTED) {
+            if (keyConfigured && EmailConfigSecrets.encryptedSecretsDecrypt(emailConfig.getConfigDetailsJson())) {
+                return null;
+            }
+            logger.error("Email send refused: sender config id={} holds credentials encrypted under a different key "
+                    + "than the current {}. Restore the original key; generating a new one does not recover them.",
+                    id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+            return CREDENTIAL_KEY_MISMATCH_ERROR;
+        }
+        if (keyConfigured) {
+            return null;
         }
         if (CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY)) {
-            logger.error("Email send refused: sender config id={} holds transport credentials but {} is not set, "
-                    + "and {} requires it", emailConfig.getId(), EncryptionUtils.SECRET_KEY_ENV_VAR,
-                    REQUIRE_CREDENTIAL_KEY_PROPERTY);
-            return true;
+            logger.error("Email send refused: sender config id={} holds plaintext credentials, {} is not available, "
+                    + "and {} requires it", id, EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
+            return CREDENTIAL_KEY_REQUIRED_ERROR;
         }
-        if (unprotectedCredentialWarnings.add(emailConfig.getId() == null ? -1 : emailConfig.getId())) {
-            logger.warn("Sender config id={} holds transport credentials but {} is not set, so they are stored "
-                    + "unencrypted. Configure the key, then set {}=true to refuse such sends.",
-                    emailConfig.getId(), EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        if (firstReport(id)) {
+            logger.warn("Sender config id={} holds credentials that stay unencrypted because {} is not available. "
+                    + "Configure the key, then set {}=true to refuse such sends.",
+                    id, EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
         }
-        return false;
+        return null;
+    }
+
+    /** True the first time an account is reported in this server run; ids are never null in practice. */
+    private boolean firstReport(Integer configId) {
+        return configId == null || credentialKeyWarnings.add(configId);
     }
 
     public boolean hasActiveEmailConfig(int senderConfigId) {

@@ -78,40 +78,50 @@ Sender accounts that authenticate (an SMTP password, or a provider API key such
 as SendGrid's) store that secret in `emailConfig.configDetails`. CARLOS encrypts
 it at rest with the application key `encryption.util.secret.key`, the same key
 fax credentials use. A plaintext row inserted by hand is encrypted the first
-time it is used to send. An unauthenticated `LOCAL` relay holds no secret and
-never needs the key.
+time it is used to send. An unauthenticated `LOCAL` relay never uses a secret
+and is never affected; a secret left on a `LOCAL` row is reported once so it can
+be removed.
 
-Without the key, credentials cannot be encrypted, and an already-encrypted row
-cannot be decrypted, so its sends fail. What happens to a plaintext row depends
-on `email.credentials.require_encryption_key`:
+**Where the key comes from.** On its first start, CARLOS generates a key and
+saves it to the override properties file if none is set, and it refuses to start
+with an invalid one. A running server therefore always has a key. That makes the
+key itself the thing to protect:
 
-| Setting | Key missing, account holds a credential |
+- **Back it up** with the rest of the server's configuration. Everything
+  encrypted with it, email and fax credentials alike, can only be decrypted with
+  that exact key.
+- **Never replace it** on a server that has been running. A new key does not
+  decrypt what the old one encrypted.
+- **If it is lost**, CARLOS starts with a newly generated key and the old
+  credentials stop working. Restore the original key and restart. If it cannot
+  be recovered, re-enter each account's password or API key.
+
+**What a send does** before it opens any connection:
+
+| Sender account | Result |
 |---|---|
-| unset (default), or anything other than `true`, `yes` or `on` | The send proceeds. The credential stays in plaintext. One WARN per account per server run names the account id and the setting. |
-| `true`, `yes` or `on` | The send is refused before any connection is made. The email log records `FAILED` with "Email sender account cannot be used until the server encryption key is configured. Contact your administrator." Each refusal logs an ERROR naming the account id. |
+| Encrypted credentials that decrypt with the current key | Sent. |
+| Encrypted credentials that do **not** decrypt (the key was changed or regenerated) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
+| Plaintext credentials, key available | Encrypted at rest, then sent. |
+| Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured." |
 
-Logs name the account id and the property only. They never contain the
-credential, the configuration JSON or the key.
-
-An invalid key (not Base64, or not a 16, 24 or 32 byte AES key) stops CARLOS at
-startup, so a running server has either a usable key or none.
+Every refusal is written to the audit log as
+`EmailManager.sendEmail.refusedCredentialKey`. Logs name the account id and the
+setting only. They never contain the credential, the configuration JSON or the
+key. At startup CARLOS logs whether the enforcement setting is on, and warns if
+its value is not one it recognises.
 
 ### Rollout
 
-1. Generate a key once (`openssl rand -base64 32`) and set
-   `encryption.util.secret.key` in the override properties on every server.
-   Never generate a new one for a server that already has encrypted rows:
-   rotating the key makes them undecryptable.
-2. Restart, then send a non-PHI test message from each credentialed account.
-   Each plaintext row is encrypted on that first send; check that the
-   "stored unencrypted" warning no longer appears.
-3. Set `email.credentials.require_encryption_key=true` and restart. From then
-   on, a server that loses its key refuses credentialed sends instead of quietly
-   sending with plaintext credentials.
-
-The compatibility window is the time between upgrading and step 3. It is
-deliberately left to each deployment, because enforcement before the key is in
-place would stop all credentialed email.
+1. Confirm `encryption.util.secret.key` is present in the override properties
+   on every server and is backed up. Do not generate or paste in a new one on a
+   server that is already running.
+2. Send a non-PHI test message from each credentialed account. Each plaintext
+   row is encrypted on that first send.
+3. Optionally set `email.credentials.require_encryption_key=true` and restart.
+   With Startup in place this changes nothing day to day. It is a guard for
+   deployments or tools that run CARLOS code without Startup, and against a
+   future change to key creation.
 
 ## Local Development
 
