@@ -1079,7 +1079,10 @@
         setStatus(t('saving', 'Saving…'), 'busy');
         document.getElementById('btnSave').disabled = true;
         document.getElementById('btnSaveFax').disabled = true;
-        var reached = false;
+        // Set just before fetch() starts. fetch() can reject after the server has accepted
+        // the POST (a connection dropped before the response headers arrived), so any
+        // failure from that point on may already have filed a copy.
+        var sent = false;
 
         annotationFontReady().then(function () {
             // This save's own snapshot is about to be taken, so it fits the notes directly;
@@ -1087,6 +1090,7 @@
             fitAllNotes();
             return csrfTokenReady();
         }).then(function () {
+            sent = true;
             return fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
                 + encodeURIComponent(cfg.docId), {
                 method: 'POST',
@@ -1099,9 +1103,6 @@
                 body: JSON.stringify(savePayload())
             });
         }).then(function (response) {
-            // From here on the server has seen the request: a failure to read the reply
-            // means the copy may or may not have been filed, so it is "uncertain".
-            reached = true;
             return response.json().then(function (data) {
                 return { ok: response.ok, data: data };
             });
@@ -1136,15 +1137,16 @@
             }
         }).catch(function () {
             setSaving(false);
-            if (reached) {
-                // The request reached the server but its reply could not be read (an HTML
-                // error or login page, a dropped connection mid-reply): the copy may already
+            if (sent) {
+                // The request may have reached the server but no readable reply came back
+                // (a dropped connection, an HTML error or login page): the copy may already
                 // be filed, so refuse a second save until the operator has checked.
                 state.uncertain = true;
                 setStatus(t('saveUnconfirmed', 'The save could not be confirmed. Check the patient\u2019s documents before saving another copy.'), 'error');
             } else {
-                // Nothing left the browser (token bootstrap or fetch itself failed): the
-                // marks are intact and a retry is safe, so keep Save enabled.
+                // Nothing left the browser (the font or CSRF-token bootstrap failed before
+                // fetch() started): the marks are intact and a retry is safe, so keep Save
+                // enabled.
                 setStatus(t('saveFailed', 'The annotated document could not be saved.'), 'error');
             }
             updateCounts();
