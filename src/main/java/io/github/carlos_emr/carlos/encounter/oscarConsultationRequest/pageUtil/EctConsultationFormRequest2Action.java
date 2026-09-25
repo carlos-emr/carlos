@@ -760,6 +760,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                                 request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                             }
                         }
+                        // THIS branch is the one Print uses, and Print never saves: the form was
+                        // POSTed by AJAX precisely so the clinician keeps their edits. Ask the PDF
+                        // to render those edits rather than the stored record (issue #3721).
+                        request.setAttribute(ConsultationPreviewOverlay.PREVIEW_USES_UNSAVED_VALUES_ATTRIBUTE, Boolean.TRUE);
                         renderConsultationFormWithAttachments(request, response, requestId, previewDemographicNo);
                     }
                 } catch (RuntimeException e) {
