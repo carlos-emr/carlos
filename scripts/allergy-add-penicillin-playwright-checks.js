@@ -151,6 +151,17 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
+async function fillStartDate(page, form, value) {
+  const date = form.locator('#startDate');
+  await date.fill(value);
+  // Typing opens flatpickr over the submit button. Dismiss it through the keyboard
+  // and leave the field so the picker commits the entered date before submission.
+  await date.press('Escape');
+  await date.press('Tab');
+  await page.locator('.flatpickr-calendar.open').waitFor({ state: 'hidden' });
+  assert(await date.inputValue() === value, 'allergy start date changed when leaving its picker');
+}
+
 (async () => {
   const recorder = createRecorder();
   initMysqlDefaults();
@@ -188,7 +199,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await form.locator('select[name="severityOfReaction"]').selectOption('3');
     await form.locator('select[name="onSetOfReaction"]').selectOption('1');
     await form.locator('select[name="lifeStage"]').selectOption('A');
-    await form.locator('#startDate').fill('2024-01-15');
+    await fillStartDate(page, form, '2024-01-15');
     if (await form.locator('select[name="nonDrug"]').count()) {
       await form.locator('select[name="nonDrug"]').selectOption('off');
     }
@@ -254,7 +265,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
     await amendForm.locator('#reactionDescription').fill(amendedReactionText);
     await amendForm.locator('select[name="severityOfReaction"]').selectOption('1');
-    await amendForm.locator('#startDate').fill('2024-01-15');
+    await fillStartDate(page, amendForm, '2024-01-15');
     const [amendResponse] = await Promise.all([
       page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/rx/addAllergy2'), { timeout: 30000 }),
       amendForm.locator('input[type="submit"][value="Add Allergy"]').click(),
