@@ -897,6 +897,36 @@ async function main() {
       await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
     await openViewer();
 
+    // A page with no notes has nothing to measure in the annotation font, so its save must not
+    // wait for the font: with the font held, a highlight-only save posts at once.
+    let releaseNoNoteFont;
+    const noNoteFontHeld = new Promise(resolve => { releaseNoNoteFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await noNoteFontHeld;
+      await route.continue();
+    });
+    await openViewer('domcontentloaded');
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const noNoteBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="highlight"]').click();
+    await page.mouse.move(noNoteBox.x + 60, noNoteBox.y + 120);
+    await page.mouse.down();
+    await page.mouse.move(noNoteBox.x + 220, noNoteBox.y + 150, { steps: 6 });
+    await page.mouse.up();
+    let noNoteSavePosted = false;
+    const watchNoNoteSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { noNoteSavePosted = true; } };
+    page.on('request', watchNoNoteSave);
+    await page.locator('#btnSave').click();
+    await page.waitForTimeout(700);
+    const postedWithoutFont = noNoteSavePosted;
+    releaseNoNoteFont();
+    await waitForSave();
+    page.off('request', watchNoNoteSave);
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
+    check('a save with no notes does not wait for the annotation font',
+      postedWithoutFont && await page.locator('#status').getAttribute('class') === 'status ok',
+      JSON.stringify([postedWithoutFont, await page.locator('#status').getAttribute('class')]));
+
     // If the font is later than the save's wait, the save posts fallback widths. A refit arriving
     // while that request is out must not change the model under it (the page would then report
     // as saved marks the filed copy lacks); it runs once the save ends. Here the fallback-width

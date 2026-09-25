@@ -1049,7 +1049,8 @@
      * the snapshot, leaving the page showing something other than the copy it reports as saved.
      */
     function annotationFontReady() {
-        if (!state.fontReady) { return Promise.resolve(); }
+        // Only notes are measured in the font; a page of highlights and ink has nothing to wait for.
+        if (!state.fontReady || !state.annotations.some(isEditableText)) { return Promise.resolve(); }
         return Promise.race([state.fontReady, new Promise(function (resolve) {
             setTimeout(resolve, FONT_WAIT_MS);
         })]);
