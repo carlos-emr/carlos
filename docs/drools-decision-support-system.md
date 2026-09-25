@@ -644,7 +644,7 @@ For the full Drools DRL language reference, see the [Drools Documentation](https
 
 ### Drools 7.74.1 → 10.1.0 (Jakarta EE Migration)
 
-Drools was upgraded from 7.74.1.Final to 10.1.0 for Jakarta EE compatibility. Drools 10.1.0 requires JDK 17+ (CARLOS uses JDK 21).
+Drools was upgraded from 7.74.1.Final to 10.1.0 for Jakarta EE compatibility. Drools 10.1.0 requires JDK 17+ (CARLOS uses JDK 25).
 
 **Key changes:**
 1. **Replaced `KieHelper` with standard KIE API**: `DroolsHelper.createKieBaseFromDrl()` uses the standard `KieServices` -> `KieFileSystem` -> `KieBuilder` -> `KieContainer` pipeline.

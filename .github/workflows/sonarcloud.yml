@@ -103,9 +103,26 @@ jobs:
           echo "Attempting to pull pre-built image from $IMAGE..."
           if docker pull "$IMAGE" 2>pull-image-error.log; then
             docker tag "$IMAGE" carlos-tomcat-dev
-            echo "pulled=true" >> "$GITHUB_OUTPUT"
-            echo "reason=success" >> "$GITHUB_OUTPUT"
-            echo "Successfully pulled pre-built image!"
+            # The published :latest tag is not keyed to the Dockerfile, and PR
+            # runs of container-images.yml do not publish a new one. A pull
+            # therefore returns the PREVIOUSLY published image even when this
+            # branch changes the JDK -- and the mismatch only surfaces as
+            # "release version N not supported" after the whole Maven toolchain
+            # has started, in every compiling job at once. Check the image's JDK
+            # against the <release> this tree compiles at, and fall through to
+            # the local build (reason=not-found) when they disagree.
+            want="$(sed -n 's:.*<release>\([0-9][0-9]*\)</release>.*:\1:p' pom.xml | head -1)"
+            got="$(docker run --rm --entrypoint java carlos-tomcat-dev -version 2>&1 \
+                   | sed -n '1s/.*version "\([0-9][0-9]*\).*/\1/p')"
+            if [ -n "$want" ] && [ "$got" != "$want" ]; then
+              echo "pulled=false" >> "$GITHUB_OUTPUT"
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image has JDK ${got:-unknown}, this tree needs JDK $want - building locally."
+            else
+              echo "pulled=true" >> "$GITHUB_OUTPUT"
+              echo "reason=success" >> "$GITHUB_OUTPUT"
+              echo "Successfully pulled pre-built image (JDK ${got:-unknown})!"
+            fi
           else
             echo "pulled=false" >> "$GITHUB_OUTPUT"
             if grep -qiE 'manifest unknown|not found' pull-image-error.log; then

@@ -184,8 +184,14 @@ body {
 .page .overlay {
     position: absolute;
     inset: 0;
-    /* Marks are hit-tested for deletion in select mode; every other mode draws. */
+    /* Marks are hit-tested for moving, editing and (select mode) deletion; empty
+       overlay space draws in every mode except select. */
     touch-action: none;
+    /* Notes are SVG text, which the browser would otherwise select during a highlight or ink
+       drag that starts on them. A press on that selection then begins a native drag, which
+       cancels the pointer and silently drops the next stroke. */
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .pages[data-tool="select"] .overlay { cursor: default; }
@@ -195,7 +201,36 @@ body {
 .pages[data-tool="date"] .overlay,
 .pages[data-tool="signature"] .overlay { cursor: copy; }
 
-.pages[data-tool="select"] .mark { cursor: pointer; }
+/* Placed marks (text, date, signature) can be moved from select and the placing tools; ink
+   and highlights only from select. The drawing tools grab nothing, so they keep the crosshair
+   over every mark. */
+.pages[data-tool="select"] .mark,
+.pages[data-tool="select"] .mark-hit,
+.pages[data-tool="text"] .mark[data-kind="placed"],
+.pages[data-tool="text"] .mark-hit,
+.pages[data-tool="date"] .mark[data-kind="placed"],
+.pages[data-tool="date"] .mark-hit,
+.pages[data-tool="signature"] .mark[data-kind="placed"],
+.pages[data-tool="signature"] .mark-hit { cursor: move; }
+
+/* The viewer sets data-grab on an overlay while the pointer is over something a press would
+   grab, including a note seen through a highlight or ink halo the tool cannot take; the rules
+   above cannot see through the topmost element, this one follows the real hit test. */
+.pages .overlay[data-grab],
+.pages .overlay[data-grab] * { cursor: move; }
+
+/* While a save is in flight every press is ignored and marks are frozen, so nothing advertises
+   a grab; placed after the move rules and at least as specific, so it wins over each. */
+.pages[data-saving] .overlay,
+.pages[data-saving] .overlay .mark,
+.pages[data-saving] .overlay .mark[data-kind],
+.pages[data-saving] .overlay .mark-hit { cursor: progress; }
+
+/* Keep a note's spaces as typed: the composer draws every space and measures the full string
+   against the page edge, so the preview must lay out (and the fit must measure) the same text. */
+.overlay text.mark { white-space: pre; }
+
+.mark.moving { opacity: .7; }
 
 .page-caption {
     padding: 4px 8px;

@@ -32,14 +32,20 @@
   Purpose: Render the patient identity and utility links above the encounter.
   Features: Identity copying, calculator navigation and configured chart links.
   The calculator menu resolves clinical defaults server-side using the originating
-  chart's record reference instead of including age or sex in the header URL.
+  chart's record reference instead of including age or sex in the header URL, and
+  there is exactly one entry point to it -- a second link to the same page, differing
+  only in how it passed the patient's attributes, was reported as a duplicate control.
   Parameters: EctSessionBean and the authenticated session supply the encounter
   and provider context; there are no direct request parameters for this fragment.
+  i18n: every label here resolves against the BROWSER locale. JSTL and the Java-rendered
+  identity block both receive the negotiated bundle locale explicitly (see Demographic#getStandardIdentificationHtml) because the JVM default
+  and LocaleContextHolder both report the server's language on this request path.
   @since 2026-09-17
 --%>
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -52,6 +58,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="java.util.Locale" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -78,15 +86,20 @@
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
     pageContext.setAttribute("popupDemographicNo", demoNo);
 
+    // Same resolution the <fmt:message> tags below perform, so the Java-rendered identity
+    // block and the JSP-rendered labels can never end up in two different languages.
+    Locale browserLocale = LocaleUtils.resolveBundleLocale(request);
 %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
+<fmt:message key="global.copiedToClipboard" var="copiedToClipboardMsg"/>
 <script type="text/javascript">
+var CARLOS_COPIED_MSG = '${carlos:forJavaScript(copiedToClipboardMsg)}';
 function copyToClip(text, el) {
     var orig = el.title;
     function showFeedback() {
-        el.title = 'Copied!';
+        el.title = CARLOS_COPIED_MSG;
         el.style.opacity = '0.5';
         setTimeout(function() { el.style.opacity = '1'; el.title = orig; }, 600);
     }
@@ -117,15 +130,28 @@ function fallbackCopy(text) {
         <div id="branding-logo">
             <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
         </div>
-        <%= demographic.getStandardIdentificationHTML(request.getContextPath()) %>
+        <%= demographic.getStandardIdentificationHtml(request.getContextPath(), browserLocale) %>
     </div>
     <div id="right-column">
     </div>
 </div>
 
 <div id="header-bottom-row">
+    <%-- The chart's single entry point to the clinical calculators. A second anchor to the
+         same route used to sit lower in this bar, labelled identically and differing only in
+         passing sex/age in the query string; phc007 reported the pair as two calculator links
+         in the header. This one is the form to keep: calculators.jsp resolves sex and age from
+         the record when given demo=, which keeps patient attributes out of navigation URLs
+         (asserted by scripts/admin-fragment-navigation.test.js).
+         The href is the real route, not javascript:void(0): the click opens the popup and
+         returns false, so a plain click behaves like the other header popups, while a
+         middle-click or keyboard follow still reaches the page (and the anchor is a link, not a
+         button dressed as one -- Sonar S6844). --%>
     <div>
+        <fmt:message key="encounter.Index.calculators" var="calculatorsTitle"/>
         <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}"
+           id="chartCalculatorsLink"
+           title="${carlos:forHtmlAttribute(calculatorsTitle)}"
            onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
     </div>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
@@ -133,22 +159,6 @@ function fallbackCopy(text) {
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
     </div>
     <%}%>
-
-    <%-- The chart's clinical calculators (encounter/ViewCalculators). The older
-         encounterLayout offered them from its navigation column; this layout,
-         the default since the new chart landed, had no control that reached them
-         at all, so the calculators were unreachable from the chart (found while
-         resolving issue #3665 findings 8 and 9). Same popup as the Index2 layout.
-         The href is the real route, not javascript:void(0): the click opens the
-         popup and returns false, so a plain click behaves like the other header
-         popups, while a middle-click or keyboard follow still reaches the page
-         (and the anchor is a link, not a button dressed as one -- Sonar S6844). --%>
-    <div>
-        <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}"
-           id="chartCalculatorsLink"
-           title="<fmt:message key="encounter.Index.calculators"/>"
-           onClick="popupPage(350,280,'calculatorWin','${carlos:forJavaScript(ctx)}/encounter/ViewCalculators?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
-    </div>
 
     <div>
         <%=getEChartLinks() %>

@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -59,9 +60,20 @@ public class DelImage2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
+
+        // CSRFGuard validates POST/PUT/DELETE/PATCH, not GET/HEAD, so without this
+        // guard an authenticated _eform writer could delete an image via a
+        // token-less GET (e.g. a forged <img src>). Checked before privilege and
+        // before any file operation, same shape as the sibling DelEForm2Action.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
@@ -91,7 +103,7 @@ public class DelImage2Action extends ActionSupport {
             Path imagePath = image.toPath();
             Files.delete(imagePath);
 
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             // Path validation failed
             return ERROR;
         } catch (IOException e) {
@@ -100,6 +112,19 @@ public class DelImage2Action extends ActionSupport {
         }
         
         return SUCCESS;
+    }
+
+    /**
+     * Returns schedule-navigation requests to the Administration shell, which renders the
+     * schedule header and loads Image Library. The standalone JSP does not render that header.
+     * Other callers retain their standalone Image Library destination.
+     *
+     * @return the application-relative destination for the POST/redirect/GET result
+     */
+    public String getRedirectTarget() {
+        return ScheduleNav.isActive(request)
+                ? ScheduleNav.append("/administration?show=ImageUpload", request)
+                : "/eform/efmimagemanager";
     }
 
 }

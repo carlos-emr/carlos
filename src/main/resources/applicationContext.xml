@@ -226,6 +226,7 @@
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/painAssistant.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/healthTracker.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/hepCFlowsheet.xml</value>
 				
 			</list>

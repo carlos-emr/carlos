@@ -568,6 +568,7 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .doesNotContain("signatureControl.jsp")
                 .doesNotContain("signature.js")
                 .contains("signatureControl.initialize=function initialize(){}")
+                .contains("window.AddOtherFax=window.AddOtherFax||function AddOtherFax(){return false;};")
                 .contains("name=\"fdid\" id=\"fdid\" value=\"77\"")
                 .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"")
                 .contains("window.__carlosEformPdfRender=true;")
@@ -578,8 +579,39 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .isLessThan(html.indexOf("/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         assertThat(html.indexOf("/eform/eform-runtime-compat.js"))
                 .isLessThan(html.indexOf("/clinic.js"));
+        assertThat(html.indexOf("window.AddOtherFax="))
+                .isLessThan(html.indexOf("/clinic.js"));
         assertThat(html.indexOf("window.__carlosEformPdfRender=true;"))
                 .isLessThan(html.indexOf("/eform/eform-runtime-compat.js"));
+    }
+
+    @Test
+    @DisplayName("should retain the generated fax timer target after stripping interactive controls")
+    void shouldKeepFaxTimerTarget_whenRenderingGeneratedForm() {
+        EForm eForm = mockEformWithHtml("<html><head><script src=\"/library/eforms/faxControl.js\"></script>"
+                + "</head><body onload=\"setFaxNo()\"><form id=\"FormName\">"
+                + "<script>function setFaxNo(){setTimeout('document.getElementById(\\\"otherFaxInput\\\").value=\\\"555-0100\\\"',1000);}</script>"
+                + "</form></body></html>");
+
+        EFormRenderPdfHtmlComposer.applyRendererViewProfile(eForm, "/carlos", "77");
+        org.jsoup.nodes.Document rendered = org.jsoup.Jsoup.parse(eForm.getFormHtml());
+
+        assertThat(rendered.select("script[src$=faxControl.js]")).isEmpty();
+        assertThat(rendered.select("#otherFaxInput")).hasSize(1);
+        assertThat(rendered.selectFirst("#otherFaxInput").attr("type")).isEqualTo("hidden");
+        assertThat(rendered.selectFirst("form #otherFaxInput")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should not duplicate a fax timer target supplied by the stored form")
+    void shouldPreserveExistingFaxTimerTarget_whenRendering() {
+        EForm eForm = mockEformWithHtml("<html><body><form><input id=\"otherFaxInput\" value=\"555-0110\"></form></body></html>");
+
+        EFormRenderPdfHtmlComposer.applyRendererViewProfile(eForm, "/carlos", "77");
+        org.jsoup.nodes.Document rendered = org.jsoup.Jsoup.parse(eForm.getFormHtml());
+
+        assertThat(rendered.select("#otherFaxInput")).hasSize(1);
+        assertThat(rendered.selectFirst("#otherFaxInput").val()).isEqualTo("555-0110");
     }
 
     @Test

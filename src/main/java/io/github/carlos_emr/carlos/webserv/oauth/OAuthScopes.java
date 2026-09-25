@@ -91,6 +91,7 @@ public final class OAuthScopes {
         Map.entry("measurements", "measurement"),
         Map.entry("messaging", "messaging"),
         Map.entry("notes", "note"),
+        Map.entry("ocean", "ocean"),
         Map.entry("patientdetailstatusservice", "patientstatus"),
         Map.entry("persona", "persona"),
         Map.entry("pharmacies", "pharmacy"),

@@ -27,7 +27,7 @@ import sys
 
 from . import config, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, DRUGREF_PROPERTIES, PROPERTIES, SHARE, STATE, WEBAPP,
+    BACKUP_ENV, CONF_DIR, DRUGREF_PROPERTIES, PROPERTIES, REINSTALL_HINT, SHARE, STATE, WEBAPP,
     die, env_get, genpw, genrandom, log, need_root, prop_escape, prop_get,
     prop_set, prop_unescape, run, warn,
 )
@@ -308,7 +308,7 @@ def cmd_db_users(argv) -> int:
     # write) would leave the application locked out with no record of the
     # new credential.
     if not os.path.isfile(PROPERTIES):
-        die(f"{PROPERTIES} does not exist — reinstall carlos-emr or restore it from backup "
+        die(f"{PROPERTIES} does not exist — reinstall carlos-emr ({REINSTALL_HINT}) or restore it from backup "
             "before provisioning accounts")
     for path in [PROPERTIES] + [q for q in (DRUGREF_PROPERTIES, BACKUP_ENV) if os.path.isfile(q)]:
         if not os.access(path, os.W_OK):
@@ -440,27 +440,27 @@ def cmd_rotate(argv) -> int:
 
 # --- Flyway (verbs: db-migrate / db-info / db-validate / db-baseline / db-repair)
 
-def _is_java_21(home: str) -> bool:
+def _is_java_25(home: str) -> bool:
     """The JDK's own release file names the version without spawning a JVM."""
     try:
         with open(os.path.join(home, "release"), encoding="utf-8") as fh:
-            return any(line.startswith('JAVA_VERSION="21') for line in fh)
+            return any(line.startswith('JAVA_VERSION="25') for line in fh)
     except OSError:
         return False
 
 
 def _find_java() -> str:
-    """Java 21, VERIFIED, not merely a java binary: the migration engine and
-    JDBC driver come out of the deployed WAR (class file version 65) and a
-    default-java pointing at 17 or 25 fails in class-loading shapes rather
-    than with a clean message."""
-    candidates = (sorted(glob.glob("/usr/lib/jvm/java-21-openjdk-*"))
-                  + ["/usr/lib/jvm/java-21-openjdk",
+    """Java 25, VERIFIED, not merely a java binary: the migration engine and
+    JDBC driver come out of the deployed WAR (class file version 69), so an
+    older default-java cannot load them at all, and a newer one fails in
+    class-loading shapes rather than with a clean message."""
+    candidates = (sorted(glob.glob("/usr/lib/jvm/java-25-openjdk-*"))
+                  + ["/usr/lib/jvm/java-25-openjdk",
                      "/usr/lib/jvm/default-java"])
     for d in candidates:
-        if _is_java_21(d) and os.access(os.path.join(d, "bin", "java"), os.X_OK):
+        if _is_java_25(d) and os.access(os.path.join(d, "bin", "java"), os.X_OK):
             return os.path.join(d, "bin", "java")
-    die("no Java 21 runtime found; install openjdk-21-jre-headless")
+    die("no Java 25 runtime found; install openjdk-25-jre-headless")
 
 
 def run_flyway(command: str) -> int:
@@ -728,7 +728,7 @@ def cmd_bootstrap_admin(argv) -> int:
     # and the next run regenerates it.
     outfile = os.path.join(CONF_DIR, "initial-admin.txt")
     if not os.path.isdir(CONF_DIR):
-        die(f"{CONF_DIR} does not exist — reinstall carlos-emr before "
+        die(f"{CONF_DIR} does not exist — reinstall carlos-emr ({REINSTALL_HINT}) before "
             "resetting the seeded credential")
     sql = f"""
 SET SESSION sql_log_bin = 0;
@@ -995,7 +995,7 @@ def cmd_demo_data(argv) -> int:
     pieces.append(os.path.join(DEMO_DIR, "admin_test_data.sql"))
     for p in pieces:
         if not os.path.isfile(p):
-            die(f"{p} is missing — reinstall carlos-emr")
+            die(f"{p} is missing — reinstall carlos-emr ({REINSTALL_HINT})")
 
     log("loading the demonstration dataset (fictitious patients; a few minutes)...")
     # The stream is unlinked by the finally below, which covers the ASSEMBLY
@@ -1016,7 +1016,7 @@ def cmd_demo_data(argv) -> int:
         except (OSError, EOFError, UnicodeDecodeError, zlib.error) as e:
             die(f"could not assemble the demonstration SQL stream: {e} — the "
                 "demo artifact or a companion file is corrupt or unreadable; "
-                "reinstall carlos-emr and re-run 'carlos-ctl demo-data'")
+                f"reinstall carlos-emr ({REINSTALL_HINT}) and re-run 'carlos-ctl demo-data'")
         with open(stream, encoding="utf-8") as fh:
             cp = db_root([s.db_name], stdin=fh)
     finally:

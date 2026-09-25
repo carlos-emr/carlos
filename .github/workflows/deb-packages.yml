@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
 #
-# Build the Debian packages (carlos-emr, carlos-emr-drugref), attach them to
+# Build the Debian packages (carlos-emr for amd64, which carries the eForm
+# renderer's vendored Chromium; carlos-emr-drugref; and the empty transitional
+# carlos-emr-eform-renderer that upgrades pre-merge installs), attach them to
 # the release, and PUBLISH the release as the final step.
 #
 # DESIGN — a SEPARATE workflow from publish-release.yml, but it FINALIZES the
@@ -9,7 +11,7 @@
 # SBOM, and this workflow downloads that WAR, builds the .debs, attaches them,
 # and only then flips the release to published. The order matters because the
 # repository enables immutable releases — assets cannot be added once a release
-# is published, so every asset (WAR, SBOM, both .debs) must be in place while it
+# is published, so every asset (WAR, SBOM, every .deb) must be in place while it
 # is still a draft.
 #
 #   * The deb ships the release's OWN WAR, downloaded from the draft and
@@ -93,7 +95,7 @@ jobs:
           # compiled here (see CARLOS_WAR below).
           apt-get install -y --no-install-recommends \
             build-essential debhelper devscripts lintian fakeroot \
-            maven openjdk-21-jdk-headless tomcat11 \
+            maven openjdk-25-jdk-headless tomcat11 \
             git ca-certificates curl xz-utils unzip
           # gh comes from GitHub's own apt repository, NOT the Ubuntu
           # archive: resolute ships gh 2.46.0, and `gh attestation` (which
@@ -129,26 +131,63 @@ jobs:
         run: |
           set -eu
           # gh release view (unlike the releases/tags REST endpoint, which 404s
-          # on drafts) can see a DRAFT release. One call computes the state via
-          # gh's built-in jq (system jq is not installed in the image):
+          # on drafts) can see a DRAFT release. One call returns the draft flag
+          # and the asset names via gh's built-in jq (system jq is not installed
+          # in the image), and the state is decided here:
           #   draft / none  -> proceed to build, attach, and publish
-          #   done          -> published with BOTH packages; nothing to do
-          #                    (immutable, so a re-upload would 422)
+          #   done          -> published with EVERY package this tag builds;
+          #                    nothing to do (immutable, so a re-upload would 422)
           #   missing       -> published but a package is absent; fail fast
           #                    (immutable release can never be completed)
-          state=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft,assets --jq '
-            if .isDraft then "draft"
-            elif ([.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length) >= 1
-             and ([.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length) >= 1
-            then "done" else "missing" end' 2>/dev/null || echo none)
+          # The expected set is the binary packages in THIS tag's debian/control,
+          # not a hard-coded list: from 2026.08.0-alpha14 it includes the empty
+          # transitional carlos-emr-eform-renderer that pre-merge installs need to
+          # upgrade, and a release missing it must not count as finished, while a
+          # backfill of an older tag is judged by the packages that tag defines.
+          # Each asset must also carry THIS tag's version, so a stray .deb of
+          # another version under the same package name cannot make a release
+          # look finished. The Debian version maps '-' to '~' (the changelog
+          # step below), but GitHub stores a release asset with that '~' as '.'
+          # (see the .sha256 step), so a published alpha/rc asset reads
+          # carlos-emr_2026.08.0.alpha14_amd64.deb: accept either spelling of
+          # the pre-release separator, and nothing else.
+          expected_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/./g')"
+          version_re="$(printf '%s' "$RELEASE_TAG" | sed 's/[.]/\\./g; s/-/[.~]/g')"
+          if ! info=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft,assets \
+                --jq '(.isDraft | tostring), .assets[].name' 2>/dev/null); then
+            state=none
+          elif [ "$(printf '%s\n' "$info" | head -n 1)" = true ]; then
+            state=draft
+          else
+            state=done
+            missing_pkgs=""
+            # Package and Architecture pairs from the tag's control file, so
+            # each asset must also carry its declared architecture: a
+            # carlos-emr _all.deb is not the _amd64 package that carries the
+            # renderer. A wildcard architecture (any, linux-any) falls back to
+            # any suffix.
+            pairs="$(awk '/^Package:/{p=$2} /^Architecture:/{if (p != "") print p ":" $2; p=""}' debian/control)"
+            for pair in $pairs; do
+              pkg="${pair%%:*}"
+              arch="${pair#*:}"
+              case "$arch" in
+                *any*) arch_re='[a-z0-9]*' ;;
+                *) arch_re="$arch" ;;
+              esac
+              if ! printf '%s\n' "$info" | tail -n +2 | grep -q "^${pkg}_${version_re}_${arch_re}\.deb\$"; then
+                state=missing
+                missing_pkgs="$missing_pkgs $pkg"
+              fi
+            done
+          fi
           case "$state" in
             draft|none)
               echo "SKIP=false" >> "$GITHUB_ENV" ;;
             done)
-              echo "Release $RELEASE_TAG is already published with both carlos-emr and carlos-emr-drugref .deb assets; nothing to do."
+              echo "Release $RELEASE_TAG is already published with every .deb this tag builds; nothing to do."
               echo "SKIP=true" >> "$GITHUB_ENV" ;;
             missing)
-              echo "::error::Release $RELEASE_TAG is already published but is missing a .deb asset. Immutable releases cannot accept new assets, so this cannot be completed; ship the .debs with the next release."
+              echo "::error::Release $RELEASE_TAG is already published but is missing ${expected_version} .deb assets for:$missing_pkgs. Immutable releases cannot accept new assets, so this cannot be completed; ship the .debs with the next release."
               exit 1 ;;
           esac
 
@@ -215,9 +254,29 @@ jobs:
           # staging checks.
           dpkg-buildpackage -us -uc -b
           mkdir -p release-assets
-          for deb in ../carlos-emr_"${DEB_VERSION}"_all.deb ../carlos-emr-drugref_"${DEB_VERSION}"_all.deb \
-                     ../carlos-emr-eform-renderer_"${DEB_VERSION}"_amd64.deb; do
-            cp "$deb" release-assets/
+          # The assets are exactly the .debs this build produced, read from the
+          # .changes file dpkg-buildpackage wrote, NOT a hard-coded list of file
+          # names: package names and architectures change (from 2026.08.0-alpha14
+          # carlos-emr is _amd64 because it carries the eForm renderer's x86-64
+          # Chromium, and carlos-emr-eform-renderer is an empty transitional
+          # _all package), and a stale list either failed the release or
+          # silently left a package out. Cross-checked against the tag's own
+          # debian/control so a package the build did not produce still fails.
+          shopt -s nullglob
+          changes=(../carlos-emr_"${DEB_VERSION}"_*.changes)
+          if [ "${#changes[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one carlos-emr_${DEB_VERSION}_*.changes, found ${#changes[@]}"
+            exit 1
+          fi
+          built="$(sed -n '/^Files:/,/^[^ ]/{s/^ .* \([^ ]*\.deb\)$/\1/p}' "${changes[0]}")"
+          for pkg in $(sed -n 's/^Package: *//p' debian/control); do
+            if ! printf '%s\n' "$built" | grep -q "^${pkg}_${DEB_VERSION}_[a-z0-9]*\.deb$"; then
+              echo "::error::debian/control defines $pkg but the build produced no .deb for it"
+              exit 1
+            fi
+          done
+          for deb in $built; do
+            cp "../$deb" release-assets/
           done
           cd release-assets
           # The name recorded INSIDE the .sha256 must be the name the operator
@@ -285,7 +344,7 @@ jobs:
         if: env.SKIP != 'true'
         run: |
           set -euo pipefail
-          # Every asset (WAR, SBOM, both .debs) is now attached to the draft.
+          # Every asset (WAR, SBOM, every .deb) is now attached to the draft.
           # Flip it to published — this is the point the release becomes
           # immutable. The latest-pointer decision lives here (not in
           # publish-release.yml) because the release is only published once all

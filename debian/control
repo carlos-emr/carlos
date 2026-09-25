@@ -27,13 +27,13 @@ Build-Depends:
 # overridden.
  groff-base,
  maven,
- openjdk-21-jdk-headless,
+ openjdk-25-jdk-headless,
  tomcat11,
  ca-certificates,
  git,
  xz-utils,
-# curl and unzip fetch and unpack the pinned Chromium for
-# carlos-emr-eform-renderer (debian/fetch-chromium.sh). Not needed when the
+# curl and unzip fetch and unpack the pinned Chromium carlos-emr ships for its
+# eForm renderer (debian/fetch-chromium.sh). Not needed when the
 # build supplies CHROMIUM_DIST or sets SKIP_EFORM_RENDERER.
  curl,
  unzip
@@ -44,10 +44,17 @@ Vcs-Browser: https://github.com/carlos-emr/carlos
 Rules-Requires-Root: no
 
 Package: carlos-emr
-Architecture: all
+# amd64, not all: this package carries the eForm-to-PDF renderer, a vendored
+# x86-64 Chromium and chromedriver (see below). Saved-eForm print, fax and
+# archive have no non-browser fallback, so the renderer is part of the EMR
+# rather than an optional add-on, and the EMR therefore installs only where that
+# Chromium runs. Through 2026.08.0~alpha13 the renderer was a separate
+# carlos-emr-eform-renderer package and this one was Architecture: all; dpkg
+# treats all -> amd64 under the same package name as an ordinary upgrade.
+Architecture: amd64
 Depends:
  ${misc:Depends},
- openjdk-21-jre-headless | openjdk-21-jdk-headless,
+ openjdk-25-jre-headless | openjdk-25-jdk-headless,
  tomcat11-common (>= 11.0),
  libtomcat11-java (>= 11.0),
  mariadb-server (>= 1:11.4),
@@ -80,18 +87,84 @@ Depends:
 # (bootstrap-admin) and the break-glass administrator import-o19 creates.
  python3,
  python3-bcrypt,
- debconf (>= 0.5) | debconf-2.0
+ debconf (>= 0.5) | debconf-2.0,
+# --- eForm renderer (vendored Chromium under /usr/lib/carlos-emr/chromium) ---
+# Chromium's direct DT_NEEDED set, minus what the Essential/base system already
+# guarantees. Derived by reading the shipped binary's dynamic section, not
+# copied from a wiki page: dh_shlibdeps cannot compute it here because the
+# binary is vendored rather than built by this source package.
+#
+# libc6 and libgcc-s1 are listed even though they are effectively always
+# present: dh_shlibdeps normally adds them, and with it skipped nothing else
+# would declare the C runtime that this package's ELF actually links against.
+ libc6,
+ libgcc-s1,
+ libasound2t64,
+ libatk-bridge2.0-0t64,
+ libatk1.0-0t64,
+ libatspi2.0-0t64,
+ libcairo2,
+ libcups2t64,
+ libdbus-1-3,
+ libexpat1,
+ libgbm1,
+ libglib2.0-0t64,
+ libnspr4,
+ libnss3,
+ libpango-1.0-0,
+ libudev1,
+ libx11-6,
+ libxcb1,
+ libxcomposite1,
+ libxdamage1,
+ libxext6,
+ libxfixes3,
+ libxkbcommon0,
+ libxrandr2,
+# Not a link-time dependency: Chromium resolves fonts through fontconfig at
+# render time, and on a font-less server every eForm PDF comes out with the
+# glyphs missing rather than failing loudly.
+ fontconfig,
+ fonts-dejavu-core,
+# apparmor supplies apparmor_parser, which the postinst uses to load the profile
+# that makes Chromium's own sandbox usable on this distribution.
+ apparmor
+# The renderer used to be the separate carlos-emr-eform-renderer package. The
+# files that keep their paths (the Chromium tree, the AppArmor profile, the
+# carlos-emr.service drop-in) now belong to this package, so every pre-merge
+# version has to hand them over (Replaces) and must not stay configured beside
+# it (Breaks). The paths its purge script deletes or disables -- its unit,
+# env file and browser home -- are deliberately NOT reused (see the postinst's
+# one-time move), so that purge cannot reach anything carlos-emr runs.
+#
+# Breaks is a FIXED version: the last pre-merge release was 2026.08.0~alpha13,
+# and the first to ship the transitional package sorts at or above
+# 2026.08.0~alpha14~ (alpha14, an rc, or the final). A ${source:Version}-relative
+# Breaks would also break the PREVIOUS release's transitional package, so an
+# install that kept it could no longer be upgraded with --no-remove unless the
+# operator remembered to supply the transitional deb every time. (A pre-merge
+# renderer is forced out regardless by its own exact Depends on the carlos-emr
+# it shipped with.) Replaces stays ${source:Version}-relative so the file
+# takeover also works between developer snapshots built from this tree
+# (2026.09.0~snapshotN -> snapshotN+1); the transitional package owns no files,
+# so replacing it is a no-op. Going from a developer snapshot to a 2026.08
+# release is NOT covered and not supported: 2026.09.0~snapshotN sorts above
+# every 2026.08 version, so that move is a downgrade (apt refuses it without an
+# explicit downgrade) and needs a remove-then-install. Snapshots are dev builds
+# and are never published as release assets.
+Breaks:
+ carlos-emr-eform-renderer (<< 2026.08.0~alpha14~)
+Replaces:
+ carlos-emr-eform-renderer (<< ${source:Version})
 Recommends:
 # certbot only. NOT python3-certbot-nginx: carlos-emr-cert drives certbot with
 # --webroot precisely so the plugin never rewrites
 # /etc/nginx/sites-available/carlos-emr, which is a dpkg conffile.
  certbot,
- carlos-emr-drugref (= ${binary:Version}),
-# The eForm-to-PDF renderer. Recommended, not required: it carries a vendored
-# Chromium (~150 MB) and only saved-eForm print/fax/archive needs it. Without
-# it those three workflows are unavailable and the package says so at install
-# time; every other PDF in CARLOS is produced by a pure-Java library.
- carlos-emr-eform-renderer (= ${binary:Version}),
+# ${source:Version}, not ${binary:Version}: carlos-emr is architecture-specific
+# and carlos-emr-drugref is Architecture: all, so a binNMU of one would never
+# carry the other's binary version.
+ carlos-emr-drugref (= ${source:Version}),
 # logrotate consumes /etc/logrotate.d/carlos-emr; without it the ModSecurity
 # audit log grows unbounded, so this is a strong recommendation rather than a
 # suggestion.
@@ -136,6 +209,17 @@ Description: CARLOS EMR - Canadian electronic medical record (single-host deploy
  MariaDB as "mysql". Root is used only by the package maintainer scripts and
  by the certificate-renewal timer.
  .
+ Saved-eForm print, fax and archive are produced by rendering the form in a
+ real browser and printing it to PDF over the Chrome DevTools Protocol. Ubuntu
+ 26.04 ships Chromium only as a snap, which cannot read the renderer's working
+ directories, so this package includes a pinned Chromium and matching
+ chromedriver under /usr/lib/carlos-emr/chromium. The driver runs as the
+ carlos-emr-render-browser service under its own account, "carlos-render" (a
+ member of no group), which is the only unit on the host permitted to create
+ namespaces, so Chromium keeps its own sandbox while the EMR's service stays
+ confined. The application connects to it over loopback and never launches a
+ browser itself. This is why the package is built for amd64 only.
+ .
  An experimental migration path imports an existing OSCAR 19 clinic into a
  fresh install; see carlos-ctl(8), verbs import-o19 and o19-preflight.
  .
@@ -148,14 +232,21 @@ Depends:
  ${misc:Depends},
 # Exact version: the two packages ship one Tomcat instance and one set of
 # database accounts between them, and carlos-emr-drugref's postinst calls
-# carlos-ctl from carlos-emr.
- carlos-emr (= ${binary:Version}),
+# carlos-ctl from carlos-emr. Written as the ${source:Version} range because
+# this package is Architecture: all and carlos-emr is not: an exact version
+# would make DrugRef uninstallable beside a binNMU of carlos-emr (X+b1), and
+# ${binary:Version} is lintian's not-binnmuable-all-depends-any. The range admits
+# exactly this source version and its binNMUs.
+ carlos-emr (>= ${source:Version}),
+ carlos-emr (<< ${source:Version}.1~),
 # mariadb-client (not -core) for the schema load; the -core package has the
 # client but not the tooling the rest of this deployment uses.
  mariadb-client (>= 1:11.4),
-# deb-systemd-invoke, to restart the shared Tomcat after (un)deploying the
-# DrugRef context.
- init-system-helpers (>= 1.54)
+# deb-systemd-invoke, to start MariaDB and to restart the shared Tomcat after
+# (un)deploying the DrugRef context.
+ init-system-helpers (>= 1.54),
+# curl: the postinst waits for the restarted Tomcat to serve DrugRef.
+ curl
 Description: DrugRef2 drug reference service for CARLOS EMR
  DrugRef2 is the drug and drug-interaction reference service CARLOS queries
  over XML-RPC when a prescription is written. It is built from
@@ -167,79 +258,23 @@ Description: DrugRef2 drug reference service for CARLOS EMR
  service. Without it, CARLOS prescription drug lookups return no results.
 
 Package: carlos-emr-eform-renderer
-Architecture: amd64
+# Transitional. The renderer now ships inside carlos-emr itself (see the
+# Breaks/Replaces there). Its only job is convenience: with it in the same apt
+# command, a pre-merge renderer is UPGRADED to this empty package, so the
+# documented --no-remove upgrade from 2026.08.0~alpha13 or earlier succeeds
+# instead of stopping on a removal. It is not a safety device: carlos-emr runs
+# the render browser under names the old package's scripts never touch
+# (carlos-emr-render-browser.service, /etc/carlos-emr/renderer.env,
+# /var/lib/carlos-emr/renderer), so removing or purging the old renderer at any
+# time cannot break it (a purge of a REMOVED old renderer still runs its old
+# postrm, which re-runs init-config and restarts the EMR once -- verified). Depends with >= so a copy left installed keeps satisfying
+# later carlos-emr releases; safe to remove or purge once installed.
+Architecture: all
+Section: oldlibs
 Depends:
  ${misc:Depends},
-# Exact version: the renderer's properties are written into carlos.properties by
-# carlos-emr's carlos-ctl, and this package's postinst calls it to do so.
- carlos-emr (= ${binary:Version}),
- init-system-helpers (>= 1.54),
-# addgroup/adduser in the postinst fallback that creates carlos-render when
-# systemd-sysusers has not run (chroot/container image builds).
- adduser,
-# Chromium's direct DT_NEEDED set, minus what the Essential/base system already
-# guarantees (libc6, libgcc-s1). Derived by reading the shipped binary's dynamic
-# section, not copied from a wiki page: dh_shlibdeps cannot compute it here
-# because the binary is vendored rather than built by this source package.
-#
-# libc6 and libgcc-s1 are listed even though they are effectively always
-# present: dh_shlibdeps normally adds them, and with it skipped nothing else
-# would declare the C runtime that this package's ELF actually links against.
- libc6,
- libgcc-s1,
- libasound2t64,
- libatk-bridge2.0-0t64,
- libatk1.0-0t64,
- libatspi2.0-0t64,
- libcairo2,
- libcups2t64,
- libdbus-1-3,
- libexpat1,
- libgbm1,
- libglib2.0-0t64,
- libnspr4,
- libnss3,
- libpango-1.0-0,
- libudev1,
- libx11-6,
- libxcb1,
- libxcomposite1,
- libxdamage1,
- libxext6,
- libxfixes3,
- libxkbcommon0,
- libxrandr2,
-# Not a link-time dependency: Chromium resolves fonts through fontconfig at
-# render time, and on a font-less server every eForm PDF comes out with the
-# glyphs missing rather than failing loudly.
- fontconfig,
- fonts-dejavu-core,
-# apparmor supplies apparmor_parser, which the maintainer scripts use to load
-# the profile that makes Chromium's own sandbox usable on this distribution.
- apparmor
-Description: Headless Chromium renderer for CARLOS EMR eForm PDFs
- Saved-eForm print, fax and archive in CARLOS are produced by rendering the
- form in a real browser and printing it to PDF over the Chrome DevTools
- Protocol. There is no legacy fallback path: without a browser those three
- workflows are unavailable.
- .
- Ubuntu 26.04 ships Chromium only as a snap, and a confined snap cannot read
- the renderer's working directories under /var/lib/carlos-emr. This package
- therefore installs a pinned, unconfined Chromium and a chromedriver built from
- the same revision into /usr/lib/carlos-emr/chromium, runs the driver as the
- carlos-emr-chromedriver service, and points eform_pdf_browser_service_url
- (plus eform_pdf_browser_chromium_path for the browser binary) at it, so the
- application connects to a running service and never downloads a driver.
- .
- The browser runs as its own system account (carlos-render, a member of no
- group) under its own systemd unit, carlos-emr-chromedriver. That unit is the
- only place on the host where namespace creation is permitted, which is what
- lets Chromium use its own sandbox: the EMR's service keeps namespaces denied,
- and a browser the JVM spawned would inherit that and be unable to sandbox
- itself. The application connects to the browser over loopback and never
- launches one.
- .
- Installing this package also turns the boot-time renderer probe back on and
- enables Chromium's sandbox, so a broken browser is reported once in the journal
- at startup instead of surfacing as a failed print in the middle of a
- consultation.
+ carlos-emr (>= ${source:Version})
+Description: transitional package for the CARLOS EMR eForm renderer
+ The headless Chromium renderer for CARLOS EMR eForm PDFs is now part of the
+ carlos-emr package. This empty transitional package upgrades installations of
+ the former separate renderer package cleanly and can be removed afterwards.
