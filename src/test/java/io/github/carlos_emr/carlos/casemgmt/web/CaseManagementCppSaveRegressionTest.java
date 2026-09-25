@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -333,6 +335,9 @@ class CaseManagementCppSaveRegressionTest {
      * closing quote is no good either: the {@code chain} action's own line ends in one while
      * the chained rule continues below it.</p>
      */
+    /** The allocation the write loop must perform per key, matched as source text. */
+    private static final String ALLOCATION = "new CaseManagementNoteExt()";
+
     @Test
     @DisplayName("the note route should upsert one note extension per key (#3739)")
     void shouldUpsertOneNoteExtensionPerKey_inIssueNoteSave() throws IOException {
@@ -393,14 +398,26 @@ class CaseManagementCppSaveRegressionTest {
 
         // Every entity the write loop creates is created inside it: a hoisted allocation is the
         // shape that collapsed the keys into one row.
-        // Search from the START of the block, not from the loop header: an allocation hoisted
-        // above the loop is precisely the regression, and starting at the header would skip
-        // over it and find the in-loop one instead. isBetween also rejects the -1 of a missing
-        // allocation, so this one assertion carries the whole claim.
-        int allocation = block.indexOf("new CaseManagementNoteExt()");
-        assertThat(allocation)
-                .as("the entity is allocated inside the loop body, so each key gets its own row")
-                .isBetween(bodyStart, bodyEnd);
+        // EVERY allocation in the block, not just the first one indexOf happens to find. The
+        // block allocates twice: the detached `resolved` carrier and, in the insert branch, the
+        // `cme` that is actually persisted. Checking only the first would let the persisted one
+        // be hoisted above the loop -- reinstating the row-collapse bug -- while the carrier
+        // stayed inside and kept the assertion green. Requiring all of them holds however many
+        // the block grows to, and needs no guess about which is which.
+        List<Integer> allocations = new ArrayList<>();
+        for (int at = block.indexOf(ALLOCATION); at >= 0; at = block.indexOf(ALLOCATION, at + 1)) {
+            allocations.add(at);
+        }
+        assertThat(allocations)
+                .as("the block allocates note extensions at all (guards against a vacuous pass)")
+                .hasSizeGreaterThanOrEqualTo(2);
+        // bodyEnd is assigned inside the brace-matching loop above, so it is not effectively
+        // final; copy both bounds before the lambda reads them.
+        final int loopOpens = bodyStart;
+        final int loopCloses = bodyEnd;
+        assertThat(allocations)
+                .as("every note extension is allocated inside the loop body, so each key gets its own row")
+                .allSatisfy(at -> assertThat(at).isBetween(loopOpens, loopCloses));
     }
 
     private String readExclusionRule(String ruleId) throws IOException {
