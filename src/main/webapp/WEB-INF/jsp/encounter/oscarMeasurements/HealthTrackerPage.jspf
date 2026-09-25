@@ -735,7 +735,8 @@
                                     <label class="form-check-label" for="<%= encField %>-REVIEWED">Reviewed</label>
                                 </div>
                                 <% } else if (choiceList) { %>
-                                <div id="options-<%= encField %>" class="d-flex align-items-center gap-2 flex-wrap">
+                                <%-- Its own id: the yes/no branch above owns options-<field>, and the two never render together. --%>
+                                <div id="choices-<%= encField %>" class="d-flex align-items-center gap-2 flex-wrap">
                                     <% for (String choice : choiceOptions) {
                                         String encChoice = SafeEncode.forHtmlAttribute(choice);
                                         // The id suffix mirrors the Yes/No branch (-YES, -NO, -NA):
