@@ -1263,8 +1263,6 @@ public final class RxWriteScript2Action extends ActionSupport {
         // patient being saved, not only the global _rx write checked above (#3908).
         RxRequestedPatientAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
                 bean.getDemographicNo(), "_rx", PRIVILEGE_WRITE);
-        // Saving this patient's drugs ends that patient's reprint, not another window's (#3908).
-        RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
         List<String> paramList = new ArrayList<String>();
         Enumeration em = request.getParameterNames();
         List<String> randNum = new ArrayList<String>();
@@ -1551,6 +1549,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         removeClosedStashItems(bean, existingIndex);
 
         saveDrug(request);
+        // Only a completed save ends this patient's reprint (not another window's): an empty or
+        // stale submission was refused above and must leave the pending reprint alone (#3908).
+        RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
         return "refresh";
     }
 

@@ -512,6 +512,25 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should keep the pending reprint when the submission names no staged card")
+    void shouldKeepReprint_whenSaveIsEmpty() throws Exception {
+        // An empty or stale save is refused as a no-op; it must not end the reprint the prescriber
+        // still has open for this patient (Copilot review on #3908).
+        RxSessionBean bean = stageReRxSession(1001);
+        RxSessionBean reprint = new RxSessionBean();
+        reprint.setDemographicNo(1001);
+        RxReprintWorkspace.store(getMockSession(), reprint, "reprint comment");
+        addRequestParameter("demographicNo", "1001");
+
+        String result = executeActionMethod(action, "updateSaveAllDrugs");
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(RxReprintWorkspace.find(getMockSession(), 1001)).isNotNull();
+        assertThat(bean.getStashSize()).isZero();
+    }
+
+    @Test
     @DisplayName("should neither save nor archive when the stash is empty")
     void shouldSkipSaveAndArchival_whenStashEmpty() throws Exception {
         RxSessionBean bean = stageReRxSession(1001);
