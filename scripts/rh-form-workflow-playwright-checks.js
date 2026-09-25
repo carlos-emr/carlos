@@ -87,16 +87,16 @@ async function workflow(s) {
     h.assert(s.sql.value(formCount) === count, 'Rejected request added an RH form');
     h.assert(s.sql.value(`SELECT current_state FROM workflow WHERE ID=${workflowId}`) === '2', 'Rejected request changed the workflow');
   });
+  // The probe needs MariaDB to REJECT an overlong value. The packaged install deliberately
+  // runs sql_mode='' (the carlos-emr drop-in clears the distribution's STRICT_TRANS_TABLES,
+  // which the legacy schema cannot run under), where the value is silently truncated and
+  // nothing rolls back, so the probe cannot measure anything there. Report it as skipped, not
+  // as a pass, and keep the three steps above as the check's verdict.
+  if (!/STRICT_(?:TRANS|ALL)_TABLES/.test(s.sql.value('SELECT @@GLOBAL.sql_mode'))) {
+    console.log('  SKIP rh-form-workflow: roll back workflow and form together (needs a STRICT sql_mode; this deployment runs without one)');
+    return;
+  }
   await s.step('roll back workflow and form together when the database rejects a form value', async () => {
-    // The probe needs MariaDB to REJECT an overlong value. The packaged install deliberately
-    // runs sql_mode='' (the carlos-emr drop-in clears the distribution's STRICT_TRANS_TABLES,
-    // which the legacy schema cannot run under), where the value is silently truncated and
-    // nothing rolls back, so the probe cannot measure anything there. Report that and keep
-    // the three steps above as the check's verdict rather than failing a correct deployment.
-    if (!/STRICT_(?:TRANS|ALL)_TABLES/.test(s.sql.value('SELECT @@GLOBAL.sql_mode'))) {
-      console.log('  SKIP rh-form-workflow: the rollback probe needs a STRICT sql_mode; this deployment runs without one');
-      return;
-    }
     const count = s.sql.value(formCount);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const response = await s.context.request.post(new URL('form/RHPrevention', s.config.baseUrl.href + '/').href, {

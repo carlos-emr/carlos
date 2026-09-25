@@ -874,6 +874,22 @@ async function main() {
     // and the composer refuses the save. The font is held back and a narrower fallback forced
     // (through the viewer's own stylesheet, since the page CSP admits no injected style) so the
     // two widths genuinely differ.
+    // Those scenarios need "Liberation Sans" installed where the browser runs (Debian/Ubuntu
+    // package fonts-liberation). Without it the fallback resolves to DejaVu Sans, the same
+    // face as the annotation font, the widths never differ, and the refusal the scenarios
+    // provoke never happens. Say so plainly instead of timing out on a disabled button.
+    const liberationInstalled = await page.evaluate(() => {
+      const context = document.createElement('canvas').getContext('2d');
+      const sample = 'Synthetic note saved before a very late annotation font arrived';
+      context.font = '11px "Liberation Sans", monospace';
+      const liberation = context.measureText(sample).width;
+      context.font = '11px monospace';
+      return Math.abs(liberation - context.measureText(sample).width) > 1;
+    });
+    if (!liberationInstalled) {
+      throw new Error('The late-font scenarios need the "Liberation Sans" font where the browser runs '
+        + '(install fonts-liberation); it resolves to a fallback face here');
+    }
     let releaseFont;
     const fontHeld = new Promise(resolve => { releaseFont = resolve; });
     await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
