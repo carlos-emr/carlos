@@ -1302,7 +1302,8 @@ public final class RxWriteScript2Action extends ActionSupport {
      * one omitting a current card is stale and refused (409), before changing any draft. Re-prescribed
      * sources are archived only when their replacement is saved.
      *
-     * @return {@code NONE} after an error response, otherwise {@code refresh}
+     * @return {@code NONE} after an error or successful JSON response containing the saved script ID;
+     *         otherwise {@code refresh} for the legacy form
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -1342,6 +1343,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             // Acquire the session mutex only after releasing the bean monitor: opening Rx takes
             // these locks in the opposite order while removing persisted drafts.
             RxReprintWorkspace.clearIfSame(request.getSession(), bean.getDemographicNo(), previousReprint);
+            String accept = request.getHeader("Accept");
+            if (accept != null && accept.contains("application/json")) {
+                // The separate print request must carry the script saved by THIS request. Reading
+                // the live stash or latest reprint afterward can select another window's script.
+                response.setContentType("application/json");
+                objectMapper.writeValue(response.getWriter(), Map.of("scriptId", request.getAttribute("scriptId")));
+                return NONE;
+            }
         }
         return result;
     }
@@ -1623,7 +1632,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
         // The patient and permission were checked before taking the bean monitor. Re-resolving
         // through saveDrug here would acquire the session mutex while holding the bean lock.
-        persistStash(loggedInInfo, bean);
+        request.setAttribute("scriptId", persistStash(loggedInInfo, bean));
         return "refresh";
     }
 

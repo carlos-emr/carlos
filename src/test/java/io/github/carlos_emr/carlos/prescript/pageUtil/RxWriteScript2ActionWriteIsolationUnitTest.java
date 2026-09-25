@@ -167,6 +167,30 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("AJAX save returns its persisted prescription ID without rereading a changed stash")
+    void shouldReturnSavedPrescriptionId_whenPrintClientRequestsJson() throws Exception {
+        bean.clearStash();
+        bean.getStashList().add(draft(1, "first"));
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "First medication");
+        request.addHeader("Accept", "application/json");
+        action = spy(action);
+        doAnswer(invocation -> {
+            // A stash-derived identity is deliberately different from the persistence result.
+            bean.getStashItem(0).setScript_no("8002");
+            return "9001";
+        }).when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString())
+                .get("scriptId").asText()).isEqualTo("9001");
+        assertThat(request.getAttribute("scriptId")).isEqualTo("9001");
+        verify(action).persistStash(mockLoggedInInfo, bean);
+    }
+
+    @Test
     @DisplayName("saving cards whose keys share a prefix preserves each medication name")
     void shouldMatchExactCardKey_whenDrugNameKeysSharePrefix() throws Exception {
         bean.clearStash();

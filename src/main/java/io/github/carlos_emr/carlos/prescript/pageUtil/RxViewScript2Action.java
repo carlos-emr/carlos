@@ -106,8 +106,13 @@ public final class RxViewScript2Action extends ActionSupport {
         // selected a different reprint in between; authorize and pin the requested saved script
         // instead of adopting that newer workspace. Legacy Save And Print sends literal "null".
         String requestedScriptId = request.getParameter("scriptId");
+        if ("true".equals(request.getParameter("saveAndPrint"))
+                && (requestedScriptId == null || requestedScriptId.isEmpty() || "null".equals(requestedScriptId))) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         if (requestedScriptId != null && !requestedScriptId.isEmpty() && !"null".equals(requestedScriptId)) {
-            return viewRequestedScript(bean.getDemographicNo(), requestedScriptId);
+            return viewRequestedScript(bean, requestedScriptId, loggedInInfo);
         }
 
         // Reprint mode. reprint2 (RxRePrescribe2Action) loads the reprinted script into this
@@ -137,10 +142,27 @@ public final class RxViewScript2Action extends ActionSupport {
         }
     }
 
-    private String viewRequestedScript(int demographicNo, String scriptId) throws IOException {
+    private String viewRequestedScript(RxSessionBean liveBean, String scriptId, LoggedInInfo loggedInInfo) throws IOException {
+        boolean saveAndPrint = "true".equals(request.getParameter("saveAndPrint"));
+        if (saveAndPrint) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!RxSessionBeanResolver.isRequestForBeanPatient(request, liveBean)) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+                throw new SecurityException("missing required sec object (_rx)");
+            }
+            RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                    liveBean.getDemographicNo(), "_rx", "w");
+        }
         RxPreviewSnapshot snapshot;
         try {
-            snapshot = RxPreviewSnapshot.load(demographicNo, scriptId);
+            snapshot = RxPreviewSnapshot.load(liveBean.getDemographicNo(), scriptId);
         } catch (IllegalArgumentException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
@@ -149,9 +171,16 @@ public final class RxViewScript2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
+        // Sign exactly the saved result acknowledged to this window, never whichever live stash
+        // or reprint another window selected afterward. The service rechecks persisted ownership
+        // and updates these request-local drugs with the new signature for immediate rendering.
+        if (saveAndPrint && signatureStampService.applyStampToScript(loggedInInfo, snapshot.bean(), snapshot.scriptId()) != null) {
+            request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
+        }
         request.setAttribute("scriptId", snapshot.scriptId());
         request.setAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE, snapshot);
-        RxReprintWorkspace.pinForRequest(request, new RxReprintWorkspace.Entry(snapshot.bean(), snapshot.comment()));
+        RxReprintWorkspace.pinForRequest(request, saveAndPrint ? null
+                : new RxReprintWorkspace.Entry(snapshot.bean(), snapshot.comment()));
         return "viewScript";
     }
 

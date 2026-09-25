@@ -201,9 +201,13 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,false", "true,true", "false,true"})
     @DisplayName("missing and foreign explicit saved targets cannot reuse the current reprint")
-    void shouldRefuseSavedTarget_whenMissingOrOwnedByAnotherPatient(boolean foreign) throws Exception {
+    void shouldRefuseSavedTarget_whenMissingOrOwnedByAnotherPatient(boolean foreign, boolean saveAndPrint) throws Exception {
+        if (saveAndPrint) {
+            request.setMethod("POST");
+            request.setParameter("saveAndPrint", "true");
+        }
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("scriptId", "123");
         RxSessionBean current = new RxSessionBean();
@@ -236,6 +240,96 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("scriptId")).isEqualTo("456");
         verify(stampService).applyStampToScript(loggedInInfo, liveBean, "456");
         verifyNoInteractions(prescriptionDao);
+    }
+
+    @Test
+    @DisplayName("Save And Print stamps its acknowledged saved prescription despite a newer reprint")
+    void shouldStampAcknowledgedScript_whenAnotherWindowChangesReprintAndDraft() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("scriptId", "123");
+        request.setParameter("saveAndPrint", "true");
+        liveBean.getStashList().add(savedItem(33, "789"));
+        RxSessionBean reprint = new RxSessionBean();
+        reprint.setDemographicNo(DEMOGRAPHIC_NO);
+        reprint.getStashList().add(savedItem(22, "456"));
+        var newerReprint = RxReprintWorkspace.store(request.getSession(), reprint, "newer reprint");
+        var header = new io.github.carlos_emr.carlos.commn.model.Prescription();
+        header.setDemographicId(DEMOGRAPHIC_NO);
+        header.setProviderNo(PROVIDER_NO);
+        when(prescriptionDao.find(123)).thenReturn(header);
+        RxPrescriptionData.Prescription acknowledged = savedItem(11, "123");
+        when(stampService.applyStampToScript(eq(loggedInInfo), any(RxSessionBean.class), eq("123")))
+                .thenAnswer(invocation -> {
+                    RxSessionBean target = invocation.getArgument(1);
+                    assertThat(target).isNotSameAs(liveBean).isNotSameAs(reprint);
+                    assertThat(target.getStashItem(0)).isSameAs(acknowledged);
+                    target.getStashItem(0).setDigitalSignatureId(99);
+                    return 99;
+                });
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) ->
+                when(mock.getPrescriptionsByScriptNo(123, DEMOGRAPHIC_NO)).thenReturn(java.util.List.of(acknowledged)))) {
+            assertThat(newAction().execute()).isEqualTo("viewScript");
+            assertThat(data.constructed()).hasSize(1);
+        }
+        RxPreviewSnapshot snapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
+        assertThat(snapshot.bean().getStashItem(0).getDigitalSignatureId()).isEqualTo(99);
+        assertThat(request.getAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED)).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("scriptId")).isEqualTo("123");
+        assertThat(RxReprintWorkspace.findForRequest(request, request.getSession(), DEMOGRAPHIC_NO)).isNull();
+        assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO)).isSameAs(newerReprint);
+        assertThat(liveBean.getStashItem(0).getScript_no()).isEqualTo("789");
+        verify(stampService).applyStampToScript(loggedInInfo, snapshot.bean(), "123");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "0", "invalid"})
+    @DisplayName("Save And Print requires an explicit valid saved prescription")
+    void shouldRefuseSaveIntent_whenSavedTargetIsMissingOrInvalid(String scriptId) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("saveAndPrint", "true");
+        if (scriptId != null) request.setParameter("scriptId", scriptId);
+        liveBean.getStashList().add(savedItem(33, "789"));
+        assertThat(newAction().execute()).isEqualTo(RxViewScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(stampService, prescriptionDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("Save And Print intent cannot apply a stamp through preview navigation")
+    void shouldRefuseSaveIntent_whenMethodIsNotPost(String method) throws Exception {
+        request.setMethod(method);
+        request.setParameter("scriptId", "123");
+        request.setParameter("saveAndPrint", "true");
+        assertThat(newAction().execute()).isEqualTo(RxViewScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(stampService, prescriptionDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missingPatient", "globalWrite", "patientWrite"})
+    @DisplayName("Save And Print intent requires explicit patient binding and both write privileges")
+    void shouldRefuseSaveIntent_whenWriteAuthorizationIsMissing(String denied) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("scriptId", "123");
+        request.setParameter("saveAndPrint", "true");
+        if ("missingPatient".equals(denied)) {
+            assertThat(newAction().execute()).isEqualTo(RxViewScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+        } else {
+            request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            if ("globalWrite".equals(denied)) {
+                when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
+            } else {
+                when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), anyInt())).thenReturn(false);
+            }
+            assertThatThrownBy(() -> newAction().execute()).isInstanceOf(SecurityException.class);
+        }
+        verifyNoInteractions(stampService, prescriptionDao);
     }
 
     /** A stash item as {@code Prescription.Save} leaves it: a drugs row id and its script number. */
