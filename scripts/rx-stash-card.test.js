@@ -249,3 +249,28 @@ test('save and reset flows do not send a second unordered ReRx clear request', (
     assert.doesNotMatch(printJsp, /resetReRxDrugList|parameterValue=clearReRxDrugList/);
     assert.match(printJsp, /onClick="resetStash\(\);"/);
 });
+
+for (const bootstrapLocation of ['iframe', 'unavailable']) {
+    test(`acknowledged preview reset remains successful when modal API is ${bootstrapLocation}`, async () => {
+        let cleared = 0;
+        let hidden = 0;
+        const alerts = [];
+        const context = {
+            cancelPendingFax() {}, getCsrfToken() { return 'token'; },
+            fetch() { return Promise.resolve({ ok: true }); },
+            parent: {
+                clearStashDisplay() { cleared++; },
+                document: { getElementById() { return {}; } },
+            },
+            alert(message) { alerts.push(message); },
+        };
+        if (bootstrapLocation === 'iframe') {
+            context.bootstrap = { Modal: { getInstance() { return { hide() { hidden++; } }; } } };
+        }
+        vm.runInNewContext(printReset, context);
+        assert.equal(await context.resetStash(), true);
+        assert.equal(cleared, 1);
+        assert.equal(hidden, bootstrapLocation === 'iframe' ? 1 : 0);
+        assert.equal(alerts.length, 0);
+    });
+}

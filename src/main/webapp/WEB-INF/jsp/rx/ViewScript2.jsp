@@ -372,7 +372,9 @@
                     if (typeof parent.clearStashDisplay === 'function') {
                         parent.clearStashDisplay();
                         var modalElement = parent.document.getElementById('carlosModal');
-                        var modal = modalElement && parent.bootstrap.Modal.getInstance(modalElement);
+                        var modalApi = parent.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
+                        var modal = modalElement && modalApi && modalApi.Modal
+                            ? modalApi.Modal.getInstance(modalElement) : null;
                         if (modal) modal.hide();
                     } else {
                         window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
