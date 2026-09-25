@@ -590,6 +590,23 @@ async function main() {
     check('another pointer lifting does not end a move in progress',
       Math.abs(hlTouchAfter.y - hlTouchBefore.y - 100) < 3, JSON.stringify([hlTouchBefore, hlTouchAfter]));
 
+    // A press by another kind of pointer on the same page must not end a live drag: a pen press
+    // while the mouse drags leaves the mouse gesture alone (and takes no gesture of its own).
+    const penBefore = await boxOf('rect.mark');
+    await page.mouse.move(penBefore.x + 6, penBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(penBefore.x + 6, penBefore.y + 36, { steps: 4 });
+    await page.locator('svg.overlay').first().evaluate(svg => svg.dispatchEvent(new PointerEvent('pointerdown',
+      { bubbles: true, pointerId: 5, isPrimary: true, button: 0, pointerType: 'pen', clientX: -50, clientY: -50 })));
+    const heldThroughPen = await page.locator('#btnSave').isDisabled();
+    const previewThroughPen = await page.locator('svg.overlay').first().locator('.moving').count();
+    await page.mouse.move(penBefore.x + 6, penBefore.y + 66, { steps: 4 });
+    await page.mouse.up();
+    const penAfter = await boxOf('rect.mark');
+    check('a pen press on the same page does not end a mouse drag in progress',
+      heldThroughPen && previewThroughPen === 1 && Math.abs(penAfter.y - penBefore.y - 60) < 3 && await markCount() === 2,
+      JSON.stringify([heldThroughPen, previewThroughPen, penBefore, penAfter]));
+
     // A gesture whose pointerup never arrives must not hold Save for the rest of the session. A
     // new primary press of the same pointer kind on ANOTHER page proves the old gesture is over:
     // the stale drag is dropped (its mark snaps back) and Save is released.
@@ -764,6 +781,15 @@ async function main() {
     check('a highlight drag that starts on a note draws a highlight and leaves the note',
       await markCount() === 2 && Math.abs(crossedAfterHighlight.x - crossed.x) < 1 && Math.abs(crossedAfterHighlight.y - crossed.y) < 1,
       JSON.stringify([await markCount(), crossed, crossedAfterHighlight]));
+    // The highlight now lies over the note. In the text tool a press there grabs the note (the
+    // hit test looks through the highlight), so the cursor over the highlight must say so.
+    await page.locator('.tool[data-tool="text"]').click();
+    await page.mouse.move(crossed.x + 20, crossed.y + 8, { steps: 3 });
+    const throughCursor = await page.evaluate(([x, y]) => [document.elementFromPoint(x, y).tagName,
+      getComputedStyle(document.elementFromPoint(x, y)).cursor], [crossed.x + 20, crossed.y + 8]);
+    await page.mouse.move(pageBox.x + 400, pageBox.y + 500);
+    check('the cursor over a highlight covering a note shows the grab the text tool will make',
+      throughCursor[0] === 'rect' && throughCursor[1] === 'move', JSON.stringify(throughCursor));
 
     // Drawn after the note, so the ink's hit halo sits above it in the overlay.
     await page.locator('.swatch[data-color="black"]').click();

@@ -213,6 +213,12 @@ body {
 .pages[data-tool="signature"] .mark[data-kind="placed"],
 .pages[data-tool="signature"] .mark-hit { cursor: move; }
 
+/* The viewer sets data-grab on an overlay while the pointer is over something a press would
+   grab, including a note seen through a highlight or ink halo the tool cannot take; the rules
+   above cannot see through the topmost element, this one follows the real hit test. */
+.pages .overlay[data-grab],
+.pages .overlay[data-grab] * { cursor: move; }
+
 /* While a save is in flight every press is ignored and marks are frozen, so nothing advertises
    a grab; placed after the move rules and at least as specific, so it wins over each. */
 .pages[data-saving] .overlay,

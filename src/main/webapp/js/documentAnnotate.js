@@ -632,11 +632,16 @@
             // middle-click on a mark would otherwise run the click path on release, and in select
             // mode that silently deletes the mark the provider only meant to open a menu on.
             if (!event.isPrimary || event.button !== 0) { return; }
-            // A new primary press means any earlier gesture of the same pointer is over, even if
-            // its pointerup never arrived; drop it rather than let it hijack this one or hold Save
-            // (a gesture in progress disables Save) for the rest of the session. Every page is
-            // asked, not just this one: the stale gesture may sit on the page pressed before.
-            state.gestureResets.forEach(function (reset) { reset(event.pointerType, page); });
+            // A new primary press means any earlier gesture of the same kind of pointer is over,
+            // even if its pointerup never arrived; drop it rather than let it hijack this one or
+            // hold Save (a gesture in progress disables Save) for the rest of the session. Every
+            // page is asked, not just this one: the stale gesture may sit on the page pressed
+            // before.
+            state.gestureResets.forEach(function (reset) { reset(event.pointerType); });
+            // A live gesture of another kind on this page (the mouse dragging while a pen
+            // presses) keeps its slot: this page tracks one gesture, and the press must not end
+            // one it does not own. The press is simply not taken.
+            if (moving || dragging) { return; }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
                     || wrap.classList.contains('load-failed')) { return; }
@@ -663,6 +668,12 @@
         }
 
         svg.addEventListener('pointermove', function (event) {
+            // The cursor follows what a press would actually grab, which the stylesheet alone
+            // cannot tell: grabbableAt looks through marks the tool may not take (a highlight
+            // laid over a note in the text tool), while CSS only sees the topmost element.
+            if (!moving && !dragging) {
+                svg.toggleAttribute('data-grab', grabbableAt(event.clientX, event.clientY) !== null);
+            }
             if (moving) {
                 if (owns(moving, event)) { continueMove(event); }
                 return;
@@ -707,6 +718,7 @@
         }
         svg.addEventListener('pointercancel', abandonGesture);
         svg.addEventListener('lostpointercapture', abandonGesture);
+        svg.addEventListener('pointerleave', function () { svg.removeAttribute('data-grab'); });
 
         /** Ends this page's gesture, if any, with nothing committed; releases its hold on Save. */
         function dropGesture() {
@@ -722,16 +734,14 @@
             if (droppedStroke) { strokeEnded(); }
         }
 
-        // A primary press anywhere in the viewer ends this page's gesture when it is stale: any
-        // gesture here if the press is on this page, or one started by the same kind of pointer
-        // if it is on another page. There is one primary pointer per kind (one mouse, one pen,
-        // one first finger), so a fresh press of that kind proves its earlier gesture ended. A
-        // gesture of another kind on another page is left alone: a pen dragging on one page
-        // while the mouse presses on the next is two live gestures, not one stale one.
-        state.gestureResets.push(function (pointerType, pressedPage) {
+        // A primary press anywhere in the viewer ends this page's gesture when it was started
+        // by the same kind of pointer. There is one primary pointer per kind (one mouse, one pen,
+        // one first finger), so a fresh press of that kind proves its earlier gesture ended and
+        // was stale. A gesture of another kind is left alone, on this page or any other: a pen
+        // dragging while the mouse presses is two live gestures, not one stale one.
+        state.gestureResets.push(function (pointerType) {
             var gesture = moving || dragging;
-            if (!gesture) { return; }
-            if (pressedPage === page || gesture.pointerType === pointerType) { dropGesture(); }
+            if (gesture && gesture.pointerType === pointerType) { dropGesture(); }
         });
 
         // Moves are previewed with a transform on the mark's own element and written to the
@@ -1153,6 +1163,10 @@
 
     function selectTool(tool) {
         state.tool = tool;
+        // The hover cursor was computed for the previous tool; the next pointer move recomputes it.
+        Array.prototype.forEach.call(pagesEl.querySelectorAll('svg[data-grab]'), function (svg) {
+            svg.removeAttribute('data-grab');
+        });
         var buttons = document.querySelectorAll('.tool');
         for (var i = 0; i < buttons.length; i++) {
             buttons[i].setAttribute('aria-pressed', String(buttons[i].dataset.tool === tool));
