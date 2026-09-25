@@ -155,9 +155,9 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("providerType", "STUB");
         request.setParameter("enabled", "true");
         request.setParameter("senderNumber", "416-555-1212");
-        request.setParameter("webhookSecret", "hook-secret");
-        request.setParameter("credential.api_password", "p@ss");
-        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("api_password"));
+        request.setParameter("webhookSecret", "webhook-value");
+        request.setParameter("credential.field_two", "value-two");
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_two"));
         when(validator.validate(any(), any())).thenReturn(List.of());
 
         String result = action().execute();
@@ -171,8 +171,8 @@ class ConfigureSms2ActionUnitTest {
                         SmsConfigUpdateDto::schedulerEnabled, SmsConfigUpdateDto::senderNumber,
                         SmsConfigUpdateDto::webhookSecret, SmsConfigUpdateDto::clearWebhookSecret,
                         SmsConfigUpdateDto::credentials)
-                .containsExactly(SmsProviderType.STUB, true, false, "416-555-1212", "hook-secret", false,
-                        Map.of("api_password", "p@ss"));
+                .containsExactly(SmsProviderType.STUB, true, false, "416-555-1212", "webhook-value", false,
+                        Map.of("field_two", "value-two"));
     }
 
     @Test

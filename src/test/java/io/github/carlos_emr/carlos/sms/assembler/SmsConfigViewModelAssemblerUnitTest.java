@@ -70,10 +70,10 @@ class SmsConfigViewModelAssemblerUnitTest {
         stored.setEnabled(true);
         stored.setSchedulerEnabled(true);
         stored.setSenderNumber("+14165551212");
-        stored.setWebhookSecret("hook-secret-123");
-        stored.setCredential("api_password", "p@ss word");
+        stored.setWebhookSecret("webhook-value-123");
+        stored.setCredential("field_two", "value two");
         when(configService.current()).thenReturn(Optional.of(stored));
-        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("api_password", "api_username"));
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_two", "field_one"));
         when(scheduler.isRunning()).thenReturn(true);
 
         SmsConfigViewModel model = assembler().assemble("saved", List.of());
@@ -85,9 +85,9 @@ class SmsConfigViewModelAssemblerUnitTest {
                         SmsConfigViewModel::stored, SmsConfigViewModel::resultKey)
                 .containsExactly("STUB", true, true, true, "+14165551212", true, true, "sms.config.result.saved");
         assertThat(model.credentialFields()).containsExactly(
-                new SmsConfigViewModel.CredentialField("api_password", true),
-                new SmsConfigViewModel.CredentialField("api_username", false));
-        assertThat(model.toString()).doesNotContain("hook-secret-123").doesNotContain("p@ss word");
+                new SmsConfigViewModel.CredentialField("field_two", true),
+                new SmsConfigViewModel.CredentialField("field_one", false));
+        assertThat(model.toString()).doesNotContain("webhook-value-123").doesNotContain("value two");
     }
 
     @Test
