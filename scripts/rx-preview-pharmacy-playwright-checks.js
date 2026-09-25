@@ -173,6 +173,66 @@ async function assertPreviewRenders(hostFrame, label) {
       'the foreign fixture must render for its actual patient before testing its ownership gate');
     await foreignPage.close();
 
+    // Save And Print also has two requests. Hold its preview while a second window reprints
+    // the older saved fixture; the new print and its signature target must keep the saved ID.
+    const savedPage = await openRx({ context, config }, foreignPatient);
+    wirePage(savedPage, 'rx-save-print-race', recorder);
+    const savedMarker = `${foreignMarker}-new`;
+    await stageCustomDrug(savedPage, savedMarker);
+    const olderPage = await openRx({ context, config }, foreignPatient);
+    wirePage(olderPage, 'rx-save-print-older', recorder);
+    await olderPage.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
+    let releaseSavedView;
+    const savedViewGate = new Promise(resolve => { releaseSavedView = resolve; });
+    let receivedSavedView;
+    const savedViewReceived = new Promise(resolve => { receivedSavedView = resolve; });
+    const savedViewRoute = '**/rx/viewScript*';
+    await savedPage.route(savedViewRoute, async route => {
+      if (route.request().method() === 'POST') {
+        receivedSavedView();
+        await savedViewGate;
+      }
+      await route.continue();
+    });
+    try {
+      const savedResponse = savedPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url()));
+      await savedPage.locator('#saveButton').click();
+      assert((await savedResponse).ok(), 'Save And Print did not save its owned prescription');
+      await Promise.race([savedViewReceived, savedPage.waitForTimeout(15000).then(() => {
+        throw new Error('Save And Print did not reach its delayed preview handoff');
+      })]);
+      const savedScript = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no
+        WHERE p.demographic_no=${foreignPatient} AND d.demographic_no=${foreignPatient}
+          AND d.customName=${h.sqlString(savedMarker)}`);
+      assert(/^[1-9]\d*$/.test(savedScript), 'Save And Print did not persist exactly one owned script');
+      const olderView = olderPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/rx\/viewScript\?/.test(response.url()));
+      await olderPage.locator(`#reprint a[onclick*="reprint2('${foreignScript}')"]`).first().click();
+      const olderViewResponse = await olderView;
+      assert(olderViewResponse.ok(), 'the interleaved older reprint was refused');
+      releaseSavedView();
+      let savedHost = null;
+      for (let attempt = 0; attempt < 30 && !savedHost; attempt += 1) {
+        savedHost = savedPage.frames().find(frame => frame.url().includes('/rx/viewScript'));
+        if (!savedHost) await savedPage.waitForTimeout(1000);
+      }
+      assert(savedHost, 'Save And Print did not open its delayed preview');
+      const savedPreviewUrl = await assertPreviewRenders(savedHost, 'saved prescription after another reprint');
+      assert(new URL(savedPreviewUrl).searchParams.get('scriptId') === savedScript,
+        'Save And Print was retargeted by a newer same-patient reprint');
+      const savedPreview = savedHost.childFrames().find(frame => frame.url().includes('/rx/ViewPreview2'));
+      assert((await savedPreview.locator('input[name="rx_no_newlines"]').inputValue()).includes(savedMarker),
+        'Save And Print displayed the older reprint medication');
+      assert(await savedHost.evaluate(() => String(faxScriptNo)) === savedScript,
+        'Save And Print selected another prescription for fax');
+    } finally {
+      releaseSavedView();
+      await savedPage.unroute(savedViewRoute);
+      await savedPage.close();
+      await olderPage.close();
+    }
+
     // User path: the patient's Rx module, the Reprint panel, the script row.
     const rxPage = await context.newPage();
     wirePage(rxPage, 'rx-module', recorder);
@@ -323,7 +383,8 @@ async function assertPreviewRenders(hostFrame, label) {
         browser,
         sql: { value: sql, execute: sql, dispose() {} }, patient: foreignPatient, marker: foreignMarker,
         cleanups: foreignPatient ? [() => sql(`DELETE FROM drugs WHERE demographic_no=${foreignPatient};
-          DELETE FROM prescription WHERE demographic_no=${foreignPatient}`)] : [],
+          DELETE FROM prescription WHERE demographic_no=${foreignPatient};
+          DELETE FROM DigitalSignature WHERE demographicId=${foreignPatient}`)] : [],
       });
     } catch (cleanupError) {
       console.error(`FAIL owned preview fixture cleanup: ${cleanupError.message}`);

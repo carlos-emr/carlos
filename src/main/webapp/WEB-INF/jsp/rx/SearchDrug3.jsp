@@ -269,6 +269,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
+        <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
         <script type="text/javascript">
@@ -301,7 +302,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
-                requestRefused: '${carlos:forJavaScript(msg_requestRefused)}'
+                requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
+                previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -1789,7 +1791,21 @@ function saveCustomName(element){
 
             }});
 }
-function popForm2(scriptId){
+function openSavedPrescriptionPreview(transport) {
+    var saved;
+    try {
+        saved = JSON.parse(transport.responseText);
+    } catch (error) {
+        saved = null;
+    }
+    if (!saved || !/^[1-9]\d*$/.test(String(saved.scriptId))) {
+        alert(jsMsg.previewUnavailable);
+        return;
+    }
+    popForm2(saved.scriptId, true);
+}
+
+function popForm2(scriptId, saveAndPrint){
         try{
             var url = RxPatientContext.withPatient(ctx + "/rx/viewScript?scriptId="+scriptId);
             var calcs = jQuery("#Calcs").val();
@@ -1803,6 +1819,7 @@ function popForm2(scriptId){
                     oscarLog(e);
                 }
             }
+            if (saveAndPrint === true) url += '&saveAndPrint=true';
             var modalBody = document.getElementById('carlosModalBody');
             var csrfToken = document.querySelector('input[name="CSRF-TOKEN"]');
             if (!csrfToken || !csrfToken.value) {
@@ -2817,7 +2834,7 @@ function updateQty(element){
                 callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
-                    popForm2(null);
+                    openSavedPrescriptionPreview(transport);
                 } else {
                     alert(jsMsg.pleaseAddDrugFirst);
                 }

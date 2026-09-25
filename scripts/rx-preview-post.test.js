@@ -13,14 +13,14 @@ const end = jsp.indexOf('function callAdditionWebService(', start);
 assert.ok(start >= 0 && end > start);
 const source = jsp.slice(start, end).replace(/\$\{[^}]*\}/g, 'Edit Rx');
 
-function launch(token) {
+function launch(token, saveAndPrint = false) {
   const created = [];
   const errors = [];
   const submissions = [];
   const modal = { appendChild() {}, style: {} };
   function Modal() { this.show = () => {}; }
   Modal.getInstance = () => null;
-  vm.runInNewContext(`${source}\npopForm2(789);`, {
+  vm.runInNewContext(`${source}\npopForm2(789, ${saveAndPrint});`, {
     ctx: '/carlos',
     // Per-patient Rx state (#3875): the preview POST names the window's patient.
     RxPatientContext: require('../src/main/webapp/share/javascript/rx-patient-context.js').create('1001'),
@@ -69,3 +69,38 @@ test('save/print preview fails closed without the current session CSRF token', (
     assert.match(errors[0], /valid CSRF token/);
   }
 });
+
+
+test('only the successful save handoff requests signing its explicit saved script', () => {
+  const { errors, submissions } = launch({ value: 'session-owned-token' }, true);
+  assert.deepEqual(errors, []);
+  const params = new URL(submissions[0].action, 'https://example.invalid').searchParams;
+  assert.equal(params.get('scriptId'), '789');
+  assert.equal(params.get('demographicNo'), '1001');
+  assert.equal(params.get('saveAndPrint'), 'true');
+  assert.equal(new URL(launch({ value: 'token' }).submissions[0].action,
+    'https://example.invalid').searchParams.has('saveAndPrint'), false);
+});
+
+const savedPreviewSource = jsp.slice(jsp.indexOf('function openSavedPrescriptionPreview('), start);
+for (const responseText of ['{"scriptId":"789"}', '{"scriptId":789}']) {
+  test(`successful save binds the print handoff to its returned identity: ${responseText}`, () => {
+    const previews = [];
+    vm.runInNewContext(`${savedPreviewSource}\nopenSavedPrescriptionPreview({ responseText });`, {
+      responseText, popForm2: (...args) => previews.push(args),
+      alert: () => assert.fail('valid saved identity was refused'),
+    });
+    assert.equal(String(previews[0][0]), '789');
+    assert.equal(previews[0][1], true);
+  });
+}
+for (const responseText of ['<html>legacy result</html>', '{}', 'null', '{"scriptId":0}', '{"scriptId":"bad"}']) {
+  test(`unidentified saved preview fails closed without retry: ${responseText}`, () => {
+    const alerts = [];
+    vm.runInNewContext(`${savedPreviewSource}\nopenSavedPrescriptionPreview({ responseText });`, {
+      responseText, popForm2: () => assert.fail('missing saved identity must not select session state'),
+      jsMsg: { previewUnavailable: 'review the saved prescription' }, alert: message => alerts.push(message),
+    });
+    assert.deepEqual(alerts, ['review the saved prescription']);
+  });
+}
