@@ -21,10 +21,16 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.model.LookupList;
+import io.github.carlos_emr.carlos.commn.model.LookupListItem;
+import io.github.carlos_emr.carlos.managers.LookupListManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.UnaryOperator;
 
 /**
  * Lets the consultation <em>print preview</em> show what the clinician has typed but not yet saved.
@@ -88,6 +94,7 @@ final class ConsultationPreviewOverlay {
                     Map.entry("currentMedications", (form, value) -> form.currentMedications = value),
                     Map.entry("allergies", (form, value) -> form.allergies = value),
                     Map.entry("urgency", (form, value) -> form.urgency = value),
+                    Map.entry("referalDate", (form, value) -> form.referalDate = value),
                     Map.entry("appointmentNotes", (form, value) -> form.appointmentNotes = value),
                     Map.entry("appointmentDate", (form, value) -> form.appointmentDate = value),
                     Map.entry("appointmentHour", (form, value) -> form.appointmentHour = value),
@@ -97,7 +104,50 @@ final class ConsultationPreviewOverlay {
     /** The checkbox is absent from the POST when unchecked, so it is handled apart from the map. */
     private static final String PATIENT_WILL_BOOK_PARAMETER = "patientWillBook";
 
+    /**
+     * Hidden marker the form renders beside the checkbox, inside the same property gate.
+     *
+     * <p>An unchecked checkbox and a checkbox that was never rendered look identical in a POST, and
+     * {@code CONSULTATION_PATIENT_WILL_BOOK} is false by default — so reading absence as "not
+     * checked" would clear a stored patient-will-book on every preview of a deployment that does
+     * not show the control at all. The marker is what tells the two apart.</p>
+     */
+    private static final String PATIENT_WILL_BOOK_RENDERED_PARAMETER = "patientWillBookRendered";
+
+    /** The appointment instruction the clinician picked; the PDF prints its resolved label. */
+    private static final String APPOINTMENT_INSTRUCTIONS_PARAMETER = "appointmentInstructions";
+
+    /** The lookup list the form's instruction select is built from. */
+    private static final String APPOINTMENT_INSTRUCTION_LOOKUP_LIST = "consultApptInst";
+
     private ConsultationPreviewOverlay() {
+    }
+
+    /**
+     * A resolver for the appointment-instruction label, reading the same lookup list the form's
+     * select is built from ({@code consultApptInst}, see ConsultationFormRequest.jsp).
+     *
+     * <p>Answers the empty string for a value the list does not hold and for an empty selection,
+     * which is what the stored record does for an unmatched value. Kept here rather than inside
+     * {@link #apply} so the overlay itself needs no Spring context.</p>
+     */
+    static UnaryOperator<String> appointmentInstructionLabelResolver(LoggedInInfo loggedInInfo) {
+        return value -> {
+            if (value == null || value.isEmpty()) {
+                return "";
+            }
+            LookupList list = SpringUtils.getBean(LookupListManager.class)
+                    .findLookupListByName(loggedInInfo, APPOINTMENT_INSTRUCTION_LOOKUP_LIST);
+            if (list == null || list.getItems() == null) {
+                return "";
+            }
+            for (LookupListItem item : list.getItems()) {
+                if (value.equals(item.getValue())) {
+                    return item.getLabel();
+                }
+            }
+            return "";
+        };
     }
 
     /** Is this the preview render that should show unsaved values? */
@@ -114,10 +164,15 @@ final class ConsultationPreviewOverlay {
      * copied as empty, because clearing a box and printing has to show it cleared — that is the
      * same edit as typing into it.</p>
      *
-     * @param form    the form object the PDF renders, already populated from the stored record
-     * @param request the preview POST carrying the clinician's current, unsaved values
+     * @param form          the form object the PDF renders, already populated from the stored record
+     * @param request       the preview POST carrying the clinician's current, unsaved values
+     * @param labelForValue resolves an appointment-instruction value to the label the PDF prints,
+     *                      or null when this deployment does not use the lookup. Injected rather
+     *                      than looked up here so this class keeps no container dependency and
+     *                      stays testable without one.
      */
-    static void apply(EctConsultationFormRequestUtil form, HttpServletRequest request) {
+    static void apply(EctConsultationFormRequestUtil form, HttpServletRequest request,
+                      UnaryOperator<String> labelForValue) {
         if (form == null || request == null) {
             return;
         }
@@ -127,9 +182,20 @@ final class ConsultationPreviewOverlay {
                 field.getValue().accept(form, posted);
             }
         }
-        // An unchecked checkbox posts nothing at all, so unlike every field above, absence IS the
-        // value here: not checked. That reading is only safe because apply() runs solely on the
-        // preview branch, where the request is known to be this form's own POST.
-        form.pwb = request.getParameter(PATIENT_WILL_BOOK_PARAMETER) != null ? "1" : "0";
+        // An unchecked checkbox posts nothing at all, so absence is the value here -- but ONLY when
+        // the control was on the page. The form renders it behind CONSULTATION_PATIENT_WILL_BOOK,
+        // which is false by default, so without the marker every preview on a default deployment
+        // would clear a stored patient-will-book and print an appointment date instead.
+        if (request.getParameter(PATIENT_WILL_BOOK_RENDERED_PARAMETER) != null) {
+            form.pwb = request.getParameter(PATIENT_WILL_BOOK_PARAMETER) != null ? "1" : "0";
+        }
+
+        // The instruction is posted as a lookup value while the PDF prints the matching label, so
+        // copying the value alone would leave the preview showing the stored instruction. Both move
+        // together or neither does.
+        String instructions = request.getParameter(APPOINTMENT_INSTRUCTIONS_PARAMETER);
+        if (instructions != null && labelForValue != null) {
+            form.setAppointmentInstructionsForPreview(instructions, labelForValue.apply(instructions));
+        }
     }
 }

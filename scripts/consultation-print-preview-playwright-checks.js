@@ -81,6 +81,8 @@ const SERVICE_SEARCH = 'Cardio';
 
 const fixture = {
   sql: null,
+  /** The marker this run put in the referral's reason, recorded BEFORE the id is looked up. */
+  stamp: '',
   requestId: '',
   demographicNo: '',
   sessionId: '',
@@ -100,7 +102,7 @@ function sqlNumber(value, what) {
  * the assertions earned.
  */
 async function cleanup() {
-  const { sql, requestId, demographicNo, sessionId } = fixture;
+  const { sql, stamp, requestId, demographicNo, sessionId } = fixture;
   if (!sql) {
     return;
   }
@@ -108,6 +110,13 @@ async function cleanup() {
   if (requestId) {
     statements.push(['the consultation this run created',
       `DELETE FROM consultationRequests WHERE requestId = ${requestId}`]);
+  } else if (stamp) {
+    // OWNERSHIP BY MARKER, WHEN THE ID LOOKUP NEVER HAPPENED. The referral is created through the
+    // UI before this run learns its id, so a failure in between would otherwise leave it in the
+    // chart. The stamp is unique to this run and was written into the reason, so it identifies
+    // exactly the row this check created and nothing else.
+    statements.push(['the consultation this run created, found by its marker',
+      `DELETE FROM consultationRequests WHERE reason LIKE 'REASON ${stamp}%'`]);
   }
   if (demographicNo && sessionId) {
     statements.push(['this session\'s note lock',
@@ -174,6 +183,8 @@ async function main() {
   const preferredDemographicNo = process.env.CONSULT_PREVIEW_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CONSULT_PREVIEW_TIMEOUT_MS || '45000');
   const saved = `PW_CONSULT_SAVED_${Date.now()}`;
+  // Recorded before anything is created: cleanup can find the referral by this alone.
+  fixture.stamp = saved;
   const typed = `PW_CONSULT_TYPED_${Date.now()}`;
 
   const sql = createSqlRunner(config.mysql);

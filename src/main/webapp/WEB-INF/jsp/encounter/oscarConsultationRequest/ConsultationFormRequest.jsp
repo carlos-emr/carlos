@@ -2906,7 +2906,13 @@ if (userAgent != null) {
                                                                 property="CONSULTATION_PATIENT_WILL_BOOK">
                                         <tr>
                                             <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></td>
-                                            <td class="consult-form-value"><input type="checkbox" name="patientWillBook" value="1" onclick="disableDateFields()" /></td>
+                                            <td class="consult-form-value"><input type="checkbox" name="patientWillBook" value="1" onclick="disableDateFields()" />
+                                                <%-- An unchecked checkbox posts nothing, and this one is only rendered when
+                                                     CONSULTATION_PATIENT_WILL_BOOK is on (it is off by default). This marker is
+                                                     what lets the print preview tell "the clinician unchecked it" from "this
+                                                     deployment never showed it", so a preview cannot clear a stored
+                                                     patient-will-book. See ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="patientWillBookRendered" value="1" /></td>
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
 

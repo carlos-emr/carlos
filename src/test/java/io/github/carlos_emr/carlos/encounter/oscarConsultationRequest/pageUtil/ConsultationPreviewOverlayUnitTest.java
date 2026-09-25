@@ -65,6 +65,9 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
     private static final String STORED = "stored value";
     private static final String TYPED = "typed but not saved";
 
+    /** A deployment without the appointment-instruction lookup: nothing to resolve a label from. */
+    private static final java.util.function.UnaryOperator<String> NO_LOOKUP = null;
+
     /**
      * EctConsultationFormRequestUtil pulls seven collaborators in its field initializers, none of
      * which the overlay touches. They are registered so the object can be constructed at all.
@@ -121,7 +124,7 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
                 "currentMedications", TYPED,
                 "allergies", TYPED,
                 "urgency", "1",
-                "appointmentNotes", TYPED)));
+                "appointmentNotes", TYPED)), NO_LOOKUP);
 
         assertThat(form.reasonForConsultation).isEqualTo(TYPED);
         assertThat(form.clinicalInformation).isEqualTo(TYPED);
@@ -137,7 +140,7 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
     void shouldKeepStoredValue_whenFieldAbsentFromPost() {
         EctConsultationFormRequestUtil form = storedForm();
 
-        ConsultationPreviewOverlay.apply(form, postOf(Map.of("reasonForConsultation", TYPED)));
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("reasonForConsultation", TYPED)), NO_LOOKUP);
 
         assertThat(form.reasonForConsultation).isEqualTo(TYPED);
         assertThat(form.clinicalInformation)
@@ -153,7 +156,7 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
 
         // Emptying a box and printing is the same kind of edit as typing into one: the preview has
         // to show what is on the screen, not what the record still holds.
-        ConsultationPreviewOverlay.apply(form, postOf(Map.of("clinicalInformation", "")));
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("clinicalInformation", "")), NO_LOOKUP);
 
         assertThat(form.clinicalInformation).isEmpty();
     }
@@ -162,15 +165,55 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
     @DisplayName("should read the patient-will-book checkbox from its presence in the post")
     void shouldReadPatientWillBook_fromCheckboxPresence() {
         EctConsultationFormRequestUtil checked = storedForm();
-        ConsultationPreviewOverlay.apply(checked, postOf(Map.of("patientWillBook", "1")));
+        ConsultationPreviewOverlay.apply(checked, postOf(Map.of(
+                "patientWillBookRendered", "1", "patientWillBook", "1")), NO_LOOKUP);
         assertThat(checked.pwb).isEqualTo("1");
 
         EctConsultationFormRequestUtil unchecked = storedForm();
         unchecked.pwb = "1";
         // An unchecked checkbox posts nothing at all, so absence is the value here — unlike every
         // other field, where absence means "not submitted".
-        ConsultationPreviewOverlay.apply(unchecked, postOf(new HashMap<>()));
+        ConsultationPreviewOverlay.apply(unchecked, postOf(Map.of("patientWillBookRendered", "1")), NO_LOOKUP);
         assertThat(unchecked.pwb).isEqualTo("0");
+    }
+
+    @Test
+    @DisplayName("should keep the stored patient-will-book when the checkbox was never rendered")
+    void shouldKeepStoredPatientWillBook_whenCheckboxNotRendered() {
+        EctConsultationFormRequestUtil form = storedForm();
+        form.pwb = "1";
+
+        // CONSULTATION_PATIENT_WILL_BOOK is false by default, so the form renders no checkbox at
+        // all and the POST looks exactly like an unchecked one. Reading that as "not checked" would
+        // clear the stored booking on EVERY preview and print an appointment date instead.
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("reasonForConsultation", TYPED)), NO_LOOKUP);
+
+        assertThat(form.pwb).isEqualTo("1");
+    }
+
+    @Test
+    @DisplayName("should show the typed referral date rather than the stored one")
+    void shouldShowTypedReferralDate_whenPosted() {
+        EctConsultationFormRequestUtil form = storedForm();
+        form.referalDate = "2020-01-01";
+
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("referalDate", "2026-09-25")), NO_LOOKUP);
+
+        assertThat(form.referalDate).isEqualTo("2026-09-25");
+    }
+
+    @Test
+    @DisplayName("should move the appointment instruction and its label together")
+    void shouldResolveAppointmentInstructionLabel_whenSelectionPosted() {
+        EctConsultationFormRequestUtil form = storedForm();
+
+        // The form posts a lookup VALUE while the PDF prints the matching LABEL, so copying the
+        // value alone would leave the preview showing the stored instruction.
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("appointmentInstructions", "CALL")),
+                value -> "CALL".equals(value) ? "Call the office" : "");
+
+        assertThat(form.getAppointmentInstructions()).isEqualTo("CALL");
+        assertThat(form.getAppointmentInstructionsLabel()).isEqualTo("Call the office");
     }
 
     @Test
@@ -185,7 +228,7 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
         hostile.put("providerNo", "1");
         hostile.put("letterheadName", "Injected Clinic");
         hostile.put("specialist", "99");
-        ConsultationPreviewOverlay.apply(form, postOf(hostile));
+        ConsultationPreviewOverlay.apply(form, postOf(hostile), NO_LOOKUP);
 
         // A consultation request is a document that looks official. Identity on it comes from the
         // record or not at all, so a POST cannot put a name, a health number or an address on one.
@@ -218,10 +261,10 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should do nothing when there is no form or no request")
     void shouldDoNothing_whenGivenNulls() {
-        ConsultationPreviewOverlay.apply(null, postOf(Map.of("allergies", TYPED)));
+        ConsultationPreviewOverlay.apply(null, postOf(Map.of("allergies", TYPED)), NO_LOOKUP);
 
         EctConsultationFormRequestUtil form = storedForm();
-        ConsultationPreviewOverlay.apply(form, null);
+        ConsultationPreviewOverlay.apply(form, null, NO_LOOKUP);
         assertThat(form.allergies).isEqualTo(STORED);
     }
 }

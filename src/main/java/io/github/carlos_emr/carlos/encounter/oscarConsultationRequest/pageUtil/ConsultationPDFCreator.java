@@ -129,7 +129,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // stored record and the typed text was simply missing from it (issue #3721). Opt-in, and
         // only for the clinical fields the clinician types here -- see ConsultationPreviewOverlay.
         if (ConsultationPreviewOverlay.requested(request)) {
-            ConsultationPreviewOverlay.apply(reqFrm, request);
+            ConsultationPreviewOverlay.apply(reqFrm, request,
+                    ConsultationPreviewOverlay.appointmentInstructionLabelResolver(
+                            LoggedInInfo.getLoggedInInfoFromSession(request)));
         }
         Object signatureOverride = request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE);
         if (signatureOverride instanceof byte[] byteArray) {
