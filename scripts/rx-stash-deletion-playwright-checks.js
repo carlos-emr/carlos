@@ -34,7 +34,16 @@ async function resetAndWaitForAcknowledgement(page, card, clickReset, modal) {
     release();
     h.assert((await response).ok(), 'the server refused the complete reset');
     await card.waitFor({ state: 'detached' });
-    if (modal) await modal.waitFor({ state: 'hidden' });
+    if (modal) {
+      const modalState = await page.evaluate(() => ({
+        shown: window.__rxPreviewShown,
+        instancePresent: Boolean(window.bootstrap && window.bootstrap.Modal.getInstance(document.getElementById('carlosModal'))),
+      }));
+      h.assert(modalState.instancePresent, 'preview reset had no modal instance owned by the parent page');
+      h.assert(modalState.shown === false,
+        'preview reset coverage did not acknowledge the reset during its opening transition');
+      await modal.waitFor({ state: 'hidden' });
+    }
   } finally {
     release();
     await page.unroute(routePattern, handler);
@@ -170,6 +179,15 @@ async function workflow(session) {
     const script = session.sql.value(`SELECT script_no FROM drugs WHERE demographic_no=${session.patient}
       AND customName=${h.sqlString(`${session.marker}-discontinued`)}`);
     h.assert(/^[1-9]\d*$/.test(script), 'preview reset requires the owned saved prescription');
+    // Keep the real Bootstrap opening transition active long enough to exercise a fast
+    // acknowledgement reliably. Opacity leaves the button's position stable for a real click.
+    await page.addStyleTag({ content: '#carlosModal.fade .modal-dialog { transition: opacity 3s linear !important; transform: none !important; opacity: .99; } #carlosModal.show .modal-dialog { opacity: 1; }' });
+    await page.evaluate(() => {
+      window.__rxPreviewShown = false;
+      document.getElementById('carlosModal').addEventListener('shown.bs.modal', () => {
+        window.__rxPreviewShown = true;
+      }, { once: true });
+    });
     await page.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
     await page.locator(`#reprint a[onclick*="reprint2('${script}')"]`).first().click();
     const modal = page.locator('#carlosModal');

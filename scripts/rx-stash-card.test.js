@@ -210,6 +210,29 @@ test('complete reset keeps cards and ReRx selection until the server accepts it'
     assert.equal(focused, true);
 });
 
+function modalElementFixture() {
+    const listeners = new Map();
+    const element = {
+        showing: true,
+        classList: { contains(name) { return name === 'show' && element.showing; } },
+        addEventListener(name, handler, options) {
+            if (!listeners.has(name)) listeners.set(name, []);
+            listeners.get(name).push({ handler, once: options && options.once });
+        },
+        removeEventListener(name, handler) {
+            listeners.set(name, (listeners.get(name) || []).filter(entry => entry.handler !== handler));
+        },
+        emit(name) {
+            for (const entry of [...(listeners.get(name) || [])]) {
+                if (entry.once) element.removeEventListener(name, entry.handler);
+                entry.handler();
+            }
+        },
+        listenerCount(name) { return (listeners.get(name) || []).length; },
+    };
+    return element;
+}
+
 const printJsp = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp'), 'utf8');
 const resetStart = printJsp.indexOf('function resetStash(');
 const printReset = printJsp.slice(resetStart, printJsp.indexOf('\n\n            /*', resetStart))
@@ -227,7 +250,7 @@ for (const result of ['success', 'refused', 'network failure']) {
             fetch() { return new Promise((ok, fail) => { resolve = ok; reject = fail; }); },
             parent: {
                 clearStashDisplay() { cleared++; },
-                document: { getElementById() { return {}; } },
+                document: { getElementById() { return modalElementFixture(); } },
                 bootstrap: { Modal: { getInstance() { return { hide() { hidden++; } }; } } },
             },
             alert(message) { alerts.push(message); },
@@ -262,7 +285,7 @@ for (const bootstrapLocation of ['iframe', 'unavailable']) {
             fetch() { return Promise.resolve({ ok: true }); },
             parent: {
                 clearStashDisplay() { cleared++; },
-                document: { getElementById() { return {}; } },
+                document: { getElementById() { return modalElementFixture(); } },
             },
             alert(message) { alerts.push(message); },
         };
@@ -274,5 +297,47 @@ for (const bootstrapLocation of ['iframe', 'unavailable']) {
         assert.equal(cleared, 1);
         assert.equal(hidden, bootstrapLocation === 'iframe' ? 1 : 0);
         assert.equal(alerts.length, 0);
+    });
+}
+
+for (const phase of ['opening', 'shown', 'already dismissed']) {
+    test(`successful reset closes a ${phase} preview without retaining a close listener`, async () => {
+        const element = modalElementFixture();
+        element.showing = phase !== 'already dismissed';
+        let transitioning = phase === 'opening';
+        let hidden = 0;
+        const modal = {
+            hide() {
+                // Bootstrap ignores hide during show transitions and after dismissal.
+                if (transitioning || !element.showing) return;
+                element.showing = false;
+                hidden++;
+                element.emit('hidden.bs.modal');
+            },
+        };
+        const context = {
+            cancelPendingFax() {}, getCsrfToken() { return 'token'; },
+            fetch() { return Promise.resolve({ ok: true }); },
+            parent: {
+                clearStashDisplay() {},
+                document: { getElementById() { return element; } },
+                bootstrap: { Modal: { getInstance() { return modal; } } },
+            },
+            alert() { assert.fail('successful reset must not report refusal'); },
+        };
+        vm.runInNewContext(printReset, context);
+        assert.equal(await context.resetStash(), true);
+        if (phase === 'opening') {
+            assert.equal(hidden, 0);
+            transitioning = false;
+            element.emit('shown.bs.modal');
+        }
+        assert.equal(hidden, phase === 'already dismissed' ? 0 : 1);
+        assert.equal(element.listenerCount('shown.bs.modal'), 0);
+        assert.equal(element.listenerCount('hidden.bs.modal'), 0);
+        // A later prescription opened in the same modal must not inherit this reset.
+        element.showing = true;
+        element.emit('shown.bs.modal');
+        assert.equal(element.showing, true);
     });
 }

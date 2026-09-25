@@ -375,7 +375,17 @@
                         var modalApi = parent.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
                         var modal = modalElement && modalApi && modalApi.Modal
                             ? modalApi.Modal.getInstance(modalElement) : null;
-                        if (modal) modal.hide();
+                        if (modal && modalElement.classList.contains('show')) {
+                            // Bootstrap ignores hide() while its opening transition runs. Retry
+                            // after shown, and discard the retry when hidden so it cannot close
+                            // the next prescription opened in this same modal element.
+                            var hideAfterOpening = function () { modal.hide(); };
+                            modalElement.addEventListener('shown.bs.modal', hideAfterOpening, { once: true });
+                            modalElement.addEventListener('hidden.bs.modal', function () {
+                                modalElement.removeEventListener('shown.bs.modal', hideAfterOpening);
+                            }, { once: true });
+                            modal.hide();
+                        }
                     } else {
                         window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
                     }
