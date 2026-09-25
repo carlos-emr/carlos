@@ -190,6 +190,42 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
+    @Test
+    @DisplayName("should save no consent when the form is rejected as a HIN duplicate")
+    void shouldNotSaveConsents_whenHinIsDuplicate() throws Exception {
+        allowPrivilege("_demographic", "w");
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        PatientConsentManager consentManager = mock(PatientConsentManager.class);
+        replaceSpringUtilsBean(PatientConsentManager.class, consentManager);
+        io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String originalSetting = properties.getProperty("USE_NEW_PATIENT_CONSENT_MODULE");
+        properties.setProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true");
+        try {
+            mockRequest.setMethod("POST");
+            addRequestParameter("demographic_no", "123");
+            addRequestParameter("hin", "1234567890");
+            addRequestParameter("email_consent", "0");
+            addRequestParameter("recordExplicit_email_consent", "1");
+            when(mockDemographicDao.getDemographic("123")).thenReturn(new Demographic(123));
+            Demographic otherPatient = new Demographic(456);
+            otherPatient.setVer("AB");
+            when(mockDemographicDao.searchDemographicByHIN(eq("1234567890"), anyInt(), anyInt(), any(), anyBoolean()))
+                    .thenReturn(List.of(otherPatient));
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("duplicate");
+            verifyNoInteractions(consentManager);
+            verify(mockDemographicDao, never()).save(any(Demographic.class));
+        } finally {
+            if (originalSetting != null) {
+                properties.setProperty("USE_NEW_PATIENT_CONSENT_MODULE", originalSetting);
+            } else {
+                properties.remove("USE_NEW_PATIENT_CONSENT_MODULE");
+            }
+        }
+    }
+
     /**
      * The chart's consent section (#3858). Every save re-posts each type's pre-checked radio, so
      * only the separate confirmation box may upgrade an implied record to explicit.

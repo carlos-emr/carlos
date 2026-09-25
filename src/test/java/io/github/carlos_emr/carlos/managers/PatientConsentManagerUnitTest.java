@@ -450,7 +450,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isTrue();
             assertThat(implied.isExplicit()).isTrue();
-            assertThat(implied.getConsentDate()).isNotNull();
+            assertThat(implied.getConsentDate()).isAfter(new Date(1_000L));
             assertThat(implied.getEditDate()).isAfter(new Date(1_000L));
             assertThat(implied.getLastEnteredBy()).isEqualTo("999998");
             verify(mockConsentDao).merge(implied);
