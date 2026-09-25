@@ -34,6 +34,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
@@ -64,7 +65,7 @@ class UtilitiesUploadUnitTest {
     }
 
     @Test
-    void shouldWriteLabContentAndCloseStream_whenSaveFileSucceeds() throws Exception {
+    void shouldWriteLabContentAndCloseStream_whenSaveFileSucceeds() {
         TrackedStream input = new TrackedStream("MSH|fixture".getBytes(StandardCharsets.UTF_8));
 
         String saved = Utilities.saveFile(input, "lab.hl7.enc");
@@ -76,13 +77,18 @@ class UtilitiesUploadUnitTest {
     }
 
     @Test
+    // Belt and braces: if the injected failure is ever swallowed again, fail fast instead of
+    // writing an endless stream into @TempDir.
+    @Timeout(30)
     void shouldDeletePartialLabUploadAndCloseStream_whenReadFails() throws Exception {
         AtomicBoolean closed = new AtomicBoolean();
         InputStream input = new InputStream() {
             private int reads;
             @Override public int read() throws IOException {
-                // InputStream.read(byte[]) returns bytes read before an IOException. Fail every
-                // subsequent read too; a one-shot error turns this fixture into an infinite stream.
+                // Fail on every read from the fourth onwards, not just once: a buffered caller reads
+                // through InputStream.read(byte[],int,int), which swallows an IOException thrown after
+                // the first byte of a bulk read. A one-shot failure was therefore lost and this stream
+                // returned 'A' forever, filling the CI runner's disk until the runner died.
                 if (reads++ >= 3) throw new IOException("injected read failure");
                 return 'A';
             }
@@ -98,7 +104,7 @@ class UtilitiesUploadUnitTest {
     }
 
     @Test
-    void shouldWritePdfAndCloseStream_whenSavePdfSucceeds() throws Exception {
+    void shouldWritePdfAndCloseStream_whenSavePdfSucceeds() {
         TrackedStream input = new TrackedStream("%PDF-1.4".getBytes(StandardCharsets.UTF_8));
 
         String saved = Utilities.savePdfFile(input, "report.pdf");
@@ -122,7 +128,7 @@ class UtilitiesUploadUnitTest {
     }
 
     @Test
-    void shouldWriteHrmAndCloseStream_whenSaveHrmSucceeds() throws Exception {
+    void shouldWriteHrmAndCloseStream_whenSaveHrmSucceeds() {
         TrackedStream input = new TrackedStream("MSH|HRM".getBytes(StandardCharsets.UTF_8));
 
         String saved = Utilities.saveHRMFile(input, "hrm.hl7");

@@ -1,7 +1,7 @@
 # Installing CARLOS on a single server (Debian packages)
 
-This is the supported way to run CARLOS EMR on one Ubuntu machine: three
-Debian packages that install the application, its database, an nginx +
+This is the supported way to run CARLOS EMR on one Ubuntu machine: two
+Debian packages (plus one empty transitional package for upgrades) that install the application, its database, an nginx +
 ModSecurity web application firewall, HTTPS, scheduled encrypted backups, and
 an administration tool — a working, secured EMR from `apt install`.
 
@@ -14,12 +14,13 @@ an administration tool — a working, secured EMR from `apt install`.
 |---|---|
 | `carlos-emr` | CARLOS on a dedicated Tomcat 11 instance, MariaDB with least-privilege accounts, an nginx front door running ModSecurity 3 + OWASP CRS in blocking mode, HTTPS (self-signed by default, Let's Encrypt on request), nightly restic backups with a weekly restore drill, and the `carlos-ctl` admin CLI |
 | `carlos-emr-drugref` | DrugRef2, the drug and drug-interaction reference CARLOS queries when prescribing — co-deployed, loopback-only, with the Health Canada Drug Product Database seed loaded on install |
-| `carlos-emr-eform-renderer` | The sandboxed browser service that renders saved eForms to PDF for print, fax and archive |
+| `carlos-emr-eform-renderer` | Empty transitional package. The sandboxed browser that renders saved eForms to PDF now ships inside `carlos-emr`; this package only lets a 2026.08.0-alpha13 or earlier install upgrade cleanly (see [Upgrades](#upgrades)) |
 
 ## Requirements
 
 - Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 25 / MariaDB
-  11.8 / nginx stack).
+  11.8 / nginx stack) on **x86-64 (amd64)**. `carlos-emr` carries the pinned
+  Chromium that renders eForms to PDF, which exists only for amd64.
 - One dedicated server or VM. As a starting point: 4+ CPU cores, 8 GB RAM
   (2 GB JVM heap + 1 GB database buffer pool by default — both tunable),
   and disk sized for your document store plus backups.
@@ -78,17 +79,25 @@ byte for byte). Download all three, verify, install:
 
 ```bash
 sudo apt update
-sha256sum -c carlos-emr_<version>_all.deb.sha256
+sha256sum -c carlos-emr_<version>_amd64.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
-sudo apt install --no-remove ./carlos-emr_<version>_all.deb \
+sha256sum -c carlos-emr-eform-renderer_<version>_all.deb.sha256
+sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
                  ./carlos-emr-drugref_<version>_all.deb \
-                 ./carlos-emr-eform-renderer_<version>_amd64.deb
+                 ./carlos-emr-eform-renderer_<version>_all.deb
 ```
 
 `<version>` is the release's Debian version as it appears in the asset name,
-with dots throughout — for example `2026.08.0.alpha12`, giving
-`carlos-emr_2026.08.0.alpha12_all.deb`.
+with dots throughout — for example `2026.08.0.alpha14`, giving
+`carlos-emr_2026.08.0.alpha14_amd64.deb`.
+
+> **Releases up to and including 2026.08.0-alpha13** name the packages
+> differently: `carlos-emr_<version>_all.deb`, and the renderer as a real
+> package, `carlos-emr-eform-renderer_<version>_amd64.deb`. From
+> 2026.08.0-alpha14 the renderer is part of `carlos-emr`, which is therefore
+> `_amd64`, and `carlos-emr-eform-renderer_<version>_all.deb` is an empty
+> transitional package. On a fresh install it does nothing and can be left
+> out or removed later.
 
 > **Releases up to and including 2026.08.0-alpha12:** the `.sha256` files
 > record the build-time name, which spells the pre-release with a tilde
@@ -104,13 +113,13 @@ with dots throughout — for example `2026.08.0.alpha12`, giving
 >
 > Later releases record the published name and verify normally.
 
-Three packages, and it is worth knowing what each is for:
+What each package is for:
 
 | Package | What it does | Leave it out? |
 |---|---|---|
-| `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups. | No. |
+| `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups, and the browser that turns saved eForms into PDFs (eForm print, fax and archive have no other path). | No. |
 | `carlos-emr-drugref` | Drug and interaction lookups when prescribing. | Only if you never prescribe — searches return nothing without it. |
-| `carlos-emr-eform-renderer` | The browser that turns saved eForms into PDFs. | Only if the clinic does not use eForms — **there is no fallback**, so eForm print, fax and archive simply do not work without it. |
+| `carlos-emr-eform-renderer` | Nothing (transitional). | On a fresh install, yes. When upgrading from 2026.08.0-alpha13 or earlier, **no** — see [Upgrades](#upgrades). |
 
 apt may print this while installing local files. It is harmless:
 
@@ -241,7 +250,7 @@ Then confirm the eForm render browser specifically, because `carlos-ctl check`
 covers the EMR rather than that service:
 
 ```bash
-sudo systemctl status carlos-emr-chromedriver          # should be active
+sudo systemctl status carlos-emr-render-browser          # should be active
 sudo carlos-ctl logs | grep -i "renderer startup check"
 ```
 
@@ -258,7 +267,7 @@ one is the most common way to conclude "nothing is logged":
 ```bash
 sudo carlos-ctl logs -n 200        # the EMR and Tomcat  (= journalctl -u carlos-emr)
 sudo carlos-ctl logs -f            # follow it live
-sudo journalctl -u carlos-emr-chromedriver -n 50   # the eForm render browser
+sudo journalctl -u carlos-emr-render-browser -n 50   # the eForm render browser
 sudo journalctl -u nginx -n 50     # TLS and the front door
 sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log   # the WAF
 ```
@@ -325,13 +334,31 @@ move between the two without relearning.
 
 An upgrade is `apt install` of the newer packages — same command as the
 install. Supply the main package and each companion that is already installed,
-all from the same release: DrugRef and the renderer depend on the matching
-main-package version. For the standard installation this means all three files.
-If you intentionally omitted companions, supply only the packages you use and
-add `--no-install-recommends` to keep the optional packages absent.
+all from the same release: DrugRef depends on the matching main-package
+version. For the standard installation this means all three files.
+If you intentionally omitted DrugRef, supply only the packages you use and
+add `--no-install-recommends` to keep it absent.
 Offering only a newer main package
-can cause apt to propose removing those companions. Keep `--no-remove` so that
-proposal fails instead of removing prescription lookup and eForm rendering.
+can cause apt to propose removing a companion. Keep `--no-remove` so that
+proposal fails instead of removing prescription lookup.
+
+**Upgrading from 2026.08.0-alpha13 or earlier** (when the renderer was its own
+`_amd64` package and `carlos-emr` was `_all`): include
+`carlos-emr-eform-renderer_<version>_all.deb` in the same command, so the old
+renderer package is *upgraded* to the empty transitional one; with
+`--no-remove`, leaving the file out makes apt stop instead of removing it. The
+browser and the existing render token move into `carlos-emr`: the token file is
+now `/etc/carlos-emr/renderer.env` and the service `carlos-emr-render-browser`
+(it was `render-browser.env` and `carlos-emr-chromedriver`). Removing or purging
+the old renderer package, then or later, cannot affect them, so
+`sudo apt remove carlos-emr-eform-renderer` after the upgrade is safe. One side
+effect: if apt *removed* the old renderer (the transitional file was left out
+and `--no-remove` was not used), purging it later runs its old script, which
+re-applies the configuration and restarts the EMR once (about two minutes), so
+do that outside clinic hours.
+
+The application's ~2-minute redeploy happens once per upgrade, even with DrugRef
+in the same command, and `apt` returns only once the application answers.
 The schema migrates before the service restarts, your configuration
 files are never overwritten, and the application refuses to start against a
 schema it was not built for rather than failing mid-consultation. Two habits
@@ -420,7 +447,7 @@ sudo carlos-ctl check
 | Something answers on port `8080`, or an older `carlos-ctl check` reported the JVM running as `tomcat` | `dpkg -l tomcat11` | The distribution's `tomcat11` *service* package is installed. CARLOS does not use it and current packages refuse to coexist with it (see [Do not install the `tomcat11` package](#do-not-install-the-tomcat11-package)): `sudo apt purge tomcat11` |
 | Install finished but the EMR is stopped, and `carlos-ctl check` says the unit is DISABLED | `sudo carlos-ctl check`, then `sudo carlos-ctl finish-install` | The installer could not replace the seeded `carlosdoc` credential (published in the source repository), so it stopped and disabled the service rather than expose the EMR with a known administrator password. It stays disabled across reboots on purpose. A successful `finish-install` verifies the credential, re-enables the unit, removes the start guard and starts the EMR |
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |
-| eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-chromedriver -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
+| eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-render-browser -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
 | Drug search returns nothing when prescribing | `sudo carlos-ctl check` (DrugRef probe) | `carlos-emr-drugref` not installed, or its service is down |
 | Administration > Update Drugref reports a failed update, or stays "updating" | The message on that page; `sudo journalctl -u carlos-emr \| grep -E 'DrugRef (database update\|updateDB failed)'` | The Tomcat JVM has no outbound HTTPS to `www.canada.ca` (proxy not passed via `CARLOS_JAVA_OPTS`, see `/usr/share/doc/carlos-emr-drugref/README.Debian`). A failed run keeps the previous drug data |
 | "no space left on device" anywhere | `df -h /var` | Database, document store and the local backup tier all live under `/var` — grow the disk or move backups offsite |

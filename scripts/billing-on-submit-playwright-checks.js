@@ -36,7 +36,8 @@
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  * Optional: BILLING_DEMOGRAPHIC_NO (1), BILLING_PROVIDER_NO (999998),
- *   BILLING_SUBMIT_DATE (2024-05-06), BILLING_OHIP_CODE (A007A),
+ *   BILLING_SUBMIT_DATE (2024-05-06), BILLING_OHIP_CODE (A007A; a private code such as
+ *   _OMA_A003 with BILLING_FORM_NAME=PRIVATE tests private billing and final-save guards),
  *   BILLING_BONUS_CODE (Q040A), BILLING_DX_CODE (250),
  *   BILLING_FORM_NAME (General Practice) -- the entry in the "Billing form"
  *   chooser whose favourite grid carries BILLING_OHIP_CODE. The grid stays
@@ -81,16 +82,23 @@ function digits(name, raw, fallback) {
   assert(/^\d+$/.test(value), `${name} must be numeric, got ${value}`);
   return value;
 }
-function code(name, raw, fallback) {
+// An OHIP code (A007A) or a clinic private code. Private codes are stored with a leading "_"
+// (ServiceCodePersister), e.g. the OMA uninsured fees _OMA_A003 on the PRIVATE form; the review
+// page used to reject every one of them (#3894), so they are worth submitting too.
+function code(name, raw, fallback, { allowPrivate = false } = {}) {
   const value = (raw === undefined || raw === '' ? fallback : raw).toUpperCase();
-  assert(/^[A-Z]\d{3}[A-Z]$/.test(value), `${name} must be an Ontario service code like A007A, got ${value}`);
+  const ok = /^[A-Z]\d{3}[A-Z]$/.test(value) || (allowPrivate && /^_[A-Z0-9_]{1,9}$/.test(value));
+  assert(ok, `${name} must be an Ontario service code like A007A${allowPrivate ? ' or a private code like _OMA_A003' : ''}, got ${value}`);
   return value;
 }
 const demographicNo = digits('BILLING_DEMOGRAPHIC_NO', process.env.BILLING_DEMOGRAPHIC_NO, '1');
 const providerNo = digits('BILLING_PROVIDER_NO', process.env.BILLING_PROVIDER_NO, '999998');
-const billingDate = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
+const ohipCode = code('BILLING_OHIP_CODE', process.env.BILLING_OHIP_CODE, 'A007A', { allowPrivate: true });
+// The fee lookup takes the latest row dated on or before the bill date. The OHIP default date
+// predates the OMA uninsured fees (effective 2026-01-01), so a private code defaults to today.
+const billingDate = process.env.BILLING_SUBMIT_DATE
+  || (ohipCode.startsWith('_') ? new Date().toISOString().slice(0, 10) : '2024-05-06');
 assert(/^\d{4}-\d{2}-\d{2}$/.test(billingDate), 'BILLING_SUBMIT_DATE must be YYYY-MM-DD');
-const ohipCode = code('BILLING_OHIP_CODE', process.env.BILLING_OHIP_CODE, 'A007A');
 const bonusCode = code('BILLING_BONUS_CODE', process.env.BILLING_BONUS_CODE, 'Q040A');
 const dxCode = process.env.BILLING_DX_CODE || '250';
 assert(/^\d{3,4}$/.test(dxCode), 'BILLING_DX_CODE must be a 3-4 digit diagnostic code');
@@ -193,7 +201,9 @@ async function openBillForm(context, recorder, label, appointmentNo, startTime) 
       && sql("SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype='MFP'") !== '0') {
     assert((await page.locator('#billForm').inputValue()) === 'MFP',
       `${label}: missing GP default did not fall back to the available MFP form`);
-    assert(await page.locator(`input[name="xml_${ohipCode}"]:visible`).count(),
+    // The default form's grid carries OHIP codes; a private code lives on its own form.
+    const defaultGridCode = ohipCode.startsWith('_') ? 'A007A' : ohipCode;
+    assert(await page.locator(`input[name="xml_${defaultGridCode}"]:visible`).count(),
       `${label}: default favourite-code grid was not visible`);
   }
   return page;
@@ -314,6 +324,30 @@ async function billOhipOrWsib(context, recorder, { label, billType, expectPayPro
   await submitToReview(page, label);
   const reviewText = await page.locator('body').innerText();
   assert(reviewText.includes(ohipCode), `${label} review page did not list ${ohipCode}`);
+  if (ohipCode.startsWith('_')) {
+    // Exercise the final POST directly while keeping the valid review form available.
+    const form = await page.locator('form[name="titlesearch"]').evaluate((element) => ({
+      action: element.action, fields: Array.from(new FormData(element).entries()),
+    }));
+    const effective = sql(`SELECT MIN(billingservice_date) FROM billingservice WHERE service_code='${escapeSql(ohipCode)}'`);
+    const beforeEffective = new Date(`${effective}T00:00:00Z`);
+    beforeEffective.setUTCDate(beforeEffective.getUTCDate() - 1);
+    for (const changes of [
+      { service_date: beforeEffective.toISOString().slice(0, 10) },
+      { xserviceCode_0: '_OMA_BAD' },
+      { xml_billtype: 'ODP' },
+    ]) {
+      const fields = new URLSearchParams(form.fields);
+      fields.set('billingAction', 'SAVE');
+      for (const [key, value] of Object.entries(changes)) fields.set(key, value);
+      const response = await page.request.post(form.action, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, data: fields.toString(),
+      });
+      assert(response.status() === 200 && /Save Failed|Save rejected/.test(await response.text()),
+        `${label}: final save did not explicitly reject ${JSON.stringify(changes)}`);
+      assert(headerRows(appointmentNo).length === 0, `${label}: rejected final save persisted a billing header`);
+    }
+  }
   await saveFromReview(page, label);
   await page.close().catch(() => {});
 
@@ -411,18 +445,26 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     await login(context, config, recorder);
 
-    const ohipHeader = await billOhipOrWsib(context, recorder, {
-      label: 'ohip', billType: 'ODP', expectPayProgram: 'HCP', expectStatus: 'O', startTime: '09:00:00',
-    });
-    const wsibHeader = await billOhipOrWsib(context, recorder, {
-      label: 'wsib', billType: 'WCB', expectPayProgram: 'WCB', expectStatus: 'W', startTime: '09:15:00',
-    });
-    const bonusHeader = await billBonus(context, recorder, { label: 'bonus', startTime: '09:30:00' });
+    if (ohipCode.startsWith('_')) {
+      const privateHeader = await billOhipOrWsib(context, recorder, {
+        label: 'private', billType: 'PAT', expectPayProgram: 'PAT', expectStatus: 'P', startTime: '09:00:00',
+      });
+      console.log(`PASS private bill ${privateHeader}: final-save guards and valid save`);
+    } else {
+      const ohipHeader = await billOhipOrWsib(context, recorder, {
+        label: 'ohip', billType: 'ODP', expectPayProgram: 'HCP', expectStatus: 'O', startTime: '09:00:00',
+      });
+      const wsibHeader = await billOhipOrWsib(context, recorder, {
+        label: 'wsib', billType: 'WCB', expectPayProgram: 'WCB', expectStatus: 'W', startTime: '09:15:00',
+      });
+      const bonusHeader = await billBonus(context, recorder, { label: 'bonus', startTime: '09:30:00' });
+      console.log(`PASS Ontario bills saved through the UI: OHIP header ${ohipHeader}, WSIB header ${wsibHeader}, bonus header ${bonusHeader}`);
+    }
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
-    console.log(`PASS Ontario bills saved through the UI: OHIP header ${ohipHeader}, WSIB header ${wsibHeader}, bonus header ${bonusHeader}`);
+    console.log('PASS Ontario bill persistence and browser error checks');
   } catch (error) {
     console.error(`FAIL Ontario bill submit check: ${error.stack || error.message}`);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));

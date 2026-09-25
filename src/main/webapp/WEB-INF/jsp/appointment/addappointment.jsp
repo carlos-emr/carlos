@@ -224,6 +224,7 @@ Ontario, Canada
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
         <title><fmt:message key="appointment.addappointment.title"/></title>
 
         <style>
@@ -464,12 +465,19 @@ Ontario, Canada
 
             function onNotBook() {
                 document.forms[0].keyword.value = "<%=DONOTBOOK%>";
+                // Assigning value fires no input/blur event, so drop the patient link
+                // explicitly: Do Not Book is a deliberate non-patient booking.
+                CarlosAppointmentPatientLink.unlink(document.forms[0].keyword);
             }
 
             function onButRepeat() {
                 document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmentrepeatbooking";
+                // Settle the patient link BEFORE calculateEndTime(): its "." no-show rule
+                // reads #demographic_no, and submitForm() would settle only afterwards,
+                // leaving a stale link to suppress status N on a hand-edited name.
+                CarlosAppointmentPatientLink.settle(document.forms[0]);
                 if (calculateEndTime()) {
-                    document.forms[0].submit();
+                    CarlosAppointmentPatientLink.submitForm(document.forms[0]);
                 }
             }
 
@@ -501,6 +509,10 @@ Ontario, Canada
                 //document.forms[0].chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
                 document.forms[0].keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
                 document.forms[0].demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
+                // The pasted name and link belong together; make them the new baseline. ApptData
+                // carries no alert/status/MRP, so a different patient clears the MRP and hides
+                // the previous patient's banners rather than leave them describing the wrong chart.
+                CarlosAppointmentPatientLink.rebase(document.forms[0].keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].reasonCode.value = "<carlos:encode value='<%= apptObj.getReasonCode() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
@@ -563,6 +575,12 @@ Ontario, Canada
 
                 var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
+                // Keeps #keyword and #demographic_no/#mrp in step and refreshes the patient
+                // banners on every link: commits a highlighted row on blur/submit and
+                // reconciles a hand-edited name (issue #3883). See
+                // js/appointmentPatientLink.js for the semantics.
+                var patientLink = CarlosAppointmentPatientLink.attach(document);
+
                 $("#keyword").autocomplete({
                     source: function (req, res) {
                         $.ajax({
@@ -576,45 +594,15 @@ Ontario, Canada
                     minLength: 2,
 
                     focus: function (event, ui) {
-                        $("#keyword").val(ui.item.formattedName);
+                        patientLink.highlight(ui.item);
                         return false;
                     },
                     select: function (event, ui) {
-                        $("#demographic_no").val(ui.item.value);
-                        $("#mrp").val(ui.item.provider);
-                        $("#keyword").val(ui.item.formattedName);
-
-                        // Show patient alert banner if the selected patient has an alert
-                        var patientAlert = ui.item.alert || "";
-                        var alertBanner = document.getElementById('patientAlertBanner');
-                        if (patientAlert) {
-                            // Use textContent to safely set content and prevent XSS
-                            document.getElementById('patientAlertText').textContent = patientAlert;
-                            alertBanner.style.display = '';
-                        } else {
-                            alertBanner.style.display = 'none';
-                        }
-
-                        // Show patient status banner if the selected patient has a non-default status
-                        var rawStatus = ui.item.status || "";
-                        var rawRoster = ui.item.rosterStatus || "";
-                        // Normalize: AC (active) and RO (rostered) are the expected defaults — hide banner for these
-                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
-                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
-                        var statusBanner = document.getElementById('patientStatusBanner');
-                        var statusTextEl = document.getElementById('patientStatusText');
-                        if (displayStatus || displayRoster) {
-                            var rosterLabel = statusBanner ? (statusBanner.getAttribute('data-roster-label') || '') : '';
-                            var parts = [];
-                            if (displayStatus) parts.push(displayStatus);
-                            if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
-                            statusTextEl.textContent = parts.join("\u00a0");
-                            statusBanner.style.display = '';
-                        } else {
-                            statusBanner.style.display = 'none';
-                        }
-
+                        patientLink.commit(ui.item);
                         return false;
+                    },
+                    close: function (event) {
+                        patientLink.menuClosed(event);
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
