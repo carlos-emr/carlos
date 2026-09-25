@@ -118,13 +118,32 @@ public class PortalEmailDeliveryService {
         this.settings = settings;
     }
 
-    /** A malformed rollout setting must not silently restore legacy password delivery. */
+    /**
+     * Whether encrypted email passwords go to the Portal. A malformed rollout setting must not
+     * silently restore legacy password delivery, and neither may a Portal that is switched off or
+     * not configured: every encrypted send would then fail later with a generic "password could
+     * not be prepared". Both are reported as a configuration error, which the compose page and the
+     * send action turn into the misconfiguration alert before a draft is used.
+     *
+     * @throws PatientPortalConfigurationException when the setting is not true/false, or it is
+     *         true while {@link PatientPortalSettings#isConfigured()} is false
+     */
     public static boolean isEnabled() {
-        String raw = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY);
+        return isEnabled(CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY),
+                PatientPortalSettings::isConfigured);
+    }
+
+    static boolean isEnabled(String raw, java.util.function.BooleanSupplier portalConfigured) {
         String value = raw == null ? "false" : raw.strip();
-        if ("true".equals(value)) return true;
         if ("false".equals(value)) return false;
-        throw new PatientPortalConfigurationException("patient_portal.email.enabled must be true or false");
+        if (!"true".equals(value)) {
+            throw new PatientPortalConfigurationException("patient_portal.email.enabled must be true or false");
+        }
+        if (!portalConfigured.getAsBoolean()) {
+            throw new PatientPortalConfigurationException(
+                    "patient_portal.email.enabled is true but the Patient Portal is not enabled and configured");
+        }
+        return true;
     }
 
     @FunctionalInterface
