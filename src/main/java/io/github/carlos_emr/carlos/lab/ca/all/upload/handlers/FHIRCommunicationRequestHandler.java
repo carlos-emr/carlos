@@ -200,7 +200,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
 
             for (Reference ref : refs) {
-                providerInboxRoutingDao.addToProviderInbox(ref.getReference().substring("Practitioner/".length()), Integer.parseInt(doc_no), "DOC");
+                providerInboxRoutingDao.routeToProviderInbox(ref.getReference().substring("Practitioner/".length()), Integer.parseInt(doc_no), "DOC");
             }
 
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");

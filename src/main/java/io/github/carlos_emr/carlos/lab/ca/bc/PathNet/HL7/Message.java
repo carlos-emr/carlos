@@ -129,93 +129,95 @@ public class Message {
         patientRouteReport(parent);
     }
 
+    /**
+     * Routes the message to its ordering and copied-to providers, or to provider "0" (unclaimed)
+     * when none can be resolved: that is a data condition, and the lab must still be stored. A
+     * failure writing the routing row itself propagates, so the caller's transaction rolls the
+     * whole message back instead of committing it unrouted.
+     */
     public void linkToProvider(int parent, int id) {
         // public void providerRouteReport (int segmentID) {
+
+        String sql;
         try {
+            String providerMinistryNo;
+            String[] subStrings;
+            String[] conDoctors;
+            String providerNo = null;
 
-            String sql;
-            try {
-                String providerMinistryNo;
-                String[] subStrings;
-                String[] conDoctors;
-                String providerNo = null;
+            sql = "select ordering_provider, result_copies_to from  hl7_obr where pid_id = '" + id + "'";
+            Hl7ObrDao dao = SpringUtils.getBean(Hl7ObrDao.class);
+            boolean addedToProviderLabRouting = false;
 
-                sql = "select ordering_provider, result_copies_to from  hl7_obr where pid_id = '" + id + "'";
-                Hl7ObrDao dao = SpringUtils.getBean(Hl7ObrDao.class);
-                boolean addedToProviderLabRouting = false;
+            List<Hl7Obr> obrs = dao.findByPid(id);
+            if (!obrs.isEmpty()) {
+                Hl7Obr obr = obrs.get(0);
+                // OLD CODE AT BOTTOM
+                ArrayList<String> listOfProviderNo = new ArrayList<String>();
+                // route lab first to admitting doctor
+                subStrings = obr.getOrderingProvider().split("\\^");
+                providerMinistryNo = subStrings[0]; // StringUtils.returnStringToFirst(subStrings[0].substring(1,
+                // subStrings[0].length())," ");
+                // check that this is a legal providers
+                MiscUtils.getLogger().debug("looking for " + providerMinistryNo);
+                providerNo = getProviderNoFromBillingNo(providerMinistryNo);
+                if (providerNo != null) { // providers found in database
+                    listOfProviderNo.add(providerNo);
+                } // providers not found
 
-                List<Hl7Obr> obrs = dao.findByPid(id);
-                if (!obrs.isEmpty()) {
-                    Hl7Obr obr = obrs.get(0);
-                    // OLD CODE AT BOTTOM
-                    ArrayList<String> listOfProviderNo = new ArrayList<String>();
-                    // route lab first to admitting doctor
-                    subStrings = obr.getOrderingProvider().split("\\^");
-                    providerMinistryNo = subStrings[0]; // StringUtils.returnStringToFirst(subStrings[0].substring(1,
-                    // subStrings[0].length())," ");
-                    // check that this is a legal providers
-                    MiscUtils.getLogger().debug("looking for " + providerMinistryNo);
-                    providerNo = getProviderNoFromBillingNo(providerMinistryNo);
-                    if (providerNo != null) { // providers found in database
-                        listOfProviderNo.add(providerNo);
-                    } // providers not found
-
-                    // next route to consulting doctor(s)
-                    if (!obr.getResultCopiesTo().equals("")) {
-                        conDoctors = obr.getResultCopiesTo().split("~");
-                        for (int i = 1; i <= conDoctors.length; i++) {
-                            subStrings = conDoctors[i - 1].split("\\^");
-                            providerMinistryNo = subStrings[0]; // StringUtils.returnStringToFirst(subStrings[0].substring(1,
-                            // subStrings[0].length())," ");
-                            // check that this is a legal providers
-                            MiscUtils.getLogger().debug("looking for 2 " + providerMinistryNo);
-                            providerNo = getProviderNoFromBillingNo(providerMinistryNo);
-                            if (providerNo != null) { // providers found in database
-                                if (!listOfProviderNo.contains(providerNo)) {
-                                    listOfProviderNo.add(providerNo);
-                                }
-                            } // providers not found
-                        }
+                // next route to consulting doctor(s)
+                if (!obr.getResultCopiesTo().equals("")) {
+                    conDoctors = obr.getResultCopiesTo().split("~");
+                    for (int i = 1; i <= conDoctors.length; i++) {
+                        subStrings = conDoctors[i - 1].split("\\^");
+                        providerMinistryNo = subStrings[0]; // StringUtils.returnStringToFirst(subStrings[0].substring(1,
+                        // subStrings[0].length())," ");
+                        // check that this is a legal providers
+                        MiscUtils.getLogger().debug("looking for 2 " + providerMinistryNo);
+                        providerNo = getProviderNoFromBillingNo(providerMinistryNo);
+                        if (providerNo != null) { // providers found in database
+                            if (!listOfProviderNo.contains(providerNo)) {
+                                listOfProviderNo.add(providerNo);
+                            }
+                        } // providers not found
                     }
-                    /////
-
-                    ProviderLabRouting routing = new ProviderLabRouting();
-                    if (listOfProviderNo.size() > 0) { // providers found in database
-                        for (int p = 0; p < listOfProviderNo.size(); p++) {
-                            String prov = listOfProviderNo.get(p);
-
-                            routing.routeMagic(parent, prov, "BCP");
-                        }
-                        addedToProviderLabRouting = true;
-                    } // providers not found
-
-                    if (!addedToProviderLabRouting) {
-                        ProviderLabRoutingModel l = new ProviderLabRoutingModel();
-                        l.setProviderNo("0");
-                        l.setLabNo(parent);
-                        l.setStatus("N");
-                        l.setLabType("BCP");
-                        providerLabRoutingDao.persist(l);
-
-                    }
-
-                } else { // major error
-                    MiscUtils.getLogger().debug("sql " + sql);
-                    throw new Exception("Corresponding PV1 entry not found!");
                 }
-            } catch (Exception e) {
-                MiscUtils.getLogger().debug("Error in providerRouteReport:" + e);
+                /////
 
-                ProviderLabRoutingModel l = new ProviderLabRoutingModel();
-                l.setProviderNo("0");
-                l.setLabNo(parent);
-                l.setStatus("N");
-                l.setLabType("BCP");
-                providerLabRoutingDao.persist(l);
+                ProviderLabRouting routing = new ProviderLabRouting();
+                if (listOfProviderNo.size() > 0) { // providers found in database
+                    for (int p = 0; p < listOfProviderNo.size(); p++) {
+                        String prov = listOfProviderNo.get(p);
 
+                        routing.routeMagic(parent, prov, "BCP");
+                    }
+                    addedToProviderLabRouting = true;
+                } // providers not found
+
+                if (!addedToProviderLabRouting) {
+                    ProviderLabRoutingModel l = new ProviderLabRoutingModel();
+                    l.setProviderNo("0");
+                    l.setLabNo(parent);
+                    l.setStatus("N");
+                    l.setLabType("BCP");
+                    providerLabRoutingDao.persist(l);
+
+                }
+
+            } else { // major error
+                MiscUtils.getLogger().debug("sql " + sql);
+                throw new Exception("Corresponding PV1 entry not found!");
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().debug("Database error in providerRouteReport:" + e);
+            MiscUtils.getLogger().debug("Error in providerRouteReport:" + e);
+
+            ProviderLabRoutingModel l = new ProviderLabRoutingModel();
+            l.setProviderNo("0");
+            l.setLabNo(parent);
+            l.setStatus("N");
+            l.setLabType("BCP");
+            providerLabRoutingDao.persist(l);
+
         }
 
     }
@@ -230,82 +232,83 @@ public class Message {
     }
 
     ////
+    /**
+     * Links the message to its patient, or to demographic 0 (unmatched) when the PID cannot be
+     * matched or parsed; as in {@link #linkToProvider}, only a failure to write the routing row
+     * propagates.
+     */
     public void patientRouteReport(int segmentID) {
         try {
-            try {
-                Hl7PidDao dao = SpringUtils.getBean(Hl7PidDao.class);
-                List<Hl7Pid> pids = dao.findByMessageId(segmentID);
-                if (!pids.isEmpty()) {
-                    Hl7Pid pid = pids.get(0);
-                    String lastName = pid.getPatientName().split("\\^")[0].toUpperCase();
-                    String firstName = pid.getPatientName().split("\\^")[1].toUpperCase();
-                    Date d = pid.getDateOfBirth();
+            Hl7PidDao dao = SpringUtils.getBean(Hl7PidDao.class);
+            List<Hl7Pid> pids = dao.findByMessageId(segmentID);
+            if (!pids.isEmpty()) {
+                Hl7Pid pid = pids.get(0);
+                String lastName = pid.getPatientName().split("\\^")[0].toUpperCase();
+                String firstName = pid.getPatientName().split("\\^")[1].toUpperCase();
+                Date d = pid.getDateOfBirth();
 
-                    Format formatter;
-                    formatter = new SimpleDateFormat("yyyy"); // 2002
-                    String dobYear = formatter.format(d);
-                    formatter = new SimpleDateFormat("MM"); // 01
-                    String dobMonth = formatter.format(d);
-                    formatter = new SimpleDateFormat("dd"); // 09
-                    String dobDay = formatter.format(d);
+                Format formatter;
+                formatter = new SimpleDateFormat("yyyy"); // 2002
+                String dobYear = formatter.format(d);
+                formatter = new SimpleDateFormat("MM"); // 01
+                String dobMonth = formatter.format(d);
+                formatter = new SimpleDateFormat("dd"); // 09
+                String dobDay = formatter.format(d);
 
-                    String demoNo = null;
-                    String hin = pid.getExternalId();
-                    boolean isHinEmpty = hin == null || hin.trim().isEmpty();
-                    DemographicDaoImpl dDao = SpringUtils.getBean(DemographicDaoImpl.class);
-                    List<Demographic> demos = dDao
-                            .findByCriterion(new DemographicDaoImpl.DemographicCriterion(hin, lastName.substring(0, 1),
-                                    firstName.substring(0, 1), dobYear, dobMonth, dobDay, pid.getSex(), "AC"));
+                String demoNo = null;
+                String hin = pid.getExternalId();
+                boolean isHinEmpty = hin == null || hin.trim().isEmpty();
+                DemographicDaoImpl dDao = SpringUtils.getBean(DemographicDaoImpl.class);
+                List<Demographic> demos = dDao
+                        .findByCriterion(new DemographicDaoImpl.DemographicCriterion(hin, lastName.substring(0, 1),
+                                firstName.substring(0, 1), dobYear, dobMonth, dobDay, pid.getSex(), "AC"));
 
-                    if (!isHinEmpty) {
-                        // patient's health number is known - check initials, DOB match
-                        PatientLabRouting l = new PatientLabRouting();
-                        l.setLabNo(segmentID);
-                        l.setLabType("BCP");
+                if (!isHinEmpty) {
+                    // patient's health number is known - check initials, DOB match
+                    PatientLabRouting l = new PatientLabRouting();
+                    l.setLabNo(segmentID);
+                    l.setLabType("BCP");
 
-                        if (!demos.isEmpty()) {
-                            Integer dNo = demos.get(0).getDemographicNo();
-                            demoNo = dNo.toString();
-                            l.setDemographicNo(dNo);
-                        } else {
-                            l.setDemographicNo(0);
-                        }
-                        patientLabRoutingDao.persist(l);
-
+                    if (!demos.isEmpty()) {
+                        Integer dNo = demos.get(0).getDemographicNo();
+                        demoNo = dNo.toString();
+                        l.setDemographicNo(dNo);
                     } else {
-                        PatientLabRouting l = new PatientLabRouting();
-                        l.setLabNo(segmentID);
-                        l.setLabType("BCP");
-
-                        if (!demos.isEmpty()) {
-                            Integer dNo = demos.get(0).getDemographicNo();
-                            demoNo = dNo.toString();
-                            l.setDemographicNo(dNo);
-                        } else {
-                            l.setDemographicNo(0);
-                        }
-                        patientLabRoutingDao.persist(l);
+                        l.setDemographicNo(0);
                     }
+                    patientLabRoutingDao.persist(l);
 
-                    // NOT ALL DOCS WANT ALL LABS ECHO'D INTO THERE INBOX
-                    if (demoNo != null) {
-                        patientProviderRoute("" + segmentID, demoNo);
+                } else {
+                    PatientLabRouting l = new PatientLabRouting();
+                    l.setLabNo(segmentID);
+                    l.setLabType("BCP");
+
+                    if (!demos.isEmpty()) {
+                        Integer dNo = demos.get(0).getDemographicNo();
+                        demoNo = dNo.toString();
+                        l.setDemographicNo(dNo);
+                    } else {
+                        l.setDemographicNo(0);
                     }
-                } else { // major error
-                    throw new Exception("Corresponding PID entry not found!");
+                    patientLabRoutingDao.persist(l);
                 }
-            } catch (Exception e) {
-                MiscUtils.getLogger().debug("Error in patientRouteReport:" + e);
-                MiscUtils.getLogger().error("Error", e);
 
-                PatientLabRouting l = new PatientLabRouting();
-                l.setDemographicNo(0);
-                l.setLabNo(segmentID);
-                l.setLabType("BCP");
-                patientLabRoutingDao.persist(l);
+                // NOT ALL DOCS WANT ALL LABS ECHO'D INTO THERE INBOX
+                if (demoNo != null) {
+                    patientProviderRoute("" + segmentID, demoNo);
+                }
+            } else { // major error
+                throw new Exception("Corresponding PID entry not found!");
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().debug("Database error in patientRouteReport:" + e);
+            MiscUtils.getLogger().debug("Error in patientRouteReport:" + e);
+            MiscUtils.getLogger().error("Error", e);
+
+            PatientLabRouting l = new PatientLabRouting();
+            l.setDemographicNo(0);
+            l.setLabNo(segmentID);
+            l.setLabType("BCP");
+            patientLabRoutingDao.persist(l);
         }
     }
 
