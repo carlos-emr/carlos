@@ -198,6 +198,11 @@ and the result.
       behaves as described in `patient-portal-client-security.md`.
 - [ ] Rotate the staff-assertion key with old and new keys overlapping, as in `carlos.properties`,
       and confirm no call fails during the change.
+- [ ] Rotate the portal's TLS key with the five steps in section 5 of
+      [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md); the Patient portal page
+      loads after steps 2, 4 and 5.
+- [ ] Move the portal to the standby key as in the runbook's compromise steps, with the old pin
+      removed; the page loads, and no call fails while nginx switches.
 
 ## 6. Sign-off
 
