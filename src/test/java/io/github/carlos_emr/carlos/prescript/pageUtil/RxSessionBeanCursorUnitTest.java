@@ -31,6 +31,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Iterator;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -144,6 +147,37 @@ class RxSessionBeanCursorUnitTest extends CarlosUnitTestBase {
 
         assertThat(bean.getStashIndex()).isEqualTo(-1);
         assertThat(bean.getCurrentStashItem()).isNull();
+    }
+
+    @Test
+    @DisplayName("should defer a legacy ReRx clear until the atomic bean operation completes")
+    void shouldDeferReRxClear_whenAtomicBeanOperationIsInProgress() throws InterruptedException {
+        bean.addReRxDrugIdList("55");
+        CountDownLatch attempted = new CountDownLatch(1);
+        Thread clear = new Thread(() -> {
+            attempted.countDown();
+            bean.clearReRxDrugIdList();
+        }, "legacy-rerx-clear");
+
+        try {
+            synchronized (bean) {
+                clear.start();
+                assertThat(attempted.await(5, TimeUnit.SECONDS)).isTrue();
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                while (clear.isAlive() && clear.getState() != Thread.State.BLOCKED
+                        && System.nanoTime() < deadline) {
+                    LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+                }
+                assertThat(clear.getState()).isEqualTo(Thread.State.BLOCKED);
+                assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+            }
+        } finally {
+            clear.join(TimeUnit.SECONDS.toMillis(5));
+        }
+
+        assertThat(clear.isAlive()).isFalse();
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+        assertThat(bean.getStashList()).containsExactly(first, second, third);
     }
 
     @Test

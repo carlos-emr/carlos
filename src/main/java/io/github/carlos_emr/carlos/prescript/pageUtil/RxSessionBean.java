@@ -87,22 +87,22 @@ public class RxSessionBean implements java.io.Serializable {
      *
      * @param s the source drug id
      */
-    public void addReRxDrugIdList(String s) {
+    public synchronized void addReRxDrugIdList(String s) {
         reRxDrugIdList.add(s);
     }
 
-    public void setReRxDrugIdList(List<String> sList) {
+    public synchronized void setReRxDrugIdList(List<String> sList) {
         reRxDrugIdList = (CopyOnWriteArrayList) sList;
     }
 
-    public CopyOnWriteArrayList<String> getReRxDrugIdList() {
+    public synchronized CopyOnWriteArrayList<String> getReRxDrugIdList() {
         return reRxDrugIdList;
     }
 
     /**
      * Empties the ReRx list (after a completed save or an explicit reset).
      */
-    public void clearReRxDrugIdList() {
+    public synchronized void clearReRxDrugIdList() {
         reRxDrugIdList = new CopyOnWriteArrayList<>();
     }
 
