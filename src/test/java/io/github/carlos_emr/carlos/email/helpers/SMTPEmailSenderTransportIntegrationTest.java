@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mail.javamail.JavaMailSender;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,14 +86,7 @@ class SMTPEmailSenderTransportIntegrationTest {
             receiver.setSoTimeout(10_000);
             CompletableFuture<byte[]> received = new CompletableFuture<>();
             Thread.ofPlatform().daemon(true).start(() -> receive(receiver, received, dropAcknowledgement));
-            EmailConfig config = new EmailConfig();
-            config.setEmailType(EmailConfig.EmailType.SMTP);
-            config.setEmailProvider(EmailConfig.EmailProvider.LOCAL);
-            config.setSenderEmail("sender@example.test");
-            config.setSenderFirstName("Synthetic");
-            config.setSenderLastName("Sender");
-            config.setConfigDetailsJson("{\"host\":\"127.0.0.1\",\"port\":\"" + receiver.getLocalPort() + "\"}");
-            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, config,
+            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
                     new String[]{"recipient@example.test"}, "Synthetic archive transport test",
                     "First line\r\n.dot-stuffed line\r\nFinal line", List.of());
             byte[] archived = sender.prepareArtifactBytes();
@@ -109,6 +103,80 @@ class SMTPEmailSenderTransportIntegrationTest {
             assertThat(sender.getPreparedAttachments()).isEmpty();
             assertThatThrownBy(sender::sendPrepared).isInstanceOf(EmailSendingException.class)
                     .hasMessageContaining("must be prepared");
+        }
+    }
+
+    /**
+     * Drives the real transport into a refusal at RCPT TO (#3857): permanent (550) or temporary
+     * (450). With one recipient, or with two where only one is refused, the transport resets
+     * before DATA, so nothing reaches the receiver and the failure must be reported as definite
+     * rather than uncertain.
+     */
+    @ParameterizedTest
+    @CsvSource({"false, 550 5.1.1 Recipient address rejected: User unknown", "true, 550 5.1.1 Recipient address rejected: User unknown",
+            "false, 450 4.2.0 Greylisted, try again later"})
+    void shouldReportDefiniteFailure_whenServerRefusesRecipient(boolean alsoAcceptedRecipient, String refusal) throws Exception {
+        try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            receiver.setSoTimeout(10_000);
+            CompletableFuture<Boolean> dataReceived = new CompletableFuture<>();
+            Thread.ofPlatform().daemon(true).start(() -> refuseRecipient(receiver, dataReceived, refusal));
+            String[] recipients = alsoAcceptedRecipient
+                    ? new String[]{"accepted@example.test", "unknown@example.test"}
+                    : new String[]{"unknown@example.test"};
+            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
+                    recipients, "Synthetic refused recipient", "Body", List.of());
+            sender.prepareArtifactBytes();
+
+            assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
+                    EmailSendingException.class,
+                    failure -> assertThat(failure.isDeliveryOutcomeUncertain()).isFalse());
+            assertThat(dataReceived.get(10, TimeUnit.SECONDS)).isFalse();
+        }
+    }
+
+    private static EmailConfig localConfig(int port) {
+        EmailConfig config = new EmailConfig();
+        config.setEmailType(EmailConfig.EmailType.SMTP);
+        config.setEmailProvider(EmailConfig.EmailProvider.LOCAL);
+        config.setSenderEmail("sender@example.test");
+        config.setSenderFirstName("Synthetic");
+        config.setSenderLastName("Sender");
+        config.setConfigDetailsJson("{\"host\":\"127.0.0.1\",\"port\":\"" + port + "\"}");
+        return config;
+    }
+
+    /** Answers {@code refusal} to RCPT TO for an address starting "unknown", accepts the rest, and records whether DATA arrived. */
+    private static void refuseRecipient(ServerSocket receiver, CompletableFuture<Boolean> dataReceived, String refusal) {
+        try (Socket connection = receiver.accept()) {
+            connection.setSoTimeout(10_000);
+            var output = connection.getOutputStream();
+            var input = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.US_ASCII));
+            output.write("220 synthetic SMTP ready\r\n".getBytes(StandardCharsets.US_ASCII));
+            output.flush();
+            String line;
+            while ((line = input.readLine()) != null) {
+                String reply;
+                if (line.startsWith("RCPT TO:<unknown")) {
+                    reply = refusal;
+                } else if (line.equals("DATA")) {
+                    // Refuse at once so a regression fails fast instead of waiting out the I/O timeout.
+                    dataReceived.complete(true);
+                    output.write("554 test receiver: DATA must not be reached\r\n".getBytes(StandardCharsets.US_ASCII));
+                    output.flush();
+                    return;
+                } else if (line.equals("QUIT")) {
+                    output.write("221 bye\r\n".getBytes(StandardCharsets.US_ASCII));
+                    output.flush();
+                    break;
+                } else {
+                    reply = "250 OK";
+                }
+                output.write((reply + "\r\n").getBytes(StandardCharsets.US_ASCII));
+                output.flush();
+            }
+            dataReceived.complete(false);
+        } catch (Exception failure) {
+            dataReceived.completeExceptionally(failure);
         }
     }
 
