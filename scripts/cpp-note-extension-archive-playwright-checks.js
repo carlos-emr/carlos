@@ -75,6 +75,7 @@
 
 const {
   assert, assertStrictPage, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig, runCheck,
+  sqlString,
 } = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -101,6 +102,26 @@ const fixture = {
   sessionId: '',
 };
 
+/**
+ * Strip the blocks a stamped note appended to a CPP summary column.
+ *
+ * copyNote2cpp() appends "\n-----[[<date>]]-----\n<note text>" to casemgmt_cpp.socialHistory on
+ * every save, so the summary grows by this check's text each run and deleting the note alone leaves
+ * it there. Only the blocks carrying the stamp are removed, and only from that marker to the start
+ * of the next one, so a clinician's entries either side are untouched.
+ *
+ * Exported for the node test: this is string surgery on a clinical column and deserves assertions
+ * of its own.
+ */
+function withoutStampedBlocks(summary, stamp) {
+  if (!summary || !stamp) {
+    return summary || '';
+  }
+  // Split on the separator, keeping it attached to the block it introduces.
+  const blocks = summary.split(/(?=\n-----\[\[)/);
+  return blocks.filter((block) => !block.includes(stamp)).join('');
+}
+
 /** A plain integer, or the value never reaches a query. */
 function sqlNumber(value, what) {
   assert(/^\d+$/.test(String(value)), `${what} is not a plain number, so it cannot be used in a database query`);
@@ -121,6 +142,7 @@ async function cleanup() {
     return;
   }
   const statements = [];
+  const failuresBeforeStatements = [];
   if (stamp) {
     // THE SIGNATURE ROW TOO. issueNoteSave marks the note signed, and
     // CaseManagementManagerImpl hashes a signed note into hash_audit (type "enc", the note id in
@@ -145,12 +167,36 @@ async function cleanup() {
       + `WHERE n.note LIKE '${stamp}%'`]);
     statements.push(['the stamped CPP item', `DELETE FROM casemgmt_note WHERE note LIKE '${stamp}%'`]);
   }
+  if (stamp && demographicNo) {
+    // THE SUMMARY THE SAVE APPENDED TO, WHICH IS NOT THE NOTE. copyNote2cpp()/saveCPP() copy the
+    // note's text into casemgmt_cpp.socialHistory, and saveNote() writes a legacy eChart row too
+    // when AbandonOldChart is off (it is off by default; this deployment has it on, so the eChart
+    // delete is a no-op here rather than untested-by-omission). Deleting the note without these
+    // would leave every run's text in the patient's chart summary for good.
+    try {
+      const summary = sql.value(
+        `SELECT socialHistory FROM casemgmt_cpp WHERE demographic_no = ${demographicNo}`,
+      );
+      const trimmed = withoutStampedBlocks(summary, stamp);
+      if (trimmed !== summary) {
+        statements.push(['the stamped text appended to the CPP summary',
+          `UPDATE casemgmt_cpp SET socialHistory = ${sqlString(trimmed)} `
+          + `WHERE demographic_no = ${demographicNo}`]);
+      }
+    } catch (error) {
+      failuresBeforeStatements.push(
+        `the CPP summary could not be read (${(error && error.message) || 'query failed'})`);
+    }
+    statements.push(['the stamped legacy eChart row',
+      `DELETE FROM eChart WHERE demographicNo = ${demographicNo} `
+      + `AND (socialHistory LIKE '%${stamp}%' OR encounter LIKE '%${stamp}%')`]);
+  }
   if (demographicNo && sessionId) {
     statements.push(['this session\'s note lock',
       `DELETE FROM casemgmt_note_lock WHERE demographic_no = ${demographicNo} `
       + `AND session_id = '${sessionId}'`]);
   }
-  const failures = [];
+  const failures = [...failuresBeforeStatements];
   for (const [what, statement] of statements) {
     try {
       sql.execute(statement);
@@ -328,4 +374,5 @@ if (require.main === module) {
 
 module.exports = {
   BOX_ID, DIALOG, EXPECTED_KEYS, RESOLUTION_DATE, START_DATE, cleanup, fixture, main,
+  withoutStampedBlocks,
 };

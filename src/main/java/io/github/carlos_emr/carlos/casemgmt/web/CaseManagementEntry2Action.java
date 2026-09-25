@@ -1330,9 +1330,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // id across edits and a plain persist() per save piles a second row onto every key.
         //
         // Notes saved before that was fixed can already carry several rows for one key, and the
-        // readers disagree about which of them counts: getExtByNote() orders id desc, the
-        // change-detection loop above breaks on the first match so it sees the NEWEST, while
-        // NotesService.getNote() assigns from every row it walks so it ends on the OLDEST.
+        // readers disagree about which of them counts: getExtByNote() orders id desc, so the first
+        // match is the NEWEST, while NotesService.getNote() assigns from every row it walks and
+        // ends on the OLDEST. (The change-detection loop above used to stop at that first match,
+        // which is why a note whose duplicates disagreed could decline to save at all; it now
+        // walks every row.)
         // Updating just one of a duplicate set would leave the other readers on a stale value,
         // so every row for the key is written. That is deliberately not a delete: pruning the
         // extras is a data migration, and a note save is no place to drop clinical history.
