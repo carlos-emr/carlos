@@ -525,6 +525,9 @@ def cmd_finish_install(argv) -> int:
         if reenabled and run(["systemctl", "start", "--no-block", "carlos-emr.service"]).returncode != 0:
             _record(reset_admin, demo_data, "the application server start could not be queued")
             die("could not queue the recovered EMR start; retry finish-install")
+        # The repair succeeded and the EMR start is queued (or follows by unit
+        # ordering), so a configure-time veto no longer describes this host.
+        _clear_start_veto()
         log("database provisioning is complete")
         # carlos-emr.service is ordered after this unit, so systemd starts the
         # EMR itself as soon as this returns.
