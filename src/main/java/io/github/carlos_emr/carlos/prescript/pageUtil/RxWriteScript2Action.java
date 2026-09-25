@@ -209,7 +209,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_CONFLICT);
                 return NONE;
             }
-            RxPrescriptionData prescription = new RxPrescriptionData();
 
 			if (! this.getGCN_SEQNO().equals("0")) { // not custom
 				if (this.getBrandName().equals(rx.getBrandName()) == false) {
@@ -1245,7 +1244,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String updateSaveAllDrugs() throws IOException, ServletException, Exception {
+    public String updateSaveAllDrugs() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
         // Saves the prescription, its drugs and any ReRx archival: POST-only, checked before the
@@ -1594,6 +1593,9 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @param keptIndexes stash indexes that still have a card on the submitted form
      * @since 2026-09-24
      */
+    // The shared session bean is the lock used by all synchronized stash accessors. A separate
+    // action-local monitor would not serialize operations from two windows of the same patient.
+    @SuppressWarnings("java:S2445")
     static void removeClosedStashItems(RxSessionBean bean, List<Integer> keptIndexes) {
         synchronized (bean) {
             removeClosedStashItemsLocked(bean, keptIndexes);
@@ -1701,7 +1703,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // archival below. A ReRx box that was ticked but never staged would otherwise archive
         // the patient's active medication with no replacement written (#3869). The prescribing
         // page blocks this too, but the server must not rely on it.
-        if (bean == null || bean.getStashSize() == 0) {
+        if (bean.getStashSize() == 0) {
             logger.info("Skipped prescription save: no staged medications");
             return;
         }
@@ -1723,6 +1725,9 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @param bean         the patient's Rx bean, already authorised for write and non-empty
      * @return the new script id
      */
+    // The shared session bean is the lock used by all synchronized stash accessors. A separate
+    // action-local monitor would not serialize operations from two windows of the same patient.
+    @SuppressWarnings("java:S2445")
     String persistStash(LoggedInInfo loggedInInfo, RxSessionBean bean) {
         synchronized (bean) {
             return persistStashLocked(loggedInInfo, bean);
@@ -2051,6 +2056,9 @@ public final class RxWriteScript2Action extends ActionSupport {
      * which keeps the cursor on the same card; an iterator removal left it pointing one card too
      * far (#3908).
      */
+    // The shared session bean is the lock used by all synchronized stash accessors. A separate
+    // action-local monitor would not serialize operations from two windows of the same patient.
+    @SuppressWarnings("java:S2445")
     private static void removeStagedCopy(RxSessionBean bean, String drugId) {
         int sourceId;
         try {
