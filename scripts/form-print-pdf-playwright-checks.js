@@ -148,7 +148,11 @@ async function formMenuUrl(chartPage, formName) {
       if ((anchor.textContent || '').trim().startsWith(name)) {
         const match = /popupPage\([^,]+,[^,]+,\s*'[^']*'\s*,\s*'([^']+)'/.exec(anchor.getAttribute('onclick') || '');
         if (match) {
-          return match[1].replace(/\\x26/g, '&').replace(/&amp;/g, '&');
+          // ONE PASS OVER THE SOURCE, both spellings in the same alternation. The JSP escapes the
+          // ampersands twice over -- once for the JavaScript string literal (\x26) and once for
+          // the HTML attribute (&amp;) -- and decoding them in two chained replaces would rescan
+          // the output of the first, so a literal "\x26amp;" would come out as a bare "&".
+          return match[1].replace(/\\x26|&amp;/g, '&');
         }
       }
     }
