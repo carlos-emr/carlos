@@ -138,15 +138,29 @@ function holds(column, needle) {
  * clinician's encounter history with it.
  */
 function readChartSnapshot(sql, demographicNo) {
+  // THE `IS NULL` FLAG COMES WITH THE VALUE. `mysql -B` prints SQL NULL and the four-character
+  // string 'NULL' identically, so the harness reads both as null (see unescapeMysqlBatchValue) and
+  // says plainly that a caller who will WRITE the value back must select a companion flag rather
+  // than guess. This value is written back.
+  //
+  // Which half is live: `provider_no` is `varchar(6) NOT NULL` today, so the flag is the
+  // belt-and-braces half and would only start mattering if the column became nullable. The half
+  // that is live now is the other reading -- a provider recorded as the literal string 'NULL'
+  // comes back as JS null, and without the mapping below the restore would write 'null'.
   const cpp = sql.rows(
-    `SELECT provider_no FROM casemgmt_cpp WHERE demographic_no = ${demographicNo}`,
+    `SELECT provider_no, provider_no IS NULL FROM casemgmt_cpp WHERE demographic_no = ${demographicNo}`,
   );
   const echartLast = sql.rows(
     `SELECT eChartId FROM eChart WHERE demographicNo = ${demographicNo} ORDER BY eChartId DESC LIMIT 1`,
   );
   return {
     cppExisted: cpp.length > 0,
-    cppProviderNo: cpp.length ? cpp[0][0] : '',
+    /** SQL literal that restores the provider exactly, NULL and the string 'NULL' included. */
+    cppProviderLiteral: cpp.length
+      ? (cpp[0][1] === '1' ? 'NULL' : sqlString(cpp[0][0] === null ? 'NULL' : cpp[0][0]))
+      : 'NULL',
+    /** The same value for comparison, or null when the column was SQL NULL. */
+    cppProviderNo: cpp.length && cpp[0][1] !== '1' ? (cpp[0][0] === null ? 'NULL' : cpp[0][0]) : null,
     echartMaxId: echartLast.length ? String(echartLast[0][0]) : '0',
     echartLastId: echartLast.length ? String(echartLast[0][0]) : '',
   };
@@ -283,7 +297,7 @@ async function cleanup() {
       // saveCPP() also stamps the row with whoever saved. Put the previous provider back, but only
       // while the row still records this run's -- a save since then is not ours to rewind.
       statements.push(["the CPP summary's provider",
-        `UPDATE casemgmt_cpp SET provider_no = ${sqlString(chartBefore.cppProviderNo)} `
+        `UPDATE casemgmt_cpp SET provider_no = ${chartBefore.cppProviderLiteral} `
         + `WHERE demographic_no = ${demographicNo} AND provider_no = ${sqlString(providerNo)}`]);
     }
     // NOT REWOUND, DELIBERATELY: casemgmt_cpp.update_date and eChart.timeStamp. Both record when
