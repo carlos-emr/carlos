@@ -1,6 +1,6 @@
 # Ontario private billing fee provenance (2026)
 
-Verified 2026-09-25 against the official [OMA guide](https://www.oma.org/siteassets/oma/media/pagetree/pps/billing/uninsured-services/physicians-guide-to-uninsured-services.pdf) and [OMA fee schedule](https://www.oma.org/siteassets/oma/media/pagetree/pps/billing/uninsured-services/schedule-of-fees-suggested-uninsured.pdf).
+Source references checked 2026-09-25 against the official [OMA guide](https://www.oma.org/siteassets/oma/media/pagetree/pps/billing/uninsured-services/physicians-guide-to-uninsured-services.pdf) and [OMA fee schedule](https://www.oma.org/siteassets/oma/media/pagetree/pps/billing/uninsured-services/schedule-of-fees-suggested-uninsured.pdf); fee amounts and effective dates are documented below but are not independently verified against the current OMA schedule.
 
 These are editable billing defaults. `_OMA_` identifiers are CARLOS codes. January/March dates retain the imported activation dates; they are not separately verified OMA effective dates. Hourly entries require a time-based total; minimums and reimbursement limits are not flat fees. Review the charge and payer before saving.
 
