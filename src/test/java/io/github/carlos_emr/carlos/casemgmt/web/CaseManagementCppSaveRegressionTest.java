@@ -355,6 +355,14 @@ class CaseManagementCppSaveRegressionTest {
                         + "normalised value on a second row would compare the wrong thing")
                 .contains("String comparableDate =")
                 .contains("String comparableValue =");
+        // partialDateFormat() returns the EMPTY STRING for a full YYYY-MM-DD date, so the
+        // "was a value added?" test has to read what was submitted rather than its comparison
+        // form -- otherwise a newly typed complete date reads as nothing added and the early
+        // return discards it.
+        assertThat(block)
+                .as("a newly added full date is not mistaken for an empty field")
+                .contains("filled(submitted) && !extKeyMatched")
+                .doesNotContain("filled(comparableValue)");
     }
 
     @Test
@@ -383,9 +391,11 @@ class CaseManagementCppSaveRegressionTest {
                 .contains("caseManagementNoteExtDao.getExtByNote(note.getId())")
                 .as("an existing key is updated in place rather than inserted again")
                 .contains("caseManagementMgr.updateNoteExt(")
-                // A note from before the per-key fix can hold several rows for one key, and the
-                // readers disagree on which wins (change detection takes the newest,
-                // NotesService the oldest), so refreshing one of them is not enough.
+                // A note from before the per-key fix can hold several rows for one key, and no
+                // reader ignores the extras: change detection scans every row and calls any
+                // divergence a change, while NotesService assigns from every row in id-desc
+                // order so the oldest is what the chart shows. Refreshing one row therefore
+                // leaves the note permanently dirty and still displaying the stale value.
                 .as("a key's rows are collected as a set, not reduced to a single row")
                 .contains("extByKey.computeIfAbsent(")
                 .doesNotContain("extByKey.putIfAbsent(")

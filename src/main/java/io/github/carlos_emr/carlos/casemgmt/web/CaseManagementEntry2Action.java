@@ -1063,7 +1063,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     }
                     extKeyMatched = true;
                 }
-                if (filled(comparableValue) && !extKeyMatched) { // new ext value(s) added
+                // THE SUBMITTED VALUE, NOT THE COMPARISON FORM. partialDateFormat() returns the
+                // EMPTY STRING for a full YYYY-MM-DD date -- that is its marker for "full
+                // precision" -- so comparableValue is "" exactly when the clinician typed a
+                // complete date. Testing it here would read a newly added full date as nothing
+                // added, and the early return below would then discard it. comparableValue exists
+                // only to compare against a stored row's precision marker.
+                if (filled(submitted) && !extKeyMatched) { // new ext value(s) added
                     extChanged = true;
                     break extNames;
                 }
