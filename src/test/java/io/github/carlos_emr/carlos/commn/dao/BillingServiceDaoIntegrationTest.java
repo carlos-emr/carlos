@@ -851,6 +851,38 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
             assertThat(dao.findBillingCodesByCodeAndTerminationDate("B007A", day("20230601"))).isEmpty();
         }
 
+        @Test
+        @Tag("query")
+        @DisplayName("should reject the newest duplicate fee when it has terminated")
+        void shouldRejectNewestDuplicate_whenOlderDuplicateIsActive() throws Exception {
+            BillingService older = createBillingService("_OMA_F10", "20260301");
+            older.setTerminationDate(day("99991231"));
+            dao.persist(older);
+            BillingService newer = createBillingService("_OMA_F10", "20260301");
+            newer.setTerminationDate(day("20260401"));
+            dao.persist(newer);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F10", day("20260315")))
+                    .containsExactly("_OMA_F10");
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F10", day("20260401")))
+                    .isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should accept the newest duplicate fee when the older duplicate has terminated")
+        void shouldAcceptNewestDuplicate_whenOlderDuplicateHasTerminated() throws Exception {
+            BillingService older = createBillingService("_OMA_F10", "20260301");
+            older.setTerminationDate(day("20260401"));
+            dao.persist(older);
+            BillingService newer = createBillingService("_OMA_F10", "20260301");
+            newer.setTerminationDate(day("99991231"));
+            dao.persist(newer);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F10", day("20260401")))
+                    .containsExactly("_OMA_F10");
+        }
+
         private Date day(String yyyymmdd) throws Exception {
             return new Date(dfm.parse(yyyymmdd).getTime());
         }

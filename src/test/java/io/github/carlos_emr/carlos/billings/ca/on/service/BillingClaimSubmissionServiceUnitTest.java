@@ -75,7 +75,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRejectInactivePrivateCode_whenFinalSaveBypassesReview() {
-        var submission = privateSubmission("PAT");
+        var submission = privateSubmission("PAT", "2026-02-28");
         when(mockBillingServiceDao.findBillingCodesByCodeAndTerminationDate(
                 "_OMA_F10", java.sql.Date.valueOf("2026-02-28"))).thenReturn(List.of());
 
@@ -87,9 +87,9 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldSaveActivePrivateCode_whenFinalSaveUsesEffectiveDate() {
-        var submission = privateSubmission("PAT");
+        var submission = privateSubmission("PAT", "2026-03-01");
         when(mockBillingServiceDao.findBillingCodesByCodeAndTerminationDate(
-                "_OMA_F10", java.sql.Date.valueOf("2026-02-28"))).thenReturn(List.of("_OMA_F10"));
+                "_OMA_F10", java.sql.Date.valueOf("2026-03-01"))).thenReturn(List.of("_OMA_F10"));
         when(mockPersister.addOneClaimHeaderRecord(submission.header())).thenReturn(1234);
 
         assertThat(service.addBillingRecord(submission).saved()).isTrue();
@@ -98,16 +98,16 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRejectPrivateCode_whenFinalSaveUsesOhipProgram() {
-        assertThatThrownBy(() -> service.addBillingRecord(privateSubmission("HCP")))
+        assertThatThrownBy(() -> service.addBillingRecord(privateSubmission("HCP", "2026-03-01")))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
                 .hasMessageContaining("private billing program");
         org.mockito.Mockito.verifyNoInteractions(mockPersister, mockBillingServiceDao);
     }
 
-    private static BillingClaimSubmissionService.BillingClaimSubmission privateSubmission(String program) {
+    private static BillingClaimSubmissionService.BillingClaimSubmission privateSubmission(String program, String serviceDate) {
         return new BillingClaimSubmissionService.BillingClaimSubmission(
                 new BillingClaimHeaderDto().withPayProgram(program),
-                List.of(new BillingClaimItemDto().withServiceCode("_OMA_F10").withServiceDate("2026-02-28")));
+                List.of(new BillingClaimItemDto().withServiceCode("_OMA_F10").withServiceDate(serviceDate)));
     }
 
     @Test

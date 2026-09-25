@@ -377,16 +377,19 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
     }
 
     public List<Object> findBillingCodesByCodeAndTerminationDate(String serviceCode, Date serviceDate) {
-        // Latest-effective-row rule, as findBillingServiceAndCtlBillingServiceByMagic and
-        // getCodeDescription apply it: the row in effect on the service date is the one with the
-        // greatest billingserviceDate on or before that date. Checking termination on that row
-        // only (rather than on any row for the code) also excludes a fee whose first row takes
+        // Latest-effective-row rule, as findBillingServiceAndCtlBillingServiceByMagic applies it:
+        // the row in effect on the service date is the one with the
+        // greatest billingserviceDate on or before that date, breaking ties by billingserviceNo.
+        // Checking termination on that row only (rather than on any row for the code)
+        // also excludes a fee whose first row takes
         // effect after the service date, which the form's date-filtered lookups already hide.
         String sql = "SELECT DISTINCT(bs.serviceCode) FROM BillingService bs"
                 + " WHERE bs.serviceCode = ?1"
                 + " AND bs.terminationDate > ?2"
                 + " AND bs.billingserviceDate = (SELECT MAX(b2.billingserviceDate) FROM BillingService b2"
-                + "     WHERE b2.serviceCode = ?1 AND b2.billingserviceDate <= ?2)";
+                + "     WHERE b2.serviceCode = ?1 AND b2.billingserviceDate <= ?2)"
+                + " AND bs.billingserviceNo = (SELECT MAX(b3.billingserviceNo) FROM BillingService b3"
+                + "     WHERE b3.serviceCode = bs.serviceCode AND b3.billingserviceDate = bs.billingserviceDate)";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, serviceCode);
         query.setParameter(2, serviceDate);
