@@ -346,13 +346,15 @@ public class RxSessionBean implements java.io.Serializable {
     }
 
     /**
-     * Discards every staged card and resets the cursor to -1.
+     * Discards every staged card and pending ReRx selection, and resets the cursor to -1.
+     * Both explicit discard actions use this atomic reset; saved chart drugs are unaffected.
      */
     public synchronized void clearStash() {
         //    this.clearDDI();
         //    this.clearDAM();
         stash = new ArrayList();
         stashIndex = -1;
+        clearReRxDrugIdList();
     }
 
     /**

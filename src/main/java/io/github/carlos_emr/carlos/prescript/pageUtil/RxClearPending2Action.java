@@ -58,9 +58,10 @@ public final class RxClearPending2Action extends ActionSupport {
      * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
      * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
      *
-     * POST-only (405 + {@code Allow: POST} otherwise): clears every staged card of the named patient.
+     * POST-only (405 + {@code Allow: POST} otherwise): clears the named patient's staged cards
+     * and pending ReRx selections together, leaving saved chart prescriptions intact.
      *
-     * @return {@code close}, {@code success}, {@code NONE} after a 405, or {@code null} after a redirect
+     * @return {@code close}, {@code success}, or {@code NONE} after a 405/409 refusal
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String execute()
@@ -84,15 +85,16 @@ public final class RxClearPending2Action extends ActionSupport {
         // Clears staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
 
+        RxReprintWorkspace.Entry previousReprint = RxReprintWorkspace.find(request.getSession(), bean.getDemographicNo());
         bean.clearStash();
-        // "Create a new Rx" also ends a pending reprint of this patient; otherwise ViewScript2
-        // would still render the reprinted script after the next save (#3908).
-        RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
+        // End the reprint that belonged to the discarded work, preserving a newer reprint
+        // opened during this reset. Session workspace access stays outside the bean monitor.
+        RxReprintWorkspace.clearIfSame(request.getSession(), bean.getDemographicNo(), previousReprint);
 
         if ("close".equals(action)) {
             return "close";

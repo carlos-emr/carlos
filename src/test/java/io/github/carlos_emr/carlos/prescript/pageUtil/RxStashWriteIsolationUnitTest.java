@@ -41,6 +41,9 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -52,6 +55,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -156,6 +161,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             // CSRFGuard does not check GET, so a link or image tag must not clear the stash (#3908).
             request.setMethod(httpMethod);
             namePatient();
+            RxReprintWorkspace.Entry reprint = RxReprintWorkspace.store(request.getSession(), bean, "previous");
             RxClearPending2Action action = new RxClearPending2Action();
             action.setAction("");
 
@@ -165,6 +171,8 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(405);
             assertThat(response.getHeader("Allow")).isEqualTo("POST");
             assertThat(bean.getStashSize()).isEqualTo(2);
+            assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+            assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO)).isSameAs(reprint);
             verifyNoInteractions(mockSecurityInfoManager, mockDrugDao, stagedCard);
             logActionMock.verifyNoInteractions();
         }
@@ -177,22 +185,107 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
 
             String result = action.execute();
 
-            assertThat(result).isNull();
-            assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getRedirectedUrl()).isNull();
             assertThat(bean.getStashSize()).isEqualTo(2);
+            assertThat(bean.getReRxDrugIdList()).containsExactly("55");
         }
 
-        @Test
-        @DisplayName("should clear the named patient's stash")
-        void shouldClearStash_whenRequestNamesPatient() throws Exception {
+        @ParameterizedTest
+        @ValueSource(strings = {"", "close"})
+        @DisplayName("should discard only the named patient's pending work without writing chart drugs")
+        void shouldClearPendingState_whenRequestNamesPatient(String resultAction) throws Exception {
             namePatient();
+            RxSessionBean other = new RxSessionBean();
+            other.setDemographicNo(DEMOGRAPHIC_NO + 1);
+            other.getStashList().add(new RxPrescriptionData.Prescription(0, PROVIDER_NO, DEMOGRAPHIC_NO + 1));
+            other.addReRxDrugIdList("88");
+            RxSessionBeanResolver.register(request.getSession(), other);
+            RxReprintWorkspace.store(request.getSession(), bean, "discarded reprint");
+            RxReprintWorkspace.Entry otherReprint = RxReprintWorkspace.store(request.getSession(), other, "other reprint");
             RxClearPending2Action action = new RxClearPending2Action();
-            action.setAction("");
+            action.setAction(resultAction);
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(result).isEqualTo("close".equals(resultAction) ? "close" : ActionSupport.SUCCESS);
             assertThat(bean.getStashSize()).isZero();
+            assertThat(bean.getStashIndex()).isEqualTo(-1);
+            assertThat(bean.getReRxDrugIdList()).isEmpty();
+            assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO)).isNull();
+            assertThat(other.getStashSize()).isEqualTo(1);
+            assertThat(other.getReRxDrugIdList()).containsExactly("88");
+            assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO + 1)).isSameAs(otherReprint);
+            // Discarding draft copies must neither delete nor archive their saved source drugs.
+            verifyNoInteractions(mockDrugDao, stagedCard);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should preserve a newer reprint opened while pending work is discarded")
+        void shouldPreserveNewReprint_whenOpenedDuringReset() throws Exception {
+            namePatient();
+            RxSessionBean resetBean = spy(bean);
+            RxSessionBeanResolver.register(request.getSession(), resetBean);
+            RxReprintWorkspace.store(request.getSession(), resetBean, "previous");
+            RxSessionBean newer = new RxSessionBean();
+            newer.setDemographicNo(DEMOGRAPHIC_NO);
+            doAnswer(invocation -> {
+                invocation.callRealMethod();
+                RxReprintWorkspace.store(request.getSession(), newer, "newer");
+                return null;
+            }).when(resetBean).clearStash();
+
+            assertThat(new RxClearPending2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(resetBean.getStashSize()).isZero();
+            assertThat(resetBean.getReRxDrugIdList()).isEmpty();
+            assertThat(RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO).bean()).isSameAs(newer);
+        }
+
+        @Test
+        @DisplayName("should keep a concurrently staged card and its source together after the reset")
+        void shouldResetAtomically_whenAnotherWindowStagesReRx() throws Exception {
+            namePatient();
+            AtomicReference<Thread> staging = new AtomicReference<>();
+            RxSessionBean racingBean = new RxSessionBean() {
+                @Override
+                public void clearReRxDrugIdList() {
+                    Thread worker = new Thread(() -> {
+                        synchronized (this) {
+                            getStashList().add(new RxPrescriptionData.Prescription(0, PROVIDER_NO, DEMOGRAPHIC_NO));
+                            addReRxDrugIdList("99");
+                        }
+                    }, "rx-stage-during-reset");
+                    staging.set(worker);
+                    worker.start();
+                    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                    while (worker.isAlive() && worker.getState() != Thread.State.BLOCKED && System.nanoTime() < deadline) {
+                        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+                    }
+                    assertThat(worker.getState()).isIn(Thread.State.BLOCKED, Thread.State.TERMINATED);
+                    super.clearReRxDrugIdList();
+                }
+            };
+            racingBean.setDemographicNo(DEMOGRAPHIC_NO);
+            racingBean.getStashList().add(stagedCard);
+            racingBean.addReRxDrugIdList("55");
+            RxSessionBeanResolver.register(request.getSession(), racingBean);
+
+            try {
+                assertThat(new RxClearPending2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            } finally {
+                if (staging.get() != null) {
+                    staging.get().join(TimeUnit.SECONDS.toMillis(5));
+                }
+            }
+
+            assertThat(staging.get()).isNotNull();
+            assertThat(staging.get().isAlive()).isFalse();
+            assertThat(racingBean.getStashSize()).isEqualTo(1);
+            assertThat(racingBean.getReRxDrugIdList()).containsExactly("99");
+            verifyNoInteractions(mockDrugDao, stagedCard);
         }
     }
 
@@ -245,6 +338,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("successClearStash");
             assertThat(bean.getStashSize()).isZero();
+            assertThat(bean.getReRxDrugIdList()).isEmpty();
+            verifyNoInteractions(mockDrugDao, stagedCard);
+            logActionMock.verifyNoInteractions();
         }
 
         @Test
