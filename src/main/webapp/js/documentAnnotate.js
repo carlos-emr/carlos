@@ -107,7 +107,8 @@
             });
             img.addEventListener('error', function () {
                 this.parentNode.classList.add('load-failed');
-                setStatus('Page ' + this.dataset.page + ' could not be loaded. Reload the viewer before annotating it.', 'error');
+                setStatus(t('pageLoadFailed', 'Page {0} could not be loaded. Reload the viewer before annotating it.')
+                    .replace('{0}', this.dataset.page), 'error');
             });
 
             var svg = document.createElementNS(SVG_NS, 'svg');
@@ -1078,6 +1079,7 @@
         setStatus(t('saving', 'Saving…'), 'busy');
         document.getElementById('btnSave').disabled = true;
         document.getElementById('btnSaveFax').disabled = true;
+        var reached = false;
 
         annotationFontReady().then(function () {
             // This save's own snapshot is about to be taken, so it fits the notes directly;
@@ -1097,6 +1099,9 @@
                 body: JSON.stringify(savePayload())
             });
         }).then(function (response) {
+            // From here on the server has seen the request: a failure to read the reply
+            // means the copy may or may not have been filed, so it is "uncertain".
+            reached = true;
             return response.json().then(function (data) {
                 return { ok: response.ok, data: data };
             });
@@ -1131,8 +1136,17 @@
             }
         }).catch(function () {
             setSaving(false);
-            state.uncertain = true;
-            setStatus('The save could not be confirmed. Check the patient’s documents before saving another copy.', 'error');
+            if (reached) {
+                // The request reached the server but its reply could not be read (an HTML
+                // error or login page, a dropped connection mid-reply): the copy may already
+                // be filed, so refuse a second save until the operator has checked.
+                state.uncertain = true;
+                setStatus(t('saveUnconfirmed', 'The save could not be confirmed. Check the patient\u2019s documents before saving another copy.'), 'error');
+            } else {
+                // Nothing left the browser (token bootstrap or fetch itself failed): the
+                // marks are intact and a retry is safe, so keep Save enabled.
+                setStatus(t('saveFailed', 'The annotated document could not be saved.'), 'error');
+            }
             updateCounts();
         }).then(function () {
             if (state.refitPending) { refitNotes(); }
