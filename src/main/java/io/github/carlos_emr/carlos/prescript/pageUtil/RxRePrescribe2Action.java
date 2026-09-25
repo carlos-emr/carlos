@@ -101,9 +101,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
     }
 
     /**
-     * Loads a saved script for reprinting, for the patient the request resolves to ({@code _rx} read).
+     * Loads a saved script for reprinting, for the explicitly named patient ({@code _rx} read).
      *
-     * @return the reprint result, or {@code null} after a redirect
+     * @return the reprint result, or {@code NONE} after an error response
      */
     public String reprint() throws IOException {
         // Reprinting records a print on the script and puts the patient into reprint mode: POST-only
@@ -121,9 +121,11 @@ public final class RxRePrescribe2Action extends ActionSupport {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
         RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
-        if (sessionBeanRX == null) {
-            response.sendRedirect("error.html");
-            return null;
+        // Printing updates persisted print history, so even this read-privileged operation
+        // must name its patient instead of using another window's active-patient fallback.
+        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, sessionBeanRX)) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
         RxSessionBean beanRX = new RxSessionBean();
@@ -170,10 +172,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
     }
 
     /**
-     * Loads a saved script of the resolved patient into that patient's {@link RxReprintWorkspace}
+     * Loads a saved script of the explicitly named patient into that patient's {@link RxReprintWorkspace}
      * entry; the script is looked up for that patient only ({@code _rx} read).
      *
-     * @return {@code null}; ViewScript2 renders the reprint
+     * @return {@code null} when ViewScript2 can render the reprint, or {@code NONE} after an error response
      */
     public String reprint2() throws IOException {
         // Records a print on the script and puts the patient into reprint mode: POST-only, like
@@ -186,7 +188,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
         RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
-        if (sessionBeanRX == null) {
+        // Print-history updates must use the explicitly named patient, never the fallback.
+        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, sessionBeanRX)) {
             // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
             // answer 409 instead (#3908).
             response.sendError(HttpServletResponse.SC_CONFLICT);

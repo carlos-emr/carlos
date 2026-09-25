@@ -804,6 +804,73 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}: {1}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "reprint, missing", "reprint2, missing", "reprint, empty", "reprint2, empty",
+            "reprint, malformed", "reprint2, malformed", "reprint, unopened", "reprint2, unopened",
+            "reprint, conflicting", "reprint2, conflicting"
+    })
+    @DisplayName("should refuse an unbound reprint before loading or changing print history")
+    void shouldRejectReprint_whenPatientBindingIsUnresolved(String method, String binding) throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        request.setParameter("method", method);
+        request.setParameter("scriptNo", "12");
+        action.setDrugList("12");
+        switch (binding) {
+            case "empty" -> request.setParameter("demographicNo", "");
+            case "malformed" -> request.setParameter("demographicNo", "invalid");
+            case "unopened" -> request.setParameter("demographicNo", "9999");
+            case "conflicting" -> {
+                request.setParameter("demographicNo", "1");
+                request.setParameter("demographic_no", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
+            }
+            default -> request.removeParameter("demographicNo");
+        }
+        RxSessionBean originalReprint = new RxSessionBean();
+        originalReprint.setDemographicNo(1);
+        RxReprintWorkspace.Entry original = RxReprintWorkspace.store(request.getSession(), originalReprint, "previous");
+
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class);
+             MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(data.constructed()).isEmpty();
+            assertThat(RxReprintWorkspace.find(request.getSession(), 1)).isSameAs(original);
+            assertThat(RxReprintWorkspace.find(request.getSession(), SIGNATURE_DEMOGRAPHIC_NO)).isNull();
+            audit.verifyNoInteractions();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"reprint", "reprint2"})
+    @DisplayName("should look up the named patient's script with read privilege even when another patient is active")
+    void shouldLoadNamedPatient_whenOnlyReadPrivilegeIsGranted(String method) throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), anyInt())).thenReturn(false);
+        request.setParameter("method", method);
+        request.setParameter("demographic_no", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
+        request.setParameter("scriptNo", "12");
+        action.setDrugList("12");
+
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            // No saved row in this fixture: reaching the scoped lookup produces 404, not a
+            // patient-binding or permission refusal, and never falls back to active patient 1.
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(data.constructed()).hasSize(1);
+            verify(data.constructed().getFirst()).getPrescriptionsByScriptNo(12, SIGNATURE_DEMOGRAPHIC_NO);
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", SIGNATURE_DEMOGRAPHIC_NO);
+            verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), eq("w"), anyInt());
+        }
+    }
+
     @org.junit.jupiter.api.Test
     @DisplayName("should answer 404 and open no reprint when reprint2 names a script that is not the patient's")
     void shouldRejectReprint2_whenScriptIsNotThePatients() throws Exception {
