@@ -132,7 +132,7 @@ public class EmailSend2Action extends ActionSupport {
         // persist an EmailLog (and may delete the eForm), and cancel only ever arrives from the
         // compose form's POST. HttpMethodGuardFilter does not classify this route, so the
         // POST-only gate lives here, before any parameter is parsed or any side effect fires.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             try {
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
