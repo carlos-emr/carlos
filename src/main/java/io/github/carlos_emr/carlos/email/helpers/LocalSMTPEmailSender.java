@@ -27,8 +27,9 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
+        String configJson = requireConfigDetails(emailConfig);
         try {
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
+            JsonNode jsonNode = objectMapper.readTree(configJson);
             String host = jsonNode.get("host").asText();
             String port = jsonNode.get("port").asText();
 
