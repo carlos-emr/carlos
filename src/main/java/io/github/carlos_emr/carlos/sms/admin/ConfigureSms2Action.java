@@ -120,7 +120,8 @@ public class ConfigureSms2Action extends ActionSupport {
         );
         List<String> errors = validator.validate(update, configService.installedProviders());
         if (!errors.isEmpty()) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            // Re-displayed with 200: CARLOS's ResponseSanitizationFilter mishandles a JSP body rendered
+            // under a 4xx status ("committed mid-chain"), which left the admin a blank page.
             request.setAttribute("smsConfig", assembler.assemble(null, errors));
             return SUCCESS;
         }

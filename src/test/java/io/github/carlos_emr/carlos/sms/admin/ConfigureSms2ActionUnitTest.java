@@ -176,7 +176,7 @@ class ConfigureSms2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("saving invalid settings shows the errors and stores nothing")
+    @DisplayName("saving invalid settings re-displays the page (200) with the errors and stores nothing")
     void shouldShowErrors_whenSettingsAreInvalid() throws Exception {
         allowWrite();
         request.setParameter("method", "configure");
@@ -188,7 +188,7 @@ class ConfigureSms2ActionUnitTest {
         String result = action().execute();
 
         assertThat(result).isEqualTo("success");
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(request.getAttribute("smsConfig")).isSameAs(model);
         verify(configService, never()).save(any(), any());
     }
