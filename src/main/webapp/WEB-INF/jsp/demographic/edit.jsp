@@ -1076,6 +1076,21 @@
                                     href='<%= request.getContextPath() %>/demographic/DemographicApptHistory?demographic_no=<%=demographic.getDemographicNo()%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
                             </td>
                         </tr>
+                        <%-- Patient SMS history (#3839); the action re-checks _sms and _demographic for this patient. --%>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_sms" rights="r">
+                            <tr class="Header">
+                                <td style="font-weight: bold"><fmt:message key="sms.history.section"/></td>
+                            </tr>
+                            <tr id="sms_hx">
+                                <td>
+                                    <c:set var="__encSmsHistoryDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
+                                    <c:set var="__encSmsHistoryUrl" value="${pageContext.request.contextPath}/sms/ViewSmsHistory?demographic_no=${__encSmsHistoryDemoNo}" />
+                                    <a href="javascript: function myFunction() {return false; }"
+                                       onClick="popupPage(600,1500,'<carlos:encode value='${__encSmsHistoryUrl}' context="javaScriptAttribute"/>')">
+                                        <fmt:message key="sms.history.title"/></a>
+                                </td>
+                            </tr>
+                        </security:oscarSec>
 
                         <%
                             // wLReadonly already computed in preamble
