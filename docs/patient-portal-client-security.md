@@ -33,6 +33,11 @@ key. Confirm connectivity, then remove the old pin and restart CARLOS again.
 Certificate renewal with the same public key preserves the pin. Operators must
 coordinate automated key rotation with this process; failures stop portal calls.
 
+[`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md) turns this into steps: choosing
+where HTTPS ends, setting and checking the first pin, renewing without changing the key, keeping a
+standby pin, rotating, and recovering from a mismatch. Each clinic records its own answers in a copy
+of [`patient-portal-deployment-record-template.md`](patient-portal-deployment-record-template.md).
+
 This authenticates the configured TLS endpoint. It does not protect a compromised
 portal, a stolen pinned private key, modified CARLOS configuration, or patients
 who visit a separate phishing site. Deployment and the actual pins need separate
