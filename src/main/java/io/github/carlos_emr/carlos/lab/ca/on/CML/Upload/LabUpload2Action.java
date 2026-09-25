@@ -120,7 +120,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 InputStream is = Files.newInputStream(validatedImportFile.toPath());
 
                 // Get sanitized filename from the validated source
-                filename = importFile.getName();
+                filename = uploadedFileName == null ? importFile.getName() : uploadedFileName;
 
                 String localFileName = saveFile(is, filename);
                 is.close();
@@ -235,17 +235,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 return null;
             }
 
-            partialOutput = targetFile;
-
             // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
             // destroyed the colliding upload's lab. The output is also closed by try-with-resources
             // now, rather than only on the success path.
             try (OutputStream bos = Files.newOutputStream(targetFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                int bytesRead = 0;
-                while ((bytesRead = uploadStream.read()) != -1) {
-                    bos.write(bytesRead);
-                }
+                // Only a successful CREATE_NEW establishes ownership for rollback cleanup.
+                partialOutput = targetFile;
+                uploadStream.transferTo(bos);
             }
 
             // Assigned only after a complete write: a path to a partial lab is worse than none.
@@ -255,9 +252,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return null;
 
-        } catch (IOException ioe) {
-            // As in the PathNet writer: the collision case is handled above, so a file present here
-            // belongs to this call and must not be left looking like a complete lab.
+        } catch (IOException | SecurityException ioe) {
+            // Do not delete a destination when opening it failed before this invocation owned it.
             deletePartialOutput(partialOutput);
             // exceptionTrace rather than the throwable: a filesystem exception message here is the
             // generated path, whose basename embeds the uploaded lab filename.
@@ -279,13 +275,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         try {
             Files.deleteIfExists(outputFile.toPath());
-        } catch (IOException deleteException) {
+        } catch (IOException | SecurityException deleteException) {
             MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
                     deleteException.getClass().getSimpleName());
         }
     }
 
     private File importFile;
+    private String uploadedFileName;
     private String uploadValidationError;
 
     @Override
@@ -295,6 +292,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
             try {
                 PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+                this.uploadedFileName = uploaded.getOriginalName();
             } catch (FileValidationException e) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
             }

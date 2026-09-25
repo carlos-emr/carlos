@@ -48,9 +48,58 @@ public final class RecordingTransactionManager extends AbstractPlatformTransacti
     public volatile boolean failCommit;
     public volatile boolean rollBackOnCommit;
 
+    private final ThreadLocal<Resource> current = new ThreadLocal<>();
+
+    private static final class Transaction implements org.springframework.transaction.support.SmartTransactionObject {
+        private Resource resource;
+
+        @Override
+        public boolean isRollbackOnly() {
+            return resource != null && resource.rollbackOnly;
+        }
+    }
+
+    private static final class Resource {
+        private boolean rollbackOnly;
+    }
+
     @Override
     protected Object doGetTransaction() {
-        return new Object();
+        Transaction transaction = new Transaction();
+        transaction.resource = current.get();
+        return transaction;
+    }
+
+    @Override
+    protected boolean isExistingTransaction(Object transaction) {
+        return ((Transaction) transaction).resource != null;
+    }
+
+    @Override
+    protected Object doSuspend(Object transaction) {
+        Resource suspended = current.get();
+        ((Transaction) transaction).resource = null;
+        current.remove();
+        return suspended;
+    }
+
+    @Override
+    protected void doResume(Object transaction, Object suspendedResources) {
+        current.set((Resource) suspendedResources);
+        if (transaction != null) {
+            ((Transaction) transaction).resource = (Resource) suspendedResources;
+        }
+    }
+
+    @Override
+    protected void doSetRollbackOnly(DefaultTransactionStatus status) {
+        ((Transaction) status.getTransaction()).resource.rollbackOnly = true;
+    }
+
+    @Override
+    protected void doCleanupAfterCompletion(Object transaction) {
+        ((Transaction) transaction).resource = null;
+        current.remove();
     }
 
     @Override
@@ -58,6 +107,9 @@ public final class RecordingTransactionManager extends AbstractPlatformTransacti
         if (failBegin) {
             throw new CannotCreateTransactionException("database unavailable");
         }
+        Resource resource = new Resource();
+        ((Transaction) transaction).resource = resource;
+        current.set(resource);
         begun++;
         lastIsolationLevel = definition.getIsolationLevel();
     }

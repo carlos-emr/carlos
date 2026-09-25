@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -143,7 +144,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                     });
             jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
 
-            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(execute(uploaded, "original.hl7")).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("outcome")).isEqualTo("uploaded");
             assertThat(parsers.constructed()).hasSize(1);
@@ -158,7 +159,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             try (var children = Files.list(documentDir)) {
                 var archived = children.toList();
                 assertThat(archived).hasSize(1);
-                assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.source.hl7.");
+                assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.original.hl7.");
                 assertThat(archived.get(0)).hasBinaryContent("MSH|fixture CML content".getBytes(StandardCharsets.UTF_8));
             }
         }
@@ -185,7 +186,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             // Before the fix a duplicate left the outcome empty, so the XML client saw <outcome/>.
             assertThat(request.getAttribute("outcome")).isEqualTo("uploadedPreviously");
             assertThat(parsers.constructed()).isEmpty();
-            assertThat(transactions.begun).isZero();
+            assertThat(transactions.begun).isEqualTo(1);
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), anyString()), never());
             jdbc.verifyNoInteractions();
         }
@@ -209,7 +210,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             // Nothing is known about the content, so the client is told to retry, not "exception".
             assertThat(request.getAttribute("outcome")).isEqualTo("databaseNotStarted");
             assertThat(parsers.constructed()).isEmpty();
-            assertThat(transactions.begun).isZero();
+            assertThat(transactions.begun).isEqualTo(1);
             jdbc.verifyNoInteractions();
         }
     }
@@ -330,11 +331,20 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private String execute(Path uploaded) {
+        return execute(uploaded, null);
+    }
+
+    private String execute(Path uploaded, String originalName) {
         try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class)) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
             LabUpload2Action action = new LabUpload2Action();
-            if (uploaded != null) action.setImportFile(uploaded.toFile());
+            if (uploaded != null && originalName != null) {
+                var multipart = mock(org.apache.struts2.dispatcher.multipart.UploadedFile.class);
+                when(multipart.getContent()).thenReturn(uploaded.toFile());
+                when(multipart.getOriginalName()).thenReturn(originalName);
+                action.withUploadedFiles(List.of(multipart));
+            } else if (uploaded != null) action.setImportFile(uploaded.toFile());
             return action.execute();
         }
     }

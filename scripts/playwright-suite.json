@@ -503,6 +503,22 @@
       ]
     },
     {
+      "name": "lab-upload-rollback",
+      "script": "scripts/lab-upload-rollback-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 480,
+      "env": [
+        "CML_UPLOAD_KEY",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ]
+    },
+    {
       "name": "document-upload",
       "script": "scripts/document-upload-playwright-checks.js",
       "tiers": [

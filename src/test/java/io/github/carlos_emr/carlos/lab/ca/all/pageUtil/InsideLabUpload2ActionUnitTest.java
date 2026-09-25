@@ -153,7 +153,7 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
             Map<?, ?> statuses = (Map<?, ?>) request.getAttribute("filesStatusMap");
             assertThat(statuses.get("duplicate.hl7").toString()).isEqualTo("EXISTS");
             handlers.verifyNoInteractions();
-            assertThat(transactions.begun).isZero();
+            assertThat(transactions.begun).isEqualTo(1);
         }
     }
 

@@ -138,7 +138,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                         return 1;
                     });
 
-            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(execute(uploaded, "original.hl7")).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("outcome")).isEqualTo("success");
             assertThat(transactions.commits).isEqualTo(1);
@@ -148,7 +148,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             try (var children = Files.list(documentDir)) {
                 var archived = children.toList();
                 assertThat(archived).hasSize(1);
-                assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.source.hl7.");
+                assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.original.hl7.");
                 assertThat(archived.get(0)).hasBinaryContent("MSH|fixture PathNet content".getBytes(StandardCharsets.UTF_8));
             }
             // The upload is read once into a snapshot shared by all three readers, and the file stream is closed.
@@ -176,7 +176,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(request.getAttribute("outcome")).isEqualTo("uploadedPreviously");
             assertThat(connections.constructed()).isEmpty();
-            assertThat(transactions.begun).isZero();
+            assertThat(transactions.begun).isEqualTo(1);
             try (var children = Files.list(documentDir)) {
                 assertThat(children.toList()).isEmpty();
             }
@@ -310,6 +310,53 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldAvoidSecondArchive_whenPartialWriteCannotBeDeleted() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("unarchived.hl7"), "MSH|unarchivable PathNet content");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class, (connection, context) ->
+                     when(connection.Retrieve(any(InputStream.class))).thenReturn(new ArrayList<>(List.of("MSH|1"))));
+             MockedConstruction<Message> messages = mockConstruction(Message.class);
+             MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            files.when(() -> Files.newOutputStream(any(Path.class),
+                    eq(java.nio.file.StandardOpenOption.CREATE_NEW), eq(java.nio.file.StandardOpenOption.WRITE)))
+                    .thenAnswer(invocation -> new java.io.FilterOutputStream((java.io.OutputStream) invocation.callRealMethod()) {
+                        @Override
+                        public void write(byte[] bytes, int offset, int length) throws java.io.IOException {
+                            out.write(bytes, offset, Math.min(length, 3));
+                            throw new java.io.IOException("synthetic full disk");
+                        }
+                    });
+            files.when(() -> Files.deleteIfExists(any(Path.class)))
+                    .thenThrow(new java.nio.file.AccessDeniedException("synthetic cleanup failure"));
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
+            duplicateCheck.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
+                    .thenReturn(1);
+
+            assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
+
+            // Before, the messages and checksum committed first and the failed archive answered a
+            // retryable "exception" that the retry then refused as uploadedPreviously.
+            verify(messages.constructed().get(0)).ToDatabase();
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+            files.verify(() -> Files.newOutputStream(any(Path.class),
+                    eq(java.nio.file.StandardOpenOption.CREATE_NEW), eq(java.nio.file.StandardOpenOption.WRITE)), times(1));
+            try (var children = Files.list(documentDir)) {
+                assertThat(children.toList()).hasSize(1);
+            }
+        }
+    }
+
+    @Test
     void shouldKeepSingleArchive_whenCommitOutcomeIsUnknown() throws Exception {
         Path uploaded = Files.writeString(root.resolve("unacknowledged.hl7"), "MSH|unacknowledged PathNet content");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
@@ -385,11 +432,20 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private String execute(Path uploaded) {
+        return execute(uploaded, null);
+    }
+
+    private String execute(Path uploaded, String originalName) {
         try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class)) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
             LabUpload2Action action = new LabUpload2Action();
-            if (uploaded != null) action.setImportFile(uploaded.toFile());
+            if (uploaded != null && originalName != null) {
+                var multipart = mock(org.apache.struts2.dispatcher.multipart.UploadedFile.class);
+                when(multipart.getContent()).thenReturn(uploaded.toFile());
+                when(multipart.getOriginalName()).thenReturn(originalName);
+                action.withUploadedFiles(List.of(multipart));
+            } else if (uploaded != null) action.setImportFile(uploaded.toFile());
             return action.execute();
         }
     }

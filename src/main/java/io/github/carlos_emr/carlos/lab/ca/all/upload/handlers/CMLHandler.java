@@ -65,10 +65,14 @@ public class CMLHandler implements MessageHandler {
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
+        labNo = null;
         int i = 0;
         RouteReportResults routeResults;
         try {
             ArrayList<String> messages = Utilities.separateMessages(fileName);
+            if (messages == null || messages.isEmpty()) {
+                return null;
+            }
             for (i = 0; i < messages.size(); i++) {
                 String msg = messages.get(i);
 				/*if(isDuplicate(loggedInInfo, msg)) {

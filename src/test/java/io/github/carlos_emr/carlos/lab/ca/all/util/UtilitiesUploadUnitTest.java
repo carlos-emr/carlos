@@ -81,7 +81,9 @@ class UtilitiesUploadUnitTest {
         InputStream input = new InputStream() {
             private int reads;
             @Override public int read() throws IOException {
-                if (reads++ == 3) throw new IOException("injected read failure");
+                // InputStream.read(byte[]) returns bytes read before an IOException. Fail every
+                // subsequent read too; a one-shot error turns this fixture into an infinite stream.
+                if (reads++ >= 3) throw new IOException("injected read failure");
                 return 'A';
             }
             @Override public void close() { closed.set(true); }

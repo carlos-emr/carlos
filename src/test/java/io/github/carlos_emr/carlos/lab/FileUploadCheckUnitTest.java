@@ -39,6 +39,8 @@ import org.mockito.MockedStatic;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -154,7 +156,7 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
                 });
 
         assertThat(outcome).isEqualTo(FileUploadCheck.StoreOutcome.ALREADY_RECORDED);
-        assertThat(transactions.begun).isZero();
+        assertThat(transactions.begun).isEqualTo(1);
         verify(dao, never()).persist(any());
     }
 
@@ -192,7 +194,7 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
                 () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> true))
                 .isInstanceOf(FileUploadCheck.LookupFailedException.class)
                 .hasCauseInstanceOf(IllegalStateException.class);
-        assertThat(transactions.begun).isZero();
+        assertThat(transactions.begun).isEqualTo(1);
         verify(dao, never()).persist(any());
     }
 
@@ -227,21 +229,80 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldMakeAddFileWait_whileSameContentIsStoring() throws Exception {
-        when(dao.findByMd5Sum(anyString())).thenReturn(List.of());
-        CompletableFuture<Integer> concurrentClaim = new CompletableFuture<>();
-
-        FileUploadCheck.storeIfNew("lab.hl7", () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
-            onWorker(() -> FileUploadCheck.addFile("again.hl7", new ByteArrayInputStream(CONTENT), "999998"))
-                    .whenComplete((id, failure) -> concurrentClaim.complete(id));
-            // addFile shares this content's lock, so it cannot check or claim the bytes until the
-            // checksum and the stored upload have committed together.
-            Thread.sleep(300);
-            assertThat(concurrentClaim).isNotDone();
-            return true;
+    void shouldCommitBeforeUnlocking_whenCallerAlreadyHasTransaction() {
+        TransactionTemplate outer = new TransactionTemplate(transactions);
+        outer.executeWithoutResult(outerStatus -> {
+            try {
+                FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew("lab.hl7",
+                        () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
+                            // A REQUIRED parser DAO joins the upload, rather than starting a third transaction.
+                            new TransactionTemplate(transactions).executeWithoutResult(joined ->
+                                    assertThat(joined.isNewTransaction()).isFalse());
+                            return true;
+                        });
+                assertThat(outcome).isEqualTo(FileUploadCheck.StoreOutcome.STORED);
+                assertThat(transactions.commits).isEqualTo(1);
+                assertThat(transactions.begun).isEqualTo(2);
+                assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                outerStatus.setRollbackOnly();
+            } catch (Exception failure) {
+                throw new AssertionError(failure);
+            }
         });
+        assertThat(transactions.commits).isEqualTo(1);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+    }
 
-        assertThat(concurrentClaim.get(10, TimeUnit.SECONDS)).isNotNull();
+    @Test
+    void shouldRollBackUpload_whenJoinedParserMarksRollbackOnly() {
+        assertThatThrownBy(() -> FileUploadCheck.storeIfNew("lab.hl7",
+                () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
+                    new TransactionTemplate(transactions).executeWithoutResult(joined -> joined.setRollbackOnly());
+                    return true;
+                })).isInstanceOf(org.springframework.transaction.UnexpectedRollbackException.class);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldMakeAddFileWait_whileSameContentIsStoring() throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean committed = new java.util.concurrent.atomic.AtomicBoolean();
+        when(dao.findByMd5Sum(anyString())).thenAnswer(invocation -> committed.get()
+                ? List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()) : List.of());
+        java.util.concurrent.atomic.AtomicReference<Thread> worker = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<CompletableFuture<Integer>> claim = new java.util.concurrent.atomic.AtomicReference<>();
+        var lock = FileUploadCheck.contentLock(DigestUtils.md5Hex(CONTENT));
+        try {
+            FileUploadCheck.storeIfNew("lab.hl7", () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        assertThat(lock.isHeldByCurrentThread()).isTrue();
+                        committed.set(true);
+                    }
+                });
+                claim.set(onWorker(() -> {
+                    worker.set(Thread.currentThread());
+                    return FileUploadCheck.addFile("again.hl7", new ByteArrayInputStream(CONTENT), "999998");
+                }));
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                while ((worker.get() == null || !lock.hasQueuedThread(worker.get())) && System.nanoTime() < deadline) {
+                    Thread.sleep(10);
+                }
+                // Prove that the worker actually reached the contended lock, rather than merely
+                // observing an unscheduled future after an arbitrary sleep.
+                assertThat(worker.get()).isNotNull();
+                assertThat(lock.hasQueuedThread(worker.get())).isTrue();
+                assertThat(claim.get()).isNotDone();
+                return true;
+            });
+        } finally {
+            if (claim.get() != null) {
+                assertThat(claim.get().get(10, TimeUnit.SECONDS)).isEqualTo(FileUploadCheck.UNSUCCESSFUL_SAVE);
+            }
+        }
+        verify(dao, org.mockito.Mockito.times(1)).persist(any());
     }
 
     // Mockito's static SpringUtils mock is per thread, so the worker registers the same beans.

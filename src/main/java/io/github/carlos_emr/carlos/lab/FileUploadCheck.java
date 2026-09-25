@@ -131,7 +131,7 @@ public final class FileUploadCheck {
         REJECTED
     }
 
-    /** Opens the upload's content; called once for the duplicate check and once to record it. */
+    /** Opens the same immutable upload content for locking, duplicate lookup, and recording. */
     @FunctionalInterface
     public interface ContentSource {
         InputStream open() throws IOException;
@@ -175,8 +175,10 @@ public final class FileUploadCheck {
      * <p>The lookup and the transaction run while holding the content's lock stripe, which
      * {@link #addFile} also takes for the same content. No other upload of the same bytes in the
      * same application instance can therefore see this content's checksum before it commits, or
-     * claim the content in between; uploads of other content are not held up. The lock does not
-     * reach across servers. The transaction reads at
+     * claim the content in between; uploads on other stripes are not held up. The lock does not
+     * reach across servers. This method owns an independent transaction, suspending any caller
+     * transaction until the upload has committed or rolled back. The duplicate lookup also runs
+     * in that transaction, avoiding a stale snapshot from the caller. The transaction reads at
      * READ_COMMITTED, as {@code ProviderLabRouting.routeMagic} requires of the transaction it joins
      * under MariaDB's snapshot isolation.</p>
      *
@@ -200,19 +202,22 @@ public final class FileUploadCheck {
         }
         lock.lock();
         try {
-            boolean recorded;
-            try (InputStream in = content.open()) {
-                recorded = isFileRecorded(in);
-            } catch (IOException | RuntimeException lookupFailure) {
-                throw new LookupFailedException(lookupFailure);
-            }
-            if (recorded) {
-                return StoreOutcome.ALREADY_RECORDED;
-            }
             TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
             transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+            // Own the commit boundary even when invoked by a transactional service. Otherwise
+            // REQUIRED releases the content lock before the caller commits its checksum.
+            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             try {
                 return transaction.execute(status -> {
+                    boolean recorded;
+                    try (InputStream in = content.open()) {
+                        recorded = isFileRecorded(in);
+                    } catch (IOException | RuntimeException lookupFailure) {
+                        throw new LookupFailedException(lookupFailure);
+                    }
+                    if (recorded) {
+                        return StoreOutcome.ALREADY_RECORDED;
+                    }
                     try {
                         int checksumId;
                         try (InputStream in = content.open()) {

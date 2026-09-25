@@ -56,6 +56,11 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
@@ -76,9 +81,8 @@ public class LabUploadWs extends AbstractWs {
             audit = importLab(fileName, contents, LabType.CLS, oscarProviderNo);
 
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            returnMessage = "{\"success\":0,\"message\":\"" +
-                    e.getMessage() + "\", \"audit\":\"\"}";
+            logger.error("Lab upload failed: {}", LogSafe.exceptionTrace(e));
+            returnMessage = "{\"success\":0,\"message\":\"Lab upload failed\", \"audit\":\"\"}";
             return returnMessage;
         }
 
@@ -97,9 +101,8 @@ public class LabUploadWs extends AbstractWs {
             audit = importLab(fileName, contents, LabType.CML, oscarProviderNo);
 
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            returnMessage = "{\"success\":0,\"message\":\"" +
-                    e.getMessage() + "\", \"audit\":\"\"}";
+            logger.error("Lab upload failed: {}", LogSafe.exceptionTrace(e));
+            returnMessage = "{\"success\":0,\"message\":\"Lab upload failed\", \"audit\":\"\"}";
             return returnMessage;
         }
 
@@ -117,9 +120,8 @@ public class LabUploadWs extends AbstractWs {
         try {
             audit = importLab(fileName, contents, LabType.MDS, oscarProviderNo);
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            returnMessage = "{\"success\":0,\"message\":\"" +
-                    e.getMessage() + "\", \"audit\":\"\"}";
+            logger.error("Lab upload failed: {}", LogSafe.exceptionTrace(e));
+            returnMessage = "{\"success\":0,\"message\":\"Lab upload failed\", \"audit\":\"\"}";
             return returnMessage;
         }
 
@@ -147,9 +149,8 @@ public class LabUploadWs extends AbstractWs {
         try {
             audit = importLab(fileName, contents, labType, oscarProviderNo);
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            returnMessage = "{\"success\":0,\"message\":\"" +
-                    e.getMessage() + "\", \"audit\":\"\"}";
+            logger.error("Lab upload failed: {}", LogSafe.exceptionTrace(e));
+            returnMessage = "{\"success\":0,\"message\":\"Lab upload failed\", \"audit\":\"\"}";
             return returnMessage;
         }
         returnMessage = "{\"success\":1,\"message\":\"\", \"audit\":\"" + audit + "\"}";
@@ -166,9 +167,8 @@ public class LabUploadWs extends AbstractWs {
         try {
             audit = importLab(fileName, contents, LabType.IHAPOI, oscarProviderNo);
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            returnMessage = "{\"success\":0,\"message\":\"" +
-                    e.getMessage() + "\", \"audit\":\"\"}";
+            logger.error("Lab upload failed: {}", LogSafe.exceptionTrace(e));
+            returnMessage = "{\"success\":0,\"message\":\"Lab upload failed\", \"audit\":\"\"}";
             return returnMessage;
         }
 
@@ -186,9 +186,8 @@ public class LabUploadWs extends AbstractWs {
         try {
             audit = importLab(fileName, contents, LabType.GDML, oscarProviderNo);
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            returnMessage = "{\"success\":0,\"message\":\"" +
-                    e.getMessage() + "\", \"audit\":\"\"}";
+            logger.error("Lab upload failed: {}", LogSafe.exceptionTrace(e));
+            returnMessage = "{\"success\":0,\"message\":\"Lab upload failed\", \"audit\":\"\"}";
             return returnMessage;
         }
 
@@ -206,9 +205,8 @@ public class LabUploadWs extends AbstractWs {
         try {
             audit = importLab(fileName, contents, LabType.CDL, oscarProviderNo);
         } catch (Exception e) {
-            logger.error(e.getMessage());
-            returnMessage = "{\"success\":0,\"message\":\"" +
-                    e.getMessage() + "\", \"audit\":\"\"}";
+            logger.error("Lab upload failed: {}", LogSafe.exceptionTrace(e));
+            returnMessage = "{\"success\":0,\"message\":\"Lab upload failed\", \"audit\":\"\"}";
             return returnMessage;
         }
 
@@ -219,7 +217,6 @@ public class LabUploadWs extends AbstractWs {
     public String uploadPDF(@WebParam(name = "file_name") String fileName,
                             @WebParam(name = "contents") byte[] contents,
                             @WebParam(name = "oscar_provider_no") String oscarProviderNo) {
-        logger.error("uploadPDF called file name " + fileName + " provider " + oscarProviderNo + " contnets " + contents);
         String returnMessageHandler = "{\"success\":0,\"message\":\"\"}";
 
         try (ByteArrayInputStream is = new ByteArrayInputStream(contents)) {
@@ -234,10 +231,10 @@ public class LabUploadWs extends AbstractWs {
             HttpServletRequest request = getHttpServletRequest();
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
 
-            MessageHandler msgHandler = HandlerClassFactory.getHandler("PDFDOC");
-            returnMessageHandler = msgHandler.parse(loggedInInfo, oscarProviderNo, filePath, 0, request.getRemoteAddr());
+            String parsed = parseDocument(loggedInInfo, "PDFDOC", oscarProviderNo, filePath, request.getRemoteAddr());
+            if (parsed != null) returnMessageHandler = parsed;
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("Document upload failed: {}", LogSafe.exceptionTrace(e));
         }
         return returnMessageHandler;
     }
@@ -256,12 +253,30 @@ public class LabUploadWs extends AbstractWs {
             HttpServletRequest request = getHttpServletRequest();
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
 
-            MessageHandler msgHandler = HandlerClassFactory.getHandler("FHIR_COMMUNICATION_REQUEST");
-            returnMessageHandler = msgHandler.parse(loggedInInfo, oscarProviderNo, filePath, 0, request.getRemoteAddr());
+            String parsed = parseDocument(loggedInInfo, "FHIR_COMMUNICATION_REQUEST", oscarProviderNo, filePath, request.getRemoteAddr());
+            if (parsed != null) returnMessageHandler = parsed;
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("Document upload failed: {}", LogSafe.exceptionTrace(e));
         }
         return returnMessageHandler;
+    }
+
+    /**
+     * Commits document metadata and routing together for the SOAP document endpoints. A rejected
+     * parse rolls everything back and activates the FHIR handler's generated-PDF cleanup.
+     * Preserves the existing document endpoints' response and duplicate-delivery semantics.
+     */
+    private String parseDocument(LoggedInInfo info, String type, String provider, String filePath, String ipAddr) {
+        MessageHandler handler = HandlerClassFactory.getHandler(type);
+        if (handler == null) return null;
+        TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return transaction.execute(status -> {
+            String parsed = handler.parse(info, provider, filePath, 0, ipAddr);
+            if (parsed == null) status.setRollbackOnly();
+            return parsed;
+        });
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: request filename is validated for directory containment via PathValidationUtils before use
@@ -314,36 +329,31 @@ public class LabUploadWs extends AbstractWs {
         // upload process.
         FileUtils.writeStringToFile(labFile, labContent);
 
-        // Upload lab info and hash to DB to check for duplicates
-        FileInputStream is = new FileInputStream(labFile);
-        int checkFileUploadedSuccessfully = FileUploadCheck.addFile(sanitizedFileName, is, oscarProviderNo);
-        is.close();
-        if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            String labFilePath = labFile.getPath();  // Use the canonical file path
-            logger.info("filePath" + labFilePath);
-            logger.info("Type :" + labType.name());
-            MessageHandler msgHandler = HandlerClassFactory.getHandler(labType.name());
-            logger.info("MESSAGE HANDLER " + msgHandler.getClass().getName());
-
-            // Parse and handle the lab
-            if ((retVal = msgHandler.parse(
-                    loggedInInfo,
-                    getClass().getSimpleName(),
-                    labFilePath,
-                    checkFileUploadedSuccessfully,
-                    ipAddr
-            )) == null) {
-                throw new ParseException("Failed to parse lab: " + sanitizedFileName + " of type: " + labType.name(), 0);
-            }
-
-        } else {
-            throw new SQLException("Failed insert lab into DB (Likely duplicate lab): " + sanitizedFileName + " of type: " + labType.name());
+        // The checksum must commit with all parser writes, including document routing.
+        MessageHandler msgHandler = HandlerClassFactory.getHandler(labType.name());
+        if (msgHandler == null) {
+            throw new ParseException("Unsupported lab type", 0);
         }
-
-        // This will always contain one line, so let's just remove the newline characters
-        retVal = retVal.replace("\n", "").replace("\r", "");
-
-        LogAction.addLogSynchronous(loggedInInfo, "LabUploadWs.importLab", "fileUploadCheckId=" + String.valueOf(checkFileUploadedSuccessfully));
+        java.util.concurrent.atomic.AtomicReference<String> audit = new java.util.concurrent.atomic.AtomicReference<>();
+        FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew(sanitizedFileName,
+                () -> new FileInputStream(labFile), oscarProviderNo, checksumId -> {
+                    audit.set(msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
+                            labFile.getPath(), checksumId, ipAddr));
+                    if (audit.get() == null) {
+                        return false;
+                    }
+                    LogAction.addLogSynchronous(loggedInInfo, "LabUploadWs.importLab",
+                            "fileUploadCheckId=" + checksumId);
+                    return true;
+                });
+        if (outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+            throw new SQLException("Lab has already been uploaded");
+        }
+        if (outcome != FileUploadCheck.StoreOutcome.STORED) {
+            throw new ParseException("Failed to parse lab", 0);
+        }
+        // This contains one line; preserve the SOAP response format.
+        retVal = audit.get().replace("\n", "").replace("\r", "");
 
         return retVal;
     }

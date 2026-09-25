@@ -153,7 +153,8 @@
     "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
     "test:facility-selection-playwright": "node scripts/facility-selection-playwright-checks.js",
     "test:health-care-team-playwright": "node scripts/health-care-team-playwright-checks.js",
-    "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js"
+    "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js",
+    "test:playwright:lab-upload-rollback": "node scripts/lab-upload-rollback-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

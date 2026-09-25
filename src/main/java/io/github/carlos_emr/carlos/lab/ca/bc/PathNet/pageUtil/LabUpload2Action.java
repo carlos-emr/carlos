@@ -107,7 +107,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().debug("Lab Upload content type = " + importFile.getName());
             // Re-validate at point of use for static analysis visibility
             File validatedImportFile = PathValidationUtils.validateUpload(importFile);
-            filename = importFile.getName();
+            filename = uploadedFileName == null ? importFile.getName() : uploadedFileName;
 
             // Snapshot the upload once. The duplicate check, parser, and archive writer each consume
             // a stream, and the file stream cannot be reset; reopening the path per reader could also
@@ -192,13 +192,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
 
     /**
-     * Save a Jakarta FormFile to a preconfigured place.
-     *
-     * @param stream
-     * @param filename
-     * @return boolean
-     */
-    /**
      * Archives a stored batch inside {@link FileUploadCheck#storeIfNew}'s transaction.
      *
      * <p>Written after the messages, before the commit: a failed write rejects the batch, rolling
@@ -211,7 +204,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * @return {@code false} when the archive could not be written, which rejects the batch
      */
     private static boolean archiveInTransaction(byte[] uploadContent, String filename, AtomicReference<File> kept) {
-        File archived = saveFile(new ByteArrayInputStream(uploadContent), filename);
+        File archived = saveFile(new ByteArrayInputStream(uploadContent), filename, kept);
         if (archived == null) {
             return false;
         }
@@ -234,10 +227,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     /**
      * Writes the upload to {@code DOCUMENT_DIR} under a new, generated name.
      *
-     * @return the file written, or {@code null} when nothing was written
+     * @return the complete file, or {@code null} on failure (a partial file may remain if cleanup fails)
      */
     private static File saveFile(InputStream stream, String filename) {
+        return saveFile(stream, filename, new AtomicReference<>());
+    }
+
+    /** Also retains an owned partial file when cleanup fails, preventing a second archive. */
+    private static File saveFile(InputStream stream, String filename, AtomicReference<File> kept) {
         File outputFile = null;
+        boolean created = false;
 
         try (InputStream uploadStream = stream) {
             //retrieve the file data
@@ -256,16 +255,19 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // destroyed the colliding upload's lab.
             try (OutputStream bos = Files.newOutputStream(outputFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                created = true;
+                kept.set(outputFile);
                 uploadStream.transferTo(bos);
             }
         } catch (FileAlreadyExistsException nameCollision) {
             MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return null;
         } catch (IOException | SecurityException ioe) {
-            // Remove any partial output: the collision case is handled above, so a file existing
-            // here was created by this call. Left behind, it would look like a complete lab to the
-            // import scan.
-            deletePartialOutput(outputFile);
+            // Only a successful CREATE_NEW establishes ownership. An open failure may name
+            // somebody else's file. Retain an undeletable partial output to suppress a second copy.
+            if (created && deletePartialOutput(outputFile)) {
+                kept.set(null);
+            }
             // exceptionTrace: the message of a filesystem exception here is the generated path,
             // whose basename embeds the caller-supplied lab filename.
             MiscUtils.getLogger().error("Error writing PathNet lab upload: {}", LogSafe.exceptionTrace(ioe));
@@ -289,7 +291,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         try {
             Files.deleteIfExists(outputFile.toPath());
             return true;
-        } catch (IOException deleteException) {
+        } catch (IOException | SecurityException deleteException) {
             MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
                     deleteException.getClass().getSimpleName());
             return false;
@@ -297,6 +299,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     private File importFile;
+    private String uploadedFileName;
     private String uploadValidationError;
 
     @Override
@@ -306,6 +309,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
             try {
                 PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+                this.uploadedFileName = uploaded.getOriginalName();
             } catch (FileValidationException e) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
             }

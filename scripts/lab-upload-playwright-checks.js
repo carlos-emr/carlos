@@ -87,6 +87,18 @@ function syntheticCmlLab(accession, patientLast) {
   ].join('\r');
 }
 
+/** One legacy CML A/B/C report with a run-specific location and accession. */
+function syntheticCmlFlatFile(accession, marker, hin) {
+  const rows = [
+    ['A', accession, '20260925', '12:00', '1', '1', '0'],
+    ['B', accession, '999998', '20260925', 'Workflow', marker, 'F', hin, '19800102', 'F',
+      '999998', 'DR PROBE', 'SYNTHETIC ADDRESS', '', '', 'X0X0X0', '', 'SYNTHETIC TEST', '',
+      '5550000000', '5550000001', '25 SEP 26'],
+    ['C', 'SYNTHETIC PANEL', '', '', 'SYNTHETIC RESULT', 'N', '0', '10', 'unit', '5', '70', 'Y'],
+  ];
+  return rows.map((row) => `${row.join('^')}^`).join('\n');
+}
+
 /** Open the HL7 Lab Upload popup from the Inbox hub, the way an operator does. */
 async function openUploader(session) {
   const inbox = await session.context.newPage();
@@ -168,10 +180,13 @@ function removeArchivedUploads(stamp) {
   h.assert(ownFiles().length === 0, 'The archived synthetic lab uploads were not all removed');
 }
 
-async function workflow(session) {
+async function workflow(session, options = {}) {
   const { sql, patient, marker, cleanup, config } = session;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const accession = `LU${stamp}`;
+  const flatAccession = `FL${stamp}`;
+  const failureTrigger = `lab_upload_probe_${stamp}`;
+  let triggerMayExist = false;
   const fileName = `lab-upload-probe-${stamp}.hl7`;
   const content = Buffer.from(syntheticCmlLab(accession, marker), 'latin1');
   // The uploader records the saved file's name (LabUpload.<name>.<millis>), which carries the
@@ -185,8 +200,20 @@ async function workflow(session) {
     'A fileUploadCheck row already carries this run\'s stamp');
 
   cleanup(async () => {
+    if (triggerMayExist) sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
     fs.rmSync(workDir, { recursive: true, force: true });
-    const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`)
+    const flatLabs = sql.rows(`SELECT id FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`)
+      .map(([id]) => id).filter((id) => /^\d+$/.test(id));
+    if (flatLabs.length) {
+      const ids = flatLabs.join(',');
+      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
+        DELETE FROM patientLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
+        DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id IN (${ids});
+        DELETE FROM labPatientPhysicianInfo WHERE id IN (${ids})`);
+    }
+    sql.execute(`DELETE FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)}`);
+    const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}
+      UNION SELECT lab_id FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)}`)
       .map(([labNo]) => labNo).filter((labNo) => /^\d+$/.test(labNo));
     if (labs.length) {
       const list = labs.join(',');
@@ -207,9 +234,57 @@ async function workflow(session) {
     removeArchivedUploads(stamp);
     h.assert(sql.value(`SELECT
         (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
-      + (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})`) === '0',
+      + (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})
+      + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})
+      + (SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
+      + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})`) === '0',
     'The synthetic lab rows were not all removed');
   });
+
+  await session.step('rejected content stays retryable without a checksum', async () => {
+    const invalid = Buffer.from(`SYNTHETIC INVALID LAB ${stamp}`);
+    fs.writeFileSync(filePath, invalid);
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const status = await uploadThroughPopup(session, filePath, fileName);
+        h.assert(status === 'Invalid lab',
+          `Invalid upload attempt ${attempt + 1} reported "${status}"`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '0',
+          'Rejected content left a checksum that would block its retry');
+      }
+    } finally {
+      fs.writeFileSync(filePath, content);
+    }
+  });
+
+  if (options.injectFailure) {
+    await session.step('database rejection rolls back the checksum and partial lab', async () => {
+      // The trigger applies only to this run's synthetic accession. It rejects metadata after
+      // the checksum and raw HL7 message have been inserted, exercising actual MariaDB rollback.
+      triggerMayExist = true;
+      try {
+        sql.execute(`DELIMITER //
+          CREATE TRIGGER ${failureTrigger} BEFORE INSERT ON hl7TextInfo FOR EACH ROW
+          BEGIN
+            IF NEW.accessionNum=${h.sqlString(accession)} THEN
+              SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic upload rollback probe';
+            END IF;
+          END//
+          DELIMITER ;`);
+        const status = await uploadThroughPopup(session, filePath, fileName);
+        h.assert(['Invalid lab', 'Failed to upload HL7 lab'].includes(status),
+          `Injected database failure reported "${status}"`);
+        h.assert(sql.value(`SELECT
+          (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})
+          + (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
+          + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
+        'A rejected lab left its checksum or partially stored rows behind');
+      } finally {
+        sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
+        triggerMayExist = false;
+      }
+    });
+  }
 
   await session.step('first HL7 upload is filed', async () => {
     const status = await uploadThroughPopup(session, filePath, fileName);
@@ -244,11 +319,34 @@ async function workflow(session) {
         console.log('    SKIP uploadedPreviously half: CML_UPLOAD_KEY is not set');
         return;
       }
+      const emptyReport = Buffer.from(`A^${stamp}^20260925^12:00^0^0^0^`);
+      const emptyChecksum = crypto.createHash('md5').update(emptyReport).digest('hex');
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const rejected = await postCml(popup, contextPath, emptyReport, fileName, key);
+        h.assert(rejected === 'exception', `A CML report without patients answered "${rejected}"`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE md5sum=${h.sqlString(emptyChecksum)}`) === '0',
+          'The empty CML report committed a checksum');
+      }
       const duplicate = await postCml(popup, contextPath, content, fileName, key);
       h.assert(duplicate === 'uploadedPreviously',
         `An already-recorded file answered "${duplicate}" instead of uploadedPreviously`);
       h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '1',
         'The CML duplicate filed another copy of the lab');
+      // Exercise the legacy parser's successful database path as well as its duplicate gate.
+      const hin = `999${String(Number.parseInt(stamp, 16) % 10000000).padStart(7, '0')}`;
+      sql.execute(`UPDATE demographic SET hin=${h.sqlString(hin)} WHERE demographic_no=${patient}`);
+      const flatFile = Buffer.from(syntheticCmlFlatFile(flatAccession, marker, hin));
+      const firstFlat = await postCml(popup, contextPath, flatFile, fileName, key);
+      h.assert(firstFlat === 'uploaded', `A valid legacy CML report answered "${firstFlat}"`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM labTestResults r
+        JOIN labPatientPhysicianInfo p ON p.id=r.labPatientPhysicianInfo_id
+        JOIN patientLabRouting pl ON pl.lab_no=p.id AND pl.lab_type='CML'
+        WHERE p.accession_num=${h.sqlString(flatAccession)} AND pl.demographic_no=${patient}`) === '1',
+      'The legacy CML report did not store its result and route it to the synthetic patient');
+      h.assert(await postCml(popup, contextPath, flatFile, fileName, key) === 'uploadedPreviously',
+        'The legacy CML report was not recognized as a duplicate');
+      h.assert(sql.value(`SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`) === '1',
+        'The legacy CML duplicate created another patient report');
     } finally {
       await popup.close().catch(() => {});
       await inbox.close().catch(() => {});
@@ -257,4 +355,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab };
+module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile };
