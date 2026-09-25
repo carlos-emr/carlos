@@ -218,10 +218,10 @@ class DynamicWSS4JInInterceptorUnitTest {
     // ---------------------------------------------------------------- review follow-ups (PR #3898)
 
     @Test
-    @DisplayName("should reject the message when the start parameter names a part other than the first")
-    void shouldRejectMessage_whenStartNamesLaterPart() {
-        // CXF's AttachmentDeserializer always treats the FIRST part as the envelope, so counting
-        // keys in the start-named part would configure WSS4J for an envelope it never processes.
+    @DisplayName("should scan the first part when the start parameter names a later part, as CXF does")
+    void shouldUseFirstPart_whenStartNamesLaterPart() {
+        // CXF's AttachmentDeserializer ignores start and always treats the FIRST part as the
+        // envelope, so the key count must come from the first part, whatever start says.
         when(message.get(Message.CONTENT_TYPE)).thenReturn(
                 "multipart/related; boundary=b1; type=\"application/xop+xml\"; start=\"<soap-root@carlos>\"");
         givenContent("--b1\r\n"
@@ -234,15 +234,41 @@ class DynamicWSS4JInInterceptorUnitTest {
                 + envelope(3, true)
                 + "\r\n--b1--");
 
-        assertThatThrownBy(() -> interceptor.handleMessage(message))
-                .isInstanceOf(Fault.class)
-                .hasRootCauseInstanceOf(IOException.class);
-        assertNoWssInterceptorAdded();
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(9));
     }
 
     @Test
-    @DisplayName("should match an unquoted start parameter against a bracketed, folded Content-ID")
-    void shouldMatchStartParameter_withUnquotedStartAndBracketedContentId() {
+    @DisplayName("should accept a first part whose Content-ID differs from the start parameter")
+    void shouldUseFirstPart_whenStartDiffersFromFirstPartContentId() {
+        // A gateway may label its root part differently from start; CXF accepts that, so must we.
+        when(message.get(Message.CONTENT_TYPE)).thenReturn(
+                "multipart/related; boundary=b1; start=\"<rootpart@soapui.org>\"");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n"
+                + "Content-ID: <root.message@cxf.apache.org>\r\n\r\n"
+                + envelope(2, true)
+                + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(2));
+    }
+
+    @Test
+    @DisplayName("should accept a first part with no Content-ID when start is present")
+    void shouldUseFirstPart_whenRootPartHasNoContentId() {
+        when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1; start=\"<root>\"");
+        givenContent("--b1\r\nContent-Type: application/xop+xml\r\n\r\n" + envelope(3, true) + "\r\n--b1--\r\n");
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(3));
+    }
+
+    @Test
+    @DisplayName("should scan the first part with an unquoted start parameter and a folded Content-ID")
+    void shouldUseFirstPart_withUnquotedStartAndFoldedContentId() {
         when(message.get(Message.CONTENT_TYPE)).thenReturn(
                 "Multipart/Related;BOUNDARY=b1;start=soap-root@carlos");
         givenContent("--b1\r\n"
@@ -294,15 +320,14 @@ class DynamicWSS4JInInterceptorUnitTest {
     }
 
     @Test
-    @DisplayName("should reject the message when no part matches the start parameter")
-    void shouldRejectMessage_whenNoPartMatchesStartParameter() {
+    @DisplayName("should scan the first part when no part matches the start parameter")
+    void shouldUseFirstPart_whenNoPartMatchesStartParameter() {
         when(message.get(Message.CONTENT_TYPE)).thenReturn("multipart/related; boundary=b1; start=\"<missing>\"");
         givenContent("--b1\r\nContent-ID: <root>\r\n\r\n" + envelope(1, true) + "\r\n--b1--\r\n");
 
-        assertThatThrownBy(() -> interceptor.handleMessage(message))
-                .isInstanceOf(Fault.class)
-                .hasRootCauseInstanceOf(IOException.class);
-        assertNoWssInterceptorAdded();
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
     }
 
     @Test
@@ -502,6 +527,27 @@ class DynamicWSS4JInInterceptorUnitTest {
                 + "<e:EncryptedKey Id=\"EK-1\"><e:CipherData/></e:EncryptedKey>"
                 + "</w:Security></s:Header>"
                 + "<s:Body><e:EncryptedKey xmlns:e=\"" + XENC_NS + "\"/></s:Body>"
+                + "</s:Envelope>";
+        givenContent(xml);
+
+        interceptor.handleMessage(message);
+
+        assertThat(wssProps.get(WSHandlerConstants.ACTION)).isEqualTo(expectedAction(1));
+    }
+
+    @Test
+    @DisplayName("should count only EncryptedKeys that are direct children of the Security header")
+    void shouldCountOnlyDirectChildrenOfSecurity_whenEncryptedKeyIsNested() {
+        // WSS4J's security engine only processes direct children of wsse:Security, so a key
+        // nested inside another header element never becomes an Encrypt result.
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<s:Envelope xmlns:s=\"" + SOAP_NS + "\">"
+                + "<s:Header><w:Security xmlns:w=\"" + WSSE_NS + "\" xmlns:e=\"" + XENC_NS + "\">"
+                + "<e:EncryptedData Id=\"ED-hdr\"><ds:KeyInfo xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">"
+                + "<e:EncryptedKey Id=\"EK-nested\"/></ds:KeyInfo></e:EncryptedData>"
+                + "<e:EncryptedKey Id=\"EK-top\"><e:CipherData/></e:EncryptedKey>"
+                + "</w:Security></s:Header>"
+                + "<s:Body/>"
                 + "</s:Envelope>";
         givenContent(xml);
 
