@@ -295,9 +295,28 @@ async function cleanup() {
       `DELETE FROM eChart WHERE demographicNo = ${demographicNo} `
       + `AND eChartId > ${chartBefore.echartMaxId} AND (${echartStamped})`]);
 
-    // Rows that ALREADY EXISTED: the run only appended to them, so only the appended blocks go.
-    if (chartBefore.cppId) {
-      stripFrom.push(['casemgmt_cpp', `id = ${chartBefore.cppId}`, CHART_TEXT_COLUMNS]);
+    // THE ROW THE RUN WROTE INTO, WHICHEVER IT IS. When the patient already had a summary row the
+    // save appended to that one, and the snapshot named it. When the patient had none, saveCPP()
+    // created one during the run, so it has no snapshot id and has to be found here -- newer than
+    // anything the patient had, and carrying the stamp. Missing this second case leaves the row
+    // AND its stamped clinical text in the chart: the delete below only fires once the summary
+    // columns are empty, which is precisely what stripping them achieves.
+    const cppRowId = chartBefore.cppId || (() => {
+      try {
+        return sql.value(
+          `SELECT id FROM casemgmt_cpp WHERE demographic_no = ${demographicNo} `
+          + `AND id > ${chartBefore.cppMaxId} `
+          + `AND (${CHART_TEXT_COLUMNS.map((column) => holds(column, stamp)).join(' OR ')}) `
+          + 'ORDER BY id DESC LIMIT 1',
+        );
+      } catch (error) {
+        failuresBeforeStatements.push(
+          `the CPP summary row this run created could not be found (${(error && error.message) || 'query failed'})`);
+        return '';
+      }
+    })();
+    if (cppRowId) {
+      stripFrom.push(['casemgmt_cpp', `id = ${cppRowId}`, CHART_TEXT_COLUMNS]);
     }
     if (chartBefore.echartLastId) {
       stripFrom.push(['eChart', `eChartId = ${chartBefore.echartLastId}`, ECHART_TEXT_COLUMNS]);
