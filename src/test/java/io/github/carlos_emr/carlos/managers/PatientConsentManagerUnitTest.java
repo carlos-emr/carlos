@@ -433,7 +433,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
     class RecordExplicitConsent {
 
         private Consent impliedOptIn() {
-            Consent consent = consent(21, false, new java.util.Date(1_000L));
+            Consent consent = consent(21, false, new Date(1_000L));
             consent.setExplicit(false);
             return consent;
         }
@@ -443,7 +443,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldUpgradeImpliedOptIn_toExplicit() {
             Consent implied = impliedOptIn();
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(implied));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(implied));
             when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
             boolean result = manager.recordExplicitConsent(loggedInInfo, 100, 1);
@@ -451,7 +451,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(result).isTrue();
             assertThat(implied.isExplicit()).isTrue();
             assertThat(implied.getConsentDate()).isNotNull();
-            assertThat(implied.getEditDate()).isAfter(new java.util.Date(1_000L));
+            assertThat(implied.getEditDate()).isAfter(new Date(1_000L));
             assertThat(implied.getLastEnteredBy()).isEqualTo("999998");
             verify(mockConsentDao).merge(implied);
         }
@@ -459,22 +459,22 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should change nothing when the record is already explicit")
         void shouldLeaveRecordUntouched_whenAlreadyExplicit() {
-            Consent explicit = consent(22, false, new java.util.Date(1_000L));
+            Consent explicit = consent(22, false, new Date(1_000L));
             explicit.setExplicit(true);
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(explicit));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(explicit));
 
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isTrue();
-            assertThat(explicit.getEditDate()).isEqualTo(new java.util.Date(1_000L));
+            assertThat(explicit.getEditDate()).isEqualTo(new Date(1_000L));
             verify(mockConsentDao, never()).merge(any());
         }
 
         @Test
         @DisplayName("should refuse to confirm consent the patient opted out of")
         void shouldNotUpgrade_whenPatientOptedOut() {
-            Consent optedOut = consent(23, true, new java.util.Date(1_000L));
+            Consent optedOut = consent(23, true, new Date(1_000L));
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(optedOut));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(optedOut));
 
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
             assertThat(optedOut.isExplicit()).isFalse();
@@ -485,7 +485,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse when there is no live record to confirm")
         void shouldNotUpgrade_whenNoLiveRecordExists() {
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of());
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of());
 
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
             verify(mockConsentDao, never()).merge(any());
@@ -520,7 +520,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldKeepImplied_whenChartIsResavedWithOptIn() {
             Consent implied = impliedOptIn();
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(implied));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(implied));
 
             manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
 
@@ -535,15 +535,15 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return one deciding record per consent type")
         void shouldReturnEffectiveRecord_perConsentType() {
-            Consent emailOptIn = consent(31, false, new java.util.Date(3_000L));
+            Consent emailOptIn = consent(31, false, new Date(3_000L));
             emailOptIn.setConsentTypeId(1);
-            Consent emailOptOut = consent(32, true, new java.util.Date(1_000L));
+            Consent emailOptOut = consent(32, true, new Date(1_000L));
             emailOptOut.setConsentTypeId(1);
-            Consent smsOptIn = consent(33, false, new java.util.Date(2_000L));
+            Consent smsOptIn = consent(33, false, new Date(2_000L));
             smsOptIn.setConsentTypeId(2);
-            when(mockConsentDao.findByDemographic(100)).thenReturn(java.util.List.of(emailOptIn, smsOptIn, emailOptOut));
+            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of(emailOptIn, smsOptIn, emailOptOut));
 
-            java.util.List<Consent> result = manager.getAllConsentsByDemographic(loggedInInfo, 100);
+            List<Consent> result = manager.getAllConsentsByDemographic(loggedInInfo, 100);
 
             assertThat(result).containsExactly(emailOptOut, smsOptIn);
         }
@@ -551,7 +551,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return an empty list when the patient has no consent records")
         void shouldReturnEmptyList_whenNoRecords() {
-            when(mockConsentDao.findByDemographic(100)).thenReturn(java.util.List.of());
+            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of());
 
             assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 100)).isEmpty();
         }

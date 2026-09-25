@@ -1023,6 +1023,7 @@
                                                                                                    name="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                                    id="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                                    value="1"
+                                                                                                   autocomplete="off"
                                                                                                     <c:if test="${ patientConsent.optout }">disabled</c:if>/>
                                                                                             <label for="recordExplicit_${carlos:forHtmlAttribute(consentType.type)}"><fmt:message key="demographic.demographiceditdemographic.confirmExplicitConsent"/></label>
                                                                                         </div>
