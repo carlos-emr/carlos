@@ -38,8 +38,6 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
-import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -70,48 +68,29 @@ public class PathnetResultsData {
      */
     // Populates labs for consult request
     public ArrayList<LabResultData> populatePathnetResultsData(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs c = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     public ArrayList<LabResultData> populatePathnetResultsDataEForm(String demographicNo, String fdid, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
-            EFormDocs c = (EFormDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     // Populates labs for consult response
     public ArrayList<LabResultData> populatePathnetResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs c = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     // Populates labs private shared method
-    private ArrayList<LabResultData> populatePathnetResultsData(List<LabResultData> attachedLabs, List<Object[]> labsBCP, boolean attached) {
+    private ArrayList<LabResultData> populatePathnetResultsData(java.util.Set<String> attachedLabs, List<Object[]> labsBCP, boolean attached) {
         ArrayList<LabResultData> labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            LabResultData.CompareId c = lbData.getComparatorId();
 
             for (Object[] o : labsBCP) {
                 Hl7Message m = (Hl7Message) o[0];
@@ -123,8 +102,8 @@ public class PathnetResultsData {
                 lbData.dateTime = findPathnetObservationDate(lbData.segmentID);
                 lbData.discipline = findPathnetDisipline(lbData.segmentID);
 
-                if (attached && Collections.binarySearch(attachedLabs, lbData, c) >= 0) labResults.add(lbData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lbData, c) < 0) labResults.add(lbData);
+                if (attached && attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID))) labResults.add(lbData);
+                else if (!attached && !attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID))) labResults.add(lbData);
 
                 lbData = new LabResultData(LabResultData.EXCELLERIS);
             }

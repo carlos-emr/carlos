@@ -32,7 +32,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,6 +51,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -75,6 +82,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -102,6 +110,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -114,6 +124,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Component("consultationWebService")
 @Consumes(MediaType.APPLICATION_JSON)
 public class ConsultationWebService extends AbstractServiceImpl {
+
+    /** Generic on purpose: must not reveal whether the id exists for another patient. */
+    private static final String UNVERIFIED_ATTACHMENT = "Attachment could not be verified for this patient";
 
     Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
 
@@ -128,6 +141,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     private DocumentManager documentManager;
+
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     @Autowired
     ProviderDao providerDao;
@@ -181,9 +200,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
         if (requestId > 0) {
-            request = requestConverter.getAsTransferObject(getLoggedInInfo(), consultationManager.getRequest(getLoggedInInfo(), requestId));
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            requirePatientConsultRead(stored.getDemographicId());
+            request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicId);
             request.setDemographicId(demographicId);
 
             RxInformation rx = new RxInformation();
@@ -223,15 +248,33 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getRequestAttachments(@QueryParam("requestId") Integer requestId, @QueryParam("demographicId") Integer demographicIdInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicId = demographicIdInt.toString();
+        // Issue #3867: for a stored consultation the patient is the stored one, not the parameter,
+        // and attached rows (looked up by consultation id alone) are listed only while they belong
+        // to that patient, so a legacy foreign row is never returned.
+        Integer ownerDemographicNo = demographicIdInt;
+        if (requestId != null && requestId > 0) {
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicId();
+        }
+        requirePatientConsultRead(ownerDemographicNo);
+        String demographicId = ownerDemographicNo.toString();
 
         List<EDoc> edocs = EDocUtil.listDocs(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            edocs = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocs, EDoc::getDocId);
+        }
         getDocuments(edocs, attached, attachments);
 
         List<EFormData> eforms = EFormUtil.listPatientEFormsShowLatestOnly(demographicId);
         getEformsForRequest(eforms, attached, attachments, requestId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsData(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicId, attached, attachments);
 
         return attachments;
@@ -286,7 +329,18 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\" \"serviceId\" \"urgency\" \"status\"").build();
         }
 
-        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, consultationManager.getRequest(loggedInInfo, data.getId()));
+        ConsultationRequest existing = consultationManager.getRequest(loggedInInfo, data.getId());
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        // A consultation cannot move to another patient (issue #3867). The converter would copy the
+        // new demographicId onto the stored request while its attachments, which were verified
+        // against the original patient and are kept without re-checking, stayed linked, so
+        // printing or faxing it would send one patient's records under another's name.
+        if (!data.getDemographicId().equals(existing.getDemographicId())) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("demographicId cannot be changed on an existing consultation").build();
+        }
+        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, existing);
 
         request.setProfessionalSpecialist(data.getProfessionalSpecialist() == null ? null : consultationManager.getProfessionalSpecialist(data.getProfessionalSpecialist().getId()));
         consultationManager.saveConsultationRequest(loggedInInfo, request);
@@ -350,15 +404,19 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         if (responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
-
+            if (responseD == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
             demographicNo = responseD.getDemographicNo();
+            requirePatientConsultRead(demographicNo);
+            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
             response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             RxInformation rx = new RxInformation();
             String info = rx.getAllergies(getLoggedInInfo(), demographicNo.toString());
@@ -383,15 +441,32 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicNo = demographicNoInt.toString();
+        // Same rule as getRequestAttachments (issue #3867): the stored response's patient, and
+        // attached rows only while they belong to that patient.
+        Integer ownerDemographicNo = demographicNoInt;
+        if (responseId != null && responseId > 0) {
+            ConsultationResponse stored = consultationManager.getResponse(getLoggedInInfo(), responseId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicNo();
+        }
+        requirePatientConsultRead(ownerDemographicNo);
+        String demographicNo = ownerDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            edocList = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocList, EDoc::getDocId);
+        }
         getDocuments(edocList, attached, attachments);
 
         List<EFormData> eformList = EFormUtil.listPatientEFormsShowLatestOnly(demographicNo);
         getEformsForResponse(eformList, attached, attachments, responseId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsDataConsultResponse(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicNo, attached, attachments);
 
         return attachments;
@@ -407,13 +482,25 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getId() == null) { //new consultation response
             response = responseConverter.getAsDomainObject(getLoggedInInfo(), data);
         } else {
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data, consultationManager.getResponse(getLoggedInInfo(), data.getId()));
+            ConsultationResponse existing = consultationManager.getResponse(getLoggedInInfo(), data.getId());
+            if (existing == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            // A consultation response cannot move to another patient (issue #3867), as for
+            // updateConsultation: the converter would copy the new patient onto the stored response
+            // while its attachments, verified against the original patient, stayed linked.
+            Integer submittedDemographicNo = data.getDemographic() == null ? null : data.getDemographic().getDemographicNo();
+            if (submittedDemographicNo == null || !submittedDemographicNo.equals(existing.getDemographicNo())) {
+                throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                        .entity("demographic cannot be changed on an existing consultation response").build());
+            }
+            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data, existing);
         }
         consultationManager.saveConsultationResponse(getLoggedInInfo(), response);
         if (data.getId() == null) data.setId(response.getId());
 
         //save attachments
-        saveResponseAttachments(data);
+        saveResponseAttachments(data, response.getDemographicNo());
 
         return data;
     }
@@ -491,6 +578,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
             List<ConsultationAttachment> attachments = consultationManager.getEReferAttachments(getLoggedInInfo(), httpServletRequest, httpServletResponse, demographicNo);
             httpServletResponse.setContentType("application/json");
             response = Response.ok().entity(attachments).build();
+        } catch (SecurityException e) {
+            response = Response.status(Response.Status.FORBIDDEN).build();
         } catch (Exception e) {
             response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("An error occurred while generating the attachment data: " + e.getMessage()).build();
         }
@@ -685,7 +774,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 url = "lab/CA/ALL/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else url = "lab/CA/BC/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
 
-            attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getLabPatientId()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
+            // The lab number (segmentID = patient_lab_routing.lab_no), not labPatientId: consult_docs
+            // stores lab numbers (ConsultDocsDao.findLabs joins on plr.labNo), the consultation form
+            // and Ocean submit them, and the ownership check verifies them. labPatientId equals it
+            // for HL7 labs but is the routing row id for CML/MDS/BCP labs, which a save would then
+            // verify as a lab number and refuse (or match to a different lab).
+            attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getSegmentID()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
         }
     }
 
@@ -776,6 +870,14 @@ public class ConsultationWebService extends AbstractServiceImpl {
             doc.setDeleted(ConsultDocs.DELETED);
         }
 
+        // Issue #3867, same policy as the consultation form (DocumentAttach): a new attachment must
+        // belong to the patient or it is refused, and an already-attached one that no longer
+        // verifies (a legacy row written before ownership checks existed) is detached, not kept.
+        // Refusals are reported per attachment through validationError, the service's existing
+        // contract for attachments it could not save; the rest of the save goes ahead.
+        int detachedUnverified = 0;
+        // One ownership lookup per attachment type for the whole save, not one per attachment.
+        Set<String> verifiedKeys = verifiedAttachmentKeys(request.getDemographicId(), newAttachments);
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
@@ -787,18 +889,32 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
             uniqueAttachments.add(newAtth.getDocumentType() + newAtth.getDocumentNo());
 
-            boolean isNew = true;
+            ConsultDocs existing = null;
             for (ConsultDocs doc : currentDocs) {
                 if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()) {
-                    currentDocs.remove(doc);
-                    isNew = false;
+                    existing = doc;
                     break;
                 }
             }
-            if (isNew) { //save the new attachment
-                consultationManager.saveConsultRequestDoc(getLoggedInInfo(), new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
+            if (existing != null) {
+                // Already attached: keep it only while it still verifies. Otherwise it stays in
+                // currentDocs, which the loop below saves as detached.
+                if (verifiedKeys.contains(attachmentKey(newAtth))) {
+                    currentDocs.remove(existing);
+                } else {
+                    newAtth.setValidationError(UNVERIFIED_ATTACHMENT);
+                    detachedUnverified++;
+                }
+                continue;
             }
+            //save the new attachment
+            if (!verifiedKeys.contains(attachmentKey(newAtth))) {
+                markUnverifiedAttachment(newAtth);
+                continue;
+            }
+            consultationManager.saveConsultRequestDoc(getLoggedInInfo(), new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
         }
+        logDetachedUnverified(detachedUnverified);
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultDocs doc : currentDocs) {
@@ -806,7 +922,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
     }
 
-    private void saveResponseAttachments(ConsultationResponseTo1 response) {
+    private void saveResponseAttachments(ConsultationResponseTo1 response, Integer demographicNo) {
         List<ConsultationAttachmentTo1> newAttachments = response.getAttachments();
         List<ConsultResponseDoc> currentDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
         if (newAttachments == null || currentDocs == null) return;
@@ -816,24 +932,126 @@ public class ConsultationWebService extends AbstractServiceImpl {
             doc.setDeleted(ConsultResponseDoc.DELETED);
         }
 
+        // Same ownership policy as saveRequestAttachments (issue #3867), batched the same way.
+        int detachedUnverified = 0;
+        Set<String> verifiedKeys = verifiedAttachmentKeys(demographicNo, newAttachments);
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
-            boolean isNew = true;
+            ConsultResponseDoc existing = null;
             for (ConsultResponseDoc doc : currentDocs) {
                 if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()) {
-                    currentDocs.remove(doc);
-                    isNew = false;
+                    existing = doc;
                     break;
                 }
             }
-            if (isNew) { //save the new attachment
-                consultationManager.saveConsultResponseDoc(getLoggedInInfo(), new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
+            if (existing != null) {
+                if (verifiedKeys.contains(attachmentKey(newAtth))) {
+                    currentDocs.remove(existing);
+                } else {
+                    newAtth.setValidationError(UNVERIFIED_ATTACHMENT);
+                    detachedUnverified++;
+                }
+                continue;
             }
+            //save the new attachment
+            if (!verifiedKeys.contains(attachmentKey(newAtth))) {
+                markUnverifiedAttachment(newAtth);
+                continue;
+            }
+            consultationManager.saveConsultResponseDoc(getLoggedInInfo(), new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
         }
+        logDetachedUnverified(detachedUnverified);
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
+        }
+    }
+
+    /**
+     * Whether an existing record referenced by a REST attachment belongs to the consultation's
+     * patient (issue #3867). Consultation print, fax and Ocean renderers resolve attachments by id
+     * alone, so an unverified id would disclose another patient's record. Forms have no common
+     * owner column and are accepted as before; unknown type codes are refused.
+     */
+    boolean isAttachmentOwnedBy(Integer demographicNo, ConsultationAttachmentTo1 attachment) {
+        return verifiedAttachmentKeys(demographicNo, Collections.singletonList(attachment))
+                .contains(attachmentKey(attachment));
+    }
+
+    /**
+     * Keys ({@link #attachmentKey}) of the attachments that verify for the patient, using one
+     * batched ownership lookup per attachment type. An unknown type code never verifies; a type
+     * with no common owner column (forms) is accepted as before.
+     */
+    Set<String> verifiedAttachmentKeys(Integer demographicNo, List<ConsultationAttachmentTo1> attachments) {
+        Set<String> verified = new HashSet<>();
+        Map<DocumentType, Set<Integer>> idsByType = new EnumMap<>(DocumentType.class);
+        for (ConsultationAttachmentTo1 attachment : attachments) {
+            DocumentType type = documentTypeOf(attachment);
+            if (type == null) {
+                continue;
+            }
+            if (!AttachmentOwnershipService.isVerifiable(type)) {
+                verified.add(attachmentKey(attachment));
+                continue;
+            }
+            idsByType.computeIfAbsent(type, t -> new LinkedHashSet<>()).add(attachment.getDocumentNo());
+        }
+        for (Map.Entry<DocumentType, Set<Integer>> entry : idsByType.entrySet()) {
+            // Attach-time policy, as on the consultation form: an enabled legacy (CML/MDS/BCP) lab of
+            // the patient is attachable, and the renderers still print HL7 labs only.
+            Set<Integer> owned = attachmentOwnershipService.findAttachableIds(entry.getKey(), demographicNo,
+                    new ArrayList<>(entry.getValue()));
+            for (Integer id : owned) {
+                verified.add(entry.getKey().getType() + ":" + id);
+            }
+        }
+        return verified;
+    }
+
+    /**
+     * These endpoints return one patient's consultation and chart data, so the role-level {@code _con}
+     * read the service layer checks is not enough: the caller must also be allowed to read this
+     * patient's consultations and chart. Checked against the stored record's patient when there is
+     * one, before anything is loaded or listed.
+     *
+     * @throws WebApplicationException 400 when no patient is known, 403 when access is denied
+     */
+    private void requirePatientConsultRead(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+    }
+
+    private static String attachmentKey(ConsultationAttachmentTo1 attachment) {
+        return attachment.getDocumentType() + ":" + attachment.getDocumentNo();
+    }
+
+    private static DocumentType documentTypeOf(ConsultationAttachmentTo1 attachment) {
+        for (DocumentType candidate : DocumentType.values()) {
+            if (candidate.getType().equals(attachment.getDocumentType())) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void markUnverifiedAttachment(ConsultationAttachmentTo1 attachment) {
+        // Generic on purpose: the response must not reveal whether the id exists for another patient.
+        MiscUtils.getLogger().warn("saveAttachments: rejected an attachment not owned by the consultation patient");
+        attachment.setValidationError(UNVERIFIED_ATTACHMENT);
+    }
+
+    private static void logDetachedUnverified(int detached) {
+        if (detached > 0) {
+            // Count only: attachment ids and the patient are PHI-correlating identifiers.
+            MiscUtils.getLogger().warn("saveAttachments: detached {} existing attachment(s) that no longer verify for the consultation patient", detached);
         }
     }
 

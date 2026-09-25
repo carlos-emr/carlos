@@ -25,9 +25,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,6 +39,8 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,12 +48,24 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.ConsultationPreviewSignatureOutcome;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
@@ -68,6 +85,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -136,6 +154,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), eq("1")))
                 .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(true);
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
         when(consultationSignatureService.resolveSignatureProviderNo("999998", "999998", "999998"))
@@ -936,6 +955,184 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         return consult;
     }
 
+    /**
+     * Issue #3867: the create path persists the consultation and then each attachment type in its
+     * own transaction, so a foreign attachment must be refused before the first write rather than
+     * half-way through, and the user gets the form's alert instead of the raw error page.
+     */
+    @Test
+    @DisplayName("rejects a create with a foreign attachment before the consultation or signature is saved")
+    void shouldReturnInput_beforeAnyWriteWhenCreateAttachmentNotOwned() throws Exception {
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"10"});
+        action.setLabNo(new String[] {"999"});
+        org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
+                .when(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo), org.mockito.ArgumentMatchers.isNull(),
+                        eq(1), org.mockito.ArgumentMatchers.anyMap());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("errorMessage")).asString()
+                .startsWith("One or more attachments could not be verified for this patient.")
+                .doesNotContain("999");
+        // The retry form must render for the consultation patient, not as a blank "null, null".
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(request.getAttribute("reqId")).isNull();
+        verify(consultationRequestDao, never()).persist(any());
+        verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(digitalSignatureManager);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("rejects an update with a foreign attachment before archiving or merging the consultation")
+    void shouldReturnInput_beforeArchivingWhenUpdateAttachmentNotOwned() throws Exception {
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"999"});
+        org.mockito.Mockito.doThrow(new SecurityException("attachment does not belong to the consultation patient"))
+                .when(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo), eq(9), eq(1),
+                        org.mockito.ArgumentMatchers.anyMap());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(request.getAttribute("reqId")).isEqualTo("9");
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+        verify(documentAttachmentManager, never()).attachToConsult(any(), any(), any(), any(), any(), any());
+    }
+
+    /**
+     * A patient-scoped {@code _con} write grant is not the circle-of-care check: attaching records to,
+     * previewing or faxing a consultation discloses the patient's chart, so it also requires access
+     * to the patient's record, before anything is written.
+     */
+    @Test
+    @DisplayName("returns the indistinguishable preview error without rendering when patient record access is denied")
+    void shouldReturnUnavailablePreviewError_whenPatientRecordAccessDenied() throws Exception {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request unavailable.");
+        verify(consultationSignatureService, never()).saveManualSignatureForPreview(any(), anyInt(), anyInt(), any(), any(), any());
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @Test
+    @DisplayName("denies a create that attaches records before any write when patient record access is denied")
+    void shouldDenyCreateWithAttachments_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"10"});
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(consultationRequestDao, never()).persist(any());
+        verifyNoInteractions(documentAttachmentManager, digitalSignatureManager);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("denies an update that attaches records before archiving when patient record access is denied")
+    void shouldDenyUpdateWithAttachments_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setLabNo(new String[] {"20"});
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+        verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("denies an update-and-fax before archiving when patient record access is denied")
+    void shouldDenyUpdateAndFax_whenPatientRecordAccessDenied() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Update And Fax");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.isConsultationFaxEnabled()).thenReturn(true);
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+
+            assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+        }
+
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).merge(any());
+        verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("still saves an update with no attachments when patient record access is denied")
+    void shouldSaveUpdateWithoutAttachments_whenPatientRecordAccessDenied() throws Exception {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(false);
+        action.setSubmission("Update");
+        action.setService("1");
+        action.setSpecialist("0");
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(any(ConsultationRequest.class));
+    }
+
+    @Test
+    @DisplayName("verifies every attachment type once before the create path writes anything")
+    void shouldVerifyAllAttachmentTypes_beforeCreateWrites() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setDocNo(new String[] {"10"});
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Map<io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType, String[]>> verified =
+                ArgumentCaptor.forClass(java.util.Map.class);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(documentAttachmentManager, consultationRequestDao);
+        order.verify(documentAttachmentManager).verifyConsultAttachments(eq(loggedInInfo),
+                org.mockito.ArgumentMatchers.isNull(), eq(1), verified.capture());
+        order.verify(consultationRequestDao).persist(any(ConsultationRequest.class));
+        assertThat(verified.getValue()).containsKeys(
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC,
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB,
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.EFORM,
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.HRM);
+        assertThat(persisted[0]).isNotNull();
+    }
+
     private ConsultationRequest[] capturePersistedConsultationRequest() {
         ConsultationRequest[] persisted = new ConsultationRequest[1];
         doAnswer(invocation -> {
@@ -953,5 +1150,67 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         ConsultationRequest consult = consultationRequest(demographicId);
         consult.setSignatureImg(signatureImg);
         return consult;
+    }
+
+    /**
+     * Issue #3867: the fax cover page listed attachment names looked up by consultation id alone, so
+     * a legacy consult_docs row could put another patient's document description or eForm name on
+     * the cover. It now lists only what the faxed packet contains.
+     */
+    @Test
+    @DisplayName("should list only the patient's own documents, eForms and HL7 labs on the fax cover")
+    void shouldOmitForeignAttachmentNames_fromFaxCoverList() {
+        CtlDocumentDao ctlDocumentDao = mock(CtlDocumentDao.class);
+        PatientLabRoutingDao patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        registerMock(AttachmentOwnershipService.class, new AttachmentOwnershipService(ctlDocumentDao,
+                patientLabRoutingDao, eFormDataDao, mock(HRMDocumentToDemographicDao.class), consultationRequestDao));
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(10));
+        when(eFormDataDao.findFdidsForDemographic(eq(1), anyCollection())).thenReturn(List.of(7));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+
+        EDoc ownDoc = mock(EDoc.class);
+        when(ownDoc.getDocId()).thenReturn("10");
+        when(ownDoc.getDescription()).thenReturn("Own referral letter");
+        EDoc foreignDoc = mock(EDoc.class);
+        when(foreignDoc.getDocId()).thenReturn("11");
+        when(foreignDoc.getDescription()).thenReturn("Foreign discharge summary");
+        EFormData ownEForm = mock(EFormData.class);
+        when(ownEForm.getId()).thenReturn(7);
+        when(ownEForm.getFormName()).thenReturn("Own eForm");
+        EFormData foreignEForm = mock(EFormData.class);
+        when(foreignEForm.getId()).thenReturn(8);
+        when(foreignEForm.getFormName()).thenReturn("Foreign eForm");
+        when(consultationManager.getAttachedEForms("9")).thenReturn(List.of(ownEForm, foreignEForm));
+        LabResultData ownLab = mock(LabResultData.class);
+        when(ownLab.getSegmentID()).thenReturn("30");
+        when(ownLab.getDisciplineDisplayString()).thenReturn("Own lab");
+        when(ownLab.isHL7TEXT()).thenReturn(true);
+        LabResultData foreignLab = mock(LabResultData.class);
+        when(foreignLab.isHL7TEXT()).thenReturn(true);
+        when(foreignLab.getSegmentID()).thenReturn("31");
+        when(foreignLab.getDisciplineDisplayString()).thenReturn("Foreign lab");
+        // A CML lab whose number collides with the patient's own HL7 lab 30: the packet would print
+        // lab 30 in its place, so the cover must not list it either.
+        LabResultData collidingCmlLab = mock(LabResultData.class);
+        when(collidingCmlLab.isHL7TEXT()).thenReturn(false);
+        org.mockito.Mockito.lenient().when(collidingCmlLab.getSegmentID()).thenReturn("30");
+        org.mockito.Mockito.lenient().when(collidingCmlLab.getDisciplineDisplayString()).thenReturn("Legacy CML lab");
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+             MockedConstruction<CommonLabResultData> labConstruction = mockConstruction(CommonLabResultData.class,
+                     (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
+                             .thenReturn(new ArrayList<>(List.of(ownLab, foreignLab, collidingCmlLab))))) {
+            eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean()))
+                    .thenReturn(new ArrayList<>(List.of(ownDoc, foreignDoc)));
+
+            List<String> names = action.faxCoverDocumentNames(loggedInInfo, "9", "1");
+
+            assertThat(names).containsExactly("Own referral letter", "Own lab", "Own eForm");
+        }
     }
 }

@@ -1154,6 +1154,19 @@
       ]
     },
     {
+      "name": "consult-attachment-ownership",
+      "script": "scripts/consult-attachment-ownership-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "echart-consult-specialist",
       "script": "scripts/echart-consult-specialist-playwright-checks.js",
       "tiers": [

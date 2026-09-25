@@ -21,6 +21,17 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
+import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
+import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachment;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Set;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
@@ -79,6 +90,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -412,6 +424,14 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return null for an unknown request id instead of failing while logging")
+        void shouldReturnNull_whenRequestIdUnknown() {
+            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(null);
+
+            assertThat(consultationManager.getRequest(mockLoggedInInfo, TEST_REQUEST_ID)).isNull();
+        }
+
+        @Test
         @DisplayName("should check read privilege before retrieving request")
         void shouldCheckReadPrivilege_whenGettingRequest() {
             // Given
@@ -461,6 +481,14 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(TEST_RESPONSE_ID);
             verify(mockConsultResponseDao).find(TEST_RESPONSE_ID);
+        }
+
+        @Test
+        @DisplayName("should return null for an unknown response id instead of failing while logging")
+        void shouldReturnNull_whenResponseIdUnknown() {
+            when(mockConsultResponseDao.find(TEST_RESPONSE_ID)).thenReturn(null);
+
+            assertThat(consultationManager.getResponse(mockLoggedInInfo, TEST_RESPONSE_ID)).isNull();
         }
 
         @Test
@@ -1678,6 +1706,100 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> consultationManager.findByServiceId(mockLoggedInInfo, TEST_SERVICE_ID))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Access Denied");
+        }
+    }
+
+    /**
+     * Defence in depth for issue #3867: the Ocean attachment feed renders each queued attachment by
+     * id alone, so it must drop anything that is not the requested patient's before rendering.
+     */
+    @Nested
+    @DisplayName("getEReferAttachments ownership filter")
+    class GetEReferAttachmentsOwnershipFilter {
+
+        private EReferAttachmentDao eReferAttachmentDao;
+        private DocumentAttachmentManager documentAttachmentManager;
+        private AttachmentOwnershipService ownershipService;
+
+        @BeforeEach
+        void setUpERefer() {
+            eReferAttachmentDao = Mockito.mock(EReferAttachmentDao.class);
+            documentAttachmentManager = Mockito.mock(DocumentAttachmentManager.class);
+            ownershipService = Mockito.mock(AttachmentOwnershipService.class);
+            injectDependency(consultationManager, "eReferAttachmentDao", eReferAttachmentDao);
+            injectDependency(consultationManager, "documentAttachmentManager", documentAttachmentManager);
+            injectDependency(consultationManager, "attachmentOwnershipService", ownershipService);
+            // The manager passes the Integer patient number, which binds to the int overload; the
+            // class-wide stub only covers the String overload.
+            lenient().when(mockSecurityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), anyInt()))
+                    .thenReturn(true);
+            lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(TEST_DEMOGRAPHIC_NO)))
+                    .thenReturn(true);
+        }
+
+        private EReferAttachment queued(Integer demographicNo, Object[]... typeAndIds) {
+            EReferAttachment attachment = new EReferAttachment(demographicNo);
+            List<EReferAttachmentData> data = new ArrayList<>();
+            for (Object[] typeAndId : typeAndIds) {
+                data.add(new EReferAttachmentData(attachment, (Integer) typeAndId[1], (String) typeAndId[0]));
+            }
+            attachment.setAttachments(data);
+            return attachment;
+        }
+
+        @Test
+        @DisplayName("should render only attachments owned by the requested patient")
+        void shouldRenderOnlyOwnedAttachments_whenQueueContainsForeignIds(@TempDir Path tempDir) throws Exception {
+            Path pdf = Files.write(tempDir.resolve("doc.pdf"), "%PDF-1.4".getBytes());
+            EReferAttachment attachment = queued(TEST_DEMOGRAPHIC_NO,
+                    new Object[]{"D", 10}, new Object[]{"D", 999}, new Object[]{"L", 20});
+            when(eReferAttachmentDao.getRecentByDemographic(eq(TEST_DEMOGRAPHIC_NO), any(Date.class))).thenReturn(attachment);
+            when(ownershipService.findOwnedIds(eq(DocumentType.DOC), eq(TEST_DEMOGRAPHIC_NO), any())).thenReturn(Set.of(10));
+            when(ownershipService.findOwnedIds(eq(DocumentType.LAB), eq(TEST_DEMOGRAPHIC_NO), any())).thenReturn(Set.of());
+            when(documentAttachmentManager.renderDocument(any(LoggedInInfo.class), eq(DocumentType.DOC), eq(10))).thenReturn(pdf);
+
+            List<ConsultationAttachment> result = consultationManager.getEReferAttachments(
+                    Mockito.mock(LoggedInInfo.class), null, null, TEST_DEMOGRAPHIC_NO);
+
+            assertThat(result).extracting(ConsultationAttachment::getId).containsExactly(10);
+            verify(documentAttachmentManager, never()).renderDocument(any(LoggedInInfo.class), eq(DocumentType.DOC), eq(999));
+            verify(documentAttachmentManager, never()).renderDocument(any(LoggedInInfo.class), eq(DocumentType.LAB), eq(20));
+        }
+
+        @Test
+        @DisplayName("should render nothing when the queued row belongs to another patient")
+        void shouldRenderNothing_whenQueuedRowBelongsToAnotherPatient() throws Exception {
+            EReferAttachment attachment = queued(TEST_DEMOGRAPHIC_NO + 1, new Object[]{"D", 10});
+            when(eReferAttachmentDao.getRecentByDemographic(eq(TEST_DEMOGRAPHIC_NO), any(Date.class))).thenReturn(attachment);
+
+            List<ConsultationAttachment> result = consultationManager.getEReferAttachments(
+                    Mockito.mock(LoggedInInfo.class), null, null, TEST_DEMOGRAPHIC_NO);
+
+            assertThat(result).isEmpty();
+            Mockito.verifyNoInteractions(documentAttachmentManager, ownershipService);
+        }
+
+        @Test
+        @DisplayName("should refuse before loading the queue when the caller cannot access the patient")
+        void shouldRefuseEReferAttachments_whenPatientRecordAccessDenied() {
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(TEST_DEMOGRAPHIC_NO))).thenReturn(false);
+
+            assertThatThrownBy(() -> consultationManager.getEReferAttachments(
+                    mockLoggedInInfo, null, null, TEST_DEMOGRAPHIC_NO))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+            Mockito.verifyNoInteractions(eReferAttachmentDao, documentAttachmentManager, ownershipService);
+        }
+
+        @Test
+        @DisplayName("should refuse before loading the queue when patient-scoped consultation read is denied")
+        void shouldRefuseEReferAttachments_whenPatientConsultationReadDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(TEST_DEMOGRAPHIC_NO.intValue()))).thenReturn(false);
+
+            assertThatThrownBy(() -> consultationManager.getEReferAttachments(
+                    mockLoggedInInfo, null, null, TEST_DEMOGRAPHIC_NO))
+                    .isInstanceOf(SecurityException.class);
+            Mockito.verifyNoInteractions(eReferAttachmentDao, documentAttachmentManager, ownershipService);
         }
     }
 }

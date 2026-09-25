@@ -37,6 +37,7 @@ import java.util.Date;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.LabReportInformationDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
 import io.github.carlos_emr.carlos.utility.DateUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -430,6 +431,57 @@ public class LabResultData implements Comparable<LabResultData> {
         return new CompareId();
     }
 
+
+    /**
+     * Keys ({@link #labKey}) of the labs attached to a consultation, consultation response or eForm,
+     * for the CML, MDS and PathNet (BCP) "attached vs. not attached" split.
+     *
+     * <p>The attachment row stores only a lab number ({@code document_no}) and the generic lab
+     * document type, so the lab type is recovered from the {@code patient_lab_routing} rows the
+     * {@code findLabs} queries join on {@code lab_no}: only this patient's routings count, and
+     * document routings ({@code DOC}, whose {@code lab_no} is a document id) are ignored. A number
+     * routed to this patient under exactly one lab type yields {@code "TYPE:number"}. A number with
+     * no routing for this patient, or with routings of more than one lab type (e.g. a CML and an MDS
+     * lab that share the number), is ambiguous and yields no key, so it is not reported as attached
+     * in any typed listing rather than in every one.</p>
+     *
+     * @param attachmentRoutingRows {@code findLabs} rows: {@code [attachment, PatientLabRouting]}
+     * @param demographicNo the patient whose listing is being built
+     * @return the unambiguous {@code "TYPE:number"} keys; never {@code null}
+     */
+    public static java.util.Set<String> attachedLabKeys(java.util.List<Object[]> attachmentRoutingRows, String demographicNo) {
+        java.util.Map<Integer, java.util.Set<String>> typesByLabNo = new java.util.HashMap<>();
+        if (attachmentRoutingRows != null && demographicNo != null) {
+            for (Object[] row : attachmentRoutingRows) {
+                if (row == null || row.length < 2 || !(row[1] instanceof PatientLabRouting routing)) {
+                    continue;
+                }
+                if (routing.getDemographicNo() == null || !demographicNo.trim().equals(routing.getDemographicNo().toString())
+                        || routing.getLabType() == null || DOCUMENT.equals(routing.getLabType())) {
+                    continue;
+                }
+                typesByLabNo.computeIfAbsent(routing.getLabNo(), k -> new java.util.HashSet<>()).add(routing.getLabType());
+            }
+        }
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        for (java.util.Map.Entry<Integer, java.util.Set<String>> entry : typesByLabNo.entrySet()) {
+            if (entry.getValue().size() == 1) {
+                keys.add(labKey(entry.getValue().iterator().next(), String.valueOf(entry.getKey())));
+            }
+        }
+        return keys;
+    }
+
+    /**
+     * The {@code "TYPE:number"} key {@link #attachedLabKeys} produces, for a candidate lab.
+     *
+     * @param labType the listing's lab type, e.g. {@link #CML}
+     * @param labNumber the candidate's lab number ({@link #segmentID})
+     * @return the key
+     */
+    public static String labKey(String labType, String labNumber) {
+        return labType + ":" + labNumber;
+    }
 
     public class CompareId implements Comparator<LabResultData> {
 

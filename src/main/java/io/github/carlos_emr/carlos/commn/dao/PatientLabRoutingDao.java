@@ -32,6 +32,7 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
@@ -79,5 +80,21 @@ public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting> {
     public List<PatientLabRouting> findLabNosByDemographic(Integer demographicNo, String[] labTypes);
 
     public List<Integer> findDemographicIdsSince(Date date);
+
+    /**
+     * Returns the subset of {@code labNos} routed to the given patient for one lab type.
+     *
+     * <p>The lab type is part of the match because lab numbers are only unique per source table:
+     * an HL7 segment id and a legacy MDS/CML lab id can share a number while belonging to
+     * different patients. Used as an ownership check before a browser-supplied lab id is attached
+     * to, or sent out with, that patient's referral.</p>
+     *
+     * @param demographicNo the patient that must own the labs; {@code null} yields an empty list
+     * @param labType the routing lab type to match, e.g. {@link #HL7}; {@code null} yields an empty list
+     * @param labNos candidate lab numbers; {@code null} or empty yields an empty list without querying
+     * @return the owned lab numbers; never {@code null}
+     * @since 2026-09-24
+     */
+    public List<Integer> findLabNosForDemographic(Integer demographicNo, String labType, Collection<Integer> labNos);
 
 }

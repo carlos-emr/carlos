@@ -32,6 +32,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -316,4 +318,20 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         return results;
     }
 
+    @Override
+    public List<Integer> findLabNosForDemographic(Integer demographicNo, String labType, Collection<Integer> labNos) {
+        if (demographicNo == null || labType == null || labNos == null || labNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // Constant JPQL; every value, including the IN list, is a bound parameter.
+        Query query = entityManager.createQuery("select distinct x.labNo from PatientLabRouting x"
+                + " where x.demographicNo = :demographicNo and x.labType = :labType and x.labNo in (:labNos)");
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("labType", labType);
+        query.setParameter("labNos", labNos);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
+    }
 }

@@ -118,7 +118,9 @@ public interface DocumentAttachmentManager {
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, if any id is
+     *                           submitted and the user may not access the patient's record, or if a
+     *                           newly attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo);
 
@@ -147,9 +149,33 @@ public interface DocumentAttachmentManager {
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
      * @param editOnOcean Boolean true if the consultation was created by OceanMD and requires automatic synchronization, false for standard attach/detach operations
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, if any id is
+     *                           submitted and the user may not access the patient's record, or if a
+     *                           newly attached DOC/LAB/EFORM/HRM id does not belong to {@code demographicNo}
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean);
+
+    /**
+     * Checks, without writing anything, that every attachment a consultation save would newly add
+     * belongs to the consultation's patient (issue #3867).
+     *
+     * <p>{@link #attachToConsult} enforces the same rule, but a caller that saves the consultation
+     * and then several attachment types performs one write per call; calling this first lets it
+     * reject a bad request before the consultation, or any attachment type, has been written.
+     * Ids already attached to {@code requestId} are not re-checked here: {@code attachToConsult}
+     * detaches those that no longer verify instead of failing the save.</p>
+     *
+     * @param loggedInInfo the current user's session information
+     * @param requestId the consultation being edited, or {@code null} for one not yet saved
+     * @param demographicNo the consultation's patient
+     * @param attachmentsByType submitted attachment ids grouped by type; FORM entries are not checked
+     * @throws SecurityException if the user lacks {@code _con} write for the patient, if any id is
+     *                           submitted and the user may not access the patient's record, or if any newly
+     *                           attached DOC/LAB/EFORM/HRM id is malformed, unknown or not the patient's
+     * @since 2026-09-24
+     */
+    public void verifyConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, Integer demographicNo,
+                                         Map<DocumentType, String[]> attachmentsByType);
 
     /**
      * Attaches documents to an electronic form (eForm).
@@ -258,6 +284,10 @@ public interface DocumentAttachmentManager {
      * @param response HttpServletResponse the HTTP response for potential streaming operations
      * @return Path the file system path to the rendered PDF document containing the consultation form and attachments
      * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process
+     * @throws SecurityException if the {@code demographicId} attribute is missing or malformed, or the
+     *                           user lacks {@code _con} read for that patient or access to the
+     *                           patient's record, or the {@code reqId} consultation is missing, is
+     *                           not that patient's, or conflicts with a {@code reqId} parameter
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 

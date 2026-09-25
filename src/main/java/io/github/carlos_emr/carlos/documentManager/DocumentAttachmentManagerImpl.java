@@ -9,6 +9,7 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
@@ -102,6 +103,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private NioFileManager nioFileManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     // @Autowired
     // public void setEformDataManager(EformDataManager eformDataManager) {
@@ -320,14 +323,13 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's demographic number for security validation
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, or if any id
+     *                           is submitted and the user may not access the patient's record
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
-        }
+        requireConsultAttachAccess(loggedInInfo, demographicNo, hasAttachmentIds(attachments));
 
-        DocumentAttach documentAttach = new DocumentAttach();
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, Boolean.FALSE, attachmentOwnershipService);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
@@ -348,15 +350,94 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param demographicNo Integer the patient's demographic number for security validation
      * @param editOnOcean Boolean when true, registers attachments for OceanMD transmission;
      *                            when false, performs standard local attachment only
-     * @throws SecurityException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege, or if any id
+     *                           is submitted and the user may not access the patient's record
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean) {
+        requireConsultAttachAccess(loggedInInfo, demographicNo, hasAttachmentIds(attachments));
+
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean, attachmentOwnershipService);
+        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
+    }
+
+    @Override
+    public void verifyConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, Integer demographicNo,
+                                         Map<DocumentType, String[]> attachmentsByType) {
+        boolean attachesRecords = false;
+        if (attachmentsByType != null) {
+            for (String[] ids : attachmentsByType.values()) {
+                attachesRecords |= hasAttachmentIds(ids);
+            }
+        }
+        requireConsultAttachAccess(loggedInInfo, demographicNo, attachesRecords);
+        if (attachmentsByType == null) {
+            return;
+        }
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, Boolean.FALSE, attachmentOwnershipService);
+        for (Map.Entry<DocumentType, String[]> entry : attachmentsByType.entrySet()) {
+            documentAttach.verifyConsultAttachments(entry.getValue(), entry.getKey(), requestId);
+        }
+    }
+
+    /**
+     * Patient-scoped gate for consultation attach, detach and verification.
+     *
+     * <p>{@code _con} write for the patient is always required. When the call would attach (or keep
+     * attached) any record, the caller must also be allowed to access the patient's record:
+     * a patient-scoped {@code _con} grant is not the circle-of-care check, and attached records are
+     * later printed, faxed and sent to Ocean. A detach-only call (every id list empty) does not
+     * disclose anything, so a consultation can still be saved without attachments.</p>
+     */
+    private void requireConsultAttachAccess(LoggedInInfo loggedInInfo, Integer demographicNo, boolean attachesRecords) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
+        if (attachesRecords
+                && (demographicNo == null || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo))) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+    }
 
-        DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
-        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
+    private static boolean hasAttachmentIds(String[] attachments) {
+        if (attachments == null) {
+            return false;
+        }
+        for (String id : attachments) {
+            if (id != null && !id.isBlank()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Keeps the attachments whose id belongs to {@code demographicNo}, via
+     * {@link AttachmentOwnershipService#retainOwned} (one batched lookup); everything else (foreign,
+     * deleted, unparseable, {@code null}) is dropped and only the count logged.
+     */
+    <T> List<T> retainOwnedAttachments(DocumentType documentType, Integer demographicNo, List<T> attachments,
+                                       java.util.function.Function<T, String> idOf) {
+        List<T> retained = attachmentOwnershipService.retainOwned(documentType, demographicNo, attachments, idOf);
+        int dropped = (attachments == null ? 0 : attachments.size()) - retained.size();
+        if (dropped > 0) {
+            logger.warn("Omitted {} consultation attachment(s) of type {} not owned by the consultation patient", dropped, documentType.getType());
+        }
+        return retained;
+    }
+
+    private static Integer parseAttachmentId(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer parseDemographicNo(String demographicId) {
+        return parseAttachmentId(demographicId);
     }
 
     /**
@@ -543,12 +624,29 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String requestId = (String) request.getAttribute("reqId");
         String demographicId = (String) request.getAttribute("demographicId");
+        // The packet carries the patient's PHI. Callers check this too; enforce it here so a new
+        // caller that only gates on role-level _con cannot render another patient's chart records.
+        Integer ownerDemographicNo = parseDemographicNo(demographicId);
+        if (ownerDemographicNo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, ownerDemographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, ownerDemographicNo)) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+        requireConsultationOfPatient(loggedInInfo, request, requestId, ownerDemographicNo);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
 
-        List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-        List<EDoc> attachedEDocs = EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED);
+        // Defence in depth for issue #3867: the eForm and document lookups below resolve attachments
+        // by consultation id alone, so a consult_docs row written before attach-time ownership checks
+        // existed could still print or fax another patient's record. Keep only this patient's own.
+        // HRM lookups are already scoped to the patient; forms have no common owner column.
+        List<EFormData> attachedEForms = retainOwnedAttachments(DocumentType.EFORM, ownerDemographicNo,
+                consultationManager.getAttachedEForms(requestId), eForm -> eForm.getId() == null ? null : String.valueOf(eForm.getId()));
+        List<EDoc> attachedEDocs = retainOwnedAttachments(DocumentType.DOC, ownerDemographicNo,
+                EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
         CommonLabResultData labResultData = new CommonLabResultData();
-        List<LabResultData> attachedLabs = labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
+        List<LabResultData> attachedLabs = retainOwnedAttachments(DocumentType.LAB, ownerDemographicNo,
+                AttachmentOwnershipService.renderableLabsOnly(labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED)),
+                LabResultData::getSegmentID);
         ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
         List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 
@@ -563,6 +661,28 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         Path result = concatPDF(pdfDocumentList, demographicId);
         cleanupRenderedTempInputs(pdfDocumentList, result);
         return result;
+    }
+
+    /**
+     * The check above authorizes the patient named by {@code demographicId}, but
+     * {@code ConsultationPDFCreator} renders the consultation named by {@code reqId} (a raw
+     * {@code reqId} request parameter taking precedence over the attribute). Tie the two together
+     * before anything is rendered: the consultation must exist and belong to that patient, and a
+     * {@code reqId} parameter, if present, must name the same consultation. Otherwise a mismatched
+     * pair would render another patient's consultation under this patient's authorization.
+     */
+    private void requireConsultationOfPatient(LoggedInInfo loggedInInfo, HttpServletRequest request, String requestId,
+                                              Integer ownerDemographicNo) {
+        Integer consultationRequestId = parseAttachmentId(requestId);
+        String requestIdParameter = request.getParameter("reqId");
+        if (consultationRequestId == null
+                || (requestIdParameter != null && !requestIdParameter.trim().equals(consultationRequestId.toString()))) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
+        ConsultationRequest consultation = consultationManager.getRequest(loggedInInfo, consultationRequestId);
+        if (consultation == null || !ownerDemographicNo.equals(consultation.getDemographicId())) {
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
+        }
     }
 
     /**
