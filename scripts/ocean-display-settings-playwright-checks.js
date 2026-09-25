@@ -26,6 +26,10 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const PREF = 'echart_show_ocean';
 const PREF_QUERY = `SELECT \`value\` FROM SystemPreferences WHERE name='${PREF}' ORDER BY id LIMIT 1`;
 const PREF_COUNT = `SELECT COUNT(*) FROM SystemPreferences WHERE name='${PREF}'`;
+// Every row, by id: nothing in the schema makes the name unique, and the DAO's save updates
+// every matching row, so a legacy install may carry duplicates that the cleanup must restore
+// one by one.
+const PREF_ROWS = `SELECT id, \`value\`, IF(\`value\` IS NULL,1,0) FROM SystemPreferences WHERE name='${PREF}' ORDER BY id`;
 
 async function openSettings(s) {
   const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
@@ -41,7 +45,7 @@ async function openSettings(s) {
   return { admin, frame };
 }
 
-async function save(s, frame, enabled) {
+async function save(s, frame, enabled, expectedRows) {
   const box = frame.locator('#echart_show_ocean');
   if (await box.isChecked() !== enabled) await box.click();
   h.assert(await box.isChecked() === enabled, 'The Ocean switch did not take the requested state');
@@ -52,7 +56,8 @@ async function save(s, frame, enabled) {
   await expectValue(s.sql, PREF_QUERY, String(enabled), `Saving Ocean display=${enabled} did not reach SystemPreferences`);
   h.assert(await frame.locator('#echart_show_ocean').isChecked() === enabled, 'The page re-rendered with the wrong switch state after Save');
   h.assert(await frame.locator('span', { hasText: /saved/i }).count() >= 1, 'Save did not confirm itself on the page');
-  h.assert(s.sql.value(PREF_COUNT) === '1', 'Saving the Ocean preference did not keep a single SystemPreferences row');
+  h.assert(s.sql.value(PREF_COUNT) === expectedRows,
+    `Saving the Ocean preference changed the number of SystemPreferences rows (expected ${expectedRows})`);
   h.assert(s.sql.value('SELECT COUNT(*) FROM OceanSetting WHERE id=1') === '1', 'Saving did not create the OceanSetting singleton');
 }
 
@@ -74,17 +79,20 @@ async function placeholderCount(s) {
 }
 
 async function workflow(s) {
-  const originalCount = s.sql.value(PREF_COUNT);
-  const originalValue = originalCount === '0' ? null : s.sql.value(PREF_QUERY);
+  const originalRows = s.sql.rows(PREF_ROWS);
+  const originalValue = originalRows.length === 0 ? null : s.sql.value(PREF_QUERY);
+  // A save updates the existing rows, or inserts one when there are none.
+  const expectedRows = String(Math.max(originalRows.length, 1));
   const hadSingleton = s.sql.value('SELECT COUNT(*) FROM OceanSetting WHERE id=1') === '1';
   s.cleanup(() => {
-    if (originalValue === null) {
-      s.sql.execute(`DELETE FROM SystemPreferences WHERE name='${PREF}'`);
-    } else {
-      s.sql.execute(`UPDATE SystemPreferences SET \`value\`=${h.sqlString(originalValue)} WHERE name='${PREF}'`);
+    const ids = originalRows.map((row) => row[0]);
+    h.assert(ids.every((id) => /^[1-9]\d*$/.test(id)), 'Invalid SystemPreferences fixture identity');
+    s.sql.execute(`DELETE FROM SystemPreferences WHERE name='${PREF}'${ids.length ? ` AND id NOT IN(${ids.join(',')})` : ''}`);
+    for (const [id, value, isNull] of originalRows) {
+      s.sql.execute(`UPDATE SystemPreferences SET \`value\`=${isNull === '1' ? 'NULL' : h.sqlString(value)} WHERE id=${id}`);
     }
     if (!hadSingleton) s.sql.execute('DELETE FROM OceanSetting WHERE id=1 AND settings IS NULL');
-    h.assert(s.sql.value(PREF_COUNT) === (originalValue === null ? '0' : originalCount), 'Ocean preference restore failed');
+    h.assert(JSON.stringify(s.sql.rows(PREF_ROWS)) === JSON.stringify(originalRows), 'Ocean preference restore failed');
   });
 
   const { admin, frame } = await openSettings(s);
@@ -94,11 +102,11 @@ async function workflow(s) {
       `The Ocean switch shows ${!expected} but the database says ${expected}`);
   });
   await s.step('turning Ocean off persists and removes the encounter placeholder', async () => {
-    await save(s, frame, false);
+    await save(s, frame, false, expectedRows);
     h.assert((await placeholderCount(s)).count === 0, 'The encounter still renders #ocean_placeholder with Ocean turned off');
   });
   await s.step('turning Ocean on persists and restores the hidden placeholder', async () => {
-    await save(s, frame, true);
+    await save(s, frame, true, expectedRows);
     const rendered = await placeholderCount(s);
     h.assert(rendered.count === 1, 'The encounter does not render #ocean_placeholder with Ocean turned on');
     h.assert(rendered.hidden, 'The Ocean placeholder must stay hidden until the toolbar script shows it');
