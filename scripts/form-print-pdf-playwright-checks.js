@@ -111,6 +111,14 @@ const FORM_TABLES = {
 const STAMP_FIELD = 'aci';
 
 /**
+ * The label FrmLabReq07Record puts in front of the saved record's id on the printed page.
+ *
+ * `encounter.form.labreq.clientreference` in the English bundle; matched rather than the id alone
+ * because a bare number would also match a postal code or a phone number somewhere on the form.
+ */
+const CLIENT_REFERENCE_LABEL = /Client Reference No\.\s*:/;
+
+/**
  * The literal text drawn inside a PDF, as far as a regression check needs to read it.
  *
  * Not a PDF parser and not trying to be one. iText writes page content into Flate-compressed
@@ -215,8 +223,8 @@ async function cleanup() {
  * onclick calling popupPage(...) with the URL as its fourth argument, and the
  * JSP writes it with `&` escaped as \x26 for the JavaScript string literal.
  */
-async function formMenuUrl(chartPage, formName) {
-  return chartPage.evaluate((name) => {
+async function formMenuUrl(chartPage, formName, which = 'blank') {
+  return chartPage.evaluate(([name, wanted]) => {
     for (const anchor of document.querySelectorAll('a')) {
       // THE LABEL CAN BE DECORATED. EctDisplayForm2Action wraps a started Lab Req 2007 in
       // asterisks when no lab report is linked to it, so the raw text of that entry reads
@@ -225,24 +233,59 @@ async function formMenuUrl(chartPage, formName) {
       const label = (anchor.textContent || '').trim().replace(/^\*+|\*+$/g, '');
       if (label.startsWith(name)) {
         const match = /popupPage\([^,]+,[^,]+,\s*'[^']*'\s*,\s*'([^']+)'/.exec(anchor.getAttribute('onclick') || '');
-        // THE BLANK FORM, NOT A STARTED ONE. The same menu lists both: a started form links to
+        // WHICH OF THE TWO ENTRIES. The same menu lists both: a started form links to
         // /form/forwardshortcutname?...&formId=latest, a blank one to the form route with
-        // formId=0. Pressing Print on a started form UPDATES a record somebody else saved, and
-        // cleanup would then delete a clinician's row. Requiring formId=0 keeps this check to a
-        // record it created itself, and it is also why undecorating the label above is safe.
+        // formId=0. They are not interchangeable -- pressing Print on a started form UPDATES
+        // whatever record is newest, so the default ('blank') is what keeps this check to a row
+        // it created itself, and it is also why undecorating the label above is safe. The
+        // 'started' entry is asked for only after this run has saved its own row, so "newest"
+        // is that row.
         // ONE PASS OVER THE SOURCE, both spellings in the same alternation. The JSP escapes the
         // ampersands twice over -- once for the JavaScript string literal (\x26) and once for
         // the HTML attribute (&amp;) -- and decoding them in two chained replaces would rescan
         // the output of the first, so a literal "\x26amp;" would come out as a bare "&".
         // Decoded BEFORE the formId test below, or that test reads "\x26formId=0" and never matches.
         const url = match ? match[1].replace(/\\x26|&amp;/g, '&') : '';
-        if (/[?&]formId=0(&|$)/.test(url)) {
+        const matches = wanted === 'started'
+          ? /[?&]formId=latest(&|$)/.test(url)
+          : /[?&]formId=0(&|$)/.test(url);
+        if (matches) {
           return url;
         }
       }
     }
     return '';
-  }, formName);
+  }, [formName, which]);
+}
+
+/**
+ * Open a form at `url`, press Print, and return the text of the PDF that came back.
+ *
+ * Used for the control print only: the main flow stamps the form before printing and asserts a
+ * good deal more about the answer, and is written out inline for that reason.
+ */
+async function printAndRead(context, config, url, { timeout, posts, pdfBodies }) {
+  const before = pdfBodies.length;
+  const page = await context.newPage();
+  try {
+    await page.goto(new URL(url, config.baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- the URL comes from the application's own rendered Forms menu, resolved against the validated base URL
+    await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
+    const printButton = page.locator('input[value*="Print" i], button:has-text("Print"), a:has-text("Print")').first();
+    if (await printButton.count() === 0) return '';
+    const postsBefore = posts.length;
+    await printButton.click({ timeout }).catch(() => {});
+    // Wait on the answer rather than a clock, for the same reason the main flow does.
+    const deadline = Date.now() + timeout;
+    while (pdfBodies.length === before && posts.length === postsBefore && Date.now() < deadline) {
+      await page.waitForTimeout(250);
+    }
+    while (pdfBodies.length === before && Date.now() < deadline) {
+      await page.waitForTimeout(250);
+    }
+    return pdfBodies.slice(before).map((body) => pdfText(body)).join('\n');
+  } finally {
+    await page.close().catch(() => {});
+  }
 }
 
 async function main() {
@@ -387,14 +430,55 @@ async function main() {
       + 'lost the parameters that place the fields (__cfgfile/__template) on the way to the servlet');
 
     // Print saves the record before it renders, so the stamped row must exist.
-    const created = Number(sql.value(
-      `SELECT COUNT(*) FROM ${table} WHERE ${STAMP_FIELD} = '${fixture.stamp}' `
+    const savedIds = sql.rows(
+      `SELECT ID FROM ${table} WHERE ${STAMP_FIELD} = '${fixture.stamp}' `
       + `AND demographic_no = ${sqlNumber(fixture.demographicNo, 'the patient key')}`,
-    ) || '0');
-    assert(created > 0,
+    ).map((row) => row[0]);
+    assert(savedIds.length > 0,
       'Print returned a PDF but saved no form row, so the record it printed was never stored');
 
-    console.log(`  ${formName}: Print answered 200 application/pdf for the selected patient`);
+    // THE ID THE SAVE PRODUCED, PROVEN ON THE PAGE. The page posts formId=0 for a brand-new
+    // record; only the forwarded ?formId=${savedFormId} tells FrmPDFServlet which row was just
+    // written. FrmLabReq07Record fills clientRefNo as "<label>:<id>" and only on the branch that
+    // loads an existing id, and labReqPrint07.txt places it, so that number appearing on the page
+    // is end-to-end evidence the saved id reached the servlet. With the stale 0 the field is
+    // simply absent. Restricted to Lab Req 2007 because it is the form that carries the field.
+    // THE SAVED ID, PROVEN ON THE PAGE.
+    //
+    // The page posts formId=0 for a brand-new record; only the forwarded ?formId=${savedFormId}
+    // tells FrmPDFServlet which row was just written. Nothing else on the document can show
+    // that: every other value also arrives as a POST parameter and FrmPDFServlet overlays those
+    // on top of whichever record it loaded, so a print of the wrong record still looks right.
+    // clientRefNo is the exception -- FrmLabReq07Record sets it only on the branch that loads an
+    // existing id, and it holds that id verbatim.
+    //
+    // WHY THE SECOND PRINT. clientRefNo is also gated on use_lab_clientreference, which defaults
+    // to true in code but ships false on the deb, so "no client reference on the page" is
+    // ambiguous: either the setting is off, or the id never arrived. Printing the STARTED form
+    // entry settles it. That path carries the id in its own menu URL (formId=latest) and so does
+    // not depend on this PR's forward at all: if the reference appears there, the setting is on
+    // and its absence from the first print is the regression; if it appears in neither, the
+    // setting is off and this half genuinely cannot be exercised here. The second print reprints
+    // the row the first one saved -- this run's own -- so it writes nothing new to the chart.
+    const referenceFor = (id) => new RegExp(`${CLIENT_REFERENCE_LABEL.source}\\s*${id}\\b`);
+    if (CLIENT_REFERENCE_LABEL.test(drawn)) {
+      assert(referenceFor(savedIds[0]).test(drawn),
+        `the PDF shows a client reference, but not for row ${savedIds[0]} that Print had just `
+        + 'saved, so FrmPDFServlet rendered some other record');
+    } else {
+      const startedUrl = await formMenuUrl(chartPage, formName, 'started');
+      const control = startedUrl
+        ? await printAndRead(context, config, startedUrl, { timeout, posts, pdfBodies })
+        : '';
+      assert(!CLIENT_REFERENCE_LABEL.test(control),
+        'reprinting the saved record shows a client reference while printing it the first time '
+        + 'did not, so the id the save produced never reached FrmPDFServlet and the first print '
+        + 'rendered the new-form defaults (issue #3935)');
+      console.log('  (no client reference on either print -- use_lab_clientreference is off on '
+        + 'this deployment, so the saved-id half cannot be exercised here)');
+    }
+
+    console.log(`  ${formName}: Print answered 200 application/pdf carrying the saved record`);
     await formPage.close().catch(() => {});
     await chartPage.close().catch(() => {});
     return { posts: posts.length };
