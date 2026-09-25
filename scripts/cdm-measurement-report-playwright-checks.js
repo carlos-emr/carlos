@@ -32,9 +32,12 @@
  *      instruction, so legacy readings dropped out of every per-instruction line.
  *   2. On the "met guideline" screen, a guideline of "Provided" counts a "Provided" reading.
  *      Before the fix only yes/no guidelines could ever be met.
- *   3. A stored instruction is user-entered text (the entry form's inputMInstrc-* field), and
- *      the reports now list every stored one. A reading whose instruction carries HTML markup
- *      must show that markup as literal text on every screen and run no script.
+ *   3. A stored instruction is user-entered text (the entry form's inputMInstrc-* field). The
+ *      reports offer only controlled instructions: the ones the measurement-type definitions
+ *      declare plus the legacy AACP "Yes/No" allowlist. A reading whose instruction is free text
+ *      (here, text carrying HTML markup) is never offered on any screen, so patient-specific
+ *      text cannot be disclosed clinic-wide through the report filter and no script runs
+ *      (Copilot review on #3900).
  *
  * The CDM report entry page has no link in the current menus; the check opens its route,
  * /oscarReport/oscarMeasurements/SetupSelectCDMReport, and drives every form from there as
@@ -99,8 +102,8 @@ async function assertNoInjectedScript(page, screen) {
 
 function assertBothInstructions(choices, screen) {
   const values = choices.map((choice) => choice.value);
-  h.assert(values.includes(HOSTILE_INSTRUCTION),
-    `${screen} does not show the stored instruction containing markup as its literal value; it offers ${JSON.stringify(values)}`);
+  h.assert(!values.includes(HOSTILE_INSTRUCTION),
+    `${screen} offers a free-text stored instruction (it must offer controlled ones only); it offers ${JSON.stringify(values)}`);
   h.assert(values.includes(CURRENT_INSTRUCTION),
     `${screen} does not offer the current AACP instruction; it offers ${JSON.stringify(values)}`);
   h.assert(values.includes(LEGACY_INSTRUCTION),
@@ -155,8 +158,8 @@ async function workflow(session) {
     const choices = await instructionChoices(page, 'mInstrcsCheckbox', row);
     assertBothInstructions(choices, 'the met-guideline screen');
     await assertNoInjectedScript(page, 'the met-guideline screen');
-    h.assert((await page.locator('body').innerText()).includes(HOSTILE_INSTRUCTION),
-      'the met-guideline screen does not show the stored instruction containing markup as text');
+    h.assert(!(await page.locator('body').innerText()).includes(HOSTILE_INSTRUCTION),
+      'the met-guideline screen shows a free-text stored instruction');
     h.assert(choices.every((choice) => choice.checked), 'the AACP instructions are not selected by default');
 
     // Only the AACP line, with a "Provided" guideline, as a user would fill it in.
@@ -165,15 +168,9 @@ async function workflow(session) {
     h.assert(position >= 0, 'the AACP line has no selection checkbox');
     await guidelineRows.nth(position).check();
     await page.locator('input[name="guidelineB"]').nth(position).fill('Provided');
-    // The markup-bearing fixture instruction has already proven the screen encodes stored
-    // instructions. Submitting it would post that markup back as a form value, which the
-    // packaged install's ModSecurity/CRS front door rightly refuses (941100/941120/941160,
-    // 403), so it is unticked here; the report must still run for the other instructions.
-    const rowChoices = page.locator(`input[type="checkbox"][name^="value(mInstrcsCheckbox${row}"]`);
-    const hostileIndex = await rowChoices.evaluateAll(
-      (inputs, value) => inputs.findIndex((input) => input.value === value), HOSTILE_INSTRUCTION);
-    h.assert(hostileIndex >= 0, 'the markup-bearing AACP instruction has no selection checkbox');
-    await rowChoices.nth(hostileIndex).uncheck();
+    // The free-text fixture instruction is not offered, so nothing hostile is posted back (the
+    // packaged install's ModSecurity/CRS front door would refuse it with 403 anyway); the
+    // report runs for the controlled instructions.
     await Promise.all([
       page.waitForURL(/\/oscarReport\/oscarMeasurements\/InitializePatientsMetGuidelineCDMReport(?:$|[?#])/),
       page.locator('input[type="submit"][name="submitBtn"]').click(),
