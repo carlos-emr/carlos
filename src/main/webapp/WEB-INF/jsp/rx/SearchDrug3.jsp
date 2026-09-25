@@ -77,6 +77,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%
 String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
 RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
