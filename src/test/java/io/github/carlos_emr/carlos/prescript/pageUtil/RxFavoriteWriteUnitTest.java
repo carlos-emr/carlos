@@ -22,9 +22,15 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.FavoriteDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
+import io.github.carlos_emr.carlos.prescript.data.RxInteractionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -85,6 +91,8 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
     private Favorite stored;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<RxPatientData> patientDataMock;
+    private MockedStatic<RxInteractionData> interactionDataMock;
 
     @BeforeEach
     void setUp() {
@@ -113,6 +121,8 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() {
+        if (interactionDataMock != null) interactionDataMock.close();
+        if (patientDataMock != null) patientDataMock.close();
         loggedInInfoMock.close();
         servletActionContextMock.close();
     }
@@ -424,6 +434,20 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
                 mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class));
         registerMock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class,
                 mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class));
+        // Real stash insertion also loads current drugs and starts clinical-warning preloads.
+        // Supply those collaborators so the test observes a completed insertion, not a draft
+        // added just before a missing-bean exception that the old action silently swallowed.
+        registerMock(DrugDao.class, mock(DrugDao.class));
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
+        registerMock(AllergyDao.class, mock(AllergyDao.class));
+        RxPatientData.Patient patient = mock(RxPatientData.Patient.class);
+        when(patient.getActiveAllergies()).thenReturn(new Allergy[0]);
+        patientDataMock = mockStatic(RxPatientData.class);
+        patientDataMock.when(() -> RxPatientData.getPatient(any(LoggedInInfo.class), anyInt()))
+                .thenReturn(patient);
+        interactionDataMock = mockStatic(RxInteractionData.class);
+        RxInteractionData interactions = mock(RxInteractionData.class);
+        interactionDataMock.when(RxInteractionData::getInstance).thenReturn(interactions);
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(demographicNo);
         bean.setProviderNo(PROVIDER_NO);
@@ -450,6 +474,9 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(bean.getStashSize()).isEqualTo(1);
         assertThat(bean.getStashItem(0).getRandomId()).isEqualTo(123L);
+        List<?> renderedCards = (List<?>) request.getAttribute("listRxDrugs");
+        assertThat(renderedCards).hasSize(1);
+        assertThat(renderedCards.getFirst()).isSameAs(bean.getStashItem(0));
     }
 
     @Test
