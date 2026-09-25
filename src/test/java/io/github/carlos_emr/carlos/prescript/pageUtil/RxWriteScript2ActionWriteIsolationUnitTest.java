@@ -151,6 +151,19 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"9999", "malformed"})
+    @DisplayName("saveDrug safely refuses a request whose patient bean cannot be resolved")
+    void shouldSkipSave_whenPatientBeanCannotBeResolved(String patient) {
+        request.setParameter("demographicNo", patient);
+
+        action.saveDrug(request);
+
+        assertThat(bean.getStash()).containsExactly(stagedCard);
+        verifyNoInteractions(stagedCard, mockRxManager, mockSignatureStampService);
+        logActionMock.verifyNoInteractions();
+    }
+
     @Test
     @DisplayName("saving cards whose keys share a prefix preserves each medication name")
     void shouldMatchExactCardKey_whenDrugNameKeysSharePrefix() throws Exception {

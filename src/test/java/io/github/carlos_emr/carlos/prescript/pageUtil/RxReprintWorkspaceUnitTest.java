@@ -83,11 +83,10 @@ class RxReprintWorkspaceUnitTest {
             openPatient(demographicNo);
         }
         assertThat(RxSessionBeanResolver.find(session, 1)).isNull();
-
-        RxReprintWorkspace.store(session, reprintFor(2), "new");
-
+        // No later reprint is needed to remove the old workspace, and reopening cannot revive it.
         assertThat(RxReprintWorkspace.find(session, 1)).isNull();
-        assertThat(RxReprintWorkspace.find(session, 2)).isNotNull();
+        openPatient(1);
+        assertThat(RxReprintWorkspace.find(session, 1)).isNull();
     }
 
     @Test
@@ -115,4 +114,23 @@ class RxReprintWorkspaceUnitTest {
         }
         assertThat(held).isLessThanOrEqualTo(cap);
     }
+    @Test
+    @DisplayName("should keep saved reprints bounded without discarding patients' pending work")
+    void shouldBoundReprints_whenDirtyPatientBeansExceedTarget() {
+        int count = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 1;
+        for (int demographicNo = 1; demographicNo <= count; demographicNo++) {
+            openPatient(demographicNo).addReRxDrugIdList("77");
+            RxReprintWorkspace.store(session, reprintFor(demographicNo), "saved script");
+        }
+
+        assertThat(RxReprintWorkspace.find(session, 1)).isNull();
+        for (int demographicNo = 1; demographicNo <= count; demographicNo++) {
+            assertThat(RxSessionBeanResolver.find(session, demographicNo)).isNotNull();
+            assertThat(RxSessionBeanResolver.find(session, demographicNo).getReRxDrugIdList()).containsExactly("77");
+            if (demographicNo > 1) {
+                assertThat(RxReprintWorkspace.find(session, demographicNo)).isNotNull();
+            }
+        }
+    }
+
 }

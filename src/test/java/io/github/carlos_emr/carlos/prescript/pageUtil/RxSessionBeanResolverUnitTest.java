@@ -208,8 +208,8 @@ class RxSessionBeanResolverUnitTest {
     }
 
     @Test
-    @DisplayName("should never evict the patient being opened, even when every other bean holds drafts")
-    void shouldKeepNewestPatient_whenEveryOtherBeanHasDrafts() {
+    @DisplayName("should preserve every draft and the new patient when all older beans hold work")
+    void shouldPreserveAllPatients_whenEveryOlderBeanHasDrafts() {
         for (int demo = 1; demo <= RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION; demo++) {
             RxSessionBeanResolver.activate(request(), demo, PROVIDER).getStashList().add(draft(demo));
         }
@@ -218,8 +218,46 @@ class RxSessionBeanResolverUnitTest {
         RxSessionBean opened = RxSessionBeanResolver.activate(request(), newest, PROVIDER);
 
         assertThat(RxSessionBeanResolver.find(session, newest)).isSameAs(opened);
-        assertThat(RxSessionBeanResolver.find(session, 1)).isNull();
-        assertThat(RxSessionBeanResolver.find(session, 2)).isNotNull();
+        for (int demo = 1; demo < newest; demo++) {
+            assertThat(RxSessionBeanResolver.find(session, demo)).isNotNull();
+            assertThat(RxSessionBeanResolver.find(session, demo).getStash())
+                    .extracting(RxPrescriptionData.Prescription::getRandomId).containsExactly((long) demo);
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve pending ReRx selections when every older patient holds work")
+    void shouldPreserveReRxSelections_whenTargetExceeded() {
+        int count = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 3;
+        for (int demo = 1; demo <= count; demo++) {
+            RxSessionBeanResolver.ensure(request(), demo, PROVIDER).addReRxDrugIdList("77");
+        }
+
+        for (int demo = 1; demo <= count; demo++) {
+            assertThat(RxSessionBeanResolver.find(session, demo)).isNotNull();
+            assertThat(RxSessionBeanResolver.find(session, demo).getReRxDrugIdList()).containsExactly("77");
+        }
+    }
+
+    @Test
+    @DisplayName("should shrink back to the target after formerly dirty beans become empty")
+    void shouldPruneEmptyBeans_afterDraftsWereDiscarded() {
+        int count = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION + 3;
+        for (int demo = 1; demo <= count; demo++) {
+            RxSessionBeanResolver.activate(request(), demo, PROVIDER).getStashList().add(draft(demo));
+        }
+        for (int demo = 1; demo <= 4; demo++) {
+            RxSessionBeanResolver.find(session, demo).clearStash();
+        }
+
+        RxSessionBeanResolver.activate(request(), count + 1, PROVIDER);
+
+        for (int demo = 1; demo <= 4; demo++) {
+            assertThat(RxSessionBeanResolver.find(session, demo)).isNull();
+        }
+        for (int demo = 5; demo <= count + 1; demo++) {
+            assertThat(RxSessionBeanResolver.find(session, demo)).isNotNull();
+        }
     }
 
     @Test

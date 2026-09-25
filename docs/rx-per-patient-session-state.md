@@ -19,10 +19,12 @@ All lookups go through `io.github.carlos_emr.carlos.prescript.pageUtil.RxSession
 | Stage, re-prescribe, edit, favourite, remove or clear staged items; delete, discontinue or long-term-toggle a saved drug; delete or re-activate an allergy | `resolveForWrite(request)` | Only the explicitly named patient's bean; `null` (no fallback) when the request names no patient. Staging and re-prescribe calls also check that a source drug id belongs to that patient. Actions with a read-only branch (the `rx/stash` `action=edit` cursor move, `rx/writeScript` without an `update*` action, `rx/viewScript` GET preview) keep `resolve` for that branch only. |
 | Persist or archive medications | `isRequestForBeanPatient(request, bean)` | Required before a save. A save that does not name the window's patient is refused with 409 rather than written to the fallback patient; the staging page alerts the prescriber that nothing was saved. |
 
-Beans live in the `RxSessionBeans` session attribute, keyed by demographic number, capped at 25
-patients per session. Over the cap the least recently opened patient *with nothing staged* is
-dropped; only when every bean holds drafts or a ReRx selection is the least recently opened one
-dropped anyway (logged), and the patient being opened is never the one dropped. The active patient
+Beans live in the `RxSessionBeans` session attribute, keyed by demographic number, with a target of
+25 patients per session. Above that target the least recently opened patients *with nothing staged*
+are dropped. Drafts and pending ReRx selections are always preserved, so the map temporarily grows
+beyond 25 when every older bean holds work. Later additions remove empty beans back toward the target
+as work is saved or discarded. The patient being opened is never dropped. Eviction also clears that
+patient's saved reprint workspace so reopening cannot revive an old reprint. The active patient
 is `RxActiveDemographicNo`.
 
 ### Patient-level authorisation of writes

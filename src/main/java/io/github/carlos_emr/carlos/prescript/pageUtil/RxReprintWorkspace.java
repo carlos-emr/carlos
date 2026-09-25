@@ -54,7 +54,7 @@ public final class RxReprintWorkspace {
     /** Session attribute holding the per-patient map. Never read it directly; use this class. */
     static final String SESSION_ATTRIBUTE = "rxReprintByPatient";
 
-    /** Same bound as the per-patient beans: a reprint outlives neither its patient nor the cap. */
+    /** Saved reprints can be loaded again, so they retain a hard cap even when draft beans exceed it. */
     static final int MAX_REPRINTS = RxSessionBeanResolver.MAX_PATIENTS_PER_SESSION;
 
     /**
@@ -88,13 +88,20 @@ public final class RxReprintWorkspace {
         synchronized (WebUtils.getSessionMutex(session)) {
             Map<Integer, Entry> entries = map(session, true);
             entries.remove(reprintBean.getDemographicNo());
-            entries.entrySet().removeIf(entry -> RxSessionBeanResolver.find(session, entry.getKey()) == null);
+            pruneInactive(session);
             Iterator<Integer> oldestFirst = entries.keySet().iterator();
             while (entries.size() >= MAX_REPRINTS && oldestFirst.hasNext()) {
                 oldestFirst.next();
                 oldestFirst.remove();
             }
             entries.put(reprintBean.getDemographicNo(), new Entry(reprintBean, comment == null ? "" : comment));
+        }
+    }
+
+    /** Discards reprints as their patient beans are evicted, before reopening can revive them. */
+    static void pruneInactive(HttpSession session) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            map(session, false).entrySet().removeIf(entry -> RxSessionBeanResolver.find(session, entry.getKey()) == null);
         }
     }
 

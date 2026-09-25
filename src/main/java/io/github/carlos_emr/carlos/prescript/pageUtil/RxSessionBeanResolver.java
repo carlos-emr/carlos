@@ -27,8 +27,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.Serial;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import org.springframework.web.util.WebUtils;
 
 /**
  * The one place prescription code finds the {@link RxSessionBean} (and the matching
@@ -75,8 +78,8 @@ public final class RxSessionBeanResolver {
     static final String PATIENT_REQUEST_ATTRIBUTE = RxSessionBeanResolver.class.getName() + ".patient";
 
     /**
-     * Upper bound on patients kept per session. A clinic day can touch many charts; the least
-     * recently opened patient's bean (and any draft left in it) is dropped beyond this.
+     * Target number of patients kept per session. Empty beans are evicted above this number;
+     * drafts and pending ReRx selections are always retained, even when the target is exceeded.
      */
     static final int MAX_PATIENTS_PER_SESSION = 25;
 
@@ -115,6 +118,7 @@ public final class RxSessionBeanResolver {
                 bean = new RxSessionBean();
                 bean.setDemographicNo(demographicNo);
                 beans.put(demographicNo, bean);
+                RxReprintWorkspace.pruneInactive(session);
             } else {
                 bean.removePersistedStashItems();
             }
@@ -152,6 +156,7 @@ public final class RxSessionBeanResolver {
                 bean.setDemographicNo(demographicNo);
                 bean.setProviderNo(providerNo);
                 beans.put(demographicNo, bean);
+                RxReprintWorkspace.pruneInactive(session);
             }
             if (session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE) == null) {
                 session.setAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE, demographicNo);
@@ -173,6 +178,7 @@ public final class RxSessionBeanResolver {
         }
         synchronized (lockFor(session)) {
             beans(session, true).put(bean.getDemographicNo(), bean);
+            RxReprintWorkspace.pruneInactive(session);
             session.setAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE, bean.getDemographicNo());
         }
     }
@@ -323,9 +329,9 @@ public final class RxSessionBeanResolver {
     }
 
     private static Object lockFor(HttpSession session) {
-        // Same fallback Spring's WebUtils.getSessionMutex uses: the container hands every request of
-        // a session the same session facade, so it serialises map creation and bean creation.
-        return session;
+        // Use the same mutex as the reprint workspace, including when Spring installs a custom
+        // session mutex, so pruning reprints and evicting patient beans share one lock order.
+        return WebUtils.getSessionMutex(session);
     }
 
     private static PatientBeans beans(HttpSession session, boolean create) {
@@ -343,7 +349,7 @@ public final class RxSessionBeanResolver {
     }
 
     /**
-     * Per-patient beans in least-recently-opened order, capped at {@link #MAX_PATIENTS_PER_SESSION}.
+     * Per-patient beans in least-recently-opened order, with a soft cap of {@link #MAX_PATIENTS_PER_SESSION}.
      * Access is guarded by the session lock in {@link RxSessionBeanResolver}.
      */
     static final class PatientBeans extends LinkedHashMap<Integer, RxSessionBean> {
@@ -365,37 +371,23 @@ public final class RxSessionBeanResolver {
         }
 
         /**
-         * Over the cap, drops the least recently opened patient that has nothing staged, so a
-         * clinic day of eChart Prescriptions tabs and messenger previews ({@link #ensure}) does not
-         * silently throw away a draft prescription left in an earlier window. Only when every
-         * patient holds staged work is the least recently opened one dropped regardless; that is
-         * logged, and the window then gets "Rx not open for this patient" (a refused save) rather
-         * than a save against another patient.
+         * Above the target, evicts the least recently opened empty beans. Drafts and pending ReRx
+         * selections must never be discarded to meet a cache limit. If all older beans hold work,
+         * the map temporarily exceeds the target; later additions prune empty beans back toward
+         * it after work is saved or discarded. The newest bean is retained for its caller.
          */
         @Override
         protected boolean removeEldestEntry(Map.Entry<Integer, RxSessionBean> eldest) {
-            if (size() <= MAX_PATIENTS_PER_SESSION) {
-                return false;
-            }
-            // The newest entry (the patient being opened right now) is never a candidate: dropping
-            // it would hand the caller a bean the session no longer holds.
             int candidates = size() - 1;
-            for (Map.Entry<Integer, RxSessionBean> entry : entrySet()) {
-                if (candidates-- <= 0) {
-                    break;
-                }
-                if (!hasStagedWork(entry.getValue())) {
-                    // LinkedHashMap allows removeEldestEntry to modify the map itself as long as it
-                    // then returns false.
-                    remove(entry.getKey());
-                    return false;
+            Iterator<Map.Entry<Integer, RxSessionBean>> oldestFirst = entrySet().iterator();
+            while (size() > MAX_PATIENTS_PER_SESSION && candidates-- > 0 && oldestFirst.hasNext()) {
+                if (!hasStagedWork(oldestFirst.next().getValue())) {
+                    oldestFirst.remove();
                 }
             }
-            // Demographic numbers are PHI-correlating identifiers, so only the fact is logged.
-            org.apache.logging.log4j.LogManager.getLogger(RxSessionBeanResolver.class).warn(
-                    "Rx per-patient session cap ({}) reached with staged work in every bean; dropping the least recently opened patient's drafts",
-                    MAX_PATIENTS_PER_SESSION);
-            return true;
+            // LinkedHashMap permits mutation here when false is returned. Never ask it to evict
+            // the eldest unconditionally: that patient may still have an unsaved prescription.
+            return false;
         }
 
         private static boolean hasStagedWork(RxSessionBean bean) {
