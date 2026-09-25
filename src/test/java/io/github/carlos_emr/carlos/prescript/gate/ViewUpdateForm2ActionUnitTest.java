@@ -131,7 +131,8 @@ class ViewUpdateForm2ActionUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
         }
 
-        assertThatThrownBy(() -> new ViewUpdateForm2Action().execute())
+        ViewUpdateForm2Action action = new ViewUpdateForm2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         assertThat(request.getAttribute("drugForm")).isNull();
@@ -175,7 +176,8 @@ class ViewUpdateForm2ActionUnitTest extends CarlosUnitTestBase {
         request.addParameter("drugForm", "Capsule");
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(DEMOGRAPHIC_NO))).thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewUpdateForm2Action().execute()).isInstanceOf(SecurityException.class);
+        ViewUpdateForm2Action action = new ViewUpdateForm2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verify(drugDao, never()).merge(any());
     }
 

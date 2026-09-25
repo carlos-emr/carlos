@@ -192,7 +192,8 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull())).thenReturn(false);
         liveBean.getStashList().add(savedItem(5, "789"));
 
-        assertThatThrownBy(() -> newAction().execute())
+        RxViewScript2Action action = newAction();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_rx)");
         verifyNoInteractions(stampService, prescriptionDao);
@@ -248,7 +249,8 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
         liveBean.getStashList().add(rePrescribedItem("123")); // drugId 0: not yet persisted
 
-        assertThatThrownBy(() -> newAction().execute())
+        RxViewScript2Action action = newAction();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_rx)");
         verifyNoInteractions(stampService, prescriptionDao);
@@ -281,7 +283,8 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
         liveBean.getStashList().add(savedItem(5, "789"));
 
-        assertThatThrownBy(() -> newAction().execute())
+        RxViewScript2Action action = newAction();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         verifyNoInteractions(stampService, prescriptionDao);

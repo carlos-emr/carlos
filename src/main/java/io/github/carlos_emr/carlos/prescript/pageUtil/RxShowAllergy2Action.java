@@ -291,7 +291,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
         try {
             int level = Integer.parseInt(allergy.getSeverityOfReaction());
             return level >= 1 && level <= 3 ? level : 0; // 5 means No Reaction.
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
             return 0;
         }
     }

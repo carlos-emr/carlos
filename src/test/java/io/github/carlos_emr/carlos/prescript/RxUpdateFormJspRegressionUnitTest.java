@@ -51,8 +51,8 @@ class RxUpdateFormJspRegressionUnitTest {
     void shouldPostToConcreteStrutsUrl_forCsrfTokenInjection() throws IOException {
         String jsp = Files.readString(UPDATE_FORM_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("<form action=\"<%= request.getContextPath() %>/rx/ViewUpdateForm\" method=\"post\">");
-        assertThat(jsp).doesNotContain("<form action=\"\" method=\"post\">");
+        assertThat(jsp).contains("<form action=\"<%= request.getContextPath() %>/rx/ViewUpdateForm\" method=\"post\">")
+                .doesNotContain("<form action=\"\" method=\"post\">");
     }
 
     @Test
@@ -61,12 +61,13 @@ class RxUpdateFormJspRegressionUnitTest {
         String jsp = Files.readString(UPDATE_FORM_JSP, StandardCharsets.UTF_8);
 
         // The form posts to a concrete URL without a query string, so the drug id travels as a
-        // hidden input; without it the POST had no id and the update failed (#3908).
-        assertThat(jsp).contains("<input type=\"hidden\" name=\"id\" value=\"<carlos:encode value='<%= id %>' context=\"htmlAttribute\"/>\"/>");
-        assertThat(jsp).contains("<input type=\"hidden\" name=\"action\" value=\"update\"/>");
-        // The drug is loaded, authorised against its own patient and changed in ViewUpdateForm2Action;
-        // the page never reads the drug by a request id itself.
-        assertThat(jsp).doesNotContain("drugDao").doesNotContain("DrugDao").doesNotContain("request.getParameter(\"id\")");
-        assertThat(jsp).contains("request.getAttribute(\"drugId\")").contains("request.getAttribute(\"drugForm\")");
+        // hidden input; without it the POST had no id and the update failed (#3908). The gate
+        // (ViewUpdateForm2Action) loads the drug, authorises it against its own patient and
+        // changes it, so the page never reads the drug by a request id itself.
+        assertThat(jsp)
+                .contains("<input type=\"hidden\" name=\"id\" value=\"<carlos:encode value='<%= id %>' context=\"htmlAttribute\"/>\"/>")
+                .contains("<input type=\"hidden\" name=\"action\" value=\"update\"/>")
+                .doesNotContain("drugDao").doesNotContain("DrugDao").doesNotContain("request.getParameter(\"id\")")
+                .contains("request.getAttribute(\"drugId\")").contains("request.getAttribute(\"drugForm\")");
     }
 }

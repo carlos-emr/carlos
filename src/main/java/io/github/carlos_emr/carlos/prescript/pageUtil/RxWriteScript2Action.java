@@ -99,6 +99,10 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private static UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
     private static final String DEFAULT_QUANTITY = "30";
+    /** Prefix of every {@code action} that rewrites or saves the staged item. */
+    private static final String ACTION_UPDATE_PREFIX = "update";
+    private static final String HEADER_ALLOW = "Allow";
+    private static final String POST_REQUIRED = "POST required";
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
     /** The only {@code action} values {@link #updateReRxDrug()} will act on. */
@@ -173,10 +177,10 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Rx write, it is POST-only: CSRFGuard does not check GET, so a cross-origin GET could
         // otherwise drive the write. Checked before the stash is resolved or touched. The staging
         // page (WriteScript.jsp) posts its form.
-        if (this.getAction() != null && this.getAction().startsWith("update")
+        if (this.getAction() != null && this.getAction().startsWith(ACTION_UPDATE_PREFIX)
                 && !"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            response.setHeader(HEADER_ALLOW, "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED);
             return NONE;
         }
 
@@ -185,7 +189,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // update* actions rewrite the current stash item (and updateAndPrint saves it), so they
         // need the explicitly named patient's bean, never the fallback; other actions only
         // re-render (#3875).
-        RxSessionBean bean = this.getAction() != null && this.getAction().startsWith("update")
+        RxSessionBean bean = this.getAction() != null && this.getAction().startsWith(ACTION_UPDATE_PREFIX)
                 ? RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w")
                 : RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
 
@@ -195,7 +199,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         // A request without an action parameter is a plain (re)render, not an update.
-        if (this.getAction() != null && this.getAction().startsWith("update")) {
+        if (this.getAction() != null && this.getAction().startsWith(ACTION_UPDATE_PREFIX)) {
 
             RxDrugData drugData = new RxDrugData();
             // The cursor selects the item being edited; with nothing (valid) selected there is
@@ -262,7 +266,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             bean.setStashItem(bean.getStashIndex(), rx);
             rx = null;
 
-            if (this.getAction().equals("update")) {
+            if (this.getAction().equals(ACTION_UPDATE_PREFIX)) {
                 fwd = "refresh";
             }
             if (this.getAction().equals("updateAddAnother")) {
@@ -293,9 +297,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                     rx = null;
                 }
                 fwd = "viewScript";
-                // A reprint earlier for this patient leaves its RxReprintWorkspace entry behind;
+                // A reprint earlier for this patient leaves its RxReprintWorkspace entry behind and
                 // ViewScript2.jsp would then render the reprinted script instead of the one just
-                // written. Only this patient's entry is cleared (#3908).
+                // written, so only this patient's entry is cleared (#3908).
                 RxReprintWorkspace.clear(request.getSession(), bean.getDemographicNo());
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
@@ -341,7 +345,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // cross-origin GET could queue a drug for archival. The UI already POSTs. HTTP method
         // names are case-sensitive, so this is an exact match.
         if (!"POST".equals(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED);
             return NONE;
         }
 
@@ -372,19 +376,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             reRxDrugIdList.add(drugId);
         } else if (action.equals("removeFromReRxDrugIdList") && reRxDrugIdList.contains(drugId)) {
             reRxDrugIdList.remove(drugId);
-            try {
-                int sourceId = Integer.parseInt(drugId);
-                for (int i = 0; i < bean.getStashSize(); i++) {
-                    if (bean.getStashItem(i).getDrugReferenceId() == sourceId) {
-                        // Through removeStashItem, which keeps the cursor on the same card; an
-                        // iterator removal left it pointing one card too far (#3908).
-                        bean.removeStashItem(i);
-                        break;
-                    }
-                }
-            } catch (NumberFormatException e) {
-                logger.error("Prescription update failed ({})", e.getClass().getSimpleName());
-            }
+            removeStagedCopy(bean, drugId);
         } else if (action.equals("clearReRxDrugIdList")) {
             bean.clearReRxDrugIdList();
         } else {
@@ -574,7 +566,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         final int randomIdInt;
         try {
             randomIdInt = Integer.parseInt(randomId);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("listPreviousInstructions: randomId is out of range");
             bean.setListMedHistory(new ArrayList<>());
             return null;
@@ -1260,8 +1252,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Saves the prescription, its drugs and any ReRx archival: POST-only, checked before the
         // stash is resolved or pruned (CSRFGuard does not check GET). SearchDrug3 posts it.
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            response.setHeader(HEADER_ALLOW, "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED);
             return NONE;
         }
 
@@ -1299,7 +1291,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             int randomId;
             try {
                 randomId = Integer.parseInt(num);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // A malformed card key names no staged item; skip it like a stale one.
                 continue;
             }
@@ -1698,8 +1690,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         String scriptId = prescription.saveScript(loggedInInfo, bean);
         StringBuilder auditStr = new StringBuilder();
         // Source drug ids actually re-prescribed by this save. A staged re-prescription carries
-        // its source drug id in drugReferenceId (RxPrescriptionData.newPrescription(.., rePrescribe));
-        // only those sources may be archived as REPRESCRIBED.
+        // its source drug id in drugReferenceId, set by the re-prescribe newPrescription overload,
+        // and only those sources may be archived as REPRESCRIBED.
         Set<Integer> represcribedSourceIds = new HashSet<>();
         for (int i = 0; i < bean.getStashSize(); i++) {
             try {
@@ -1884,8 +1876,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         if ("POST".equals(request.getMethod())) {
             return false;
         }
-        response.setHeader("Allow", "POST");
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        response.setHeader(HEADER_ALLOW, "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED);
         return true;
     }
 
@@ -1933,50 +1925,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         int failed = 0;
         int refused = 0;
         for (String item : bean.getReRxDrugIdList()) {
-
-            // The list permits nulls, and item.trim() would throw past the catch below, stranding
-            // every later entry after the new script is already persisted.
-            if (item == null) {
-                malformed++;
-                continue;
+            switch (archiveReRxSource(item, loggedInInfo, bean, savedSourceIds, ip, auditStr)) {
+                case MALFORMED -> malformed++;
+                case NOT_REPRESCRIBED -> notReprescribed++;
+                case FAILED -> failed++;
+                case REFUSED -> refused++;
+                default -> { } // ARCHIVED: nothing to count
             }
-
-            int drugId;
-            try {
-                drugId = Integer.parseInt(item.trim());
-            } catch (NumberFormatException e) {
-                malformed++;
-                continue;
-            }
-
-            if (!savedSourceIds.contains(drugId)) {
-                // Ticked but never staged (or its card was closed): the source medication stays
-                // active because no replacement was written.
-                notReprescribed++;
-                continue;
-            }
-
-            //archive drug(s)
-            boolean archived;
-            try {
-                archived = this.rxManager.archiveDrug(loggedInInfo, drugId,
-                        bean.getDemographicNo(), Drug.REPRESCRIBED);
-            } catch (RuntimeException e) {
-                failed++;
-                continue;
-            }
-
-            if (!archived) {
-                // archiveDrug() cannot distinguish a missing row from a cross-patient one.
-                refused++;
-                continue;
-            }
-
-            //log that this med is being re-prescribed
-            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + drugId, ip, "" + bean.getDemographicNo(), auditStr);
-
-            //log that the med is being discontinued buy the system
-            LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + drugId, "", "" + bean.getDemographicNo(), auditStr);
         }
         if (malformed + failed + refused > 0) {
             logger.warn("Skipped re-Rx archival: {} malformed staged id(s), {} archive failure(s), "
@@ -1984,6 +1939,70 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
         if (notReprescribed > 0) {
             logger.info("Skipped re-Rx archival: {} staged source(s) not re-prescribed in this save", notReprescribed);
+        }
+    }
+
+    /** Why one staged re-Rx source was, or was not, archived by {@link #archiveReRxDrugs}. */
+    private enum ArchiveOutcome { ARCHIVED, MALFORMED, NOT_REPRESCRIBED, FAILED, REFUSED }
+
+    /**
+     * Archives one staged re-Rx source as REPRESCRIBED and writes its audit entries, or says why
+     * it was left alone. The caller counts the outcomes: ids correlate to patient records, so they
+     * are not logged individually.
+     */
+    private ArchiveOutcome archiveReRxSource(String item, LoggedInInfo loggedInInfo, RxSessionBean bean,
+                                             Set<Integer> savedSourceIds, String ip, String auditStr) {
+        // The list permits nulls, and item.trim() would throw past the catch below, stranding
+        // every later entry after the new script is already persisted.
+        if (item == null) {
+            return ArchiveOutcome.MALFORMED;
+        }
+        int sourceId;
+        try {
+            sourceId = Integer.parseInt(item.trim());
+        } catch (NumberFormatException _) {
+            return ArchiveOutcome.MALFORMED;
+        }
+        if (!savedSourceIds.contains(sourceId)) {
+            // Ticked but never staged (or its card was closed): the source medication stays
+            // active because no replacement was written.
+            return ArchiveOutcome.NOT_REPRESCRIBED;
+        }
+        boolean archived;
+        try {
+            archived = this.rxManager.archiveDrug(loggedInInfo, sourceId, bean.getDemographicNo(), Drug.REPRESCRIBED);
+        } catch (RuntimeException _) {
+            return ArchiveOutcome.FAILED;
+        }
+        if (!archived) {
+            // archiveDrug() cannot distinguish a missing row from a cross-patient one.
+            return ArchiveOutcome.REFUSED;
+        }
+        //log that this med is being re-prescribed
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + sourceId, ip, "" + bean.getDemographicNo(), auditStr);
+        //log that the med is being discontinued buy the system
+        LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + sourceId, "", "" + bean.getDemographicNo(), auditStr);
+        return ArchiveOutcome.ARCHIVED;
+    }
+
+    /**
+     * Removes the staged card re-prescribed from {@code drugId}, if any. Through removeStashItem,
+     * which keeps the cursor on the same card; an iterator removal left it pointing one card too
+     * far (#3908).
+     */
+    private static void removeStagedCopy(RxSessionBean bean, String drugId) {
+        int sourceId;
+        try {
+            sourceId = Integer.parseInt(drugId);
+        } catch (NumberFormatException e) {
+            logger.error("Prescription update failed ({})", e.getClass().getSimpleName());
+            return;
+        }
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            if (bean.getStashItem(i).getDrugReferenceId() == sourceId) {
+                bean.removeStashItem(i);
+                return;
+            }
         }
     }
 
@@ -2000,16 +2019,16 @@ public final class RxWriteScript2Action extends ActionSupport {
             return false;
         }
 
-        int drugId;
+        int parsedDrugId;
         try {
-            drugId = Integer.parseInt(drugIdParam.trim());
-        } catch (NumberFormatException e) {
+            parsedDrugId = Integer.parseInt(drugIdParam.trim());
+        } catch (NumberFormatException _) {
             logger.warn("Blocked re-Rx staging: malformed drug id");
             return false;
         }
 
         DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
-        Drug drug = drugDao.find(drugId);
+        Drug drug = drugDao.find(parsedDrugId);
         if (drug == null) {
             logger.warn("Blocked re-Rx staging: drug not found");
             return false;

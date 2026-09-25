@@ -51,6 +51,13 @@ import java.util.Date;
 import java.util.List;
 
 public final class RxReason2Action extends ActionSupport {
+
+    private static final String METHOD_ARCHIVE_REASON = "archiveReason";
+    private static final String PARAM_DRUG_ID = "drugId";
+    private static final String ATTR_DEMO_NO = "demoNo";
+    /** The shape of every id this action parses: 1-9 digits, so parseInt cannot overflow. */
+    private static final String ID_PATTERN = "\\d{1,9}";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -69,9 +76,10 @@ public final class RxReason2Action extends ActionSupport {
      *         added, or {@code NONE} after a 405
      * @throws java.io.IOException when the 405 cannot be sent
      */
+    @Override
     public String execute() throws java.io.IOException {
         String method = request.getParameter("method");
-        boolean write = "archiveReason".equals(method) || "addDrugReason".equals(method);
+        boolean write = METHOD_ARCHIVE_REASON.equals(method) || "addDrugReason".equals(method);
         if (!"POST".equals(request.getMethod())) {
             if (write) {
                 response.setHeader("Allow", "POST");
@@ -80,7 +88,7 @@ public final class RxReason2Action extends ActionSupport {
             }
             return view();
         }
-        if ("archiveReason".equals(method)) {
+        if (METHOD_ARCHIVE_REASON.equals(method)) {
             return archiveReason();
         }
         return addDrugReason();
@@ -92,8 +100,8 @@ public final class RxReason2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
         int[] drugAndPatient = requireDrugOfPatient("r");
-        request.setAttribute("drugId", drugAndPatient[0]);
-        request.setAttribute("demoNo", drugAndPatient[1]);
+        request.setAttribute(PARAM_DRUG_ID, drugAndPatient[0]);
+        request.setAttribute(ATTR_DEMO_NO, drugAndPatient[1]);
         return SUCCESS;
     }
 
@@ -107,10 +115,10 @@ public final class RxReason2Action extends ActionSupport {
      *                           or the drug is missing or another patient's
      */
     private int[] requireDrugOfPatient(String privilege) {
-        String drugIdStr = request.getParameter("drugId");
+        String drugIdStr = request.getParameter(PARAM_DRUG_ID);
         String demographicNo = request.getParameter("demographicNo");
-        if (drugIdStr == null || !drugIdStr.matches("\\d{1,9}")
-                || demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
+        if (drugIdStr == null || !drugIdStr.matches(ID_PATTERN)
+                || demographicNo == null || !demographicNo.matches(ID_PATTERN)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
         int drugId = Integer.parseInt(drugIdStr);
@@ -165,7 +173,7 @@ public final class RxReason2Action extends ActionSupport {
         String comments = request.getParameter("comments");
         String code = request.getParameter("jsonDxSearch");
 
-        String drugIdStr = request.getParameter("drugId");
+        String drugIdStr = request.getParameter(PARAM_DRUG_ID);
         String demographicNo = request.getParameter("demographicNo");
         String providerNo = (String) request.getSession().getAttribute("user");
 
@@ -173,8 +181,8 @@ public final class RxReason2Action extends ActionSupport {
         // and the drug must be that patient's (#3908).
         requireDrugOfPatient("w");
 
-        request.setAttribute("drugId", Integer.parseInt(drugIdStr));
-        request.setAttribute("demoNo", Integer.parseInt(demographicNo));
+        request.setAttribute(PARAM_DRUG_ID, Integer.parseInt(drugIdStr));
+        request.setAttribute(ATTR_DEMO_NO, Integer.parseInt(demographicNo));
 
         if (code != null && code.trim().equals("")) {
             request.setAttribute("message", getText("SelectReason.error.codeEmpty"));
@@ -235,9 +243,9 @@ public final class RxReason2Action extends ActionSupport {
 
         DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
         String reasonId = request.getParameter("reasonId");
-        String archiveReason = request.getParameter("archiveReason");
+        String archiveReason = request.getParameter(METHOD_ARCHIVE_REASON);
 
-        if (reasonId == null || !reasonId.matches("\\d{1,9}")) {
+        if (reasonId == null || !reasonId.matches(ID_PATTERN)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
         DrugReason drugReason = drugReasonDao.find(Integer.parseInt(reasonId));
@@ -253,8 +261,8 @@ public final class RxReason2Action extends ActionSupport {
 
         drugReasonDao.merge(drugReason);
 
-        request.setAttribute("drugId", drugReason.getDrugId());
-        request.setAttribute("demoNo", drugReason.getDemographicNo());
+        request.setAttribute(PARAM_DRUG_ID, drugReason.getDrugId());
+        request.setAttribute(ATTR_DEMO_NO, drugReason.getDemographicNo());
 
         String ip = request.getRemoteAddr();
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_DRUGREASON, "" + drugReason.getId(), ip, "" + drugReason.getDemographicNo(), drugReason.getAuditString());

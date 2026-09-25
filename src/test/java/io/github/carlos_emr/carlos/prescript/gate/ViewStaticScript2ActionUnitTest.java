@@ -108,7 +108,8 @@ class ViewStaticScript2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrow_whenPatientLevelRxReadIsDenied() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", DEMOGRAPHIC_NO)).thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewStaticScript2Action().execute())
+        ViewStaticScript2Action action = new ViewStaticScript2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
     }
@@ -118,7 +119,8 @@ class ViewStaticScript2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrow_whenPatientRecordAccessIsDenied() {
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewStaticScript2Action().execute())
+        ViewStaticScript2Action action = new ViewStaticScript2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
     }
@@ -128,7 +130,8 @@ class ViewStaticScript2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrow_whenGlobalRxReadIsDenied() {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_rx"), eq("r"), isNull())).thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewStaticScript2Action().execute())
+        ViewStaticScript2Action action = new ViewStaticScript2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());

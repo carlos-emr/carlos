@@ -264,45 +264,62 @@ public final class RxRePrescribe2Action extends ActionSupport {
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
 
-            //String drugList = frm.getDrugList();
-
-            String[] drugArr = drugList.split(",");
-
-            int drugId;
-            int i;
-
-            for (i = 0; i < drugArr.length; i++) {
-                try {
-                    drugId = Integer.parseInt(drugArr[i]);
-                } catch (Exception e) {
-                    logger.error("Unexpected error. ({})", e.getClass().getSimpleName());
+            for (String rawDrugId : drugList.split(",")) {
+                int drugId = parseLegacyDrugId(rawDrugId);
+                if (drugId < 0) {
                     break;
                 }
-
                 // get original drug
                 RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
-                if (!isOwnedByBeanPatient(oldRx, beanRX)) {
+                if (isOwnedByBeanPatient(oldRx, beanRX)) {
+                    auditStr.append(stageLegacyCopy(loggedInInfo, beanRX, rxData, drugId, oldRx));
+                } else {
                     logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
-                    continue;
                 }
-                // Record the source for ReRx archival, as the other staging paths do: without it
-                // saveDrug() saved the replacement and left the source active (#3908).
-                recordReRxSource(beanRX, drugId);
-
-                // create copy of Prescription
-                RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
-
-                beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, rx));
-                auditStr.append(rx.getAuditString() + "\n");
-
-                // p("beanRX.getStashIndex() in represcribe after", "" + beanRX.getStashIndex());
-                request.setAttribute("BoxNoFillFirstLoad", "true");
             }
         } catch (Exception e) {
             logger.error("Unexpected error occurred. ({})", e.getClass().getSimpleName());
         }
 
         return SUCCESS;
+    }
+
+    /** The ids of the patient's long-term drugs: every prescription with {@code showall}, else the current ones. */
+    private static List<Integer> longTermDrugIds(CaseManagementManager caseManagementManager, LoggedInInfo loggedInInfo,
+                                                 Integer demoNo, boolean showall) {
+        List<Drug> prescriptDrugs = showall
+                ? caseManagementManager.getPrescriptions(loggedInInfo, demoNo, true)
+                : caseManagementManager.getCurrentPrescriptions(demoNo);
+        List<Integer> listLongTermMed = new ArrayList<>();
+        for (Drug prescriptDrug : prescriptDrugs) {
+            if (prescriptDrug.isLongTerm()) {
+                listLongTermMed.add(prescriptDrug.getId());
+            }
+        }
+        return listLongTermMed;
+    }
+
+    /** The legacy drug list's next id, or -1 for a malformed one, which ends the list as it always did. */
+    private static int parseLegacyDrugId(String rawDrugId) {
+        try {
+            return Integer.parseInt(rawDrugId);
+        } catch (NumberFormatException e) {
+            logger.error("Unexpected error. ({})", e.getClass().getSimpleName());
+            return -1;
+        }
+    }
+
+    /** Stages a copy of {@code oldRx} for the legacy re-prescribe and returns its audit line. */
+    private String stageLegacyCopy(LoggedInInfo loggedInInfo, RxSessionBean beanRX, RxPrescriptionData rxData,
+                                   int drugId, RxPrescriptionData.Prescription oldRx) {
+        // Record the source for ReRx archival, as the other staging paths do: without it
+        // saveDrug() saved the replacement and left the source active (#3908).
+        recordReRxSource(beanRX, drugId);
+        // create copy of Prescription
+        RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
+        beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, rx));
+        request.setAttribute("BoxNoFillFirstLoad", "true");
+        return rx.getAuditString() + "\n";
     }
 
 /**
@@ -504,8 +521,7 @@ public String saveDigitalSignature() throws IOException {
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
@@ -589,8 +605,7 @@ public String saveDigitalSignature() throws IOException {
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
@@ -662,26 +677,9 @@ public String saveDigitalSignature() throws IOException {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }
-        String strShow = request.getParameter("showall");
-
-        boolean showall = false;
-        if (strShow.equalsIgnoreCase("true")) {
-            showall = true;
-        }
-        // get a list of long term meds
-        List<Drug> prescriptDrugs;
-        if (showall) {
-            prescriptDrugs = caseManagementManager.getPrescriptions(loggedInInfo, demoNo, true);
-        } else {
-            prescriptDrugs = caseManagementManager.getCurrentPrescriptions(demoNo);
-        }
-        List<Integer> listLongTermMed = new ArrayList<Integer>();
-        for (Drug prescriptDrug : prescriptDrugs) {
-            // add all long term med drugIds to an array.
-            if (prescriptDrug.isLongTerm()) {
-                listLongTermMed.add(prescriptDrug.getId());
-            }
-        }
+        // showall is a flag value, not a security decision (IMPROPER_UNICODE is suppressed above).
+        boolean showall = "true".equalsIgnoreCase(request.getParameter("showall"));
+        List<Integer> listLongTermMed = longTermDrugIds(caseManagementManager, loggedInInfo, demoNo, showall);
 
 
         // The same bean as beanRX: this request's explicitly named patient.
@@ -709,8 +707,7 @@ public String saveDigitalSignature() throws IOException {
             // give prescript a random id.
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
@@ -804,7 +801,7 @@ public String saveDigitalSignature() throws IOException {
             RxPrescriptionData.Prescription oldRx;
             try {
                 oldRx = rxData.getPrescription(Integer.parseInt(drugId));
-            } catch (RuntimeException e) {
+            } catch (RuntimeException _) {
                 // getPrescription throws for a missing row; one bad id must not drop the rest.
                 oldRx = null;
             }
@@ -815,8 +812,7 @@ public String saveDigitalSignature() throws IOException {
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx);
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            if (qText != null && RxUtil.isStringToNumber(qText)) {
-            } else {
+            if (qText == null || !RxUtil.isStringToNumber(qText)) {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
@@ -909,7 +905,7 @@ public String saveDigitalSignature() throws IOException {
         try {
             int parsed = Integer.parseInt(value);
             return parsed > 0 ? parsed : -1;
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
             return -1;
         }
     }

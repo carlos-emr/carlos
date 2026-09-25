@@ -253,57 +253,68 @@ public class RxSessionBean implements java.io.Serializable {
     }
 
     private int addStashItemLocked(LoggedInInfo loggedInInfo, RxPrescriptionData.Prescription item) {
+        // A card for the same drug is not staged twice: return the existing card's position.
+        int existing = indexOfSameCard(item);
+        if (existing > -1) {
+            return existing;
+        }
+        // A staged card is identified by its key when it is closed, edited or saved, so a key
+        // another card already carries (a draw that raced with another window) is replaced
+        // before the card is added; the caller renders the card from this same object.
+        if (RxStashIds.inUseByAnother(this, item, item.getRandomId())) {
+            item.setRandomId(RxStashIds.nextUniqueLocked(this, RxStashIds.DEFAULT_BOUND));
+        }
+        stash.add(item);
+        preloadInteractions();
+        preloadAllergyWarnings(loggedInInfo, item.getAtcCode());
+        return this.getStashSize() - 1;
+    }
 
-        int ret = -1;
-
-        int i;
-        RxPrescriptionData.Prescription rx;
-
-        //check to see if the item already exists
-        //by checking for duplicate brandname and gcn seq no
-        //if it exists, return it, else add it.
-        for (i = 0; i < this.getStashSize(); i++) {
-            rx = this.getStashItem(i);
-
-            if (item.isCustom()) {
-                if (rx.isCustom() && rx.getCustomName() != null && item.getCustomName() != null) {
-                    if (rx.getCustomName().equals(item.getCustomName())) {
-                        ret = i;
-                        break;
-                    }
-                }
-            } else {
-                if (rx.getBrandName() != null && item.getBrandName() != null) {
-                    // GCN_SEQNO is a String: == compared references, so two stash entries
-                    // for the same drug built from different requests never matched.
-                    if (rx.getBrandName().equals(item.getBrandName())
-                            && Objects.equals(rx.getGCN_SEQNO(), item.getGCN_SEQNO())) {
-                        ret = i;
-                        break;
-                    }
-                }
+    /** The position of the staged card for the same drug as {@code item}, or -1 when there is none. */
+    private int indexOfSameCard(RxPrescriptionData.Prescription item) {
+        for (int i = 0; i < this.getStashSize(); i++) {
+            if (isSameCard(this.getStashItem(i), item)) {
+                return i;
             }
         }
+        return -1;
+    }
 
-        if (ret > -1) {
-
-
-            return ret;
-        } else {
-            // A staged card is identified by its key when it is closed, edited or saved, so a key
-            // another card already carries (a draw that raced with another window) is replaced
-            // before the card is added; the caller renders the card from this same object.
-            if (RxStashIds.inUseByAnother(this, item, item.getRandomId())) {
-                item.setRandomId(RxStashIds.nextUnique(this, RxStashIds.DEFAULT_BOUND));
-            }
-            stash.add(item);
-            preloadInteractions();
-            preloadAllergyWarnings(loggedInInfo, item.getAtcCode());
-
-
-            return this.getStashSize() - 1;
+    /**
+     * Custom cards are the same card when their custom names match; catalogue cards when brand
+     * name and GCN sequence number match. GCN_SEQNO is a String: {@code ==} compared references, so
+     * two stash entries for the same drug built from different requests never matched.
+     */
+    private static boolean isSameCard(RxPrescriptionData.Prescription rx, RxPrescriptionData.Prescription item) {
+        if (item.isCustom()) {
+            return rx.isCustom() && rx.getCustomName() != null && rx.getCustomName().equals(item.getCustomName());
         }
+        return rx.getBrandName() != null && rx.getBrandName().equals(item.getBrandName())
+                && Objects.equals(rx.getGCN_SEQNO(), item.getGCN_SEQNO());
+    }
 
+    /**
+     * A stash key no staged card carries, drawn under this bean's monitor: the monitor
+     * {@link #addStashItem} inserts under, so a key two concurrent staging requests both saw as
+     * free cannot end up on two cards (#3908). {@link RxStashIds#nextUnique} delegates here.
+     *
+     * @param bound the largest key, see {@link RxStashIds#DEFAULT_BOUND}
+     * @return an unused key
+     */
+    public synchronized long nextUniqueStashKey(int bound) {
+        return RxStashIds.nextUniqueLocked(this, bound);
+    }
+
+    /**
+     * {@link RxStashIds#acceptOrNext}: the client's proposed key when it is well formed and unused,
+     * else a fresh unique key, decided under this bean's monitor.
+     *
+     * @param clientKey the proposed key, may be {@code null} or malformed
+     * @param bound     the range for a fresh key
+     * @return a key no other staged card uses
+     */
+    public synchronized long acceptOrNextStashKey(String clientKey, int bound) {
+        return RxStashIds.acceptOrNextLocked(this, clientKey, bound);
     }
 
     /**

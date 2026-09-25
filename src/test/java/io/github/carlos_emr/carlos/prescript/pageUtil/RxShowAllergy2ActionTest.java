@@ -298,7 +298,7 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
         when(properties.getProperty("rx.disable_allergy_warnings", "false")).thenReturn("false");
         try (MockedStatic<CarlosProperties> propertyMock = mockStatic(CarlosProperties.class);
              MockedStatic<RxPatientData> patients = mockStatic(RxPatientData.class);
-             MockedConstruction<RxDrugData> drugs = mockConstruction(RxDrugData.class, (mock, context) -> {
+             MockedConstruction<RxDrugData> _ = mockConstruction(RxDrugData.class, (mock, context) -> {
                  when(mock.getAllergyWarnings(eq("J01FA09"), eq(allergies), anyList())).thenAnswer(invocation -> {
                      if (failed) throw new IllegalStateException("reference unavailable");
                      invocation.<List<Allergy>>getArgument(2).addAll(unresolved);

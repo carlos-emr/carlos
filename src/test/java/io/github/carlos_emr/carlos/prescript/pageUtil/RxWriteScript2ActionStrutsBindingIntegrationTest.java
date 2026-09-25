@@ -39,7 +39,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Drives {@link RxWriteScript2Action} through the real Struts interceptor stack with the request
@@ -66,11 +70,8 @@ class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase
     void grantPatientAccess() {
         // Opening Rx also authorises the named patient (#3908); the base class grants only the
         // global checks.
-        org.mockito.Mockito.when(mockSecurityInfoManager.hasPrivilege(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
-        org.mockito.Mockito.when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
     }
 
     @Test

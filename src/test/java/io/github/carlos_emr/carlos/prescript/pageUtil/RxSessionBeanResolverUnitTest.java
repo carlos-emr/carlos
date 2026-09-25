@@ -239,7 +239,9 @@ class RxSessionBeanResolverUnitTest {
     @Test
     @DisplayName("should refuse to open Rx without a valid patient")
     void shouldThrow_whenDemographicNotPositive() {
-        assertThatThrownBy(() -> RxSessionBeanResolver.activate(request(), 0, PROVIDER))
+        MockHttpServletRequest patientlessRequest = request();
+
+        assertThatThrownBy(() -> RxSessionBeanResolver.activate(patientlessRequest, 0, PROVIDER))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

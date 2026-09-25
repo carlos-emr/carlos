@@ -89,14 +89,14 @@ class RxPatientLinkJspRegressionUnitTest {
     @DisplayName("should post the add-allergy form for its patient and redirect back to that patient")
     void shouldNamePatient_onAddAllergyFormAndRedirect() throws IOException {
         String jsp = read("rx/AddReaction2.jsp");
-        assertThat(jsp).contains("name=\"formDemographicNo\"");
-        assertThat(jsp).contains("<input type=\"hidden\" name=\"demographicNo\"");
+        assertThat(jsp).contains("name=\"formDemographicNo\"")
+                .contains("<input type=\"hidden\" name=\"demographicNo\"");
 
         String struts = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-prescription.xml"),
                 StandardCharsets.UTF_8);
         // The shared "Patient" session attribute is gone (#3875); the action exposes the patient.
-        assertThat(struts).doesNotContain("#session.Patient");
-        assertThat(struts).contains("/rx/showAllergy?demographicNo=${demographicNo}");
+        assertThat(struts).doesNotContain("#session.Patient")
+                .contains("/rx/showAllergy?demographicNo=${demographicNo}");
     }
 
     @Test
@@ -145,8 +145,9 @@ class RxPatientLinkJspRegressionUnitTest {
     void shouldMapRxSecurityExceptions_toSecurityErrorPage() throws IOException {
         String struts = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-prescription.xml"),
                 StandardCharsets.UTF_8);
-        assertThat(struts).contains("<result name=\"securityError\">/WEB-INF/jsp/error/securityError.jsp</result>");
-        assertThat(struts).contains("<exception-mapping exception=\"java.lang.SecurityException\" result=\"securityError\"/>");
+        assertThat(struts)
+                .contains("<result name=\"securityError\">/WEB-INF/jsp/error/securityError.jsp</result>")
+                .contains("<exception-mapping exception=\"java.lang.SecurityException\" result=\"securityError\"/>");
     }
 
     @Test
@@ -164,8 +165,8 @@ class RxPatientLinkJspRegressionUnitTest {
     void shouldRefuseFallbackPatient_onStaticScriptPage() throws IOException {
         String jsp = read("rx/StaticScript2.jsp");
 
-        assertThat(jsp).contains("RxSessionBeanResolver.requestedDemographicNo(request)");
-        assertThat(jsp).doesNotContain("RxSessionBeanResolver.resolve(request)");
+        assertThat(jsp).contains("RxSessionBeanResolver.requestedDemographicNo(request)")
+                .doesNotContain("RxSessionBeanResolver.resolve(request)");
         // Its re-prescribe calls stage for the page's patient only.
         // Staging records the ReRx source itself; no separate, un-awaited list update (#3908).
         assertThat(jsp).doesNotContain("parameterValue=updateReRxDrug");
@@ -233,7 +234,7 @@ class RxPatientLinkJspRegressionUnitTest {
         // Rx patient to error.html before the search form (#3908).
         String jsp = read("rx/Print.jsp");
         assertThat(jsp).doesNotContain("RxSessionBeanResolver").doesNotContain("RxSessionBean")
-                .doesNotContain("error.html");
-        assertThat(jsp).contains("/rx/searchPatient\" method=\"post\"").contains("name=\"surname\"");
+                .doesNotContain("error.html")
+                .contains("/rx/searchPatient\" method=\"post\"").contains("name=\"surname\"");
     }
 }

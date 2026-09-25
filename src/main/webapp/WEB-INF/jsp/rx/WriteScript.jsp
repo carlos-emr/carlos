@@ -129,8 +129,10 @@
                 }
             }
 
-            var frm = document.forms.RxWriteScriptForm;
-            oscarLog("frm=" + frm);
+            // The write-script form is name="frm" (below); the legacy binding named the Struts 1
+            // form bean, so every field handler on this page threw. This script runs in <head>,
+            // before the form exists, so it is bound in pageLoad() (#3908).
+            var frm = null;
             var freqMin;
             var freqMax;
             var orig = null;
@@ -587,7 +589,7 @@
                 if (!disabled) {
                     if (first == false) {
 
-                        var frm2 = document.forms.RxWriteScriptForm;
+                        var frm2 = document.forms.frm;
 
                         var orig2 = frm.special.value;
                         var preStr = "";
@@ -725,6 +727,7 @@
             }
 
             function pageLoad() {
+                frm = document.forms.frm;
                 calcQty();
                 var txtQty = frm.quantity;
                 if (txtQty.restrict) alert("YES");
@@ -1190,7 +1193,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     </select> <input type="hidden" name="takeMin" id="takeMin"/>
                                         <input type="hidden" name="takeMax" id="takeMax"/>
                                         <script language=javascript>
-                                            var frm = document.forms.RxWriteScriptForm;
+                                            var frm = document.forms.frm;
 
 
                                             if (frm.takeMin.value == frm.takeMax.value) {
@@ -1346,7 +1349,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <input type="checkbox" name="customInstr"/><fmt:message key="WriteScript.msgCustomInstructions"/>
                                         <script language=javascript>
                                             function cmdSpecial_click() {
-                                                var frm = document.forms.RxWriteScriptForm;
+                                                var frm = document.forms.frm;
                                                 if (frm.selSpecial.selectedIndex > -1) {
                                                     var s = frm.selSpecial.value;
 
@@ -1606,9 +1609,9 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                 function customQty(quan) {
                     if (calcQuantity() == quan || quan == null) {
-                        document.forms.RxWriteScriptForm.autoQty.checked = true;
+                        document.forms.frm.autoQty.checked = true;
                     } else {
-                        document.forms.RxWriteScriptForm.autoQty.checked = false;
+                        document.forms.frm.autoQty.checked = false;
                     }
                 }
 

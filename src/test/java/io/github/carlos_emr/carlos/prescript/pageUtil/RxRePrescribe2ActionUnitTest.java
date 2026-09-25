@@ -55,6 +55,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -204,7 +205,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxPrescriptionData.Prescription ownSource = new RxPrescriptionData.Prescription(5, "999998", 1);
         ownSource.setBrandName("SOURCE DRUG");
         RxPrescriptionData.Prescription otherPatientsDrug = new RxPrescriptionData.Prescription(6, "999998", 2);
-        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = org.mockito.Mockito.mockConstruction(
+        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) -> {
                     when(mock.getPrescription(5)).thenReturn(ownSource);
                     when(mock.getPrescription(6)).thenReturn(otherPatientsDrug);
@@ -230,13 +231,13 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
         // The save then archives that source, as saveDrug() does with the saved replacements.
         io.github.carlos_emr.carlos.managers.RxManager rxManager =
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxManager.class);
+                mock(io.github.carlos_emr.carlos.managers.RxManager.class);
         replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxManager.class, rxManager);
         replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.DemographicManager.class,
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+                mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
         when(rxManager.archiveDrug(mockLoggedInInfo, 5, 1, io.github.carlos_emr.carlos.commn.model.Drug.REPRESCRIBED))
                 .thenReturn(true);
-        new RxWriteScript2Action(org.mockito.Mockito.mock(
+        new RxWriteScript2Action(mock(
                 io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class))
                 .archiveReRxDrugs(mockLoggedInInfo, bean, java.util.Set.of(5), "127.0.0.1", "audit");
 
@@ -254,7 +255,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
         RxPrescriptionData.Prescription ownSource = new RxPrescriptionData.Prescription(5, "999998", 1);
         ownSource.setBrandName("SOURCE DRUG");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = stagingData(ownSource)) {
+        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = stagingData(ownSource)) {
             if ("represcribe2".equals(method)) {
                 action.represcribe2();
             } else if ("represcribe".equals(method)) {
@@ -278,7 +279,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         request.setParameter("drugId", "6");
         RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
         RxPrescriptionData.Prescription otherPatientsDrug = new RxPrescriptionData.Prescription(6, "999998", 2);
-        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = stagingData(otherPatientsDrug)) {
+        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = stagingData(otherPatientsDrug)) {
             assertThat(action.saveReRxDrugIdToStash()).isEqualTo(ActionSupport.NONE);
         }
 
@@ -299,7 +300,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         first.setBrandName("FIRST DRUG");
         RxPrescriptionData.Prescription second = new RxPrescriptionData.Prescription(7, "999998", 1);
         second.setBrandName("SECOND DRUG");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = org.mockito.Mockito.mockConstruction(
+        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) -> {
                     when(mock.getPrescription(5)).thenReturn(first);
                     when(mock.getPrescription(7)).thenReturn(second);
@@ -326,13 +327,13 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
         // Saving both cards archives both sources.
         io.github.carlos_emr.carlos.managers.RxManager rxManager =
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxManager.class);
+                mock(io.github.carlos_emr.carlos.managers.RxManager.class);
         replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxManager.class, rxManager);
         replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.DemographicManager.class,
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+                mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
         when(rxManager.archiveDrug(any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt(),
                 any())).thenReturn(true);
-        new RxWriteScript2Action(org.mockito.Mockito.mock(
+        new RxWriteScript2Action(mock(
                 io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService.class))
                 .archiveReRxDrugs(mockLoggedInInfo, bean, java.util.Set.of(5, 7), "127.0.0.1", "audit");
 
@@ -347,7 +348,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
         RxPrescriptionData.Prescription source = new RxPrescriptionData.Prescription(5, "999998", 1);
         source.setBrandName("SOURCE DRUG");
-        try (org.mockito.MockedConstruction<RxPrescriptionData> rxData = stagingData(source)) {
+        try (org.mockito.MockedConstruction<RxPrescriptionData> _ = stagingData(source)) {
             request.setParameter("drugIds", "5");
             action.represcribeMultiple();
             action.represcribeMultiple();
@@ -726,10 +727,10 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         // reprint() records a print on the script and puts the patient into reprint mode (#3908).
         request.setMethod(httpMethod);
         request.setParameter("demographicNo", "1");
-        RxRePrescribe2Action action = new RxRePrescribe2Action();
-        action.setDrugList("12");
+        RxRePrescribe2Action legacyReprint = new RxRePrescribe2Action();
+        legacyReprint.setDrugList("12");
 
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(legacyReprint.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
@@ -761,10 +762,10 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     @DisplayName("should answer 400 for a malformed legacy reprint script number")
     void shouldRejectMalformedScriptNo_beforeLegacyReprint(String drugList) throws Exception {
         request.setParameter("demographicNo", "1");
-        RxRePrescribe2Action action = new RxRePrescribe2Action();
-        action.setDrugList(drugList);
+        RxRePrescribe2Action legacyReprint = new RxRePrescribe2Action();
+        legacyReprint.setDrugList(drugList);
 
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(legacyReprint.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();

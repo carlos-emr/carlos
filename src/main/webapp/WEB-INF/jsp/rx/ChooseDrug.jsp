@@ -179,6 +179,10 @@
 
         </script>
 
+        <style>
+            /* The drug name used to be a link; keep its look while it acts as a button. */
+            button.ChooseDrugName { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
+        </style>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <% if (drugSearch != null && drugSearch.failed) {
@@ -322,14 +326,13 @@
                                                     <td bgcolor="<%=bgColor%>">
                                                         <%if (request.getParameter("rx2") != null && request.getParameter("rx2").equals("true")) {%>
                                                         <a href="javascript: void(0);"
-                                                           onclick="setDrugRx2('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>')">
-                                                                    <%}else{%>
-                                                            <a href="javascript:void(0);"
-                                                               onclick="chooseDrug('<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>')"
-                                                               title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>">
-                                                                <%}%>
-                                                                <%=brandName%>
-                                                            </a>
+                                                           onclick="setDrugRx2('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= brandName %>'/></a>
+                                                        <%}else{%>
+                                                            <%-- Choosing stages the drug (a POST), so the name is a button styled as the link it was. --%>
+                                                            <button type="button" class="ChooseDrugName"
+                                                                    onclick="chooseDrug('<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>')"
+                                                                    title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>"><carlos:encode value='<%= brandName %>'/></button>
+                                                        <%}%>
                                                             <span>&nbsp;&nbsp;(<a
                                                                     href="javascript:ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>

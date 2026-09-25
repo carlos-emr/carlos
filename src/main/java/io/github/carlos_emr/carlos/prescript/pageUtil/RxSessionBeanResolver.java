@@ -227,8 +227,7 @@ public final class RxSessionBeanResolver {
             return null;
         }
         synchronized (lockFor(session)) {
-            PatientBeans beans = beans(session, false);
-            return beans == null ? null : beans.peek(demographicNo);
+            return beans(session, false).peek(demographicNo);
         }
     }
 
@@ -246,22 +245,33 @@ public final class RxSessionBeanResolver {
                 continue;
             }
             for (String raw : values) {
-                if (raw == null || raw.isBlank()) {
-                    continue;
-                }
-                int parsed;
-                try {
-                    parsed = Integer.parseInt(raw.trim());
-                } catch (NumberFormatException e) {
+                result = mergeRequested(result, raw);
+                if (result == INVALID) {
                     return INVALID;
                 }
-                if (parsed <= 0 || (result > 0 && result != parsed)) {
-                    return INVALID;
-                }
-                result = parsed;
             }
         }
         return result;
+    }
+
+    /**
+     * {@code current} merged with one more raw value: unchanged for a blank value, the parsed
+     * value when it is positive and agrees with {@code current}, otherwise {@link #INVALID}.
+     */
+    private static int mergeRequested(int current, String raw) {
+        if (raw == null || raw.isBlank()) {
+            return current;
+        }
+        int parsed;
+        try {
+            parsed = Integer.parseInt(raw.trim());
+        } catch (NumberFormatException _) {
+            return INVALID;
+        }
+        if (parsed <= 0 || (current > 0 && current != parsed)) {
+            return INVALID;
+        }
+        return parsed;
     }
 
     /**
@@ -324,7 +334,8 @@ public final class RxSessionBeanResolver {
             return beans;
         }
         if (!create) {
-            return null;
+            // Not stored: an empty view for readers, so callers never see null.
+            return new PatientBeans();
         }
         PatientBeans beans = new PatientBeans();
         session.setAttribute(BEANS_ATTRIBUTE, beans);

@@ -97,7 +97,8 @@ class ViewEditFavorites2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrow_whenGlobalRxReadIsDenied() {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_rx"), eq("r"), isNull())).thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewEditFavorites2Action().execute())
+        ViewEditFavorites2Action action = new ViewEditFavorites2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
     }
@@ -107,7 +108,8 @@ class ViewEditFavorites2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrow_whenPatientLevelRxReadIsDenied() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", DEMOGRAPHIC_NO)).thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewEditFavorites2Action().execute())
+        ViewEditFavorites2Action action = new ViewEditFavorites2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
     }
@@ -117,7 +119,8 @@ class ViewEditFavorites2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrow_whenPatientRecordAccessIsDenied() {
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(false);
 
-        assertThatThrownBy(() -> new ViewEditFavorites2Action().execute())
+        ViewEditFavorites2Action action = new ViewEditFavorites2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
     }

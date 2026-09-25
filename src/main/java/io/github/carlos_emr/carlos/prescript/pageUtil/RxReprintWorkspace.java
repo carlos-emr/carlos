@@ -88,8 +88,7 @@ public final class RxReprintWorkspace {
         if (session == null || demographicNo == null) {
             return null;
         }
-        ConcurrentHashMap<Integer, Entry> map = map(session, false);
-        return map == null ? null : map.get(demographicNo);
+        return map(session, false).get(demographicNo);
     }
 
     /**
@@ -113,10 +112,7 @@ public final class RxReprintWorkspace {
         if (session == null || demographicNo == null) {
             return;
         }
-        ConcurrentHashMap<Integer, Entry> map = map(session, false);
-        if (map != null) {
-            map.remove(demographicNo);
-        }
+        map(session, false).remove(demographicNo);
     }
 
     @SuppressWarnings("unchecked")
@@ -129,7 +125,8 @@ public final class RxReprintWorkspace {
                 return (ConcurrentHashMap<Integer, Entry>) found;
             }
             if (!create) {
-                return null;
+                // Not stored: an empty view for readers, so callers never see null.
+                return new ConcurrentHashMap<>();
             }
             ConcurrentHashMap<Integer, Entry> created = new ConcurrentHashMap<>();
             session.setAttribute(SESSION_ATTRIBUTE, created);

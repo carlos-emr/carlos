@@ -162,7 +162,8 @@ class RxHideCpp2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrowSecurityException_whenPatientRecordAccessDenied() {
         when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
 
-        assertThatThrownBy(() -> new RxHideCpp2Action().execute())
+        RxHideCpp2Action action = new RxHideCpp2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         verify(mockDrugDao, never()).merge(any(Drug.class));
@@ -173,7 +174,8 @@ class RxHideCpp2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrowSecurityException_whenPatientLevelUpdateDenied() {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("u"), eq(DEMOGRAPHIC_NO))).thenReturn(false);
 
-        assertThatThrownBy(() -> new RxHideCpp2Action().execute())
+        RxHideCpp2Action action = new RxHideCpp2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         verify(mockDrugDao, never()).merge(any(Drug.class));

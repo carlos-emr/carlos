@@ -139,7 +139,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         try {
             int parsed = Integer.parseInt(value);
             return parsed > 0 ? parsed : -1;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return -1;
         }
     }
@@ -292,7 +292,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     try {
                         faxNo = io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
                                 rawFaxNo, selectedFaxConfig.getProviderType());
-                    } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                    } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException _) {
                         res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                         writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
                         writer.flush();

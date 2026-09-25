@@ -134,7 +134,8 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectAnonymous_beforeMethodDetails() {
         request.setMethod("GET");
         loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
-        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(security, notes, tmpDao);
     }
 
@@ -149,7 +150,8 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRejectBeforeNoteAccess_whenPatientWriteIsDenied() {
         when(security.hasPrivilege(login, "_rx", "w", 42)).thenReturn(false);
-        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(notes, tmpDao);
     }
 
@@ -157,7 +159,8 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectBeforeNoteAccess_whenPatientRecordAccessIsDenied() {
         // Patient-level _rx write alone is not enough: the caller must be allowed to open the record.
         when(security.isAllowedAccessToPatientRecord(login, 42)).thenReturn(false);
-        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(notes, tmpDao);
     }
 
@@ -206,7 +209,8 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
         when(notes.getNote("7")).thenReturn(note);
         doThrow(new IllegalStateException("cleanup failed after commit"))
                 .when(tmpDao).remove("999998", 42, 0);
-        assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(IllegalStateException.class);
+        RxWriteToEncounter2Action action = new RxWriteToEncounter2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
         verify(notes).saveNoteSimple(note);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isNull();
     }

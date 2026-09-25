@@ -177,7 +177,8 @@ class RxReorder2ActionUnitTest extends CarlosUnitTestBase {
     void shouldThrowSecurityException_whenPatientRecordAccessDenied() {
         when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
 
-        assertThatThrownBy(() -> new RxReorder2Action().execute())
+        RxReorder2Action action = new RxReorder2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         verifyNoInteractions(mockDrugDao, mockCaseManagementManager);

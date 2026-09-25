@@ -54,7 +54,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -183,9 +185,12 @@ class RxPatientWriteAuthorizationUnitTest {
         // in other ways) instead of being refused as unauthorised.
         Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(call(path));
 
-        assertThat(thrown instanceof SecurityException)
-                .as("%s refused an authorised patient: %s", path, thrown)
-                .isFalse();
+        // A null throwable means the path ran through; only a SecurityException is a refusal.
+        if (thrown != null) {
+            assertThat(thrown)
+                    .as("%s refused an authorised patient: %s", path, thrown)
+                    .isNotInstanceOf(SecurityException.class);
+        }
     }
 
     @ParameterizedTest(name = "{0} ({1} denied)")
@@ -225,8 +230,8 @@ class RxPatientWriteAuthorizationUnitTest {
                     && dependency.getKey().equals(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class)) {
                 io.github.carlos_emr.carlos.commn.dao.DrugReasonDao reasons =
                         (io.github.carlos_emr.carlos.commn.dao.DrugReasonDao) dependency.getValue();
-                Mockito.verify(reasons).find(3);
-                Mockito.verifyNoMoreInteractions(reasons);
+                verify(reasons).find(3);
+                verifyNoMoreInteractions(reasons);
                 continue;
             }
             verifyNoInteractions(dependency.getValue());
@@ -287,7 +292,8 @@ class RxPatientWriteAuthorizationUnitTest {
         when(securityInfoManager.hasPrivilege(any(), anyString(), org.mockito.ArgumentMatchers.eq("r"), anyInt()))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> new RxReason2Action().execute())
+        RxReason2Action action = new RxReason2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         for (Object dependency : dependencies.values()) {
@@ -313,7 +319,8 @@ class RxPatientWriteAuthorizationUnitTest {
                     .thenReturn(false);
         }
 
-        assertThatThrownBy(() -> new RxChoosePatient2Action().execute())
+        RxChoosePatient2Action action = new RxChoosePatient2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
 
@@ -428,7 +435,8 @@ class RxPatientWriteAuthorizationUnitTest {
         request.getSession().setAttribute("user", PROVIDER_NO);
         denyPatient(denied, otherPatient, "_allergy");
 
-        assertThatThrownBy(() -> new RxShowAllergy2Action().execute())
+        RxShowAllergy2Action action = new RxShowAllergy2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_allergy)");
 
@@ -449,7 +457,8 @@ class RxPatientWriteAuthorizationUnitTest {
         request.setParameter("atcCode", "J01CA04");
         denyPatient(denied, otherPatient, "_allergy");
 
-        assertThatThrownBy(() -> new RxShowAllergy2Action().execute())
+        RxShowAllergy2Action action = new RxShowAllergy2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_allergy)");
         for (Object dependency : dependencies.values()) {
@@ -628,8 +637,7 @@ class RxPatientWriteAuthorizationUnitTest {
                     action.setDrugList("5");
                     action.represcribe();
                 };
-            case "rePrescribe.represcribe2":
-            case "rePrescribe.saveReRxDrugIdToStash":
+            case "rePrescribe.represcribe2", "rePrescribe.saveReRxDrugIdToStash":
                 request.setParameter("drugId", "5");
                 return path.endsWith("2")
                         ? () -> new RxRePrescribe2Action().represcribe2()

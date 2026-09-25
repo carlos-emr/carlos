@@ -132,14 +132,17 @@ public final class RxDeleteRx2Action extends ActionSupport {
             return NONE;
         }
         String method = request.getParameter("parameterValue");
-        if ("Delete2".equals(method)) {
-            return Delete2();
-        } else if ("clearStash".equals(method)) {
-            return clearStash();
-        } else if ("clearReRxDrugList".equals(method)) {
-            return clearReRxDrugList();
-        } else if ("Discontinue".equals(method)) {
-            return Discontinue();
+        switch (method == null ? "" : method) {
+            case "Delete2":
+                return Delete2();
+            case "clearStash":
+                return clearStash();
+            case "clearReRxDrugList":
+                return clearReRxDrugList();
+            case "Discontinue":
+                return Discontinue();
+            default:
+                break;
         }
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
@@ -153,19 +156,13 @@ public final class RxDeleteRx2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         try {
 
-            String[] drugArr = drugList == null || drugList.isBlank() ? new String[0] : drugList.split(",");
-
             // Validate every requested drug before archiving any, so a list that mixes in another
             // patient's drug, or a malformed id, is refused as a whole rather than half-applied.
             // A malformed id used to end the loop early and still archive the ids before it (#3908).
-            List<Integer> drugIds = new ArrayList<>();
-            for (String rawId : drugArr) {
-                String trimmed = rawId.trim();
-                if (!trimmed.matches("\\d{1,9}")) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                    return NONE;
-                }
-                drugIds.add(Integer.valueOf(trimmed));
+            List<Integer> drugIds = parseDrugIds(drugList);
+            if (drugIds == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
             }
             List<Drug> drugsToDelete = new ArrayList<>();
             for (int drugId : drugIds) {
@@ -188,6 +185,22 @@ public final class RxDeleteRx2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    /** The comma-separated drug ids of the request, or {@code null} when any of them is malformed. */
+    private static List<Integer> parseDrugIds(String drugList) {
+        List<Integer> drugIds = new ArrayList<>();
+        if (drugList == null || drugList.isBlank()) {
+            return drugIds;
+        }
+        for (String rawId : drugList.split(",")) {
+            String trimmed = rawId.trim();
+            if (!trimmed.matches("\\d{1,9}")) {
+                return null;
+            }
+            drugIds.add(Integer.valueOf(trimmed));
+        }
+        return drugIds;
     }
 
     /**
@@ -363,7 +376,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         int id;
         try {
             id = Integer.parseInt(idStr);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -506,16 +519,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
         return drug != null && Objects.equals(drug.getDemographicId(), bean.getDemographicNo());
     }
 
-    /**
-     * Checks if the current user has the required privilege for prescription operations.
-     * <p>
-     * Validates that the logged-in user has the specified privilege level (read, update, delete)
-     * for the "_rx" security object. Throws RuntimeException if privilege check fails.
-     *
-     * @param request HttpServletRequest containing the logged-in user session
-     * @param privilege String privilege level to check ("r" for read, "u" for update, "d" for delete)
-     * @throws RuntimeException if the user lacks the required privilege
-     */
     /**
      * Answers a non-POST request with 405 and {@code Allow: POST}.
      *

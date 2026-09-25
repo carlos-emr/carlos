@@ -135,13 +135,20 @@ async function workflow(session) {
     }, { accept: true });
     h.assert(response.request().method() === 'POST', `rx/chooseDrug was requested with ${response.request().method()}`);
     h.assert(response.status() < 400, `rx/chooseDrug answered HTTP ${response.status()}`);
-    // A custom drug's write-script page sends the prescriber straight back to the Rx page, where
-    // the chosen drug is now a staged card.
-    await page.waitForURL(/\/rx\/searchDrug\?demographicNo=/, { timeout: 30000 });
+    // The chosen drug is a staged card and the write-script page ("Step 3") opens for it, with its
+    // form bound: the page's scripts named a form that does not exist and threw on every field
+    // (a page error fails this strict page). It used to bounce back to the Rx page with nothing
+    // staged, because DrugRef refused the blank id before the custom-drug fallback ran.
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await h.assertNotErrorPage(page, 'Rx page after choosing a drug');
-    await page.locator("[id^='drugName_']").first().waitFor({ state: 'attached', timeout: 20000 });
+    await h.assertNotErrorPage(page, 'write-script page');
+    await page.locator('form#frm textarea[name="customName"]').waitFor({ state: 'attached', timeout: 20000 });
+    h.assert(await page.evaluate(() => frm === document.forms.frm && typeof frm.quantity === 'object'),
+      'the write-script page did not bind its form');
     await page.close();
+    // The stash belongs to the session: the Rx page for the patient shows the staged card.
+    const rx = await openRx(session, patient);
+    await rx.locator("[id^='drugName_']").first().waitFor({ state: 'attached', timeout: 20000 });
+    await rx.close();
   });
 
   await session.step('chooseDrug, legacy reprint, hideCpp and reorderDrug refuse GET', async () => {

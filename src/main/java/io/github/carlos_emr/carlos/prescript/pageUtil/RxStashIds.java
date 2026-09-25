@@ -73,20 +73,24 @@ public final class RxStashIds {
     public static long nextUnique(RxSessionBean bean, int bound) {
         // Two windows of the same patient share one bean, so the stash is read under the bean's
         // monitor; RxSessionBean#addStashItem re-keys under the same monitor, which is what makes a
-        // draw here and the later insertion safe against each other (#3908).
-        synchronized (bean) {
-            for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-                long key = next(bound);
-                if (!inUse(bean, key)) {
-                    return key;
-                }
+        // draw here and the later insertion safe against each other (#3908). The bean takes its
+        // own monitor rather than this method locking on its parameter.
+        return bean.nextUniqueStashKey(bound);
+    }
+
+    /** {@link #nextUnique} for a caller that already holds {@code bean}'s monitor. */
+    static long nextUniqueLocked(RxSessionBean bean, int bound) {
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            long key = next(bound);
+            if (!inUse(bean, key)) {
+                return key;
             }
-            long highest = -1;
-            for (int i = 0; i < bean.getStashSize(); i++) {
-                highest = Math.max(highest, bean.getStashItem(i).getRandomId());
-            }
-            return highest + 1;
         }
+        long highest = -1;
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            highest = Math.max(highest, bean.getStashItem(i).getRandomId());
+        }
+        return highest + 1;
     }
 
     /**
@@ -101,15 +105,18 @@ public final class RxStashIds {
      * @return a key no other staged card uses
      */
     public static long acceptOrNext(RxSessionBean bean, String clientKey, int bound) {
-        synchronized (bean) {
-            if (clientKey != null && clientKey.matches("\\d{1,9}")) {
-                long key = Long.parseLong(clientKey);
-                if (!inUse(bean, key)) {
-                    return key;
-                }
+        return bean.acceptOrNextStashKey(clientKey, bound);
+    }
+
+    /** {@link #acceptOrNext} for a caller that already holds {@code bean}'s monitor. */
+    static long acceptOrNextLocked(RxSessionBean bean, String clientKey, int bound) {
+        if (clientKey != null && clientKey.matches("\\d{1,9}")) {
+            long key = Long.parseLong(clientKey);
+            if (!inUse(bean, key)) {
+                return key;
             }
-            return nextUnique(bean, bound);
         }
+        return nextUniqueLocked(bean, bound);
     }
 
     /**

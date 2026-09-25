@@ -96,44 +96,51 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         String method = request.getParameter("method");
-        if ("delete".equals(method)) {
-            return delete();
-        } else if ("unlink".equals(method)) {
-            return unlink();
-        } else if ("getPharmacyFromDemographic".equals(method)) {
-            return getPharmacyFromDemographic();
-        } else if ("setPreferred".equals(method)) {
-            return setPreferred();
-        } else if ("add".equals(method)) {
-            return add();
-        } else if ("save".equals(method)) {
-            return save();
-        } else if ("search".equals(method)) {
-            return search();
-        } else if ("searchCity".equals(method)) {
-            return searchCity();
-        } else if ("getPharmacyInfo".equals(method)) {
-            return getPharmacyInfo();
-        } else if ("getTotalDemographicsPreferedToPharmacy".equals(method)) {
-            return getTotalDemographicsPreferedToPharmacy();
+        switch (method == null ? "" : method) {
+            case "delete":
+                return delete();
+            case "unlink":
+                unlink();
+                return NONE;
+            case "getPharmacyFromDemographic":
+                return getPharmacyFromDemographic();
+            case "setPreferred":
+                setPreferred();
+                return NONE;
+            case "add":
+                return add();
+            case "save":
+                return save();
+            case "search":
+                return search();
+            case "searchCity":
+                return searchCity();
+            case "getPharmacyInfo":
+                return getPharmacyInfo();
+            case "getTotalDemographicsPreferedToPharmacy":
+                return getTotalDemographicsPreferedToPharmacy();
+            default:
+                break;
         }
 
         String actionType = this.getPharmacyAction();
         if (StringUtils.isNullOrEmpty(actionType)) {
             return SUCCESS;
         }
-
-        RxPharmacyData pharmacy = new RxPharmacyData();
-
-        if ("Add".equals(actionType)) {
-            pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if ("Edit".equals(actionType)) {
-            pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if ("Delete".equals(actionType)) {
-            pharmacy.deletePharmacy(this.getID());
-        }
+        applyPharmacyAction(actionType);
 
         return SUCCESS;
+    }
+
+    /** The legacy {@code pharmacyAction} form: add, edit or delete a pharmacy record. */
+    private void applyPharmacyAction(String actionType) {
+        RxPharmacyData pharmacy = new RxPharmacyData();
+        switch (actionType) {
+            case "Add" -> pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
+            case "Edit" -> pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
+            case "Delete" -> pharmacy.deletePharmacy(this.getID());
+            default -> { }
+        }
     }
 
     /** Whether this request names a pharmacy write (a mutating {@code method} or legacy {@code pharmacyAction}). */
@@ -179,10 +186,10 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      * record access) without requiring the patient's Rx bean, so an open selector keeps working after the
      * bean was evicted.
      *
-     * @return {@code NONE}; the JSON result is written directly
+     * The JSON result is written directly; {@link #execute} answers {@code NONE}.
      */
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    public String unlink() {
+    public void unlink() {
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
@@ -190,7 +197,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             String demographicNo = authorisedRequestedPatient();
             if (demographicNo == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return NONE;
+                return;
             }
 
             RxPharmacyData pharmacy = new RxPharmacyData();
@@ -212,8 +219,6 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Cannot write unlink response", e);
         }
-
-        return NONE;
     }
 
     public String getPharmacyFromDemographic() throws IOException {
@@ -263,13 +268,13 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         return String.valueOf(demographicNo);
     }
 
-    public String setPreferred() {
+    public void setPreferred() {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
             String demographicNo = authorisedRequestedPatient();
             if (demographicNo == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return NONE;
+                return;
             }
             PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), demographicNo, request.getParameter("preferredOrder"));
             response.setContentType("application/json");
@@ -277,8 +282,6 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         } catch (Exception e) {
             MiscUtils.getLogger().error("ERROR SETTING PREFERRED ORDER", e);
         }
-
-        return NONE;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.

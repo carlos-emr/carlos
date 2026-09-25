@@ -59,6 +59,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * @since 2004-02-05
  */
 public final class RxStash2Action extends ActionSupport {
+
+    private static final String METHOD_DELETE_PRESCRIBE = "deletePrescribe";
+    private static final String ACTION_DELETE = "delete";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -81,14 +85,7 @@ public final class RxStash2Action extends ActionSupport {
 
 
         String method = request.getParameter("parameterValue");
-        // The legacy action=delete branch runs for ANY parameterValue other than the two named
-        // dispatches (null, blank or unrelated), so the gate must match the dispatch below rather
-        // than only method == null; otherwise a GET with parameterValue= could remove a card.
-        // Both the raw parameter and the Struts-bound field are checked since execute() acts on the latter.
-        boolean legacyDelete = !"setStashIndex".equals(method) && !"deletePrescribe".equals(method)
-                && ("delete".equals(request.getParameter("action")) || "delete".equals(this.getAction()));
-        boolean removesStashItem = "deletePrescribe".equals(method) || legacyDelete;
-        if (removesStashItem && !"POST".equals(request.getMethod())) {
+        if (removesStashItem(method) && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -96,15 +93,13 @@ public final class RxStash2Action extends ActionSupport {
 
         if ("setStashIndex".equals(method)) {
             return setStashIndex();
-        } else if ("deletePrescribe".equals(method)) {
+        } else if (METHOD_DELETE_PRESCRIBE.equals(method)) {
             return deletePrescribe();
         }
 
-        // Setup variables
-
         // action=delete removes a staged card, so it needs the explicitly named patient's bean; the
         // action=edit cursor move is a read and may use the active-patient fallback (#3875).
-        RxSessionBean bean = "delete".equals(this.getAction())
+        RxSessionBean bean = ACTION_DELETE.equals(this.getAction())
                 ? RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w")
                 : RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
@@ -112,23 +107,38 @@ public final class RxStash2Action extends ActionSupport {
             return null;
         }
 
-        if (this.getStashId() >= 0 && this.getStashId() < bean.getStashSize()) {
-            if ("edit".equals(this.getAction())) {
+        applyLegacyAction(bean);
+        return SUCCESS;
+    }
 
-                request.setAttribute("BoxNoFillFirstLoad", "true");
+    /**
+     * Whether this request removes a staged card. The legacy action=delete branch runs for ANY
+     * parameterValue other than the two named dispatches (null, blank or unrelated), so the gate
+     * matches the dispatch in {@link #execute} rather than only {@code method == null}; otherwise a
+     * GET with {@code parameterValue=} could remove a card. Both the raw parameter and the
+     * Struts-bound field are checked since execute() acts on the latter.
+     */
+    private boolean removesStashItem(String method) {
+        boolean legacyDelete = !"setStashIndex".equals(method) && !METHOD_DELETE_PRESCRIBE.equals(method)
+                && (ACTION_DELETE.equals(request.getParameter("action")) || ACTION_DELETE.equals(this.getAction()));
+        return METHOD_DELETE_PRESCRIBE.equals(method) || legacyDelete;
+    }
 
-                bean.setStashIndex(this.getStashId());
-                //bean.setStashIndex(11);
-            }
-            if (this.getAction().equals("delete")) {
-                bean.removeStashItem(this.getStashId());
-
-                if (bean.getStashIndex() >= bean.getStashSize()) {
-                    bean.setStashIndex(bean.getStashSize() - 1);
-                }
+    /** The legacy edit (move the cursor) or delete (remove the card) of the card at stashId. */
+    private void applyLegacyAction(RxSessionBean bean) {
+        if (this.getStashId() < 0 || this.getStashId() >= bean.getStashSize()) {
+            return;
+        }
+        if ("edit".equals(this.getAction())) {
+            request.setAttribute("BoxNoFillFirstLoad", "true");
+            bean.setStashIndex(this.getStashId());
+        }
+        if (ACTION_DELETE.equals(this.getAction())) {
+            bean.removeStashItem(this.getStashId());
+            if (bean.getStashIndex() >= bean.getStashSize()) {
+                bean.setStashIndex(bean.getStashSize() - 1);
             }
         }
-        return SUCCESS;
     }
 
     public String setStashIndex() {
@@ -206,7 +216,7 @@ public final class RxStash2Action extends ActionSupport {
         int randomId;
         try {
             randomId = Integer.parseInt(request.getParameter("randomId"));
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }

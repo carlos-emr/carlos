@@ -102,17 +102,17 @@ public final class RxAddFavorite2Action extends ActionSupport {
 
         // The card's position in the named patient's stash; a malformed or out-of-range
         // position names no staged item, so nothing is favourited.
-        int stashId;
+        int stashIndex;
         try {
-            stashId = Integer.parseInt(this.getStashId());
-        } catch (NumberFormatException e) {
-            stashId = -1;
+            stashIndex = Integer.parseInt(this.getStashId());
+        } catch (NumberFormatException _) {
+            stashIndex = -1;
         }
-        if (stashId < 0 || stashId >= bean.getStashSize()) {
+        if (stashIndex < 0 || stashIndex >= bean.getStashSize()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        bean.getStashItem(stashId).AddToFavorites(providerNo, favoriteName);
+        bean.getStashItem(stashIndex).AddToFavorites(providerNo, favoriteName);
 
         return "success";
     }
@@ -155,18 +155,18 @@ public final class RxAddFavorite2Action extends ActionSupport {
         }
         String providerNo = bean.getProviderNo();
 
-        int stashId;
+        int stashIndex;
         try {
-            stashId = bean.getIndexFromRx(Integer.parseInt(randomId));
-        } catch (NumberFormatException e) {
-            stashId = -1;
+            stashIndex = bean.getIndexFromRx(Integer.parseInt(randomId));
+        } catch (NumberFormatException _) {
+            stashIndex = -1;
         }
-        if (stashId < 0) {
+        if (stashIndex < 0) {
             // No staged card carries this key (stale or malformed): favourite nothing.
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        bean.getStashItem(stashId).AddToFavorites(providerNo, favoriteName);
+        bean.getStashItem(stashIndex).AddToFavorites(providerNo, favoriteName);
        
         /*
         request.setAttribute("BoxNoFillFirstLoad", "true");

@@ -39,7 +39,7 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewEditFavorites2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
      * Admits the request to its view only with global {@code _rx} read and, when the request names a

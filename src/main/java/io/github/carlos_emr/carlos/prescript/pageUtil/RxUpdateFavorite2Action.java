@@ -77,8 +77,8 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
             return ajaxEditFavorite();
         }
 
-        Integer repeat = RxFavoriteAccess.parseRepeat(this.getRepeat());
-        if (repeat == null) {
+        Integer repeatCount = RxFavoriteAccess.parseRepeat(this.getRepeat());
+        if (repeatCount == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -95,7 +95,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setDuration(this.getDuration());
         fav.setDurationUnit(this.getDurationUnit());
         fav.setQuantity(this.getQuantity());
-        fav.setRepeat(repeat);
+        fav.setRepeat(repeatCount);
         fav.setNosubs(this.getNosubs());
         fav.setPrn(this.getPrn());
         fav.setSpecial(this.getSpecial());
@@ -123,8 +123,8 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        Integer repeat = RxFavoriteAccess.parseRepeat(request.getParameter("repeat"));
-        if (repeat == null) {
+        Integer repeatCount = RxFavoriteAccess.parseRepeat(request.getParameter("repeat"));
+        if (repeatCount == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -140,7 +140,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setDuration(request.getParameter("duration"));
         fav.setDurationUnit(request.getParameter("durationUnit"));
         fav.setQuantity(request.getParameter("quantity"));
-        fav.setRepeat(repeat);
+        fav.setRepeat(repeatCount);
         fav.setNosubs("true".equalsIgnoreCase(request.getParameter("nosubs")));
         fav.setPrn("true".equalsIgnoreCase(request.getParameter("prn")));
         fav.setSpecial(request.getParameter("special"));
