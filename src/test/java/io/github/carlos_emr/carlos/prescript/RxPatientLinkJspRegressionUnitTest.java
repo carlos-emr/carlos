@@ -183,6 +183,29 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should encode stored allergy and favourite text for each sidebar output context")
+    void shouldEncodeStoredSidebarText() throws IOException {
+        for (String name : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
+                "rx/SideLinksNoEditFavorites2.jsp"}) {
+            String jsp = read(name);
+            assertThat(jsp).as(name).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
+            for (String value : new String[] {"allergies[j].getDescription()", "allergies[j].getReaction()",
+                    "favorites[j].getFavoriteName()"}) {
+                assertThat(jsp).as(name + " attribute " + value)
+                        .contains("<carlos:encode value='<%= " + value + " %>' context=\"htmlAttribute\"/>");
+            }
+            for (String value : new String[] {"allergies[j].getShortDesc(13, 8, \"...\")",
+                    "favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""}) {
+                assertThat(jsp).as(name + " text " + value)
+                        .contains("<carlos:encode value='<%= " + value + " %>' context=\"html\"/>");
+            }
+            // A raw title lets persisted quotes create attributes; a raw text label permits markup.
+            assertThat(jsp).doesNotContain("title=\"<%= allergies", "title=\"<%= favorites",
+                    "<%=allergies[j].getShortDesc", "<%= favorites[j].getFavoriteName() %> <%}");
+        }
+    }
+
+    @Test
     @DisplayName("should allow shared Rx sidebars with either permission and authorize clinical sections independently")
     void shouldSeparatePrescriptionAndAllergySidebarPermissions() throws IOException {
         for (String name : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
