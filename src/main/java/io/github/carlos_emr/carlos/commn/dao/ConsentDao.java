@@ -38,8 +38,16 @@ import io.github.carlos_emr.carlos.commn.model.Consent;
 
 public interface ConsentDao extends AbstractDao<Consent> {
 
+    /**
+     * @return the deciding live record for the patient and type: any opt-out wins, otherwise the
+     *     most recently edited; see {@link ConsentRecords}. {@code null} when there is none.
+     */
     public Consent findByDemographicAndConsentTypeId(int demographic_no, int consentTypeId);
 
+    /** @return every live record for the patient and type, most recently edited first */
+    public List<Consent> findLiveByDemographicAndConsentTypeId(int demographic_no, int consentTypeId);
+
+    /** As {@link #findByDemographicAndConsentTypeId}, selecting the type by its name. */
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType);
 
     public List<Consent> findByDemographic(int demographic_no);
