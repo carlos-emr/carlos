@@ -44,6 +44,11 @@ import java.util.List;
  * rows hold {@code "Yes"} or {@code "No"}. {@link #isLegacyValue(List, String)} lets the page keep
  * showing such a value instead of silently rendering an empty selection.</p>
  *
+ * <p>The Health Tracker only has the rule <em>name</em> at hand
+ * ({@code EctMeasurementTypesBean.getValidationName()}), so {@link #forValidationName(String)}
+ * exposes the name-only half of the derivation for it. Both pages therefore offer the same
+ * choices for a slash-named rule.</p>
+ *
  * @since 2026-09-24
  */
 public final class MeasurementDropdownOptions {
@@ -62,15 +67,30 @@ public final class MeasurementDropdownOptions {
         if (validation == null) {
             return Collections.emptyList();
         }
-        String name = validation.getName();
-        if (name != null && name.contains("/")) {
-            return List.of(name.split("/"));
+        List<String> fromName = forValidationName(validation.getName());
+        if (!fromName.isEmpty()) {
+            return fromName;
         }
         String regularExp = validation.getRegularExp();
         if (regularExp == null || regularExp.isEmpty()) {
             return Collections.emptyList();
         }
         return Arrays.asList(regularExp.split("\\|"));
+    }
+
+    /**
+     * Returns the choices a slash-separated validation rule name offers
+     * ({@code "Provided/Revised/Reviewed"} gives three), or an empty list when the name has no
+     * slash and so does not enumerate its own options.
+     *
+     * @param validationName the validation rule name; may be {@code null}
+     * @return the options in name order, or an empty list
+     */
+    public static List<String> forValidationName(String validationName) {
+        if (validationName == null || !validationName.contains("/")) {
+            return Collections.emptyList();
+        }
+        return List.of(validationName.split("/"));
     }
 
     /**

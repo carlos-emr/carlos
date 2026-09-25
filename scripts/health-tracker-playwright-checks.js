@@ -50,6 +50,12 @@ const MEASUREMENT_TYPE = 'WT';
 // Provided/Revised/Reviewed since V1.0.33 (issue #3893), so it no longer gets a tick or cross.
 const YES_NO_TYPE = 'AENC';
 const YES_NO_DISPLAY_NAME = 'Asthma Environmental Control';
+// The one measurement whose rule is neither Yes/No nor Review: since V1.0.33 AACP is
+// Provided/Revised/Reviewed, and the tracker must offer those three as radios rather than
+// fall through to the free-text input (PR #3900 review).
+const CHOICE_TYPE = 'AACP';
+const CHOICE_DISPLAY_NAME = 'Asthma Action Plan';
+const CHOICE_OPTIONS = ['Provided', 'Revised', 'Reviewed'];
 // The tracker names its inputs after the measurement type, which is unique within
 // a flowsheet -- display names are not, and two of them can sanitize to one name.
 const FIELD = MEASUREMENT_TYPE;
@@ -274,6 +280,25 @@ async function workflow(s) {
       + ' without the clinician opening the chart');
     assert(await page.locator(`#wrap-${YES_NO_TYPE} i.fa-check`).count() === 1,
       'A Yes/No measurement whose latest answer is Yes shows no tick in its header');
+    await page.close();
+  });
+
+  await s.step('a Provided/Revised/Reviewed measurement offers its three choices as radios', async () => {
+    const choicePayload = `<item measurement_type="${CHOICE_TYPE}" display_name="${CHOICE_DISPLAY_NAME}" `
+      + 'guideline="" graphable="no" value_name="Plan" />';
+    sql.execute(`INSERT INTO flowsheet_customization
+      (flowsheet, action, measurement, payload, provider_no, demographic_no, create_date, archived)
+      VALUES ('tracker','add',NULL,${sqlString(choicePayload)},
+        ${sqlString(provider)},${sqlString(String(patient))},NOW(),0)`);
+
+    page = await openTracker(s, 'health-tracker-choices');
+    const radios = page.locator(`#wrap-${CHOICE_TYPE} input[type="radio"][name="${CHOICE_TYPE}"]`);
+    const offered = await radios.evaluateAll((els) => els.map((el) => el.value));
+    assert(JSON.stringify(offered) === JSON.stringify(CHOICE_OPTIONS),
+      `The ${CHOICE_TYPE} card offers ${JSON.stringify(offered)}, not the three allowed answers`
+      + ` ${JSON.stringify(CHOICE_OPTIONS)}; the tracker fell back to a free-text input`);
+    assert(await page.locator(`#wrap-${CHOICE_TYPE} input.entry-input[type="text"]`).count() === 0,
+      `The ${CHOICE_TYPE} card still renders a free-text input beside its choices`);
     await page.close();
   });
 

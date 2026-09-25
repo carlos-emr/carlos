@@ -91,6 +91,36 @@ class MeasurementDropdownOptionsUnitTest {
         }
     }
 
+    /** Option derivation from the rule name alone, as the Health Tracker has it. */
+    @Nested
+    @DisplayName("forValidationName")
+    class ForValidationName {
+
+        @Test
+        @DisplayName("should offer the three AACP choices from the Provided/Revised/Reviewed name")
+        void shouldReturnNameSegments_forProvidedRevisedReviewedName() {
+            assertThat(MeasurementDropdownOptions.forValidationName("Provided/Revised/Reviewed"))
+                    .containsExactlyElementsOf(AACP_OPTIONS);
+        }
+
+        @Test
+        @DisplayName("should return no options when the name is null or has no slash")
+        void shouldReturnEmpty_whenNameDoesNotEnumerateOptions() {
+            assertThat(MeasurementDropdownOptions.forValidationName(null)).isEmpty();
+            assertThat(MeasurementDropdownOptions.forValidationName("Review")).isEmpty();
+            assertThat(MeasurementDropdownOptions.forValidationName("Numeric Value: 0 to 10")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should agree with forValidation for a slash-named rule")
+        void shouldMatchForValidation_forSlashNamedRule() {
+            Validations aacp = validation("Provided/Revised/Reviewed", "Provided|Revised|Reviewed");
+
+            assertThat(MeasurementDropdownOptions.forValidationName(aacp.getName()))
+                    .isEqualTo(MeasurementDropdownOptions.forValidation(aacp));
+        }
+    }
+
     /** Detection of values recorded under an earlier rule. */
     @Nested
     @DisplayName("isLegacyValue")

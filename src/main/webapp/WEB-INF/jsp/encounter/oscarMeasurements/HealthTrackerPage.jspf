@@ -46,7 +46,9 @@
         returning to the encounter
       - undiagnosed-flowsheet warning with a link into the Disease Registry
       - per-measurement entry with the same server-side Validations the Add
-        Measurement path enforces
+        Measurement path enforces; Yes/No rules render as radios, "Review" as a
+        checkbox, any other slash-named rule (Provided/Revised/Reviewed) as one
+        radio per option, everything else as a free-text input
       - history strip with indicator colours, comments and delete
       - Chart.js trend chart per graphable measurement (BP plots systolic and
         diastolic as two series)
@@ -73,6 +75,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerSubmissionParser" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDropdownOptions" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
@@ -597,6 +600,15 @@
                     || "Yes/No/NA".equals(validationName)
                     || "Yes/No/X".equals(validationName);
             boolean reviewOnly = "Review".equals(validationName);
+            // Any other slash-named rule (Provided/Revised/Reviewed for the Asthma Action Plan
+            // since V1.0.33, issue #3893) enumerates its own choices, exactly as the Add
+            // Measurement page derives them. Rendered as radios rather than a free-text input
+            // so the card offers the allowed answers; the server-side regexp remains the
+            // authoritative check in HealthTrackerMeasurementPersister.
+            List<String> choiceOptions = (yesNo || reviewOnly)
+                    ? Collections.<String>emptyList()
+                    : MeasurementDropdownOptions.forValidationName(validationName);
+            boolean choiceList = !choiceOptions.isEmpty();
 
             List<EctMeasurementsDataBean> alist = mi.getMeasurementData(measure);
             if (alist == null) {
@@ -721,6 +733,23 @@
                                     <input class="form-check-input entry-input" type="checkbox" value="Reviewed"
                                            name="<%= encField %>" id="<%= encField %>-REVIEWED">
                                     <label class="form-check-label" for="<%= encField %>-REVIEWED">Reviewed</label>
+                                </div>
+                                <% } else if (choiceList) { %>
+                                <div id="options-<%= encField %>" class="d-flex align-items-center gap-2 flex-wrap">
+                                    <% for (String choice : choiceOptions) {
+                                        String encChoice = SafeEncode.forHtmlAttribute(choice);
+                                        // The id suffix mirrors the Yes/No branch (-YES, -NO, -NA):
+                                        // the option upper-cased, with anything that is not a
+                                        // word character dropped so the id stays a plain token.
+                                        String choiceId = encField + "-"
+                                                + SafeEncode.forHtmlAttribute(choice.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_]", "")); %>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input entry-input" type="radio" value="<%= encChoice %>"
+                                               name="<%= encField %>" id="<%= choiceId %>">
+                                        <label class="form-check-label" for="<%= choiceId %>"><carlos:encode
+                                                value='<%= choice %>' context="html"/></label>
+                                    </div>
+                                    <% } %>
                                 </div>
                                 <% } else { %>
                                 <label class="visually-hidden" for="<%= encField %>"><carlos:encode

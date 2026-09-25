@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDropdownOptions;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import org.jdom2.Element;
@@ -40,7 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Pins the wiring of the Asthma Action Plan (AACP) Provided/Revised/Reviewed dropdown
  * (issue #3893, OntarioMD DE16.098) across the flowsheet, the Flyway migration that moves the
- * existing AACP row, and the Add Measurement page that must keep legacy Yes/No readings visible.
+ * existing AACP row, the Add Measurement page that must keep legacy Yes/No readings visible, and
+ * the Health Tracker card that must offer the three choices instead of a free-text input.
  */
 @Tag("unit")
 @Tag("fast")
@@ -54,6 +56,8 @@ class AsthmaActionPlanDropdownRegressionTest {
             "V1.0.33__aacp_provided_revised_reviewed_validation.sql");
     private static final Path ADD_MEASUREMENT_JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp",
             "encounter", "oscarMeasurements", "AddMeasurementData.jsp");
+    private static final Path HEALTH_TRACKER_JSPF = Path.of("src", "main", "webapp", "WEB-INF", "jsp",
+            "encounter", "oscarMeasurements", "HealthTrackerPage.jspf");
 
     @Test
     @DisplayName("should label the AACP value as Plan and declare the Provided/Revised/Reviewed rule")
@@ -107,6 +111,37 @@ class AsthmaActionPlanDropdownRegressionTest {
                 .contains("if (legacyValue) { %>")
                 .contains("<option value=\"<carlos:encode value='<%= val %>' context=\"htmlAttribute\"/>\""
                         + " selected disabled><carlos:encode value='<%= val %>' context=\"html\"/>");
+    }
+
+    @Test
+    @DisplayName("should render a slash-named rule such as AACP as one radio per option on the tracker")
+    void shouldRenderChoiceRadios_forProvidedRevisedReviewedOnHealthTracker() throws Exception {
+        String jspf = Files.readString(HEALTH_TRACKER_JSPF, StandardCharsets.UTF_8);
+
+        // The renderer derives the choices from the rule name through the same helper the Add
+        // Measurement page uses, and only for rules the Yes/No and Review branches did not claim,
+        // so Provided/Revised/Reviewed no longer falls through to the free-text input.
+        assertThat(jspf)
+                .contains("import=\"io.github.carlos_emr.carlos.encounter.oscarMeasurements.util"
+                        + ".MeasurementDropdownOptions\"")
+                .contains("List<String> choiceOptions = (yesNo || reviewOnly)")
+                .contains(": MeasurementDropdownOptions.forValidationName(validationName);")
+                .contains("boolean choiceList = !choiceOptions.isEmpty();")
+                .contains("<% } else if (choiceList) { %>")
+                .contains("<% for (String choice : choiceOptions) {")
+                .contains("<input class=\"form-check-input entry-input\" type=\"radio\" value=\"<%= encChoice %>\"")
+                .contains("name=\"<%= encField %>\" id=\"<%= choiceId %>\">")
+                .contains("<label class=\"form-check-label\" for=\"<%= choiceId %>\"><carlos:encode");
+
+        // The choice branch must sit before the free-text fallback, which stays for everything else.
+        int choiceBranch = jspf.indexOf("<% } else if (choiceList) { %>");
+        int freeTextBranch = jspf.indexOf("placeholder=\"Enter Data\"");
+        assertThat(choiceBranch).isPositive();
+        assertThat(freeTextBranch).isGreaterThan(choiceBranch);
+
+        // And the helper does yield the three allowed AACP answers for that rule name.
+        assertThat(MeasurementDropdownOptions.forValidationName("Provided/Revised/Reviewed"))
+                .containsExactly("Provided", "Revised", "Reviewed");
     }
 
     @Test
