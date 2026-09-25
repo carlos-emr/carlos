@@ -177,14 +177,23 @@ public final class EmailConfigSecrets {
      * @since 2026-09-24
      */
     public static boolean encryptedSecretsDecrypt(String configDetailsJson) {
-        if (transportSecretState(configDetailsJson) != TransportSecretState.ENCRYPTED) {
+        if (configDetailsJson == null || configDetailsJson.isBlank()) {
+            return true;
+        }
+        JsonNode root;
+        try {
+            root = OBJECT_MAPPER.readTree(configDetailsJson);
+        } catch (Exception e) {
+            return true; // nothing encrypted can be found in it; the sender reports the bad value
+        }
+        if (root == null || !root.isObject()) {
             return true;
         }
         try {
-            JsonNode root = OBJECT_MAPPER.readTree(configDetailsJson);
             for (String field : SECRET_FIELDS) {
                 JsonNode value = root.get(field);
-                if (value != null && value.isValueNode() && EncryptionUtils.isEncrypted(value.asText())) {
+                if (value != null && value.isValueNode() && !value.asText().isEmpty()
+                        && EncryptionUtils.isEncrypted(value.asText())) {
                     decryptSecret(value.asText());
                 }
             }

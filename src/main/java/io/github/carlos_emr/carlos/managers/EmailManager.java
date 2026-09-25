@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -113,6 +114,8 @@ public class EmailManager {
     static final String REQUIRE_CREDENTIAL_KEY_PROPERTY = "email.credentials.require_encryption_key";
     static final String CREDENTIAL_KEY_REQUIRED_ERROR =
             "Email sender account cannot be used until the server encryption key is configured. Contact your administrator.";
+    /** Values CARLOS reads as a deliberate "off"; anything else that is not on is reported. */
+    private static final Set<String> OFF_VALUES = Set.of("false", "no", "off");
     static final String CREDENTIAL_KEY_MISMATCH_ERROR =
             "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
@@ -181,8 +184,8 @@ public class EmailManager {
     private void logCredentialKeyEnforcement() {
         String raw = CarlosProperties.getInstance().getProperty(REQUIRE_CREDENTIAL_KEY_PROPERTY);
         boolean enforced = CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY);
-        String value = raw == null ? "" : raw.trim().toLowerCase(java.util.Locale.ROOT);
-        if (!enforced && !value.isEmpty() && !java.util.Set.of("false", "no", "off").contains(value)) {
+        String value = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+        if (!enforced && !value.isEmpty() && !OFF_VALUES.contains(value)) {
             logger.warn("{} has an unrecognised value, so email credential key enforcement is OFF. "
                     + "Use true, yes or on to enable it.", REQUIRE_CREDENTIAL_KEY_PROPERTY);
         } else {
@@ -663,7 +666,8 @@ public class EmailManager {
      *       and sent. With a key, they are encrypted by {@link #upgradeConfigCredentialsAtRest}.</li>
      * </ul>
      *
-     * <p>Each report is logged once per account per server run, whatever its later edits. Logs
+     * <p>A warning that lets the send proceed is logged once per account per server run, whatever
+     * its later edits; each refusal logs an ERROR, since each is a send that did not go out. Logs
      * name the account id and the setting, never the credential, the key or the JSON.</p>
      *
      * @return the staff-facing reason to record, or null when the send may proceed
@@ -679,7 +683,7 @@ public class EmailManager {
         }
         Integer id = emailConfig.getId();
         if (emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL) {
-            if (firstReport(id)) {
+            if (state != EmailConfigSecrets.TransportSecretState.UNPARSEABLE && firstReport(id)) {
                 logger.warn("Sender config id={} is a LOCAL relay but holds a credential it never uses; remove it.", id);
             }
             return null;
@@ -689,17 +693,24 @@ public class EmailManager {
             if (keyConfigured && EmailConfigSecrets.encryptedSecretsDecrypt(emailConfig.getConfigDetailsJson())) {
                 return null;
             }
-            logger.error("Email send refused: sender config id={} holds credentials encrypted under a different key "
-                    + "than the current {}. Restore the original key; generating a new one does not recover them.",
-                    id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+            if (keyConfigured) {
+                logger.error("Email send refused: sender config id={} holds credentials encrypted under a different key "
+                        + "than the current {}. Restore the original key; generating a new one does not recover them.",
+                        id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+            } else {
+                logger.error("Email send refused: sender config id={} holds encrypted credentials but {} is not available. "
+                        + "Configure the original key.", id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+            }
             return CREDENTIAL_KEY_MISMATCH_ERROR;
         }
         if (keyConfigured) {
             return null;
         }
+        String held = state == EmailConfigSecrets.TransportSecretState.UNPARSEABLE
+                ? "a configuration that cannot be parsed" : "plaintext credentials";
         if (CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY)) {
-            logger.error("Email send refused: sender config id={} holds plaintext credentials, {} is not available, "
-                    + "and {} requires it", id, EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
+            logger.error("Email send refused: sender config id={} holds {}, {} is not available, and {} requires it",
+                    id, held, EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
             return CREDENTIAL_KEY_REQUIRED_ERROR;
         }
         if (firstReport(id)) {
