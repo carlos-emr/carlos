@@ -27,6 +27,7 @@ migration/
            V1.0.21__serialize_missing_lab_routing_creation.sql
            V1.0.22__add_lab_routing_lock_audit_columns.sql
            V1.0.29__rename_placeholder_demo_clinic.sql
+           V1.0.30__add_ocean_setting.sql
            V1.0.32__add_nrtf_tuning_fork_measurement_type.sql
            V1.0.33__aacp_provided_revised_reviewed_validation.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
@@ -55,10 +56,9 @@ never run on existing BC databases and would fail `flyway validate` there — so
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.
 
-**Reserved gap `V1.0.30`–`V1.0.31` (release 2026.08).** Two older open pull requests against
-`release/2026.08` each claim `common/V1.0.30`: #3746 (Ocean setting) and #3694 (provider signature
-identity). The OMD conformance migrations (#3900) were therefore numbered `V1.0.32`–`V1.0.34`, so
-that one of those PRs can keep `V1.0.30` and the other can take `V1.0.31`. This assumes both merge
+**Reserved `V1.0.31` (release 2026.08).** #3746 (Ocean setting) merged as `common/V1.0.30`; #3694
+(provider signature identity), still open, can take `V1.0.31`. The OMD conformance migrations
+(#3900) were numbered `V1.0.32`–`V1.0.34` ahead of both for that reason. This assumes #3694 merges
 before any database, whether a dev container, a CI fixture or a packaged snapshot, has migrated to
 `V1.0.32` or later. Otherwise the rule above applies: a PR merged after that point must renumber
 above the high-water mark.

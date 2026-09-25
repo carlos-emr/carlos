@@ -435,11 +435,6 @@
         </div>
 
         <div id="encounterTools">
-            <!--  This leaves the OCEAN toolbar accessible -->
-            <div id="ocean_placeholder" style="display:none; width: 100%">
-                <span style="display:none">Ocean Toolbar</span>
-            </div>
-
             <%
                 if (privateConsentEnabled && showPopup && showConsentsThisTime) {
             %>

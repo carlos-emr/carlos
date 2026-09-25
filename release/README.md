@@ -15,7 +15,8 @@ package at the repository root:
 
 Release builds are published automatically: the `Debian Packages` workflow
 (`.github/workflows/deb-packages.yml`) runs when a release is published,
-builds both packages inside an `ubuntu:26.04` container from that release's
+builds the packages (`carlos-emr` for amd64, `carlos-emr-drugref`, and the
+empty transitional `carlos-emr-eform-renderer`) inside an `ubuntu:26.04` container from that release's
 own attested WAR, and attaches the `.deb`s, checksums and provenance
 attestations to the release.
 
