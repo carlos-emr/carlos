@@ -150,6 +150,65 @@ async function workflow(session) {
     await rx.close();
   });
 
+  // Exercise each distinct sidebar fragment on its actual page. Hold the initial stash read
+  // so favorite staging cannot race its response and append the same card twice.
+  const sidebarPages = [
+    ['allergies', `/rx/showAllergy?demographicNo=${patient}`],
+    ['drug chooser', `/rx/searchDrug?demographicNo=${patient}&searchString=${encodeURIComponent(`${marker}-nosuchdrug`)}`],
+    ['saved prescriptions', `/rx/ViewStaticScript2?demographicNo=${patient}`],
+  ];
+  for (const [label, url] of sidebarPages) {
+    await session.step(`the ${label} favorite link restores the draft before staging exactly one card`, async () => {
+      const name = `${marker}-sidebar-${sidebarPages.findIndex(entry => entry[0] === label)}`;
+      const favoriteId = insertFavorite(sql, provider, name);
+      const page = await session.context.newPage();
+      await h.gotoApp(page, config.baseUrl, url);
+      await h.assertNotErrorPage(page, `${label} sidebar`);
+      let releaseStash;
+      const stashGate = new Promise(resolve => { releaseStash = resolve; });
+      let receivedStash;
+      const stashReceived = new Promise(resolve => { receivedStash = resolve; });
+      let favoriteRequests = 0;
+      const isFavorite = request => /\/rx\/useFavorite$/.test(new URL(request.url()).pathname)
+        && new URLSearchParams(request.postData() || '').get('favoriteId') === favoriteId;
+      page.on('request', request => { if (isFavorite(request)) favoriteRequests += 1; });
+      const routePattern = '**/rx/WriteScript*';
+      await page.route(routePattern, async route => {
+        const request = route.request();
+        const params = new URLSearchParams(request.postData() || new URL(request.url()).search);
+        if (params.get('parameterValue') === 'iterateStash') {
+          receivedStash();
+          await stashGate;
+        }
+        await route.continue();
+      });
+      try {
+        await page.locator(`a[title="${name}"]`).click();
+        await page.waitForURL(/\/rx\/choosePatient\?[^#]*usefav=true/, { timeout: 15000 });
+        await Promise.race([stashReceived, page.waitForTimeout(15000).then(() => {
+          throw new Error('favorite handoff did not request the initial draft');
+        })]);
+        await page.waitForTimeout(200);
+        h.assert(favoriteRequests === 0, 'favorite staging started before the initial draft finished loading');
+        const staged = page.waitForResponse(response => isFavorite(response.request()), { timeout: 20000 });
+        releaseStash();
+        h.assert((await staged).status() === 200, 'sidebar favorite was not staged successfully');
+        await page.waitForLoadState('networkidle');
+        const cards = await page.locator('input[id^="drugName_"]').evaluateAll(inputs =>
+          inputs.map(input => ({ id: input.id, name: input.value })));
+        h.assert(cards.filter(card => card.name.includes(name)).length === 1,
+          'sidebar favorite did not produce exactly one visible card');
+        h.assert(new Set(cards.map(card => card.id)).size === cards.length,
+          'the initial draft response duplicated favorite card identifiers');
+        h.assert(cards.length >= 2, 'favorite handoff discarded the previously staged custom drug');
+      } finally {
+        releaseStash();
+        await page.unroute(routePattern);
+        await page.close();
+      }
+    });
+  }
+
   await session.step('chooseDrug, legacy reprint, hideCpp and reorderDrug refuse GET', async () => {
     const base = String(config.baseUrl).replace(/\/$/, '');
     const probes = [

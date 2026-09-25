@@ -105,7 +105,7 @@
 <script type="text/javascript">
 
     function goSD3(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true&favid=" + encodeURIComponent(favoriteId);
+        location.href = "<%= request.getContextPath() %>/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true&favid=" + encodeURIComponent(favoriteId);
     }
 
 </script>

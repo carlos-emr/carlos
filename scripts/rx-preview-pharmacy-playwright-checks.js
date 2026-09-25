@@ -237,20 +237,65 @@ async function assertPreviewRenders(hostFrame, label) {
       links.map((link) => (link.getAttribute('onclick').match(/reprint2\('(\d+)'\)/) || [])[1]));
     const alternateScript = alternateCandidates.find((id) => reprintLinks.includes(id));
     assert(alternateScript, 'preview identity coverage requires two visible prescriptions with different drug text');
-    await rxPage.locator('#carlosModalCloseBtn').click();
-    await rxPage.locator('#carlosModal').waitFor({ state: 'hidden' });
-    await rxPage.locator(`#reprint a[onclick*="reprint2('${alternateScript}')"]`).first().click();
-    let alternateHost = null;
-    for (let attempt = 0; attempt < 30 && !alternateHost; attempt += 1) {
-      alternateHost = rxPage.frames().find((frame) => frame.url().includes('/rx/viewScript')
-        && new URL(frame.url()).searchParams.get('scriptId') === alternateScript);
-      if (!alternateHost) await rxPage.waitForTimeout(1000);
+    // Pause A between the real reprint-staging POST and its separate viewScript POST. Another
+    // window stages B in that gap; A's response must still use A for drugs, notes and fax.
+    const delayedPage = await context.newPage();
+    wirePage(delayedPage, 'rx-delayed-reprint', recorder);
+    await gotoApp(delayedPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
+    await delayedPage.waitForLoadState('networkidle');
+    await delayedPage.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
+    let releaseView;
+    const viewGate = new Promise(resolve => { releaseView = resolve; });
+    let receivedView;
+    const viewReceived = new Promise(resolve => { receivedView = resolve; });
+    const viewRoute = '**/rx/viewScript*';
+    await delayedPage.route(viewRoute, async route => {
+      const request = route.request();
+      if (request.method() === 'POST' && new URL(request.url()).searchParams.get('scriptId') === scriptId) {
+        receivedView();
+        await viewGate;
+      }
+      await route.continue();
+    });
+    await delayedPage.locator(`#reprint a[onclick*="reprint2('${scriptId}')"]`).first().click();
+    await Promise.race([viewReceived, delayedPage.waitForTimeout(15000).then(() => {
+      throw new Error('reprint A did not reach the delayed preview handoff');
+    })]);
+    try {
+      await rxPage.locator('#carlosModalCloseBtn').click();
+      await rxPage.locator('#carlosModal').waitFor({ state: 'hidden' });
+      await rxPage.locator(`#reprint a[onclick*="reprint2('${alternateScript}')"]`).first().click();
+      let alternateHost = null;
+      for (let attempt = 0; attempt < 30 && !alternateHost; attempt += 1) {
+        alternateHost = rxPage.frames().find((frame) => frame.url().includes('/rx/viewScript')
+          && new URL(frame.url()).searchParams.get('scriptId') === alternateScript);
+        if (!alternateHost) await rxPage.waitForTimeout(1000);
+      }
+      assert(alternateHost, 'alternate reprint did not load');
+      await assertPreviewRenders(alternateHost, 'alternate reprint');
+      const alternatePreview = alternateHost.childFrames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
+      assert(await alternatePreview.locator('input[name="rx_no_newlines"]').inputValue() !== originalText,
+        'preview identity coverage requires saved prescriptions with different drug text');
+      releaseView();
+      let delayedHost = null;
+      for (let attempt = 0; attempt < 30 && !delayedHost; attempt += 1) {
+        delayedHost = delayedPage.frames().find(frame => frame.url().includes('/rx/viewScript')
+          && new URL(frame.url()).searchParams.get('scriptId') === scriptId);
+        if (!delayedHost) await delayedPage.waitForTimeout(1000);
+      }
+      assert(delayedHost, 'delayed reprint A did not render');
+      const delayedPreviewUrl = await assertPreviewRenders(delayedHost, 'delayed reprint A');
+      assert(new URL(delayedPreviewUrl).searchParams.get('scriptId') === scriptId,
+        'reprint A preview was retargeted to a later same-patient reprint');
+      const delayedPreview = delayedHost.childFrames().find(frame => frame.url().includes('/rx/ViewPreview2'));
+      assert(await delayedPreview.locator('input[name="rx_no_newlines"]').inputValue() === originalText,
+        'delayed reprint A displayed the drugs from a later same-patient reprint');
+      assert(await delayedHost.evaluate(() => String(faxScriptNo)) === scriptId,
+        'delayed reprint A selected a different prescription for fax');
+    } finally {
+      releaseView();
+      await delayedPage.unroute(viewRoute);
     }
-    assert(alternateHost, 'alternate reprint did not load');
-    await assertPreviewRenders(alternateHost, 'alternate reprint');
-    const alternatePreview = alternateHost.childFrames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
-    assert(await alternatePreview.locator('input[name="rx_no_newlines"]').inputValue() !== originalText,
-      'preview identity coverage requires saved prescriptions with different drug text');
     const pinnedPage = await context.newPage();
     wirePage(pinnedPage, 'rx-pinned-preview', recorder);
     await pinnedPage.goto(originalUrl, { waitUntil: 'networkidle' });

@@ -269,7 +269,7 @@ class RxPatientLinkJspRegressionUnitTest {
         for (String jsp : new String[] {"rx/SideLinksEditFavorites2.jsp", "rx/SideLinksNoEditFavorites.jsp",
                 "rx/SideLinksNoEditFavorites2.jsp"}) {
             assertThat(read(jsp)).as(jsp)
-                    .contains("/rx/searchDrug?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true");
+                    .contains("/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true");
         }
         assertThat(read("rx/SearchDrug3.jsp"))
                 .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/searchDrug\");")

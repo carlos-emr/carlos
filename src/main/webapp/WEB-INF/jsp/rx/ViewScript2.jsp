@@ -185,7 +185,10 @@
                             ? bean.getStashItem(0).getScript_no() : "");
             RxPreviewSnapshot previewSnapshot = null;
             if (!scriptIdForFax.isEmpty()) {
-                previewSnapshot = RxPreviewSnapshot.load(viewScriptDemographicNo, scriptIdForFax);
+                previewSnapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
+                if (previewSnapshot == null) {
+                    previewSnapshot = RxPreviewSnapshot.load(viewScriptDemographicNo, scriptIdForFax);
+                }
                 if (previewSnapshot == null) {
                     response.sendError(404);
                     return;
