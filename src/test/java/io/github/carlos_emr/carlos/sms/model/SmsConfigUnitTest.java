@@ -52,11 +52,11 @@ class SmsConfigUnitTest {
     void shouldEncryptWebhookSecret_atRest() {
         SmsConfig config = new SmsConfig();
 
-        config.setWebhookSecret("hook-secret-123");
+        config.setWebhookSecret("webhook-value-123");
 
         String stored = (String) ReflectionTestUtils.getField(config, "webhookSecret");
-        assertThat(stored).startsWith("{ENC}").doesNotContain("hook-secret-123");
-        assertThat(config.getWebhookSecret()).isEqualTo("hook-secret-123");
+        assertThat(stored).startsWith("{ENC}").doesNotContain("webhook-value-123");
+        assertThat(config.getWebhookSecret()).isEqualTo("webhook-value-123");
         assertThat(config.hasWebhookSecret()).isTrue();
     }
 
@@ -64,7 +64,7 @@ class SmsConfigUnitTest {
     @DisplayName("treats a blank webhook secret as no secret")
     void shouldClearWebhookSecret_whenBlank() {
         SmsConfig config = new SmsConfig();
-        config.setWebhookSecret("hook-secret-123");
+        config.setWebhookSecret("webhook-value-123");
 
         config.setWebhookSecret(" ");
 
@@ -77,27 +77,27 @@ class SmsConfigUnitTest {
     void shouldEncryptCredentialValues_atRest() {
         SmsConfig config = new SmsConfig();
 
-        config.setCredential("api_username", "clinic-user");
-        config.setCredential("api_password", "p@ss word");
+        config.setCredential("field_one", "value-one");
+        config.setCredential("field_two", "value two");
 
         String stored = (String) ReflectionTestUtils.getField(config, "credentialsJson");
-        assertThat(stored).contains("api_username", "api_password", "{ENC}")
-                .doesNotContain("clinic-user").doesNotContain("p@ss word");
-        assertThat(config.getCredential("api_password")).isEqualTo("p@ss word");
-        assertThat(config.hasCredential("api_username")).isTrue();
-        assertThat(config.hasCredential("api_key")).isFalse();
+        assertThat(stored).contains("field_one", "field_two", "{ENC}")
+                .doesNotContain("value-one").doesNotContain("value two");
+        assertThat(config.getCredential("field_two")).isEqualTo("value two");
+        assertThat(config.hasCredential("field_one")).isTrue();
+        assertThat(config.hasCredential("field_three")).isFalse();
     }
 
     @Test
     @DisplayName("removes a credential when it is set blank")
     void shouldRemoveCredential_whenBlank() {
         SmsConfig config = new SmsConfig();
-        config.setCredential("api_password", "p@ss word");
+        config.setCredential("field_two", "value two");
 
-        config.setCredential("api_password", "");
+        config.setCredential("field_two", "");
 
-        assertThat(config.hasCredential("api_password")).isFalse();
-        assertThat(config.getCredential("api_password")).isEmpty();
+        assertThat(config.hasCredential("field_two")).isFalse();
+        assertThat(config.getCredential("field_two")).isEmpty();
     }
 
     @Test
@@ -114,8 +114,8 @@ class SmsConfigUnitTest {
     @DisplayName("toString is redacted, so logging the settings never prints secrets or their ciphertext")
     void shouldRedactToString_forSecrets() {
         SmsConfig config = new SmsConfig();
-        config.setWebhookSecret("hook-secret-123");
-        config.setCredential("api_password", "p@ss word");
+        config.setWebhookSecret("webhook-value-123");
+        config.setCredential("field_two", "value two");
 
         assertThat(config.toString()).isEqualTo("SmsConfig[redacted]");
     }

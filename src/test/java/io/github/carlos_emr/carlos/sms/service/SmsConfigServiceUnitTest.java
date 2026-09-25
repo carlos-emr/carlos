@@ -68,7 +68,7 @@ class SmsConfigServiceUnitTest {
     void shouldCreateSettings_whenNoneStored() {
         when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
 
-        SmsConfig saved = service().save(update(SmsProviderType.STUB, true, "416-555-1212", "hook-secret", false,
+        SmsConfig saved = service().save(update(SmsProviderType.STUB, true, "416-555-1212", "webhook-value", false,
                 Map.of()), "999998");
 
         verify(smsConfigDao).persist(saved);
@@ -76,7 +76,7 @@ class SmsConfigServiceUnitTest {
         assertThat(saved)
                 .extracting(SmsConfig::getProviderType, SmsConfig::isEnabled, SmsConfig::getSenderNumber,
                         SmsConfig::getWebhookSecret, SmsConfig::getUpdatedBy)
-                .containsExactly(SmsProviderType.STUB, true, "+14165551212", "hook-secret", "999998");
+                .containsExactly(SmsProviderType.STUB, true, "+14165551212", "webhook-value", "999998");
         assertThat(saved.getUpdatedAt()).isNotNull();
     }
 
@@ -84,13 +84,13 @@ class SmsConfigServiceUnitTest {
     @DisplayName("save keeps the stored webhook secret when the field is left blank")
     void shouldKeepWebhookSecret_whenFieldIsBlank() {
         SmsConfig stored = new SmsConfig();
-        stored.setWebhookSecret("original-secret");
+        stored.setWebhookSecret("original-webhook-value");
         when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
 
         SmsConfig saved = service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998");
 
         verify(smsConfigDao).merge(stored);
-        assertThat(saved.getWebhookSecret()).isEqualTo("original-secret");
+        assertThat(saved.getWebhookSecret()).isEqualTo("original-webhook-value");
         assertThat(saved.getSenderNumber()).isNull();
     }
 
@@ -98,11 +98,11 @@ class SmsConfigServiceUnitTest {
     @DisplayName("save replaces the webhook secret when a new one is typed, and clears it when asked")
     void shouldReplaceOrClearWebhookSecret_whenRequested() {
         SmsConfig stored = new SmsConfig();
-        stored.setWebhookSecret("original-secret");
+        stored.setWebhookSecret("original-webhook-value");
         when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
 
-        assertThat(service().save(update(SmsProviderType.STUB, true, "", "new-secret", false, Map.of()), "999998")
-                .getWebhookSecret()).isEqualTo("new-secret");
+        assertThat(service().save(update(SmsProviderType.STUB, true, "", "new-webhook-value", false, Map.of()), "999998")
+                .getWebhookSecret()).isEqualTo("new-webhook-value");
         assertThat(service().save(update(SmsProviderType.STUB, true, "", "", true, Map.of()), "999998")
                 .hasWebhookSecret()).isFalse();
     }
@@ -111,17 +111,17 @@ class SmsConfigServiceUnitTest {
     @DisplayName("save stores only the credentials the provider declares, keeps blank ones, and drops the rest")
     void shouldStoreDeclaredCredentialsOnly_forProvider() {
         SmsConfig stored = new SmsConfig();
-        stored.setCredential("api_username", "old-user");
-        stored.setCredential("api_password", "old-password");
-        stored.setCredential("legacy_token", "stale");
+        stored.setCredential("field_one", "old-value-one");
+        stored.setCredential("field_two", "old-value-two");
+        stored.setCredential("legacy_field", "stale-value");
         when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
 
         SmsConfig saved = service().save(update(SmsProviderType.VOIPMS, true, "", "", false,
-                Map.of("api_username", "new-user", "api_password", "", "injected", "x")), "999998");
+                Map.of("field_one", "new-value-one", "field_two", "", "injected", "x")), "999998");
 
-        assertThat(saved.getCredential("api_username")).isEqualTo("new-user");
-        assertThat(saved.getCredential("api_password")).isEqualTo("old-password");
-        assertThat(saved.hasCredential("legacy_token")).isFalse();
+        assertThat(saved.getCredential("field_one")).isEqualTo("new-value-one");
+        assertThat(saved.getCredential("field_two")).isEqualTo("old-value-two");
+        assertThat(saved.hasCredential("legacy_field")).isFalse();
         assertThat(saved.hasCredential("injected")).isFalse();
     }
 
@@ -160,7 +160,7 @@ class SmsConfigServiceUnitTest {
     @Test
     @DisplayName("credential fields come from the provider client, and are empty for a provider with no client")
     void shouldListCredentialFields_fromProviderClient() {
-        assertThat(service().credentialFields(SmsProviderType.VOIPMS)).containsExactly("api_username", "api_password");
+        assertThat(service().credentialFields(SmsProviderType.VOIPMS)).containsExactly("field_one", "field_two");
         assertThat(service().credentialFields(SmsProviderType.STUB)).isEmpty();
         assertThat(service().credentialFields(SmsProviderType.CLOUDLI)).isEmpty();
     }
@@ -178,7 +178,7 @@ class SmsConfigServiceUnitTest {
 
             @Override
             public List<String> credentialFields() {
-                return List.of("api_username", "api_password");
+                return List.of("field_one", "field_two");
             }
         };
         return new SmsProviderClientResolver(List.of(new StubSmsProviderClient(), voipMs));
