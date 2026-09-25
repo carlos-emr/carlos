@@ -219,8 +219,11 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
 
             DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
 
-            verify(consentManager).addEditConsentRecord(mockLoggedInInfo, 42, 7, true, false);
-            verify(consentManager).recordExplicitConsent(mockLoggedInInfo, 42, 7);
+            // Order matters: an implied opt-out switched to Opt-in must be flipped before the upgrade,
+            // which refuses an opt-out, so both can happen in one save.
+            org.mockito.InOrder inOrder = inOrder(consentManager);
+            inOrder.verify(consentManager).addEditConsentRecord(mockLoggedInInfo, 42, 7, true, false);
+            inOrder.verify(consentManager).recordExplicitConsent(mockLoggedInInfo, 42, 7);
         }
 
         @Test
@@ -302,6 +305,32 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
 
                 assertThat(capture.messages())
                         .anySatisfy(message -> assertThat(message).contains("explicit consent was requested but not recorded"));
+            }
+        }
+
+        @Test
+        @DisplayName("should log and not delete for an unrecognised clear flag")
+        void shouldLogWarning_whenClearFlagUnrecognised() {
+            request.setParameter("deleteConsent_email_consent", "2");
+
+            try (LogCapture capture = LogCapture.forLogger(DemographicUpdate2Action.class)) {
+                DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                verify(consentManager, never()).deleteConsent(any(), anyInt(), anyInt());
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message).contains("unrecognised clear flag"));
+            }
+        }
+
+        @Test
+        @DisplayName("should neither delete nor warn for the untouched clear flag 0")
+        void shouldIgnoreQuietly_whenClearFlagIsZero() {
+            request.setParameter("deleteConsent_email_consent", "0");
+
+            try (LogCapture capture = LogCapture.forLogger(DemographicUpdate2Action.class)) {
+                DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                verify(consentManager, never()).deleteConsent(any(), anyInt(), anyInt());
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains("unrecognised"));
             }
         }
 

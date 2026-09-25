@@ -411,7 +411,8 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         }
 
         // The consent date is restamped to when the patient confirmed. Consent keeps no history,
-        // so the audit entry carries the date the implied consent was first recorded.
+        // so the audit entry carries the consent date the record held just before the upgrade
+        // (the moment of this save if the same save has just switched it from opt-out).
         Date priorConsentDate = consent.getConsentDate();
         Date now = new Date(System.currentTimeMillis());
         consent.setExplicit(true);
