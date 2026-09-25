@@ -2467,6 +2467,24 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "form-print-pdf",
+      "script": "scripts/form-print-pdf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_PRINT_SEARCH",
+        "FORM_PRINT_DEMOGRAPHIC_NO",
+        "FORM_PRINT_NAME",
+        "FORM_PRINT_TIMEOUT_MS"
+      ]
     }
   ]
 }
