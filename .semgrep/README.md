@@ -172,3 +172,13 @@ GitHub Code Scanning focused on actionable unsuppressed findings.
   built-in rules in this README and disable them in Semgrep Cloud.
 - **Validating changes**: Always run `semgrep --config .semgrep/ --validate`
   after editing rule files.
+
+The document-path regression fixture checks ordinary, fully qualified, and static-import
+calls to `validateExistingDocumentPath`, which delegates to `validateExistingPath`
+against the required `DOCUMENT_DIR`. It also verifies raw request paths,
+canonicalization-only helpers, and one-argument `validateUpload` remain findings.
+Run it with:
+
+```bash
+semgrep --test --config .semgrep/path-traversal-carlos.yml src/test/semgrep/path-traversal-carlos.java
+```

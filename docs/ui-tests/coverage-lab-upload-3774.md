@@ -56,3 +56,14 @@ node scripts/run-playwright-suite.js --only lab-upload-rollback --province ON
 ```
 
 Builds and tests ran one at a time, with CPU/memory caps and host/guest resource monitoring. The first document workflow was interrupted when guest memory crossed the reserve during first-use chart initialization and reported a blank chart; it is not counted as a pass. Returning unused JVM heap with runtime MinHeapFreeRatio=20/MaxHeapFreeRatio=40 restored the reserve without restarting the application. The complete document workflow then passed. BC PathNet has Java regression coverage; its browser flow was not exercised on this Ontario installation.
+
+## Static-analysis model regression
+
+Semgrep's custom path-traversal rule initially flagged the signed-feed uploader even though
+its saved path is constrained by `validateExistingDocumentPath`. The rule now models that
+helper's enforced `DOCUMENT_DIR` boundary, matching the existing CodeQL model. On CI's
+Semgrep 1.160.0, the new fixture first reproduced three false positives with the old rule;
+the corrected rule passed while still detecting raw paths, canonicalization-only helpers,
+and one-argument upload validation. All four custom rule schemas validated and the
+originally flagged action scanned with zero findings. This scanner/fixture change does
+not alter the packaged application code validated above.
