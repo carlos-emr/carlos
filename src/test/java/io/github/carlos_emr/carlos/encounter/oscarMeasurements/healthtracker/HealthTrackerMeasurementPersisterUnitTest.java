@@ -171,6 +171,24 @@ class HealthTrackerMeasurementPersisterUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a malformed blood pressure under the key the bundles define")
+    void shouldRejectEntry_whenBloodPressureInvalid() {
+        // The key must be errors.bloodPressure, which every bundle carries. The earlier
+        // error.bloodPressure existed in none of them, so Struts rendered the key itself.
+        when(validation.isValidBloodPressure(any(), anyString())).thenReturn(false);
+
+        EntryOutcome outcome = persister.persist(bloodPressure("120-80", "2026-09-01"), 111, "999998", 0);
+
+        assertThat(outcome.valid()).isFalse();
+        assertThat(outcome.persisted()).isFalse();
+        assertThat(outcome.failures()).extracting(
+                HealthTrackerMeasurementPersister.ValidationFailure::messageKey).contains("errors.bloodPressure");
+        assertThat(outcome.failures()).extracting(
+                HealthTrackerMeasurementPersister.ValidationFailure::messageKey).doesNotContain("error.bloodPressure");
+        verify(measurementDao, never()).persist(any(Measurement.class));
+    }
+
+    @Test
     @DisplayName("should collect every failure rather than stopping at the first")
     void shouldCollectAllFailures_whenSeveralChecksFail() {
         when(validation.isInRange(any(), any(), anyString())).thenReturn(false);
@@ -227,5 +245,9 @@ class HealthTrackerMeasurementPersisterUnitTest {
 
     private static HealthTrackerEntry entry(String value, String comment, String date) {
         return new HealthTrackerEntry("WT", "Weightkg", "Weight (kg)", "kg", value, comment, date, false);
+    }
+
+    private static HealthTrackerEntry bloodPressure(String value, String date) {
+        return new HealthTrackerEntry("BP", "BloodPressure", "Blood Pressure", "mmHg", value, "", date, false);
     }
 }

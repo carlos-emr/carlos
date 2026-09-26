@@ -1076,6 +1076,19 @@
       ]
     },
     {
+      "name": "inbox-lab-versions",
+      "script": "scripts/inbox-lab-versions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": []
+    },
+    {
       "name": "inbox-preview-acknowledge",
       "script": "scripts/inbox-preview-acknowledge-playwright-checks.js",
       "tiers": [
@@ -1152,6 +1165,32 @@
         "MACRO_LAB_NO",
         "MACRO_PROVIDER_NO"
       ]
+    },
+    {
+      "name": "omd-flowsheet-conformance",
+      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "cdm-measurement-report",
+      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
     },
     {
       "name": "echart-consult-specialist",
@@ -2363,6 +2402,48 @@
       "env": []
     },
     {
+      "name": "ocean-display-settings",
+      "script": "scripts/ocean-display-settings-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Records and restores the echart_show_ocean SystemPreferences row and the OceanSetting singleton; opens an owned FAKE-PW patient; local disposable database only."
+    },
+    {
+      "name": "hrm-retired-statement",
+      "script": "scripts/hrm-retired-statement-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations and that the Administration panel no longer links the removed page."
+    },
+    {
+      "name": "clinic-demo-name",
+      "script": "scripts/clinic-demo-name-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Read-only. Proves Flyway V1.0.29 applied and Administration > Clinic shows the stored (non-placeholder) clinic name."
+    },
+    {
       "name": "scratchpad-workflow",
       "script": "scripts/scratchpad-workflow-playwright-checks.js",
       "tiers": [
@@ -2469,6 +2550,20 @@
       "env": []
     },
     {
+      "name": "echart-lock-lifecycle",
+      "script": "scripts/echart-lock-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
       "name": "consultation-print-preview",
       "script": "scripts/consultation-print-preview-playwright-checks.js",
       "tiers": [
@@ -2480,6 +2575,7 @@
       ],
       "timeoutSec": 300,
       "env": [
+        "MYSQL_PASSWORD",
         "CONSULT_PREVIEW_SEARCH",
         "CONSULT_PREVIEW_DEMOGRAPHIC_NO",
         "CONSULT_PREVIEW_TIMEOUT_MS"
