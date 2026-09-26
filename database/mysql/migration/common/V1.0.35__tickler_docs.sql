@@ -20,9 +20,10 @@
 --     patient's identifier or name after the upgrade.
 --
 -- Re-runnable: the DDL is guarded and the backfill matches on (tickler, document,
--- type) while ignoring `deleted`, so an attachment that was backfilled and later
--- detached is never resurrected by a second run. `tickler_link` is kept read-only for
--- one release; its readers now use `ticklerdocs`.
+-- type, lab source) while ignoring `deleted`, so an attachment that was backfilled
+-- and later detached is never resurrected by a second run, and a lab under one
+-- source never suppresses the same segment id under another. `tickler_link` is
+-- kept read-only for one release; its readers now use `ticklerdocs`.
 CREATE TABLE IF NOT EXISTS `ticklerdocs` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
   `tickler_id` int(10) NOT NULL,
@@ -91,4 +92,6 @@ WHERE NOT EXISTS (
   WHERE td.`tickler_id`  = src.`tickler_no`
     AND td.`document_no` = src.`table_id`
     AND td.`doctype`     = src.`doctype`
+    -- Lab identity is source-qualified: HL7 123 and MDS 123 are two attachments.
+    AND td.`lab_type`    <=> src.`lab_type`
 );

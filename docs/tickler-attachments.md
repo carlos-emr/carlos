@@ -21,8 +21,10 @@ data-migration gaps in that PR closed rather than copied.
   `attach_date`, and the lab source in `lab_type`. Only links whose item belongs to the tickler's
   patient are migrated (`ctl_document`, `HRMDocumentToDemographic`, `patientLabRouting` under the
   link's own source); a cross-patient legacy row stays quarantined in `tickler_link`, since the
-  `ticklerdocs` readers trust the row after type-privilege checks only. It is re-runnable and never resurrects a row
-  that was detached after backfill. `tickler_link` is kept read-only for one release; nothing
+  `ticklerdocs` readers trust the row after type-privilege checks only. It is re-runnable, matching
+  on tickler, item, type and lab source, so it never resurrects a row that was detached after
+  backfill and a lab under one source never suppresses the same segment id under another.
+  `tickler_link` is kept read-only for one release; nothing
   reads it any more (`TicklerLink*` classes are removal candidates for the next train).
 
 ## Layers
