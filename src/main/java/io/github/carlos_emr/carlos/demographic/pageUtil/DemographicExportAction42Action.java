@@ -3551,7 +3551,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         comments = Util.addLine(comments, h.getOBXComment(i, j, k));
                     }
 
-                    if (StringUtils.filled(result) && h.isOBXEmbeddedDocument(i, j)) {
+                    if (h.isOBXEmbeddedDocument(i, j)) {
                         // An ED segment is a document (usually a base64 PDF), not a result
                         // value: the CDS schema carries it under Reports. Decided by OBX-2,
                         // never by whether the text happens to look like base64 (#3946).
@@ -3602,9 +3602,10 @@ public class DemographicExportAction42Action extends ActionSupport {
 		labMeaValues.put("olis_status", h.getOBXResultStatus(i, j));
 		labMeaValues.put("lab_no", String.valueOf(hl7TxtInfo.getLabNumber()));
 		labMeaValues.put("blocked", h.isTestResultBlocked(i, j) ? "BLOCKED" : "");
+		labMeaValues.put("documentEncoding", h.getOBXDocumentEncoding(i, j));
 		labMeaValues.put("other_id", i+"-"+j);
 		
-		if (StringUtils.filled(result)) {
+		if (h.isOBXEmbeddedDocument(i, j) || StringUtils.filled(result)) {
 			labMeaValues.put("measureData", result);
 			labMeaValues.put("comments", comments);
 		} else {
@@ -3649,6 +3650,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 			// Reports has one Notes element: the lab's comments come first, the physician's
 			// annotation (LaboratoryResults/PhysiciansNotes on the result path) follows.
 			String notes = StringUtils.filled(report.getNotes()) ? report.getNotes() + "\n" + annotation : annotation;
+			if (notes.codePointCount(0, notes.length()) > CdsEmbeddedLabDocument.NOTES_MAX) {
+				exportError.add("Warning! Report notes truncated; Lab Test " + testCode + " for Patient " + demoNo);
+			}
 			report.setNotes(CdsXmlText.truncate(notes, CdsEmbeddedLabDocument.NOTES_MAX));
 		}
 

@@ -187,4 +187,111 @@ class DemographicExportAction42ActionLabDocumentUnitTest extends DemographicExpo
         assertThat(patientRecord.getLaboratoryResultsArray())
                 .allSatisfy(lab -> assertThat(lab.getResultReviewerArray()).isEmpty());
     }
+    private void replaceMessage(String body) {
+        Hl7TextMessage message = new Hl7TextMessage();
+        message.setType("PATHL7");
+        message.setBase64EncodedeMessage(Base64.getEncoder().encodeToString(body.getBytes(StandardCharsets.UTF_8)));
+        when(hl7TextMessageDao.find(LAB_NO)).thenReturn(message);
+    }
+
+    @Test
+    void shouldKeepEmptyEdAsReportAndWarnInsteadOfDroppingIt() {
+        replaceMessage(PathL7EmbeddedDocumentMessage.message().replace(
+                Base64.getEncoder().encodeToString(PathL7EmbeddedDocumentMessage.PDF), ""));
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+        assertThat(patientRecord.getLaboratoryResultsArray()).hasSize(3);
+        assertThat(patientRecord.getReportsArray()).hasSize(1);
+        assertThat(patientRecord.getReportsArray(0).getContent().getTextContent()).isEmpty();
+        assertThat(action.exportError).anyMatch(message -> message.contains("no payload"));
+    }
+
+    @Test
+    void shouldRouteCommentsOnEmptyEdToReportNotesNotAResult() {
+        replaceMessage(PathL7EmbeddedDocumentMessage.message().replace(
+                Base64.getEncoder().encodeToString(PathL7EmbeddedDocumentMessage.PDF), "") + "NTE|1||Document pending\r");
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+        assertThat(patientRecord.getLaboratoryResultsArray()).hasSize(3);
+        assertThat(patientRecord.getReportsArray(0).getNotes()).contains("Document pending");
+        assertThat(patientRecord.getReportsArray(0).getContent().getTextContent()).isEmpty();
+    }
+
+    @Test
+    void shouldPropagateUnencodedEdMetadataThroughTheExporter() {
+        String text = "NEGATIVE".repeat(20);
+        replaceMessage(PathL7EmbeddedDocumentMessage.message().replace(
+                "^TEXT^PDF^Base64^" + Base64.getEncoder().encodeToString(PathL7EmbeddedDocumentMessage.PDF),
+                "^TEXT^^A^" + text));
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+        assertThat(patientRecord.getReportsArray(0).getContent().getTextContent()).isEqualTo(text);
+    }
+
+    @Test
+    void shouldWarnWhenPhysicianAnnotationExceedsRemainingNotesSpace() {
+        replaceMessage(PathL7EmbeddedDocumentMessage.message() + "NTE|1||" + "x".repeat(31999) + "\r");
+        var link = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink();
+        link.setNoteId(99L);
+        var note = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote();
+        note.setNote("Physician annotation");
+        when(caseManagementManager.getLinkByTableIdDesc(
+                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink.LABTEST,
+                (long) LAB_NO, "1-0")).thenReturn(List.of(link));
+        when(caseManagementManager.getNote("99")).thenReturn(note);
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+        assertThat(patientRecord.getReportsArray(0).getNotes()).hasSize(32000);
+        assertThat(action.exportError).anyMatch(message -> message.contains("Report notes truncated"));
+    }
+
+    @Test
+    void shouldValidateCompleteRecordWithLabsReportsAppointmentsAndClinicalNotes() throws Exception {
+        var demographics = patientRecord.addNewDemographics();
+        var name = demographics.addNewNames().addNewLegalName();
+        var first = name.addNewFirstName();
+        first.setPart("FAKE");
+        first.setPartType(cdsDt.PersonNamePartTypeCode.GIV);
+        var last = name.addNewLastName();
+        last.setPart("Export");
+        last.setPartType(cdsDt.PersonNamePartTypeCode.FAMC);
+        name.setNamePurpose(cdsDt.PersonNamePurposeCode.L);
+        demographics.setDateOfBirth(Util.calDate("1980-01-02"));
+        demographics.setGender(cdsDt.Gender.F);
+        demographics.setUniqueVendorIdSequence("3946");
+        demographics.addNewPersonStatusCode().setPersonStatusAsEnum(cdsDt.PersonStatus.A);
+        // Match execute(): clinical notes precede labs; appointments are added after reports exist.
+        patientRecord.addNewClinicalNotes().setMyClinicalNotesContent("FAKE clinical note");
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+        var appointment = patientRecord.addNewAppointments();
+        appointment.setAppointmentTime(Util.calDate("2026-09-01 10:00:00"));
+        appointment.addNewAppointmentDate().setFullDate(Util.calDate("2026-09-01"));
+        // Validate serialized/reparsed output too: XMLBeans inserts typed elements in schema order.
+        StringWriter xml = new StringWriter();
+        var exported = cds.PatientRecordDocument.Factory.newInstance();
+        exported.setPatientRecord(patientRecord);
+        exported.save(xml);
+        var reparsed = cds.PatientRecordDocument.Factory.parse(xml.toString());
+        List<XmlError> errors = new ArrayList<>();
+        assertThat(reparsed.validate(new XmlOptions().setErrorListener(errors))).as(errors.toString()).isTrue();
+        var factory = XmlUtils.createSecureDocumentBuilderFactory();
+        factory.setNamespaceAware(true);
+        var document = factory.newDocumentBuilder()
+                .parse(new InputSource(new StringReader(xml.toString())));
+        List<String> sections = new ArrayList<>();
+        for (var node = document.getDocumentElement().getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) sections.add(node.getLocalName());
+        }
+        assertThat(sections).containsExactly("Demographics", "LaboratoryResults", "LaboratoryResults",
+                "LaboratoryResults", "Appointments", "ClinicalNotes", "Reports");
+    }
+
+    @Test
+    void shouldPreserveRawCellpathRtfFromEdSourceApplication() {
+        String rtf = "{\\rtf1\\ansi FAKE pathology report}";
+        replaceMessage(PathL7EmbeddedDocumentMessage.message().replace("||PATH|F", "||CELLPATHR|F")
+                .replace("^TEXT^PDF^Base64^" + Base64.getEncoder().encodeToString(PathL7EmbeddedDocumentMessage.PDF),
+                        rtf.replace("\\", "\\E\\") + "^TEXT^RTF^A^"));
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+        Reports report = patientRecord.getReportsArray(0);
+        assertThat(report.getFileExtensionAndVersion()).isEqualTo(".rtf");
+        assertThat(report.getContent().getMedia()).isEqualTo(rtf.getBytes(StandardCharsets.UTF_8));
+    }
+
 }

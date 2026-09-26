@@ -199,6 +199,81 @@ class CdsEmbeddedLabDocumentUnitTest extends CarlosUnitTestBase {
         assertThat(CdsEmbeddedLabDocument.decodeBase64(null)).isNull();
         assertThat(CdsEmbeddedLabDocument.decodeBase64("   ")).isNull();
         assertThat(CdsEmbeddedLabDocument.decodeBase64("not*base64")).isNull();
-        assertThat(CdsEmbeddedLabDocument.decodeBase64("QUJD")).containsExactly('A', 'B', 'C');
+        assertThat(CdsEmbeddedLabDocument.decodeBase64("QUJD")).containsExactly("ABC".getBytes(StandardCharsets.US_ASCII));
     }
+    @Test
+    void shouldPreserveRawRtfAsBinaryDocument() {
+        String rtf = "{\\rtf1\\ansi FAKE report \\b bold\\b0}";
+        Reports report = newReport();
+        CdsEmbeddedLabDocument.writeReport(lab(rtf), report);
+        assertThat(report.getFormat()).isEqualTo(ReportFormat.BINARY);
+        assertThat(report.getFileExtensionAndVersion()).isEqualTo(".rtf");
+        assertThat(report.getContent().getMedia()).isEqualTo(rtf.getBytes(StandardCharsets.UTF_8));
+        assertThat(validate(report)).isEmpty();
+    }
+
+    @Test
+    void shouldHonorExplicitAsciiEncodingEvenForLongBase64AlphabetText() {
+        Map<String, String> lab = lab("NEGATIVE".repeat(20));
+        lab.put("documentEncoding", "A");
+        Reports report = newReport();
+        CdsEmbeddedLabDocument.writeReport(lab, report);
+        assertThat(report.getFormat()).isEqualTo(ReportFormat.TEXT);
+        assertThat(report.getContent().getTextContent()).isEqualTo(lab.get("measureData"));
+    }
+
+    @Test
+    void shouldDecodeExplicitBase64WithoutGuessingFromPayloadLength() {
+        Map<String, String> lab = lab("QUJD");
+        lab.put("documentEncoding", "Base64");
+        Reports report = newReport();
+        var outcome = CdsEmbeddedLabDocument.writeReport(lab, report);
+        assertThat(report.getContent().getMedia()).isEqualTo("ABC".getBytes(StandardCharsets.US_ASCII));
+        assertThat(outcome.warning()).contains("unrecognised file type");
+    }
+
+    @Test
+    void shouldPreserveDeclaredHexDocumentBytes() {
+        Map<String, String> lab = lab(java.util.HexFormat.of().formatHex(PDF));
+        lab.put("documentEncoding", "Hex");
+        Reports report = newReport();
+        CdsEmbeddedLabDocument.writeReport(lab, report);
+        assertThat(report.getContent().getMedia()).isEqualTo(PDF);
+        assertThat(report.getFileExtensionAndVersion()).isEqualTo(".pdf");
+    }
+
+    @Test
+    void shouldWarnAndRetainPayloadWhenDeclaredEncodingIsInvalid() {
+        for (String encoding : List.of("Base64", "Hex")) {
+            Map<String, String> lab = lab("not*encoded");
+            lab.put("documentEncoding", encoding);
+            Reports report = newReport();
+            var outcome = CdsEmbeddedLabDocument.writeReport(lab, report);
+            assertThat(report.getContent().getTextContent()).isEqualTo("not*encoded");
+            assertThat(outcome.warning()).contains("cannot be decoded");
+        }
+    }
+
+    @Test
+    void shouldWarnAboutEmptyPayloadAndRetainCommentsAsNotes() {
+        Map<String, String> lab = lab(null);
+        lab.put("comments", "Document unavailable");
+        Reports report = newReport();
+        var outcome = CdsEmbeddedLabDocument.writeReport(lab, report);
+        assertThat(report.getContent().getTextContent()).isEmpty();
+        assertThat(report.getNotes()).isEqualTo("Document unavailable");
+        assertThat(outcome.warning()).contains("no payload");
+        assertThat(validate(report)).isEmpty();
+    }
+
+    @Test
+    void shouldWarnWhenLabCommentsAreTruncated() {
+        Map<String, String> lab = lab("Report");
+        lab.put("comments", "x".repeat(32001));
+        Reports report = newReport();
+        var outcome = CdsEmbeddedLabDocument.writeReport(lab, report);
+        assertThat(report.getNotes()).hasSize(32000);
+        assertThat(outcome.warning()).contains("notes truncated");
+    }
+
 }

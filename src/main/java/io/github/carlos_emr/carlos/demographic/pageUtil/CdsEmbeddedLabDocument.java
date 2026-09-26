@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import java.util.Base64;
+import java.util.HexFormat;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import cds.ReportsDocument.Reports;
@@ -47,6 +49,8 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  *       bytes' signature (PDF, PNG, JPEG, GIF, TIFF, RTF), written in the {@code ".ext"} form the
  *       exporter already uses for documents; an unrecognised signature is exported without one
  *       and reported, rather than guessed from the OBX identifier.</li>
+ *   <li>Declared ED.4 encoding takes precedence: A remains text, Base64 and Hex decode
+ *       explicitly. Raw PATHL7 RTF is retained as a binary .rtf report.</li>
  *   <li>Anything else (some senders put a text report or a reference in an {@code ED} segment)
  *       is exported as a {@code Text} report so nothing is dropped.</li>
  * </ul>
@@ -100,9 +104,29 @@ public final class CdsEmbeddedLabDocument {
      */
     public static Outcome writeReport(Map<String, String> lab, Reports report) {
         String payload = CdsXmlText.stripInvalidXmlCharacters(StringUtils.noNull(lab.get(KEY_PAYLOAD)));
-        String warning = null;
+        String encoding = lab.get("documentEncoding");
+        String warning = payload.isBlank() ? "embedded lab document has no payload; exported an empty text report with its metadata" : null;
 
-        byte[] decoded = decodeDocument(payload);
+        byte[] decoded;
+        if (payload.startsWith("{\\rtf")) {
+            decoded = payload.getBytes(StandardCharsets.UTF_8);
+        } else if ("A".equals(encoding)) {
+            decoded = null;
+        } else if ("Base64".equals(encoding)) {
+            decoded = decodeBase64(payload);
+            if (decoded == null && !payload.isBlank()) {
+                warning = "embedded lab document declares Base64 but cannot be decoded; preserved as text";
+            }
+        } else if ("Hex".equals(encoding)) {
+            try {
+                decoded = payload.isBlank() ? null : HexFormat.of().parseHex(payload.replaceAll("\\s+", ""));
+            } catch (IllegalArgumentException invalidHex) {
+                decoded = null;
+                warning = "embedded lab document declares Hex but cannot be decoded; preserved as text";
+            }
+        } else {
+            decoded = decodeDocument(payload);
+        }
         cdsDt.ReportContent content = report.addNewContent();
         ReportFormat.Enum format;
         if (decoded != null) {
@@ -146,7 +170,11 @@ public final class CdsEmbeddedLabDocument {
 
         String comments = clean(lab.get("comments"));
         if (StringUtils.filled(comments)) {
-            report.setNotes(CdsXmlText.truncate(Util.replaceTags(comments), NOTES_MAX));
+            String notes = Util.replaceTags(comments);
+            if (notes.codePointCount(0, notes.length()) > NOTES_MAX) {
+                warning = (warning == null ? "" : warning + "; ") + "embedded lab document notes truncated";
+            }
+            report.setNotes(CdsXmlText.truncate(notes, NOTES_MAX));
         }
         return new Outcome(format, warning);
     }

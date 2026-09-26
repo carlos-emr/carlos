@@ -3,6 +3,8 @@
 """Unit tests for changed_line_audit.py: python3 -m unittest discover -s scripts/coverage"""
 
 import os
+import subprocess
+from pathlib import Path
 import sys
 import tempfile
 import unittest
@@ -51,6 +53,27 @@ class ChangedLineAuditTest(unittest.TestCase):
         self.assertIsNone(args.head)
         self.assertTrue(args.per_file)
         self.assertEqual(audit_script.parse_args(["r.xml", "a", "b"]).head, "b")
+
+    def test_should_ignore_configured_diff_prefixes_in_working_tree_audit(self):
+        report = self.write_report(REPORT)
+        script = str(Path(audit_script.__file__).resolve())
+        with tempfile.TemporaryDirectory() as directory:
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=directory, text=True)
+            git("init", "-q")
+            source = Path(directory) / "src/main/java/io/github/x/A.java"
+            source.parent.mkdir(parents=True)
+            source.write_text("old\n" * 12)
+            git("add", ".")
+            git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")
+            source.write_text("old\n" * 9 + "new\n" + "old\n" * 2)
+            for config in ("diff.mnemonicPrefix", "diff.noprefix"):
+                git("config", config, "true")
+                output = subprocess.check_output(
+                    [sys.executable, script, report, "HEAD", "--per-file"], cwd=directory, text=True)
+                self.assertIn("1 covered / 1 (100.0%)", output)
+                self.assertIn("src/main/java/io/github/x/A.java", output)
 
 
 if __name__ == "__main__":

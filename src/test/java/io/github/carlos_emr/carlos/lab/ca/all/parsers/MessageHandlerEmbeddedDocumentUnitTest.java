@@ -59,6 +59,7 @@ class MessageHandlerEmbeddedDocumentUnitTest {
         assertThat(handler.isOBXEmbeddedDocument(0, 2)).isFalse();
         assertThat(handler.isOBXEmbeddedDocument(0, 3)).isFalse();
         assertThat(handler.isOBXEmbeddedDocument(0, 4)).isFalse();
+        assertThat(handler.getOBXDocumentEncoding(0, 0)).isNull();
     }
 
     @Test
@@ -72,6 +73,8 @@ class MessageHandlerEmbeddedDocumentUnitTest {
         // Long, base64-alphabet-only free text is still a result.
         assertThat(handler.isOBXEmbeddedDocument(0, 1)).isFalse();
         assertThat(handler.isOBXEmbeddedDocument(1, 0)).isTrue();
+        assertThat(handler.getOBXDocumentEncoding(1, 0)).isEqualTo("Base64");
+        assertThat(handler.getOBXDocumentEncoding(0, 0)).isNull();
         assertThat(Base64.getDecoder().decode(handler.getOBXResult(1, 0)))
                 .isEqualTo(PathL7EmbeddedDocumentMessage.PDF);
         assertThat(new String(PathL7EmbeddedDocumentMessage.PDF, StandardCharsets.US_ASCII)).startsWith("%PDF");

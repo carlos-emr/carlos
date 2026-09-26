@@ -106,7 +106,7 @@ def main(argv=None):
 
     revisions = [args.base] + ([args.head] if args.head else [])
     diff = subprocess.check_output(
-        ["git", "diff", "--no-ext-diff", "-U0", *revisions, "--", "src/main/java"],
+        ["git", "diff", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", "-U0", *revisions, "--", "src/main/java"],
         text=True,
     )
     changed = changed_lines(diff)

@@ -190,6 +190,16 @@ public interface MessageHandler {
         return valueType != null && "ED".equals(valueType.trim());
     }
 
+    /**
+     * Encoding of the returned embedded-document payload (HL7 ED.4), when exposed by the parser.
+     * A means unencoded text, Base64 and Hex explicitly identify encoded octets. An absent
+     * value retains the legacy signature-based fallback for handlers without this metadata.
+     */
+    default String getOBXDocumentEncoding(int i, int j) {
+        return null;
+    }
+
+
 
     /**
      * Return the name of the jth OBX segment of the ith OBR group. It is

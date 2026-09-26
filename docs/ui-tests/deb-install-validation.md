@@ -450,7 +450,7 @@ GnuPG. The key is a throwaway validation key, never an operator's.
 ```bash
 lxc exec carlos-test -- bash -c '
   set -e
-  apt-get install -y gnupg
+  apt-get install -y gnupg libxml2-utils
   G=/var/lib/carlos-emr/export-gnupg
   install -d -o carlos -g carlos -m 0700 "$G"
   runuser -u carlos -- gpg --homedir "$G" --batch --passphrase "" \
@@ -1492,3 +1492,11 @@ browser check exercises the last of these). `changed_line_audit.py`
 now accepts the head revision as optional (working tree against the base) and
 `--per-file`; its unit tests run with
 `python3 -m unittest discover -s scripts/coverage`.
+
+### CDS export review follow-up (#3989, 2026-09-26)
+
+The mapping now preserves raw PATHL7 CELLPATHR RTF as `.rtf` binary media, retains empty ED reports with their comments/metadata and an export warning, and reports both lab-comment and merged physician-note truncation. Declared ED.4 encoding takes precedence over payload-shape guesses: `A` remains text, while `Base64` and `Hex` decode explicitly. Invalid declared encodings retain the payload as text with a warning; handlers without encoding metadata retain the signature fallback. ED.2 `TEXT` does not mean the payload is plain text (the PDF fixture uses `TEXT^PDF^Base64`). No unsupported universal ED.3 plain-text token is assumed; see [HL7 encoding table 0299](https://hl7.org/fhir/R4/v2/0299/index.html).
+
+The complete-record regression proves that XMLBeans inserts typed elements in schema order even when reports are created before appointments. The live browser fixture now includes an owned appointment and clinical note, and validates the entire downloaded patient file with `xmllint` against the repository CDS XSD; install `libxml2-utils` on the browser runner. All owned rows are removed after the check.
+
+Current alpha16 release-base validation: 44 focused Java tests, 13,370 full-suite tests (51 explicit skips), 1,037 Node tests and four coverage-tool tests passed. All 982 JSPs compiled; WAR and Javadoc generation succeeded. Changed executable Java-line coverage is 201/212 (94.8%), with no uncovered changed file.

@@ -58,13 +58,14 @@
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_* (fixture rows)
  *   CDS_EXPORT_GNUPGHOME  GnuPG home holding the export recipient's secret key
  *                         (needed when the install encrypts exports; read as root)
- * Needs python3 on the runner to prove the exported XML is well-formed, and gpg
+ * Needs xmllint (libxml2-utils) to validate the complete export against the CDS schema, and gpg
  * when the export is encrypted.
  */
 
 const fs = require('node:fs');
+const path = require('node:path');
 const zlib = require('node:zlib');
-const { randomBytes } = require('node:crypto');
+const { randomBytes, randomUUID } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -121,8 +122,14 @@ function readZip(buffer) {
 
 /** Every element named `name` (any namespace prefix), as its inner text. */
 function elements(xml, name) {
-  const pattern = new RegExp(`<(?:[\\w.-]+:)?${name}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[\\w.-]+:)?${name}>`, 'g');
-  return [...xml.matchAll(pattern)].map(match => match[1]);
+  // A fixed pattern extracts names; the caller's name is only an equality comparison.
+  const pattern = /<((?:[\w.-]+:)?([\w.-]+))(?:\s[^>]*)?>([\s\S]*?)<\/\1>/g;
+  const found = [];
+  for (const match of xml.matchAll(pattern)) {
+    if (match[2] === name) found.push(match[3]);
+    else found.push(...elements(match[3], name));
+  }
+  return found;
 }
 
 function firstText(xml, name) {
@@ -177,11 +184,12 @@ function assertLabExport(xml, { accession, pdf = PDF }) {
 
 function assertWellFormed(xml) {
   try {
-    execFileSync('python3', ['-c', 'import sys, xml.dom.minidom; xml.dom.minidom.parseString(sys.stdin.buffer.read())'],
-      { input: Buffer.from(xml, 'utf8'), stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000 });
+    execFileSync('xmllint', ['--nonet', '--noout', '--schema',
+      path.join(__dirname, '../src/main/resources/omdDataMigration/EMR_Data_Migration_Schema.xsd'), '-'],
+    { input: Buffer.from(xml, 'utf8'), stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000 });
   } catch (error) {
-    if (error.code === 'ENOENT') throw new h.SkipCheck('python3 is needed to prove the export is well-formed XML');
-    throw new Error('the exported patient XML is not well-formed');
+    if (error.code === 'ENOENT') throw new h.SkipCheck('xmllint (libxml2-utils) is needed to validate the complete CDS export');
+    throw new Error('the exported patient XML does not validate against the CDS schema');
   }
 }
 
@@ -248,8 +256,27 @@ function seedLab(s) {
   return { accession, labNo };
 }
 
+function seedSurroundingSections(s) {
+  const marker = h.sqlString(s.marker);
+  // Register before either insert, so a partial fixture still has an ownership-scoped cleanup.
+  s.cleanup(() => {
+    s.sql.execute(`DELETE FROM casemgmt_note WHERE demographic_no=${s.patient} AND note=${marker};
+      DELETE FROM appointment WHERE demographic_no=${s.patient} AND name=${marker}`);
+    h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient} AND note=${marker})
+      + (SELECT COUNT(*) FROM appointment WHERE demographic_no=${s.patient} AND name=${marker})`) === '0',
+    'Owned export note/appointment fixtures were not removed');
+  });
+  s.sql.execute(`INSERT INTO appointment (provider_no,appointment_date,start_time,end_time,name,demographic_no,
+      notes,reason,location,resources,type,style,billing,status,createdatetime,creator)
+    VALUES (${h.sqlString(s.provider)},CURDATE(),'10:00:00','10:15:00',${marker},${s.patient},
+      '','','','','','','','t',NOW(),${h.sqlString(s.config.testUser)});
+    INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,note,history,uuid,locked,archived)
+    VALUES (NOW(),NOW(),${s.patient},${h.sqlString(s.provider)},${marker},'',${h.sqlString(randomUUID())},'0',0)`);
+}
+
 async function workflow(s) {
   const { accession } = seedLab(s);
+  seedSurroundingSections(s);
   let exportPage;
   await s.step('the master record opens the export page for this patient', async () => {
     exportPage = await s.popup(s.master,
@@ -262,7 +289,9 @@ async function workflow(s) {
 
   let xml;
   await s.step('exporting Laboratory Results downloads a zip holding the patient file', async () => {
-    await exportPage.locator('input[name="exLaboratoryResults"]').check();
+    for (const option of ['exLaboratoryResults', 'exAppointments', 'exClinicalNotes']) {
+      await exportPage.locator(`input[name="${option}"]`).check();
+    }
     const download = await exportDownload(exportPage);
     let zip = fs.readFileSync(await download.path());
     if (download.suggestedFilename().toLowerCase().endsWith('.pgp')) zip = decryptExport(zip);
@@ -277,6 +306,9 @@ async function workflow(s) {
   await s.step('the embedded PDF is a Lab Report and the results are clean, well-formed XML', async () => {
     assertWellFormed(xml);
     assertLabExport(xml, { accession });
+    h.assert(elements(xml, 'Appointments').length === 1, 'Owned appointment is missing from the complete export');
+    h.assert(elements(xml, 'ClinicalNotes').length === 1, 'Owned clinical note is missing from the complete export');
+    h.assert(firstText(xml, 'MyClinicalNotesContent') === s.marker, 'Exported clinical note changed');
   });
   await exportPage.close();
 }

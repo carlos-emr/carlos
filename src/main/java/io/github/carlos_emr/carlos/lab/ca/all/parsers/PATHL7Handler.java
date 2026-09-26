@@ -507,6 +507,24 @@ public class PATHL7Handler implements MessageHandler {
         }
     }
 
+    @Override
+    public String getOBXDocumentEncoding(int i, int j) {
+        if (!isOBXEmbeddedDocument(i, j)) return null;
+        try {
+            ED ed = (ED) msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j)
+                    .getOBX().getObx5_ObservationValue()[0].getData();
+            // This interface's CELLPATHR variant carries raw RTF in ED.1, not ED.5.
+            if ("CELLPATHR".equals(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR()
+                    .getObr24_DiagnosticServiceSectionID().getValue())
+                    && !StringUtils.isEmpty(ed.getEd1_SourceApplication().getHd1_NamespaceID().getValue())) {
+                return "A";
+            }
+            return ed.getEncoding().getValue();
+        } catch (HL7Exception | ClassCastException e) {
+            throw new IllegalArgumentException("Cannot read embedded lab document encoding", e);
+        }
+    }
+
     public String getOBXResult(int i, int j) {
         try {
             if ("ED".equals(getOBXValueType(i, j))) {
