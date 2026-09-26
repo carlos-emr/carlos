@@ -164,7 +164,8 @@
     "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js",
     "test:demographic-label-content-playwright": "node scripts/demographic-label-content-playwright-checks.js",
     "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js",
-    "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js"
+    "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js",
+    "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

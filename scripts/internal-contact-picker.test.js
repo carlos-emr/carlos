@@ -6,24 +6,28 @@ const path = require('node:path');
 const vm = require('node:vm');
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp'), 'utf8');
 const names = {formName: 'contactForm', elementName: 'contactName', elementId: 'contactId'};
-const source = jsp.match(/function addNameCaisi\([\s\S]*?self\.close\(\);\s*\}/)[0]
-  .replace(/<carlos:encode value='<%= StringUtils.noNull\(request.getParameter\("(formName|elementName|elementId)"\)\) %>' context="javaScriptBlock"\/>/g,
-    (_, key) => names[key]);
-for (const [last, first, expected] of [
-  ['O%27Neil', 'Anne%20Marie', "O'Neil,Anne Marie"],
-  ['A%26B', 'Fran%C3%A7ois', 'A&B,François'],
-  ['Percent%2520', 'Plain', 'Percent%20,Plain'],
-]) {
-  test(`patient picker returns decoded display text for ${last}`, () => {
-    const elements = {contactName: {value: ''}, contactId: {value: ''}};
-    let closed = false;
-    const context = {opener: {document: {contactForm: {elements}}}, self: {close() {closed = true;}}};
-    vm.runInNewContext(source, context);
-    context.addNameCaisi('123', last, first, '', '');
-    assert.equal(elements.contactName.value, expected);
-    assert.equal(elements.contactId.value, '123');
-    assert.equal(closed, true);
-  });
+for (const kind of ['appt', 'report']) {
+  const picker = fs.readFileSync(path.join(__dirname,
+    `../src/main/webapp/WEB-INF/jsp/demographic/demographicsearch2${kind}results.jsp`), 'utf8');
+  const source = picker.match(/function addNameCaisi\([\s\S]*?self\.close\(\);\s*\}/)[0]
+    .replace(/<carlos:encode value='<%= StringUtils.noNull\(request.getParameter\("(formName|elementName|elementId)"\)\) %>' context="javaScriptBlock"\/>/g,
+      (_, key) => names[key]);
+  for (const [last, first, expected] of [
+    ['O%27Neil', 'Anne%20Marie', "O'Neil,Anne Marie"],
+    ['A%26B', 'Fran%C3%A7ois', 'A&B,François'],
+    ['Percent%2520', 'Plain', 'Percent%20,Plain'],
+  ]) {
+    test(`${kind} patient picker returns decoded display text for ${last}`, () => {
+      const elements = {contactName: {value: ''}, contactId: {value: ''}};
+      let closed = false;
+      const context = {opener: {document: {contactForm: {elements}}}, self: {close() {closed = true;}}};
+      vm.runInNewContext(source, context);
+      context.addNameCaisi('123', last, first, '', '');
+      assert.equal(elements.contactName.value, expected);
+      assert.equal(elements.contactId.value, '123');
+      assert.equal(closed, true);
+    });
+  }
 }
 
 test('clicking a patient row works without a demographic field on the search form', () => {
@@ -38,3 +42,39 @@ test('clicking a patient row works without a demographic field on the search for
   assert.equal(selected[0], '123');
   assert.equal(selected[1], 'O%27Neil');
 });
+
+for (const kind of ['appt', 'report']) {
+  const picker = fs.readFileSync(path.join(__dirname,
+    `../src/main/webapp/WEB-INF/jsp/demographic/demographicsearch2${kind}results.jsp`), 'utf8');
+  const callback = picker.match(/function addName\([\s\S]*?return true;\s*\}/)[0]
+    .replace(/<carlos:encode value='<%= originalpage %>' context="javaScript"\/>/g, '/carlos/appointment/addappointment');
+  for (const [last, first, chart] of [
+    ["O'Neil & Son", 'François Anne', 'A&B + %20'],
+    ['Percent%20', '雪', 'C/123'],
+  ]) {
+    test(`${kind} picker carries decoded names and chart numbers in form fields`, () => {
+      const fields = new Map();
+      let submitted = 0;
+      const form = { action: '', elements: { namedItem(key) {
+        if (!fields.has(key)) fields.set(key, { value: '' });
+        return fields.get(key);
+      } }, submit() { submitted++; } };
+      const context = { document: { forms: { namedItem: () => form } } };
+      vm.runInNewContext(callback, context);
+      context.addName('123', encodeURIComponent(last), encodeURIComponent(first), encodeURIComponent(chart), 'msg&1', '999998');
+      assert.equal(form.action, '/carlos/appointment/addappointment');
+      assert.equal(submitted, 1);
+      assert.equal(fields.get('demographic_no').value, '123');
+      assert.equal(fields.get('chart_no').value, chart);
+      if (kind === 'appt') {
+        assert.equal(fields.get('name').value, `${last},${first}`);
+        assert.equal(fields.get('messageID').value, 'msg&1');
+        assert.equal(fields.get('doctor_no').value, '999998');
+      } else {
+        assert.equal(fields.get('lastNameParam').value, last);
+        assert.equal(fields.get('firstNameParam').value, first);
+        assert.equal(fields.get('demographicNoParam').value, '123');
+      }
+    });
+  }
+}

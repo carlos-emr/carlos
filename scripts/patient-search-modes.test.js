@@ -117,12 +117,52 @@ test('the demographic-number predicate refuses anything but digits', () => {
   assert.match(mode.predicate('d', ' 42 '), /d\.demographic_no = 42$/);
 });
 
-test('date of birth is three prefix matches on three columns, not a date compare', () => {
+test('date of birth is three LIKE matches on three columns, bound from the parsed keyword', () => {
   assert.match(DAO, /d\.yearOfBirth like :yearOfBirth AND d\.monthOfBirth like :monthOfBirth AND d\.dateOfBirth like :dateOfBirth/);
-  const sql = MODES.find((mode) => mode.name === 'search_dob').predicate('d', '1980-05-12');
-  assert.match(sql, /year_of_birth LIKE '1980%'/);
-  assert.match(sql, /month_of_birth LIKE '05%'/);
-  assert.match(sql, /date_of_birth LIKE '12%'/);
+  // Issue #3956: the DAO binds DobSearchPattern's segments, not "<segment>%".
+  assert.match(DAO, /setParameter\("monthOfBirth", dob\.get\(\)\.month\(\)\)/);
+  const [full, yearMonth, anyMonth] = MODES.filter((mode) => mode.name === 'search_dob');
+  assert.ok(full && yearMonth && anyMonth, 'full, year-month and wildcard DOB shapes must all be checked');
+
+  const sql = full.predicate('d', '1980-05-12');
+  assert.match(sql, /year_of_birth LIKE '1980'/);
+  assert.match(sql, /month_of_birth LIKE '05'/);
+  assert.match(sql, /date_of_birth LIKE '12'/);
+
+  assert.equal(yearMonth.seedValue(['1980', '05']), '1980-05');
+  assert.match(yearMonth.predicate('d', '1980-05'), /date_of_birth LIKE '%'/);
+
+  assert.equal(anyMonth.seedValue(['1980', '12']), '1980-%-12');
+  const wildcard = anyMonth.predicate('d', '1980-%-12');
+  assert.match(wildcard, /month_of_birth LIKE '%'/);
+  assert.match(wildcard, /date_of_birth LIKE '12'/);
+
+  // One-digit parts are padded the way the DAO pads them.
+  assert.match(full.predicate('d', '1980-5-2'), /month_of_birth LIKE '05' AND d\.date_of_birth LIKE '02'/);
+  assert.throws(() => full.predicate('d', '198'), /DOB search grammar/);
+});
+
+test('the DOB validation check expects malformed input refused and a year search allowed', () => {
+  // The inverse of the pre-#3956 rule, which refused "2020" outright.
+  assert.match(SOURCE, /for \(const typed of \['198', '1980-13'\]\)/);
+  assert.ok(!/keyword\.type\('2020'/.test(SOURCE), 'a bare year is a valid DOB search since issue #3956');
+});
+
+test('the DOB oracle rejects out-of-range and all-wildcard searches without echoing patient input', () => {
+  const mode = MODES.find((candidate) => candidate.name === 'search_dob');
+  for (const value of ['1980-00', '1980-13', '1980-01-00', '1980-01-32', '%', '%-%-%']) {
+    assert.throws(() => mode.predicate('d', value), (error) => {
+      assert.ok(!error.message.includes(value));
+      return /DOB search grammar/.test(error.message);
+    });
+  }
+});
+
+test('the DOB oracle accepts the parser trailing separator and boundary values', () => {
+  const mode = MODES.find((candidate) => candidate.name === 'search_dob');
+  assert.equal(mode.predicate('d', '1980-'), mode.predicate('d', '1980'));
+  assert.equal(mode.predicate('d', '1980-12-'), mode.predicate('d', '1980-12'));
+  assert.match(mode.predicate('d', '%-12-31'), /month_of_birth LIKE '12' AND d\.date_of_birth LIKE '31'/);
 });
 
 test('"active" means what the application means by it', () => {

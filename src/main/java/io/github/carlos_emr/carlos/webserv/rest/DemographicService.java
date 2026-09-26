@@ -35,7 +35,9 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -48,12 +50,14 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
@@ -723,11 +727,25 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/search")
     @Produces("application/json")
     @Consumes("application/json")
-    public AbstractSearchResponse<DemographicSearchResult> search(ObjectNode json, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
+    public AbstractSearchResponse<DemographicSearchResult> searchRequest(ObjectNode json,
+            @DefaultValue("0") @QueryParam("startIndex") String startIndex,
+            @DefaultValue("10") @QueryParam("itemsToReturn") String itemsToReturn) {
+        // CXF's Integer query binding reports malformed numbers as 404. Parse here
+        // so every invalid search option receives the same 400 client response.
+        return search(json, searchInteger(startIndex, 0), searchInteger(itemsToReturn, 10));
+    }
+
+    /** Retains the typed entry point for existing Java callers of patient search. */
+    public AbstractSearchResponse<DemographicSearchResult> search(ObjectNode json, Integer startIndex, Integer itemsToReturn) {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r");
 
         AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
 
+        int offset = startIndex == null ? 0 : startIndex;
+        int limit = itemsToReturn == null ? 10 : itemsToReturn;
+        if (offset < 0 || limit < 0 || limit > DemographicDao.MAX_SEARCH_RESULT_SIZE) {
+            throw new BadRequestException("Invalid patient search pagination");
+        }
         DemographicSearchRequest req = convertFromJSON(json);
         //caisi
         boolean outOfDomain = true;
@@ -739,12 +757,12 @@ public class DemographicService extends AbstractServiceImpl {
 
         List<DemographicSearchResult> results = new ArrayList<DemographicSearchResult>();
 
-        if (json.get("term") != null && json.get("term").asText().length() >= 1) {
+        if (req.getKeyword() != null && !req.getKeyword().isEmpty()) {
 
             int count = demographicManager.searchPatientsCount(loggedInInfo, req);
 
             if (count > 0) {
-                results = demographicManager.searchPatients(loggedInInfo, req, startIndex, itemsToReturn);
+                results = demographicManager.searchPatients(loggedInInfo, req, offset, limit);
                 response.setContent(results);
                 response.setTotal(count);
             }
@@ -754,37 +772,73 @@ public class DemographicService extends AbstractServiceImpl {
     }
 
     private DemographicSearchRequest convertFromJSON(ObjectNode json) {
-        if (json == null) return null;
-
-        String searchType = json.get("type") != null ? json.get("type").asText() : null;
-
+        if (json == null) throw new BadRequestException("Patient search body is required");
         DemographicSearchRequest req = new DemographicSearchRequest();
-
-        req.setMode(SEARCHMODE.valueOf(searchType));
-        if (req.getMode() == null) {
-            req.setMode(SEARCHMODE.Name);
-        }
-
-        req.setKeyword(json.get("term") != null ? json.get("term").asText() : null);
-        req.setActive(Boolean.valueOf(json.get("active") != null ? json.get("active").asText() : "false"));
-        req.setOutOfDomain(Boolean.valueOf(json.get("outofdomain") != null ? json.get("outofdomain").asText() : "false"));
-
-        Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
-
-        ObjectNode params = (ObjectNode) json.get("params");
-        if (params != null) {
-            java.util.Iterator<String> fieldNames = params.fieldNames();
-            while (fieldNames.hasNext()) {
-                String key = fieldNames.next();
-                Matcher nameMtchr = namePtrn.matcher(key);
-                if (nameMtchr.find()) {
-                    String var = nameMtchr.group(1);
-                    req.setSortMode(SORTMODE.valueOf(var));
-                    req.setSortDir(SORTDIR.valueOf(params.get(key).asText()));
+        req.setMode(searchEnum(SEARCHMODE.class, searchText(json.get("type")), SEARCHMODE.Name));
+        JsonNode term = json.get("term");
+        // Existing clients may submit numeric demographic/HIN/DOB keywords as JSON numbers.
+        req.setKeyword(term != null && term.isNumber() ? term.asText() : searchText(term));
+        req.setActive(searchBoolean(json.get("active")));
+        // Domain visibility is derived from server configuration in search(), never the client.
+        req.setOutOfDomain(searchBoolean(json.get("outofdomain")));
+        JsonNode params = json.get("params");
+        if (params != null && !params.isNull()) {
+            if (!params.isObject()) throw new BadRequestException("Invalid patient search sorting");
+            Pattern namePattern = Pattern.compile("sorting\\[(\\w+)\\]");
+            var fields = params.fields();
+            while (fields.hasNext()) {
+                var field = fields.next();
+                Matcher nameMatcher = namePattern.matcher(field.getKey());
+                if (nameMatcher.matches()) {
+                    req.setSortMode(searchEnum(SORTMODE.class, nameMatcher.group(1), null));
+                    String direction = searchText(field.getValue());
+                    if (direction == null) throw new BadRequestException("Invalid patient search sorting");
+                    req.setSortDir(searchEnum(SORTDIR.class, direction, null));
+                } else if (field.getKey().startsWith("sorting[")) {
+                    throw new BadRequestException("Invalid patient search sorting");
                 }
             }
         }
         return req;
+    }
+
+    private static int searchInteger(String value, int fallback) {
+        if (value == null) return fallback;
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException _) {
+            throw new BadRequestException("Invalid patient search pagination");
+        }
+    }
+
+    private static String searchText(JsonNode value) {
+        if (value == null || value.isNull()) return null;
+        if (!value.isTextual()) throw new BadRequestException("Patient search text must be a string");
+        return value.textValue();
+    }
+
+    // These fixed boolean literals are request options, not identity or authorization comparisons.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Case-insensitive comparison of fixed boolean option literals preserves the REST contract; not an identity or authorization decision")
+    private static boolean searchBoolean(JsonNode value) {
+        if (value == null || value.isNull()) return false;
+        // Preserve clients that send either a JSON boolean or its string equivalent.
+        if (value.isBoolean()) return value.booleanValue();
+        if (value.isTextual()) {
+            if ("true".equalsIgnoreCase(value.textValue())) return true;
+            if ("false".equalsIgnoreCase(value.textValue())) return false;
+        }
+        throw new BadRequestException("Invalid patient search boolean option");
+    }
+
+    private static <E extends Enum<E>> E searchEnum(Class<E> type, String value, E fallback) {
+        if (value == null) return fallback;
+        try {
+            return Enum.valueOf(type, value);
+        } catch (IllegalArgumentException _) {
+            // Do not echo submitted values: search requests may contain patient information.
+            throw new BadRequestException("Invalid patient search option");
+        }
     }
 
 }

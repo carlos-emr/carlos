@@ -124,18 +124,20 @@ Items outside that implementation table remain planned.
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
 **Checks implementing this plan, landed so far.** Each script's header names the
-section it implements, and every *browser* check is UI-driven: it is entered by
-clicking from the schedule, never by a URL.
+section it implements, and browser workflow checks are UI-driven: they are entered by
+clicking from the schedule. The protocol exceptions below exercise server contracts directly.
 
-**Two checks in the table below are exceptions, and are marked as such.**
+**Three checks in the table below are exceptions, and are marked as such.**
 `csrf-bootstrap-audit` drives no browser at all — it reads the webapp's JSPs
 from disk, which is why it can run on every pull request without a deployment.
 `mutator-get-rejection-live` logs in through the browser and then issues its
 GET/HEAD probes with `context.request.fetch()`: its assertion is about the
 *transport* — what the server does when a mutator route is asked with a read
 method — and no control in the UI issues one, so there is no click that would
-exercise it. Both are protocol- or source-level assertions that the UI cannot
-make; neither is a shortcut around the rule.
+exercise it. `patient-search-rest-dob` uses authenticated `context.request.post()`
+to verify the REST search contract, including typed JSON and invalid pagination that
+the browser form cannot produce. These protocol- or source-level assertions
+complement the UI workflows.
 
 | Check | Implements | Covers |
 |---|---|---|
@@ -153,7 +155,8 @@ make; neither is a shortcut around the rule.
 | `surface-audit:workflow-surface` | §4.4 | WorkFlow list |
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |
 | `demographic-edit-update` | §2.4 (also §2.4 `demographic-audit`) | Editing a patient from the Master Record, asserted against the database, restored — and asserted to have been **recorded** in the audit trail with an actor |
-| `patient-search-modes` | §2.4 | Every patient-search mode, the active/inactive/all scope, and the browser-side date-of-birth refusal |
+| `patient-search-modes` | §2.4 | Every patient-search mode (date of birth as a full date, a year-month, and a `%` month wildcard — issue #3956), the active/inactive/all scope, and the browser-side refusal of a malformed date of birth |
+| `patient-search-rest-dob` (protocol probe) | §2.4 | Authenticated `ws/rs/demographics/search`: full, partial, wildcard and padded dates; count/result parity; malformed input; pagination and active/inactive status. Owns and cleans a synthetic patient in an unused birth year plus its program/admission relationship, including Caisi program-domain deployments. `EXPECT_PROGRAM_DOMAIN_RESTRICTION=true/false` also verifies visibility after removing fixture admissions. UI round trips cover private POST search/sort/paging, appointment/report selection and new-patient handoffs, global merged-record sorting, and the unmerge return page using owned pagination fixtures. |
 | `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |
 | `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |
@@ -467,7 +470,7 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `demographic-export-import` | Administration ▸ Data Management ▸ Demographic Export; ▸ Import New Demographic | Export produces the CDS XML for the patient (bytes); importing the fixture creates `FAKE-` patients; the import log downloads | Fixture files; delete created rows | `demographic/DemographicExport`, `form/importUpload`, `importLogDownload` |
 | `patient-set-cohort` | Master Record ▸ add to patient set; Schedule ▸ Report ▸ Demographic Report Tool ▸ sets | Set created, patient added, set drives a report row (the `prevention-recall-report` pattern) | Throwaway set | `demographic/ViewAddDemoToPatientSet`, `report/CreateDemographicSet`, `DemographicSetEdit` |
 | `demographic-audit` | Master Record ▸ Edit ▸ clinical section ▸ audit link | The edit `demographic-edit-update` made appears with user and time | Reuse | `demographic/ViewDemographicAudit` |
-| `patient-search-modes` | Schedule ▸ Search: name, HIN, phone, chart no, DOB (existing), address, all; Active/inactive; swipe | Result set per mode; inactive excluded by default and included on request; nothing beyond the search term in the URL | Demo data | `demographic/ViewSearch`, `DemographicSearch`, `ViewZdemographicSwipe` |
+| `patient-search-modes` | Schedule ▸ Search: name, HIN, phone, chart no, DOB (full, YYYY-MM, `%` wildcard), address, all; Active/inactive; swipe | Result set per mode; inactive excluded by default and included on request; nothing beyond the search term in the URL | Demo data | `demographic/ViewSearch`, `DemographicSearch`, `ViewZdemographicSwipe` |
 
 ### 2.5 Chart / encounter
 

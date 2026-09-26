@@ -21,7 +21,12 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.io.IOException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -34,7 +39,8 @@ import org.apache.struts2.ServletActionContext;
  * Security gate for the Demographic Merge Record admin page.
  *
  * <p>Enforces {@code _demographic w} privilege before forwarding to the JSP.
- * The JSP handles search, display, and initiates merge/unmerge operations via a downstream {@code MergeRecords} action endpoint.</p>
+ * Validates search options and obtains a domain-filtered, sorted page before forwarding.
+ * The JSP initiates merge/unmerge operations via the separate {@code MergeRecords} action.</p>
  *
  * @since 2026-04-05
  */
@@ -42,15 +48,41 @@ public class DemographicMergeRecord2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+
     @Override
-    public String execute() {
+    public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        DemographicMergeSearch search;
+        try {
+            search = new DemographicMergeSearch(request.getParameter("search_mode"), request.getParameter("keyword"),
+                    request.getParameter("orderby"), integerParameter(request, "limit1", 0),
+                    integerParameter(request, "limit2", 10),
+                    "demographic_search_merged".equals(request.getParameter("dboperation")));
+        } catch (IllegalArgumentException invalidOptions) {
+            ServletActionContext.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid patient search options");
+            return NONE;
+        }
+        CarlosProperties properties = CarlosProperties.getInstance();
+        boolean outOfDomain = !properties.getProperty("ModuleNames", "").contains("Caisi")
+                || "true".equals(properties.getProperty("pmm.client.search.outside.of.domain.enabled", "true"));
+        if (!outOfDomain && "true".equals(request.getParameter("outofdomain"))) {
+            outOfDomain = securityInfoManager.hasPrivilege(loggedInInfo, "_search.outofdomain", "r", null);
+        }
+        request.setAttribute("mergeSearch", search);
+        request.setAttribute("mergeSearchResults", search.keyword() == null ? java.util.List.of()
+                : demographicDao.searchForMerge(search, loggedInInfo.getLoggedInProviderNo(), outOfDomain));
         return SUCCESS;
     }
+    private static int integerParameter(HttpServletRequest request, String name, int fallback) {
+        String value = request.getParameter(name);
+        return value == null ? fallback : Integer.parseInt(value);
+    }
+
 }
