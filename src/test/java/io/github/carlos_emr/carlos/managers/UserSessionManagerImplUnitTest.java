@@ -29,6 +29,24 @@ import static org.mockito.Mockito.when;
 class UserSessionManagerImplUnitTest {
 
     @Test
+    @DisplayName("should omit session bearer tokens from registration and removal logs")
+    void shouldOmitBearerTokens_whenSessionRegistrationIsLogged() {
+        UserSessionManagerImpl manager = new UserSessionManagerImpl();
+        MockHttpSession session = new MockHttpSession(null, "private-session-bearer-token");
+        try (var capture = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(UserSessionManagerImpl.class)) {
+            manager.registerUserSession(3987, session);
+            manager.unregisterUserSession(3987, session);
+
+            assertThat(capture.messages()).contains("User session successfully registered",
+                    "User session successfully unregistered");
+            assertThat(capture.messages()).allSatisfy(message ->
+                    assertThat(message).doesNotContain(session.getId()));
+        } finally {
+            session.invalidate();
+        }
+    }
+
+    @Test
     @DisplayName("should allow multiple sessions for the same user")
     void shouldAllowMultipleSessions_forSameUser() {
         UserSessionManagerImpl manager = new UserSessionManagerImpl();

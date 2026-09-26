@@ -85,9 +85,7 @@ public class UserSessionManagerImpl implements UserSessionManager {
             // nosemgrep: tainted-session-from-http-request -- container-provided client address, rendered encoded only to the same user
             session.setAttribute(KEY_LOGIN_REMOTE_ADDR, remoteAddr);
         }
-        if (logger.isDebugEnabled()) {
-            logger.debug("User Session successfully registered: {}", sessionIdForLog(session));
-        }
+        logger.debug("User session successfully registered");
     }
 
     /**
@@ -130,9 +128,7 @@ public class UserSessionManagerImpl implements UserSessionManager {
         }
 
         removeSecurityCodeAttribute(session);
-        if (logger.isDebugEnabled()) {
-            logger.debug("User Session successfully unregistered: {}", sessionIdForLog(session));
-        }
+        logger.debug("User session successfully unregistered");
         return session;
     }
 
@@ -302,11 +298,4 @@ public class UserSessionManagerImpl implements UserSessionManager {
         }
     }
 
-    private String sessionIdForLog(HttpSession session) {
-        try {
-            return session.getId();
-        } catch (IllegalStateException e) {
-            return "invalidated";
-        }
-    }
 }
