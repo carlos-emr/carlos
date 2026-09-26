@@ -301,6 +301,27 @@ lxc config device add carlos-test carlosrepo disk \
     source=$PWD path=/root/carlos readonly=true
 ```
 
+### Docker alternative (no LXD)
+
+On a host with Docker but no LXD, `scripts/deb-container-validate.sh` runs sections
+2–6 in a disposable privileged `ubuntu:26.04` container with systemd as PID 1:
+
+```bash
+DEB_DIR=.. scripts/deb-container-validate.sh up        # image + systemd container
+scripts/deb-container-validate.sh install              # preseed, apt install, carlos-ctl check
+scripts/deb-container-validate.sh check lab-line-break-rendering lab-acknowledge
+scripts/deb-container-validate.sh tier smoke           # or any suite tier
+scripts/deb-container-validate.sh down
+```
+
+The script header records the container settings the install depends on. Docker's
+`policy-rc.d` must be removed or postinst cannot start MariaDB. The container needs
+cgroup v2 (the script mounts a private hierarchy on cgroup v1 hosts). It uses host
+networking, so run it only on a disposable host. The deployment serves
+**precompiled** JSPs, so a JSP edited in place takes effect only after its
+`*_jsp.*` classes are removed from the Tomcat work directory and `carlos-emr` is
+restarted.
+
 ## 3. Install the packages (non-interactive)
 
 Preseed debconf so the install runs unattended. Release validation deliberately
