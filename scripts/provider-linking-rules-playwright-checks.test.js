@@ -30,6 +30,7 @@ test('buildCmlMessage puts each identifier where CMLHandler reads it', () => {
   assert.equal(field('ORC', 2), 'PLRABC123', 'ORC-2 is the accession number');
   assert.equal(field('OBR', 16).split('^')[0], '123456', 'OBR-16 is the ordering provider');
   assert.ok(segments[0].startsWith('MSH|^~\\&|'), 'MSH declares the standard encoding characters');
+  assert.equal(segments[0].split('|')[8], 'ORU^R01', 'MSH-9 names the structure HAPI parses');
   assert.ok(!buildCmlMessage(FIELDS).includes('\n'), 'segments are separated by carriage returns only');
 });
 

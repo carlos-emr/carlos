@@ -39,9 +39,9 @@
  *      and the automatic routing is audited.
  *   5. An upload for an unknown patient stays unmatched; matching it to the demo patient from
  *      the lab's Patient Search popup routes it to the MRP and drops the unassigned row.
- *   6. An HRM report is unlinked and given an unclaimed (-1) row; assigning it to the patient
- *      in the HRM viewer routes it to the MRP, removes the unclaimed row, and the viewer
- *      reloads to show the MRP under Assigned Providers.
+ *   6. An HRM report is given an unclaimed (-1) row and unlinked with the viewer's (remove)
+ *      link; assigning it to the patient in the HRM viewer routes it to the MRP, removes the
+ *      unclaimed row, and the viewer reloads to show the MRP under Assigned Providers.
  *   7. The save route refuses GET (405) and refuses a POST without a CSRF token, and neither
  *      changes the stored switch.
  *
@@ -101,7 +101,8 @@ function buildCmlMessage({ controlId, accession, hin, lastName, firstName, dob, 
   }
   const clean = (value) => String(value).replace(/[|^~\\&\r\n]/g, ' ').trim();
   return [
-    `MSH|^~\\&|Reports|CML|||202601020800||ORU||${controlId}|2.3`,
+    // MSH-9 must carry the trigger event: HAPI cannot pick a structure from a bare ORU.
+    `MSH|^~\\&|Reports|CML|||202601020800||ORU^R01||${controlId}|2.3`,
     `PID|1|||${hin}^^ON|${clean(lastName)}^${clean(firstName)}||${dob}|${sex}`,
     `ORC|NW|${accession}|||F|||||||${ohipNo}^DR. PLAYWRIGHT CHECK|||20260101`,
     `OBR|1|${accession}||ML70^PROVIDER LINKING CHECK||20260101|20260102|||||||||${ohipNo}^DR. PLAYWRIGHT CHECK|||||||||F`,
@@ -403,7 +404,8 @@ async function main({ throwIfCancelled } = {}) {
       providers: sql.rows(`SELECT id, providerNo, signedOff, signedOffTimestamp, viewed, filed FROM HRMDocumentToProvider
         WHERE hrmDocumentId=${sqlString(hrmId)} ORDER BY id`),
     };
-    sql.execute(`DELETE FROM HRMDocumentToDemographic WHERE hrmDocumentId=${sqlString(hrmId)}`);
+    // Fixture: the report is unclaimed (a -1 row, as an unmatched HRM delivery leaves it) and the
+    // MRP does not hold it yet, so both the MRP row and the -1 cleanup are observable.
     sql.execute(`DELETE FROM HRMDocumentToProvider WHERE hrmDocumentId=${sqlString(hrmId)}
       AND providerNo IN (${sqlString(patient.mrp)}, '-1')`);
     sql.execute(`INSERT INTO HRMDocumentToProvider (providerNo, hrmDocumentId, signedOff, viewed)
@@ -412,6 +414,18 @@ async function main({ throwIfCancelled } = {}) {
     wireStrictPage(hrm, 'hrm-viewer', recorder);
     await gotoApp(hrm, config.baseUrl, `/hospitalReportManager/Display?id=${Number(hrmId)}`);
     await assertNotErrorPage(hrm, 'HRM viewer');
+    if (hrmSnapshot.demographics.length) {
+      // The demo report is linked: unlink it the way a clinician does. This is the unlink that
+      // failed at flush before the bulk delete, so it is asserted, not assumed.
+      const [unlink] = await Promise.all([
+        hrm.waitForResponse((r) => r.request().method() === 'POST' && /hospitalReportManager\/Modify/.test(r.url()),
+          { timeout: 30000 }),
+        hrm.locator(`#demostatus${Number(hrmId)} a`, { hasText: '(remove)' }).first().click(),
+      ]);
+      assert((await unlink.json()).success === true, 'unlinking the HRM report from its patient failed');
+      assert(sql.value(`SELECT COUNT(*) FROM HRMDocumentToDemographic WHERE hrmDocumentId=${sqlString(hrmId)}`) === '0',
+        'the HRM report is still linked to a patient after (remove)');
+    }
     const input = hrm.locator(`#autocompletedemo${Number(hrmId)}hrm`);
     await input.waitFor({ state: 'visible', timeout: 30000 });
     await input.pressSequentially(`${patient.lastName}, ${patient.firstName}`.slice(0, 40), { delay: 30 });
