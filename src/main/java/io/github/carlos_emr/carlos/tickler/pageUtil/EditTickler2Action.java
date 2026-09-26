@@ -38,8 +38,11 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -49,6 +52,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 
+/**
+ * Edits an existing tickler (status, priority, assignee, service date, a new comment and the
+ * picker attachments) or maintains the suggested-text list. Both routes mutate, so every verb
+ * except POST is rejected with 405 before any privilege check or side effect.
+ *
+ * <p>Attachments are synchronised only when the form carries the picker marker
+ * ({@link TicklerAttachmentParameters#SUBMITTED_MARKER}); an edit that never opened the picker
+ * leaves the stored set untouched.</p>
+ */
 public class EditTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -56,8 +68,16 @@ public class EditTickler2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
     public String execute() {
+        // Both dispatch targets mutate; refuse GET/HEAD (and every other verb) before dispatch so
+        // a link or image tag can never update a tickler or its suggested texts.
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return NONE;
+        }
         if ("editTickler".equals(request.getParameter("method"))) {
             return editTickler();
         }
@@ -198,6 +218,24 @@ public class EditTickler2Action extends ActionSupport {
             } catch (Exception e) {
                 logger.error("Failed to update tickler: ticklerNo={}, providerNo={}", ticklerNo, providerNo, e);
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
+                return "error";
+            }
+        }
+
+        // Attachments are independent of the field/comment update: a user may change only the
+        // attachments. Synchronise only when the picker selection was actually submitted.
+        if (TicklerAttachmentParameters.isSubmitted(request)) {
+            try {
+                ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request));
+            } catch (SecurityException | IllegalArgumentException e) {
+                logger.warn("Refused tickler attachments: ticklerNo={}: {}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
+                addActionError(getText("tickler.ticklerEdit.attachments.error"));
+                return "error";
+            } catch (Exception e) {
+                logger.error("Failed to store tickler attachments: ticklerNo={}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), e);
+                addActionError(getText("tickler.ticklerEdit.attachments.error"));
                 return "error";
             }
         }

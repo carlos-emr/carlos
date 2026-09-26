@@ -52,6 +52,8 @@
     Parameters:
     - tickler_no:           ID of the tickler to edit (required)
     - parentAjaxId:         Encounter navbar element ID for reload notification
+    - docNo/labNo/eFormNo/hrmNo/formNo + attachmentsSubmitted (POST only):
+                            Picker selections (ticklerAttachmentsPanel.jspf), see #3984
 
     @since CARLOS EMR 2026
 --%>
@@ -77,9 +79,12 @@
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -154,10 +159,34 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="tickler.ticklerEdit.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%-- jQuery UI JS is page-specific (global-head ships only its CSS); the attachment picker is a UI dialog. --%>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <style>
             /* Links — CARLOS primary blue */
             a { color: var(--carlos-primary); }
             a:hover { color: #28619a; }
+
+            /* Tickler attachments (#3984): the picker dialog styles itself; these cover the
+               Manage Attachments row and the jQuery UI close control it repurposes. */
+            .attachments-cell { white-space: nowrap; }
+            #attachmentNames { white-space: normal; margin-top: 6px; font-size: 12px; }
+            #attachmentNames .attachment-group-heading { font-weight: 600; margin-top: 4px; }
+            #attachmentNames ul { list-style: none; margin: 2px 0 4px; padding-left: 1.2em; }
+            #attachmentNames li { padding: 1px 0; }
+            .ui-dialog { font-size: small !important; z-index: 1060; }
+            .ui-widget-overlay { z-index: 1055; }
+            .save-and-close-button {
+                width: auto !important;
+                height: auto !important;
+                background-color: var(--carlos-primary) !important;
+                color: #fff !important;
+                border: none !important;
+                border-radius: 4px !important;
+                padding: 0.35rem 0.75rem !important;
+                font-size: 0.8rem !important;
+                white-space: nowrap;
+            }
+            .save-and-close-button:hover { opacity: 0.85 !important; }
 
             /* Section headers — CARLOS primary */
             .section-header {
@@ -602,6 +631,16 @@
                 </div>
             </div>
 
+            <%-- 3b. Attachments (#3984): documents, labs, eForms, forms and HRM reports from the shared picker --%>
+            <div class="section-header mt-3"><fmt:message key="tickler.attachments.label"/></div>
+            <div style="border: 1px solid var(--carlos-border); border-top: none; padding: 10px;">
+                <%
+                    java.util.List<TicklerAttachmentData> ticklerAttachments = ticklerAttachmentService.listAttachments(loggedInInfo, t);
+                    String ticklerAttachmentDemographicNo = String.valueOf(t.getDemographicNo());
+                %>
+                <%@ include file="/WEB-INF/jsp/tickler/ticklerAttachmentsPanel.jspf" %>
+            </div>
+
             <%-- 4. Sticky action bar --%>
             <div class="action-bar-bottom">
                 <oscar:oscarPropertiesCheck property="tickler_email_enabled" value="true">
@@ -616,6 +655,7 @@
                        value="<fmt:message key="global.btnBack"/>" onClick="window.close()"/>
             </div>
         </form>
+        <%@ include file="/WEB-INF/jsp/tickler/ticklerAttachmentsDialog.jspf" %>
     </div>
 
     </body>

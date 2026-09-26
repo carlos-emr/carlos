@@ -1,0 +1,148 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+    Ported from the openo-beta/Open-O tickler attachment component
+    (PR #2491, Sebastian Ibanez) and adapted for CARLOS.
+--%>
+<%--
+    ticklerAttachmentsDialog.jspf - the shared attachment picker as a jQuery UI dialog (#3984)
+
+    Static include; place it AFTER the tickler <form name="serviceform"> and after
+    ticklerAttachmentsPanel.jspf. Needs jQuery, jQuery UI (dialog) and Bootstrap already loaded
+    by the host page. Loads previewDocs?method=fetchTicklerDocuments for the tickler's patient,
+    pre-checks the picker from the form's ".delegateAttachment" inputs, and on Save and Close
+    rewrites those inputs from the checked boxes, updates the visible name lists and sets the
+    attachmentsSubmitted marker. Restricted delegates (types the reader cannot open) are kept.
+
+    @since 2026-09-26
+--%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message var="ticklerAttachmentsSaveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
+<fmt:message var="ticklerAttachmentsSelectPatientText" key="tickler.attachments.selectPatientFirst"/>
+<div id="attachDocumentDisplay" style="display:none;"></div>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
+<script type="text/javascript">
+    (function () {
+        var ctx = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>';
+        var saveAndCloseText = '${carlos:forJavaScript(ticklerAttachmentsSaveAndCloseText)}';
+        var selectPatientText = '${carlos:forJavaScript(ticklerAttachmentsSelectPatientText)}';
+
+        jQuery(document).on('click', '#manageAttachmentsBtn', function () {
+            var $form = jQuery('form[name="serviceform"]');
+            var trigger = jQuery(this);
+            // The Edit window knows its patient; the Add window may pick one after the page
+            // loaded, so its own hidden demographic_no input is authoritative at click time.
+            var demographicNo = trigger.data('demographicNo') || $form.find('input[name="demographic_no"]').val();
+            if (!demographicNo) {
+                alert(selectPatientText);
+                return;
+            }
+            var poload = ctx + '/previewDocs?method=fetchTicklerDocuments&demographicNo=' + encodeURIComponent(demographicNo);
+            // Only a picker that actually rendered may replace the form's selection: closing a
+            // dialog whose load failed (or is still in flight) must not detach anything.
+            var pickerLoaded = false;
+
+            jQuery('#attachDocumentDisplay').load(poload, function (response, status) {
+                if (status !== 'success' || jQuery('#attachDocumentsForm').length === 0) {
+                    return;
+                }
+                pickerLoaded = true;
+                // Pre-check the picker for everything already on the form. The delegate names
+                // the checkbox id it mirrors (labs include their source: labNoHL7123). An
+                // attachment the picker does not offer (an older encounter form, a superseded
+                // eForm) is marked unlisted: the reader cannot un-check what is not shown, so
+                // the rebuild on close must carry it through unchanged.
+                $form.find('.delegateAttachment').removeAttr('data-unlisted');
+                jQuery('#attachmentNames li.unlisted').removeClass('unlisted');
+                $form.find('.delegateAttachment').each(function () {
+                    var pickerId = jQuery(this).attr('data-picker-id') || (this.name + this.value);
+                    var element = jQuery('#attachDocumentsForm').find('#' + jQuery.escapeSelector(pickerId));
+                    if (element.length === 0) {
+                        jQuery(this).attr('data-unlisted', '1');
+                        jQuery('#attachmentNames li[data-delegate-id="' + jQuery.escapeSelector(this.id) + '"]').addClass('unlisted');
+                        return;
+                    }
+                    element.prop('checked', true);
+                    // Older lab versions sit in a collapsed list; show the one that is attached.
+                    if (element.attr('data-version') && typeof expandLabVersionList === 'function') {
+                        expandLabVersionList(element.closest('.lab').find('.collapse-arrow'));
+                    }
+                });
+            }).dialog({
+                title: trigger.attr('title'),
+                modal: true,
+                closeText: saveAndCloseText,
+                height: 'auto',
+                width: 'auto',
+                resizable: true,
+                open: function () {
+                    jQuery(this).parent().css({top: 0, left: 0});
+                    var closeBtn = jQuery(this).parent().find('.ui-dialog-titlebar-close');
+                    closeBtn.removeClass('ui-button-icon-only');
+                    closeBtn.addClass('save-and-close-button');
+                    closeBtn.text(saveAndCloseText);
+                },
+                beforeClose: function () {
+                    if (!pickerLoaded) {
+                        // Nothing was shown, so nothing was chosen: leave the stored selection
+                        // and the attachmentsSubmitted marker exactly as they were.
+                        return;
+                    }
+                    // Rebuild the form's selection from the picker. The action synchronises each
+                    // type against the stored set, so submitting the full current selection is
+                    // sufficient for both adds and removals. Restricted delegates (types this
+                    // reader cannot see) and unlisted ones (items the picker does not offer)
+                    // must survive the rebuild: neither could have been un-checked here.
+                    $form.find('.delegateAttachment:not([data-restricted]):not([data-unlisted])').remove();
+                    jQuery('#attachmentNames ul li:not(.restricted):not(.unlisted)').remove();
+                    jQuery('#attachDocumentsForm')
+                        .find('.document_check:checked, .lab_check:checked, .form_check:checked, .eForm_check:checked, .hrm_check:checked')
+                        .not('[disabled]')
+                        .each(function () {
+                            var element = jQuery(this);
+                            // Lab ids are only unique per source, so a lab is submitted as
+                            // "<source>:<id>" (the action reads a bare id as HL7).
+                            var labType = element.attr('data-lab-type');
+                            var value = element.hasClass('lab_check') && labType
+                                ? labType + ':' + element.val()
+                                : element.val();
+                            jQuery('<input />', {
+                                type: 'hidden',
+                                name: element.attr('name'),
+                                value: value,
+                                'data-picker-id': element.attr('id'),
+                                id: 'delegate_' + element.attr('id'),
+                                'class': 'delegateAttachment'
+                            }).appendTo($form.find('.tickler-attachments'));
+                            jQuery('<li>', {'data-delegate-id': 'delegate_' + element.attr('id')})
+                                .text(element.attr('title')).appendTo('#attachmentNames_' + element.attr('name'));
+                        });
+                    jQuery('#attachmentNames .attachment-group').each(function () {
+                        jQuery(this).toggle(jQuery(this).find('li').length > 0);
+                    });
+                    jQuery('#attachmentCount').text($form.find('.delegateAttachment').length);
+                    jQuery('#attachmentsSubmitted').val('1');
+                }
+            });
+        });
+    })();
+</script>

@@ -39,7 +39,10 @@ class ConsultAttachmentJspRegressionTest {
         String jsp = normalizeWhitespace(Files.readString(ATTACH_DOCUMENT_JSP, StandardCharsets.UTF_8));
 
         assertThat(jsp)
-                .contains("String attachmentSecurityObject = \"_eform\".equals(attachmentSecurityObjectRequest) ? \"_eform\" : \"_con\";")
+                // The picker is shared by consultations, eForms and ticklers (#3984); anything else
+                // still falls back to the consultation gate.
+                .contains("String attachmentSecurityObject = \"_con\";")
+                .contains("if (\"_eform\".equals(attachmentSecurityObjectRequest) || \"_tickler\".equals(attachmentSecurityObjectRequest)) { attachmentSecurityObject = attachmentSecurityObjectRequest; }")
                 .contains("objectName=\"<%=attachmentSecurityObject%>\" rights=\"r\"")
                 .contains("<c:set var=\"attachmentSelectionDisabled\" value=\"${canManageAttachments ne true}\"/>")
                 .contains("<c:if test=\"${attachmentSelectionDisabled}\">disabled=\"disabled\"</c:if>");
@@ -103,6 +106,18 @@ class ConsultAttachmentJspRegressionTest {
                 .contains("id=\"attachDocumentPanelBtn\"")
                 .doesNotContain("if (canWriteConsult) { if (thisForm.iseReferral())")
                 .doesNotContain("<security:oscarSec roleName");
+    }
+
+    @Test
+    @DisplayName("Consult page should walk lab version chains for HL7 labs only and match versions by source")
+    void shouldWalkVersionChains_forHl7LabsOnly() throws Exception {
+        String jsp = normalizeWhitespace(Files.readString(CONSULT_JSP, StandardCharsets.UTF_8));
+
+        assertThat(jsp)
+                .contains("boolean hl7Lab = LabResultData.HL7TEXT.equals(attachedLab1.getLabType());")
+                .contains("? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\") : new String[]{attachedLab1.getSegmentID()};")
+                .contains("|| !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())")
+                .doesNotContain("String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\");");
     }
 
     @Test

@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -194,7 +194,7 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
 
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         registerMock(TicklerDao.class, mock(TicklerDao.class));
-        registerMock(TicklerLinkDao.class, mock(TicklerLinkDao.class));
+        registerMock(TicklerAttachmentService.class, mock(TicklerAttachmentService.class));
         UserPropertyDAO userPropertyDAO = createAndRegisterMock(UserPropertyDAO.class);
         UserProperty macroProperty = new UserProperty();
         macroProperty.setValue("[{\"name\":\"東京\"}]");

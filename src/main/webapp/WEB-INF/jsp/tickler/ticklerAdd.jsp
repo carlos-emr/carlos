@@ -57,8 +57,11 @@
     - recall:               If present, intended to mark this as a recall tickler.
                             NOTE: This parameter is currently read but not yet
                             propagated to the tickler model. See DbTicklerAdd2Action.
-    - docType:              Optional document type for linking
-    - docId:                Optional document ID for linking
+    - docType:              Optional legacy forward-from-document type (DOC, HRM or a lab
+                            source); folded into the picker selection of that type
+    - docId:                Optional legacy forward-from-document ID
+    - docNo/labNo/eFormNo/hrmNo/formNo + attachmentsSubmitted:
+                            Picker selections (ticklerAttachmentsPanel.jspf), see #3984
 
     @since CARLOS EMR 2026
 --%>
@@ -90,6 +93,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -609,10 +613,34 @@
         </script>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%-- jQuery UI JS is page-specific (global-head ships only its CSS); the attachment picker is a UI dialog. --%>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <style>
             /* Links — CARLOS primary blue */
             a { color: var(--carlos-primary); }
             a:hover { color: #28619a; }
+
+            /* Tickler attachments (#3984): the picker dialog styles itself; these cover the
+               Manage Attachments row and the jQuery UI close control it repurposes. */
+            .attachments-cell { white-space: nowrap; }
+            #attachmentNames { white-space: normal; margin-top: 6px; font-size: 12px; }
+            #attachmentNames .attachment-group-heading { font-weight: 600; margin-top: 4px; }
+            #attachmentNames ul { list-style: none; margin: 2px 0 4px; padding-left: 1.2em; }
+            #attachmentNames li { padding: 1px 0; }
+            .ui-dialog { font-size: small !important; z-index: 1060; }
+            .ui-widget-overlay { z-index: 1055; }
+            .save-and-close-button {
+                width: auto !important;
+                height: auto !important;
+                background-color: var(--carlos-primary) !important;
+                color: #fff !important;
+                border: none !important;
+                border-radius: 4px !important;
+                padding: 0.35rem 0.75rem !important;
+                font-size: 0.8rem !important;
+                white-space: nowrap;
+            }
+            .save-and-close-button:hover { opacity: 0.85 !important; }
 
             .tickler-label {
                 color: var(--carlos-primary);
@@ -920,6 +948,18 @@
                 </tr>
 
                 <tr>
+                    <td class="tickler-label"><fmt:message key="tickler.attachments.label"/>:</td>
+                    <td>
+                        <%
+                            // A new tickler has no stored attachments; the patient is whatever the
+                            // form's demographic_no input holds when the picker is opened.
+                            java.util.List<TicklerAttachmentData> ticklerAttachments = new java.util.ArrayList<>();
+                            String ticklerAttachmentDemographicNo = null;
+                        %>
+                        <%@ include file="/WEB-INF/jsp/tickler/ticklerAttachmentsPanel.jspf" %>
+                    </td>
+                </tr>
+                <tr>
                     <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.formReminder"/>:</td>
                     <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"></textarea>
                     </td>
@@ -938,6 +978,7 @@
                        onclick="window.close()">
             </div>
         </form>
+        <%@ include file="/WEB-INF/jsp/tickler/ticklerAttachmentsDialog.jspf" %>
     </div>
     </body>
 </html>

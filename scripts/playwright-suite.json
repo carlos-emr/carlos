@@ -356,6 +356,21 @@
       ]
     },
     {
+      "name": "consultation-lab-attachment-rows",
+      "script": "scripts/consultation-lab-attachment-rows-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONSULT_DEMO_NO"
+      ]
+    },
+    {
       "name": "consultation-signature",
       "script": "scripts/consultation-signature-playwright-checks.js",
       "tiers": [
@@ -1966,6 +1981,21 @@
       "env": [
         "TICKLER_DEMOGRAPHIC_NO",
         "TICKLER_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "tickler-attachments",
+      "script": "scripts/tickler-attachments-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "TICKLER_DEMOGRAPHIC_NO"
       ]
     },
     {

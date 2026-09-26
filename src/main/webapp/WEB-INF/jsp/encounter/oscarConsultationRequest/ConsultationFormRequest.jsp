@@ -309,14 +309,21 @@
                 if (attachedLabsSortedByVersions.contains(attachedLab1)) {
                     continue;
                 }
-                String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",");
+                // Version chains exist for HL7 labs only, and segment ids are only unique within a
+                // source: the chain is walked for HL7 labs and matched on source and id, so an
+                // MDS/CML/BCP lab sharing an id with an HL7 version is never pulled into its place.
+                boolean hl7Lab = LabResultData.HL7TEXT.equals(attachedLab1.getLabType());
+                String[] matchingLabIds = hl7Lab
+                        ? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",")
+                        : new String[]{attachedLab1.getSegmentID()};
                 if (matchingLabIds.length == 1) {
                     attachedLabsSortedByVersions.add(attachedLab1);
                     continue;
                 }
                 for (int i = matchingLabIds.length - 1; i >= 0; i--) {
                     for (LabResultData attachedLab2 : attachedLabs) {
-                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])) {
+                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])
+                                || !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())) {
                             continue;
                         }
                         if (i != matchingLabIds.length - 1) {
@@ -2538,15 +2545,21 @@ if (userAgent != null) {
                                                 </tr>
                                                 <fmt:message var="unlabelledLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelUnlabelled"/>
                                                 <c:forEach items="${ attachedLabs }" var="attachedLab">
-                                                    <tr id="entry_labNo${ attachedLab.segmentID }">
+                                                    <%-- Row and delegate ids follow the picker checkbox id, which for labs
+                                                         carries the source (labNoHL7123); the dialog adds and removes rows
+                                                         by that key. --%>
+                                                    <tr id="entry_labNo${ attachedLab.labType }${ attachedLab.segmentID }">
                                                         <td>
                                                             <c:set var="labName"
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
                                                                                                  value="${unlabelledLabel}"/></c:if>
                                                             ${carlos:forHtml(attachedLab.description)} ${carlos:forHtml(labName)}
+                                                            <%-- The picker's lab checkbox id carries the lab source
+                                                                 (labNoHL7123), and the pre-check looks the box up by
+                                                                 this delegate id minus its delegate_ prefix. --%>
                                                             <input name="labNo" value="${ attachedLab.segmentID }"
-                                                                   id="delegate_labNo${ attachedLab.segmentID }"
+                                                                   id="delegate_labNo${ attachedLab.labType }${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
                                                         </td>
                                                     </tr>
@@ -3609,7 +3622,10 @@ if (userAgent != null) {
                         jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled'])"
                         ).each(function (index, data) {
                             var element = jQuery(this);
-                            var rowId = "entry_" + element.attr("name") + element.val();
+                            // Keyed by the checkbox id (not name + value) so a lab row carries
+                            // its source like the unchecked-row removal below and the
+                            // server-rendered rows do.
+                            var rowId = "entry_" + element.attr("id");
 
                             // skip if this entry was already added (e.g. dialog opened/closed multiple times)
                             if (jQuery('#EctConsultationFormRequest2Form').find("#" + rowId).length > 0) {

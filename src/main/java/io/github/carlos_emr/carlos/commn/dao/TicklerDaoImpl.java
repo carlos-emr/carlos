@@ -48,6 +48,7 @@ import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
@@ -94,6 +95,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     public TicklerDaoImpl() {
         super(Tickler.class);
+    }
+
+    @Override
+    public Tickler lockForAttachmentSync(Integer ticklerNo) {
+        // SELECT ... FOR UPDATE on the parent row: a second attachment sync for the same
+        // tickler blocks here until the first commits, then reads its rows.
+        return entityManager.find(Tickler.class, ticklerNo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Override
@@ -833,8 +841,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     /**
-     * Batch loads links for the given tickler DTOs using a single query.
-     * Groups links by tickler ID and sets them on each DTO.
+     * Batch loads attachments for the given tickler DTOs using a single query over the
+     * {@code ticklerdocs} store (soft-deleted rows excluded). Groups them by tickler ID and
+     * sets them on each DTO as legacy-shaped {@link TicklerLinkDTO}s.
      *
      * @param ticklerDTOs List of TicklerListDTO to populate with links
      */
@@ -843,21 +852,21 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Integer> ticklerIds = ticklerDTOs.stream()
                 .map(TicklerListDTO::getId)
                 .collect(Collectors.toList());
+        if (ticklerIds.isEmpty()) {
+            return;
+        }
 
-        StringBuilder jpql = new StringBuilder();
-        jpql.append("SELECT NEW io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO(");
-        jpql.append("l.id, l.ticklerNo, l.tableName, l.tableId) ");
-        jpql.append("FROM TicklerLink l ");
-        jpql.append("WHERE l.ticklerNo IN (:ticklerIds)");
-
-        Query query = entityManager.createQuery(jpql.toString());
+        Query query = entityManager.createQuery(
+                "SELECT d FROM TicklerDocs d WHERE d.ticklerId IN (:ticklerIds) AND d.deleted IS NULL"
+                        + " ORDER BY d.ticklerId, d.id");
         query.setParameter("ticklerIds", ticklerIds);
 
-        List<TicklerLinkDTO> allLinks = query.getResultList();
+        List<TicklerDocs> allAttachments = query.getResultList();
 
         Map<Integer, List<TicklerLinkDTO>> linkMap = new HashMap<>();
-        for (TicklerLinkDTO link : allLinks) {
-            linkMap.computeIfAbsent(link.getTicklerNo(), k -> new ArrayList<>()).add(link);
+        for (TicklerDocs attachment : allAttachments) {
+            linkMap.computeIfAbsent(attachment.getTicklerId(), k -> new ArrayList<>())
+                    .add(TicklerLinkDTO.fromTicklerDocs(attachment));
         }
 
         for (TicklerListDTO dto : ticklerDTOs) {
