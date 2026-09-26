@@ -349,6 +349,7 @@ async function main() {
       + ` (${Number(state.groupId)},${sqlString(state.activeProviderNo)},0),`
       + ` (${Number(state.groupId)},${sqlString(state.deactivatedProviderNo)},0)`);
     await gotoApp(adminPage, config.baseUrl, '/messenger?method=fetch');
+    await adminPage.locator('a.nav-link[href="#manageGroups"]').click();
     await adminPage.locator(`a.nav-link[href="#group-${state.groupId}"]`).click();
     const groupMembers = adminPage.locator(`#group-member-list-${state.groupId}`);
     assert(await groupMembers.locator(`[data-member-key^="${state.activeProviderNo}-"]`).count() === 1,
