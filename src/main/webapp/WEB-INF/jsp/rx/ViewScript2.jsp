@@ -285,6 +285,10 @@
                     prefPharmacyId = prefPharmacyId.trim();
                 }
             }
+            // " Tel: <phone1 phone2>" for the "Rx faxed to" encounter note, or "" when no phone is on
+            // file so that note is unchanged for pharmacies without one (issue #3974).
+            String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacy);
+            String pharmacyPhoneSegment = pharmacyPhone.isEmpty() ? "" : " Tel: " + pharmacyPhone;
 
             String userAgent = request.getHeader("User-Agent");
             String browserType = "";
@@ -680,6 +684,9 @@
                             <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                             // %>
                             text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
+                            // Built here, before the fax is sent, so the text captured for a paste retry
+                            // already carries it and useCapturedPasteTextAsIs never appends it twice.
+                            text += '<%= SafeEncode.forJavaScript(pharmacyPhoneSegment) %>';
 
                             <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                             text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
