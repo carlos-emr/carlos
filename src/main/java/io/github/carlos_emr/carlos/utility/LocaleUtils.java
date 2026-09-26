@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -89,6 +90,10 @@ public final class LocaleUtils {
      * @param request current request; {@code null} is tolerated and yields the English fallback
      * @return the locale to load {@link #BASE_NAME} with; never {@code null}
      */
+    // FindSecBugs SERVLET_HEADER: Accept-Language is client-controlled by design; it only selects
+    // among the message bundles this WAR ships (anything else falls back to English) and is
+    // logged, sanitized, at DEBUG. It never reaches an authorization decision or raw output.
+    @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Accept-Language is used for message-bundle negotiation among shipped bundles and sanitized DEBUG diagnostics only; not an authorization decision or raw output")
     public static Locale resolveBundleLocale(ServletRequest request) {
         String acceptLanguage = null;
         if (request instanceof HttpServletRequest httpRequest) {
