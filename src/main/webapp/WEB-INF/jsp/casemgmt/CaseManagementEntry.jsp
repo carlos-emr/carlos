@@ -404,9 +404,12 @@
         <table>
             <tr>
                 <td class="fieldValue" colspan="1">
-                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="hard"
-                              onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseNote.note)}
-                            </textarea>
+                    <%-- wrap="soft": a hard-wrapped textarea submits a CRLF at every visual wrap
+                         point, which the server stores as part of the note (#3955). The closing
+                         tag follows the value directly: any whitespace between them is textarea
+                         content and would be appended to the note on every save. --%>
+                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="soft"
+                              onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseNote.note)}</textarea>
                 </td>
                 <td class="fieldTitle"></td>
 
