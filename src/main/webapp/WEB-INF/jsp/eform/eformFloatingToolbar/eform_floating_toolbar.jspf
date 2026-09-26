@@ -37,14 +37,24 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import=" io.github.carlos_emr.carlos.managers.FaxManager"%>
 <%@ page import=" io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ taglib prefix = "c" uri = "jakarta.tags.core" %>
+<%@ taglib prefix = "fmt" uri = "jakarta.tags.fmt" %>
+<%@ taglib prefix = "carlos" uri = "carlos" %>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
+<fmt:setBundle basename="oscarResources"/>
 <%
   EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
   pageContext.setAttribute("faxActive", FaxManager.isEnabled());
   pageContext.setAttribute("isEmailEnabled", emailComposeManager.isEmailEnabled());
 %>
+<%-- Dialog text read by eform_floating_toolbar.js. This fragment is the only toolbar markup the
+     server localizes, so script-side prompts travel as data-* attributes on its root element (the
+     script keeps an English fallback for when the fragment failed to load). --%>
+<fmt:message key="eform.floatingToolbar.printSaveUneditedConfirm" var="printSaveUneditedConfirm"/>
 
-<div id="eform_floating_toolbar" class="no-print DoNotPrint d-print-none">
+<div id="eform_floating_toolbar" class="no-print DoNotPrint d-print-none"
+	data-print-save-unedited-confirm="${carlos:forHtmlAttribute(printSaveUneditedConfirm)}">
 	<nav id="eform_floating_toolbar_nav" class="navbar bg-light no-print DoNotPrint d-print-none" data-bs-theme="light">
 		<form class="d-flex" >
 			<div class="input-group">
