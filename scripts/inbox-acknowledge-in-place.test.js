@@ -30,6 +30,14 @@ const acknowledgePath = slice('    function refreshInboxhubAfterHrmRevoke()',
                               '    /**\n     * Resets all inbox filters');
 const rapidReview = slice('    // Flag set by BroadcastChannel listener',
                           '    // State variables preserved');
+// The legacy window.opener entry point ships in InboxhubListMode.jsp and runs in the same
+// window as the functions above, so it is evaluated into the same context.
+const listModeJsp = fs.readFileSync(path.join(__dirname,
+  '../src/main/webapp/WEB-INF/jsp/web/inboxhub/InboxhubListMode.jsp'), 'utf8');
+const removeReportStart = listModeJsp.indexOf('    function removeReport(reportId, labType)');
+const removeReportEnd = listModeJsp.indexOf('\n    }\n', removeReportStart) + '\n    }\n'.length;
+assert.ok(removeReportStart >= 0 && removeReportEnd > removeReportStart, 'removeReport not found in InboxhubListMode.jsp');
+const legacyRemoveReport = listModeJsp.slice(removeReportStart, removeReportEnd);
 
 /**
  * Builds an inbox in one of its two modes over the given items, and returns the handles the
@@ -43,7 +51,7 @@ const rapidReview = slice('    // Flag set by BroadcastChannel listener',
  *        in place; see the page-boundary tests at the end for why.
  */
 function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1) {
-  const state = { fetches: 0, viewFetches: 0, submits: 0, draws: [], opened: null, scrolledTo: null,
+  const state = { fetches: 0, viewFetches: 0, submits: 0, draws: [], opened: null, opens: [], scrolledTo: null,
     boundaryRequests: [], inserted: [] };
   const totals = { totalDocsCount: 5, totalLabsCount: 5, totalHRMCount: 5, totalResultsCount: 15 };
   let rendered = [];
@@ -54,7 +62,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
       segmentId, labType,
       scrollIntoView(options) { state.scrolledTo = segmentId; assert.equal(options.block, 'start'); },
       getAttribute(name) { return name === 'data-lab-type' ? labType : segmentId; },
-      link: { click() { state.opened = segmentId; } },
+      link: { click() { state.opened = segmentId; state.opens.push(segmentId); } },
       after(node) { rendered.splice(rendered.indexOf(el) + 1, 0, node); state.inserted.push(node.segmentId); },
       before(node) { rendered.splice(rendered.indexOf(el), 0, node); state.inserted.push(node.segmentId); },
     };
@@ -186,7 +194,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
     fetchInboxhubData() { state.fetches++; },
     fetchInboxhubViewData() { state.viewFetches++; },
   });
-  vm.runInContext(acknowledgePath + rapidReview, context);
+  vm.runInContext(acknowledgePath + rapidReview + legacyRemoveReport, context);
 
   return {
     state, totals, context, form,
@@ -324,6 +332,53 @@ test('Rapid Review remembers the following row by identity, so a popup going thr
   inbox.context.removeInboxhubRow('171', 'HL7');
   inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
   assert.equal(inbox.state.opened, '172');
+});
+
+test('Rapid Review opens exactly one result when the opener call and the broadcast both arrive', () => {
+  // The popup's direct window.opener call removes the row, and its broadcast lands moments
+  // later. Both reach the shared contract; only one of them may open the next result, or the
+  // clinician gets the successor and then, the remembered item being spent, the first row.
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']]);
+  inbox.context.rapidReviewState = true;
+  inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1);   // the direct route
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  assert.deepEqual(inbox.state.opens, ['172']);
+});
+
+test('Rapid Review advances on the no-BroadcastChannel route too', () => {
+  // labDisplay.jsp's dropFromInboxhubDirectly() calls the contract and nothing else; a browser
+  // without BroadcastChannel must still get the next result opened.
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']]);
+  inbox.context.rapidReviewState = true;
+  assert.equal(inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), true);
+  assert.deepEqual(inbox.state.opens, ['172']);
+});
+
+test('the direct route arms the post-redraw advance when list mode is still loading', () => {
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
+  inbox.context.rapidReviewState = true;
+  assert.equal(inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), false, 'the caller re-fetches');
+  assert.deepEqual(inbox.state.opens, [], 'nothing is opened before the redraw');
+  assert.equal(inbox.context.pendingRapidReviewOpen, true);
+  inbox.render([['170', 'HL7'], ['172', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.deepEqual(inbox.state.opens, ['172']);
+});
+
+test('the legacy removeReport opener entry point goes through the shared contract', () => {
+  // A popup running an older script calls this once per id in the chain and never asks for a
+  // re-fetch itself. Each call is one routing row; the row on screen goes, Rapid Review
+  // advances once, and an older version with no row of its own changes nothing further.
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 2);
+  inbox.context.rapidReviewState = true;
+  inbox.context.removeReport('171', 'HL7');
+  inbox.context.removeReport('169', 'HL7');   // an older version in 171's chain: no card, still one row
+  assert.deepEqual(inbox.shown(), ['HL7:170', 'HL7:172']);
+  assert.equal(inbox.totals.totalLabsCount, 3, 'two calls, two routing rows');
+  assert.equal(inbox.state.boundaryRequests.length, 1, 'preview re-synced its boundary page');
+  assert.equal(inbox.state.fetches, 0, 'and no full re-fetch was started for the version with no card');
+  assert.equal(inbox.state.scrolledTo, '172');
+  assert.equal(inbox.context.pendingRapidReviewOpen, false, 'the version with no card must not arm a stray advance');
 });
 
 test('Rapid Review on the re-fetch route opens the remembered row once a drawn page holds it', () => {

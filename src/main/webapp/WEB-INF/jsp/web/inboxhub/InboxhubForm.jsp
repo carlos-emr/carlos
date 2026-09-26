@@ -659,10 +659,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                 // render each. Acknowledging one item changes no other item, so nothing left
                 // on screen needs re-reading. (While preview pages remain unloaded the helper
                 // has already asked for the one page the removal can have changed; see
-                // resyncInboxhubPreviewBoundary.)
-                if (rapidReviewState) {
-                    openNextInboxItem();
-                }
+                // resyncInboxhubPreviewBoundary.) Rapid Review has advanced inside the helper
+                // too, once per item, so the popup's own window.opener call and this broadcast
+                // cannot open two results between them.
             } else {
                 // Two reasons to ask the server instead.
                 //
@@ -690,7 +689,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                 // instead (see resyncInboxhubPreviewBoundary) and never reaches this branch
                 // for an item that was on screen.
                 fetchInboxhubData();
-                // When Rapid Review is on, open the next item after the refresh completes
+                // When Rapid Review is on, open the next item after the refresh completes. For
+                // an item that WAS on screen the helper has armed this already; this covers the
+                // item that was not (and the bare 'refresh' a patient match posts).
                 if (rapidReviewState) {
                     pendingRapidReviewOpen = true;
                 }
@@ -884,6 +885,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     function forgetHandledInboxhubItems() {
         handledInboxhubItems = Object.create(null);
+        advancedInboxhubItems = Object.create(null);
     }
 
     /**
@@ -1038,16 +1040,54 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         // Not "did THIS call remove something": the popup's direct window.opener route may
         // have removed it already, and that is just as much a reason to skip the re-fetch.
         if (!isInboxhubItemHandled(segmentId, resolvedType)) { return false; }
-        // The paging condition belongs HERE, in the contract, rather than in the caller. Two
-        // routes reach this function -- the BroadcastChannel listener, and labDisplay.jsp's
-        // dropFromInboxhubDirectly() for a browser without BroadcastChannel -- and a gate
-        // applied in one of them leaves the other reintroducing the page-boundary bug. What
-        // every caller actually needs to know is "is a full re-sync still required", so that
-        // is what this answers. Once hasMoreData is false no later page will ever be asked
-        // for, so no offset can be skipped. While pages remain, preview mode re-syncs the one
-        // page the removal can have changed and reports that nothing more is needed; list
-        // mode, still chaining its pages in, leaves the answer to the full re-fetch.
-        return !hasMoreData || resyncInboxhubPreviewBoundary();
+        // The paging condition belongs HERE, in the contract, rather than in the caller. Three
+        // routes reach this function -- the BroadcastChannel listener, labDisplay.jsp's
+        // dropFromInboxhubDirectly() for a browser without BroadcastChannel, and the legacy
+        // removeReport() opener entry point -- and a gate applied in one of them leaves the
+        // others reintroducing the page-boundary bug. What every caller actually needs to
+        // know is "is a full re-sync still required", so that is what this answers. Once
+        // hasMoreData is false no later page will ever be asked for, so no offset can be
+        // skipped. While pages remain, preview mode re-syncs the one page the removal can
+        // have changed and reports that nothing more is needed; list mode, still chaining its
+        // pages in, leaves the answer to the full re-fetch.
+        const settled = !hasMoreData || resyncInboxhubPreviewBoundary();
+        // Rapid Review is decided here for the same reason: whichever route delivered the
+        // acknowledgement, the clinician expects the next result to open. Settled in place,
+        // the next item is on screen and opens now -- at most once per item, because the
+        // opener call and the broadcast that follows it both land here. Not settled, the
+        // caller re-fetches (or list mode is still paging in on its own), and the advance
+        // follows the redraw that renders the remembered row.
+        if (rapidReviewState) {
+            if (settled) {
+                advanceRapidReviewOnce(segmentId, resolvedType);
+            } else {
+                pendingRapidReviewOpen = true;
+            }
+        }
+        return settled;
+    }
+
+    /**
+     * Items Rapid Review has already advanced past, keyed as handledInboxhubItems is.
+     *
+     * One acknowledgement reaches dropAcknowledgedInboxhubItem up to twice -- the popup's
+     * direct window.opener call and its broadcast -- and opening the next result twice would
+     * hand the clinician the successor and then, the remembered item being spent, the first
+     * row. Same lifetime as the handled record: a fetch replaces the screen and with it what
+     * "already advanced" was about.
+     */
+    var advancedInboxhubItems = Object.create(null);
+
+    /**
+     * Opens the next result for Rapid Review, once per acknowledged item.
+     */
+    function advanceRapidReviewOnce(segmentId, labType) {
+        const key = inboxhubItemKey(segmentId, labType);
+        if (key !== null) {
+            if (advancedInboxhubItems[key]) { return; }
+            advancedInboxhubItems[key] = true;
+        }
+        openNextInboxItem();
     }
 
     /**

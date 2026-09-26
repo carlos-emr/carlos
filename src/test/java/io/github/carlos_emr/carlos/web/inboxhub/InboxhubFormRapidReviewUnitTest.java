@@ -120,7 +120,18 @@ class InboxhubFormRapidReviewUnitTest {
         assertThat(extractFunction(jsp, "dropAcknowledgedInboxhubItem"))
                 .as("the helper answers 'no full re-sync needed' once everything is loaded OR "
                         + "once preview has taken the boundary page on itself")
-                .contains("return !hasMoreData || resyncInboxhubPreviewBoundary();");
+                .contains("const settled = !hasMoreData || resyncInboxhubPreviewBoundary();")
+                .as("and it owns the Rapid Review decision for every route that reaches it: "
+                        + "advance at once when settled, else after the redraw the re-fetch brings")
+                .containsSubsequence(
+                        "if (rapidReviewState) {",
+                        "advanceRapidReviewOnce(segmentId, resolvedType);",
+                        "pendingRapidReviewOpen = true;",
+                        "return settled;");
+        assertThat(extractFunction(jsp, "advanceRapidReviewOnce"))
+                .as("the opener call and its broadcast both reach the helper; the second must not open a second result")
+                .contains("if (advancedInboxhubItems[key]) { return; }")
+                .contains("openNextInboxItem();");
         assertThat(extractFunction(jsp, "resyncInboxhubPreviewBoundary"))
                 .as("list mode still needs the full re-fetch")
                 .contains("if (jQuery('#inboxViewItems').length === 0) { return false; }")
