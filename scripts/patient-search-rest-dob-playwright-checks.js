@@ -11,6 +11,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { checkPatientSearchPrivacy } = require('./lib/patient-search-privacy');
 
 async function workflow(session) {
   const { sql, patient, provider, marker, context, config } = session;
@@ -128,6 +129,7 @@ async function workflow(session) {
         'REST search did not enforce the expected program-domain mode');
     });
   }
+  await checkPatientSearchPrivacy(session, program);
 }
 
 if (require.main === module) runWorkflow('patient-search-rest-dob', workflow, { openMaster: false });

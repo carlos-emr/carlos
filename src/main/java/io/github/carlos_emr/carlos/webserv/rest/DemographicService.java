@@ -817,6 +817,9 @@ public class DemographicService extends AbstractServiceImpl {
         return value.textValue();
     }
 
+    // These fixed boolean literals are request options, not identity or authorization comparisons.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Case-insensitive comparison of fixed boolean option literals preserves the REST contract; not an identity or authorization decision")
     private static boolean searchBoolean(JsonNode value) {
         if (value == null || value.isNull()) return false;
         // Preserve clients that send either a JSON boolean or its string equivalent.

@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.data.DobSearchPattern;
+import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
@@ -531,6 +532,79 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     @Override
+    public List<Demographic> searchForMerge(DemographicMergeSearch search, String providerNo, boolean outOfDomain) {
+        if (search.keyword() == null || (!outOfDomain && (providerNo == null || providerNo.isBlank()))) {
+            return List.of();
+        }
+        java.util.Map<String, Object> parameters = new java.util.HashMap<>();
+        String predicate = mergeSearchPredicate(search, parameters);
+        if (predicate == null) return List.of();
+        String queryString = "FROM Demographic d WHERE " + predicate;
+        if (search.merged()) queryString += " AND d.headRecord IS NOT NULL";
+        if (!outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")";
+            parameters.put("providerNo", providerNo);
+        }
+        queryString += " ORDER BY " + mergeSearchOrder(search.orderBy()) + ", d.demographicNo";
+        var query = entityManager().createQuery(queryString, Demographic.class);
+        parameters.forEach(query::setParameter);
+        return query.setFirstResult(search.offset()).setMaxResults(search.limit()).getResultList();
+    }
+
+    /** Builds only fixed predicates; all patient-supplied values are separately bound. */
+    private static String mergeSearchPredicate(DemographicMergeSearch search, java.util.Map<String, Object> parameters) {
+        String keyword = search.keyword().trim();
+        return switch (search.mode()) {
+            case "search_name" -> {
+                String[] names = keyword.split(",", -1);
+                parameters.put("lastName", names[0].trim() + "%");
+                if (names.length == 2) {
+                    parameters.put("firstName", names[1].trim() + "%");
+                    yield "d.lastName LIKE :lastName AND (d.firstName LIKE :firstName OR d.alias LIKE :firstName)";
+                }
+                yield "d.lastName LIKE :lastName";
+            }
+            case "search_dob" -> {
+                var dob = DobSearchPattern.parse(keyword);
+                if (dob.isEmpty()) yield null;
+                parameters.put("year", dob.get().year());
+                parameters.put("month", dob.get().month());
+                parameters.put("day", dob.get().day());
+                yield "d.yearOfBirth LIKE :year AND d.monthOfBirth LIKE :month AND d.dateOfBirth LIKE :day";
+            }
+            case "search_phone" -> {
+                parameters.put("phone", "%" + keyword + "%");
+                // One query avoids duplicate patients and page overflow when both phone and cell match.
+                yield "(d.phone LIKE :phone OR d.phone2 LIKE :phone OR EXISTS "
+                        + "(SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo "
+                        + "AND e.key='demo_cell' AND e.value LIKE :phone))";
+            }
+            case "search_hin" -> {
+                parameters.put("hin", keyword + (search.merged() ? "%" : ""));
+                yield "d.hin LIKE :hin";
+            }
+            case "search_address" -> {
+                parameters.put("address", (search.merged() ? "" : "%") + keyword + "%");
+                yield "d.address LIKE :address";
+            }
+            default -> throw new IllegalArgumentException("Invalid patient search mode");
+        };
+    }
+
+    /** Fixed SQL identifiers; age increases as the full date of birth decreases. */
+    private static String mergeSearchOrder(String orderBy) {
+        return switch (orderBy) {
+            case "first_name" -> "d.firstName, d.lastName";
+            case "demographic_no" -> "d.demographicNo";
+            case "sex" -> "d.sex";
+            case "age" -> "d.yearOfBirth DESC, d.monthOfBirth DESC, d.dateOfBirth DESC";
+            case "date_of_birth" -> "d.yearOfBirth, d.monthOfBirth, d.dateOfBirth";
+            case "roster_status" -> "d.rosterStatus";
+            default -> "d.lastName, d.firstName";
+        };
+    }
+
+    @Override
     public List<Demographic> searchMergedDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                            boolean outOfDomain) {
         List<Demographic> list = new ArrayList<Demographic>();
@@ -541,6 +615,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             queryString += " and (d.firstName like :firstName or d.alias like :firstName) ";
         }
 
+        if (providerNo != null && !outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ") ";
+        }
         EntityManager session = entityManager();
             var q = session.createQuery(queryString, Demographic.class);
             q.setFirstResult(offset);
@@ -551,6 +628,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 q.setParameter("firstName", name[1].trim() + "%");
             }
 
+            if (providerNo != null && !outOfDomain) {
+                q.setParameter("providerNo", providerNo);
+            }
             list = q.getResultList();
         return list;
     }
@@ -686,6 +766,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             return list;
         }
 
+        if (providerNo != null && !outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ") ";
+        }
         EntityManager session = entityManager();
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
@@ -695,6 +778,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setParameter("monthOfBirth", dob.get().month());
             q.setParameter("dateOfBirth", dob.get().day());
 
+            if (providerNo != null && !outOfDomain) {
+                q.setParameter("providerNo", providerNo);
+            }
             list = q.getResultList();
         return list;
     }
@@ -814,6 +900,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         List<Demographic> list = new ArrayList<Demographic>();
 
         String queryString = "From Demographic d where d.phone like :phone and d.headRecord is not null ";
+        if (providerNo != null && !outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ") ";
+        }
         EntityManager session = entityManager();
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
@@ -821,6 +910,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
             q.setParameter("phone", "%" + phoneStr.trim() + "%");
 
+            if (providerNo != null && !outOfDomain) {
+                q.setParameter("providerNo", providerNo);
+            }
             list = q.getResultList();
         return list;
     }
@@ -1111,6 +1203,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         List<Demographic> list = new ArrayList<Demographic>();
 
         String queryString = "From Demographic d where d.hin like :hin and d.headRecord is not null ";
+        if (providerNo != null && !outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ") ";
+        }
         EntityManager session = entityManager();
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
@@ -1118,6 +1213,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
             q.setParameter("hin", hinStr.trim() + "%");
 
+            if (providerNo != null && !outOfDomain) {
+                q.setParameter("providerNo", providerNo);
+            }
             list = q.getResultList();
         return list;
     }
@@ -1288,7 +1386,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (providerNo != null && !outOfDomain) {
-            queryString += " AND de.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ") ";
+            queryString += " AND de.demographic_no IN (SELECT DISTINCT a.client_id FROM program_provider pp "
+                    + "JOIN admission a ON pp.program_id=a.program_id WHERE pp.provider_no=:providerNo) ";
         }
 
         if (orderBy != null) {
@@ -1322,6 +1421,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         String queryString = "From Demographic d where d.address like :address and d.headRecord is not null ";
 
+        if (providerNo != null && !outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ") ";
+        }
         EntityManager session = entityManager();
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
@@ -1329,6 +1431,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
             q.setParameter("address", addressStr.trim() + "%");
 
+            if (providerNo != null && !outOfDomain) {
+                q.setParameter("providerNo", providerNo);
+            }
             list = q.getResultList();
         return list;
     }
@@ -1579,7 +1684,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         } else if (orderBy.equals("sex")) {
             orderByField = "d.sex";
         } else if (orderBy.equals("dob")) {
-            orderByField = "d.dateOfBirth";
+            orderByField = "d.yearOfBirth, d.monthOfBirth, d.dateOfBirth";
         } else if (orderBy.equals("provider_no")) {
             orderByField = "d.providerNo";
         } else if (orderBy.equals("roster_status")) {

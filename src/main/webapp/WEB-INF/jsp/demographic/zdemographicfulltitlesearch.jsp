@@ -64,6 +64,8 @@
     boolean fromMessenger = request.getParameter("fromMessenger") == null ? false : (request.getParameter("fromMessenger")).equalsIgnoreCase("true") ? true : false;
     String roleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
@@ -273,8 +275,9 @@
             </h4>
         </div>
     </div>
-    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch"
+    <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch"
           onsubmit="return checkTypeIn()">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
         <% String searchMode = request.getParameter("search_mode");
             String keyWord = request.getParameter("keyword");

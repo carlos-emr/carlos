@@ -300,7 +300,8 @@ async function submitDob(page, label, typed, expectedKeyword, prefilled = false)
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNoErrorPage(page, label);
-  expectValue(`${label}-submitted-keyword`, new URL(page.url()).searchParams.get('keyword'), expectedKeyword);
+  expectValue(`${label}-submitted-keyword`, await page.locator('#keyword').inputValue(), expectedKeyword);
+  expectValue(`${label}-url-has-no-keyword`, new URL(page.url()).searchParams.has('keyword'), false);
   expectValue(`${label}-results-table`, await page.locator('#patientResults').count() > 0, true);
 }
 
@@ -515,8 +516,8 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
       waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
       page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
     ]);
-    expectValue('main-barcode-mode', new URL(page.url()).searchParams.get('search_mode'), 'search_hin');
-    expectValue('main-barcode-hin', new URL(page.url()).searchParams.get('keyword'), '1234567890');
+    expectValue('main-barcode-mode', await page.locator('#search_mode').inputValue(), 'search_hin');
+    expectValue('main-barcode-hin', await page.locator('#keyword').inputValue(), '1234567890');
 
     // Search only: never select a patient or invoke a merge/unmerge operation.
     await safeGoto(page, '/admin/DemographicMergeRecord', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -533,7 +534,8 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
       'form[name="titlesearch"] input[name="button"]', 'merge-search-malformed');
     await mergeKeyword.fill('1980');
     const submitted = page.waitForRequest(request => request.isNavigationRequest()
-      && request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/admin/DemographicMergeRecord'));
+      && request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/admin/DemographicMergeRecord'),
+      { timeout: 30000 });
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
       page.locator('form[name="titlesearch"] button[name="dboperation"]').click(),
@@ -542,10 +544,11 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
     await assertNoErrorPage(page, 'merged-search');
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
-      page.locator('a[href*="orderby=last_name"]').first().click(),
+      page.locator('button[form="search-sort"][name="orderby"][value="last_name"]').first().click(),
     ]);
-    expectValue('merged-search-sort-keeps-scope', new URL(page.url()).searchParams.get('dboperation'), 'demographic_search_merged');
+    expectValue('merged-search-sort-keeps-scope', await page.locator('#search-page input[name="dboperation"]').inputValue(), 'demographic_search_merged');
     await assertNoErrorPage(page, 'merged-search-sorted');
+    expectValue('merged-search-url-has-no-keyword', new URL(page.url()).searchParams.has('keyword'), false);
 
     // The report picker is a name-only result page: it has no titlesearch form.
     // Opening it must not run stale DOB/focus code against a nonexistent form.

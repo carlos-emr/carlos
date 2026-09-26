@@ -309,10 +309,9 @@ async function bookFromSlot(context, daySheet) {
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'appointment patient search results');
 
-  // The result row selects through a submit input whose NAME is demographic_no
-  // and whose VALUE is the patient id, not through an anchor, so the click has to
-  // land on that button for the id to travel back to the booking form.
-  const row = popup.locator(`table tr input[type="submit"][name="demographic_no"][value="${demographicNo}"]`).first();
+  // The result row selects through a button; patient fields are carried in the POST body.
+  // Its value identifies the owned fixture to choose from the search results.
+  const row = popup.locator(`table tr input[type="button"][name="pick_demographic"][value="${demographicNo}"]`).first();
   await row.waitFor({ state: 'visible', timeout: 30000 });
   await Promise.all([
     popup.waitForLoadState('domcontentloaded', { timeout: 45000 }),

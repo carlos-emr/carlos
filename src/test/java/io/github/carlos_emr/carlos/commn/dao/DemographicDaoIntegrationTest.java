@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl.DemographicCriterion;
@@ -1036,7 +1037,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should redact patient search terms and DOB components in debug logs")
-        void shouldRedactRestSearchParameters() {
+        void shouldRedactSearchParameters_inDebugLogs() {
             try (LogCapture capture = LogCapture.forLogger(DemographicDaoImpl.class)) {
                 demographicDao.searchPatientCount(null, restRequest("1874-03-05"));
                 DemographicSearchRequest names = restRequest("SyntheticSurname,SyntheticGivenName");
@@ -1083,4 +1084,136 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
                 .doesNotContain(november5.getDemographicNo());
         }
     }
+    @Nested
+    @DisplayName("Merge search privacy boundaries and pagination")
+    class MergeSearchBoundaries {
+        private Demographic first;
+        private Demographic second;
+
+        @BeforeEach
+        void prepareMergeCandidates() {
+            first = createDemographic("Zulu", uniquePrefix, "ON", uniquePrefix + "A", "AC");
+            second = createDemographic("Alpha", uniquePrefix, "ON", uniquePrefix + "B", "AC");
+            first.setYearOfBirth("1882");
+            first.setMonthOfBirth("01");
+            first.setDateOfBirth("01");
+            second.setYearOfBirth("1881");
+            second.setMonthOfBirth("12");
+            second.setDateOfBirth("31");
+            for (Demographic demo : List.of(first, second)) {
+                demo.setPhone(uniquePrefix);
+                demo.setAddress(uniquePrefix + " Test Street");
+                demographicDao.save(demo);
+                DemographicMerged merge = new DemographicMerged();
+                merge.setDemographicNo(demo.getDemographicNo());
+                merge.setMergedTo(demo1.getDemographicNo());
+                merge.setDeleted(0);
+                demographicMergedDao.persist(merge);
+            }
+            hibernateTemplate.flush();
+            hibernateTemplate.execute(session -> {
+                if (session.find(io.github.carlos_emr.carlos.commn.model.Provider.class, "999998") == null) {
+                    var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+                    provider.setProviderNo("999998");
+                    provider.setFirstName("Test");
+                    provider.setLastName("MergeSearch");
+                    provider.setProviderType("doctor");
+                    provider.setSex("M");
+                    provider.setSpecialty("");
+                    provider.setSignedConfidentiality(new Date());
+                    provider.setStatus("1");
+                    session.persist(provider);
+                    session.flush();
+                }
+
+                session.createNativeQuery(INSERT_PROGRAM).setParameter("id", 99002)
+                        .setParameter("name", "MergeSearchTest").setParameter("type", "Service")
+                        .setParameter("fac", 1).executeUpdate();
+                session.createNativeQuery("INSERT INTO program_provider (program_id,provider_no) VALUES (99002,'999998')")
+                        .executeUpdate();
+                session.createNativeQuery(INSERT_ADMISSION).setParameter("cid", first.getDemographicNo())
+                        .setParameter("pid", 99002).setParameter("ad", new java.sql.Timestamp(System.currentTimeMillis()))
+                        .setParameter("prv", "999998").executeUpdate();
+                return null;
+            });
+        }
+
+        @Test
+        @DisplayName("should enforce the provider domain for every legacy merged search")
+        void shouldRestrictMergedPatients_whenOutsideDomainIsDisabled() {
+            List<java.util.function.BiFunction<String, Boolean, List<Demographic>>> searches = List.of(
+                    (provider, outside) -> demographicDao.searchMergedDemographicByName(uniquePrefix, 100, 0, provider, outside),
+                    (provider, outside) -> demographicDao.searchMergedDemographicByDOB("%-01-01", 100, 0, provider, outside),
+                    (provider, outside) -> demographicDao.searchMergedDemographicByPhone(uniquePrefix, 100, 0, provider, outside),
+                    (provider, outside) -> demographicDao.searchMergedDemographicByHIN(uniquePrefix, 100, 0, provider, outside),
+                    (provider, outside) -> demographicDao.searchMergedDemographicByAddress(uniquePrefix, 100, 0, provider, outside));
+            for (var search : searches) {
+                assertThat(search.apply("999998", false)).extracting(Demographic::getDemographicNo)
+                        .containsExactly(first.getDemographicNo());
+                assertThat(search.apply("999997", false)).isEmpty();
+                assertThat(search.apply("999997", true)).extracting(Demographic::getDemographicNo)
+                        .contains(first.getDemographicNo());
+            }
+        }
+
+        @Test
+        @DisplayName("should bind every merge search mode and filter the provider domain")
+        void shouldFindOnlyMatchingPatients_whenSearchingEachMode() {
+            var terms = java.util.Map.of("search_name", uniquePrefix + ",Zulu",
+                    "search_dob", "1882-1-1", "search_phone", uniquePrefix,
+                    "search_hin", first.getHin(), "search_address", uniquePrefix);
+            for (boolean merged : List.of(false, true)) {
+                terms.forEach((mode, term) -> {
+                    var page = new DemographicMergeSearch(mode, term, "last_name", 0, 10, merged);
+                    assertThat(demographicDao.searchForMerge(page, "999998", false))
+                            .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+                    assertThat(demographicDao.searchForMerge(page, "999997", false)).isEmpty();
+                    assertThat(demographicDao.searchForMerge(page, "999997", true))
+                            .extracting(Demographic::getDemographicNo).contains(first.getDemographicNo());
+                });
+            }
+            assertThat(demographicDao.searchForMerge(new DemographicMergeSearch(
+                    "search_dob", "invalid", "last_name", 0, 10, true), "999998", true)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should sort the full merged result before limiting the page")
+        void shouldSortBeforePagination_whenSearchingMergedRecords() {
+            var page = new DemographicMergeSearch("search_name", uniquePrefix, "first_name", 0, 1, true);
+            assertThat(demographicDao.searchForMerge(page, "999998", true))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
+            var next = new DemographicMergeSearch("search_name", uniquePrefix, "first_name", 1, 1, true);
+            assertThat(demographicDao.searchForMerge(next, "999998", true))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(demographicDao.searchForMerge(page, "999998", false))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(demographicDao.searchForMerge(next, "999998", false)).isEmpty();
+            assertThat(demographicDao.searchForMerge(page, null, false)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should sort date of birth by year month and day before limiting results")
+        void shouldUseCompleteBirthDate_whenSortingSearchResults() {
+            var page = new DemographicMergeSearch("search_name", uniquePrefix, "date_of_birth", 0, 1, true);
+            assertThat(demographicDao.searchForMerge(page, "999998", true))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
+            assertThat(demographicDao.searchDemographicByName(uniquePrefix, 1, 0, "dob", null, true))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
+        }
+
+        @Test
+        @DisplayName("should deduplicate phone and cell matches before pagination and apply the domain")
+        void shouldReturnDistinctPhoneMatches_whenPhoneAndCellBothMatch() {
+            createDemographicExt(first.getDemographicNo(), "demo_cell", uniquePrefix);
+            var page = new DemographicMergeSearch("search_phone", uniquePrefix, "demographic_no", 0, 1, false);
+            assertThat(demographicDao.searchForMerge(page, "999998", false))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(demographicDao.searchForMerge(new DemographicMergeSearch(
+                    "search_phone", uniquePrefix, "demographic_no", 1, 1, false), "999998", false)).isEmpty();
+            assertThat(demographicDao.searchDemographicByExtKeyAndValueLike(
+                    DemographicExt.DemographicProperty.demo_cell, uniquePrefix, 10, 0, null, "999998", false))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+        }
+    }
+
 }

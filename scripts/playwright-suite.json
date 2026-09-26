@@ -1472,7 +1472,7 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
+      "env": ["EXPECT_PROGRAM_DOMAIN_RESTRICTION"],
       "fixtures": "Owns a synthetic patient and an unused DOB year; verifies REST count/results, invalid inputs, status and pagination; removes its fixture on success or failure."
     },
     {

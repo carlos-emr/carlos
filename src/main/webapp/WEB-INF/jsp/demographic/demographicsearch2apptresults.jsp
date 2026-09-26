@@ -41,6 +41,7 @@
     @since 2026.08 (contact workflow corrections and contract documentation)
 --%>
 
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -126,8 +127,6 @@
     if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
         originalpage = request.getContextPath() + "/appointment/addappointment";
     }
-    // Choose ? or & depending on whether originalpage already has a query string
-    String originalPageSeparator = originalpage.contains("?") ? "&" : "?";
 
     CarlosProperties props = CarlosProperties.getInstance();
 
@@ -365,9 +364,15 @@
             function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
                 fullname = lastname + "," + firstname;
 
-                document.addform.action = "<carlos:encode value='<%= originalpage %>' context="javaScript"/><%= originalPageSeparator %>" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
-
-                document.addform.submit();
+                const form = document.forms.namedItem("addform");
+                form.action = "<carlos:encode value='<%= originalpage %>' context="javaScript"/>";
+                form.elements.namedItem("demographic_no").value = demographic_no;
+                form.elements.namedItem("chart_no").value = decodeURIComponent(chartno);
+                form.elements.namedItem("name").value = decodeURIComponent(lastname) + "," + decodeURIComponent(firstname);
+                form.elements.namedItem("bFirstDisp").value = "false";
+                form.elements.namedItem("messageID").value = messageID;
+                form.elements.namedItem("doctor_no").value = doctorNo;
+                form.submit();
                 return true;
             }
 
@@ -399,6 +404,14 @@
 
 
         <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<input type="hidden" name="demographic_no" value=""/>
+<input type="hidden" name="chart_no" value=""/>
+<input type="hidden" name="name" value=""/>
+<input type="hidden" name="bFirstDisp" value=""/>
+<input type="hidden" name="messageID" value=""/>
+<input type="hidden" name="doctor_no" value=""/>
+
             <div class="table-responsive">
             <table class="table table-sm table-striped">
                 <tr class="tableHeadings deep">
@@ -539,9 +552,9 @@
                     <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(demo.getFirstName()) %>' context="uriComponent"/></c:set>
                     <c:set var="__enc_6"><carlos:encode value='<%= demo.getChartNo() == null ? "" : demo.getChartNo() %>' context="uriComponent"/></c:set>
                     <td class="demoId">
-                        <input type="submit" class="mbttn btn btn-secondary btn-sm" name="demographic_no"
+                        <input type="button" class="mbttn btn btn-secondary btn-sm" name="pick_demographic"
                                value="<%=demo.getDemographicNo()%>"
-                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
+                               onClick="event.stopPropagation(); <% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
                     </td>
                     <td class="lastName"><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' context="html"/>
                     </td>
@@ -565,7 +578,9 @@
 
                     for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                         temp = e.nextElement().toString();
-                        if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
+                        if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit")
+                            || temp.equals(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenName())
+                            || java.util.Set.of("demographic_no", "chart_no", "name", "bFirstDisp", "messageID", "doctor_no").contains(temp))
                             continue; %>
                 <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
                        value="<carlos:encode value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -616,16 +631,26 @@
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?fromAppt=1&originalPage=<carlos:encode value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&notes=<carlos:encode value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' context="uriComponent"/>&appointment_date=<carlos:encode value='<%= request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "" %>' context="uriComponent"/>&year=<carlos:encode value='<%= request.getParameter("year") != null ? request.getParameter("year") : "" %>' context="uriComponent"/>&month=<carlos:encode value='<%= request.getParameter("month") != null ? request.getParameter("month") : "" %>' context="uriComponent"/>&day=<carlos:encode value='<%= request.getParameter("day") != null ? request.getParameter("day") : "" %>' context="uriComponent"/>&start_time=<carlos:encode value='<%= request.getParameter("start_time") != null ? request.getParameter("start_time") : "" %>' context="uriComponent"/>&end_time=<carlos:encode value='<%= request.getParameter("end_time") != null ? request.getParameter("end_time") : "" %>' context="uriComponent"/>&duration=<carlos:encode value='<%= request.getParameter("duration") != null ? request.getParameter("duration") : "" %>' context="uriComponent"/>&bFirstDisp=false&provider_no=<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="uriComponent"/>&notes=<carlos:encode value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' context="uriComponent"/>&reasonCode=<carlos:encode value='<%= request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "" %>' context="uriComponent"/>&reason=<carlos:encode value='<%= request.getParameter("reason") != null ? request.getParameter("reason") : "" %>' context="uriComponent"/>&location=<carlos:encode value='<%= request.getParameter("location") != null ? request.getParameter("location") : "" %>' context="uriComponent"/>&resources=<carlos:encode value='<%= request.getParameter("resources") != null ? request.getParameter("resources") : "" %>' context="uriComponent"/>&type=<carlos:encode value='<%= request.getParameter("type") != null ? request.getParameter("type") : "" %>' context="uriComponent"/>&style=<carlos:encode value='<%= request.getParameter("style") != null ? request.getParameter("style") : "" %>' context="uriComponent"/>&billing=<carlos:encode value='<%= request.getParameter("billing") != null ? request.getParameter("billing") : "" %>' context="uriComponent"/>&status=<carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/>&createdatetime=<carlos:encode value='<%= request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "" %>' context="uriComponent"/>&creator=<carlos:encode value='<%= request.getParameter("creator") != null ? request.getParameter("creator") : "" %>' context="uriComponent"/>&remarks=<carlos:encode value='<%= request.getParameter("remarks") != null ? request.getParameter("remarks") : "" %>' context="uriComponent"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                <fmt:message key="demographic.search.btnCreateNew"/></a>
+            <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<c:forTokens var="searchField" items="originalPage,search_mode,keyword,notes,appointment_date,year,month,day,start_time,end_time,duration,provider_no,reasonCode,reason,location,resources,type,style,billing,status,createdatetime,creator,remarks" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens><input type="hidden" name="fromAppt" value="1"/><input type="hidden" name="bFirstDisp" value="false"/>
+<button type="submit" class="btn btn-link p-0"><fmt:message key="demographic.search.btnCreateNew"/></button>
+</form>
         </div>
         <%
         } else {
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?fromAppt=1&originalPage=<carlos:encode value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&notes=<carlos:encode value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' context="uriComponent"/>&appointment_date=<carlos:encode value='<%= request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "" %>' context="uriComponent"/>&year=<carlos:encode value='<%= request.getParameter("year") != null ? request.getParameter("year") : "" %>' context="uriComponent"/>&month=<carlos:encode value='<%= request.getParameter("month") != null ? request.getParameter("month") : "" %>' context="uriComponent"/>&day=<carlos:encode value='<%= request.getParameter("day") != null ? request.getParameter("day") : "" %>' context="uriComponent"/>&start_time=<carlos:encode value='<%= request.getParameter("start_time") != null ? request.getParameter("start_time") : "" %>' context="uriComponent"/>&end_time=<carlos:encode value='<%= request.getParameter("end_time") != null ? request.getParameter("end_time") : "" %>' context="uriComponent"/>&duration=<carlos:encode value='<%= request.getParameter("duration") != null ? request.getParameter("duration") : "" %>' context="uriComponent"/>&bFirstDisp=false&provider_no=<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="uriComponent"/>&notes=<carlos:encode value='<%= request.getParameter("notes") != null ? request.getParameter("notes") : "" %>' context="uriComponent"/>&reasonCode=<carlos:encode value='<%= request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "" %>' context="uriComponent"/>&reason=<carlos:encode value='<%= request.getParameter("reason") != null ? request.getParameter("reason") : "" %>' context="uriComponent"/>&location=<carlos:encode value='<%= request.getParameter("location") != null ? request.getParameter("location") : "" %>' context="uriComponent"/>&resources=<carlos:encode value='<%= request.getParameter("resources") != null ? request.getParameter("resources") : "" %>' context="uriComponent"/>&type=<carlos:encode value='<%= request.getParameter("type") != null ? request.getParameter("type") : "" %>' context="uriComponent"/>&style=<carlos:encode value='<%= request.getParameter("style") != null ? request.getParameter("style") : "" %>' context="uriComponent"/>&billing=<carlos:encode value='<%= request.getParameter("billing") != null ? request.getParameter("billing") : "" %>' context="uriComponent"/>&status=<carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/>&createdatetime=<carlos:encode value='<%= request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "" %>' context="uriComponent"/>&creator=<carlos:encode value='<%= request.getParameter("creator") != null ? request.getParameter("creator") : "" %>' context="uriComponent"/>&remarks=<carlos:encode value='<%= request.getParameter("remarks") != null ? request.getParameter("remarks") : "" %>' context="uriComponent"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                <fmt:message key="demographic.search.btnCreateNew"/></a>
+            <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<c:forTokens var="searchField" items="originalPage,search_mode,keyword,notes,appointment_date,year,month,day,start_time,end_time,duration,provider_no,reasonCode,reason,location,resources,type,style,billing,status,createdatetime,creator,remarks" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens><input type="hidden" name="fromAppt" value="1"/><input type="hidden" name="bFirstDisp" value="false"/>
+<button type="submit" class="btn btn-link p-0"><fmt:message key="demographic.search.btnCreateNew"/></button>
+</form>
         </div>
         <%
             }
@@ -635,53 +660,28 @@
         <%
             }
         %>
-        <script language="JavaScript">
 
-            function last() {
-                <c:set var="__enc_7"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_8"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_9"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<carlos:encode value='${__enc_7}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_8}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_9}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_10}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_11}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
-                //document.nextform.submit();
-            }
-
-            function next() {
-                <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_13"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_14"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_15"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_16"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<carlos:encode value='${__enc_12}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_13}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_14}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_15}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_16}' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
-                //document.nextform.submit();
-            }
-
-            //-->
-        </script>
         <a href="#" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
            class="rightButton top">Search</a>
         <div class="bottomBar" style="margin-bottom:10px; margin-top:10px;">
             <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<input type="hidden" name="limit2" value="<%= strLimit2 %>"/>
                 <%
                     if (nLastPage >= 0) {
                 %>
-                <input type="submit" id="prevPageButton" name="submit" class="btn btn-secondary"
-                       value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
-                       onClick="last()">
+                <button type="submit" class="btn btn-secondary" id="prevPageButton" name="limit1" value="<%=nLastPage%>"><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/></button>
                 <%
                     }
 
                     if (rowCounter == limit) {
                 %>
-                <input type="submit" id="nextPageButton" class="btn btn-secondary" name="submit"
-                       value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
-                       onClick="next()">
+                <button type="submit" class="btn btn-secondary" id="nextPageButton" name="limit1" value="<%=nNextPage%>"><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/></button>
                 <%
                     }
                     for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                         temp = e.nextElement().toString();
-                        if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
+                        if (temp.equals("limit1") || temp.equals("limit2") || temp.equals(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenName()) || temp.equals("submit") || temp.equals("chart_no"))
                             continue; %>
                 <input type='hidden' name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
                        value="<carlos:encode value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>

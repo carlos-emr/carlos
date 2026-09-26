@@ -113,7 +113,7 @@ function sql(query) {
       searchPage.locator("input[type='submit']").first().click(),
     ]);
     await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await searchPage.locator("a[href*='ViewDemographicAddARecordHtm']").first().click();
+    await searchPage.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first().click();
     await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(searchPage, 'add-demographic form');
 

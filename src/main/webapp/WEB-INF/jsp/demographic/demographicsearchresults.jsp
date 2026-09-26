@@ -39,6 +39,7 @@
     audit history is retained. Patient-specific access remains with destination actions.
     @since 2026.08 (recent-patient corrections and contract documentation)
 --%>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -138,13 +139,6 @@
         keyword = SafeEncode.forJava(request.getParameter("keyword"));
     }
     String orderBy = request.getParameter("orderby");
-
-    // Pre-encode request parameters used repeatedly in sort and pagination links.
-    // Each is null-safe (noNull converts null to "") and URI-component-encoded.
-    String encKeyword = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")));
-    String encDisplayMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")));
-    String encSearchMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")));
-    String encDbOperation = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")));
 
     String ptStatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
     ;
@@ -267,6 +261,26 @@
         </div>
 
 
+<form id="search-sort" method="post" action="${pageContext.request.contextPath}/demographic/DemographicSearch">
+    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+    <c:forTokens var="searchField" items="keyword,search_mode,displaymode,dboperation,fromMessenger,outofdomain" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+    <input type="hidden" name="limit2" value="<%=limit%>"/>
+    <input type="hidden" name="ptstatus" value="${carlos:forHtmlAttribute(empty param.ptstatus ? 'active' : param.ptstatus)}"/>
+    <input type="hidden" name="limit1" value="0"/>
+</form>
+<form id="search-page" method="post" action="${pageContext.request.contextPath}/demographic/DemographicSearch">
+    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+    <c:forTokens var="searchField" items="keyword,search_mode,displaymode,dboperation,fromMessenger,outofdomain" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+    <input type="hidden" name="limit2" value="<%=limit%>"/>
+    <input type="hidden" name="ptstatus" value="${carlos:forHtmlAttribute(empty param.ptstatus ? 'active' : param.ptstatus)}"/>
+    <c:forTokens var="searchField" items="orderby" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+</form>
         <div id="searchResults">
             <a href="javascript:void(0)" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
                class="rightButton top">Search</a>
@@ -277,51 +291,34 @@
             <table id="patientResults" class="table table-sm table-striped">
                 <tr class="tableHeadings deep">
 
-                    <%
-                        // Common search-link prefix shared by all column sort headers.
-                        // Only the "orderby" value changes per column.
-                        String sortBase = "DemographicSearch?fromMessenger=" + fromMessenger
-                            + "&keyword=" + encKeyword
-                            + "&displaymode=" + encDisplayMode
-                            + "&search_mode=" + encSearchMode
-                            + "&dboperation=" + encDbOperation;
-                        String sortSuffix = "&limit1=0&limit2=" + strLimit + "&ptstatus=" + SafeEncode.forUriComponent(ptStatus);
-                    %>
+
                     <% if (fromMessenger) {%>
                     <!-- leave blank -->
                     <th class="demoIdSearch">
-                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="demographic_no"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></button>
                     </th>
                     <%} else {%>
                     <th class="demoIdSearch">
-                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="demographic_no"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></button>
                     </th>
                     <th class="links"><fmt:message key="demographic.demographicsearchresults.module"/></th>
 
                     <%}%>
-                    <th class="name"><a
-                            href="<%=sortBase%>&orderby=last_name<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></a>
+                    <th class="name"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="last_name"><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></button>
                     </th>
-                    <th class="chartNo"><a
-                            href="<%=sortBase%>&orderby=chart_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnChart"/></a>
+                    <th class="chartNo"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="chart_no"><fmt:message key="demographic.demographicsearchresults.btnChart"/></button>
                     </th>
-                    <th class="sex"><a
-                            href="<%=sortBase%>&orderby=sex<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnSex"/></a>
+                    <th class="sex"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="sex"><fmt:message key="demographic.demographicsearchresults.btnSex"/></button>
                     </th>
-                    <th class="dob"><a
-                            href="<%=sortBase%>&orderby=dob<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></a>
+                    <th class="dob"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="dob"><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></button>
                     </th>
-                    <th class="doctor"><a
-                            href="<%=sortBase%>&orderby=provider_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></a>
+                    <th class="doctor"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="provider_no"><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></button>
                     </th>
-                    <th class="rosterStatus"><a
-                            href="<%=sortBase%>&orderby=roster_status<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></a>
+                    <th class="rosterStatus"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="roster_status"><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></button>
                     </th>
-                    <th class="patientStatus"><a
-                            href="<%=sortBase%>&orderby=patient_status<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></a>
+                    <th class="patientStatus"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="patient_status"><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></button>
                     </th>
-                    <th class="phone"><a
-                            href="<%=sortBase%>&orderby=phone<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnPhone"/></a>
+                    <th class="phone"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="phone"><fmt:message key="demographic.demographicsearchresults.btnPhone"/></button>
                     </th>
                 </tr>
 
@@ -502,33 +499,28 @@
                 nNextPage = Integer.parseInt(strLimit) + Integer.parseInt(strOffset);
                 nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
 
-                // Pagination links use local variables (already extracted from request params above)
-                String pageBase = "DemographicSearch?fromMessenger=" + fromMessenger
-                    + "&keyword=" + SafeEncode.forUriComponent(StringUtils.noNull(keyword))
-                    + "&search_mode=" + SafeEncode.forUriComponent(StringUtils.noNull(searchMode))
-                    + "&displaymode=" + SafeEncode.forUriComponent(StringUtils.noNull(displayMode))
-                    + "&dboperation=" + SafeEncode.forUriComponent(StringUtils.noNull(dboperation))
-                    + "&orderby=" + SafeEncode.forUriComponent(StringUtils.noNull(orderBy));
-
                 if (nLastPage >= 0) {
             %>
-            <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
-                <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
+            <button type="submit" class="btn btn-link p-0" form="search-page" name="limit1" value="<%=nLastPage%>">
+                <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></button> <%
             }
             if (nItems >= Integer.parseInt(strLimit)) {
                 if (nLastPage >= 0) {
         %> | <% } %>
-            <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
-                <fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
+            <button type="submit" class="btn btn-link p-0" form="search-page" name="limit1" value="<%=nNextPage%>">
+                <fmt:message key="demographic.demographicsearchresults.btnNextPage"/></button>
             <%
                 }
             %>
             <br>
             <div class="createNew">
-                <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?search_mode=<carlos:encode value='<%= StringUtils.noNull(searchMode) %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= StringUtils.noNull(keyWord) %>' context="uriComponent"/>"
-                   title="<fmt:message key="demographic.search.btnCreateNewTitle"/>">
-                    <fmt:message key="demographic.search.btnCreateNew"/>
-                </a>
+                <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<c:forTokens var="searchField" items="search_mode,keyword" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+<button type="submit" class="btn btn-link p-0" title="<fmt:message key="demographic.search.btnCreateNewTitle"/>"><fmt:message key="demographic.search.btnCreateNew"/></button>
+</form>
             </div>
 
             <caisi:isModuleLoad moduleName="caisi">

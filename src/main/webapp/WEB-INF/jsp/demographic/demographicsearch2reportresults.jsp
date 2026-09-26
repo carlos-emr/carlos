@@ -23,6 +23,7 @@
 
 --%>
 
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -81,8 +82,6 @@
     if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
         originalpage = request.getContextPath() + "/appointment/addappointment";
     }
-    // Choose ? or & depending on whether originalpage already has a query string
-    String originalPageSeparator = originalpage.contains("?") ? "&" : "?";
 
 %>
 
@@ -142,16 +141,22 @@
     <%-- RJ 07/10/2006 Need to pass doctor of patient back to referrer --%>
 
     function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
-        fullname = lastname + "," + firstname;
-        document.addform.action = "<carlos:encode value='<%= originalpage %>' context="javaScript"/><%= originalPageSeparator %>demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
-        document.addform.submit();
+        fullname = decodeURIComponent(lastname) + "," + decodeURIComponent(firstname);
+        const form = document.forms.namedItem("addform");
+        form.action = "<carlos:encode value='<%= originalpage %>' context="javaScript"/>";
+        form.elements.namedItem("demographic_no").value = demographic_no;
+        form.elements.namedItem("chart_no").value = decodeURIComponent(chartno);
+        form.elements.namedItem("demographicNoParam").value = demographic_no;
+        form.elements.namedItem("firstNameParam").value = decodeURIComponent(firstname);
+        form.elements.namedItem("lastNameParam").value = decodeURIComponent(lastname);
+        form.submit();
         return true;
     }
 
     <%if(caisi) {%>
 
     function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
-        fullname = lastname + "," + firstname;
+        fullname = decodeURIComponent(lastname) + "," + decodeURIComponent(firstname);
         if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'] != null) {
             if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'].
             elements['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' context="javaScriptBlock"/>'] != null
@@ -173,10 +178,15 @@
 </SCRIPT>
 
 <CENTER>
-    <table width="100%" border="0" cellpadding="0" cellspacing="1"
-           bgcolor="#C0C0C0">
-        <form method="post" name="addform"
-              action="<%= request.getContextPath() %>/appointment/addappointment">
+    <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<input type="hidden" name="demographic_no" value=""/>
+<input type="hidden" name="chart_no" value=""/>
+<input type="hidden" name="demographicNoParam" value=""/>
+<input type="hidden" name="firstNameParam" value=""/>
+<input type="hidden" name="lastNameParam" value=""/>
+
+    <table width="100%" border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
             <tr class="title">
                 <TH width="20%"><b><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/></b></TH>
                 <TH width="20%"><b><fmt:message key="demographic.demographicsearch2apptresults.lastName"/></b></TH>
@@ -222,8 +232,8 @@
                 <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(demo.getLastName()) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(demo.getFirstName()) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.noNull(demo.getChartNo()) %>' context="uriComponent"/></c:set>
-                <td><input type="submit" class="mbttn" name="demographic_no" value="<%=demo.getDemographicNo()%>"
-                           onClick="<% if(caisi) {out.print("addNameCaisi");}
+                <td><input type="button" class="mbttn" name="pick_demographic" value="<%=demo.getDemographicNo()%>"
+                           onClick="event.stopPropagation(); <% if(caisi) {out.print("addNameCaisi");}
 					else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
                 </td>
                 <td><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' context="html"/>
@@ -253,16 +263,17 @@
                 String temp = null;
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     temp = e.nextElement().toString();
-                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
+                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit")
+                            || temp.equals(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenName())
+                            || java.util.Set.of("demographic_no", "chart_no", "demographicNoParam", "firstNameParam", "lastNameParam").contains(temp))
                         continue;
                     out.println("<input type='hidden' name='" + SafeEncode.forHtmlAttribute(temp) + "' value='" + SafeEncode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
                 }
 
                 //should close the pipe connected to the database here!!!
             %>
-        </form>
-
     </table>
+    </form>
     <%
         int nLastPage = 0, nNextPage = 0;
         nNextPage = Integer.parseInt(strLimit) + Integer.parseInt(strOffset);
@@ -273,49 +284,32 @@
         if (nItems == 0 && nLastPage <= 0) {
     %> <caisi:isModuleLoad moduleName="caisi" reverse="true">
     <fmt:message key="demographic.search.noResultsWereFound"/>
-    <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?search_mode=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/>"><fmt:message key="demographic.search.btnCreateNew"/></a>
+    <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<c:forTokens var="searchField" items="search_mode,keyword" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+<button type="submit" class="btn btn-link p-0"><fmt:message key="demographic.search.btnCreateNew"/></button>
+</form>
 </caisi:isModuleLoad> <%
     }
 %>
-    <script language="JavaScript">
-        <!--
-        function last() {
-            <c:set var="__enc_7"><carlos:encode value='<%= originalpage %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_8"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_9"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults?originalpage=<carlos:encode value='${__enc_7}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_8}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_9}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_10}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
-            //document.nextform.submit();
-        }
 
-        function next() {
-            <c:set var="__enc_11"><carlos:encode value='<%= originalpage %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_13"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_14"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults?originalpage=<carlos:encode value='${__enc_11}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_12}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_13}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_14}' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
-            //document.nextform.submit();
-        }
-
-        //-->
-    </SCRIPT>
 
     <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<input type="hidden" name="limit2" value="<%= strLimit %>"/>
         <%
             if (nLastPage >= 0) {
-        %> <input type="submit" class="mbttn" name="submit"
-                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
-                  onClick="last()"> <%
+        %> <button type="submit" class="btn btn-secondary" id="prevPageButton" name="limit1" value="<%=nLastPage%>"><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/></button> <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
-    %> <input type="submit" class="mbttn" name="submit"
-              value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
-              onClick="next()"> <%
+    %> <button type="submit" class="btn btn-secondary" id="nextPageButton" name="limit1" value="<%=nNextPage%>"><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/></button> <%
         }
     %> <%
         for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
             temp = e.nextElement().toString();
-            if (temp.equals("submit") || temp.equals("chart_no")) continue;
+            if (temp.equals("limit1") || temp.equals("limit2") || temp.equals(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenName()) || temp.equals("submit") || temp.equals("chart_no")) continue;
             out.println("<input type='hidden' name='" + SafeEncode.forHtmlAttribute(temp) + "' value='" + SafeEncode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
 
         }
