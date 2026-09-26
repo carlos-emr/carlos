@@ -54,7 +54,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -203,8 +202,9 @@ public final class DbTicklerAdd2Action extends ActionSupport {
                         : docId.trim();
                 submitted.computeIfAbsent(forwardedType, type -> new LinkedHashSet<>()).add(forwardedId);
             } else if (docType != null && !docType.trim().isEmpty()) {
-                MiscUtils.getLogger().warn("Ignoring unknown forwarded docType for ticklerNo={}: {}",
-                        ticklerNo, LogSafe.sanitize(docType));
+                // The code itself is request input and adds nothing operationally, so it stays out
+                // of the log line; the tickler id is enough to trace the forward.
+                MiscUtils.getLogger().warn("Ignoring unknown forwarded docType for ticklerNo={}", ticklerNo);
                 ticklerLinkFailed = true;
             }
             if (!submitted.isEmpty()) {

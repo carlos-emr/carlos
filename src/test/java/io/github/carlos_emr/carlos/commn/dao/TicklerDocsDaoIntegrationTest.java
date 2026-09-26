@@ -217,9 +217,9 @@ class TicklerDocsDaoIntegrationTest extends CarlosTestBase {
             TicklerDocs lab = persistAttachment(TICKLER_ID, 77, TicklerDocs.DOCTYPE_LAB, "HL7");
             persistAttachment(TICKLER_ID + 1, 33, TicklerDocs.DOCTYPE_DOC, null);
 
-            attachment.setDeleted(TicklerDocs.DELETED);
+            attachment.setDeleted(TicklerDocs.DELETED_FLAG);
             ticklerDocsDao.merge(attachment);
-            lab.setDeleted(TicklerDocs.DELETED);
+            lab.setDeleted(TicklerDocs.DELETED_FLAG);
             ticklerDocsDao.merge(lab);
             entityManager.flush();
 

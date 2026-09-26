@@ -41,7 +41,7 @@ import jakarta.persistence.TemporalType;
  * <p>Tickler counterpart of {@link ConsultDocs} and {@link EFormDocs}; it backs the shared
  * attachment picker ({@code documentManager/attachDocument.jsp}) and supersedes the
  * single-link {@link TicklerLink} store, which is kept read-only for one release.
- * Detached attachments are soft-deleted by setting {@link #deleted} to {@link #DELETED}.</p>
+ * Detached attachments are soft-deleted by setting {@link #deleted} to {@link #DELETED_FLAG}.</p>
  *
  * <p>Unlike the consult/eForm stores, a lab attachment also records its originating lab
  * source ({@link #labType}: HL7, MDS, CML or BCP). Lab identifiers are only unique within
@@ -58,7 +58,7 @@ public class TicklerDocs extends AbstractModel<Integer> {
     public static final String DOCTYPE_LAB = "L";
     public static final String DOCTYPE_FORM = "F";
     public static final String DOCTYPE_HRM = "H";
-    public static final String DELETED = "Y";
+    public static final String DELETED_FLAG = "Y";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

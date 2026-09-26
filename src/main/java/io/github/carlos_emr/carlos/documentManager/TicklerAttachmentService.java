@@ -199,7 +199,7 @@ public class TicklerAttachmentService {
             for (Map.Entry<AttachmentRef, TicklerDocs> storedEntry : existing.entrySet()) {
                 if (!wanted.contains(storedEntry.getKey())) {
                     TicklerDocs storedDoc = storedEntry.getValue();
-                    storedDoc.setDeleted(TicklerDocs.DELETED);
+                    storedDoc.setDeleted(TicklerDocs.DELETED_FLAG);
                     ticklerDocsDao.merge(storedDoc);
                     audit(loggedInInfo, LogConst.DELETE, tickler, documentType, storedDoc.getDocumentNo());
                 }

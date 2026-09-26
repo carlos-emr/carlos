@@ -317,7 +317,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
 
-            assertThat(removed.getDeleted()).isEqualTo(TicklerDocs.DELETED);
+            assertThat(removed.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
             assertThat(kept.getDeleted()).isNull();
             verify(ticklerDocsDao).merge(removed);
             verify(ticklerDocsDao, never()).persist(any());

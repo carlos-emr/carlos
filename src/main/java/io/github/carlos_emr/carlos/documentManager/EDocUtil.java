@@ -894,8 +894,9 @@ public final class EDocUtil {
         }
 
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
-        if (d != null) {
-            d.setStatus(status.toCharArray()[0]);
+        // A missing or blank control-row status cannot be indexed; leave the document as is.
+        if (d != null && status != null && !status.isEmpty()) {
+            d.setStatus(status.charAt(0));
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
             getDocumentDao().merge(d);
         }

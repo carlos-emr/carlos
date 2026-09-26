@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -72,7 +73,7 @@ public class EditTickler2Action extends ActionSupport {
     public String execute() {
         // Both dispatch targets mutate; refuse GET/HEAD (and every other verb) before dispatch so
         // a link or image tag can never update a tickler or its suggested texts.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             response.setHeader("Allow", "POST");
             return NONE;
@@ -227,11 +228,13 @@ public class EditTickler2Action extends ActionSupport {
             try {
                 ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request));
             } catch (SecurityException | IllegalArgumentException e) {
-                logger.warn("Refused tickler attachments: ticklerNo={}: {}", ticklerNo, e.getMessage());
+                logger.warn("Refused tickler attachments: ticklerNo={}: {}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
                 addActionError(getText("tickler.ticklerEdit.attachments.error"));
                 return "error";
             } catch (Exception e) {
-                logger.error("Failed to store tickler attachments: ticklerNo={}", ticklerNo, e);
+                logger.error("Failed to store tickler attachments: ticklerNo={}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), e);
                 addActionError(getText("tickler.ticklerEdit.attachments.error"));
                 return "error";
             }
