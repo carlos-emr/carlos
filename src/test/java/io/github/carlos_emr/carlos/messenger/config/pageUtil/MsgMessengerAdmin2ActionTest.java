@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.messenger.config.pageUtil;
 
-import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -79,8 +78,6 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
     private MessengerGroupManager mockGroupManager;
     @Mock
     private GroupsDao mockGroupsDao;
-    @Mock
-    private GroupMembersDao mockGroupMembersDao;
 
     private MsgMessengerAdmin2Action action;
 
@@ -90,7 +87,6 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(MessengerGroupManager.class, mockGroupManager);
         replaceSpringUtilsBean(GroupsDao.class, mockGroupsDao);
-        replaceSpringUtilsBean(GroupMembersDao.class, mockGroupMembersDao);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
@@ -100,7 +96,6 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         inject("securityInfoManager", mockSecurityInfoManager);
         inject("messengerGroupManager", mockGroupManager);
         inject("groupsDao", mockGroupsDao);
-        inject("groupMembersDao", mockGroupMembersDao);
     }
 
     private void inject(String field, Object value) throws Exception {
@@ -169,13 +164,15 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         allowPrivilege("_admin", "w");
         getMockRequest().setMethod("POST");
         addRequestParameter("method", "add");
-        addRequestParameter("member", "1:" + TEST_PROVIDER);
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
         addRequestParameter("group", "7");
 
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenReturn(new MessengerGroupManager.AddMemberResult(1, true));
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        verify(mockGroupManager).addMember(any(), any(), eq(7));
+        verify(mockGroupManager).addMemberIfAbsent(any(), any(), eq(7));
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(getMockResponse().getContentType()).startsWith("application/json");
         assertThat(getMockResponse().getContentAsString()).isEqualTo("{\"success\":true}");
@@ -189,14 +186,15 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         addRequestParameter("method", "add");
         addRequestParameter("member", TEST_PROVIDER + "-0-1");
         addRequestParameter("group", "7");
-        when(mockGroupManager.isGroupMember(any(), any(), eq(7))).thenReturn(true);
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenReturn(new MessengerGroupManager.AddMemberResult(1, false));
 
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
         assertThat(getMockResponse().getContentAsString()).contains("\"reason\":\"duplicate\"");
-        verify(mockGroupManager, never()).addMember(any(), any(), anyInt());
+        verify(mockGroupManager).addMemberIfAbsent(any(), any(), eq(7));
     }
 
     @ParameterizedTest
@@ -214,6 +212,52 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         verifyNoInteractions(mockGroupManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc-def", "-9-0-145", " ", "123-", "123--1", "123-0-1-2-3",
+            "123-2147483648", "123-0-2147483648", "123-0-1-2147483648", "1234567", "123-0-x"})
+    void shouldRejectMalformedMember_withoutManagerCalls(String member) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", member);
+        addRequestParameter("group", "7");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        assertThat(getMockResponse().getContentAsString()).contains("\"reason\":\"invalid\"");
+        verifyNoInteractions(mockGroupManager);
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenGroupWasDeleted() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
+        addRequestParameter("group", "7");
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenThrow(new MessengerGroupManager.UnknownGroupException());
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void shouldPreserveAllFourContactComponents() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", "123-4-145-6");
+        addRequestParameter("group", "7");
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenReturn(new MessengerGroupManager.AddMemberResult(1, true));
+        executeAction(action);
+        var contact = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.messenger.data.ContactIdentifier.class);
+        verify(mockGroupManager).addMemberIfAbsent(any(), contact.capture(), eq(7));
+        assertThat(contact.getValue().getContactId()).isEqualTo("123");
+        assertThat(contact.getValue().getFacilityId()).isEqualTo(4);
+        assertThat(contact.getValue().getClinicLocationNo()).isEqualTo(145);
+        assertThat(contact.getValue().getGroupId()).isEqualTo(6);
     }
 
     @Test

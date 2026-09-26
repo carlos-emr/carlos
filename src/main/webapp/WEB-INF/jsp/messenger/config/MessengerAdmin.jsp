@@ -153,22 +153,36 @@
                  * @param {string} memberId - The ID of the provider to add
                  * @param {string} groupId - The ID of the group to add the member to
                  */
-                function addMember(memberId, groupId) {
+                function showMembershipError() {
+                    $('#membership-error').removeClass('d-none');
+                }
+
+                function addMember(memberId, groupId, checkbox) {
+                    $('#membership-error').addClass('d-none');
+                    if (checkbox) $(checkbox).prop('disabled', true);
                     $.post(ctx + "/messenger?method=add&member=" + encodeURIComponent(memberId)
                             + "&group=" + encodeURIComponent(groupId)).done(function () {
                         // Reload the group member list to show the new member. Load the list's
                         // children, not the list itself, so the reload does not nest a second
                         // element with the same id inside the first.
-                        $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId + ' > *');
+                        $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId + ' > *', function (_body, status) {
+                            if (status === 'error') showMembershipError();
+                        });
                         // Check the appropriate checkbox in the member list display
                         $("div#addContacts input[type='checkbox'][value^='" + memberId + "']").prop("checked", true);
                     }).fail(function (xhr) {
                         // 409: the server refused a second membership row for this contact.
                         // For the general registry (group 0) the checkbox already shows the
                         // right state; for a named group, tell the administrator.
-                        if (xhr.status === 409 && String(groupId) !== "0") {
-                            showDuplicateMember(groupId, true);
+                        if (xhr.status === 409) {
+                            if (String(groupId) !== "0") showDuplicateMember(groupId, true);
+                            if (checkbox) $(checkbox).prop('checked', true);
+                        } else {
+                            if (checkbox) $(checkbox).prop('checked', false);
+                            showMembershipError();
                         }
+                    }).always(function () {
+                        if (checkbox) $(checkbox).prop('disabled', false);
                     });
                 }
 
@@ -303,7 +317,7 @@
                     // so a direct binding is fine here.
                     $("input:checkbox").on("change", function () {
                         if (this.checked) {
-                            addMember(this.value, 0);
+                            addMember(this.value, 0, this);
                         } else {
                             removeMember(this.value, 0)
                         }
@@ -354,6 +368,7 @@
         <body>
 
         <div class="container-fluid">
+            <div id="membership-error" class="alert alert-danger d-none" role="alert"><fmt:message key="messenger.config.MessengerAdmin.updateFailed"/></div>
 
             <div class="navbar">
                 <div class="container-fluid">

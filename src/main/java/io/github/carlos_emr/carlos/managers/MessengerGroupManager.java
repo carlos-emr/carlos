@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 
@@ -357,17 +358,26 @@ public class MessengerGroupManager {
      * @param groupId
      * @return
      */
+    @Transactional
     public boolean removeGroup(LoggedInInfo loggedInInfo, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
+        groupMembersDao.lockMembershipChanges();
         boolean removed = false;
         if (groupsDao.remove(groupId)) {
             // remove all members from this group id
-            List<GroupMembers> groupMembers = groupMembersDao.findByGroupId(groupId);
+            List<GroupMembers> groupMembers = groupMembersDao.findMembershipsForUpdate(groupId, null);
             for (GroupMembers groupMember : groupMembers) {
-                groupMember.setGroupId(0);
-                groupMembersDao.merge(groupMember);
+                ContactIdentifier contact = new ContactIdentifier();
+                contact.setContactId(groupMember.getProviderNo());
+                contact.setFacilityId(groupMember.getFacilityId());
+                if (groupMembersDao.findMembershipsForUpdate(0, contact).isEmpty()) {
+                    groupMember.setGroupId(0);
+                    groupMembersDao.merge(groupMember);
+                } else {
+                    groupMembersDao.remove(groupMember.getId());
+                }
             }
 
             removed = Boolean.TRUE;
@@ -375,58 +385,62 @@ public class MessengerGroupManager {
         return removed;
     }
 
-    /**
-     * Make a provider into a Messenger member. Adding to a group is
-     * optional
-     *
-     * <p>Idempotent: when the contact is already a member of {@code groupId} no row is
-     * written and the existing membership id is returned. Callers that need to tell the
-     * user "already a member" should ask {@link #isGroupMember} first.</p>
-     *
-     * @param loggedInInfo
-     * @param contactIdentifier
-     * @param groupId
-     * @return group member ID (the existing one when the contact was already a member)
-     */
+    /** Replace legacy group selections under the same lock used by modern add/remove. */
+    @Transactional
+    public void replaceGroupMembers(LoggedInInfo info, int groupId, String[] providers) {
+        if (!securityInfoManager.hasPrivilege(info, "_admin", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+        groupMembersDao.lockMembershipChanges();
+        for (GroupMembers member : groupMembersDao.findMembershipsForUpdate(groupId, null)) {
+            groupMembersDao.remove(member.getId());
+        }
+        if (providers != null) {
+            for (String provider : new LinkedHashSet<>(Arrays.asList(providers))) {
+                ContactIdentifier contact = new ContactIdentifier();
+                contact.setContactId(provider);
+                addMemberIfAbsent(info, contact, groupId);
+            }
+        }
+    }
+
+    public static class UnknownGroupException extends IllegalArgumentException {
+        public UnknownGroupException() { super("Messenger group no longer exists"); }
+    }
+
+    /** Result of the atomic membership operation, including whether this request inserted it. */
+    public record AddMemberResult(int id, boolean created) { }
+
+    /** Compatibility entry point: return the existing id on a duplicate. */
+    @Transactional
     public int addMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
+        return addMemberIfAbsent(loggedInInfo, contactIdentifier, groupId).id();
+    }
+
+    /** Atomically create a membership and its registry entry, or report an existing membership. */
+    @Transactional
+    public AddMemberResult addMemberIfAbsent(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
+        groupMembersDao.lockMembershipChanges();
+        if (groupId != 0 && groupsDao.findForUpdate(groupId) == null) throw new UnknownGroupException();
+        List<GroupMembers> existing = groupMembersDao.findMembershipsForUpdate(groupId, contactIdentifier);
+        if (!existing.isEmpty()) return new AddMemberResult(existing.getFirst().getId(), false);
 
-        /*
-         * groupMembers_tbl has no unique key on (facilityId, member_id, groupID), so this
-         * check is the only thing preventing a second row for the same contact. A duplicate
-         * row makes group messages fan out twice to the same recipient. Re-adding an
-         * existing member is therefore a no-op that answers the existing row's id.
-         */
-        GroupMembers existing = findMembership(contactIdentifier, groupId);
-        if (existing != null) {
-            logger.debug("Messenger member already present in group {}; skipping insert", groupId);
-            return existing.getId();
+        GroupMembers member = new GroupMembers();
+        member.setFacilityId(contactIdentifier.getFacilityId());
+        member.setGroupId(groupId);
+        member.setProviderNo(contactIdentifier.getContactId());
+        member.setClinicLocationNo(contactIdentifier.getClinicLocationNo());
+        if (groupId > 0 && groupMembersDao.findMembershipsForUpdate(0, contactIdentifier).isEmpty()) {
+            GroupMembers registered = new GroupMembers();
+            BeanUtils.copyProperties(member, registered);
+            registered.setGroupId(0);
+            groupMembersDao.persist(registered);
         }
-
-        GroupMembers groupMembers = new GroupMembers();
-        groupMembers.setFacilityId(contactIdentifier.getFacilityId());
-        groupMembers.setGroupId(groupId);
-        groupMembers.setProviderNo(contactIdentifier.getContactId());
-        groupMembers.setClinicLocationNo(contactIdentifier.getClinicLocationNo());
-
-        /*
-         * A general membership registry with group id=0
-         * needs to be added if this member was added directly into a group.
-         * Indicated by a groupId greater than 0.
-         * But first check if the general membership exists before adding.
-         */
-        if (groupId > 0 && findMembership(contactIdentifier, 0) == null) {
-            GroupMembers registeredMember = new GroupMembers();
-            BeanUtils.copyProperties(groupMembers, registeredMember);
-            registeredMember.setGroupId(0);
-            groupMembersDao.persist(registeredMember);
-        }
-
-        groupMembersDao.persist(groupMembers);
-
-        return groupMembers.getId();
+        groupMembersDao.persist(member);
+        return new AddMemberResult(member.getId(), true);
     }
 
     /**
@@ -437,12 +451,14 @@ public class MessengerGroupManager {
      * @param contactIdentifier
      * @return
      */
+    @Transactional
     public boolean removeMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        List<GroupMembers> groupMembers = groupMembersDao.findByProviderNumberAndFacilityId(contactIdentifier.getContactId(), contactIdentifier.getFacilityId());
+        groupMembersDao.lockMembershipChanges();
+        List<GroupMembers> groupMembers = groupMembersDao.findMembershipsForUpdate(null, contactIdentifier);
         boolean removed = false;
         for (GroupMembers groupMember : groupMembers) {
             removed = groupMembersDao.remove(groupMember.getId());
@@ -454,12 +470,14 @@ public class MessengerGroupManager {
      * Remove a messenger member from any given group.
      * Does not remove member from other groups or from the main messenger membership registry.
      */
+    @Transactional
     public boolean removeGroupMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        List<GroupMembers> groupMembers = groupMembersDao.findGroupMember(contactIdentifier.getContactId(), contactIdentifier.getGroupId());
+        groupMembersDao.lockMembershipChanges();
+        List<GroupMembers> groupMembers = groupMembersDao.findMembershipsForUpdate(contactIdentifier.getGroupId(), contactIdentifier);
         boolean removed = false;
         for (GroupMembers groupMember : groupMembers) {
             removed = groupMembersDao.remove(groupMember.getId());

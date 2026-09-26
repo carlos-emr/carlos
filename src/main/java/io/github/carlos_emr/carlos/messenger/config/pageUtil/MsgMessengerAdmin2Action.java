@@ -29,9 +29,7 @@
 
 package io.github.carlos_emr.carlos.messenger.config.pageUtil;
 
-import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
-import io.github.carlos_emr.carlos.commn.model.GroupMembers;
 import io.github.carlos_emr.carlos.commn.model.Groups;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -46,6 +44,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.LinkedHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.ResourceBundle;
 
@@ -85,11 +85,11 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final ObjectMapper JSON = new ObjectMapper();
     private static final Logger logger = MiscUtils.getLogger();
 
     private MessengerGroupManager messengerGroupManager = SpringUtils.getBean(MessengerGroupManager.class);
     private GroupsDao groupsDao = SpringUtils.getBean(GroupsDao.class);
-    private GroupMembersDao groupMembersDao = SpringUtils.getBean(GroupMembersDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
@@ -195,8 +195,8 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      *   <li>{@code 409 {"success":false,"reason":"duplicate"}} when the contact is already
      *       in that group, so the page can say so instead of silently writing a second row
      *       (a duplicate row delivers every group message twice);</li>
-     *   <li>{@code 400 {"success":false,"reason":"invalid"}} when {@code member} is missing or
-     *       {@code group} is not a non-negative integer.</li>
+     *   <li>{@code 400 {"success":false,"reason":"invalid"}} when {@code member} is malformed or
+     *       {@code group} is invalid or no longer exists.</li>
      * </ul>
      * 
      * Request parameter "member": The composite member ID to add.
@@ -210,18 +210,34 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String memberId = request.getParameter("member");
         Integer groupId = parseGroupId(request.getParameter("group"));
-        if (memberId == null || memberId.isEmpty() || groupId == null) {
-            return writeAddResult(HttpServletResponse.SC_BAD_REQUEST, "{\"success\":false,\"reason\":\"invalid\"}");
+        ContactIdentifier contactIdentifier = parseMemberId(memberId);
+        if (contactIdentifier == null || groupId == null) {
+            return writeAddResult(HttpServletResponse.SC_BAD_REQUEST, "invalid");
         }
+        try {
+            var result = messengerGroupManager.addMemberIfAbsent(loggedInInfo, contactIdentifier, groupId);
+            return result.created() ? writeAddResult(HttpServletResponse.SC_OK, null)
+                    : writeAddResult(HttpServletResponse.SC_CONFLICT, "duplicate");
+        } catch (MessengerGroupManager.UnknownGroupException e) {
+            return writeAddResult(HttpServletResponse.SC_BAD_REQUEST, "invalid");
+        }
+    }
 
-        // Parse the composite ID which contains contact type and identifier
-        ContactIdentifier contactIdentifier = new ContactIdentifier(memberId);
-        if (messengerGroupManager.isGroupMember(loggedInInfo, contactIdentifier, groupId)) {
-            return writeAddResult(HttpServletResponse.SC_CONFLICT, "{\"success\":false,\"reason\":\"duplicate\"}");
+    private static ContactIdentifier parseMemberId(String value) {
+        // Provider numbers occupy a six-character column; optional numeric components
+        // are facility, clinic location and group. Reject negative-provider ambiguity.
+        if (value == null || !value.matches("[A-Za-z0-9_]{1,6}(?:-[0-9]+){0,3}")) return null;
+        String[] parts = value.split("-");
+        try {
+            ContactIdentifier id = new ContactIdentifier();
+            id.setContactId(parts[0]);
+            if (parts.length > 1) id.setFacilityId(Integer.parseInt(parts[1]));
+            if (parts.length > 2) id.setClinicLocationNo(Integer.parseInt(parts[2]));
+            if (parts.length > 3) id.setGroupId(Integer.parseInt(parts[3]));
+            return id;
+        } catch (NumberFormatException e) {
+            return null;
         }
-        // addMember is itself idempotent, which covers a double-click racing past the check above.
-        messengerGroupManager.addMember(loggedInInfo, contactIdentifier, groupId);
-        return writeAddResult(HttpServletResponse.SC_OK, "{\"success\":true}");
     }
 
     /**
@@ -241,11 +257,15 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         }
     }
 
-    private String writeAddResult(int status, String json) throws java.io.IOException {
+    private String writeAddResult(int status, String reason) throws java.io.IOException {
         response.setStatus(status);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().write(json);
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", status == HttpServletResponse.SC_OK);
+        if (reason != null) result.put("reason", reason);
+        JSON.writeValue(response.getWriter(), result);
         return NONE;
     }
 
@@ -361,16 +381,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
             return "failure";
         }
 
-        // Remove all members from the group first
-        for (GroupMembers g : groupMembersDao.findByGroupId(Integer.parseInt(grpNo))) {
-            groupMembersDao.remove(g.getId());
-        }
-
-        // Delete the group itself
-        Groups g = groupsDao.find(Integer.parseInt(grpNo));
-        if (g != null) {
-            groupsDao.remove(g.getId());
-        }
+        messengerGroupManager.removeGroup(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(grpNo));
 
         // Update the system address book to reflect the deletion
         MsgAddressBookMaker addMake = new MsgAddressBookMaker();
@@ -418,18 +429,8 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         if (update.equals(oscarR.getString("messenger.config.MessengerAdmin.btnUpdateGroupMembers"))) {
             // Update group members operation
             
-            // First remove all existing members from the group
-            for (GroupMembers g : groupMembersDao.findByGroupId(Integer.parseInt(grpNo))) {
-                groupMembersDao.remove(g.getId());
-            }
-
-            // Add all newly selected providers to the group
-            for (int i = 0; i < providers.length; i++) {
-                GroupMembers gm = new GroupMembers();
-                gm.setGroupId(Integer.parseInt(grpNo));
-                gm.setProviderNo(providers[i]);
-                groupMembersDao.persist(gm);
-            }
+            messengerGroupManager.replaceGroupMembers(LoggedInInfo.getLoggedInInfoFromSession(request),
+                    Integer.parseInt(grpNo), providers);
 
             // Update the system address book to reflect membership changes
             MsgAddressBookMaker addMake = new MsgAddressBookMaker();
@@ -452,16 +453,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
                 return "failure";
             }
 
-            // Remove all members from the group
-            for (GroupMembers g : groupMembersDao.findByGroupId(Integer.parseInt(grpNo))) {
-                groupMembersDao.remove(g.getId());
-            }
-
-            // Delete the group itself
-            Groups g = groupsDao.find(Integer.parseInt(grpNo));
-            if (g != null) {
-                groupsDao.remove(g.getId());
-            }
+            messengerGroupManager.removeGroup(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(grpNo));
 
             // Update the system address book
             MsgAddressBookMaker addMake = new MsgAddressBookMaker();

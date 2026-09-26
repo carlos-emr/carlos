@@ -148,6 +148,36 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    @io.github.carlos_emr.carlos.commn.NativeSql({"messengerMembershipLock"})
+    public void lockMembershipChanges() {
+        // A permanent coordination key also protects the first membership insert.
+        // All admin membership writers take this short-lived database lock, across JVMs.
+        entityManager.createNativeQuery("INSERT INTO messengerMembershipLock (id) VALUES (1) "
+                + "ON DUPLICATE KEY UPDATE id=VALUES(id)").executeUpdate();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<GroupMembers> findMembershipsForUpdate(Integer groupId, ContactIdentifier contact) {
+        String jpql = "SELECT x FROM GroupMembers x WHERE 1=1";
+        if (groupId != null) jpql += " AND x.groupId=:groupId";
+        if (contact != null) jpql += " AND x.providerNo=:providerNo AND x.facilityId=:facilityId";
+        var query = entityManager.createQuery(jpql + " ORDER BY x.id", GroupMembers.class);
+        if (groupId != null) query.setParameter("groupId", groupId);
+        if (contact != null) {
+            query.setParameter("providerNo", contact.getContactId());
+            query.setParameter("facilityId", contact.getFacilityId());
+        }
+        // Current read on MariaDB, even if permission checks established a repeatable-read snapshot.
+        var rows = query.setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+        for (GroupMembers row : rows) entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return rows;
+    }
+
+    @Override
     public GroupMembers findByIdentity(ContactIdentifier contactIdentifier) {
         Query query = entityManager.createQuery("SELECT x FROM GroupMembers x " +
                 "WHERE x.facilityId=?1 AND x.providerNo=?2 AND x.groupId=?3");

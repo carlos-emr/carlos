@@ -46,6 +46,16 @@ public class GroupsDaoImpl extends AbstractDaoImpl<Groups> implements GroupsDao 
         super(Groups.class);
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Groups findForUpdate(int groupId) {
+        var rows = entityManager.createQuery("SELECT g FROM Groups g WHERE g.id=?1", Groups.class)
+                .setParameter(1, groupId).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Groups> findByParentId(int groupId) {

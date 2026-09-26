@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
+import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
 import io.github.carlos_emr.carlos.commn.model.GroupMembers;
 import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
@@ -86,6 +87,8 @@ class MessengerGroupManagerMembershipUnitTest {
     @Mock
     private GroupMembersDao groupMembersDao;
     @Mock
+    private GroupsDao groupsDao;
+    @Mock
     private ProviderManager2 providerManager;
     @Mock
     private OscarCommLocationsDao oscarCommLocationsDao;
@@ -99,6 +102,7 @@ class MessengerGroupManagerMembershipUnitTest {
     void allowAdmin() {
         lenient().when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin"), any(), isNull()))
                 .thenReturn(true);
+        lenient().when(groupsDao.findForUpdate(GROUP_ID)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Groups());
     }
 
     private static ContactIdentifier contact() {
@@ -124,10 +128,43 @@ class MessengerGroupManagerMembershipUnitTest {
     }
 
     private void stubMembership(int groupId, GroupMembers result) {
-        when(groupMembersDao.findByIdentity(argThat(ci -> ci != null
-                && PROVIDER_NO.equals(ci.getContactId())
-                && ci.getFacilityId() == 0
+        lenient().when(groupMembersDao.findByIdentity(argThat(ci -> ci != null
+                && PROVIDER_NO.equals(ci.getContactId()) && ci.getFacilityId() == 0
                 && ci.getGroupId() == groupId))).thenReturn(result);
+        lenient().when(groupMembersDao.findMembershipsForUpdate(eq(groupId), argThat(ci -> ci != null
+                && PROVIDER_NO.equals(ci.getContactId()) && ci.getFacilityId() == 0)))
+                .thenReturn(result == null ? List.of() : List.of(result));
+    }
+
+    @Test
+    void shouldKeepOneRegistryRow_whenDeletingGroup() {
+        when(groupsDao.remove(GROUP_ID)).thenReturn(true);
+        when(groupMembersDao.findMembershipsForUpdate(GROUP_ID, null)).thenReturn(List.of(row(42, GROUP_ID)));
+        when(groupMembersDao.findMembershipsForUpdate(eq(0), any())).thenReturn(List.of(row(5, 0)));
+        assertThat(manager.removeGroup(loggedInInfo, GROUP_ID)).isTrue();
+        verify(groupMembersDao).lockMembershipChanges();
+        verify(groupMembersDao).remove(42);
+        verify(groupMembersDao, never()).merge(any());
+    }
+
+    @Test
+    void shouldRetainMemberInRegistry_whenDeletingLegacyGroupWithoutRegistry() {
+        when(groupsDao.remove(GROUP_ID)).thenReturn(true);
+        GroupMembers member = row(42, GROUP_ID);
+        when(groupMembersDao.findMembershipsForUpdate(GROUP_ID, null)).thenReturn(List.of(member));
+        when(groupMembersDao.findMembershipsForUpdate(eq(0), any())).thenReturn(List.of());
+        assertThat(manager.removeGroup(loggedInInfo, GROUP_ID)).isTrue();
+        assertThat(member.getGroupId()).isZero();
+        verify(groupMembersDao).merge(member);
+        verify(groupMembersDao, never()).remove(any());
+    }
+
+    @Test
+    void shouldRejectDeletedGroup_withoutCreatingOrphanRegistry() {
+        when(groupsDao.findForUpdate(GROUP_ID)).thenReturn(null);
+        assertThatThrownBy(() -> manager.addMember(loggedInInfo, contact(), GROUP_ID))
+                .isInstanceOf(MessengerGroupManager.UnknownGroupException.class);
+        verify(groupMembersDao, never()).persist(any());
     }
 
     @Nested

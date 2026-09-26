@@ -40,6 +40,15 @@ measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (Ontar
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `on/V1.0.34`
-(the highest shared one is `common/V1.0.33`), so the next free version for ANY location is `V1.0.35`
+next free number accounts for province deltas too. The highest migration in this branch is `common/V1.0.36`.
+`V1.0.35` is allocated to PR #3996, so the next unallocated version for ANY location is `V1.0.37`
 (see `../README.md`).
+
+Messenger membership coordination (#3964) adds
+`common/V1.0.36__serialize_messenger_membership_changes.sql`. `V1.0.35` is already
+allocated to the tickler-document PR #3996. The next unallocated version is
+`V1.0.37`. Apply/merge these forward migrations in version order; if their merge
+order changes after a release, renumber the still-unreleased migration before
+shipping it. The coordination table contains no clinical data and does not
+rewrite legacy memberships. All application instances must run the serialized
+membership writer before relying on cross-instance duplicate prevention.

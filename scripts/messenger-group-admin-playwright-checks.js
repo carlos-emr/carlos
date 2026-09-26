@@ -58,7 +58,7 @@
  */
 
 const {
-  assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, gotoApp,
+  assert, assertNotErrorPage, assertNoPageErrors, assertStrictPage, createRecorder, createSqlRunner, gotoApp,
   launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
 } = require('./lib/playwright-harness');
 const { clickInjectsPanel, clickOpensPopupOrNavigates, typeAutocomplete } = require('./lib/playwright-ui');
@@ -277,6 +277,37 @@ async function main() {
       `a duplicate registry (group 0) add answered HTTP ${registryDuplicate.status}, expected 409`);
     const invalidGroup = await postAdd(probe, memberId, 'abc');
     assert(invalidGroup.status === 400, `an add with a non-numeric group answered HTTP ${invalidGroup.status}, expected 400`);
+    for (const malformed of ['abc-def', '-9-0-145', '123--1', '123-0-2147483648', '123-0-1-2-3']) {
+      const rejected = await postAdd(probe, malformed, state.groupId);
+      assert(rejected.status === 400, `malformed contact answered HTTP ${rejected.status}, expected 400`);
+    }
+
+    // Only the owned fixture memberships are reset. Verify a failed checkbox add
+    // restores its unchecked state and shows an actionable error.
+    sql.execute(`DELETE FROM groupMembers_tbl WHERE provider_No=${sqlString(state.activeProviderNo)}`);
+    await probe.reload({ waitUntil: 'domcontentloaded' });
+    const addUrl = /\/messenger\?method=add&/;
+    await probe.route(addUrl, route => route.fulfill({
+      status: 503, contentType: 'application/json', body: '{"success":false}',
+    }));
+    const fixtureBox = probe.locator(`#local-contacts input[type="checkbox"][value="${memberId}"]`);
+    assert(!(await fixtureBox.isChecked()), 'fixture was unexpectedly registered before failure test');
+    await fixtureBox.click();
+    await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
+    assert(!(await fixtureBox.isChecked()), 'failed contact add left the checkbox checked');
+    assert(await fixtureBox.isEnabled(), 'failed contact add left the checkbox disabled');
+    assert(memberRows(0) === 0, 'failed contact add wrote a registry row');
+    await probe.unroute(addUrl);
+
+    // Deliberately concurrent HTTP requests are one regression test: the server
+    // must return exactly one new group membership and one registry row.
+    const raced = await Promise.all(Array.from({ length: 8 }, () => postAdd(probe, memberId, state.groupId)));
+    assert(raced.filter(response => response.status === 200).length === 1,
+      'concurrent first adds did not report exactly one created membership');
+    assert(raced.filter(response => response.status === 409).length === 7,
+      'concurrent duplicate adds did not return conflict');
+    assertNoPageErrors(recorder, ['duplicate-probe']);
+    console.log('PASS malformed contacts, failure recovery, and concurrent membership creation');
     await probe.close();
     assert(memberRows(state.groupId) === 1, `the server wrote a second group row (${memberRows(state.groupId)} rows)`);
     assert(memberRows(0) === 1, `the server wrote a second registry row (${memberRows(0)} rows)`);
