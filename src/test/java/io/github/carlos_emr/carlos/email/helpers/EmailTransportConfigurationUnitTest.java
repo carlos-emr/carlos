@@ -66,8 +66,10 @@ class EmailTransportConfigurationUnitTest extends CarlosUnitTestBase {
     void shouldRejectAbsentApiCredentials_withSendGridConfiguration() throws Exception {
         EmailConfig config = new EmailConfig();
         config.setConfigDetailsJson("{\"api_key\":null}");
-        assertThatThrownBy(() -> EmailTransportConfiguration.requiredText(
-                EmailTransportConfiguration.parse(config), "api_key"))
+        // Parsed outside the assertion: parse and requiredText throw the same checked
+        // exception, and the test is about the missing key, not the JSON.
+        var settings = EmailTransportConfiguration.parse(config);
+        assertThatThrownBy(() -> EmailTransportConfiguration.requiredText(settings, "api_key"))
                 .isInstanceOf(EmailSendingException.class).hasMessageContaining("api_key");
     }
 }
