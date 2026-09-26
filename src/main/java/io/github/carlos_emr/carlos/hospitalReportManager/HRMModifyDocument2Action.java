@@ -28,8 +28,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.IncomingLabRulesDao;
-import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentCommentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao;
@@ -40,6 +38,8 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentCommen
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -84,6 +84,19 @@ public class HRMModifyDocument2Action extends ActionSupport {
     HRMDocumentSubClassDao hrmDocumentSubClassDao = (HRMDocumentSubClassDao) SpringUtils.getBean(HRMDocumentSubClassDao.class);
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    // transient: ActionSupport implements Serializable; Spring-managed beans are not serializable.
+    private final transient HrmProviderRoutingService hrmProviderRoutingService;
+    private final transient MrpRoutingService mrpRoutingService;
+
+    public HRMModifyDocument2Action() {
+        this(SpringUtils.getBean(HrmProviderRoutingService.class), SpringUtils.getBean(MrpRoutingService.class));
+    }
+
+    HRMModifyDocument2Action(HrmProviderRoutingService hrmProviderRoutingService, MrpRoutingService mrpRoutingService) {
+        this.hrmProviderRoutingService = hrmProviderRoutingService;
+        this.mrpRoutingService = mrpRoutingService;
+    }
 
     /**
      * Routes one viewer control to its handler and answers in JSON.
@@ -169,6 +182,11 @@ public class HRMModifyDocument2Action extends ActionSupport {
         if (clearedCount != null) {
             body.put("clearedCount", clearedCount.intValue());
         }
+        return writeBody(body);
+    }
+
+    /** Writes a JSON reply body and ends the action; see {@link #writeResult(boolean, String, Integer)}. */
+    private String writeBody(ObjectNode body) throws IOException {
 
         response.setContentType("application/json;charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
@@ -439,8 +457,6 @@ public class HRMModifyDocument2Action extends ActionSupport {
      */
     public String assignProvider() throws IOException {
         boolean success = false;
-        //Gets the Dao for incoming lab rules
-        IncomingLabRulesDao incomingLabRulesDao = SpringUtils.getBean(IncomingLabRulesDao.class);
         String providerNo = request.getParameter("providerNo");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -480,55 +496,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         try {
             success = mutateReport(hrmDocumentId, () -> {
-                // Only if this provider is not already routed this report. merge() on an entity with
-                // a null id INSERTS, and there is no unique constraint on (hrmDocumentId, providerNo),
-                // so assigning the same provider twice used to add a second unsigned routing row. The
-                // report then stayed in that provider's inbox after sign-off cleared one of them. The
-                // forwarding branch just below, and HRMReportParser, both already check first; this
-                // path was the one that did not.
-                List<HRMDocumentToProvider> existingMappings =
-                        hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(hrmDocumentId, providerNo);
-                if (existingMappings == null || existingMappings.isEmpty()) {
-                    HRMDocumentToProvider providerMapping = new HRMDocumentToProvider();
-                    providerMapping.setHrmDocumentId(hrmDocumentId);
-                    providerMapping.setProviderNo(providerNo);
-                    providerMapping.setSignedOff(0);
-
-                    hrmDocumentToProviderDao.merge(providerMapping);
-                }
-
-                //Gets the list of IncomingLabRules pertaining to the current providers
-                List<IncomingLabRules> incomingLabRules = incomingLabRulesDao.findCurrentByProviderNo(providerNo);
-                //If the list is not null
-                if (incomingLabRules != null) {
-                    //For each labRule in the list
-                    for (IncomingLabRules labRule : incomingLabRules) {
-                        if (labRule.getForwardTypeStrings().contains("HRM")) {
-                            //Creates a string of the providers number that the lab will be forwarded to
-                            String forwardProviderNumber = labRule.getFrwdProviderNo();
-                            //Checks to see if this providers is already linked to this lab
-                            HRMDocumentToProvider hrmDocumentToProvider = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(hrmDocumentId, forwardProviderNumber);
-                            //If a record was not found
-                            if (hrmDocumentToProvider == null) {
-                                //Puts the information into the HRMDocumentToProvider object
-                                hrmDocumentToProvider = new HRMDocumentToProvider();
-                                hrmDocumentToProvider.setHrmDocumentId(hrmDocumentId);
-                                hrmDocumentToProvider.setProviderNo(forwardProviderNumber);
-                                hrmDocumentToProvider.setSignedOff(0);
-                                //Stores it in the table
-                                hrmDocumentToProviderDao.persist(hrmDocumentToProvider);
-                            }
-                        }
-                    }
-                }
-
-
-                //we want to remove any unmatched entries when we do a manual match like this. -1 means unclaimed in this table.
-                HRMDocumentToProvider existingUnmatched = hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(hrmDocumentId, "-1");
-                if (existingUnmatched != null) {
-                    hrmDocumentToProviderDao.remove(existingUnmatched.getId());
-                }
-
+                // Adds this provider's row only if absent (merge() on a new entity INSERTS and there
+                // is no unique key, so a repeat assignment used to add a second unsigned row that
+                // kept the report in the inbox after sign-off), applies the provider's HRM
+                // forwarding rules and clears the unclaimed (-1) rows. Provider Linking Rules route
+                // a matched report to the patient's MRP through the same service.
+                hrmProviderRoutingService.assignProvider(hrmDocumentId, providerNo);
                 return true;
             });
         } catch (Exception e) {
@@ -558,14 +531,9 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         try {
             success = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
-                List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
-
-                if (currentMappingList != null) {
-                    for (HRMDocumentToDemographic currentMapping : currentMappingList) {
-                        hrmDocumentToDemographicDao.remove(currentMapping.getId());
-                    }
-                }
-
+                // Bulk: the report lock loaded these links into HRMDocument.matchedDemographics, and
+                // removing them one by one through the EntityManager failed the commit flush.
+                hrmDocumentToDemographicDao.deleteByHrmDocumentId(Integer.parseInt(hrmDocumentId));
                 return true;
             });
         } catch (Exception e) {
@@ -585,6 +553,10 @@ public class HRMModifyDocument2Action extends ActionSupport {
      * operation: writing the new link anyway would leave the report on both patients' charts
      * while reporting success.</p>
      *
+     * <p>When the clinic has Provider Linking Rules turned on, the report is also routed to the
+     * patient's Most Responsible Provider in the same transaction, and the reply carries
+     * {@code mrpRouted: true} so the viewer can reload the report's provider list.</p>
+     *
      * @return {@link #NONE}; the JSON status body is written directly
      * @throws IOException if the response body cannot be written
      */
@@ -592,26 +564,25 @@ public class HRMModifyDocument2Action extends ActionSupport {
         boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
         String demographicNo = request.getParameter("demographicNo");
+        boolean mrpRouted = false;
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
         try {
-            success = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
+            mrpRouted = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
                 // No inner catch. Clearing the existing links is not a best-effort preliminary: if it
                 // fails and the new link is written anyway, the report is attached to the old chart
                 // AND the new one, and the JSON still says "Success". An HRM report showing on two
                 // patients' charts is a worse outcome than a failed match the clinician can retry,
                 // and the viewer only re-enables the patient buttons on success. Same class as the
                 // swallowed catch removed from updateCategory.
-                List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
-
-                if (currentMappingList != null) {
-                    for (HRMDocumentToDemographic currentMapping : currentMappingList) {
-                        hrmDocumentToDemographicDao.remove(currentMapping);
-                    }
-                }
+                //
+                // Bulk, not EntityManager.remove(): the report lock loaded these links into
+                // HRMDocument.matchedDemographics, and removing them one by one made the flush
+                // throw, so re-linking a report always failed.
+                hrmDocumentToDemographicDao.deleteByHrmDocumentId(Integer.parseInt(hrmDocumentId));
 
                 HRMDocumentToDemographic demographicMapping = new HRMDocumentToDemographic();
 
@@ -621,14 +592,23 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
                 hrmDocumentToDemographicDao.merge(demographicMapping);
 
-                return true;
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                return mrpRoutingService.routeMatchedHrmToMrp(Integer.parseInt(hrmDocumentId),
+                        Integer.valueOf(demographicNo),
+                        loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
             });
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to demographic but failed.", e);
             success = false;
         }
 
-        return writeResult(success);
+        ObjectNode body = OBJECT_MAPPER.createObjectNode();
+        body.put("success", success);
+        body.put("message", success ? SUCCESS_MESSAGE : FAILURE_MESSAGE);
+        // Only a committed routing is reported: a rollback undoes the MRP row with the match.
+        body.put("mrpRouted", success && mrpRouted);
+        return writeBody(body);
     }
 
     /**

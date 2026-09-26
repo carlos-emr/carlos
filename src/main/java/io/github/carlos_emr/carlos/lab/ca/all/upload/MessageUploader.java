@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -274,7 +275,8 @@ public final class MessageUploader {
         }
 
         try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
+            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength,
+                    loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
         }
         retVal = h.audit();
         if (results != null) {
@@ -352,7 +354,7 @@ public final class MessageUploader {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength) throws Exception {
+    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength, String uploaderProviderNo) throws Exception {
         // Using HashSet to avoid duplicate providers numbers
         LinkedHashSet<String> providerNums = new LinkedHashSet<>();
         PreparedStatement pstmt;
@@ -418,16 +420,47 @@ public final class MessageUploader {
         }
 
 
-        ProviderLabRouting routing = new ProviderLabRouting();
-        if (providerNums.size() > 0) {
+        routeToProviders(labId, providerNums, altProviderNo, new ProviderLabRouting(),
+                SpringUtils.getBean(MrpRoutingService.class), uploaderProviderNo);
+    }
+
+    /**
+     * Routes an uploaded HL7 lab to the providers matched from the message.
+     *
+     * <p>When nothing in the message matched a provider, the lab goes to the matched patient's
+     * MRP ({@code altProviderNo}), or to the unassigned inbox ({@code 0}) when no patient matched
+     * either. When providers did match and the clinic has Provider Linking Rules on, the lab goes
+     * to the MRP as well, so the family physician sees a result a specialist or locum ordered.
+     * The router is idempotent and applies each recipient's forwarding rules.</p>
+     *
+     * @param labId the uploaded lab segment
+     * @param providerNums providers matched from the message, in match order
+     * @param altProviderNo the matched patient's MRP, or {@code 0} / {@code null}
+     * @param routing the lab router
+     * @param mrpRouting the Provider Linking Rules decision
+     * @param uploaderProviderNo the uploading provider for the audit log, or {@code null}
+     * @throws SQLException if a lab identifier is not numeric
+     */
+    static void routeToProviders(String labId, Set<String> providerNums, String altProviderNo,
+                                 ProviderLabRouting routing, MrpRoutingService mrpRouting,
+                                 String uploaderProviderNo) throws SQLException {
+        if (!providerNums.isEmpty()) {
             for (String provider_no : providerNums) {
-                routing.route(labId, provider_no, conn, "HL7");
+                routing.route(labId, provider_no, "HL7");
+            }
+            if (mrpRouting.shouldRouteUploadToMrp(altProviderNo)) {
+                String mrp = altProviderNo.trim();
+                // An MRP who ordered the test was routed above; this is not a linking-rule routing.
+                if (!providerNums.contains(mrp)) {
+                    routing.route(labId, mrp, "HL7");
+                    mrpRouting.recordUploadRouting(labId, mrp, uploaderProviderNo);
+                }
             }
         } else {
             if (altProviderNo != null && !altProviderNo.equals("0")) {
-                routing.route(labId, altProviderNo, conn, "HL7");
+                routing.route(labId, altProviderNo, "HL7");
             } else {
-                routing.route(labId, "0", conn, "HL7");
+                routing.route(labId, "0", "HL7");
             }
         }
     }
@@ -436,7 +469,7 @@ public final class MessageUploader {
      * Attempt to match the doctors from the lab to a providers
      */
     private static void providerRouteReport(String labId, ArrayList docNums, Connection conn, String altProviderNo, String labType) throws Exception {
-        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false);
+        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false, null);
     }
 
 

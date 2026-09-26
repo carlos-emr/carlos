@@ -31,7 +31,10 @@ function hrmResult(data, fallbackMessage) {
     // Left undefined when the server did not say. The Inboxhub reads absent as "one row" and
     // zero as "none", so the two must not be conflated on the way through.
     var clearedCount = (data && typeof data.clearedCount === 'number') ? data.clearedCount : undefined;
-    return {success: success, message: message, clearedCount: clearedCount};
+    // True only when a patient match also routed the report to the patient's MRP (Provider
+    // Linking Rules). The provider list on this page is then stale.
+    var mrpRouted = !!(data && data.mrpRouted === true);
+    return {success: success, message: message, clearedCount: clearedCount, mrpRouted: mrpRouted};
 }
 
 /**
@@ -365,7 +368,27 @@ function addDemoToHrm(reportId) {
             container.appendChild(removeLink);
             document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = 'none';
             toggleButtonBar(true, reportId);
+            if (result.mrpRouted) {
+                showMrpRouted(reportId, container);
+            }
         });
+}
+
+/**
+ * Provider Linking Rules also routed the report to the patient's MRP, so the server-rendered
+ * "Assigned Providers" list is stale. A report open on its own page reloads to show it; one
+ * embedded in the inbox (framed or inline) must not reload the clinician's whole inbox, so it
+ * says so beside the patient link instead.
+ */
+function showMrpRouted(reportId, container) {
+    var card = document.getElementById('hrmdoc_' + reportId);
+    var embedded = !!window.frameElement || (card && card.getAttribute('data-inbox-inline') === 'true');
+    if (!embedded) {
+        window.location.reload();
+        return;
+    }
+    container.appendChild(document.createElement('br'));
+    container.appendChild(document.createTextNode("Also sent to the patient's MRP."));
 }
 
 function toggleButtonBar(show, reportId) {

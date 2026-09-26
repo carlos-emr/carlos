@@ -1393,3 +1393,46 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### Provider Linking Rules validation (2026-09-26)
+
+Validation of issue #3971, the Administration → Labs/Inbox → Provider Linking Rules switch, on
+a package built from the PR branch. The branch was based on `release/2026.08` at `6ab26ca8b1`,
+and the validated head was `9405b5d01d`.
+
+**Environment deviations from the runbook above.** The host had no LXD, so the target was an
+Ubuntu 26.04 **container** running systemd, with `--privileged` and host networking. That host
+exposed only a cgroup v1 hierarchy, so a cgroup2 hierarchy was mounted on the host
+(`mount -t cgroup2 none <dir>`) and bind-mounted at the container's `/sys/fs/cgroup`. Only
+`hugetlb` was delegated, which was enough for systemd to boot.
+
+The three packages were built with `dpkg-buildpackage -us -uc -b` inside an `ubuntu:26.04`
+build container, with DrugRef built from the pinned source and the pinned Chromium.
+`lintian --fail-on error` reported no errors. They were installed with the preseed in section 3:
+Ontario, self-signed TLS, `reset-seed-admin=true`, demo data. The first `nginx` start in the
+container failed, and the package's own retry started it before the postinst finished; no
+`finish-install` was needed. `carlos-ctl check`: **All checks passed**, including 29 Flyway
+migrations, the WAF blocking a probe SQLi and a live DrugRef lookup. The mandatory first-login
+reset ran once, through `drugref-update-playwright-checks.js` as section 6 describes.
+
+**Results** (`EXPECT_FRONT_DOOR=true`, `https://127.0.0.1/carlos`):
+
+| Check | Result |
+|---|---|
+| `provider-linking-rules` (new) | PASS. The switch was saved off and on through the Administration panel, with audit entries. A CML lab uploaded through HL7 Lab Upload reached only the ordering provider with the switch off, and the ordering provider plus the MRP with it on. Patient Match from the popup routed a matched lab to the MRP and dropped its unassigned row. The HRM (remove) link unlinked the report; assigning it through the autocomplete routed it to the MRP, cleared the `-1` row and reloaded the viewer. GET on the save route got 405, and a POST without a token was refused. All fixture rows were restored |
+| `mutator-get-rejection-live` | PASS. 88 probes across 44 routes, including the new `admin/saveProviderLinkingRules` and the now POST-only `oscarMDS/PatientMatch` |
+| `admin-index-links` | PASS. 104 items opened, including the new Labs/Inbox entry |
+| `lab-acknowledge`, `inbox-preview-acknowledge`, `anonymous-access-refused`, `pr-hardening`, `csrf-xhr-token`, `hrm-window` | PASS |
+| `inboxhub-filters` | FAIL, **pre-existing**. See finding 45 in [app-findings-log.md](app-findings-log.md). It fails identically with the unmodified `release/2026.08` WAR exploded over the same install |
+
+The first run on the package found two real problems, both fixed on the branch before the final
+build:
+
+- **An HRM flush failure** (finding 44). Removing rows the report lock had loaded made every
+  assign-provider-to-unclaimed, unlink and re-link roll back. This reproduces on
+  `release/2026.08`.
+- **An audit entry written for a routing that rolled back.** Audit entries are now written only
+  after commit.
+
+The browser check also now sends `MSH-9 = ORU^R01`. A bare `ORU` made HAPI fall back to the
+default handler and store nothing.

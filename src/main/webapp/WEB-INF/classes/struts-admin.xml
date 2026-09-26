@@ -124,6 +124,11 @@
         <action name="admin/EchartDisplaySettings" class="io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action">
             <result name="success">/WEB-INF/jsp/admin/echartDisplaySettings.jsp</result>
         </action>
+        <!-- Provider Linking Rules (issue #3971): GET-only view gate plus a POST-only save. -->
+        <action name="admin/providerLinkingRules" class="io.github.carlos_emr.carlos.admin.web.ProviderLinkingRules2Action">
+            <result name="success">/WEB-INF/jsp/admin/providerLinkingRules.jsp</result>
+        </action>
+        <action name="admin/saveProviderLinkingRules" class="io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action"/>
         <action name="admin/ResourceBaseUrl" class="io.github.carlos_emr.carlos.admin.web.ResourceBaseUrl2Action">
             <result name="success">/WEB-INF/jsp/admin/resourcebaseurl.jsp</result>
         </action>

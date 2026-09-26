@@ -2493,6 +2493,19 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "provider-linking-rules",
+      "script": "scripts/provider-linking-rules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": []
     }
   ]
 }

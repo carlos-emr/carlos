@@ -698,6 +698,8 @@ public class CommonLabResultData {
 
             }
 
+            // Every version is now routed to the patient; callers act on the match only on true.
+            result = true;
             return result;
 
         } catch (Exception e) {
