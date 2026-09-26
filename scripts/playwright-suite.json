@@ -1104,6 +1104,21 @@
       ]
     },
     {
+      "name": "inbox-rapid-review-advance",
+      "script": "scripts/inbox-rapid-review-advance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "lab-pdf-footer",
       "script": "scripts/lab-pdf-footer-playwright-checks.js",
       "tiers": [

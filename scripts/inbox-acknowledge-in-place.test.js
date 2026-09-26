@@ -42,13 +42,25 @@ const rapidReview = slice('    // Flag set by BroadcastChannel listener',
  *        fully loaded list -- because that is the only state in which an item may be dropped
  *        in place; see the page-boundary tests at the end for why.
  */
-function setup(mode, items, shortPreview = false, hasMoreData = false) {
-  const state = { fetches: 0, viewFetches: 0, submits: 0, draws: [], opened: null, scrolledTo: null };
+function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1) {
+  const state = { fetches: 0, viewFetches: 0, submits: 0, draws: [], opened: null, scrolledTo: null,
+    boundaryRequests: [], inserted: [] };
   const totals = { totalDocsCount: 5, totalLabsCount: 5, totalHRMCount: 5, totalResultsCount: 15 };
-  let rendered = items.map(([segmentId, labType]) => ({
-    segmentId, labType,
-    scrollIntoView(options) { state.scrolledTo = segmentId; assert.equal(options.block, 'start'); },
-  }));
+  let rendered = [];
+  // One rendered row or card. after()/before() are what mergeInboxhubPreviewCards uses to
+  // slot a fetched card in beside its neighbour, so they splice into the rendered order.
+  function element(segmentId, labType) {
+    const el = {
+      segmentId, labType,
+      scrollIntoView(options) { state.scrolledTo = segmentId; assert.equal(options.block, 'start'); },
+      getAttribute(name) { return name === 'data-lab-type' ? labType : segmentId; },
+      link: { click() { state.opened = segmentId; } },
+      after(node) { rendered.splice(rendered.indexOf(el) + 1, 0, node); state.inserted.push(node.segmentId); },
+      before(node) { rendered.splice(rendered.indexOf(el), 0, node); state.inserted.push(node.segmentId); },
+    };
+    return el;
+  }
+  rendered = items.map(([segmentId, labType]) => element(segmentId, labType));
   const drop = doomed => { rendered = rendered.filter(item => !doomed.includes(item)); };
 
   function set(matched) {
@@ -58,8 +70,16 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
       0: matched[0],
       data(name) { assert.equal(name, 'labType'); return matched.length ? matched[0].labType : undefined; },
       filter(selector) {
+        // The production code narrows an item lookup to one mode's element kind before it
+        // opens or scrolls to it; the fixture renders one mode at a time.
+        if (selector === 'tr') { return set(mode === 'list' ? matched : []); }
+        if (selector === '.document-card') { return set(mode === 'preview' ? matched : []); }
         const wanted = selector.match(/="([^"]+)"/)[1];
         return set(matched.filter(item => item.labType === wanted));
+      },
+      find(selector) {
+        assert.equal(selector, 'a');
+        return set(matched.length ? [matched[0].link] : []);
       },
       first() { return set(matched.slice(0, 1)); },
       attr(name) {
@@ -68,7 +88,8 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
       },
       each(body) { matched.forEach((item) => body.call(item)); return set(matched); },
       next(selector) {
-        assert.equal(selector, '.document-card');
+        assert.equal(selector, mode === 'list' ? 'tr' : '.document-card',
+          'the following element is asked for by the kind the mode renders');
         const at = rendered.indexOf(matched[0]);
         return set(at >= 0 && rendered[at + 1] ? [rendered[at + 1]] : []);
       },
@@ -115,7 +136,8 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
     set onmessage(handler) { listener = handler; }
     close() {}
   }
-  const container = { scrollHeight: shortPreview ? 100 : 900, clientHeight: 400 };
+  const container = { scrollHeight: shortPreview ? 100 : 900, clientHeight: 400,
+    append(node) { rendered.push(node); state.inserted.push(node.segmentId); } };
   const form = {
     saved: null, raw: '',
     requestSubmit() { throw new Error("Search validation must not gate a committed revoke"); },
@@ -133,16 +155,33 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
     querySelector(selector) {
       assert.equal(selector, '#inbox_table tbody tr a');
       if (mode !== 'list' || rendered.length === 0) { return null; }
-      const first = rendered[0];
-      return { click() { state.opened = first.segmentId; } };
+      return rendered[0].link;
     },
   };
 
+  // The boundary re-sync posts through jQuery.ajax and parses the answer with DOMParser. The
+  // fixture records the request and lets a test hand back a page of cards.
+  jQuery.ajax = options => {
+    assert.equal(options.method, 'POST');
+    assert.match(options.url, /Inboxhub\?method=displayInboxView$/);
+    state.boundaryRequests.push(options);
+  };
+  class DOMParser {
+    parseFromString(html, type) {
+      assert.equal(type, 'text/html');
+      // A fetched page is described to the fixture as "segment:type" tokens, one per card.
+      const cards = html.split(/\s+/).filter(token => /^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/.test(token))
+        .map(token => { const [labType, segmentId] = token.split(':'); return element(segmentId, labType); });
+      return { querySelectorAll(selector) { assert.equal(selector, '.document-card'); return cards; } };
+    }
+  }
+
   const context = vm.createContext({
-    jQuery, BroadcastChannel, document, URLSearchParams,
+    jQuery, BroadcastChannel, document, URLSearchParams, DOMParser,
     HTMLFormElement: {prototype: {submit() { assert.equal(this, form); state.submits++; }}},
     filter: '', activeTypeFilter: null, ackToggleState: false,
     hasMoreData, isFetchingData: false, rapidReviewState: false,
+    page, pageSize: 20, inboxSearchFormData: 'query.status=N', inboxContextPath: '/carlos',
     showInboxhubStats() {},
     fetchInboxhubData() { state.fetches++; },
     fetchInboxhubViewData() { state.viewFetches++; },
@@ -153,6 +192,11 @@ function setup(mode, items, shortPreview = false, hasMoreData = false) {
     state, totals, context, form,
     acknowledge: data => listener({ data }),
     shown: () => rendered.map(item => item.labType + ':' + item.segmentId),
+    // Replaces what is on screen, the way a re-fetched page 1 (then each later page) does.
+    render: items => { rendered = items.map(([segmentId, labType]) => element(segmentId, labType)); },
+    // Answers the most recent boundary re-sync request with a page of cards.
+    answerBoundary: html => { state.boundaryRequests[state.boundaryRequests.length - 1].success(html); },
+    failBoundary: () => { state.boundaryRequests[state.boundaryRequests.length - 1].error({}, 'error'); },
   };
 }
 
@@ -246,6 +290,75 @@ test('Rapid Review opens the next row in list mode', () => {
   assert.equal(inbox.state.opened, '171');
 });
 
+/*
+ * THE ROW THAT IS OPENED NEXT.
+ *
+ * An alpha15 tester started Rapid Review part-way down the list and, on acknowledging, was
+ * given the lab at the TOP of the table rather than the one below the lab they had just
+ * dealt with. The row to open is the one that took the acknowledged row's place, in the
+ * order the DataTable shows them; the first row is only the fallback for when nothing
+ * followed.
+ */
+
+test('Rapid Review opens the row BELOW the acknowledged one when the clinician started part-way down', () => {
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7'], ['173', 'HL7']]);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '172', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.opened, '173', 'opening the first row of the table is the bug, not the fix');
+  assert.deepEqual(inbox.shown(), ['HL7:170', 'HL7:171', 'HL7:173']);
+});
+
+test('Rapid Review falls back to the first row only when nothing followed the acknowledged one', () => {
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']]);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '172', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.opened, '170', 'the last row has no successor, so the review wraps to the top');
+});
+
+test('Rapid Review remembers the following row by identity, so a popup going through window.opener still advances correctly', () => {
+  // labDisplay.jsp calls removeInboxhubRow directly when window.opener survives, and the
+  // broadcast lands moments later. The row is already gone by then; the identity of the row
+  // that followed it is what has to survive to the advance.
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']]);
+  inbox.context.rapidReviewState = true;
+  inbox.context.removeInboxhubRow('171', 'HL7');
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.opened, '172');
+});
+
+test('Rapid Review on the re-fetch route opens the remembered row once a drawn page holds it', () => {
+  // List mode still loading: the acknowledgement re-fetches, and the row to open arrives
+  // again with the fresh list -- on whichever page it now lands.
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.fetches, 1, 'list mode still loading re-syncs with the server');
+  assert.equal(inbox.context.pendingRapidReviewOpen, true);
+  // Page 1 of the fresh list has not reached the remembered row yet: keep waiting.
+  inbox.render([['170', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.equal(inbox.state.opened, null, 'the row is on a later page, so nothing is opened yet');
+  // The next page draws it.
+  inbox.render([['170', 'HL7'], ['172', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.equal(inbox.state.opened, '172');
+  assert.equal(inbox.context.pendingRapidReviewOpen, false);
+});
+
+test('Rapid Review on the re-fetch route falls back to the first row only once the whole list is loaded', () => {
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7']], false, true);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  // Another window acknowledged 171 meanwhile: the fresh list never renders it.
+  inbox.render([]);
+  inbox.context.advancePendingRapidReview();
+  assert.equal(inbox.state.opened, null, 'pages remain, so the row may still arrive');
+  inbox.context.hasMoreData = false;
+  inbox.context.advancePendingRapidReview();
+  assert.equal(inbox.state.opened, null, 'no row is left to fall back to');
+  assert.equal(inbox.context.pendingRapidReviewOpen, false, 'and the advance is spent, not left armed');
+});
+
 test('dropping a card in place asks the server for nothing at all', () => {
   // A removal can shorten the list past the point where #inboxViewItems scrolls, which is how
   // preview mode asks for its next page. Topping up from the server here would be wasted work
@@ -274,11 +387,96 @@ test('dropping a card in place asks the server for nothing at all', () => {
  * must re-sync, however well the item could otherwise have been dropped in place.
  */
 
-test('an acknowledgement re-syncs while pages remain unloaded', () => {
+test('a list still loading re-syncs while pages remain unloaded', () => {
   const inbox = setup('list', twoLabs, false, true);
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
   assert.equal(inbox.state.fetches, 1,
     'paging on from a shifted result set silently skips the result on the page boundary');
+});
+
+/*
+ * PREVIEW MODE, PAGES REMAINING. This is the case an alpha15 tester reported as "preview is
+ * still slow on reloads": preview pages only as the clinician scrolls, so a morning's inbox
+ * is almost never fully loaded, and every acknowledgement re-fetched from page 1 and
+ * re-rendered every card's iframe. Only ONE loaded page can have changed -- the last one,
+ * whose window now ends one item further on -- so that page alone is re-fetched, and only
+ * the card the window has never shown is inserted; every surviving card, and its iframe,
+ * stays exactly where it is.
+ */
+
+test('preview mode with pages remaining re-fetches only the last loaded page, and keeps every card', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 3);
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.fetches, 0, 'a full re-fetch reloads every remaining card iframe');
+  assert.deepEqual(inbox.shown(), ['HL7:170', 'HL7:172'], 'the acknowledged card is gone at once');
+  assert.equal(inbox.state.boundaryRequests.length, 1);
+  assert.match(inbox.state.boundaryRequests[0].data, /&page=2&pageSize=20$/,
+    'preview increments page after each append, so the last loaded page is page - 1');
+  assert.equal(inbox.totals.totalLabsCount, 4, 'the badge still moves');
+});
+
+test('the boundary re-sync inserts only the card that shifted in, beside its neighbour', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  // The server's page 1 now ends with 173, which used to open page 2.
+  inbox.answerBoundary('HL7:171 HL7:172 HL7:173');
+  assert.deepEqual(inbox.shown(), ['HL7:171', 'HL7:172', 'HL7:173']);
+  assert.deepEqual(inbox.state.inserted, ['173'], 'the cards already on screen were not touched');
+});
+
+test('the boundary re-sync never puts back the card this window took off screen', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  // A stale answer that still lists the acknowledged lab.
+  inbox.answerBoundary('HL7:170 HL7:171 HL7:172');
+  assert.deepEqual(inbox.shown(), ['HL7:171', 'HL7:172']);
+});
+
+test('the boundary re-sync adds nothing twice when a scroll fetch raced it', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  // 172 was already appended by the next page's fetch before the boundary answer landed.
+  inbox.answerBoundary('HL7:171 HL7:172');
+  assert.deepEqual(inbox.shown(), ['HL7:171', 'HL7:172']);
+  assert.deepEqual(inbox.state.inserted, []);
+});
+
+test('a card with no rendered predecessor goes in ahead of its rendered successor', () => {
+  const inbox = setup('preview', [['170', 'DOC'], ['171', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'DOC', clearedCount: 1 });
+  // Documents lead a page; the document that shifted in has nothing rendered before it.
+  inbox.answerBoundary('DOC:180 HL7:171');
+  assert.deepEqual(inbox.shown(), ['DOC:180', 'HL7:171']);
+});
+
+test('the boundary re-sync adopts the end-of-results flag the page carries', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.answerBoundary('HL7:171 <script>hasMoreData = false;</script>');
+  assert.equal(inbox.context.hasMoreData, false);
+});
+
+test('a boundary re-sync that fails falls back to the full re-fetch rather than leaving a result unfetched', () => {
+  const inbox = setup('preview', twoLabs, false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.failBoundary();
+  assert.equal(inbox.state.fetches, 1);
+});
+
+test('a boundary answer that arrives after the clinician changed the search is ignored', () => {
+  const inbox = setup('preview', twoLabs, false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.context.inboxhubResultSetGeneration++;   // what resetDataPageCount() does
+  inbox.answerBoundary('HL7:171 HL7:172');
+  assert.deepEqual(inbox.shown(), ['HL7:171'], 'cards from the old query must not land in the new list');
+});
+
+test('Rapid Review in preview mode advances at once even while pages remain', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 2);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.scrolledTo, '172');
+  assert.equal(inbox.state.fetches, 0);
 });
 
 test('the same acknowledgement is dropped in place once everything is loaded', () => {
@@ -291,24 +489,29 @@ test('the same acknowledgement is dropped in place once everything is loaded', (
 test('the re-sync still moves the counters exactly once', () => {
   // The re-fetch reloads the LIST; the badges are re-read from hidden inputs that only the
   // in-place bookkeeping moves, so they must not be skipped along with the removal.
-  const inbox = setup('preview', twoLabs, false, true);
+  const inbox = setup('list', twoLabs, false, true);
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
   assert.equal(inbox.totals.totalLabsCount, 4);
 });
 
-test('the drop helper itself reports that a re-sync is required, not just the listener', () => {
+test('the drop helper itself reports whether a full re-sync is required, not just the listener', () => {
   // labDisplay.jsp's no-BroadcastChannel fallback calls this function directly and re-fetches
   // on a falsy answer. If the paging condition lived only in the BroadcastChannel listener,
   // that browser would drop the item in place with pages still unloaded and reintroduce the
   // page-boundary bug. The contract is the shared guarantee, so it is asserted directly.
-  const pending = setup('preview', twoLabs, false, true);
-  assert.equal(pending.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1), false,
-    'pages remain unloaded, so every caller must re-sync');
+  const loading = setup('list', twoLabs, false, true);
+  assert.equal(loading.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1), false,
+    'a list still loading pages, so every caller must re-sync');
 
   const loaded = setup('preview', twoLabs, false, false);
   assert.equal(loaded.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), true,
     'everything is loaded, so no caller needs to re-sync');
+
+  const paged = setup('preview', twoLabs, false, true, 2);
+  assert.equal(paged.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1), true,
+    'preview with pages remaining re-syncs its own boundary page, so no caller may re-fetch on top');
+  assert.equal(paged.state.boundaryRequests.length, 1);
 });
 
 /*
