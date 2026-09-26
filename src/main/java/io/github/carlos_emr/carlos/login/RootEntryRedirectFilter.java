@@ -109,6 +109,8 @@ public class RootEntryRedirectFilter extends HttpFilter {
      * the one-time notice before the user sees it. Browsers that do not send
      * {@code Sec-Fetch-Mode} are treated as navigating, which keeps the notice working there.
      */
+    // FindSecBugs SERVLET_HEADER: Sec-Fetch-Mode only decides whether the one-time sign-out notice is shown; it grants no access and is never logged or echoed.
+    @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Sec-Fetch-Mode only decides whether the one-time sign-out notice is shown; a forged value can at most show or defer that notice, never grant access; the value is never logged or echoed")
     private static boolean isDocumentNavigation(HttpServletRequest request) {
         String fetchMode = request.getHeader(FETCH_MODE_HEADER);
         return fetchMode == null || FETCH_MODE_NAVIGATE.equals(fetchMode);
