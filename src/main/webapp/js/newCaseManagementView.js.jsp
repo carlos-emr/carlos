@@ -1102,7 +1102,7 @@ function updateCPPNote() {
         loadDiv(data[0], data[1], 0);
     }
 
-    function loadDiv(div, url, limit) {
+    function loadDiv(div, url, limit, complete) {
 
         CarlosAjax.request(
             url,
@@ -1115,6 +1115,9 @@ function updateCPPNote() {
                 },
                 onFailure: function (request) {
                     $(div).update("<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText);
+                },
+                onComplete: function (request) {
+                    if (complete) complete(request.status >= 200 && request.status < 300);
                 }
             }
         );
@@ -2454,6 +2457,9 @@ function updateCPPNote() {
     }
 
     function saveNoteAjax(method, chain) {
+        // Opening/editing a note refreshes its issue fields asynchronously. Save only
+        // after both fragments finish, so the form and its issue selection stay intact.
+        if (deferNoteSaveUntilIssues(function () { saveNoteAjax(method, chain); })) return false;
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -2555,6 +2561,9 @@ function updateCPPNote() {
         return false;
     }
     function savePage(method, chain) {
+        // Opening/editing a note refreshes its issue fields asynchronously. Save only
+        // after both fragments finish, so the form and its issue selection stay intact.
+        if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -2771,6 +2780,36 @@ function updateCPPNote() {
     }
     var ajaxRequest;
     var updateIssueError;
+    var issueUpdatesPending = 0;
+    var issueUpdateFailed = false;
+    var queuedNoteSave = null;
+
+    function deferNoteSaveUntilIssues(save) {
+        if (issueUpdatesPending > 0) {
+            // Repeated clicks while loading must not submit the note twice.
+            if (queuedNoteSave == null) queuedNoteSave = {editor: caseNote, save: save};
+            return true;
+        }
+        if (issueUpdateFailed) {
+            alert(updateIssueError);
+            return true;
+        }
+        return false;
+    }
+
+    function finishIssueUpdate(succeeded) {
+        issueUpdateFailed = issueUpdateFailed || !succeeded;
+        issueUpdatesPending -= 1;
+        if (issueUpdatesPending === 0 && queuedNoteSave != null) {
+            var queued = queuedNoteSave;
+            queuedNoteSave = null;
+            if (!issueUpdateFailed) {
+                if (queued.editor === caseNote) queued.save();
+                else alert(savingNoteError);
+            }
+        }
+    }
+
     function ajaxUpdateIssues(method, div) {
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = method;
@@ -2778,9 +2817,15 @@ function updateCPPNote() {
 
         var url = ctx + "/CaseManagementEntry";
         var p = Form.serialize(frm);
-        p.note_edit = '';
+        if (issueUpdatesPending === 0) issueUpdateFailed = false;
+        issueUpdatesPending += 1;
         ajaxRequest = CarlosAjax.updater({success: div}, url, {
-            evalScripts: true, postBody: p, onSuccess: onIssueUpdate,
+            evalScripts: true, postBody: p,
+            // onComplete runs after the updater installs the new issue fields.
+            onComplete: function (response) {
+                if (response.status >= 200 && response.status < 300) onIssueUpdate(finishIssueUpdate);
+                else finishIssueUpdate(false);
+            },
             onFailure: function (response) {
                 alert(response.status + " " + updateIssueError);
             }
@@ -2789,21 +2834,19 @@ function updateCPPNote() {
         return false;
     }
 
-    function onIssueUpdate() {
+    function onIssueUpdate(complete) {
+        if ($("issueAutocomplete")) $("issueAutocomplete").value = "";
+        if ($("newIssueId")) $("newIssueId").value = "";
 
-        //this request succeeded so we reset issues
-        if ($("issueAutocomplete")) { $("issueAutocomplete").value = ""; }
-        $("newIssueId").value = "";
-        //notifyIssueUpdate();
-
-        // demographicNo is the module-level variable declared at the top of this file and
-        // assigned by both loaders of it (newEncounterLayout.jsp and ChartNotes.jsp).
-        // Do not read it back off the form: the chart form does not always render an
-        // element with that id, which is what broke CPP saves in #3422.
+        // demographicNo is module state; the form does not always render an element
+        // with that id. Wait for this second refresh before resuming a queued save.
         if (typeof loadDiv === 'function' && demographicNo) {
             var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
-            loadDiv('unresolvedIssueslist', reloadUrl, 0);
-        }
+            loadDiv('unresolvedIssueslist', reloadUrl, 0, function (succeeded) {
+                if (!succeeded) alert(updateIssueError);
+                complete(succeeded);
+            });
+        } else complete(true);
     }
 
     function submitIssue(event) {

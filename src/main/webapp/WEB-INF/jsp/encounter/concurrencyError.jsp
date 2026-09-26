@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -59,6 +60,6 @@
     </head>
     <body>
     <h1><fmt:message key="encounter.concurrencyError.errorMsg"/></h1>
-    <textarea name='encounterTextarea' wrap="hard" cols="99" rows="20"><%=bean.encounter%></textarea>
+    <textarea name="encounterTextarea" aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>" wrap="soft" cols="99" rows="20"><carlos:encode value='<%= bean == null ? "" : bean.encounter %>' context="htmlContent"/></textarea>
     </body>
 </html>

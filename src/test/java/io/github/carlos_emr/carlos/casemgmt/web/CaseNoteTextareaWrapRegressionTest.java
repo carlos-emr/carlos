@@ -120,7 +120,33 @@ class CaseNoteTextareaWrapRegressionTest {
 
         // Whitespace between the value and </textarea> is textarea content: it was appended to
         // the note on every save from this form.
-        assertThat(jsp).contains("${carlos:forHtmlContent(caseNote.note)}</textarea>");
+        assertThat(jsp).contains("${carlos:forHtmlContent(caseManagementEntryForm.caseNote.note)}</textarea>");
+    }
+
+    @Test
+    @DisplayName("should preserve typed breaks in legacy encounter and recovery editors")
+    void shouldSoftWrapLegacyNotes_whenRenderingEncounterAndRecovery() throws IOException {
+        for (String file : List.of("includes/encounter-row-one.jspf", "includes/encounter-row-two.jspf",
+                "includes/encounter-row-three.jspf", "concurrencyError.jsp")) {
+            String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter", file));
+            Matcher textarea = TEXTAREA_ELEMENT.matcher(jsp);
+            int count = 0;
+            while (textarea.find()) {
+                Matcher wrap = WRAP_ATTRIBUTE.matcher(textarea.group());
+                assertThat(wrap.find()).as(file).isTrue();
+                assertThat(wrap.group(1)).as(file).isEqualTo("soft");
+                count++;
+            }
+            assertThat(count).as(file).isPositive();
+        }
+    }
+
+    @Test
+    @DisplayName("should encode recovery text and handle absent encounter sessions")
+    void shouldEncodeRecoveredNote_whenRenderingConcurrencyError() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter/concurrencyError.jsp"));
+        assertThat(jsp).contains("bean == null ? \"\" : bean.encounter", "context=\"htmlContent\"")
+                .doesNotContain("<%=bean.encounter%>");
     }
 
     private static List<String> caseNoteTextareaTags(String source) {

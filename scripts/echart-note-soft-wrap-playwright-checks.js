@@ -45,7 +45,7 @@
  * and a second paragraph must be stored byte-for-byte, with no CR and no LF beyond the typed
  * ones -- followed only by the "[Signed on ...]" stamp the server appends when it signs.
  *
- * Four editors are covered, reached the way a clinician reaches them:
+ * Modern and classic editors are covered through their clinical entry points:
  *   1. the new-note editor the chart opens with (ChartNotesAjax.jsp), probed only;
  *   2. the editor the new-note icon builds (newNote() in newCaseManagementView.js.jsp),
  *      typed into and stored with Sign & Save -- a native form submission, the path where
@@ -56,8 +56,12 @@
  *   4. the classic CaseManagementEntry.jsp editor, opened at the URL the case-management note
  *      search links to, probed only: soft wrap, and no whitespace padding from its markup.
  *
+ * Delayed-response checks also cover fast Save/Sign & Save and leaving an already saved note.
+ * Legacy compatibility routes cover six editors and literal recovery text (AbandonOldChart=false).
+ *
  * The check owns every row it touches: a synthetic FAKE- patient (runWorkflow), the notes
- * signed and saved on it and their issue/ext/link rows, all removed afterwards.
+ * signed and saved on it and their issue/ext/link rows, an owned program/admission and a
+ * legacy eChart row, all removed afterwards.
  *
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*
@@ -73,7 +77,7 @@ function noteText(tag, label) {
   const words = [];
   for (let i = 0; i < LONG_PARAGRAPH_WORDS; i += 1) words.push(`word${i}`);
   // One long paragraph, ONE typed line break, a short second paragraph.
-  return `${tag} ${label} ${words.join(' ')}\n${tag} ${label} second paragraph`;
+  return `${tag} ${label} café 🩺 ${words.join(' ')}\n${tag} ${label} second paragraph`;
 }
 
 /** The active eChart note editor: the one textarea the entry form submits as caseNote_note. */
@@ -156,8 +160,9 @@ async function clickAndExpectSave(chart, selector, method) {
  * synthetic FAKE- fixture that is at most the server's signature stamp.
  */
 async function savedNote(sql, patient, needle, expected) {
-  const length = expected.length;
-  const query = `SELECT note_id, uuid, signed, LEFT(note, ${length}) = ${h.sqlString(expected)},
+  const length = Array.from(expected).length;
+  const expectedHex = Buffer.from(expected, 'utf8').toString('hex').toUpperCase();
+  const query = `SELECT note_id, uuid, signed, HEX(LEFT(note, ${length})) = ${h.sqlString(expectedHex)},
       SUBSTRING(note, ${length + 1}),
       LENGTH(note) - LENGTH(REPLACE(note, CHAR(13), '')),
       LENGTH(note) - LENGTH(REPLACE(note, CHAR(10), ''))
@@ -206,9 +211,8 @@ function submittedBreaks(value) {
 /**
  * Opens an editor and waits for the issue refresh it starts. newNote() and editNote() both
  * post the note's issue list (method=edit), and that response's onIssueUpdate() then reloads
- * the issues panel (/encounter/displayIssues). A save made before the chain lands races it:
- * saveNoteAjax() blanks #notCPP under the late onIssueUpdate(), and Sign & Save's navigation
- * aborts the panel reload. No clinician's typing wins that race; a script's does.
+ * the issues panel (/encounter/displayIssues). Saves now wait for both responses. The delayed-response cases below explicitly test that
+ * ordering; other editor probes wait here so they can inspect the completed form state.
  */
 async function openEditorAndSettle(chart, open) {
   const isPost = (r, method) => r.request().method() === 'POST' && /\/CaseManagementEntry/.test(r.url())
@@ -237,6 +241,49 @@ async function signAndSave(chart, typed) {
   h.assert(await closed, 'Sign & Save did not close the chart window');
 }
 
+/** Hold both editor issue responses to exercise a real fast-save race deterministically. */
+async function saveWithDelayedIssues(chart, open, prepare, save) {
+  let releaseEdit; let releasePanel; let saves = 0;
+  const editGate = new Promise(resolve => { releaseEdit = resolve; });
+  const panelGate = new Promise(resolve => { releasePanel = resolve; });
+  const method = request => new URLSearchParams(request.postData() || '').get('method');
+  const isEdit = request => request.method() === 'POST' && /\/CaseManagementEntry/.test(request.url())
+    && method(request) === 'edit';
+  const isPanel = request => /\/encounter\/displayIssues/.test(request.url());
+  const record = request => {
+    if (/\/CaseManagementEntry/.test(request.url()) && ['save', 'saveAndExit'].includes(method(request))) saves++;
+  };
+  const delay = async route => {
+    if (isEdit(route.request())) await editGate;
+    if (isPanel(route.request())) await panelGate;
+    await route.continue();
+  };
+  await chart.route('**/CaseManagementEntry*', delay);
+  await chart.route('**/encounter/displayIssues*', delay);
+  chart.on('request', record);
+  try {
+    const editRequested = chart.waitForRequest(isEdit, { timeout: 30000 });
+    await open(); await editRequested; await prepare();
+    const saved = save().then(() => ({ ok: true }), error => ({ error }));
+    await new Promise(resolve => setTimeout(resolve, 150));
+    h.assert(saves === 0, 'Save submitted before the editor issue fields finished loading');
+    const panelRequested = chart.waitForRequest(isPanel, { timeout: 30000 });
+    releaseEdit(); await panelRequested;
+    await new Promise(resolve => setTimeout(resolve, 150));
+    h.assert(saves === 0, 'Save submitted before the related issue panel finished loading');
+    releasePanel();
+    const result = await saved;
+    if (result.error) throw result.error;
+    h.assert(saves === 1, 'One Save click did not produce exactly one save request');
+  } finally {
+    releaseEdit(); releasePanel(); chart.off('request', record);
+    if (!chart.isClosed()) {
+      await chart.unroute('**/CaseManagementEntry*', delay);
+      await chart.unroute('**/encounter/displayIssues*', delay);
+    }
+  }
+}
+
 /** A closing chart reloads its opener, the Master Record; wait until it is usable again. */
 async function settleMasterRecord(session) {
   await session.master.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
@@ -253,13 +300,36 @@ async function reopenChart(session) {
 async function workflow(session) {
   const { sql, patient, marker } = session;
   const tag = marker.slice(-10);
+  const programName = `${marker}-notes`;
+  session.cleanup(() => {
+    const program = sql.value(`SELECT id FROM program WHERE name=${h.sqlString(programName)}`);
+    if (!program) return;
+    h.assert(/^[1-9]\d*$/.test(program), 'Invalid owned program identity');
+    sql.execute(`DELETE FROM admission WHERE client_id=${patient} AND program_id=${program};
+      DELETE FROM program_provider WHERE program_id=${program} AND provider_no=${h.sqlString(session.provider)};
+      DELETE FROM program WHERE id=${program} AND name=${h.sqlString(programName)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM program WHERE id=${program}`) === '0', 'Owned program remains');
+  });
+  const program = sql.value(`INSERT INTO program
+    (facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,
+     physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax)
+    SELECT id,${h.sqlString(programName)},'service',1,'active',0,0,0,0,0,0,'none',0,150
+    FROM Facility ORDER BY id LIMIT 1;
+    SELECT id FROM program WHERE name=${h.sqlString(programName)}`);
+  h.assert(/^[1-9]\d*$/.test(program), 'Owned program could not be created');
+  sql.execute(`INSERT INTO program_provider (program_id,provider_no)
+    VALUES (${program},${h.sqlString(session.provider)});
+    INSERT INTO admission (client_id,program_id,provider_no,admission_date,
+      admission_from_transfer,discharge_from_transfer,admission_status,lastUpdateDate)
+    VALUES (${patient},${program},${h.sqlString(session.provider)},NOW(),0,0,'current',NOW())`);
 
   session.cleanup(() => {
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
     sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
-      DELETE FROM casemgmt_note WHERE demographic_no=${patient}`);
+      DELETE FROM casemgmt_note WHERE demographic_no=${patient};
+      DELETE FROM eChart WHERE demographicNo=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0',
       'the fixture notes were not removed');
   });
@@ -281,16 +351,36 @@ async function workflow(session) {
     assertSoftWrap(probe, 'the opening note editor');
   });
 
+  await session.step('Fast Save waits for issue refresh and a saved note leaves without an unsaved warning', async () => {
+    const text = noteText(tag, 'quick save');
+    await saveWithDelayedIssues(chart,
+      () => chart.locator('#newNoteImg').first().click(),
+      () => typeInto(activeEditor(chart), text),
+      () => clickAndExpectSave(chart, '#saveImg', 'save'));
+    const saved = await savedNote(sql, patient, `${tag} quick save`, text);
+    assertStoredAsTyped(saved, text, 'the rapidly saved note');
+    await activeEditor(chart).waitFor({ state: 'visible', timeout: 30000 });
+    // Calendar setup may load asynchronously; its rendered value must equal the saved baseline.
+    await chart.waitForFunction(() => {
+      const date = document.getElementById('observationDate');
+      return date && date._flatpickr;
+    }, null, { timeout: 30000 });
+    await openEditorAndSettle(chart, () => chart.locator('#newNoteImg').first().click());
+  });
+
   await session.step('New-note editor soft-wraps and Sign & Save stores only the typed line break', async () => {
     // Opened from the untouched opening editor, so no "not saved" prompt is expected: the
     // strict page wiring fails the step on any dialog.
-    await openEditorAndSettle(chart, () => chart.locator('#newNoteImg').first().click());
-    const editor = chart.locator('#encMainDiv .newNote textarea[name="caseNote_note"]');
-    await editor.first().waitFor({ state: 'visible', timeout: 30000 });
-    h.assert(await activeEditor(chart).count() === 1, 'the new-note icon left more than one active editor');
-    await typeInto(editor, firstText);
-    assertSoftWrap(await probeEditor(editor), 'the new-note icon editor');
-    await signAndSave(chart, firstText);
+    await saveWithDelayedIssues(chart,
+      () => chart.locator('#newNoteImg').first().click(),
+      async () => {
+        const editor = chart.locator('#encMainDiv .newNote textarea[name="caseNote_note"]');
+        await editor.first().waitFor({ state: 'visible', timeout: 30000 });
+        h.assert(await activeEditor(chart).count() === 1, 'the new-note icon left more than one active editor');
+        await typeInto(editor, firstText);
+        assertSoftWrap(await probeEditor(editor), 'the new-note icon editor');
+      },
+      () => signAndSave(chart, firstText));
     first = await savedNote(sql, patient, `${tag} new-note icon`, firstText);
     h.assert(first.signed, 'Sign & Save did not sign the note');
     assertStoredAsTyped(first, firstText, 'the note signed and saved from the new-note icon editor');
@@ -347,10 +437,55 @@ async function workflow(session) {
       await editor.first().waitFor({ state: 'visible', timeout: 30000 });
       // Whitespace between the value and </textarea> used to be textarea content, appended to
       // the note on every save from this form.
-      h.assert(!/\s$/.test(await editor.inputValue()),
-        'the classic entry form pads the note with trailing whitespace from its markup');
+      const storedHex = sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${first.noteId}
+        AND demographic_no=${patient}`);
+      const expected = Buffer.from(storedHex, 'hex').toString('utf8');
+      h.assert(expected.includes(firstText), 'The classic editor fixture does not contain the saved note');
+      h.assert(await editor.inputValue() === expected,
+        'The classic entry form lost existing note text or added markup whitespace');
+      const scope = await editor.evaluate(element => {
+        const data = new FormData(element.form);
+        return { patient: data.get('demographicNo'), provider: data.get('providerNo'),
+          name: element.form.name };
+      });
+      h.assert(scope.patient === String(patient) && scope.provider === String(session.provider)
+        && scope.name === 'caseManagementEntryForm', 'Classic note form lost its patient/provider scope');
       await editor.fill(noteText(tag, 'classic editor'));
       assertSoftWrap(await probeEditor(editor), 'the classic case-management entry editor');
+    } finally {
+      await page.close();
+    }
+  });
+
+  await session.step('Legacy encounter editors preserve typed breaks and recovery renders literal note text', async () => {
+    const text = `${noteText(tag, 'legacy')} </textarea><span id="pw-recovery-injection">literal</span>& "quoted"`;
+    sql.execute(`INSERT INTO eChart (demographicNo,providerNo,subject,socialHistory,familyHistory,
+      medicalHistory,ongoingConcerns,reminders,encounter) VALUES (${patient},${h.sqlString(session.provider)},
+      ${h.sqlString(marker)},'','','','','',${h.sqlString(text)})`);
+    const page = await session.context.newPage();
+    try {
+      // Compatibility routes have no link in the modern chart; use their actual action entry points.
+      const incoming = new URL(`${session.config.baseUrl}/encounter/IncomingEncounter`);
+      incoming.search = new URLSearchParams({ demographicNo: patient, providerNo: session.provider }).toString();
+      await page.goto(incoming.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await h.assertNotErrorPage(page, 'legacy encounter editor');
+      for (const name of ['shTextarea', 'fhTextarea', 'mhTextarea', 'ocTextarea', 'reTextarea', 'enTextarea']) {
+        const editor = page.locator(`textarea[name="${name}"]`);
+        await editor.waitFor({ state: 'visible', timeout: 30000 });
+        const original = await editor.inputValue();
+        await editor.fill(noteText(tag, name));
+        assertSoftWrap(await probeEditor(editor), `legacy ${name}`);
+        await editor.fill(original);
+      }
+      await page.goto(`${session.config.baseUrl}/encounter/ViewConcurrencyError`,
+        { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await h.assertNotErrorPage(page, 'encounter recovery');
+      const recovered = page.locator('textarea[name="encounterTextarea"]');
+      h.assert(await recovered.inputValue() === text,
+        'Recovery lost the original note (legacy validation requires AbandonOldChart=false)');
+      h.assert(await recovered.getAttribute('wrap') === 'soft', 'Recovery editor is not soft-wrapped');
+      h.assert(await page.locator('#pw-recovery-injection').count() === 0,
+        'Recovery interpreted note content as HTML');
     } finally {
       await page.close();
     }

@@ -94,7 +94,7 @@
         <c:when test="${not empty ajaxsave}">
             <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
-                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy H:mm"/>
+                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>
             </span>&nbsp;
             <fmt:message key="encounter.noteRev.title"/>
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
@@ -106,7 +106,7 @@
             <img src="${ctx}/images/cal.gif" id="observationDate_cal" alt="calendar">&nbsp;
             <input type="text" id="observationDate" name="observation_date" ondblclick="this.value='';"
                    style="border: none; width: 140px;" readonly
-                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy H:mm"/>">
+                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>">
             rev
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
                 ${caseManagementEntryForm.caseNote.revision}
@@ -549,7 +549,7 @@
         //create calendar
         Calendar.setup({
             inputField: "observationDate",
-            ifFormat: "%d-%b-%Y %H:%M ",
+            ifFormat: "%d-%b-%Y %H:%M",
             showsTime: true,
             button: "observationDate_cal",
             singleClick: true,

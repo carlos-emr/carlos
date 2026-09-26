@@ -41,7 +41,13 @@ test('noteText types one long paragraph and exactly one line break', () => {
 test('assertSoftWrap accepts a soft editor whose submission equals what was typed', () => {
   assert.doesNotThrow(() => assertSoftWrap(probe(), 'editor'));
   // FormData normalizes line breaks to CRLF on the wire; the value may carry either.
-  assert.doesNotThrow(() => assertSoftWrap(probe({ submitted: TYPED.replace('\n', '\r\n') }), 'editor'));
+  assert.doesNotThrow(() => assertSoftWrap(probe({ submitted: TYPED.replaceAll('\n', '\r\n') }), 'editor'));
+});
+
+test('assertSoftWrap accepts multiple typed breaks and supplementary Unicode', () => {
+  const value = 'café 🩺\nsecond\nthird';
+  assert.doesNotThrow(() => assertSoftWrap(probe({ value, submitted: value.replaceAll('\n', '\r\n'),
+    valueBreaks: 2, submittedBreaks: 2 }), 'editor'));
 });
 
 test('assertSoftWrap rejects a hard-wrapped editor', () => {
