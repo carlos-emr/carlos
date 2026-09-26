@@ -187,8 +187,18 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
       assert.equal(type, 'text/html');
       // A fetched page is described to the fixture as "segment:type" tokens, one per card, with
       // any <script>...</script> kept apart the way a parsed document keeps its script elements.
-      const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => ({ textContent: match[1] }));
-      const content = html.replace(/<script>[\s\S]*?<\/script>/g, ' ');
+      // (Plain index arithmetic, not a regular expression: this is a fixture format, not HTML
+      // filtering, and a filtering-shaped regexp reads as one to static analysis.)
+      const OPEN = '<script>';
+      const CLOSE = '</script>';
+      const scripts = [];
+      let content = html;
+      for (let at = content.indexOf(OPEN); at >= 0; at = content.indexOf(OPEN)) {
+        const end = content.indexOf(CLOSE, at);
+        assert.ok(end > at, 'fixture script element is not closed');
+        scripts.push({ textContent: content.slice(at + OPEN.length, end) });
+        content = content.slice(0, at) + ' ' + content.slice(end + CLOSE.length);
+      }
       const cards = content.split(/\s+/).filter(token => /^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/.test(token))
         .map(token => { const [labType, segmentId] = token.split(':'); return element(segmentId, labType); });
       return { querySelectorAll(selector) {
