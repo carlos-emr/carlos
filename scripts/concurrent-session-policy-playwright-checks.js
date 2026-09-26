@@ -67,6 +67,7 @@ const {
   createSqlRunner,
   gotoApp,
   launchBrowser,
+  login,
   newContext: newBrowserContext,
   readConfig,
   runCheck,
@@ -325,6 +326,26 @@ async function checkLimit(browser, config, step, contexts, max, policy) {
     }
     pages.push(signedIn.page);
   }
+  // Exercise the shared suite helper at the limit: it must stop without revoking
+  // any of the authenticated browsers, even though the chooser offers sign-out.
+  const sharedHelperContext = await newContext(browser, config);
+  contexts.push(sharedHelperContext);
+  let refused;
+  try {
+    await login(sharedHelperContext, config, recorder);
+  } catch (error) {
+    refused = error;
+  }
+  assert(refused && /configured login\.concurrent_sessions\.max limit/.test(refused.message),
+    'the shared login helper did not report the session limit');
+  const pendingPage = sharedHelperContext.pages()[0];
+  await waitForPageAssets(pendingPage);
+  assert(await heartbeat(pendingPage, config) === false, 'the refused shared login became authenticated');
+  for (const page of pages) {
+    assert(await heartbeat(page, config), 'the shared login helper revoked an existing session');
+  }
+  step('shared login helper refuses at the limit and preserves every existing session');
+
   const overLimit = await newContext(browser, config);
   contexts.push(overLimit);
   const last = await signIn(overLimit, config, `browser ${max + 1}`);
