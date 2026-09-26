@@ -1393,3 +1393,88 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### Tickler validation-message fix validation (2026-09-26, issue #3957)
+
+Validation of the port of the tickler add/edit validation-message fix
+(issue #3957; reference openo-beta/Open-O PR #2410) against a package built
+from the fix branch off `release/2026.08`, run before the PR was opened.
+
+**Environment deviations from the runbook above.** The host offered neither
+LXD nor a Docker daemon, so the target was an Ubuntu 26.04 **root filesystem
+in a chroot** (`ubuntu-base-26.04-base-amd64.tar.gz`, apt from the `resolute`
+archive) with **no init system**. Two consequences, both container artefacts:
+
+- `apt-get install` of the three packages ended, as documented above for
+  containers, with the package's `install-incomplete` marker
+  (`reason=MariaDB was not reachable while the package was configured`).
+  MariaDB and nginx were then started by hand and `carlos-ctl finish-install`
+  completed the install exactly as the marker instructs: 29 Flyway migrations
+  applied, the seeded `carlosdoc` credential replaced, the demo dataset loaded.
+  `dpkg-reconfigure carlos-emr-drugref` loaded the drug reference afterwards
+  for the same reason (its postinst needs the database up).
+- `carlos-ctl finish-install`, `carlos-ctl check` and the maintainer scripts
+  call `systemctl` directly, so a validation-only `systemctl` stand-in on
+  `/usr/local/sbin` answered them by starting the same processes the package's
+  units start — `mariadbd` as `mysql`, `nginx`, `/usr/lib/carlos-emr/carlos-emr-tomcat run`
+  as `carlos` with the unit's `EnvironmentFile` and the renderer drop-in,
+  `chromedriver` as `carlos-render` — and by answering `is-active`,
+  `is-enabled`, `show -p MainPID --value` and friends from those processes.
+  The `deb-systemd-invoke` paths were untouched: with no `/run/systemd/system`
+  the postinst skips them as designed. Nothing in `debian/` was changed for
+  this run.
+
+**Build.** `dpkg-buildpackage -us -uc -b` inside the chroot with OpenJDK 25,
+Maven from the archive and `tomcat11` as a build dependency (removed again
+before the install: `carlos-emr` conflicts with the `tomcat11` service package,
+and `apt-get install --no-remove` correctly refused to proceed while it was
+present). The CARLOS WAR compiled from the branch tree (the `buildnumber`
+plugin needs the `.git` directory alongside the sources); DrugRef was built
+from the ref in `debian/drugref.pin` and Chromium fetched from the pinned
+snapshot. Maven's parallel downloads tripped the sandbox proxy's concurrency
+limit (HTTP 429, seen as an endless wagon back-off), fixed with
+`MAVEN_ARGS=-Dmaven.artifact.threads=1`; that is a property of this sandbox,
+not of the build. Output: `carlos-emr_2026.09.0~snapshot24_amd64.deb`,
+`carlos-emr-drugref_2026.09.0~snapshot24_all.deb`,
+`carlos-emr-eform-renderer_2026.09.0~snapshot24_all.deb`.
+`lintian --fail-on error` passed with the one pre-existing
+`possible-bashism-in-maintainer-script` warning.
+
+**Install and check.** Preseed as in section 3 (`bind-ip 127.0.0.1`, province
+`on`, self-signed TLS, `reset-seed-admin=true`, `install-demo-data=true`).
+After `finish-install`, a MariaDB restart for its rendered drop-in (the
+`time_zone` warning `finish-install` prints in a container), and an EMR restart
+that also deployed the `/drugref2` context, `carlos-ctl check` reported every
+service, database, front-door, WAF and DrugRef probe `OK` ("All checks passed.", 27 `OK` lines, no
+`FAIL`); the remaining lines were the container notes (no AppArmor on this
+kernel) and the fresh-install backup notes.
+
+**Suite runs** (host-side Playwright 1.60.0 with the sandbox's Chromium 141
+against `https://127.0.0.1/carlos`, `EXPECT_FRONT_DOOR=true`; the first-login
+reset done once through the harness `login()` with `RESET_PASSWORD`; the
+database-asserting checks reached MariaDB through the chroot's `mariadb`
+client over the unix socket as root):
+
+| Check | Deployed pages | Result |
+|---|---|---|
+| `tickler-validation-messages` (new) | fixed | **PASS** (add popup and edit popup steps) |
+| `tickler-crud` | fixed | **PASS** |
+| `tickler-note-dialog` | fixed | **PASS** |
+| `tickler-validation-messages` | **pre-fix** `release/2026.08` JSPs deployed over the package, EMR restarted | **FAIL** — `add popup first failed save: the message text is present but rendered as 0 message line(s), not 1 (bare text in the alert is the pre-fix append path)` |
+| `tickler-validation-messages` | fixed pages restored, EMR restarted | **PASS** |
+
+A probe that clears the service date and clicks Save three times on the add
+popup measured the defect directly: **1, 2, 3 copies** of "Missing service
+date, please verify!" in the alert on the pre-fix pages, **1, 1, 1** copies
+(each as one `.tickler-validation-message` line) on the fixed pages. The
+negative control therefore shows the check detects the defect rather than
+merely agreeing with the fix.
+
+One trap worth recording for the next JSP swap: editing a JSP under
+`/usr/share/carlos-emr/webapp/carlos/WEB-INF/jsp/` and `touch`ing it was
+picked up by Jasper on the first swap but **not** on a second swap made about
+thirty seconds after the previous recompile — a run against the "pre-fix"
+pages passed because Tomcat was still serving the fixed compilation. Restart
+the EMR (`carlos-ctl restart`) after swapping pages and confirm what is served
+(the probe above greps the page for `showValidationMessage` versus
+`insertAdjacentText`) before trusting a before/after comparison.

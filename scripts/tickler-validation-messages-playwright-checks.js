@@ -91,22 +91,29 @@ function bundleMessage(key, fallback) {
 async function assertMessages(page, expectedTexts, label) {
   const alert = page.locator(SELECTORS.alert);
   await alert.waitFor({ state: 'visible', timeout: 10000 });
-  const lines = page.locator(SELECTORS.messageLine);
-  // The count settles synchronously with the click handler; the wait is
-  // for the assertion message to say what was on screen, not for timing.
-  const texts = (await lines.allTextContents()).map((text) => text.trim());
-  h.assert(texts.length === expectedTexts.length,
-    `${label}: expected ${expectedTexts.length} validation message line(s), the alert shows ${texts.length}`);
-  expectedTexts.forEach((expected, index) => {
-    h.assert(texts[index] === expected,
-      `${label}: message line ${index + 1} did not match the bundle text`);
-  });
-  // Belt and braces: the alert's whole text is the lines and nothing else, so a
-  // message that slipped in as a bare text node (the old insertAdjacentText
-  // path) is caught even though it is not a line.
+  // Behaviour first, shape second. The alert's whole text is what the operator
+  // reads, so count the copies of each message in it: the #3957 defect is a
+  // second copy after a second submit, and this is the assertion that names it.
+  // On the pre-fix pages the count is right after ONE submit and wrong after two.
   const whole = (await alert.innerText()).replace(/\s+/g, ' ').trim();
+  for (const expected of new Set(expectedTexts)) {
+    const wanted = expectedTexts.filter((text) => text === expected).length;
+    const copies = whole.split(expected).length - 1;
+    h.assert(copies === wanted,
+      `${label}: expected ${wanted} copy of the validation message in the alert, found ${copies}`
+      + (copies > wanted ? ' (messages piled up from an earlier submit)' : ''));
+  }
   h.assert(whole === expectedTexts.join(' ').replace(/\s+/g, ' ').trim(),
-    `${label}: the alert carries text outside its message lines`);
+    `${label}: the alert carries text other than the expected message(s)`);
+  // Then the shape the fix renders: one element per message, so the line count
+  // is the message count without string splitting, and text never becomes markup.
+  const texts = (await page.locator(SELECTORS.messageLine).allTextContents()).map((text) => text.trim());
+  h.assert(texts.length === expectedTexts.length,
+    `${label}: the message text is present but rendered as ${texts.length} message line(s), not ${expectedTexts.length}`
+    + (texts.length === 0 ? ' (bare text in the alert is the pre-fix append path)' : ''));
+  expectedTexts.forEach((expected, index) => {
+    h.assert(texts[index] === expected, `${label}: message line ${index + 1} did not match the bundle text`);
+  });
 }
 
 /** The alert is hidden and holds no message -- the state after a fixed field. */
