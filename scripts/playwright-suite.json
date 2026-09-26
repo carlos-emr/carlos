@@ -2562,6 +2562,25 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "form-print-pdf",
+      "script": "scripts/form-print-pdf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "FORM_PRINT_SEARCH",
+        "FORM_PRINT_DEMOGRAPHIC_NO",
+        "FORM_PRINT_NAME",
+        "FORM_PRINT_TIMEOUT_MS"
+      ]
     }
   ]
 }
