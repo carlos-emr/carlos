@@ -230,6 +230,8 @@ async function main() {
     assert(!(await adminPage.locator('#local-contacts').innerText()).includes(deactivatedLastName),
       'Manage Contacts listed the deactivated fixture provider by name');
     const memberId = contactValues.find((value) => value.startsWith(`${state.activeProviderNo}-`));
+    const initialContactStates = await contactBoxes.evaluateAll(nodes =>
+      nodes.map(node => ({ value: node.value, checked: node.checked })));
 
     // b. Create a throwaway group through the "+" tab.
     await adminPage.locator('a.nav-link[href="#manageGroups"]').click();
@@ -275,6 +277,13 @@ async function main() {
       .first().waitFor({ state: 'visible', timeout: TIMEOUT });
     assert(memberRows(state.groupId) === 1, `expected one group row after the add, found ${memberRows(state.groupId)}`);
     assert(memberRows(0) === 1, `expected one registry (group 0) row after the add, found ${memberRows(0)}`);
+    const updatedContactStates = await contactBoxes.evaluateAll(nodes =>
+      nodes.map(node => ({ value: node.value, checked: node.checked })));
+    assert(updatedContactStates.find(contact => contact.value === memberId)?.checked === true,
+      'successful group add did not check the matching contact');
+    assert(initialContactStates.filter(contact => contact.value !== memberId).every(before =>
+      updatedContactStates.find(after => after.value === before.value)?.checked === before.checked),
+    'successful group add changed an unrelated contact checkbox');
     assert(await addButton.isDisabled(), 'Add Contact stayed enabled after the add, inviting a double submit');
 
     // d. Picking the same provider again is stopped in the page; nothing is posted.
