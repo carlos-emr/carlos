@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
@@ -459,6 +460,50 @@ class IncomingDocUtilUnitTest {
             assertThat(document.getPage(0).getRotation()).isEqualTo(180);
         }
         assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "faxE2.pdf")).isEqualTo(1);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    /** A scratch file left by a process killed mid-rewrite: named like one, and hours old. */
+    private Path staleScratchFile(Path dir, String name) throws Exception {
+        Path stale = dir.resolve(name);
+        Files.writeString(stale, "a partial copy of a queued document", StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(stale, FileTime.fromMillis(System.currentTimeMillis() - 3L * 60 * 60 * 1000));
+        return stale;
+    }
+
+    @Test
+    @DisplayName("should remove a stale scratch file, and only that, when the queue is listed")
+    void shouldRemoveStaleScratchFile_whenQueueListed() throws Exception {
+        File pdf = queuedPdf("fax.pdf", 1);
+        Path faxDir = pdf.getParentFile().toPath();
+        Path stale = staleScratchFile(faxDir, ".carlos-1234.tmp");
+        Path inFlight = faxDir.resolve(".carlos-5678.tmp");
+        Files.writeString(inFlight, "an operation still writing", StandardCharsets.UTF_8);
+        Path unrelated = staleScratchFile(faxDir, "notes.tmp");
+
+        List<String> docList = new IncomingDocUtil().getDocList(faxDir.toString());
+
+        assertThat(docList).containsExactly("fax.pdf");
+        assertThat(stale).doesNotExist();
+        assertThat(inFlight).exists();
+        assertThat(unrelated).exists();
+    }
+
+    @Test
+    @DisplayName("should remove a stale scratch file from the queue and recycle directories when a page operation runs")
+    void shouldRemoveStaleScratchFiles_whenPageOperationRuns() throws Exception {
+        File pdf = queuedPdf("fax.pdf", 2);
+        Path faxDir = pdf.getParentFile().toPath();
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path staleQueued = staleScratchFile(faxDir, ".carlos-1234.tmp");
+        Path staleRecycled = staleScratchFile(deleteDir, ".carlos-4321.tmp");
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(staleQueued).doesNotExist();
+        assertThat(staleRecycled).doesNotExist();
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(1);
         assertThat(scratchFilesLeft()).isZero();
     }
 

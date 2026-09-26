@@ -91,6 +91,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class IncomingDocUtil {
     private static final String INCOMING_DOCUMENT_DIR_PROPERTY = "INCOMINGDOCUMENT_DIR";
     private static final Logger logger = MiscUtils.getLogger();
+    /** Naming of the scratch files page operations write next to the queued document. */
+    private static final String SCRATCH_PREFIX = ".carlos-";
+    private static final String SCRATCH_SUFFIX = ".tmp";
+    /**
+     * A scratch file older than this belongs to an operation whose process died before its
+     * {@code finally} ran: a page operation takes seconds, never an hour. Such a file is a
+     * partial or complete copy of a queued document, invisible in the {@code *.pdf} listing, so
+     * it is swept rather than left for good.
+     */
+    private static final long STALE_SCRATCH_AGE_MILLIS = 60L * 60 * 1000;
     
     /**
      * Validates that a request-controlled path segment is exactly one path
@@ -137,7 +147,8 @@ public final class IncomingDocUtil {
     // queueDir comes from getIncomingDocumentFilePath (validated against INCOMINGDOCUMENT_DIR); the name is generated here
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "queueDir comes from getIncomingDocumentFilePath (validated against INCOMINGDOCUMENT_DIR); the name is generated here")
     private static File newScratchFile(File queueDir, Set<PosixFilePermission> permissions) throws IOException {
-        Path scratch = Files.createTempFile(queueDir.toPath(), ".carlos-", ".tmp");
+        removeStaleScratchFiles(queueDir);
+        Path scratch = Files.createTempFile(queueDir.toPath(), SCRATCH_PREFIX, SCRATCH_SUFFIX);
         if (permissions != null) {
             try {
                 Files.setPosixFilePermissions(scratch, permissions);
@@ -146,6 +157,41 @@ public final class IncomingDocUtil {
             }
         }
         return scratch.toFile();
+    }
+
+    /**
+     * Removes scratch files that an interrupted page operation left in the given directory. Only
+     * files carrying the scratch naming and older than {@link #STALE_SCRATCH_AGE_MILLIS} are
+     * touched, so a scratch file an operation is writing right now (seconds old) is never taken.
+     * Bounded to the one directory, best effort, and never throws: the operation or listing
+     * that triggered it must not fail because an orphan could not be removed.
+     *
+     * @param dir a validated queue or recycle directory
+     */
+    private static void removeStaleScratchFiles(File dir) {
+        File[] scratchFiles = dir.listFiles((parent, name) -> name.startsWith(SCRATCH_PREFIX) && name.endsWith(SCRATCH_SUFFIX));
+        if (scratchFiles == null) {
+            return;
+        }
+        long cutoff = System.currentTimeMillis() - STALE_SCRATCH_AGE_MILLIS;
+        int removed = 0;
+        for (File scratch : scratchFiles) {
+            long lastModified = scratch.lastModified();
+            // 0 means the time could not be read; leave such a file rather than guess at its age.
+            if (!scratch.isFile() || lastModified == 0 || lastModified >= cutoff) {
+                continue;
+            }
+            try {
+                if (Files.deleteIfExists(scratch.toPath())) {
+                    removed++;
+                }
+            } catch (IOException e) {
+                logger.warn("Could not remove a stale incoming-document scratch file left by an interrupted page operation");
+            }
+        }
+        if (removed > 0) {
+            logger.warn("Removed {} stale incoming-document scratch file(s) left by an interrupted page operation", removed);
+        }
     }
 
     /**
@@ -338,6 +384,8 @@ public final class IncomingDocUtil {
         }
 
         File dir = PathValidationUtils.validateConfiguredDirectory(directory, "incoming document directory");
+        // The listing shows only *.pdf, so an orphaned scratch file would otherwise sit here unseen.
+        removeStaleScratchFiles(dir);
         File[] listOfFiles = dir.listFiles(pdfFilter);
         if (listOfFiles == null) {
             logger.error("Unable to list incoming document directory: {}",
