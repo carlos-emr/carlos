@@ -199,6 +199,7 @@
                     href="#"
                     onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
             </td>
+        </tr>
         <tr>
             <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
                  opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
