@@ -117,13 +117,17 @@ public final class LocaleUtils {
      * of a page rendered in the wrong language cannot be diagnosed from the page alone: the
      * markup carries the negotiated language (the chart's {@code lang} attributes), and this
      * line pairs it with the raw preference the server saw for that request. {@code Accept-Language}
-     * and the request path carry no patient data. No-op unless DEBUG is enabled for this logger.
+     * and the request path carry no patient data, but both are client-controlled, so the path
+     * goes through {@link LogSafe#sanitizeUri(String)} (it strips a URL-rewritten
+     * {@code ;jsessionid} bearer token) and the header through {@link LogSafe#sanitize(String)}
+     * (log-injection escaping). No-op unless DEBUG is enabled for this logger.
      */
     private static Locale logResolved(Locale resolved, String acceptLanguage, ServletRequest request) {
         if (logger.isDebugEnabled()) {
-            String path = request instanceof HttpServletRequest httpRequest ? httpRequest.getRequestURI() : null;
+            String path = request instanceof HttpServletRequest httpRequest
+                    ? LogSafe.sanitizeUri(httpRequest.getRequestURI()) : null;
             logger.debug("Negotiated bundle locale {} for {} from Accept-Language [{}] (bundle base {})",
-                    resolved, path, acceptLanguage, BASE_NAME);
+                    resolved, path, LogSafe.sanitize(acceptLanguage), BASE_NAME);
         }
         return resolved;
     }
