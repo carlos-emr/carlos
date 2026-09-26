@@ -639,7 +639,7 @@ body {
                      signed in elsewhere. Set only by RootEntryRedirectFilter from a server-side
                      marker (never a URL parameter), and shown once. --%>
                 <c:if test="${ requestScope.signedOutElsewhere eq true }">
-                    <div class="alert" role="status" id="signedOutElsewhereNotice">
+                    <div class="alert" aria-live="polite" id="signedOutElsewhereNotice">
                         <fmt:message key="login.signedOutElsewhere"/>
                     </div>
                 </c:if>

@@ -119,6 +119,18 @@ class PendingSessionChoiceCacheUnitTest {
         PendingSessionChoices.clearFromSession(null);
     }
 
+    @Test
+    @DisplayName("should compare the auth result by content and keep it out of toString")
+    void shouldCompareByContent_andRedactToString() {
+        PendingSessionChoiceCache.PendingSessionChoice first = pending();
+        PendingSessionChoiceCache.PendingSessionChoice second = pending();
+
+        assertThat(first).isEqualTo(second).hasSameHashCodeAs(second);
+        assertThat(first).isNotEqualTo(
+                new PendingSessionChoiceCache.PendingSessionChoice(12345, "999998", new String[]{"x"}, false, null, "oauth-1"));
+        assertThat(first.toString()).doesNotContain("999998").doesNotContain("oauth-1").contains("redacted");
+    }
+
     private static PendingSessionChoiceCache.PendingSessionChoice pending() {
         return new PendingSessionChoiceCache.PendingSessionChoice(12345, "999998", AUTH, false, null, "oauth-1");
     }

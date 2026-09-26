@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,6 +67,7 @@ class UserSessionManagerImplUnitTest {
     }
 
     @Test
+    @SuppressWarnings("removal") // Pins the deprecated API's behaviour until it is removed.
     @DisplayName("should invalidate all sessions when unregistering a security code")
     void shouldInvalidateAllSessions_whenUnregisteringSecurityCode() {
         UserSessionManagerImpl manager = new UserSessionManagerImpl();
@@ -201,7 +203,7 @@ class UserSessionManagerImplUnitTest {
         Integer securityCode = 3985;
         HttpSession gone = mock(HttpSession.class);
         when(gone.getId()).thenReturn("gone-session-id");
-        org.mockito.Mockito.doThrow(new IllegalStateException("already invalidated")).when(gone).invalidate();
+        doThrow(new IllegalStateException("already invalidated")).when(gone).invalidate();
         manager.registerUserSession(securityCode, gone);
 
         assertThat(manager.invalidateOtherSessions(securityCode, null)).isZero();

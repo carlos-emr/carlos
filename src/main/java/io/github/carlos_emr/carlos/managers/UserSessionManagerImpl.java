@@ -95,6 +95,8 @@ public class UserSessionManagerImpl implements UserSessionManager {
      * @param userSecurityCode The user sec code.
      * @return The HttpSession that was unregistered.
      * @throws UserSessionNotFoundException If no session is found for the given user sec code.
+     * @deprecated see {@link UserSessionManager#unregisterUserSession(Integer)}; use
+     *             {@link #invalidateOtherSessions(Integer, HttpSession)}.
      */
     @Override
     @Deprecated(since = "2026.08", forRemoval = true)
@@ -195,7 +197,8 @@ public class UserSessionManagerImpl implements UserSessionManager {
             revoked++;
         }
         if (revoked > 0) {
-            logger.info("Signed out {} other session(s) for security code {}", revoked, userSecurityCode);
+            // Count only: the security number correlates to an account and is audited elsewhere.
+            logger.info("Signed out {} other session(s) for a user after a newer sign-in", revoked);
         }
         return revoked;
     }

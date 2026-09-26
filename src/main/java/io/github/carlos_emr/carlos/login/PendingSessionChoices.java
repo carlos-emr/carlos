@@ -52,8 +52,7 @@ public final class PendingSessionChoices {
         if (session == null) {
             return null;
         }
-        Object tokenAttr = session.getAttribute(TOKEN_ATTR);
-        return tokenAttr instanceof String ? (String) tokenAttr : null;
+        return session.getAttribute(TOKEN_ATTR) instanceof String token ? token : null;
     }
 
     /**

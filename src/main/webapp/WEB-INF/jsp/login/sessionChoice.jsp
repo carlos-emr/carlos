@@ -65,7 +65,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="page"/>
 <c:set var="choice" value="${requestScope.concurrentSessionChoice}" scope="page"/>
 <!DOCTYPE html>
-<html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -121,7 +121,7 @@
                     </div>
                 </c:if>
                 <c:if test="${choice.signOutRequired}">
-                    <div class="alert alert-info" role="status" id="sessionChoiceLimitReached">
+                    <div class="alert alert-info" aria-live="polite" id="sessionChoiceLimitReached">
                         <fmt:message key="login.concurrentSessions.limitReached">
                             <fmt:param><carlos:encode value="${choice.maxSessions}"/></fmt:param>
                         </fmt:message>

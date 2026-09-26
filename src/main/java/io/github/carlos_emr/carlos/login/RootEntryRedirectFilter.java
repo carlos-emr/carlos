@@ -93,7 +93,7 @@ public class RootEntryRedirectFilter extends HttpFilter {
     // FindSecBugs SERVLET_SESSION_ID: the requested id is only hashed and looked up in RevokedUserSessions; it is never logged, echoed or trusted as identity.
     @SuppressFBWarnings(value = "SERVLET_SESSION_ID", justification = "requested session id is only hashed for a RevokedUserSessions lookup; never logged, echoed or trusted as identity")
     static void markSignedOutElsewhere(HttpServletRequest request) {
-        String requestedSessionId = request.getRequestedSessionId();
+        String requestedSessionId = request.getRequestedSessionId(); // NOSONAR java:S2254 - only hashed for a revocation-marker lookup; never logged, echoed or trusted as identity
         if (requestedSessionId != null && !request.isRequestedSessionIdValid()
                 && RevokedUserSessions.consume(requestedSessionId)) {
             request.setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);

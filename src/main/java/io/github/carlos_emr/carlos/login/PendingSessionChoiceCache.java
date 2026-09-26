@@ -145,5 +145,29 @@ final class PendingSessionChoiceCache {
         public String[] authResult() {
             return Arrays.copyOf(authResult, authResult.length);
         }
+
+        // The record's generated equals/hashCode compare the array by reference; compare contents.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof PendingSessionChoice that
+                    && mobileOptimized == that.mobileOptimized
+                    && securityNo.equals(that.securityNo)
+                    && providerNo.equals(that.providerNo)
+                    && Arrays.equals(authResult, that.authResult)
+                    && Objects.equals(submitType, that.submitType)
+                    && Objects.equals(oauthToken, that.oauthToken);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(securityNo, providerNo, Arrays.hashCode(authResult), mobileOptimized,
+                    submitType, oauthToken);
+        }
+
+        /** Deliberately omits the authentication result and OAuth token from diagnostics. */
+        @Override
+        public String toString() {
+            return "PendingSessionChoice[securityNo=" + securityNo + ", authResult=<redacted>]";
+        }
     }
 }

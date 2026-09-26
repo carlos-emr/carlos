@@ -103,7 +103,7 @@ public final class UnauthenticatedRejectionResolver {
 
         if (statusCodeRoute) {
             writeStatusCodeRejection(request, response);
-        } else if (RevokedUserSessions.isRevoked(request.getRequestedSessionId())) {
+        } else if (RevokedUserSessions.isRevoked(request.getRequestedSessionId())) { // NOSONAR java:S2254 - the id is only hashed for a revocation-marker lookup; never logged, echoed or trusted as identity
             // Issue #3980: this browser's session was signed out by a newer sign-in for the same
             // user. Go straight to the login page, which explains why (RootEntryRedirectFilter
             // consumes the marker). Not /logoutPage: its POST to /logout deletes the session cookie,
@@ -187,6 +187,9 @@ public final class UnauthenticatedRejectionResolver {
     }
 
     static boolean isStatusCodeRoute(HttpServletRequest request) {
+        if (request == null) {
+            return false;
+        }
         return RequestNegotiation.isAjax(request)
                 || prefersStructuredResponse(request)
                 || isDownloadOrGeneratedContentPath(request);

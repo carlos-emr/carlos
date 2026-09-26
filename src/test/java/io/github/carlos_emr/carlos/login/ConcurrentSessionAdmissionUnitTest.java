@@ -66,8 +66,14 @@ class ConcurrentSessionAdmissionUnitTest {
                 return 2;
             }));
 
-            Thread.sleep(200);
-            assertThat(second.isDone()).as("second login waits for the first").isFalse();
+            // Deterministic: wait until the second login is actually parked on the lock.
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!ConcurrentSessionAdmission.lockFor(3980).hasQueuedThreads() && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertThat(ConcurrentSessionAdmission.lockFor(3980).hasQueuedThreads())
+                    .as("second login waits for the first").isTrue();
+            assertThat(second.isDone()).isFalse();
             releaseFirst.countDown();
 
             assertThat(first.get(5, TimeUnit.SECONDS)).isEqualTo(1);
