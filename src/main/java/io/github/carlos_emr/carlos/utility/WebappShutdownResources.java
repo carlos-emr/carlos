@@ -214,6 +214,9 @@ public final class WebappShutdownResources {
      * @param webappClassLoader class loader of the stopping webapp
      * @return number of scheduler context-loader references released
      */
+    // S1872: java.util.concurrent.DelayScheduler is package-private in the JDK, so it cannot be
+    // named in an instanceof; the fully qualified class name is the only handle on it.
+    @SuppressWarnings("java:S1872")
     static int releaseJdkDelaySchedulerClassLoader(ClassLoader webappClassLoader) {
         int released = 0;
         for (Thread thread : Thread.getAllStackTraces().keySet()) {

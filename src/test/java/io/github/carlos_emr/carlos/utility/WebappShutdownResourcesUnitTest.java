@@ -256,6 +256,8 @@ public class WebappShutdownResourcesUnitTest {
         }
     }
 
+    // S1872: DelayScheduler is package-private in java.util.concurrent, so instanceof cannot name it.
+    @SuppressWarnings("java:S1872")
     private static Thread commonDelayScheduler() throws Exception {
         ForkJoinPool.commonPool().schedule(() -> { }, 1, TimeUnit.MILLISECONDS).get(5, TimeUnit.SECONDS);
         return Thread.getAllStackTraces().keySet().stream()
