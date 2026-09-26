@@ -7,6 +7,9 @@ package io.github.carlos_emr.carlos.login.gate;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
+import io.github.carlos_emr.carlos.login.OtherSessionSettlement;
+import io.github.carlos_emr.carlos.managers.UserSessionManager;
+import io.github.carlos_emr.carlos.managers.UserSessionManagerImpl;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
@@ -47,6 +50,7 @@ import static org.mockito.Mockito.when;
 class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
     private ProviderDao providerDao;
     private FacilityDao facilityDao;
+    private UserSessionManager userSessionManager;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -55,6 +59,7 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         providerDao = mock(ProviderDao.class);
         facilityDao = mock(FacilityDao.class);
+        userSessionManager = mock(UserSessionManager.class);
         request = new MockHttpServletRequest("POST", "/select_facility");
         response = new MockHttpServletResponse();
         request.setContextPath("/carlos");
@@ -284,7 +289,47 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should sign out other sessions deferred from login only after the facility is applied")
+    void shouldSettleDeferredSignOut_afterFacilityApplied() throws Exception {
+        Facility facility = new Facility();
+        facility.setId(10);
+        MockHttpSession session = (MockHttpSession) request.getSession(false);
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+        request.addParameter("nextPage", "provider");
+        session.setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+        session.setAttribute(UserSessionManagerImpl.KEY_USER_SECURITY_CODE, 12345);
+        session.setAttribute(OtherSessionSettlement.DEFERRED_ATTR, OtherSessionSettlement.Mode.SIGN_OUT_BY_USER.name());
+        when(providerDao.getFacilityIds("999998")).thenReturn(List.of(10, 11));
+        when(facilityDao.find(10)).thenReturn(facility);
+        when(userSessionManager.invalidateOtherSessions(12345, session)).thenReturn(2);
+
+        assertThat(action().execute()).isEqualTo("provider");
+
+        verify(userSessionManager).invalidateOtherSessions(12345, session);
+        assertThat(session.getAttribute(OtherSessionSettlement.DEFERRED_ATTR)).isNull();
+        logActionMock.verify(() -> LogAction.addLog("999998", "log in", "concurrent_sessions_revoked", "2",
+                request.getRemoteAddr()));
+    }
+
+    @Test
+    @DisplayName("should not sign out other sessions when facility selection ends the login")
+    void shouldNotSettleDeferredSignOut_whenFacilityIsUnauthorized() throws Exception {
+        MockHttpSession session = (MockHttpSession) request.getSession(false);
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "99");
+        request.addParameter("nextPage", "provider");
+        session.setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+        session.setAttribute(UserSessionManagerImpl.KEY_USER_SECURITY_CODE, 12345);
+        session.setAttribute(OtherSessionSettlement.DEFERRED_ATTR, OtherSessionSettlement.Mode.SIGN_OUT_BY_USER.name());
+        when(providerDao.getFacilityIds("999998")).thenReturn(List.of(10, 11));
+
+        action().execute();
+
+        assertThat(session.isInvalid()).isTrue();
+        verifyNoInteractions(userSessionManager);
+    }
+
     private SelectFacility2Action action() {
-        return new SelectFacility2Action(providerDao, facilityDao);
+        return new SelectFacility2Action(providerDao, facilityDao, userSessionManager);
     }
 }

@@ -43,11 +43,13 @@ import org.apache.commons.codec.binary.Base32;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
+import io.github.carlos_emr.carlos.login.ConcurrentSessionPolicy.Decision;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -65,8 +67,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -75,6 +79,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.regex.Pattern;
@@ -232,6 +237,18 @@ public final class Login2Action extends ActionSupport {
      * secret while OTP validation is still pending.</p>
      */
     private static final String PENDING_MFA_TOKEN_ATTR = PendingMfaChallenges.TOKEN_ATTR;
+
+    /** Struts result that renders the concurrent-session chooser (issue #3980). */
+    static final String SESSION_CHOICE_RESULT = "sessionChoice";
+
+    /** Chooser answer: keep the user's other sessions signed in. */
+    public static final String SESSION_CHOICE_KEEP = "keep";
+
+    /** Chooser answer: sign the user's other sessions out. */
+    public static final String SESSION_CHOICE_SIGN_OUT = "signOutOthers";
+
+    /** Stand-in for a malformed {@code oauth_token} while a login waits on the chooser; fails validation. */
+    private static final String MALFORMED_OAUTH_TOKEN = "<malformed>";
 
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
@@ -631,7 +648,7 @@ public final class Login2Action extends ActionSupport {
                 return beginPendingMfaChallenge(strAuth, security, ip);
             }
 
-            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+            return applyConcurrentSessionPolicy(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
 
         }
         // Authentication failure handling.
@@ -887,7 +904,7 @@ public final class Login2Action extends ActionSupport {
         // Success audit follows registration persistence so operators do not see a false success row
         // when the OTP was correct but the new secret could not be stored.
         LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
-        return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+        return applyConcurrentSessionPolicy(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
     }
 
     /**
@@ -1074,6 +1091,352 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
+     * Applies the site's concurrent-session policy (issue #3980) once every credential check has
+     * passed, and before the authenticated session exists.
+     *
+     * <p>Under the default {@code allow} policy with no limit this goes straight to
+     * {@link #completeAuthenticatedLogin}, exactly as before the policy existed. Otherwise it counts
+     * the user's other live sessions and either continues, signs them out ({@code single}), or
+     * stages the login behind the chooser ({@code prompt}, or the limit reached).</p>
+     *
+     * <p>AJAX clients cannot render the chooser. When the user could have kept their sessions they
+     * are kept (and audited); when the limit requires signing others out the login is refused with a
+     * JSON error rather than silently ending sessions the user was not asked about.</p>
+     *
+     * @return Struts result name, {@link #NONE} after a redirect or a direct JSON response, or the
+     *         existing AJAX completion result
+     */
+    private String applyConcurrentSessionPolicy(Security security, String[] strAuth, String ip,
+                                                boolean isMobileOptimized, String submitType,
+                                                boolean ajaxResponse) throws IOException {
+        String oauthToken = request.getParameter("oauth_token");
+        ConcurrentSessionPolicy policy = ConcurrentSessionPolicy.fromProperties(CarlosProperties.getInstance());
+        if (policy.equals(ConcurrentSessionPolicy.DEFAULT)) {
+            // The default never asks or signs anyone out; skip the registry walk entirely.
+            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
+                    ajaxResponse, oauthToken, OtherSessionSettlement.Mode.LEAVE);
+        }
+
+        // Count, decide, register and settle under one per-user lock, so two logins for the same
+        // account cannot both count the same sessions (see ConcurrentSessionAdmission).
+        return ConcurrentSessionAdmission.serialize(security.getSecurityNo(), () -> admitUnderPolicy(
+                security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse, oauthToken, policy));
+    }
+
+    /**
+     * Counts the user's other sessions and acts on the policy's decision. Runs under the per-user
+     * admission lock taken by {@link #applyConcurrentSessionPolicy}.
+     */
+    // FindSecBugs XSS_SERVLET: the AJAX refusal is a Jackson-serialized JSON body with a bundle message, not an HTML sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "AJAX refusal is a Jackson-serialized JSON body carrying a resource-bundle message, not an HTML XSS sink")
+    private String admitUnderPolicy(Security security, String[] strAuth, String ip, boolean isMobileOptimized,
+                                    String submitType, boolean ajaxResponse, String oauthToken,
+                                    ConcurrentSessionPolicy policy) throws IOException {
+        // The browser's current session (if it is an older signed-in session) is replaced by the
+        // login anyway, so it is not one of the "other" sessions the user must decide about.
+        int otherSessions = this.userSessionManager.countOtherActiveSessions(
+                security.getSecurityNo(), request.getSession(false));
+        Decision decision = policy.decide(otherSessions);
+        switch (decision) {
+            case SIGN_OUT_OTHERS:
+                return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
+                        ajaxResponse, oauthToken, OtherSessionSettlement.Mode.SIGN_OUT_BY_POLICY);
+            case ASK:
+                if (ajaxResponse) {
+                    return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
+                            true, oauthToken, OtherSessionSettlement.Mode.KEEP_BY_USER);
+                }
+                return beginSessionChoice(security, strAuth, ip, isMobileOptimized, submitType, oauthToken,
+                        policy, otherSessions);
+            case ASK_SIGN_OUT_REQUIRED:
+                if (ajaxResponse) {
+                    LogAction.addLog(security.getProviderNo(), LogConst.LOGIN, "concurrent_sessions_limit_refused",
+                            String.valueOf(otherSessions), ip);
+                    ObjectNode json = objectMapper.createObjectNode();
+                    json.put("success", false);
+                    json.put("error", message("login.concurrentSessions.limitReachedAjax"));
+                    response.setContentType("application/json");
+                    response.getWriter().write(json.toString());
+                    // Direct response: NONE stops Struts resolving a view over the JSON.
+                    return NONE;
+                }
+                return beginSessionChoice(security, strAuth, ip, isMobileOptimized, submitType, oauthToken,
+                        policy, otherSessions);
+            case PROCEED:
+            default:
+                return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
+                        ajaxResponse, oauthToken, OtherSessionSettlement.Mode.LEAVE);
+        }
+    }
+
+    /**
+     * Stages an authenticated login behind the concurrent-session chooser.
+     *
+     * <p>The pre-login session is replaced first, as {@link #beginPendingMfaChallenge} does, so a
+     * session id fixed before login cannot be used to submit the choice and receive the new
+     * authenticated session. Only OAuth consent nonces are carried across. The new pre-login
+     * session holds nothing but the opaque {@link PendingSessionChoiceCache} token; it has no
+     * {@code user} attribute, so {@link io.github.carlos_emr.carlos.sec.LoginFilter} still treats
+     * it as signed out.</p>
+     *
+     * @return {@code sessionChoice}, the chooser view
+     */
+    private String beginSessionChoice(Security security, String[] strAuth, String ip,
+                                      boolean isMobileOptimized, String submitType, String oauthToken,
+                                      ConcurrentSessionPolicy policy, int otherSessions) {
+        HttpSession session = request.getSession(false);
+        Map<String, String> oauthAuthorizationNonces = OAuthAuthorizationSessionState.snapshotNonces(session);
+        if (session != null) {
+            session.invalidate();
+        }
+        session = request.getSession();
+        OAuthAuthorizationSessionState.restoreNonces(session, oauthAuthorizationNonces);
+        session.setMaxInactiveInterval(300);
+
+        // Keep the direct path's behaviour: a malformed token is still presented to
+        // bindOauthTokenForAuthenticatedSession, which audits and ignores it. A fixed placeholder is
+        // cached instead of the raw value so an arbitrarily long parameter never sits in the cache.
+        String stagedOauthToken = oauthToken == null || isValidOauthTokenId(oauthToken)
+                ? oauthToken : MALFORMED_OAUTH_TOKEN;
+        PendingSessionChoiceCache.PendingSessionChoice pending = new PendingSessionChoiceCache.PendingSessionChoice(
+                security.getSecurityNo(), security.getProviderNo(), strAuth, isMobileOptimized, submitType,
+                stagedOauthToken,
+                // execute() routes an account that needs MFA to the challenge before this point, so
+                // reaching the chooser with MFA required means the challenge was just completed.
+                isMfaRequired(security),
+                credentialFingerprint(security));
+        PendingSessionChoices.stage(session, PendingSessionChoiceCache.getInstance().store(pending));
+
+        LogAction.addLog(security.getProviderNo(), LogConst.LOGIN, "concurrent_sessions_prompted",
+                String.valueOf(otherSessions), ip);
+        return renderSessionChoice(security.getSecurityNo(), session, policy,
+                policy.isLimitReached(otherSessions));
+    }
+
+    /**
+     * Publishes the chooser's view model and returns the chooser result. The list of other sessions
+     * is re-read on every render so a session that ended meanwhile is not shown.
+     *
+     * @param signOutRequired the limit decision taken from the same count the caller acted on, so
+     *                        the page never offers "keep" that the submit would then refuse
+     */
+    private String renderSessionChoice(Integer securityNo, HttpSession session, ConcurrentSessionPolicy policy,
+                                       boolean signOutRequired) {
+        List<UserSessionManager.SessionInfo> others =
+                this.userSessionManager.describeOtherActiveSessions(securityNo, session);
+        request.setAttribute(ConcurrentSessionChoiceViewModel.REQUEST_ATTR,
+                new ConcurrentSessionChoiceViewModel(others, signOutRequired, policy.maxSessions(),
+                        LocaleUtils.resolveBundleLocale(request)));
+        return SESSION_CHOICE_RESULT;
+    }
+
+    /**
+     * Handles the concurrent-session chooser's POST to {@code /login/sessionChoice} (issue #3980).
+     *
+     * <p>GET and HEAD are refused with 405 before the pending login is read. The pending login is
+     * found only through the token in this browser's pre-login session, so a user can act only on
+     * their own sign-in; CSRFGuard protects the route. A missing, expired or replayed token, or an
+     * unrecognised choice, ends the pending login and returns to the login page. "Keep" is refused
+     * (the chooser is shown again, without it) when other sessions signed in while the chooser was
+     * open and the limit is now reached.</p>
+     *
+     * @return {@code sessionChoice} to show the chooser again, or the result of
+     *         {@link #completeAuthenticatedLogin}; {@link #NONE} after a redirect or error
+     * @throws IOException if redirecting or writing the response fails
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL.
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the HTTP method name against "POST"; not a security decision on user text.
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"}, justification = "UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL. IMPROPER_UNICODE: case-insensitive comparison of the HTTP method name against POST")
+    public String submitSessionChoice() throws IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+        String ip = request.getRemoteAddr();
+        HttpSession session = request.getSession(false);
+        String token = PendingSessionChoices.getToken(session);
+        PendingSessionChoiceCache.PendingSessionChoice pending = PendingSessionChoiceCache.getInstance().peek(token);
+        if (pending == null) {
+            logger.info("Session choice submitted without a live pending login; redirecting to login: remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(ip));
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+
+        String choice = this.sessionChoice;
+        boolean signOutOthers = SESSION_CHOICE_SIGN_OUT.equals(choice);
+        if (!signOutOthers && !SESSION_CHOICE_KEEP.equals(choice)) {
+            // The parallel fork dereferenced a missing choice (NPE). Treat anything unexpected as an
+            // abandoned sign-in rather than guessing which way the user meant.
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "concurrent_sessions_invalid_choice", "", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorUnableToProcess")));
+            return NONE;
+        }
+
+        // The account re-check, limit re-check, token consumption and completion run under the same
+        // per-user lock as a direct login, so a login racing this submit is counted before either
+        // registers and an account change cannot slip between check and completion.
+        return ConcurrentSessionAdmission.serialize(pending.securityNo(),
+                () -> completeSessionChoice(session, token, pending, signOutOthers, ip));
+    }
+
+    /**
+     * Re-checks the limit, consumes the pending login and completes it. Runs under the per-user
+     * admission lock taken by {@link #submitSessionChoice()}.
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path, not an attacker-controlled external URL")
+    private String completeSessionChoice(HttpSession session, String token,
+                                         PendingSessionChoiceCache.PendingSessionChoice pending,
+                                         boolean signOutOthers, String ip) throws IOException {
+        // Re-checked inside the admission lock so an account change cannot land between this check
+        // and the token being consumed.
+        Security security = this.securityDao.find(pending.securityNo());
+        Provider provider = this.providerDao.getProvider(pending.providerNo());
+        if (security == null || provider == null || "0".equals(provider.getStatus())
+                || !pending.providerNo().equals(security.getProviderNo())) {
+            // Deactivated, removed or re-pointed to another provider while the chooser was open:
+            // the staged authentication result no longer describes this account, so do not
+            // finish the login.
+            logger.warn("Session choice refused because the account is no longer active: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "inactive_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorAccountInactive")));
+            return NONE;
+        }
+        if (isAccountExpired(security)) {
+            // Expired while the chooser was open. execute() refuses an expired account through
+            // LoginCheckLogin.auth; the staged result predates the change, so apply it here.
+            logger.warn("Session choice refused because the account expired: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "expired_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorAccountExpired")));
+            return NONE;
+        }
+        if (isMandatoryPasswordResetEnabled() && Boolean.TRUE.equals(security.isForcePasswordReset())) {
+            // Flagged for a password reset while the chooser was open. The reset page needs the
+            // credentials, which the pending login deliberately does not keep, so end it and have
+            // the user sign in again; execute() then routes them through /forcepasswordreset.
+            // A reset completed during this sign-in already cleared the flag before the chooser.
+            logger.warn("Session choice refused because a password reset is now required: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "reset_required_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
+            return NONE;
+        }
+        if (!Objects.equals(pending.credentialFingerprint(), credentialFingerprint(security))) {
+            // The password, PIN, PIN-lock settings or effective authentication mode changed after this sign-in checked
+            // them. The pending login keeps no credentials to re-check, so end it; the next sign-in
+            // is checked against the current values and mode.
+            logger.warn("Session choice refused because the account's credentials changed: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "credentials_changed_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
+            return NONE;
+        }
+        if (isMfaRequired(security) && !pending.mfaVerified()) {
+            // MFA was turned on for the account while the chooser was open, so this sign-in never
+            // presented an OTP. End it; the next sign-in goes through the MFA challenge.
+            logger.warn("Session choice refused because MFA is now required: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "mfa_required_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
+            return NONE;
+        }
+
+        ConcurrentSessionPolicy policy = ConcurrentSessionPolicy.fromProperties(CarlosProperties.getInstance());
+        if (!signOutOthers && policy.isLimitReached(
+                this.userSessionManager.countOtherActiveSessions(pending.securityNo(), session))) {
+            // Keep the token live: this is a retryable answer, not an abandoned sign-in.
+            request.setAttribute("sessionChoiceKeepRefused", Boolean.TRUE);
+            return renderSessionChoice(pending.securityNo(), session, policy, true);
+        }
+
+        PendingSessionChoiceCache.PendingSessionChoice terminal = PendingSessionChoiceCache.getInstance().consume(token);
+        if (terminal == null) {
+            logger.info("Session choice token was replayed or expired before completion: remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(ip));
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
+            return NONE;
+        }
+        // Leave the token on the pre-login session until the login rotates that session away
+        // (OscarSessionListener clears it then, on this thread and under this lock). Clearing it
+        // here would let a cancel find no token, skip the admission lock and end the pre-login
+        // session before the new one exists.
+        // The role list was captured at sign-in; a role granted or revoked while the chooser was
+        // open must be reflected in the session's userrole, as a fresh sign-in would.
+        try {
+            String[] authResult = terminal.authResult();
+            authResult[4] = activeRoleNames(terminal.providerNo());
+            return completeAuthenticatedLogin(security, authResult, ip, terminal.mobileOptimized(),
+                    terminal.submitType(), false, terminal.oauthToken(),
+                    signOutOthers ? OtherSessionSettlement.Mode.SIGN_OUT_BY_USER : OtherSessionSettlement.Mode.KEEP_BY_USER);
+        } finally {
+            // Still under the admission lock: once the login has finished (or failed) the owner no
+            // longer needs to outlive cache eviction.
+            PendingSessionChoiceCache.getInstance().release(token);
+        }
+    }
+
+    /**
+     * The comma-separated active role list, built the way {@link LoginCheckLoginBean} builds it at
+     * sign-in; {@code null} when the provider has no active role.
+     */
+    private String activeRoleNames(String providerNo) {
+        StringJoiner roles = new StringJoiner(",");
+        for (SecUserRole role : this.providerManager.getSecUserRoles(providerNo)) {
+            if (Boolean.TRUE.equals(role.getActive())) {
+                roles.add(role.getRoleName());
+            }
+        }
+        return roles.length() == 0 ? null : roles.toString();
+    }
+
+    /**
+     * Digest of the fields that decide how {@link LoginCheckLoginBean} authenticates the account:
+     * the password hash, the PIN, the local/remote PIN-lock flags, whether the account uses MFA
+     * (which switches the PIN check off), and the effective global legacy-PIN setting, including
+     * its default derived from the global MFA setting. Binding a pending login to it lets the chooser submit
+     * notice a credential or authentication-mode change without keeping any credential itself.
+     *
+     * @param security security row as read now or at sign-in
+     * @return Base64 SHA-256 digest; never {@code null}
+     */
+    static String credentialFingerprint(Security security) {
+        String material = String.join("\u0000",
+                String.valueOf(security.getPassword()), String.valueOf(security.getPin()),
+                String.valueOf(security.getBLocallockset()), String.valueOf(security.getBRemotelockset()),
+                String.valueOf(security.isUsingMfa()), String.valueOf(MfaManager.isOscarLegacyPinEnabled()));
+        try {
+            return Base64.getEncoder().encodeToString(
+                    MessageDigest.getInstance("SHA-256").digest(material.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            // Every Java platform must provide SHA-256.
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    private static boolean isMfaRequired(Security security) {
+        return MfaManager.isOscarMfaEnabled() && security.isUsingMfa();
+    }
+
+    /** Same account-expiry rule that {@link LoginCheckLoginBean} applies at sign-in. */
+    private static boolean isAccountExpired(Security security) {
+        return security.getBExpireset() != null && security.getBExpireset() == 1
+                && (security.getDateExpiredate() == null || security.getDateExpiredate().before(new Date()));
+    }
+
+
+    /**
      * Completes session setup after password/PIN authentication and any required MFA have succeeded.
      *
      * <p>This is the only path that creates the canonical authenticated session marker
@@ -1088,15 +1451,75 @@ public final class Login2Action extends ActionSupport {
      * @param isMobileOptimized whether mobile session flags should be applied
      * @param submitType mobile/full-site submit mode
      * @param ajaxResponse whether to write the final provider JSON response directly
+     * @param oauthToken OAuth request token to bind to the provider, or {@code null}; validated
+     *                   before any lookup
+     * @param otherSessions what to do with the user's other sessions once the new one is registered
      * @return Struts result name, {@link #NONE} after redirect, {@code error}, or null for AJAX
      * @throws IOException if redirecting or writing the response fails
+     */
+    private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
+                                              boolean isMobileOptimized, String submitType,
+                                              boolean ajaxResponse, String oauthToken,
+                                              OtherSessionSettlement.Mode otherSessions) throws IOException {
+        String result;
+        try {
+            result = establishAuthenticatedSession(security, strAuth, ip, isMobileOptimized, submitType,
+                    ajaxResponse, oauthToken);
+        } catch (IOException | RuntimeException setupFailure) {
+            // A session registered but not fully set up must not linger in the registry, where it
+            // would count toward the concurrent-session limit. Invalidating it runs
+            // OscarSessionListener, which unregisters it.
+            invalidateQuietly(request.getSession(false));
+            throw setupFailure;
+        }
+        // Settle other sessions only once the new one has survived every failure-prone setup step
+        // (provider load, facility, logged-in info, OAuth binding). If setup failed, the new
+        // session was invalidated or an exception is propagating, and the user's existing sessions
+        // -- which may hold unsaved clinical work -- must not be signed out for nothing.
+        HttpSession established = request.getSession(false);
+        if (security != null && isSignedIn(established)) {
+            if (Boolean.TRUE.equals(established.getAttribute(SessionConstants.PENDING_FACILITY_SELECTION))) {
+                // Not finished yet: /select_facility can still end this session, so settle there.
+                OtherSessionSettlement.defer(established, otherSessions);
+            } else {
+                OtherSessionSettlement.settle(this.userSessionManager, security.getSecurityNo(), established,
+                        strAuth[0], ip, otherSessions);
+            }
+        }
+        return result;
+    }
+
+    private static void invalidateQuietly(HttpSession session) {
+        if (session == null) {
+            return;
+        }
+        try {
+            session.invalidate();
+        } catch (IllegalStateException alreadyInvalid) {
+            // Already gone; nothing to clean up.
+        }
+    }
+
+    private static boolean isSignedIn(HttpSession session) {
+        if (session == null) {
+            return false;
+        }
+        try {
+            return session.getAttribute("user") != null;
+        } catch (IllegalStateException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Creates and populates the authenticated session; see {@link #completeAuthenticatedLogin}.
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
-    private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
-                                              boolean isMobileOptimized, String submitType,
-                                              boolean ajaxResponse) throws IOException {
+    private String establishAuthenticatedSession(Security security, String[] strAuth, String ip,
+                                                 boolean isMobileOptimized, String submitType,
+                                                 boolean ajaxResponse, String oauthToken) throws IOException {
         HttpSession session = request.getSession(false);
         Map<String, String> oauthAuthorizationNonces =
                 OAuthAuthorizationSessionState.snapshotNonces(session);
@@ -1108,7 +1531,7 @@ public final class Login2Action extends ActionSupport {
         session.setMaxInactiveInterval(7200);
 
         if (security != null) {
-            this.userSessionManager.registerUserSession(security.getSecurityNo(), session);
+            this.userSessionManager.registerUserSession(security.getSecurityNo(), session, ip);
         }
 
         logger.debug("Assigned new session for: {} : {} : {}", LogSafe.sanitize(strAuth[0]), LogSafe.sanitize(strAuth[3]), LogSafe.sanitize(strAuth[4])); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
@@ -1235,7 +1658,8 @@ public final class Login2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
 
-        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip);
+        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip,
+                oauthToken);
         if (oauthBindingResult != null) {
             return oauthBindingResult;
         }
@@ -1253,9 +1677,9 @@ public final class Login2Action extends ActionSupport {
     }
 
     private String bindOauthTokenForAuthenticatedSession(Provider provider, boolean ajaxResponse,
-                                                        String where, String providerNo, String ip)
+                                                        String where, String providerNo, String ip,
+                                                        String oauthToken)
             throws IOException {
-        String oauthToken = request.getParameter("oauth_token");
         if (oauthToken == null) {
             return null;
         }
@@ -1931,6 +2355,9 @@ public final class Login2Action extends ActionSupport {
     /** Flag indicating whether this is MFA registration flow vs. standard MFA validation */
     private boolean mfaRegistrationFlow;
 
+    /** Concurrent-session chooser answer: {@link #SESSION_CHOICE_KEEP} or {@link #SESSION_CHOICE_SIGN_OUT} */
+    private String sessionChoice;
+
     /**
      * Gets the username from the login form.
      *
@@ -2119,5 +2546,26 @@ public final class Login2Action extends ActionSupport {
     @StrutsParameter
     public void setMfaRegistrationFlow(boolean mfaRegistrationFlow) {
         this.mfaRegistrationFlow = mfaRegistrationFlow;
+    }
+
+    /**
+     * Returns the concurrent-session chooser answer submitted to {@code /login/sessionChoice}.
+     *
+     * @return {@link #SESSION_CHOICE_KEEP}, {@link #SESSION_CHOICE_SIGN_OUT}, or an unvalidated
+     *         request value, which {@link #submitSessionChoice()} rejects
+     */
+    public String getSessionChoice() {
+        return sessionChoice;
+    }
+
+    /**
+     * Sets the concurrent-session chooser answer from the {@code sessionChoice} request parameter.
+     *
+     * @param sessionChoice {@link #SESSION_CHOICE_KEEP} or {@link #SESSION_CHOICE_SIGN_OUT}; any other
+     *                      value is rejected by {@link #submitSessionChoice()}
+     */
+    @StrutsParameter
+    public void setSessionChoice(String sessionChoice) {
+        this.sessionChoice = sessionChoice;
     }
 }

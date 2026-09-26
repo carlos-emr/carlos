@@ -1389,6 +1389,22 @@
       ]
     },
     {
+      "name": "concurrent-session-policy",
+      "script": "scripts/concurrent-session-policy-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONCURRENT_SESSION_POLICY",
+        "CONCURRENT_SESSION_MAX"
+      ]
+    },
+    {
       "name": "multiple-session",
       "script": "scripts/multiple-session-playwright-checks.js",
       "tiers": [

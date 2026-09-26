@@ -33,6 +33,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpSession;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,6 +50,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class UserSessionManagerImpl implements UserSessionManager {
 
     public static final String KEY_USER_SECURITY_CODE = "UserSecurityCode";
+    /**
+     * Session attribute holding the client address the session signed in from. It is shown only to
+     * the same user in the concurrent-session chooser.
+     */
+    public static final String KEY_LOGIN_REMOTE_ADDR = "UserSessionLoginRemoteAddr";
     private static final Logger logger = MiscUtils.getLogger();
     private static final Map<Integer, Set<HttpSession>> userSessionMap = new ConcurrentHashMap<>();
 
@@ -56,6 +65,11 @@ public class UserSessionManagerImpl implements UserSessionManager {
      */
     @Override
     public void registerUserSession(Integer userSecurityCode, HttpSession session) {
+        registerUserSession(userSecurityCode, session, null);
+    }
+
+    @Override
+    public void registerUserSession(Integer userSecurityCode, HttpSession session, String remoteAddr) {
         purgeInvalidSessions();
 
         userSessionMap.compute(userSecurityCode, (key, sessions) -> {
@@ -67,9 +81,11 @@ public class UserSessionManagerImpl implements UserSessionManager {
         });
         // nosemgrep: tainted-session-from-http-request -- userSecurityCode is an internally generated security token, not user input
         session.setAttribute(KEY_USER_SECURITY_CODE, userSecurityCode);
-        if (logger.isDebugEnabled()) {
-            logger.debug("User Session successfully registered: {}", sessionIdForLog(session));
+        if (remoteAddr != null) {
+            // nosemgrep: tainted-session-from-http-request -- container-provided client address, rendered encoded only to the same user
+            session.setAttribute(KEY_LOGIN_REMOTE_ADDR, remoteAddr);
         }
+        logger.debug("User session successfully registered");
     }
 
     /**
@@ -77,8 +93,11 @@ public class UserSessionManagerImpl implements UserSessionManager {
      * @param userSecurityCode The user sec code.
      * @return The HttpSession that was unregistered.
      * @throws UserSessionNotFoundException If no session is found for the given user sec code.
+     * @deprecated see {@link UserSessionManager#unregisterUserSession(Integer)}; use
+     *             {@link #invalidateOtherSessions(Integer, HttpSession)}.
      */
     @Override
+    @Deprecated(since = "2026.08", forRemoval = true)
     public HttpSession unregisterUserSession(Integer userSecurityCode) throws UserSessionNotFoundException {
         Set<HttpSession> sessions = userSessionMap.remove(userSecurityCode);
         if (sessions == null || sessions.isEmpty()) {
@@ -109,9 +128,7 @@ public class UserSessionManagerImpl implements UserSessionManager {
         }
 
         removeSecurityCodeAttribute(session);
-        if (logger.isDebugEnabled()) {
-            logger.debug("User Session successfully unregistered: {}", sessionIdForLog(session));
-        }
+        logger.debug("User session successfully unregistered");
         return session;
     }
 
@@ -129,6 +146,88 @@ public class UserSessionManagerImpl implements UserSessionManager {
         return sessions.iterator().next();
     }
 
+    @Override
+    public int countOtherActiveSessions(Integer userSecurityCode, HttpSession current) {
+        return otherLiveSessions(userSecurityCode, current).size();
+    }
+
+    @Override
+    public List<SessionInfo> describeOtherActiveSessions(Integer userSecurityCode, HttpSession current) {
+        List<SessionInfo> descriptions = new ArrayList<>();
+        for (HttpSession session : otherLiveSessions(userSecurityCode, current)) {
+            try {
+                Object remoteAddr = session.getAttribute(KEY_LOGIN_REMOTE_ADDR);
+                descriptions.add(new SessionInfo(
+                        Instant.ofEpochMilli(session.getCreationTime()),
+                        Instant.ofEpochMilli(session.getLastAccessedTime()),
+                        remoteAddr instanceof String ? (String) remoteAddr : null));
+            } catch (IllegalStateException e) {
+                // Invalidated between the snapshot and this read; it is no longer an active session.
+                logger.debug("Skipping session invalidated while describing sessions: {}", e.getMessage());
+            }
+        }
+        descriptions.sort(Comparator.comparing(SessionInfo::lastActiveAt).reversed());
+        return List.copyOf(descriptions);
+    }
+
+    @Override
+    public int invalidateOtherSessions(Integer userSecurityCode, HttpSession keep) {
+        // Snapshot first: invalidate() runs OscarSessionListener synchronously on this thread, and
+        // the listener's unregisterUserSession() calls computeIfPresent() on this same map entry.
+        // Invalidating inside a compute lambda would be a recursive update of the map.
+        int revoked = 0;
+        for (HttpSession session : otherLiveSessions(userSecurityCode, keep)) {
+            String sessionId = sessionIdForComparison(session);
+            // Mark BEFORE invalidating: the old browser can hit the rejection path the moment the
+            // session dies, and must already find the marker there. If the session turns out to be
+            // gone already (expired or signed out concurrently), withdraw the marker so that
+            // browser is not told another sign-in removed it.
+            RevokedUserSessions.mark(sessionId);
+            try {
+                session.invalidate();
+            } catch (IllegalStateException e) {
+                RevokedUserSessions.consume(sessionId);
+                logger.debug("Session already invalidated: {}", e.getMessage());
+                continue;
+            }
+            revoked++;
+        }
+        if (revoked > 0) {
+            // Count only: the security number correlates to an account and is audited elsewhere.
+            logger.info("Signed out {} other session(s) for a user after a newer sign-in", revoked);
+        }
+        return revoked;
+    }
+
+    /**
+     * Returns a snapshot of the user's live registered sessions, excluding {@code current}.
+     */
+    private List<HttpSession> otherLiveSessions(Integer userSecurityCode, HttpSession current) {
+        if (userSecurityCode == null) {
+            return List.of();
+        }
+        // Prune only this user's set: a sign-in must not pay for a sweep of every user's sessions.
+        // The full sweep stays on registration, as before.
+        Set<HttpSession> sessions = userSessionMap.computeIfPresent(userSecurityCode, (key, registered) -> {
+            registered.removeIf(session -> !isLive(session));
+            return registered.isEmpty() ? null : registered;
+        });
+        if (sessions == null) {
+            return List.of();
+        }
+        String currentId = current == null ? null : sessionIdForComparison(current);
+        List<HttpSession> others = new ArrayList<>();
+        for (HttpSession session : sessions) {
+            if (current != null && isSameSession(session, current, currentId)) {
+                continue;
+            }
+            if (isLive(session)) {
+                others.add(session);
+            }
+        }
+        return others;
+    }
+
     /**
      * Removes entries for HttpSessions that have been invalidated by the container.
      * Safety net for sessions that expire without triggering OscarSessionListener.
@@ -137,16 +236,34 @@ public class UserSessionManagerImpl implements UserSessionManager {
         for (Integer userSecurityCode : userSessionMap.keySet()) {
             userSessionMap.computeIfPresent(userSecurityCode, (key, sessions) -> {
                 sessions.removeIf(session -> {
-                    try {
-                        session.getId(); // throws IllegalStateException if invalidated
+                    if (isLive(session)) {
                         return false;
-                    } catch (IllegalStateException e) {
-                        logger.debug("Purging invalidated session for security code: {}", key);
-                        return true;
                     }
+                    logger.debug("Purging invalidated session for security code: {}", key);
+                    return true;
                 });
                 return sessions.isEmpty() ? null : sessions;
             });
+        }
+    }
+
+    /**
+     * Reports whether a session can still serve requests.
+     *
+     * <p>{@code getId()} is not a liveness test: neither Tomcat's session facade nor Spring's
+     * {@code MockHttpSession} throws from it after invalidation. {@code getCreationTime()} does throw
+     * {@link IllegalStateException} on an invalidated session in both. A session past its
+     * {@code maxInactiveInterval} that the container has not reaped yet (Tomcat checks about once a
+     * minute) is also treated as gone, so it is not offered to the user as an active session.</p>
+     */
+    private static boolean isLive(HttpSession session) {
+        try {
+            session.getCreationTime();
+            int maxInactiveSeconds = session.getMaxInactiveInterval();
+            return maxInactiveSeconds <= 0
+                    || System.currentTimeMillis() - session.getLastAccessedTime() <= maxInactiveSeconds * 1000L;
+        } catch (IllegalStateException e) {
+            return false;
         }
     }
 
@@ -181,11 +298,4 @@ public class UserSessionManagerImpl implements UserSessionManager {
         }
     }
 
-    private String sessionIdForLog(HttpSession session) {
-        try {
-            return session.getId();
-        } catch (IllegalStateException e) {
-            return "invalidated";
-        }
-    }
 }

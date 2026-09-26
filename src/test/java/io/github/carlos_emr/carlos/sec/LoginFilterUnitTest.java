@@ -662,7 +662,11 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
                 "/forcepasswordresetSubmit",
                 "/mfa/loginMfa",
                 "/ws/rs/status",
-                "/Download/report.pdf"
+                "/Download/report.pdf",
+                "/css/caisi_css.css.jsp",
+                "/js/global.js.jsp",
+                "/css/other.css",
+                "/js/other.js"
         })
         @DisplayName("should redirect broad public exemptions when facility selection pending")
         void shouldRedirectBroadPublicExemptions_whenFacilitySelectionPending(String path)
@@ -683,6 +687,8 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {
                 "/library/bootstrap/5.3.8/css/bootstrap.min.css",
                 "/share/css/global.css",
+                "/css/caisi_css.css",
+                "/js/global.js",
                 "/csrfguard",
                 "/status/SessionHeartbeat"
         })

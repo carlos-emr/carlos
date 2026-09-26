@@ -23,8 +23,10 @@ package io.github.carlos_emr.carlos.login;
 
 import java.io.IOException;
 
+import io.github.carlos_emr.carlos.managers.RevokedUserSessions;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpFilter;
@@ -53,6 +55,8 @@ public class RootEntryRedirectFilter extends HttpFilter {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String FORCE_PASSWORD_RESET_PATH = "/forcepasswordreset";
     private static final String LOGIN_JSP = "/WEB-INF/jsp/login/index.jsp";
+    private static final String FETCH_MODE_HEADER = "Sec-Fetch-Mode";
+    private static final String FETCH_MODE_NAVIGATE = "navigate";
 
     @Override
     protected void doFilter(
@@ -67,6 +71,7 @@ public class RootEntryRedirectFilter extends HttpFilter {
                 rejectNonViewMethod(request, response, requestUri, "login entry view");
                 return;
             }
+            markSignedOutElsewhere(request);
             request.getRequestDispatcher(LOGIN_JSP).forward(request, response);
             return;
         }
@@ -77,6 +82,40 @@ public class RootEntryRedirectFilter extends HttpFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Sets {@link RevokedUserSessions#NOTICE_REQUEST_ATTR} when this browser's old session was
+     * signed out by a newer sign-in for the same user (issue #3980), so the login page can say so.
+     *
+     * <p>Only a session id the container no longer recognises is looked up, and the marker is
+     * consumed, so the notice appears once. The login page uses {@code session="false"}, so the stale
+     * cookie is still present here whether the browser arrived from the heartbeat redirect or from
+     * {@link io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver}.</p>
+     */
+    // FindSecBugs SERVLET_SESSION_ID: the requested id is only hashed and looked up in RevokedUserSessions; it is never logged, echoed or trusted as identity.
+    @SuppressFBWarnings(value = "SERVLET_SESSION_ID", justification = "requested session id is only hashed for a RevokedUserSessions lookup; never logged, echoed or trusted as identity")
+    static void markSignedOutElsewhere(HttpServletRequest request) {
+        String requestedSessionId = request.getRequestedSessionId(); // NOSONAR java:S2254 - only hashed for a revocation-marker lookup; never logged, echoed or trusted as identity
+        if (requestedSessionId != null && !request.isRequestedSessionIdValid()
+                && isDocumentNavigation(request)
+                && RevokedUserSessions.consume(requestedSessionId)) {
+            request.setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+        }
+    }
+
+    /**
+     * Whether this request is a page navigation that will show the login page to the user. A
+     * background fetch, image or script request that followed a redirect here must not consume
+     * the one-time notice before the user sees it. Browsers that do not send
+     * {@code Sec-Fetch-Mode} are treated as navigating unless they carry an AJAX marker,
+     * which keeps the notice working for older browsers without consuming it in their XHRs.
+     */
+    // FindSecBugs SERVLET_HEADER: Sec-Fetch-Mode only decides whether the one-time sign-out notice is shown; it grants no access and is never logged or echoed.
+    @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Sec-Fetch-Mode only decides whether the one-time sign-out notice is shown; a forged value can at most show or defer that notice, never grant access; the value is never logged or echoed")
+    private static boolean isDocumentNavigation(HttpServletRequest request) {
+        String fetchMode = request.getHeader(FETCH_MODE_HEADER);
+        return fetchMode == null ? !RequestNegotiation.isAjax(request) : FETCH_MODE_NAVIGATE.equals(fetchMode);
     }
 
     static boolean isLoginEntryRequest(String requestUri, String contextPath) {

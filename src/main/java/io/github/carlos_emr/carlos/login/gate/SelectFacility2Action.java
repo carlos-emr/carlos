@@ -18,6 +18,8 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.login.Login2Action;
+import io.github.carlos_emr.carlos.login.OtherSessionSettlement;
+import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LoggedInUserFilter;
@@ -52,15 +54,18 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
 
     private final ProviderDao providerDao;
     private final FacilityDao facilityDao;
+    private final UserSessionManager userSessionManager;
 
     public SelectFacility2Action() {
         this((ProviderDao) SpringUtils.getBean(ProviderDao.class),
-                (FacilityDao) SpringUtils.getBean(FacilityDao.class));
+                (FacilityDao) SpringUtils.getBean(FacilityDao.class),
+                SpringUtils.getBean(UserSessionManager.class));
     }
 
-    SelectFacility2Action(ProviderDao providerDao, FacilityDao facilityDao) {
+    SelectFacility2Action(ProviderDao providerDao, FacilityDao facilityDao, UserSessionManager userSessionManager) {
         this.providerDao = providerDao;
         this.facilityDao = facilityDao;
+        this.userSessionManager = userSessionManager;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -111,7 +116,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
                 String safeProviderNo = LogSafe.sanitize(providerNo);
                 String safeNextResult = LogSafe.sanitize(nextResult);
                 String safeRemoteAddr = LogSafe.sanitize(request.getRemoteAddr());
-                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
+                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         safeProviderNo, safeNextResult, safeRemoteAddr);
             }
             return redirectToFacilitySelection(request, response);
@@ -138,6 +143,10 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
         LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN,
                 "facilityId=" + facilityId, LogSafe.sanitize(request.getRemoteAddr()));
+        // The login is complete only now. Settle the concurrent-session decision (issue #3980) that
+        // Login2Action deferred to this point; the failure paths above end the session instead, and
+        // the deferred decision with it, so other sessions are never signed out for a failed login.
+        OtherSessionSettlement.completeDeferred(userSessionManager, session, request.getRemoteAddr());
 
         if (nextResult == null || nextResult.isEmpty()) {
             return "provider";

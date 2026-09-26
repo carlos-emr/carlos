@@ -17,6 +17,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.RevokedUserSessions;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
@@ -38,6 +39,7 @@ import org.apache.logging.log4j.Logger;
 public final class UnauthenticatedRejectionResolver {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String LOGOUT_PATH = "/logoutPage";
+    private static final String LOGIN_PATH = "/index";
 
     /**
      * Paths whose unauthenticated responses are consumed by scripts, downloads, or generated
@@ -73,7 +75,8 @@ public final class UnauthenticatedRejectionResolver {
      * status-code routes receive {@code text/plain}.</p>
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    // FindSecBugs SERVLET_SESSION_ID: the requested session id is only hashed for a RevokedUserSessions lookup; it is never logged, echoed or trusted as identity.
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "SERVLET_SESSION_ID"}, justification = "UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL. SERVLET_SESSION_ID: requested session id is only hashed for a RevokedUserSessions lookup; never logged, echoed or trusted as identity")
     public static void rejectUnauthenticatedRequest(
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
@@ -100,6 +103,13 @@ public final class UnauthenticatedRejectionResolver {
 
         if (statusCodeRoute) {
             writeStatusCodeRejection(request, response);
+        } else if (RevokedUserSessions.isRevoked(request.getRequestedSessionId())) { // NOSONAR java:S2254 - the id is only hashed for a revocation-marker lookup; never logged, echoed or trusted as identity
+            // Issue #3980: this browser's session was signed out by a newer sign-in for the same
+            // user. Go straight to the login page, which explains why (RootEntryRedirectFilter
+            // consumes the marker). Not /logoutPage: its POST to /logout deletes the session cookie,
+            // and with it the only link back to the marker. /index is exempt from LoginFilter, so
+            // this cannot loop (#2245). Background/status-code routes above never consume it.
+            response.sendRedirect(request.getContextPath() + LOGIN_PATH);
         } else {
             response.sendRedirect(request.getContextPath() + LOGOUT_PATH);
         }
@@ -177,6 +187,9 @@ public final class UnauthenticatedRejectionResolver {
     }
 
     static boolean isStatusCodeRoute(HttpServletRequest request) {
+        if (request == null) {
+            return false;
+        }
         return RequestNegotiation.isAjax(request)
                 || prefersStructuredResponse(request)
                 || isDownloadOrGeneratedContentPath(request);

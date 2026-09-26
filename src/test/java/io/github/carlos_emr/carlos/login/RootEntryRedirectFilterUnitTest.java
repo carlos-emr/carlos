@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.login;
 
+import io.github.carlos_emr.carlos.managers.RevokedUserSessions;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,9 +35,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.UUID;
+
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -207,5 +212,90 @@ class RootEntryRedirectFilterUnitTest {
 
         verify(chain).doFilter(request, response);
         verify(response, never()).sendRedirect(anyString());
+    }
+
+    @Test
+    @DisplayName("should show signed-out-elsewhere notice once for a revoked session")
+    void shouldSetSignedOutElsewhereNoticeOnce_forRevokedSession() throws Exception {
+        String revokedSessionId = "revoked-" + UUID.randomUUID();
+        RevokedUserSessions.mark(revokedSessionId);
+        stubLoginEntry();
+        when(request.getRequestedSessionId()).thenReturn(revokedSessionId);
+        when(request.isRequestedSessionIdValid()).thenReturn(false);
+
+        filter.doFilter(request, response, chain);
+        filter.doFilter(request, response, chain);
+
+        verify(request, times(1)).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+        verify(dispatcher, times(2)).forward(request, response);
+    }
+
+    @Test
+    @DisplayName("should not show signed-out-elsewhere notice when the requested session is still valid")
+    void shouldNotSetSignedOutElsewhereNotice_whenRequestedSessionIsValid() throws Exception {
+        String sessionId = "live-" + UUID.randomUUID();
+        RevokedUserSessions.mark(sessionId);
+        stubLoginEntry();
+        when(request.getRequestedSessionId()).thenReturn(sessionId);
+        when(request.isRequestedSessionIdValid()).thenReturn(true);
+
+        filter.doFilter(request, response, chain);
+
+        verify(request, never()).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+        RevokedUserSessions.consume(sessionId);
+    }
+
+    @Test
+    @DisplayName("should not show signed-out-elsewhere notice for an expired session that was never revoked")
+    void shouldNotSetSignedOutElsewhereNotice_forExpiredSession() throws Exception {
+        stubLoginEntry();
+        when(request.getRequestedSessionId()).thenReturn("expired-" + UUID.randomUUID());
+        when(request.isRequestedSessionIdValid()).thenReturn(false);
+
+        filter.doFilter(request, response, chain);
+
+        verify(request, never()).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+        verify(dispatcher).forward(request, response);
+    }
+
+    @Test
+    @DisplayName("should keep the signed-out-elsewhere notice for the page when a background request reaches the login entry first")
+    void shouldKeepSignedOutElsewhereNotice_whenBackgroundRequestArrivesFirst() throws Exception {
+        String revokedSessionId = "revoked-" + UUID.randomUUID();
+        RevokedUserSessions.mark(revokedSessionId);
+        stubLoginEntry();
+        when(request.getRequestedSessionId()).thenReturn(revokedSessionId);
+        when(request.isRequestedSessionIdValid()).thenReturn(false);
+        when(request.getHeader("Sec-Fetch-Mode")).thenReturn("no-cors", "cors", "navigate");
+
+        filter.doFilter(request, response, chain);
+        filter.doFilter(request, response, chain);
+        verify(request, never()).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+
+        filter.doFilter(request, response, chain);
+        verify(request, times(1)).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+    }
+
+    @Test
+    @DisplayName("should preserve the notice for legacy AJAX requests without fetch metadata")
+    void shouldKeepSignedOutElsewhereNotice_whenLegacyAjaxArrivesFirst() throws Exception {
+        String revokedSessionId = "revoked-" + UUID.randomUUID();
+        RevokedUserSessions.mark(revokedSessionId);
+        stubLoginEntry();
+        when(request.getRequestedSessionId()).thenReturn(revokedSessionId);
+        when(request.isRequestedSessionIdValid()).thenReturn(false);
+        when(request.getHeader("X-Requested-With")).thenReturn("XMLHttpRequest", null);
+
+        filter.doFilter(request, response, chain);
+        verify(request, never()).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+        filter.doFilter(request, response, chain);
+        verify(request).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+    }
+
+    private void stubLoginEntry() {
+        when(request.getContextPath()).thenReturn("/carlos");
+        when(request.getRequestURI()).thenReturn("/carlos/index");
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestDispatcher("/WEB-INF/jsp/login/index.jsp")).thenReturn(dispatcher);
     }
 }
