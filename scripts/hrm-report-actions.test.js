@@ -586,3 +586,57 @@ test('revocation reloads a cached older inbox even when broadcasting succeeds', 
   assert.equal(reloads, 1);
   assert.equal(closed.length, 0);
 });
+
+/*
+ * Provider Linking Rules (issue #3971): a patient match that also routed the report to the
+ * patient's MRP leaves the server-rendered provider list stale. A report on its own page reloads;
+ * one embedded in the inbox must not reload the clinician's whole inbox.
+ */
+function demoAssignSetup(cardAttrs, windowShape = {}) {
+  const appended = [];
+  const reloads = [];
+  const elements = {
+    demofind7hrm: element({value: '42'}),
+    autocompletedemo7hrm: element({value: 'FAKE-DOE, JANE (1980-01-31)'}),
+    demostatus7: element({appendChild(node) { appended.push(node); }}),
+    hrmdoc_7: element({attrs: cardAttrs}),
+  };
+  const env = setup({
+    elements,
+    windowShape: Object.assign({location: {reload: () => reloads.push(true)}}, windowShape),
+  });
+  env.context.addDemoToHrm('7');
+  return {...env, appended, reloads};
+}
+
+test('a match that reached the MRP reloads a report open on its own page', () => {
+  const {requests, reloads} = demoAssignSetup({'data-inbox-inline': 'false', 'data-inbox-window': 'false'});
+  assert.deepEqual(plain(requests[0].data), {method: 'assignDemographic', reportId: '7', demographicNo: '42'});
+  requests[0].success({success: true, message: 'Success', mrpRouted: true});
+  assert.deepEqual(reloads, [true]);
+});
+
+test('a match that reached the MRP does not reload an inbox that embeds the report', () => {
+  const inline = demoAssignSetup({'data-inbox-inline': 'true'});
+  inline.requests[0].success({success: true, message: 'Success', mrpRouted: true});
+  assert.deepEqual(inline.reloads, []);
+  assert.ok(inline.appended.some((node) => /MRP/.test(node.nodeText || '')), 'the inline report says it went to the MRP');
+
+  const framed = demoAssignSetup({'data-inbox-inline': 'false'}, {frameElement: {}});
+  framed.requests[0].success({success: true, message: 'Success', mrpRouted: true});
+  assert.deepEqual(framed.reloads, []);
+});
+
+test('a match without MRP routing, or a failed one, never reloads', () => {
+  const off = demoAssignSetup({'data-inbox-inline': 'false'});
+  off.requests[0].success({success: true, message: 'Success', mrpRouted: false});
+  assert.deepEqual(off.reloads, []);
+
+  const older = demoAssignSetup({'data-inbox-inline': 'false'});
+  older.requests[0].success({success: true, message: 'Success'});
+  assert.deepEqual(older.reloads, [], 'a reply from a server without the field is not a routing');
+
+  const failed = demoAssignSetup({'data-inbox-inline': 'false'});
+  failed.requests[0].success({success: false, message: 'Error encountered', mrpRouted: true});
+  assert.deepEqual(failed.reloads, []);
+});
