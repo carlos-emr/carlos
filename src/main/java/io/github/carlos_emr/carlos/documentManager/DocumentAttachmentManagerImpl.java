@@ -42,6 +42,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.util.*;
+import java.util.function.UnaryOperator;
 
 /**
  * Implementation of the DocumentAttachmentManager interface providing comprehensive document attachment
@@ -219,14 +220,30 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public List<AttachmentLabResultData> getAllLabsSortedByVersions(LoggedInInfo loggedInInfo, String demographicNo) {
         CommonLabResultData commonLabResultData = new CommonLabResultData();
         List<LabResultData> allLabs = commonLabResultData.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
+        return groupLabsByVersion(allLabs, Hl7textResultsData::getMatchingLabs);
+    }
+
+    /**
+     * Groups labs for the picker: one entry per newest lab, with its older versions attached.
+     *
+     * @param allLabs List&lt;LabResultData&gt; the patient's labs from every configured source
+     * @param hl7VersionChain UnaryOperator&lt;String&gt; resolves an HL7 segment id to its
+     *        comma-separated version chain, oldest first, newest last
+     *        ({@code Hl7textResultsData.getMatchingLabs} in production)
+     * @return List&lt;AttachmentLabResultData&gt; newest labs with their version ids
+     */
+    List<AttachmentLabResultData> groupLabsByVersion(List<LabResultData> allLabs, UnaryOperator<String> hl7VersionChain) {
         Collections.sort(allLabs);
 
+        // Segment ids are only unique within a lab source (HL7, MDS, CML and BCP each number
+        // their own tables), so every lookup below is keyed by source and id together; an HL7
+        // and an MDS lab that share an id are two labs, not one.
         List<String> allLabVersionIds = new ArrayList<>();
         List<AttachmentLabResultData> allLabsSortedByVersions = new ArrayList<>();
 
         Map<String, LabResultData> labMap = new HashMap<>();
         for (LabResultData lab : allLabs) {
-            labMap.put(lab.getSegmentID(), lab);
+            labMap.put(labKey(lab.getLabType(), lab.getSegmentID()), lab);
         }
 
         /*
@@ -239,38 +256,47 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
          * First, I iterate through the 'allLabs' using a for loop.
          */
         for (LabResultData lab : allLabs) {
-            if (allLabVersionIds.contains(lab.getSegmentID())) {
+            if (allLabVersionIds.contains(labKey(lab.getLabType(), lab.getSegmentID()))) {
                 continue;
             }
 
             AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj(), lab.getLabType());
 
-            /*
-             * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.
-             * By 'correct order,' I mean it will return this array [7, 9, 8, 1, 6].
-             * This array will be in version order, where the first is the oldest and the last is the latest.
-             */
-            String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-
-
-            /*
-             * Here, I add the latest lab (6) to 'allLabsSortedByVersions' after attaching its versions (7, 9, 8, and 1) to the latest lab.
-             */
-            for (int i = matchingLabIds.length - 2; i >= 0; i--) {
-                LabResultData versionLab = labMap.get(matchingLabIds[i]);
-                if (versionLab != null) {
-                    attachmentLabResultData.getLabVersionIds().put(versionLab.getSegmentID(), DateUtils.formatDate(versionLab.getDateObj(), null));
-                }
+            // Version chains exist for HL7 labs only; the matching walks hl7TextInfo, so an
+            // MDS/CML/BCP id must never be looked up there (it would pull an unrelated HL7 lab
+            // with the same number in as a "version").
+            if (LabResultData.HL7TEXT.equals(lab.getLabType())) {
+                /*
+                 * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.
+                 * By 'correct order,' I mean it will return this array [7, 9, 8, 1, 6].
+                 * This array will be in version order, where the first is the oldest and the last is the latest.
+                 */
+                String[] matchingLabIds = hl7VersionChain.apply(lab.getSegmentID()).split(",");
 
                 /*
-                 * Then, I add those version labs (7, 9, and 8) into the 'allLabVersionIds' array so that they can be skipped.
-                 * At the start of the for loop, I use `if (allLabVersionIds.contains(lab.getSegmentID())) { continue; }` to ensure that labs already included in 'allLabVersionIds' are skipped during the iteration.
+                 * Here, I add the latest lab (6) to 'allLabsSortedByVersions' after attaching its versions (7, 9, 8, and 1) to the latest lab.
                  */
-                allLabVersionIds.add(matchingLabIds[i]);
+                for (int i = matchingLabIds.length - 2; i >= 0; i--) {
+                    LabResultData versionLab = labMap.get(labKey(LabResultData.HL7TEXT, matchingLabIds[i]));
+                    if (versionLab != null) {
+                        attachmentLabResultData.getLabVersionIds().put(versionLab.getSegmentID(), DateUtils.formatDate(versionLab.getDateObj(), null));
+                    }
+
+                    /*
+                     * Then, I add those version labs (7, 9, and 8) into the 'allLabVersionIds' array so that they can be skipped.
+                     * At the start of the for loop, `allLabVersionIds.contains(...)` ensures that labs already included as versions are skipped during the iteration.
+                     */
+                    allLabVersionIds.add(labKey(LabResultData.HL7TEXT, matchingLabIds[i]));
+                }
             }
             allLabsSortedByVersions.add(attachmentLabResultData);
         }
         return allLabsSortedByVersions;
+    }
+
+    /** Source-qualified lab key; a null source (legacy rows) groups with HL7, the only unnamed source. */
+    private static String labKey(String labType, String segmentId) {
+        return (labType == null || labType.isEmpty() ? LabResultData.HL7TEXT : labType) + ":" + segmentId;
     }
 
     /**

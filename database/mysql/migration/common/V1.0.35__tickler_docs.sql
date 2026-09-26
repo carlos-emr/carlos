@@ -12,6 +12,12 @@
 --     creation date) instead of writing an empty provider and today's date.
 --   * Only `tickler_link.table_name` values with a known meaning are migrated. Anything
 --     else stays in `tickler_link` untouched rather than being guessed as a lab.
+--   * A legacy link is only migrated when the item belongs to the tickler's patient
+--     (`ctl_document`, `HRMDocumentToDemographic`, `patientLabRouting` under the link's
+--     own lab source). The legacy forward parameters were request-controlled, while the
+--     `ticklerdocs` readers trust the row after type-privilege checks only; a cross-patient
+--     legacy row therefore stays quarantined in `tickler_link` instead of surfacing another
+--     patient's identifier or name after the upgrade.
 --
 -- Re-runnable: the DDL is guarded and the backfill matches on (tickler, document,
 -- type) while ignoring `deleted`, so an attachment that was backfilled and later
@@ -62,6 +68,22 @@ FROM (
   FROM `tickler_link` tl
   JOIN `tickler` t ON t.`tickler_no` = tl.`tickler_no`
   WHERE tl.`table_name` IN ('DOC', 'HRM', 'HL7', 'MDS', 'CML', 'BCP')
+    AND (
+      (tl.`table_name` = 'DOC' AND EXISTS (
+        SELECT 1 FROM `ctl_document` cd
+        WHERE cd.`document_no` = tl.`table_id`
+          AND cd.`module` = 'demographic'
+          AND cd.`module_id` = t.`demographic_no`))
+      OR (tl.`table_name` = 'HRM' AND EXISTS (
+        SELECT 1 FROM `HRMDocumentToDemographic` hd
+        WHERE hd.`hrmDocumentId` = CAST(tl.`table_id` AS CHAR)
+          AND hd.`demographicNo` = CAST(t.`demographic_no` AS CHAR)))
+      OR (tl.`table_name` IN ('HL7', 'MDS', 'CML', 'BCP') AND EXISTS (
+        SELECT 1 FROM `patientLabRouting` plr
+        WHERE plr.`lab_no` = tl.`table_id`
+          AND plr.`lab_type` = tl.`table_name`
+          AND plr.`demographic_no` = t.`demographic_no`))
+    )
 ) src
 WHERE NOT EXISTS (
   SELECT 1

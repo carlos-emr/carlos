@@ -2538,7 +2538,10 @@ if (userAgent != null) {
                                                 </tr>
                                                 <fmt:message var="unlabelledLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelUnlabelled"/>
                                                 <c:forEach items="${ attachedLabs }" var="attachedLab">
-                                                    <tr id="entry_labNo${ attachedLab.segmentID }">
+                                                    <%-- Row and delegate ids follow the picker checkbox id, which for labs
+                                                         carries the source (labNoHL7123); the dialog adds and removes rows
+                                                         by that key. --%>
+                                                    <tr id="entry_labNo${ attachedLab.labType }${ attachedLab.segmentID }">
                                                         <td>
                                                             <c:set var="labName"
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
@@ -3612,7 +3615,10 @@ if (userAgent != null) {
                         jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled'])"
                         ).each(function (index, data) {
                             var element = jQuery(this);
-                            var rowId = "entry_" + element.attr("name") + element.val();
+                            // Keyed by the checkbox id (not name + value) so a lab row carries
+                            // its source like the unchecked-row removal below and the
+                            // server-rendered rows do.
+                            var rowId = "entry_" + element.attr("id");
 
                             // skip if this entry was already added (e.g. dialog opened/closed multiple times)
                             if (jQuery('#EctConsultationFormRequest2Form').find("#" + rowId).length > 0) {

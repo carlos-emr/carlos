@@ -81,6 +81,7 @@
     "test:annotate-document-playwright": "node scripts/e2e/fax/annotate-document-playwright-checks.js",
     "test:rx-med-history-playwright": "node scripts/rx-med-history-playwright-checks.js",
     "test:consultation-request-create-playwright": "node scripts/consultation-request-create-playwright-checks.js",
+    "test:consultation-lab-attachment-rows-playwright": "node scripts/consultation-lab-attachment-rows-playwright-checks.js",
     "test:billing-on-submit-playwright": "node scripts/billing-on-submit-playwright-checks.js",
     "test:patient-messenger-context-playwright": "node scripts/patient-messenger-context-playwright-checks.js",
     "test:messenger-playwright": "node scripts/messenger-playwright-checks.js",

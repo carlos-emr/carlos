@@ -18,7 +18,10 @@ data-migration gaps in that PR closed rather than copied.
   `findByLab` for "ticklers for this document / lab".
 - The migration backfills every `tickler_link` row whose `table_name` is `DOC`, `HRM`, `HL7`,
   `MDS`, `CML` or `BCP`, keeping the tickler's creator as `provider_no`, its creation date as
-  `attach_date`, and the lab source in `lab_type`. It is re-runnable and never resurrects a row
+  `attach_date`, and the lab source in `lab_type`. Only links whose item belongs to the tickler's
+  patient are migrated (`ctl_document`, `HRMDocumentToDemographic`, `patientLabRouting` under the
+  link's own source); a cross-patient legacy row stays quarantined in `tickler_link`, since the
+  `ticklerdocs` readers trust the row after type-privilege checks only. It is re-runnable and never resurrects a row
   that was detached after backfill. `tickler_link` is kept read-only for one release; nothing
   reads it any more (`TicklerLink*` classes are removal candidates for the next train).
 
@@ -41,7 +44,8 @@ data-migration gaps in that PR closed rather than copied.
   and BCP each number their own tables), so a tickler `labNo` value is source-qualified:
   `HL7:123`. The picker's lab checkboxes carry `data-lab-type` and source-qualified DOM ids
   (`labNoHL7123`, so two sources sharing a segment id never collide; the consultation page's
-  stored lab delegates use the same key), the dialog builds the value from the source, and the
+  stored lab delegates and rows use the same key, and `getAllLabsSortedByVersions` groups labs by
+  source and id, walking HL7 version chains only), the dialog builds the value from the source, and the
   service checks ownership against that source's `patientLabRouting` row; a bare id is read as
   HL7, which keeps the legacy `docType=HL7&docId=` forward links working. The dialog only
   replaces the form's selection when the picker actually rendered: closing a dialog whose load
