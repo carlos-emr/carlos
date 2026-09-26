@@ -65,6 +65,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -511,6 +512,41 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(decodedRedirect()).contains("/loginfailed");
             assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should not finish login when the account expired while the chooser was open")
+        void shouldNotFinishLogin_whenAccountExpiredMeanwhile() throws Exception {
+            String token = stagePendingChoice();
+            Security expired = security();
+            expired.setBExpireset(1);
+            expired.setDateExpiredate(Date.from(Instant.now().minusSeconds(60)));
+            when(securityDao.find(SECURITY_NO)).thenReturn(expired);
+
+            String result = newAction(Login2Action.SESSION_CHOICE_SIGN_OUT).submitSessionChoice();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(decodedRedirect()).contains("/loginfailed");
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+            verify(userSessionManager, never()).invalidateOtherSessions(any(), any());
+        }
+
+        @Test
+        @DisplayName("should not finish login when a password reset was required while the chooser was open")
+        void shouldNotFinishLogin_whenPasswordResetRequiredMeanwhile() throws Exception {
+            String token = stagePendingChoice();
+            Security flagged = security();
+            flagged.setForcePasswordReset(Boolean.TRUE);
+            when(securityDao.find(SECURITY_NO)).thenReturn(flagged);
+
+            String result = newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(decodedRedirect()).contains("/loginfailed");
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            assertThat(request.getSession().getAttribute("user")).isNull();
             verify(userSessionManager, never()).registerUserSession(any(), any(), any());
         }
 

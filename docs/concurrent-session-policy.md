@@ -71,8 +71,10 @@ error rather than signing out sessions the user was never asked about.
   form is a real `<form method="post">`, so CSRFGuard injects its token. `LoginFilter` lets the
   route through without a session only because it sits under the exempt `/login` prefix.
 - **Only the signing-in user's own sessions.** The pending login is found only through this
-  browser's token. The submit re-reads the security row and the provider, and refuses to finish a
-  login for an account that was deactivated while the chooser was open.
+  browser's token. The submit re-reads the security row and the provider. It refuses to finish a
+  login for an account that was deactivated, re-pointed to another provider, expired or flagged
+  for a password reset while the chooser was open. A reset flag set meanwhile ends the pending
+  login, and the next sign-in goes through `/forcepasswordreset` as usual.
 - **Other sessions are signed out only after the new login fully succeeds.** The new session is
   registered first. The older sessions are settled only once it has passed every failure-prone
   setup step: provider load, facility, logged-in info and OAuth binding. A login that fails
@@ -137,7 +139,7 @@ a session by its shortened reference only.
 | Policy value and decision table | `login/ConcurrentSessionPolicy.java` |
 | Per-user admission lock | `login/ConcurrentSessionAdmission.java` |
 | Settling (or deferring) the decision | `login/OtherSessionSettlement.java`, `login/gate/SelectFacility2Action.java` |
-| Login integration and chooser submit | `login/Login2Action.java` (`applyConcurrentSessionPolicy`, `beginSessionChoice`, `submitSessionChoice`, `settleOtherSessions`) |
+| Login integration and chooser submit | `login/Login2Action.java` (`applyConcurrentSessionPolicy`, `beginSessionChoice`, `submitSessionChoice`, `completeSessionChoice`, `completeAuthenticatedLogin`) |
 | Pending login store and session contract | `login/PendingSessionChoiceCache.java`, `login/PendingSessionChoices.java` |
 | Chooser view model and page | `login/ConcurrentSessionChoiceViewModel.java`, `WEB-INF/jsp/login/sessionChoice.jsp` |
 | Session registry | `managers/UserSessionManager.java`, `managers/UserSessionManagerImpl.java` |

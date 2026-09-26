@@ -1300,6 +1300,28 @@ public final class Login2Action extends ActionSupport {
             response.sendRedirect(loginFailedRedirectUrl(message("login.errorAccountInactive")));
             return NONE;
         }
+        if (isAccountExpired(security)) {
+            // Expired while the chooser was open. execute() refuses an expired account through
+            // LoginCheckLogin.auth; the staged result predates the change, so apply it here.
+            logger.warn("Session choice refused because the account expired: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "expired_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.errorAccountExpired")));
+            return NONE;
+        }
+        if (isMandatoryPasswordResetEnabled() && Boolean.TRUE.equals(security.isForcePasswordReset())) {
+            // Flagged for a password reset while the chooser was open. The reset page needs the
+            // credentials, which the pending login deliberately does not keep, so end it and have
+            // the user sign in again; execute() then routes them through /forcepasswordreset.
+            // A reset completed during this sign-in already cleared the flag before the chooser.
+            logger.warn("Session choice refused because a password reset is now required: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "reset_required_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
+            return NONE;
+        }
 
         ConcurrentSessionPolicy policy = ConcurrentSessionPolicy.fromProperties(CarlosProperties.getInstance());
         if (!signOutOthers && policy.isLimitReached(
@@ -1321,6 +1343,15 @@ public final class Login2Action extends ActionSupport {
         return completeAuthenticatedLogin(security, terminal.authResult(), ip, terminal.mobileOptimized(),
                 terminal.submitType(), false, terminal.oauthToken(),
                 signOutOthers ? OtherSessionSettlement.Mode.SIGN_OUT_BY_USER : OtherSessionSettlement.Mode.KEEP_BY_USER);
+    }
+
+    /**
+     * Same account-expiry rule {@link LoginCheckLoginBean} applies at sign-in: an expiry date is
+     * set and it is missing or in the past.
+     */
+    private static boolean isAccountExpired(Security security) {
+        return security.getBExpireset() != null && security.getBExpireset() == 1
+                && (security.getDateExpiredate() == null || security.getDateExpiredate().before(new Date()));
     }
 
 
