@@ -67,6 +67,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -260,6 +261,15 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             assertThat(captor.getValue().getLabType()).isEqualTo("MDS");
             assertThat(storedHl7.getDeleted()).isNull();
             verify(ticklerDocsDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse a document id submitted under the DOC routing source as a lab")
+        void shouldThrowIllegalArgument_whenLabSourceIsDocRoute() {
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "DOC:11")))
+                    .isInstanceOf(IllegalArgumentException.class);
+            verify(patientLabRoutingDao, never()).findDemographics(anyString(), any());
+            verify(ticklerDocsDao, never()).persist(any());
         }
 
         @Test
@@ -558,6 +568,58 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> service.listAttachments(loggedInInfo, tickler))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_tickler)");
+        }
+
+        @Test
+        @DisplayName("should list a page of ticklers with one row query and one lab lookup per patient")
+        void shouldBatchAttachments_forPageOfTicklers() {
+            Tickler other = new Tickler();
+            other.setId(TICKLER_ID + 1);
+            other.setDemographicNo(DEMOGRAPHIC_NO);
+            Tickler empty = new Tickler();
+            empty.setId(TICKLER_ID + 2);
+            empty.setDemographicNo(DEMOGRAPHIC_NO);
+            TicklerDocs first = stored(77, "L");
+            first.setLabType("HL7");
+            TicklerDocs second = new TicklerDocs(TICKLER_ID + 1, 78, "L", PROVIDER_NO);
+            second.setLabType("MDS");
+            when(ticklerDocsDao.findByTicklerIds(List.of(TICKLER_ID, TICKLER_ID + 1, TICKLER_ID + 2)))
+                    .thenReturn(List.of(first, second));
+            when(documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, "1001")).thenReturn(List.of(
+                    new AttachmentLabResultData("77", "CBC", new Date(), "HL7"),
+                    new AttachmentLabResultData("78", "Lipids", new Date(), "MDS")));
+
+            Map<Integer, List<TicklerAttachmentData>> byTickler =
+                    service.listAttachments(loggedInInfo, List.of(tickler, other, empty));
+
+            assertThat(byTickler.keySet()).containsExactly(TICKLER_ID, TICKLER_ID + 1, TICKLER_ID + 2);
+            assertThat(byTickler.get(TICKLER_ID)).extracting(TicklerAttachmentData::getDisplayName).containsExactly("CBC");
+            assertThat(byTickler.get(TICKLER_ID + 1)).extracting(TicklerAttachmentData::getSubmissionValue).containsExactly("MDS:78");
+            assertThat(byTickler.get(TICKLER_ID + 2)).isEmpty();
+            verify(documentAttachmentManager, times(1)).getAllLabsSortedByVersions(loggedInInfo, "1001");
+            verify(ticklerDocsDao, never()).findByTicklerId(any());
+            verify(securityInfoManager, times(1)).hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001");
+        }
+
+        @Test
+        @DisplayName("should refuse the whole page when tickler read is denied for one of its patients")
+        void shouldThrowSecurityException_whenPageHasPatientWithoutTicklerRead() {
+            Tickler other = new Tickler();
+            other.setId(TICKLER_ID + 1);
+            other.setDemographicNo(DEMOGRAPHIC_NO + 1);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1002")).thenReturn(false);
+
+            assertThatThrownBy(() -> service.listAttachments(loggedInInfo, List.of(tickler, other)))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_tickler)");
+            verify(ticklerDocsDao, never()).findByTicklerIds(any());
+        }
+
+        @Test
+        @DisplayName("should return an empty map for an empty page")
+        void shouldReturnEmptyMap_whenPageIsEmpty() {
+            assertThat(service.listAttachments(loggedInInfo, List.of())).isEmpty();
+            verify(ticklerDocsDao, never()).findByTicklerIds(any());
         }
     }
 

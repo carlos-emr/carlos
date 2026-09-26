@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -212,7 +213,7 @@ public final class DbTicklerAdd2Action extends ActionSupport {
                     ticklerAttachmentService.syncAttachments(loggedInInfo, tickler, submitted);
                 } catch (SecurityException | IllegalArgumentException e) {
                     MiscUtils.getLogger().warn("Refused tickler attachments for ticklerNo={}: {}",
-                            ticklerNo, e.getMessage());
+                            ticklerNo, LogSafe.sanitize(e.getMessage()));
                     ticklerLinkFailed = true;
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Failed to store tickler attachments for ticklerNo={}", ticklerNo, e);

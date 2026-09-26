@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -264,28 +265,102 @@ public class TicklerAttachmentService {
      */
     public List<TicklerAttachmentData> listAttachments(LoggedInInfo loggedInInfo, Tickler tickler) {
         Integer demographicNo = tickler.getDemographicNo();
+        requireTicklerRead(loggedInInfo, demographicNo);
+        AttachmentNameResolver resolver = new AttachmentNameResolver(loggedInInfo, demographicNo);
+        List<TicklerAttachmentData> attachments = new ArrayList<>();
+        for (TicklerDocs ticklerDoc : ticklerDocsDao.findByTicklerId(tickler.getId())) {
+            TicklerAttachmentData attachment = resolver.resolve(ticklerDoc);
+            if (attachment != null) {
+                attachments.add(attachment);
+            }
+        }
+        return attachments;
+    }
+
+    /**
+     * Lists the attachments of a page of ticklers in one query, for the tickler views.
+     *
+     * <p>Same result per tickler as {@link #listAttachments(LoggedInInfo, Tickler)}, but the
+     * attachment rows are fetched once for the page and the per-patient lab, HRM and form name
+     * collections are loaded at most once per patient rather than once per tickler.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session
+     * @param ticklers List&lt;Tickler&gt; the ticklers being shown; null or empty returns empty
+     * @return Map&lt;Integer, List&lt;TicklerAttachmentData&gt;&gt; live attachments keyed by tickler
+     *         id, oldest first, with an entry (possibly empty) for every tickler given
+     * @throws SecurityException when the caller lacks {@code _tickler} read on any of the patients
+     */
+    public Map<Integer, List<TicklerAttachmentData>> listAttachments(LoggedInInfo loggedInInfo, List<Tickler> ticklers) {
+        Map<Integer, List<TicklerAttachmentData>> byTickler = new LinkedHashMap<>();
+        if (ticklers == null || ticklers.isEmpty()) {
+            return byTickler;
+        }
+        Map<Integer, AttachmentNameResolver> resolverByDemographic = new HashMap<>();
+        Map<Integer, AttachmentNameResolver> resolverByTickler = new HashMap<>();
+        for (Tickler tickler : ticklers) {
+            Integer demographicNo = tickler.getDemographicNo();
+            AttachmentNameResolver resolver = resolverByDemographic.get(demographicNo);
+            if (resolver == null) {
+                requireTicklerRead(loggedInInfo, demographicNo);
+                resolver = new AttachmentNameResolver(loggedInInfo, demographicNo);
+                resolverByDemographic.put(demographicNo, resolver);
+            }
+            resolverByTickler.put(tickler.getId(), resolver);
+            byTickler.put(tickler.getId(), new ArrayList<>());
+        }
+        for (TicklerDocs ticklerDoc : ticklerDocsDao.findByTicklerIds(new ArrayList<>(byTickler.keySet()))) {
+            List<TicklerAttachmentData> attachments = byTickler.get(ticklerDoc.getTicklerId());
+            AttachmentNameResolver resolver = resolverByTickler.get(ticklerDoc.getTicklerId());
+            if (attachments == null || resolver == null) {
+                continue;
+            }
+            TicklerAttachmentData attachment = resolver.resolve(ticklerDoc);
+            if (attachment != null) {
+                attachments.add(attachment);
+            }
+        }
+        return byTickler;
+    }
+
+    private void requireTicklerRead(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.READ,
                 String.valueOf(demographicNo))) {
             throw new SecurityException(MISSING_TICKLER_SECURITY_OBJECT);
         }
+    }
 
-        List<TicklerAttachmentData> attachments = new ArrayList<>();
-        Map<DocumentType, Boolean> readable = new EnumMap<>(DocumentType.class);
-        Map<String, String> labNames = null;
-        Map<String, String> hrmNames = null;
-        Map<String, String> formNames = null;
+    /**
+     * Turns stored rows of one patient into display entries, loading each per-patient name
+     * collection (labs, HRM reports, encounter forms) and each type's read decision at most once
+     * for the resolver's lifetime.
+     */
+    private final class AttachmentNameResolver {
+        private final LoggedInInfo loggedInInfo;
+        private final Integer demographicNo;
+        private final Map<DocumentType, Boolean> readable = new EnumMap<>(DocumentType.class);
+        private Map<String, String> labNames;
+        private Map<String, String> hrmNames;
+        private Map<String, String> formNames;
 
-        for (TicklerDocs ticklerDoc : ticklerDocsDao.findByTicklerId(tickler.getId())) {
+        private AttachmentNameResolver(LoggedInInfo loggedInInfo, Integer demographicNo) {
+            this.loggedInInfo = loggedInInfo;
+            this.demographicNo = demographicNo;
+        }
+
+        /**
+         * @return TicklerAttachmentData the entry, unnamed when the caller may not read its type;
+         *         {@code null} for a row whose type code is unknown
+         */
+        private TicklerAttachmentData resolve(TicklerDocs ticklerDoc) {
             DocumentType documentType = DocumentType.fromType(ticklerDoc.getDocType());
             if (documentType == null) {
-                continue;
+                return null;
             }
             String documentId = String.valueOf(ticklerDoc.getDocumentNo());
             boolean viewable = readable.computeIfAbsent(documentType,
                     type -> isTypeReadable(loggedInInfo, type, demographicNo));
             if (!viewable) {
-                attachments.add(new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), null, false));
-                continue;
+                return new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), null, false);
             }
 
             String displayName = null;
@@ -322,9 +397,8 @@ public class TicklerAttachmentService {
             if (displayName == null || displayName.trim().isEmpty()) {
                 displayName = documentType.getName() + " #" + documentId;
             }
-            attachments.add(new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), displayName, true));
+            return new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), displayName, true);
         }
-        return attachments;
     }
 
     /**

@@ -121,6 +121,23 @@ class TicklerAttachmentParametersUnitTest {
         assertThatThrownBy(() -> TicklerAttachmentParameters.parseLabValue("MDS:")).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @ParameterizedTest
+    @CsvSource({"DOC:5", "HRM:5", "XYZ:5", "EFORM:5"})
+    @DisplayName("should refuse a lab value whose source is not a lab source")
+    void shouldRejectLabValue_whenSourceIsNotALabSource(String value) {
+        // patientLabRouting also holds DOC rows; a document id must not pass as a lab.
+        assertThatThrownBy(() -> TicklerAttachmentParameters.parseLabValue(value))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("malformed lab attachment id");
+    }
+
+    @Test
+    @DisplayName("should canonicalise the lab source spelling")
+    void shouldCanonicaliseLabSource_whenParsingLabValue() {
+        assertThat(TicklerAttachmentParameters.parseLabValue("mds:77")).containsExactly("MDS", "77");
+        assertThat(TicklerAttachmentParameters.parseLabValue("Bcp:9")).containsExactly("BCP", "9");
+    }
+
     @Test
     @DisplayName("should map ticklerdocs rows back to the legacy viewer codes")
     void shouldMapDocType_toLegacyTableName() {

@@ -142,9 +142,16 @@ public final class TicklerAttachmentParameters {
     /**
      * Splits a submitted {@code labNo} value into its source and segment id.
      *
+     * <p>The source is checked against the lab sources only ({@code HL7}, {@code MDS},
+     * {@code CML}, {@code BCP}) and returned in canonical spelling. {@code patientLabRouting}
+     * also carries {@code DOC} rows for documents, so a source outside that allowlist is refused
+     * here rather than resolved through the routing table: a document id submitted as a lab
+     * would otherwise pass the lab gate and later render as a document link.</p>
+     *
      * @param value String {@code <source>:<segmentId>}, or a bare segment id
      * @return String[] {@code {source, segmentId}}; the source is HL7 when the value carries none
-     * @throws IllegalArgumentException when the value is blank or the source or id is empty
+     * @throws IllegalArgumentException when the value is blank, the id is empty, or the source is
+     *         not one of the lab sources
      */
     public static String[] parseLabValue(String value) {
         if (value == null || value.trim().isEmpty()) {
@@ -155,9 +162,9 @@ public final class TicklerAttachmentParameters {
         if (separator < 0) {
             return new String[]{LabResultData.HL7TEXT, trimmed};
         }
-        String source = trimmed.substring(0, separator).trim();
+        String source = legacyLabSource(trimmed.substring(0, separator));
         String labNo = trimmed.substring(separator + 1).trim();
-        if (source.isEmpty() || labNo.isEmpty()) {
+        if (source == null || labNo.isEmpty()) {
             throw new IllegalArgumentException("malformed lab attachment id");
         }
         return new String[]{source, labNo};

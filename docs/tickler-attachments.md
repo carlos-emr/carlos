@@ -36,7 +36,10 @@ data-migration gaps in that PR closed rather than copied.
     synchronised; a type the caller cannot read is never touched. The attaching provider is
     always the session provider. Every attach and detach is audited through `LogAction`.
   - `listAttachments` requires `_tickler` read; items of a type the caller may not open are
-    returned unnamed so the view renders a generic "restricted" label.
+    returned unnamed so the view renders a generic "restricted" label. The page overload
+    (`listAttachments(loggedInInfo, ticklers)`) fetches the rows of a whole page in one query and
+    loads each patient's lab, HRM and form name collections at most once; the patient tickler
+    view uses it so a patient with many ticklers is not one query and one lab reload per row.
   - `formNamesByFormId` resolves encounter form names per patient, dropping ids claimed by more
     than one form type (form ids are only unique per form table).
 - Request contract `documentManager.data.TicklerAttachmentParameters`: the picker parameters
@@ -44,7 +47,9 @@ data-migration gaps in that PR closed rather than copied.
   tickler forms set when the picker's selection is authoritative. Without the marker an edit
   leaves the stored set untouched. Lab ids are only unique within their source (HL7, MDS, CML
   and BCP each number their own tables), so a tickler `labNo` value is source-qualified:
-  `HL7:123`. The picker's lab checkboxes carry `data-lab-type` and source-qualified DOM ids
+  `HL7:123`. `parseLabValue` accepts only those four sources (canonical spelling returned):
+  `patientLabRouting` also carries `DOC` rows for documents, so `DOC:<documentNo>` is refused as
+  malformed instead of passing the lab gate and later rendering as a document link. The picker's lab checkboxes carry `data-lab-type` and source-qualified DOM ids
   (`labNoHL7123`, so two sources sharing a segment id never collide; the consultation page's
   stored lab delegates and rows use the same key, and `getAllLabsSortedByVersions` groups labs by
   source and id, walking HL7 version chains only), the dialog builds the value from the source, and the

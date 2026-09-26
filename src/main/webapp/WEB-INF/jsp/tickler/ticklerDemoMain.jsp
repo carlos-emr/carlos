@@ -873,6 +873,10 @@
                             List<Tickler> ticklers = demoViewDemographicNo == null
                                     ? java.util.Collections.<Tickler>emptyList()
                                     : ticklerManager.search_tickler_bydemo(loggedInInfo, demoViewDemographicNo, ticklerview, ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
+                            // One attachment query for the page and one name lookup per patient,
+                            // rather than a query and a lab/HRM/form reload for every row.
+                            java.util.Map<Integer, List<TicklerAttachmentData>> attachmentsByTickler =
+                                    ticklerAttachmentService.listAttachments(loggedInInfo, ticklers);
                             String rowColour = "lilac";
                             for (Tickler t : ticklers) {
                                 Demographic d = demographicDao.getDemographicById(t.getDemographicNo());
@@ -976,7 +980,7 @@
                                     // their source so the right viewer opens; encounter forms need the
                                     // form name, resolved once per patient, because the id alone cannot
                                     // address a form. Types the reader may not open are not linked.
-                                    for (TicklerAttachmentData attachment : ticklerAttachmentService.listAttachments(loggedInInfo, t)) {
+                                    for (TicklerAttachmentData attachment : attachmentsByTickler.getOrDefault(t.getId(), java.util.Collections.<TicklerAttachmentData>emptyList())) {
                                         String attachmentId = SafeEncode.forUriComponent(attachment.getDocumentId());
                                         String href = null;
                                         if (attachment.isViewable()) {

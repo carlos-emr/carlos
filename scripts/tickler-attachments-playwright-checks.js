@@ -34,9 +34,10 @@
  *      set untouched (the parallel fork detached everything on every save).
  *   4. Tickler list and patient tickler view render one attachment link per live row, and
  *      the list JSON carries the legacy viewer code per link.
- *   5. Crafted requests: another patient's document is refused by the edit action and the
- *      row count is unchanged; a GET to the edit action is 405; the picker endpoint is 400
- *      on a non-numeric demographic and 403/redirect-free otherwise.
+ *   5. Crafted requests: another patient's document, a lab id under a source that does not
+ *      route it, and a document id submitted as a DOC-sourced lab are refused by the edit
+ *      action and the stored rows are unchanged; a GET to the edit action is 405; the picker
+ *      endpoint is 400 on a non-numeric demographic and 403/redirect-free otherwise.
  *
  * The check SKIPS (exit 2) when the patient has no document, lab, or eForm to attach,
  * which is the case on a fresh install without the demo dataset.
@@ -350,6 +351,17 @@ async function postEditForm(page, fields) {
     assert(!/tickler-edit-ok/.test(wrongSourceRefused.text), 'edit action accepted a lab id under the wrong source');
     assert(liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === storedLab.labType && row.documentNo === storedLab.documentNo),
       `stored lab was disturbed by the refused wrong-source POST: ${JSON.stringify(attachmentRows(ticklerNo))}`);
+    // patientLabRouting also routes documents under DOC; a document id submitted as a DOC lab
+    // must be refused as malformed rather than stored as a lab that later links as a document.
+    // The document was detached in step 2; any document row, deleted or live, supplies an id.
+    const storedDocument = attachmentRows(ticklerNo).find((row) => row.doctype === 'D');
+    const docSourceRefused = await postEditForm(guardPage, {
+      method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
+      xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `DOC:${storedDocument.documentNo}`,
+    });
+    assert(!/tickler-edit-ok/.test(docSourceRefused.text), 'edit action accepted a document id submitted as a DOC lab');
+    assert(!liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === 'DOC'),
+      `a DOC-sourced lab row was stored: ${JSON.stringify(attachmentRows(ticklerNo))}`);
     const getStatus = await guardPage.evaluate(async (ctx) => {
       const response = await fetch(`${ctx}/tickler/EditTickler?method=editTickler&ticklerNo=1`, { credentials: 'same-origin' });
       return response.status;
@@ -365,7 +377,7 @@ async function postEditForm(page, fields) {
     assert(pageErrors.length === 0, `pages reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await context.close();
-    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, GET, bad picker id) refused`);
+    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, DOC lab source, GET, bad picker id) refused`);
   } catch (error) {
     if (error instanceof SkipCheck) {
       console.log(`SKIP ${error.message}`);
