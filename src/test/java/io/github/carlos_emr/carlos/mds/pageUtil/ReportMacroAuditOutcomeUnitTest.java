@@ -155,6 +155,37 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.api.Test
+    @DisplayName("should not create the macro tickler when the lab id is not usable, without logging it")
+    void shouldSkipTickler_whenSegmentIdInvalid() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("segmentID", "PRIVATE_SEGMENT_VALUE");
+        request.setParameter("labType", "HL7");
+        request.setParameter("demographicNo", "1");
+        createAndRegisterMock(SecurityInfoManager.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        // The service's parser rejects a non-numeric id the same way for every caller.
+        doThrow(new IllegalArgumentException("attachment id is not numeric"))
+                .when(links).requireAttachable(eq(info), eq(1), argThat(map -> map.get(DocumentType.LAB).contains("HL7:PRIVATE_SEGMENT_VALUE")));
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class);
+             var logs = LogCapture.forLogger(ReportMacro2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isTrue();
+            verify(ticklers, never()).persist(any(Tickler.class));
+            verify(links, never()).syncAttachments(any(), any(), any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalArgumentException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+        }
+    }
+
+    @org.junit.jupiter.api.Test
     @DisplayName("should not create the macro tickler when the lab may not be attached to that patient")
     void shouldSkipTickler_whenAttachmentRefused() throws Exception {
         var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");

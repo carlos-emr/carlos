@@ -246,6 +246,37 @@ async function postEditForm(page, fields) {
       `document was not detached: ${JSON.stringify(attachmentRows(ticklerNo))}`);
     assert(attachmentRows(ticklerNo).some((row) => row.doctype === 'D' && row.deleted === 'Y'), 'detached document row was not soft-deleted');
 
+    // 2b. An attachment the picker does not offer survives Save and Close -----------------
+    // The picker lists only current forms and eForms, so an older stored item has no
+    // checkbox; the dialog must carry its delegate through instead of treating it as
+    // un-checked. Simulated with an injected delegate the picker cannot know; the page is
+    // closed without saving.
+    editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-unlisted');
+    await editPage.evaluate(() => {
+      const panel = document.querySelector('.tickler-attachments');
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.className = 'delegateAttachment';
+      input.name = 'eFormNo';
+      input.value = '987654321';
+      input.id = 'delegate_eFormNo987654321';
+      input.setAttribute('data-picker-id', 'eFormNo987654321');
+      panel.appendChild(input);
+      const item = document.createElement('li');
+      item.setAttribute('data-delegate-id', 'delegate_eFormNo987654321');
+      item.textContent = 'PW unlisted eForm';
+      document.getElementById('attachmentNames_eFormNo').appendChild(item);
+    });
+    const delegatesWithUnlisted = await editPage.locator('.delegateAttachment').count();
+    await openPicker(editPage);
+    assert(await editPage.locator('#delegate_eFormNo987654321[data-unlisted="1"]').count() === 1, 'the picker did not mark the unlisted delegate');
+    await saveAndClosePicker(editPage);
+    assert(await editPage.locator('#delegate_eFormNo987654321').count() === 1, 'Save and Close dropped an attachment the picker does not list');
+    assert(await editPage.locator('#attachmentNames li.unlisted', { hasText: 'PW unlisted eForm' }).count() === 1, 'Save and Close dropped the unlisted attachment name');
+    assert(await editPage.locator('.delegateAttachment').count() === delegatesWithUnlisted, 'Save and Close changed the delegate count without any change in the picker');
+    assert(await editPage.locator('#attachmentsSubmitted').inputValue() === '1', 'Save and Close did not set the submitted marker');
+    await editPage.close();
+
     // 3. Edit without the picker leaves attachments alone ---------------------------------
     editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-plain');
     // A picker whose load fails must not replace the selection: open it with the endpoint
@@ -334,7 +365,7 @@ async function postEditForm(page, fields) {
     assert(pageErrors.length === 0, `pages reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await context.close();
-    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, GET, bad picker id) refused`);
+    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, GET, bad picker id) refused`);
   } catch (error) {
     if (error instanceof SkipCheck) {
       console.log(`SKIP ${error.message}`);

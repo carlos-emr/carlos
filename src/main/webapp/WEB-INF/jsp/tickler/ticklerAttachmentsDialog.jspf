@@ -67,11 +67,18 @@
                 }
                 pickerLoaded = true;
                 // Pre-check the picker for everything already on the form. The delegate names
-                // the checkbox id it mirrors (labs include their source: labNoHL7123).
+                // the checkbox id it mirrors (labs include their source: labNoHL7123). An
+                // attachment the picker does not offer (an older encounter form, a superseded
+                // eForm) is marked unlisted: the reader cannot un-check what is not shown, so
+                // the rebuild on close must carry it through unchanged.
+                $form.find('.delegateAttachment').removeAttr('data-unlisted');
+                jQuery('#attachmentNames li.unlisted').removeClass('unlisted');
                 $form.find('.delegateAttachment').each(function () {
                     var pickerId = jQuery(this).attr('data-picker-id') || (this.name + this.value);
                     var element = jQuery('#attachDocumentsForm').find('#' + jQuery.escapeSelector(pickerId));
                     if (element.length === 0) {
+                        jQuery(this).attr('data-unlisted', '1');
+                        jQuery('#attachmentNames li[data-delegate-id="' + jQuery.escapeSelector(this.id) + '"]').addClass('unlisted');
                         return;
                     }
                     element.prop('checked', true);
@@ -102,10 +109,11 @@
                     }
                     // Rebuild the form's selection from the picker. The action synchronises each
                     // type against the stored set, so submitting the full current selection is
-                    // sufficient for both adds and removals. Restricted delegates are types this
-                    // reader cannot see in the picker; they must survive the rebuild.
-                    $form.find('.delegateAttachment:not([data-restricted])').remove();
-                    jQuery('#attachmentNames ul li:not(.restricted)').remove();
+                    // sufficient for both adds and removals. Restricted delegates (types this
+                    // reader cannot see) and unlisted ones (items the picker does not offer)
+                    // must survive the rebuild: neither could have been un-checked here.
+                    $form.find('.delegateAttachment:not([data-restricted]):not([data-unlisted])').remove();
+                    jQuery('#attachmentNames ul li:not(.restricted):not(.unlisted)').remove();
                     jQuery('#attachDocumentsForm')
                         .find('.document_check:checked, .lab_check:checked, .form_check:checked, .eForm_check:checked, .hrm_check:checked')
                         .not('[disabled]')
@@ -125,7 +133,8 @@
                                 id: 'delegate_' + element.attr('id'),
                                 'class': 'delegateAttachment'
                             }).appendTo($form.find('.tickler-attachments'));
-                            jQuery('<li>').text(element.attr('title')).appendTo('#attachmentNames_' + element.attr('name'));
+                            jQuery('<li>', {'data-delegate-id': 'delegate_' + element.attr('id')})
+                                .text(element.attr('title')).appendTo('#attachmentNames_' + element.attr('name'));
                         });
                     jQuery('#attachmentNames .attachment-group').each(function () {
                         jQuery(this).toggle(jQuery(this).find('li').length > 0);

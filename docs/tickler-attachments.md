@@ -45,7 +45,9 @@ data-migration gaps in that PR closed rather than copied.
   service checks ownership against that source's `patientLabRouting` row; a bare id is read as
   HL7, which keeps the legacy `docType=HL7&docId=` forward links working. The dialog only
   replaces the form's selection when the picker actually rendered: closing a dialog whose load
-  failed leaves the delegates and the marker untouched.
+  failed leaves the delegates and the marker untouched. A stored attachment the picker does not
+  offer (an older encounter form, a superseded eForm) is marked unlisted on load and carried
+  through Save and Close unchanged, since the reader had no way to un-check it.
 - `requireAttachable(loggedInInfo, demographicNo, ids)` runs the same rights and ownership
   checks without writing, for flows that create the tickler and attach in one step: the lab
   macro (`ReportMacro2Action`) checks first and creates no tickler when the lab may not be

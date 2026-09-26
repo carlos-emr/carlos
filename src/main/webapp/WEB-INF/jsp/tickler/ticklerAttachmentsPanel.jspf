@@ -81,11 +81,13 @@
                         }
                         if (ticklerAttachment.isViewable()) {
                 %>
-                <li><carlos:encode value='<%= ticklerAttachment.getDisplayName() %>'/></li>
+                <%-- data-delegate-id ties the name to its hidden delegate so the dialog can mark
+                     both when the picker does not offer the item. --%>
+                <li data-delegate-id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"><carlos:encode value='<%= ticklerAttachment.getDisplayName() %>'/></li>
                 <%
                         } else {
                 %>
-                <li class="restricted text-muted"><fmt:message key="tickler.attachments.restricted"/></li>
+                <li class="restricted text-muted" data-delegate-id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"><fmt:message key="tickler.attachments.restricted"/></li>
                 <%
                         }
                     }
