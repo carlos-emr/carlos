@@ -188,7 +188,7 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
                 new EctProgram(session).getProgram(providerNo),
                 defaultDate);
 
-        if (result.hasRejections()) {
+        if (result.hasRejections() || !result.failures().isEmpty()) {
             // Rendered inside the page's validation alert; the JSP encodes it.
             // Struts action errors are deliberately not used: the Health Tracker
             // renders this attribute, not <s:actionerror/>, so anything reported
@@ -211,7 +211,7 @@ public class HealthTrackerUpdate2Action extends ActionSupport {
                 .distinct()
                 .collect(Collectors.joining("\n"));
         String rejected = String.join("\n", result.rejected());
-        return reasons.isEmpty() ? rejected : rejected + "\n\n" + reasons;
+        return reasons.isEmpty() ? rejected : rejected.isEmpty() ? reasons : rejected + "\n\n" + reasons;
     }
 
     /**

@@ -98,16 +98,24 @@
             wrap.dataset.page = String(page);
 
             var img = document.createElement('img');
+            img.className = 'pending';
             img.alt = t('pageLabel', 'Page') + ' ' + page;
             img.loading = page <= 2 ? 'eager' : 'lazy';
             img.dataset.page = String(page);
             img.addEventListener('load', function () {
+                this.classList.remove('pending');
                 this.parentNode.classList.remove('load-failed');
                 sizeOverlay(this.parentNode);
+                // A loaded page grows from its placeholder height and pushes the pages after it
+                // down. Pages that were near the viewport a moment ago may be off it now, and
+                // others may have come into it, with no scroll event to notice. Without this a
+                // jump to the end of a long fax left the last pages blank until the next scroll.
+                scheduleVisiblePageLoad();
             });
             img.addEventListener('error', function () {
                 this.parentNode.classList.add('load-failed');
-                setStatus('Page ' + this.dataset.page + ' could not be loaded. Reload the viewer before annotating it.', 'error');
+                setStatus(t('pageLoadFailed', 'Page {0} could not be loaded. Reload the viewer before annotating it.')
+                    .replace('{0}', this.dataset.page), 'error');
             });
 
             var svg = document.createElementNS(SVG_NS, 'svg');
@@ -125,7 +133,16 @@
             pagesEl.appendChild(wrap);
             attachPointer(wrap);
         }
+        setPlaceholderWidth();
         loadVisiblePages();
+    }
+
+    // A page that has not loaded yet reserves a letter-shaped box at the width the current
+    // zoom renders at (documentAnnotate.css, img.pending), so pages further down sit about
+    // where they will end up and the lazy loader's "near the viewport" test stays true.
+    function setPlaceholderWidth() {
+        pagesEl.style.setProperty('--page-placeholder-width',
+            Math.round(8.5 * DPI_STEPS[state.dpiIndex]) + 'px');
     }
 
     function pageImageUrl(page) {
@@ -148,6 +165,18 @@
                 img.setAttribute('src', wanted);
             }
         }
+    }
+
+    var visiblePageLoadPending = false;
+
+    /** Runs loadVisiblePages once per frame however many page images finish loading in it. */
+    function scheduleVisiblePageLoad() {
+        if (visiblePageLoadPending) { return; }
+        visiblePageLoadPending = true;
+        window.requestAnimationFrame(function () {
+            visiblePageLoadPending = false;
+            loadVisiblePages();
+        });
     }
 
     function sizeOverlay(wrap) {
@@ -1078,6 +1107,10 @@
         setStatus(t('saving', 'Saving…'), 'busy');
         document.getElementById('btnSave').disabled = true;
         document.getElementById('btnSaveFax').disabled = true;
+        // Set just before fetch() starts. fetch() can reject after the server has accepted
+        // the POST (a connection dropped before the response headers arrived), so any
+        // failure from that point on may already have filed a copy.
+        var sent = false;
 
         annotationFontReady().then(function () {
             // This save's own snapshot is about to be taken, so it fits the notes directly;
@@ -1085,6 +1118,9 @@
             fitAllNotes();
             return csrfTokenReady();
         }).then(function () {
+            // Build the body before marking the save as sent: a failure here has sent nothing.
+            var body = JSON.stringify(savePayload());
+            sent = true;
             return fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
                 + encodeURIComponent(cfg.docId), {
                 method: 'POST',
@@ -1094,7 +1130,7 @@
                     'X-Requested-With': 'XMLHttpRequest',
                     'CSRF-TOKEN': csrfToken()
                 },
-                body: JSON.stringify(savePayload())
+                body: body
             });
         }).then(function (response) {
             return response.json().then(function (data) {
@@ -1131,8 +1167,18 @@
             }
         }).catch(function () {
             setSaving(false);
-            state.uncertain = true;
-            setStatus('The save could not be confirmed. Check the patient’s documents before saving another copy.', 'error');
+            if (sent) {
+                // The request may have reached the server but no readable reply came back
+                // (a dropped connection, an HTML error or login page): the copy may already
+                // be filed, so refuse a second save until the operator has checked.
+                state.uncertain = true;
+                setStatus(t('saveUnconfirmed', 'The save could not be confirmed. Check the patient\u2019s documents before saving another copy.'), 'error');
+            } else {
+                // Nothing left the browser (the font or CSRF-token bootstrap, or building the
+                // request body, failed before fetch() started): the marks are intact and a
+                // retry is safe, so keep Save enabled.
+                setStatus(t('saveFailed', 'The annotated document could not be saved.'), 'error');
+            }
             updateCounts();
         }).then(function () {
             if (state.refitPending) { refitNotes(); }
@@ -1185,8 +1231,12 @@
         var next = state.dpiIndex + direction;
         if (next < 0 || next >= DPI_STEPS.length) { return; }
         state.dpiIndex = next;
+        setPlaceholderWidth();
         var images = pagesEl.querySelectorAll('img[data-page]');
-        for (var i = 0; i < images.length; i++) { images[i].removeAttribute('src'); }
+        for (var i = 0; i < images.length; i++) {
+            images[i].removeAttribute('src');
+            images[i].classList.add('pending');
+        }
         loadVisiblePages();
     }
 

@@ -8,6 +8,7 @@
  * DOCUMENT_PAGINATION_DEMOGRAPHIC_NO defaults to demo patient 1.
  * Missing fixtures/configuration report SKIP, never PASS. No clinical rows are changed.
  */
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const {
   SkipCheck, assert, assertStrictPage, createRecorder, createSqlRunner,
   launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
@@ -100,8 +101,8 @@ async function main() {
     assertStrictPage(recorder);
     return { documents: 2, transitions: 4 };
   } finally {
-    if (browser) await browser.close();
-    sql.dispose();
+    try { if (browser) await closeBrowserWithChartCleanup(browser, config.baseUrl); }
+    finally { sql.dispose(); }
   }
 }
 if (require.main === module) runCheck({ name: 'document-pagination', run: main });
