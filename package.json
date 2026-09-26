@@ -73,6 +73,7 @@
     "test:rx-fax-record-binding-playwright": "node scripts/rx-fax-record-binding-playwright-checks.js",
     "test:rx-fax-reprint-represcribe-playwright": "node scripts/rx-fax-reprint-represcribe-playwright-checks.js",
     "test:report-demographic-navigation-playwright": "node scripts/report-demographic-navigation-playwright-checks.js",
+    "test:patient-letters-envelopes-playwright": "node scripts/patient-letters-envelopes-playwright-checks.js",
     "test:flowsheet-admin-playwright": "node scripts/flowsheet-admin-playwright-checks.js",
     "test:select-forms-panel-playwright": "node scripts/select-forms-panel-playwright-checks.js",
     "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js",
