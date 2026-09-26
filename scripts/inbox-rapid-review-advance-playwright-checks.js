@@ -264,6 +264,10 @@ async function main() {
       'the Acknowledge button raised no comment prompt, so this check never drove an acknowledgement at all');
 
     const nextPopup = await advanced;
+    // The page event fires for the window, whose document is still about:blank; the result URL
+    // arrives with the navigation window.open started. Waiting on domcontentloaded alone can
+    // resolve for that blank document and read no URL at all.
+    await nextPopup.waitForURL((url) => /[?&]segmentID=/.test(url.href), { timeout }).catch(() => {});
     await nextPopup.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
     const opened = resultIdentityOf(nextPopup.url());
     // Give a re-fetch that WOULD have happened time to show itself.
