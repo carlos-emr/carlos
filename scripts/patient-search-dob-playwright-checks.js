@@ -46,6 +46,8 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
+ *   DOB_TEST_LOCALE=en-US browser locale used for the search and validation alert
+ *   DOB_EXPECTED_MESSAGE=... exact localized validation alert, when checking a locale
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -67,6 +69,8 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
+const testLocale = process.env.DOB_TEST_LOCALE || 'en-US';
+const expectedDobMessage = process.env.DOB_EXPECTED_MESSAGE;
 
 const findings = [];
 const checks = [];
@@ -201,6 +205,9 @@ function wirePage(page, label) {
     if (expectedDialogs > 0) {
       expectedDialogs -= 1;
       seenExpectedDialogs += 1;
+      if (expectedDobMessage !== undefined) {
+        expectValue('dob-localized-validation-alert', dialog.message(), expectedDobMessage);
+      }
     } else {
       findings.push({ label, type: 'dialog' });
     }
@@ -307,6 +314,7 @@ async function fillDob(page, text) {
     const context = await browser.newContext({
       ignoreHTTPSErrors: isExactLocalHost(normalizedHostname(baseUrl)),
       viewport: { width: 1024, height: 700 },
+      locale: testLocale,
     });
     await installNavigationGuard(context);
     const landingPage = await login(context);
@@ -332,9 +340,8 @@ async function fillDob(page, text) {
     await clearKeyword(page);
     expectValue('dob-digits-only', await typeDob(page, '19800101'), '1980-01-01');
 
-    // Alternate separators are normalized to hyphens. The formatter strips every
-    // non-digit and its trailing-separator guard matches /[-/. ]$/, so slash, dot
-    // and space all have to survive the same keystroke-by-keystroke path.
+    // Alternate separators are normalized to hyphens while digits and whole-part
+    // wildcards survive the same keystroke-by-keystroke path.
     await clearKeyword(page);
     expectValue('dob-slash-separators', await typeDob(page, '1980/01/01'), '1980-01-01');
 

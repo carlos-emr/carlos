@@ -148,6 +148,23 @@ test('the DOB validation check expects malformed input refused and a year search
   assert.ok(!/keyword\.type\('2020'/.test(SOURCE), 'a bare year is a valid DOB search since issue #3956');
 });
 
+test('the DOB oracle rejects out-of-range and all-wildcard searches without echoing patient input', () => {
+  const mode = MODES.find((candidate) => candidate.name === 'search_dob');
+  for (const value of ['1980-00', '1980-13', '1980-01-00', '1980-01-32', '%', '%-%-%']) {
+    assert.throws(() => mode.predicate('d', value), (error) => {
+      assert.ok(!error.message.includes(value));
+      return /DOB search grammar/.test(error.message);
+    });
+  }
+});
+
+test('the DOB oracle accepts the parser trailing separator and boundary values', () => {
+  const mode = MODES.find((candidate) => candidate.name === 'search_dob');
+  assert.equal(mode.predicate('d', '1980-'), mode.predicate('d', '1980'));
+  assert.equal(mode.predicate('d', '1980-12-'), mode.predicate('d', '1980-12'));
+  assert.match(mode.predicate('d', '%-12-31'), /month_of_birth LIKE '12' AND d\.date_of_birth LIKE '31'/);
+});
+
 test('"active" means what the application means by it', () => {
   // demographicsearchresults.jsp reads the inactive_statuses property with this
   // default; a check using a different list would be asserting a rule the app

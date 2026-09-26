@@ -29,17 +29,19 @@
  *      catches a search that quietly finds nothing -- the failure a "does the
  *      page render" check passes straight through.
  *
- * The modes do not share a matching rule, and that is the point: `hin` is an
- * exact match, `chart_no` and the name are prefix matches, `phone` and `address`
- * are substring matches, and `dob` is three independent prefix matches on the
- * year, month and day columns (DemographicDaoImpl). A check that assumed one
+ * The modes do not share a matching rule, and that is the point: `hin` is a
+ * prefix match, `chart_no` and the name are prefix matches, `phone` and `address`
+ * are substring matches, and `dob` matches year, month and day exactly, with
+ * omitted or whole-segment `%` wildcards (DobSearchPattern and DemographicDaoImpl).
+ * A check that assumed one
  * rule would pass on the mode it was written for and mean nothing on the rest.
  *
  * IT ALSO DRIVES REAL JAVASCRIPT, which is why it is a browser check and not an
  * HTTP one. checkTypeIn() lowercases a name search, rewrites a scanned health
- * card barcode into a HIN search, and refuses a short date of birth with an
- * alert(); searchInactive() and searchAll() rewrite the hidden ptstatus field
- * before submitting. None of that exists server-side.
+ * card barcode into a HIN search, and refuses malformed date-of-birth keywords
+ * with an alert() while allowing partial dates and whole-segment wildcards.
+ * searchInactive() and searchAll() rewrite the hidden ptstatus field before
+ * submitting. None of that exists server-side.
  *
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, the schedule's Search control,
  * then the form. Never by navigating to a search URL.
@@ -235,7 +237,7 @@ const MODES = [
  * check seeds are modelled; anything else is refused rather than guessed at.
  */
 function dobPredicate(alias, value) {
-  const segments = String(value).trim().split('-');
+  const segments = String(value).trim().replace(/-$/, '').split('-');
   assert(segments.length >= 1 && segments.length <= 3,
     `a date of birth search takes one to three segments; the seeded value had ${segments.length}`);
   const [year, month = '%', day = '%'] = segments;
@@ -244,6 +246,12 @@ function dobPredicate(alias, value) {
     // The shape, never the value: the value is a patient's date of birth.
     assert(pattern.test(segment), 'a seeded date of birth segment did not match the DOB search grammar');
   }
+  for (const [segment, maximum] of [[month, 12], [day, 31]]) {
+    assert(segment === '%' || (Number(segment) >= 1 && Number(segment) <= maximum),
+      'a seeded date of birth segment did not match the DOB search grammar');
+  }
+  assert([year, month, day].some((segment) => segment !== '%'),
+    'an all-wildcard keyword did not match the DOB search grammar');
   return `${alias}.year_of_birth LIKE ${sqlString(bind(year, 4))}`
     + ` AND ${alias}.month_of_birth LIKE ${sqlString(bind(month, 2))}`
     + ` AND ${alias}.date_of_birth LIKE ${sqlString(bind(day, 2))}`;

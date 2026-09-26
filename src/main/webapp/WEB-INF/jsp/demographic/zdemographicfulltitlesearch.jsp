@@ -65,6 +65,7 @@
     String roleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
