@@ -73,8 +73,10 @@ error rather than signing out sessions the user was never asked about.
 - **Only the signing-in user's own sessions.** The pending login is found only through this
   browser's token. The submit re-reads the security row and the provider. It refuses to finish a
   login for an account that was deactivated, re-pointed to another provider, expired or flagged
-  for a password reset while the chooser was open. A reset flag set meanwhile ends the pending
-  login, and the next sign-in goes through `/forcepasswordreset` as usual.
+  for a password reset while the chooser was open, or that had MFA turned on without having
+  completed it. Those cases end the pending login, and the next sign-in goes through
+  `/forcepasswordreset` or the MFA challenge as usual. The session's role list is rebuilt from the
+  current `sec_user_role` rows, so a role granted or revoked meanwhile takes effect.
 - **Other sessions are signed out only after the new login fully succeeds.** The new session is
   registered first. The older sessions are settled only once it has passed every failure-prone
   setup step: provider load, facility, logged-in info and OAuth binding. A login that fails

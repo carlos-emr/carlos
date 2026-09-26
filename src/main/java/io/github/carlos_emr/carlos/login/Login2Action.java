@@ -43,6 +43,7 @@ import org.apache.commons.codec.binary.Base32;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils;
 import io.github.carlos_emr.carlos.managers.MfaManager;
@@ -76,6 +77,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.regex.Pattern;
@@ -1353,7 +1355,11 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         PendingSessionChoices.clearFromSession(session);
-        return completeAuthenticatedLogin(security, terminal.authResult(), ip, terminal.mobileOptimized(),
+        // The role list was captured at sign-in; a role granted or revoked while the chooser was
+        // open must be reflected in the session's userrole, as a fresh sign-in would.
+        String[] authResult = terminal.authResult();
+        authResult[4] = activeRoleNames(terminal.providerNo());
+        return completeAuthenticatedLogin(security, authResult, ip, terminal.mobileOptimized(),
                 terminal.submitType(), false, terminal.oauthToken(),
                 signOutOthers ? OtherSessionSettlement.Mode.SIGN_OUT_BY_USER : OtherSessionSettlement.Mode.KEEP_BY_USER);
     }
@@ -1362,6 +1368,20 @@ public final class Login2Action extends ActionSupport {
      * Same account-expiry rule {@link LoginCheckLoginBean} applies at sign-in: an expiry date is
      * set and it is missing or in the past.
      */
+    /**
+     * The comma-separated active role list, built the way {@link LoginCheckLoginBean} builds it at
+     * sign-in; {@code null} when the provider has no active role.
+     */
+    private String activeRoleNames(String providerNo) {
+        StringJoiner roles = new StringJoiner(",");
+        for (SecUserRole role : this.providerManager.getSecUserRoles(providerNo)) {
+            if (Boolean.TRUE.equals(role.getActive())) {
+                roles.add(role.getRoleName());
+            }
+        }
+        return roles.length() == 0 ? null : roles.toString();
+    }
+
     private static boolean isMfaRequired(Security security) {
         return MfaManager.isOscarMfaEnabled() && security.isUsingMfa();
     }

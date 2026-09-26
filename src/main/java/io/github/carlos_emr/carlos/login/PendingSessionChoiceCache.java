@@ -55,6 +55,12 @@ final class PendingSessionChoiceCache {
     private static final PendingSessionChoiceCache INSTANCE = new PendingSessionChoiceCache();
 
     private final Cache<String, PendingSessionChoice> cache;
+    /**
+     * Token to security number, kept for the token's whole lifetime even after {@link #consume}.
+     * A cancel racing a submit that already consumed the token still needs the owner to take the
+     * same admission lock; see {@link PendingSessionChoices#clearFromSession}.
+     */
+    private final Cache<String, Integer> owners;
     private final SecureRandom secureRandom = new SecureRandom();
 
     private PendingSessionChoiceCache() {
@@ -62,10 +68,16 @@ final class PendingSessionChoiceCache {
     }
 
     PendingSessionChoiceCache(Ticker ticker) {
+        Objects.requireNonNull(ticker, "ticker must not be null");
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(TTL)
                 .maximumSize(MAX_SIZE)
-                .ticker(Objects.requireNonNull(ticker, "ticker must not be null"))
+                .ticker(ticker)
+                .build();
+        this.owners = Caffeine.newBuilder()
+                .expireAfterWrite(TTL)
+                .maximumSize(MAX_SIZE)
+                .ticker(ticker)
                 .build();
     }
 
@@ -76,8 +88,21 @@ final class PendingSessionChoiceCache {
     String store(PendingSessionChoice choice) {
         Objects.requireNonNull(choice, "choice must not be null");
         String token = generateToken();
+        owners.put(token, choice.securityNo());
         cache.put(token, choice);
         return token;
+    }
+
+    /**
+     * Security number the token was issued for, whether or not it has been consumed yet.
+     *
+     * @return the owner, or {@code null} for an unknown, invalidated or expired token
+     */
+    Integer ownerOf(String token) {
+        if (token == null || token.isEmpty()) {
+            return null;
+        }
+        return owners.getIfPresent(token);
     }
 
     PendingSessionChoice peek(String token) {
@@ -100,6 +125,7 @@ final class PendingSessionChoiceCache {
             return;
         }
         cache.invalidate(token);
+        owners.invalidate(token);
     }
 
     long size() {

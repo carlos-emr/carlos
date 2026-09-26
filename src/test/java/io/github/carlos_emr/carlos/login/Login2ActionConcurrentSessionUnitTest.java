@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
@@ -586,6 +587,27 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
 
             verify(userSessionManager).registerUserSession(eq(SECURITY_NO), any(), any());
+        }
+
+        @Test
+        @DisplayName("should use the roles current at submit rather than those captured at sign-in")
+        void shouldUseCurrentRoles_whenRolesChangedMeanwhile() throws Exception {
+            // Signed in as "doctor"; while the chooser was open "doctor" was deactivated and
+            // "receptionist" granted.
+            stagePendingChoice();
+            SecUserRole revoked = new SecUserRole();
+            revoked.setRoleName("doctor");
+            revoked.setActive(false);
+            SecUserRole granted = new SecUserRole();
+            granted.setRoleName("receptionist");
+            granted.setActive(true);
+            when(providerManager.getSecUserRoles(PROVIDER_NO)).thenReturn(List.of(revoked, granted));
+
+            newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            HttpSession established = request.getSession(false);
+            assertThat(established).isNotNull();
+            assertThat(established.getAttribute("userrole")).isEqualTo("receptionist");
         }
 
         @Test

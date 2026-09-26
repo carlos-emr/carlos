@@ -83,6 +83,39 @@ class PendingSessionChoiceCacheUnitTest {
     }
 
     @Test
+    @DisplayName("should still wait for the admission lock after the submit consumed the token")
+    void shouldWaitForAdmissionLock_whenTokenAlreadyConsumed() throws Exception {
+        // The submit consumes the token and then builds the new session while holding the lock. A
+        // cancel arriving in between must still wait, even though the pending entry is gone.
+        PendingSessionChoiceCache cache = PendingSessionChoiceCache.getInstance();
+        String token = cache.store(pending());
+        MockHttpSession session = new MockHttpSession();
+        PendingSessionChoices.stage(session, token);
+        ReentrantLock lock = ConcurrentSessionAdmission.lockFor(12345);
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        lock.lock();
+        try {
+            assertThat(cache.consume(token)).isNotNull();
+            assertThat(cache.ownerOf(token)).isEqualTo(12345);
+            Future<?> cancel = pool.submit(() -> PendingSessionChoices.clearFromSession(session));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!lock.hasQueuedThreads() && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertThat(lock.hasQueuedThreads()).as("cancel waits for the completing submit").isTrue();
+            lock.unlock();
+            cancel.get(5, TimeUnit.SECONDS);
+            assertThat(cache.ownerOf(token)).isNull();
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+            pool.shutdownNow();
+            cache.invalidate(token);
+        }
+    }
+
+    @Test
     @DisplayName("should ignore a session a completing login already invalidated")
     void shouldIgnoreInvalidatedSession_whenClearing() {
         MockHttpSession session = new MockHttpSession();

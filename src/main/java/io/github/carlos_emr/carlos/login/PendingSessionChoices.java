@@ -80,9 +80,8 @@ public final class PendingSessionChoices {
         }
         if (token != null) {
             PendingSessionChoiceCache cache = PendingSessionChoiceCache.getInstance();
-            PendingSessionChoiceCache.PendingSessionChoice pending = cache.peek(token);
-            ConcurrentSessionAdmission.serializeUnchecked(pending == null ? null : pending.securityNo(),
-                    () -> cache.invalidate(token));
+            // ownerOf, not peek: a submit that already consumed the token still holds this lock.
+            ConcurrentSessionAdmission.serializeUnchecked(cache.ownerOf(token), () -> cache.invalidate(token));
         }
         try {
             session.removeAttribute(TOKEN_ATTR);
