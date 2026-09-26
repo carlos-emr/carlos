@@ -1,0 +1,120 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+    Ported from the openo-beta/Open-O tickler attachment component
+    (PR #2491, Sebastian Ibanez) and adapted for CARLOS.
+--%>
+<%--
+    ticklerAttachmentsDialog.jspf - the shared attachment picker as a jQuery UI dialog (#3984)
+
+    Static include; place it AFTER the tickler <form name="serviceform"> and after
+    ticklerAttachmentsPanel.jspf. Needs jQuery, jQuery UI (dialog) and Bootstrap already loaded
+    by the host page. Loads previewDocs?method=fetchTicklerDocuments for the tickler's patient,
+    pre-checks the picker from the form's ".delegateAttachment" inputs, and on Save and Close
+    rewrites those inputs from the checked boxes, updates the visible name lists and sets the
+    attachmentsSubmitted marker. Restricted delegates (types the reader cannot open) are kept.
+
+    @since 2026-09-26
+--%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message var="ticklerAttachmentsSaveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
+<fmt:message var="ticklerAttachmentsSelectPatientText" key="tickler.attachments.selectPatientFirst"/>
+<div id="attachDocumentDisplay" style="display:none;"></div>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
+<script type="text/javascript">
+    (function () {
+        var ctx = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>';
+        var saveAndCloseText = '${carlos:forJavaScript(ticklerAttachmentsSaveAndCloseText)}';
+        var selectPatientText = '${carlos:forJavaScript(ticklerAttachmentsSelectPatientText)}';
+
+        jQuery(document).on('click', '#manageAttachmentsBtn', function () {
+            var $form = jQuery('form[name="serviceform"]');
+            var trigger = jQuery(this);
+            // The Edit window knows its patient; the Add window may pick one after the page
+            // loaded, so its own hidden demographic_no input is authoritative at click time.
+            var demographicNo = trigger.data('demographicNo') || $form.find('input[name="demographic_no"]').val();
+            if (!demographicNo) {
+                alert(selectPatientText);
+                return;
+            }
+            var poload = ctx + '/previewDocs?method=fetchTicklerDocuments&demographicNo=' + encodeURIComponent(demographicNo);
+
+            jQuery('#attachDocumentDisplay').load(poload, function (response, status) {
+                if (status !== 'success') {
+                    return;
+                }
+                // Pre-check the picker for everything already on the form.
+                $form.find('.delegateAttachment').each(function () {
+                    var element = jQuery('#attachDocumentsForm').find('#' + jQuery.escapeSelector(this.name + this.value));
+                    if (element.length === 0) {
+                        return;
+                    }
+                    element.prop('checked', true);
+                    // Older lab versions sit in a collapsed list; show the one that is attached.
+                    if (element.attr('data-version') && typeof expandLabVersionList === 'function') {
+                        expandLabVersionList(element.closest('.lab').find('.collapse-arrow'));
+                    }
+                });
+            }).dialog({
+                title: trigger.attr('title'),
+                modal: true,
+                closeText: saveAndCloseText,
+                height: 'auto',
+                width: 'auto',
+                resizable: true,
+                open: function () {
+                    jQuery(this).parent().css({top: 0, left: 0});
+                    var closeBtn = jQuery(this).parent().find('.ui-dialog-titlebar-close');
+                    closeBtn.removeClass('ui-button-icon-only');
+                    closeBtn.addClass('save-and-close-button');
+                    closeBtn.text(saveAndCloseText);
+                },
+                beforeClose: function () {
+                    // Rebuild the form's selection from the picker. The action synchronises each
+                    // type against the stored set, so submitting the full current selection is
+                    // sufficient for both adds and removals. Restricted delegates are types this
+                    // reader cannot see in the picker; they must survive the rebuild.
+                    $form.find('.delegateAttachment:not([data-restricted])').remove();
+                    jQuery('#attachmentNames ul li:not(.restricted)').remove();
+                    jQuery('#attachDocumentsForm')
+                        .find('.document_check:checked, .lab_check:checked, .form_check:checked, .eForm_check:checked, .hrm_check:checked')
+                        .not('[disabled]')
+                        .each(function () {
+                            var element = jQuery(this);
+                            jQuery('<input />', {
+                                type: 'hidden',
+                                name: element.attr('name'),
+                                value: element.val(),
+                                id: 'delegate_' + element.attr('name') + element.val(),
+                                'class': 'delegateAttachment'
+                            }).appendTo($form.find('.tickler-attachments'));
+                            jQuery('<li>').text(element.attr('title')).appendTo('#attachmentNames_' + element.attr('name'));
+                        });
+                    jQuery('#attachmentNames .attachment-group').each(function () {
+                        jQuery(this).toggle(jQuery(this).find('li').length > 0);
+                    });
+                    jQuery('#attachmentCount').text($form.find('.delegateAttachment').length);
+                    jQuery('#attachmentsSubmitted').val('1');
+                }
+            });
+        });
+    })();
+</script>

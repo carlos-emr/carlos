@@ -44,10 +44,11 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
@@ -58,14 +59,21 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.Date;
+import java.util.EnumMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that migrates the server-side logic from {@code tickler/dbTicklerAdd.jsp}.
  *
  * <p>Processes POST form submissions from {@code ticklerAdd.jsp} to create new ticklers.
+ * Attachments chosen in the shared picker (and the legacy forward-from-document
+ * {@code docType}/{@code docId} pair, folded into its type) are stored through
+ * {@link TicklerAttachmentService}, which verifies every id belongs to the patient.
  * Optionally writes the tickler message to the patient's encounter chart as a
  * {@link CaseManagementNote} when the {@code writeToEncounter} parameter is set.
  *
@@ -74,7 +82,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * {@code iframe.onload} handler:
  * <ul>
  *   <li>{@code #tickler-save-ok} – tickler saved successfully</li>
- *   <li>{@code #tickler-save-ok-link-failed} – saved but document link failed</li>
+ *   <li>{@code #tickler-save-ok-link-failed} – saved but one or more attachments were refused</li>
  *   <li>{@code #tickler-write-encounter-failed} – saved but encounter note failed</li>
  * </ul>
  *
@@ -90,11 +98,11 @@ public final class DbTicklerAdd2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-    private TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Creates a new tickler, optionally links it to a document, and optionally writes
+     * Creates a new tickler, stores its picker attachments, and optionally writes
      * the message to the patient's encounter chart.
      *
      * @return {@link #SUCCESS} to forward to the view JSP, or {@link #NONE} on redirect/error
@@ -121,7 +129,9 @@ public final class DbTicklerAdd2Action extends ActionSupport {
         }
 
         String moduleId = request.getParameter("demographic_no");
-        String docCreator = Objects.toString(request.getParameter("user_no"), "");
+        // The creator is the authenticated provider. The form still posts user_no, but a hidden
+        // field is client-controlled and must not decide who is recorded as the author.
+        String docCreator = Objects.toString(loggedInInfo.getLoggedInProviderNo(), "");
         String docDate = request.getParameter("xml_appointment_date");
         String ticklerMessage = Objects.toString(request.getParameter("ticklerMessage"), "");
         String priority = request.getParameter("priority");
@@ -173,27 +183,34 @@ public final class DbTicklerAdd2Action extends ActionSupport {
 
         int ticklerNo = tickler.getId();
 
-        // Optionally link the new tickler to a document
+        // Attachments: the picker's per-type selections plus the legacy forward-from-document
+        // pair, folded into its type so each type is synchronised exactly once. Every id is
+        // verified against the tickler's patient by the service; a refused set is reported to
+        // the opener as a warning while the tickler itself stays saved.
         boolean ticklerLinkFailed = false;
-        if (docType != null && docId != null
-                && !docType.trim().isEmpty() && !docId.trim().isEmpty()
-                && !docId.equalsIgnoreCase("null")) {
-            if (ticklerNo > 0) {
+        if (ticklerNo > 0) {
+            Map<DocumentType, Set<String>> submitted = new EnumMap<>(DocumentType.class);
+            if (TicklerAttachmentParameters.isSubmitted(request)) {
+                submitted.putAll(TicklerAttachmentParameters.read(request));
+            }
+            DocumentType forwardedType = TicklerAttachmentParameters.fromLegacyDocType(docType);
+            if (forwardedType != null && docId != null && !docId.trim().isEmpty()
+                    && !"null".equalsIgnoreCase(docId.trim())) {
+                submitted.computeIfAbsent(forwardedType, type -> new LinkedHashSet<>()).add(docId.trim());
+            } else if (docType != null && !docType.trim().isEmpty()) {
+                MiscUtils.getLogger().warn("Ignoring unknown forwarded docType for ticklerNo={}: {}",
+                        ticklerNo, LogSafe.sanitize(docType));
+                ticklerLinkFailed = true;
+            }
+            if (!submitted.isEmpty()) {
                 try {
-                    TicklerLink tLink = new TicklerLink();
-                    tLink.setTableId(Long.parseLong(docId));
-                    tLink.setTableName(docType);
-                    tLink.setTicklerNo(ticklerNo);
-                    ticklerLinkDao.save(tLink);
-                } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error(
-                            "Invalid docId format for TicklerLink: ticklerNo={}, docId={}",
-                            ticklerNo, LogSafe.sanitize(docId), e);
+                    ticklerAttachmentService.syncAttachments(loggedInInfo, tickler, submitted);
+                } catch (SecurityException | IllegalArgumentException e) {
+                    MiscUtils.getLogger().warn("Refused tickler attachments for ticklerNo={}: {}",
+                            ticklerNo, e.getMessage());
                     ticklerLinkFailed = true;
                 } catch (Exception e) {
-                    MiscUtils.getLogger().error(
-                            "Failed to save TicklerLink for ticklerNo={}, docType={}, docId={}",
-                            ticklerNo, LogSafe.sanitize(docType), LogSafe.sanitize(docId), e);
+                    MiscUtils.getLogger().error("Failed to store tickler attachments for ticklerNo={}", ticklerNo, e);
                     ticklerLinkFailed = true;
                 }
             }

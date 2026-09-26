@@ -74,6 +74,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
     private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
     private static final String EFORM_SECURITY_OBJECT = "_eform";
+    private static final String TICKLER_SECURITY_OBJECT = "_tickler";
 
     private enum PreviewError {
         INVALID_REQUEST("invalid_request", "Invalid preview request."),
@@ -125,6 +126,7 @@ public class DocumentPreview2Action extends ActionSupport {
      * - renderLabPDF: Renders laboratory results as PDF
      * - renderFormPDF: Renders encounter forms as PDF
      * - renderPDF: Renders arbitrary PDF files with security validation
+     * - fetchTicklerDocuments: Retrieves documents for the tickler attachment picker
      * - fetchConsultDocuments: Retrieves consultation-related documents (default)
      *
      * @return String result name for Struts2 result mapping, or null for direct response rendering
@@ -161,6 +163,8 @@ public class DocumentPreview2Action extends ActionSupport {
                 return NONE;
             case "fetchconsultdocuments":
                 return fetchConsultDocuments();
+            case "fetchticklerdocuments":
+                return fetchTicklerDocuments();
             default:
                 logger.warn("Unsupported previewDocs method requested.");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -487,6 +491,54 @@ public class DocumentPreview2Action extends ActionSupport {
         populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
 		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, fdidInt);
 		request.setAttribute("allEForms", allEForms);
+
+        return "fetchDocuments";
+    }
+
+    /**
+     * Fetches the documents available for attaching to a tickler.
+     *
+     * <p>Tickler counterpart of {@link #fetchConsultDocuments()}, gated by the tickler security
+     * object rather than the consultation one so a user who works ticklers but not consults can
+     * still use the picker. {@code demographicNo} must be a positive integer: a tickler always
+     * belongs to a patient, and a bad or missing value is a 400 rather than a fall-through to
+     * demographic 0. Each section of the picker is still gated by that type's own read right in
+     * {@link #populateCommonDocs}, and selection is enabled only with {@code _tickler} write.</p>
+     *
+     * Expected request parameters:
+     * - demographicNo: String the patient's demographic number (required, positive integer)
+     *
+     * @return String "fetchDocuments" result name for Struts2 result mapping, or {@link #NONE}
+     *         after a 400 for an invalid demographic number
+     * @throws SecurityException if the user lacks the required "_tickler" read privilege
+     */
+    public String fetchTicklerDocuments() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        Integer demographicId = parseIntegerParameterOrRespondBadRequest(
+                request.getParameter(DEMOGRAPHIC_NO_PARAMETER), DEMOGRAPHIC_NO_PARAMETER);
+        if (demographicId == null) {
+            return NONE;
+        }
+        if (demographicId <= 0) {
+            logger.warn("Invalid {} received: not a positive integer", DEMOGRAPHIC_NO_PARAMETER);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, PreviewError.INVALID_REQUEST);
+            return NONE;
+        }
+        String sanitizedDemographicNo = String.valueOf(demographicId);
+
+        requirePrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo);
+        request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
+        request.setAttribute("attachmentSecurityObject", TICKLER_SECURITY_OBJECT);
+        request.setAttribute("canManageAttachments",
+                hasPrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.WRITE, sanitizedDemographicNo));
+        populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
+        // A tickler is not itself an eForm, so unlike fetchEFormDocuments nothing is excluded.
+        List<EFormData> allEForms = hasPrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo)
+                ? EFormUtil.listPatientEformsCurrent(demographicId, true)
+                : new ArrayList<>();
+        request.setAttribute("allEForms", allEForms);
 
         return "fetchDocuments";
     }

@@ -28,7 +28,7 @@
  *      the JSON success reply and that the lab window closed itself;
  *   3. asserts the tickler row: message, patient from the lab, assignee,
  *      creator, service date = today + 14 days, priority default, plus the
- *      tickler_link row back to the lab, and that the lab is now
+ *      ticklerdocs row back to the lab (#3984), and that the lab is now
  *      acknowledged with the macro's comment;
  *   4. asserts the new tickler appears in the tickler list (date window
  *      widened to the recall date) for that patient.
@@ -143,7 +143,7 @@ function ticklerRows() {
 
 function cleanupRows() {
   for (const row of ticklerRows()) {
-    sql(`DELETE FROM tickler_link WHERE tickler_no=${Number(row.id)}`);
+    sql(`DELETE FROM ticklerdocs WHERE tickler_id=${Number(row.id)}`);
     sql(`DELETE FROM tickler_comments WHERE tickler_no=${Number(row.id)}`);
     sql(`DELETE FROM tickler WHERE tickler_no=${Number(row.id)}`);
   }
@@ -259,8 +259,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(tickler.assignee === providerNo && tickler.creator === providerNo, `tickler assignee/creator were ${tickler.assignee}/${tickler.creator}`);
     assert(tickler.status === 'A', `tickler status was ${tickler.status}`);
     assert(tickler.serviceDate === sql('SELECT DATE(NOW() + INTERVAL 14 DAY)'), `tickler service date ${tickler.serviceDate} was not 2 weeks out`);
-    const link = sql(`SELECT table_name, table_id FROM tickler_link WHERE tickler_no=${Number(tickler.id)}`);
-    assert(link === `HL7\t${fixture.labNo}`, `tickler_link row was "${link}"`);
+    // The macro attaches the lab through ticklerdocs (#3984): a live lab row carrying its source
+    // and the authenticated provider, never the request's provider.
+    const link = sql(`SELECT doctype, lab_type, document_no, provider_no, deleted IS NULL FROM ticklerdocs WHERE tickler_id=${Number(tickler.id)}`);
+    assert(link === `L\tHL7\t${fixture.labNo}\t${providerNo}\t1`, `ticklerdocs row was "${link}"`);
     const routing = sql(`SELECT status, IFNULL(comment,'') FROM providerLabRouting WHERE lab_no=${Number(fixture.labNo)} AND lab_type='HL7' AND provider_no='${escapeSql(providerNo)}' ORDER BY id DESC LIMIT 1`);
     assert(routing === `A\t${ackComment}`, `lab routing after the macro was "${routing}"`);
 

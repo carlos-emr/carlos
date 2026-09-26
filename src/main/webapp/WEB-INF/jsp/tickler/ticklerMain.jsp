@@ -433,7 +433,7 @@
                                 var html = '<span style="white-space:pre-wrap">' + escapeHtml(data.message || '') + '</span>';
                                 if (data.links && data.links.length > 0) {
                                     for (var i = 0; i < data.links.length; i++) {
-                                        html += buildAttachmentLink(data.links[i].tableName, data.links[i].tableId);
+                                        html += buildAttachmentLink(data.links[i], data);
                                     }
                                 }
                                 return html;
@@ -515,8 +515,17 @@
                 return div.innerHTML;
             }
 
-            function buildAttachmentLink(tableName, tableId) {
-                var encodedId = encodeURIComponent(tableId);
+            // encodeURIComponent leaves "'" alone, and these URLs sit inside a javascript: href's
+            // string literal; %27 is its percent-encoding.
+            function encodeUrlParam(value) {
+                return encodeURIComponent(value).replace(/'/g, '%27');
+            }
+
+            // link.tableName carries the legacy viewer code (lab source, DOC, HRM) plus EFORM and
+            // FORM for the two attachment types the ticklerdocs store added (#3984).
+            function buildAttachmentLink(link, row) {
+                var tableName = link.tableName;
+                var encodedId = encodeUrlParam(link.tableId);
                 var url = '';
                 if (tableName === 'MDS') {
                     url = 'javascript:reportWindow(\'' + ctx + '/oscarMDS/ViewSegmentDisplay?segmentID=' + encodedId + '\')';
@@ -528,6 +537,16 @@
                     url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument?method=display&doc_no=' + encodedId + '\')';
                 } else if (tableName === 'HRM') {
                     url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display?id=' + encodedId + '&segmentID=' + encodedId + '\')';
+                } else if (tableName === 'EFORM') {
+                    url = 'javascript:reportWindow(\'' + ctx + '/eform/efmshowform_data?fdid=' + encodedId + '\')';
+                } else if (tableName === 'FORM') {
+                    // Encounter forms span many tables, so the id alone cannot address one; without
+                    // the server-resolved name there is no URL to build.
+                    if (!link.formName) {
+                        return ' <i class="fas fa-paperclip" title="' + i18nViewAttachment + '"></i>';
+                    }
+                    url = 'javascript:reportWindow(\'' + ctx + '/form/forwardshortcutname?formname=' + encodeUrlParam(link.formName)
+                        + '&demographic_no=' + encodeUrlParam(row.demographicNo) + '&formId=' + encodedId + '\')';
                 } else {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 }

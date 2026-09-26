@@ -76,7 +76,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
@@ -230,7 +230,7 @@ public final class EDocUtil {
     private static ProgramManager programManager() { return SpringUtils.getBean(ProgramManager.class); }
     private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao() { return SpringUtils.getBean(CaseManagementNoteLinkDAO.class); }
     private static CaseManagementNoteDAO caseManagementNoteDao() { return SpringUtils.getBean(CaseManagementNoteDAO.class); }
-    private static TicklerLinkDao ticklerLinkDao() { return SpringUtils.getBean(TicklerLinkDao.class); }
+    private static TicklerDocsDao ticklerDocsDao() { return SpringUtils.getBean(TicklerDocsDao.class); }
     private static TicklerManager ticklerManager() { return SpringUtils.getBean(TicklerManager.class); }
     private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
     private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
@@ -1182,16 +1182,16 @@ public final class EDocUtil {
 
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
 
-        Long table_id = Long.valueOf(docId);
-        List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
+        // Attachments live in ticklerdocs (#3984); the legacy tickler_link rows were backfilled.
+        List<TicklerDocs> attachments = ticklerDocsDao().findByDocument(Integer.valueOf(docId), TicklerDocs.DOCTYPE_DOC);
         String HtmlTickler = "";
-        Integer ticklerNo;
 
-        if (linkList != null) {
-            for (TicklerLink tl : linkList) {
-                ticklerNo = tl.getTicklerNo();
-                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo);
-                HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
+        if (attachments != null) {
+            for (TicklerDocs attachment : attachments) {
+                Tickler t = ticklerManager().getTickler(loggedInInfo, attachment.getTicklerId());
+                if (t != null) {
+                    HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
+                }
             }
         }
         return HtmlTickler;

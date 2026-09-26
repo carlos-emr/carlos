@@ -38,7 +38,13 @@
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String attachmentSecurityObjectRequest = (String) request.getAttribute("attachmentSecurityObject");
-    String attachmentSecurityObject = "_eform".equals(attachmentSecurityObjectRequest) ? "_eform" : "_con";
+    // The picker is shared by consultation requests, eForms and ticklers; each host route sets
+    // the object its own users hold. Anything else falls back to the consultation gate, so a
+    // caller cannot pick a weaker object than the ones the routes vouch for.
+    String attachmentSecurityObject = "_con";
+    if ("_eform".equals(attachmentSecurityObjectRequest) || "_tickler".equals(attachmentSecurityObjectRequest)) {
+        attachmentSecurityObject = attachmentSecurityObjectRequest;
+    }
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="<%=attachmentSecurityObject%>" rights="r" reverse="<%=true%>">

@@ -106,8 +106,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerUpdate" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%
@@ -116,7 +116,9 @@
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 
-    TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
+    TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
+    // Encounter form names, resolved lazily per patient the first time a form attachment is seen.
+    java.util.Map<Integer, java.util.Map<String, String>> formNamesByDemographic = new java.util.HashMap<>();
 %>
 
 
@@ -970,39 +972,61 @@
                             <TD ROWSPAN="1" class="<%=cellColour%>"><%=SafeEncode.forHtmlContent(t.getMessage())%>
 
                                 <%
-                                    List<TicklerLink> linkList = ticklerLinkDao.getLinkByTickler(t.getId().intValue());
-                                    if (linkList != null) {
-                                        for (TicklerLink tl : linkList) {
-                                            String type = tl.getTableName();
+                                    // Attachments come from the ticklerdocs store (#3984). Lab rows carry
+                                    // their source so the right viewer opens; encounter forms need the
+                                    // form name, resolved once per patient, because the id alone cannot
+                                    // address a form. Types the reader may not open are not linked.
+                                    for (TicklerAttachmentData attachment : ticklerAttachmentService.listAttachments(loggedInInfo, t)) {
+                                        String attachmentId = SafeEncode.forUriComponent(attachment.getDocumentId());
+                                        String href = null;
+                                        if (attachment.isViewable()) {
+                                            switch (attachment.getDocumentType()) {
+                                                case DOC:
+                                                    href = request.getContextPath() + "/documentManager/ManageDocument?method=display&doc_no=" + attachmentId
+                                                            + "&providerNo=" + userNoParam + "&searchProviderNo=" + userNoParam + "&status=";
+                                                    break;
+                                                case HRM:
+                                                    href = request.getContextPath() + "/hospitalReportManager/Display?id=" + attachmentId;
+                                                    break;
+                                                case EFORM:
+                                                    href = request.getContextPath() + "/eform/efmshowform_data?fdid=" + attachmentId;
+                                                    break;
+                                                case FORM:
+                                                    Integer formDemographicNo = t.getDemographicNo();
+                                                    if (!formNamesByDemographic.containsKey(formDemographicNo)) {
+                                                        formNamesByDemographic.put(formDemographicNo,
+                                                                ticklerAttachmentService.formNamesByFormId(loggedInInfo, formDemographicNo));
+                                                    }
+                                                    String formName = formNamesByDemographic.get(formDemographicNo).get(attachment.getDocumentId());
+                                                    if (formName != null) {
+                                                        href = request.getContextPath() + "/form/forwardshortcutname?formname=" + SafeEncode.forUriComponent(formName)
+                                                                + "&demographic_no=" + SafeEncode.forUriComponent(String.valueOf(formDemographicNo))
+                                                                + "&formId=" + attachmentId;
+                                                    }
+                                                    break;
+                                                case LAB:
+                                                default:
+                                                    String labType = attachment.getLabType();
+                                                    String labQuery = "?segmentID=" + attachmentId + "&providerNo=" + userNoParam + "&searchProviderNo=" + userNoParam + "&status=";
+                                                    if (LabResultData.isMDS(labType)) {
+                                                        href = request.getContextPath() + "/oscarMDS/ViewSegmentDisplay" + labQuery;
+                                                    } else if (LabResultData.isCML(labType)) {
+                                                        href = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay" + labQuery;
+                                                    } else if (labType == null || LabResultData.isHL7TEXT(labType)) {
+                                                        href = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay" + labQuery;
+                                                    } else {
+                                                        href = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay" + labQuery;
+                                                    }
+                                                    break;
+                                            }
+                                        }
+                                        if (href != null) {
                                 %>
-
+                                <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(href)%>')" title="<carlos:encode value='<%= attachment.getDisplayName() %>' context="htmlAttribute"/>">ATT</a>
                                 <%
-                                    if (LabResultData.isMDS(type)) {
+                                        } else {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isCML(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isHL7TEXT(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isDocument(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isHRM(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=tl.getTableId()%>')">ATT</a>
-                                <%
-                                } else {
-                                %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=userNoParam%>&searchProviderNo=<%=userNoParam%>&status=')">ATT</a>
-                                <%
-                                    }
-                                %>
+                                <span title="<fmt:message key="tickler.attachments.restricted"/>">ATT</span>
                                 <%
                                         }
                                     }

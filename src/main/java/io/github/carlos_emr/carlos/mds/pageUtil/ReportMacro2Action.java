@@ -38,10 +38,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -71,7 +71,7 @@ public class ReportMacro2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerDao ticklerDao = SpringUtils.getBean(TicklerDao.class);
-    private TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
+    private TicklerDocsDao ticklerDocsDao = SpringUtils.getBean(TicklerDocsDao.class);
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -316,11 +316,12 @@ public class ReportMacro2Action extends ActionSupport {
                             auditFailure.getClass().getSimpleName());
                 }
 
-                TicklerLink tl = new TicklerLink();
-                tl.setTableId(Long.valueOf(segmentID));
-                tl.setTableName(labType);
-                tl.setTicklerNo(t.getId());
-                ticklerLinkDao.persist(tl);
+                // Attach the lab through the ticklerdocs store (#3984). The attaching provider is
+                // the authenticated session provider, never a request value, and the lab source
+                // is kept so the tickler list opens the right viewer.
+                TicklerDocs attachment = new TicklerDocs(t.getId(), Integer.parseInt(segmentID), TicklerDocs.DOCTYPE_LAB, providerNo);
+                attachment.setLabType(labType);
+                ticklerDocsDao.persist(attachment);
             } else {
                 logger.info("Cannot sent tickler. Not enough information in macro definition. providers taskAssignedTo and message");
             }

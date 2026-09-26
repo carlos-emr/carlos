@@ -19,9 +19,9 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import java.util.List;
 
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("EDocUtil.getHtmlTicklers")
 class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
 
-    @Mock private TicklerLinkDao mockTicklerLinkDao;
+    @Mock private TicklerDocsDao mockTicklerDocsDao;
     @Mock private TicklerManager mockTicklerManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
     private AutoCloseable mockitoCloseable;
@@ -62,7 +62,7 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         // The lazy accessors resolve these via SpringUtils.getBean on first use.
-        registerMock(TicklerLinkDao.class, mockTicklerLinkDao);
+        registerMock(TicklerDocsDao.class, mockTicklerDocsDao);
         registerMock(TicklerManager.class, mockTicklerManager);
     }
 
@@ -74,9 +74,9 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should render each linked tickler message HTML-encoded when links exist")
     void shouldRenderTicklerMessagesHtmlEncoded_whenLinksExist() {
-        TicklerLink link = mock(TicklerLink.class);
-        when(link.getTicklerNo()).thenReturn(7);
-        when(mockTicklerLinkDao.getLinkByTableId("DOC", 42L)).thenReturn(List.of(link));
+        TicklerDocs link = mock(TicklerDocs.class);
+        when(link.getTicklerId()).thenReturn(7);
+        when(mockTicklerDocsDao.findByDocument(42, TicklerDocs.DOCTYPE_DOC)).thenReturn(List.of(link));
 
         Tickler tickler = mock(Tickler.class);
         String rawMessage = "Follow up <b>STAT</b> & re-test";
@@ -94,11 +94,11 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should concatenate multiple tickler messages, each on its own line")
     void shouldConcatenateMultipleTicklers_whenSeveralLinksExist() {
-        TicklerLink l1 = mock(TicklerLink.class);
-        TicklerLink l2 = mock(TicklerLink.class);
-        when(l1.getTicklerNo()).thenReturn(1);
-        when(l2.getTicklerNo()).thenReturn(2);
-        when(mockTicklerLinkDao.getLinkByTableId("DOC", 5L)).thenReturn(List.of(l1, l2));
+        TicklerDocs l1 = mock(TicklerDocs.class);
+        TicklerDocs l2 = mock(TicklerDocs.class);
+        when(l1.getTicklerId()).thenReturn(1);
+        when(l2.getTicklerId()).thenReturn(2);
+        when(mockTicklerDocsDao.findByDocument(5, TicklerDocs.DOCTYPE_DOC)).thenReturn(List.of(l1, l2));
 
         Tickler t1 = mock(Tickler.class);
         Tickler t2 = mock(Tickler.class);
@@ -113,7 +113,7 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return an empty string when the document has no tickler links")
     void shouldReturnEmpty_whenNoLinks() {
-        when(mockTicklerLinkDao.getLinkByTableId("DOC", 99L)).thenReturn(null);
+        when(mockTicklerDocsDao.findByDocument(99, TicklerDocs.DOCTYPE_DOC)).thenReturn(null);
 
         assertThat(EDocUtil.getHtmlTicklers(mockLoggedInInfo, "99")).isEmpty();
     }

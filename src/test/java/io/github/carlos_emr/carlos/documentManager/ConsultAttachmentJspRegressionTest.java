@@ -39,7 +39,10 @@ class ConsultAttachmentJspRegressionTest {
         String jsp = normalizeWhitespace(Files.readString(ATTACH_DOCUMENT_JSP, StandardCharsets.UTF_8));
 
         assertThat(jsp)
-                .contains("String attachmentSecurityObject = \"_eform\".equals(attachmentSecurityObjectRequest) ? \"_eform\" : \"_con\";")
+                // The picker is shared by consultations, eForms and ticklers (#3984); anything else
+                // still falls back to the consultation gate.
+                .contains("String attachmentSecurityObject = \"_con\";")
+                .contains("if (\"_eform\".equals(attachmentSecurityObjectRequest) || \"_tickler\".equals(attachmentSecurityObjectRequest)) { attachmentSecurityObject = attachmentSecurityObjectRequest; }")
                 .contains("objectName=\"<%=attachmentSecurityObject%>\" rights=\"r\"")
                 .contains("<c:set var=\"attachmentSelectionDisabled\" value=\"${canManageAttachments ne true}\"/>")
                 .contains("<c:if test=\"${attachmentSelectionDisabled}\">disabled=\"disabled\"</c:if>");

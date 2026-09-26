@@ -51,6 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
@@ -83,6 +84,7 @@ public class TicklerList2Action extends ActionSupport {
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
     @Override
     public String execute() throws IOException {
@@ -136,9 +138,14 @@ public class TicklerList2Action extends ActionSupport {
             Date today = new Date();
 
             int ticklerWarnDays = getTicklerWarnDays();
+            // Encounter form names are resolved once per patient on the page, and only for
+            // patients that actually have a form attachment: the form id alone cannot address a
+            // form, so the client needs the name to build its link.
+            Map<Integer, Map<String, String>> formNamesByDemographic = new HashMap<>();
 
             for (TicklerListDTO dto : ticklerDTOs) {
-                rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale));
+                rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale,
+                        formNamesFor(loggedInInfo, dto, formNamesByDemographic)));
 
                 if (dto.getComments() != null && !dto.getComments().isEmpty()) {
                     commentsMap.put(String.valueOf(dto.getId()), buildCommentsArray(dto.getComments(), dateFormat, timeFormat, today));
@@ -256,9 +263,11 @@ public class TicklerList2Action extends ActionSupport {
      * @param warnDays int the number of days to consider a tickler as warning
      * @param dateFormat SimpleDateFormat thread-local date formatter
      * @param locale Locale the request locale for status description i18n
+     * @param formNames Map&lt;String, String&gt; form id to form name for this tickler's patient
      * @return Map containing the tickler row data
      */
-    private Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat, Locale locale) {
+    private Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat,
+                                                Locale locale, Map<String, String> formNames) {
         Map<String, Object> row = new HashMap<>();
         row.put("id", dto.getId());
         row.put("message", dto.getMessage() != null ? dto.getMessage() : "");
@@ -281,12 +290,35 @@ public class TicklerList2Action extends ActionSupport {
                 linkMap.put("id", link.getId());
                 linkMap.put("tableName", link.getTableName());
                 linkMap.put("tableId", link.getTableId());
+                if (TicklerLinkDTO.TABLE_NAME_FORM.equals(link.getTableName())) {
+                    // Left absent when the form no longer resolves (or the id is ambiguous); the
+                    // client then renders an unlinked marker rather than a URL to the wrong form.
+                    String formName = formNames.get(String.valueOf(link.getTableId()));
+                    if (formName != null) {
+                        linkMap.put("formName", formName);
+                    }
+                }
                 links.add(linkMap);
             }
         }
         row.put("links", links);
 
         return row;
+    }
+
+    /**
+     * Resolves the form-name lookup for a tickler's patient, once per patient per page and only
+     * when the tickler carries an encounter form attachment.
+     */
+    private Map<String, String> formNamesFor(LoggedInInfo loggedInInfo, TicklerListDTO dto,
+                                             Map<Integer, Map<String, String>> cache) {
+        boolean hasForm = dto.getLinks() != null && dto.getLinks().stream()
+                .anyMatch(link -> TicklerLinkDTO.TABLE_NAME_FORM.equals(link.getTableName()));
+        if (!hasForm || dto.getDemographicNo() == null) {
+            return java.util.Collections.emptyMap();
+        }
+        return cache.computeIfAbsent(dto.getDemographicNo(),
+                demographicNo -> ticklerAttachmentService.formNamesByFormId(loggedInInfo, demographicNo));
     }
 
     /**

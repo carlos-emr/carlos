@@ -215,6 +215,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- tickler ---
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action",
                     "_tickler", "w"),
+            // Both dispatches (editTickler, suggested-text maintenance) mutate; the verb is
+            // checked before authorization, so a GET rejects with no hasPrivilege call and the
+            // tuple below is the POST-path bar (#3984).
+            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action",
                     "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action",

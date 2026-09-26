@@ -33,12 +33,14 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Tickler.STATUS;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerLinkTo1;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -85,7 +87,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
     public TicklerTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Tickler t) throws ConversionException {
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-        TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
+        TicklerDocsDao ticklerDocsDao = SpringUtils.getBean(TicklerDocsDao.class);
         ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
 
 
@@ -122,9 +124,17 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         Map<String, String> expandedProviderNames = getExpandedProviderNames(providerDao, t);
 
         if (includeLinks) {
-            List<TicklerLink> links = ticklerLinkDao.getLinkByTickler(d.getId());
-            TicklerLinkConverter tlc = new TicklerLinkConverter();
-            d.setTicklerLinks(tlc.getAllAsTransferObjects(loggedInInfo, links));
+            // The REST ticklerLinks shape stays as it was: tableName carries the legacy
+            // tickler_link code (DOC, HRM, the lab source, plus EFORM/FORM for the new types)
+            // while the rows themselves now come from ticklerdocs.
+            for (TicklerDocs attachment : ticklerDocsDao.findByTicklerId(d.getId())) {
+                TicklerLinkTo1 link = new TicklerLinkTo1();
+                link.setId(attachment.getId());
+                link.setTicklerNo(attachment.getTicklerId());
+                link.setTableName(TicklerLinkDTO.legacyTableName(attachment));
+                link.setTableId((long) attachment.getDocumentNo());
+                d.getTicklerLinks().add(link);
+            }
         }
 
         if (includeComments) {

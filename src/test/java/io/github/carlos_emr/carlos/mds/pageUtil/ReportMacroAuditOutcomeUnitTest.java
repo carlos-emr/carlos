@@ -6,10 +6,10 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -47,7 +47,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         request.setParameter("labType", "HL7");
         createAndRegisterMock(SecurityInfoManager.class);
         var ticklers = createAndRegisterMock(TicklerDao.class);
-        var links = createAndRegisterMock(TicklerLinkDao.class);
+        var links = createAndRegisterMock(TicklerDocsDao.class);
         var info = mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
         var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
@@ -85,7 +85,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(ProviderLabRoutingDao.class);
         createAndRegisterMock(QueueDocumentLinkDao.class);
         var ticklers = createAndRegisterMock(TicklerDao.class);
-        var links = createAndRegisterMock(TicklerLinkDao.class);
+        var links = createAndRegisterMock(TicklerDocsDao.class);
         var preferences = createAndRegisterMock(UserPropertyDAO.class);
         var info = mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
@@ -137,7 +137,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             assertThat(json.path("clearedCount").asInt()).isEqualTo(acknowledge ? 3 : 0);
             if (tickler) {
                 verify(ticklers).persist(any(Tickler.class));
-                verify(links).persist(any(TicklerLink.class));
+                verify(links).persist(any(TicklerDocs.class));
             } else {
                 verify(links, never()).persist(any());
             }

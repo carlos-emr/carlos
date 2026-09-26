@@ -265,6 +265,73 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should gate the tickler picker on tickler read and enable selection on tickler write")
+    void shouldGateTicklerPicker_onTicklerPrivileges() {
+        request.setParameter("method", "fetchTicklerDocuments");
+        request.setParameter("demographicNo", "123");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", SecurityInfoManager.READ, "123")).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", SecurityInfoManager.WRITE, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, "123")).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123")).thenReturn(false);
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+        eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fetchDocuments");
+        assertThat(request.getAttribute("attachmentSecurityObject")).isEqualTo("_tickler");
+        assertThat(request.getAttribute("canManageAttachments")).isEqualTo(false);
+        assertThat(request.getAttribute("demographicNo")).isEqualTo("123");
+        // The consultation object is never consulted: a tickler user without _con can use the picker.
+        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_con", SecurityInfoManager.READ, "123");
+        // Per-type read gates still apply to every section of the picker.
+        eDocUtilMock.verifyNoInteractions();
+        eFormUtilMock.verifyNoInteractions();
+        hrmUtilMock.verifyNoInteractions();
+        verify(mockDocumentAttachmentManager, never()).getAllLabsSortedByVersions(any(LoggedInInfo.class), any(String.class));
+        verify(mockFormsManager, never()).getEncounterFormsbyDemographicNumber(any(LoggedInInfo.class), any(Integer.class), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("should throw security exception when tickler read is denied for the picker")
+    void shouldThrowSecurityException_whenTicklerReadDeniedForPicker() {
+        request.setParameter("method", "fetchTicklerDocuments");
+        request.setParameter("demographicNo", "123");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", SecurityInfoManager.READ, "123")).thenReturn(false);
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_tickler)");
+        eDocUtilMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a non-numeric or non-positive demographic for the tickler picker")
+    void shouldReturnBadRequest_whenTicklerPickerDemographicInvalid() {
+        request.setParameter("method", "fetchTicklerDocuments");
+        request.setParameter("demographicNo", "not-a-number");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockSecurityInfoManager);
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("demographicNo", "0");
+
+        assertThat(spy(new DocumentPreview2Action()).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockSecurityInfoManager);
+    }
+
+    @Test
     @DisplayName("should return bad request when method is unsupported")
     void shouldReturnBadRequest_whenMethodIsUnsupported() {
         request.setParameter("method", "notARealMethod");
