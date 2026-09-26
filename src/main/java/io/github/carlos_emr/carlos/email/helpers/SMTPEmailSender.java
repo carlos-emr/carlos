@@ -1,7 +1,6 @@
 package io.github.carlos_emr.carlos.email.helpers;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
