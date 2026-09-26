@@ -509,8 +509,14 @@ async function submitEditWithReceipt(context, popup, appointmentNo) {
   const row = stampedAppointments().find((entry) => entry.id === String(appointmentNo));
   assert(row, 'receipt appointment disappeared');
   const [patient] = sqlRows(`SELECT first_name, last_name FROM demographic WHERE demographic_no=${demographicNo}`);
-  for (const expected of [targetDate, row.startTime.slice(0, 5), ...patient]) {
+  for (const expected of [targetDate, row.startTime.slice(0, 5)]) {
     assert(text.includes(expected), `receipt is missing expected appointment content: ${expected}`);
+  }
+  // Long names can wrap at spaces or hyphens on receipt paper. Require every
+  // character while allowing only the whitespace introduced by PDF layout.
+  const compactText = text.replace(/\s+/g, '');
+  for (const name of patient) {
+    assert(compactText.includes(name.replace(/\s+/g, '')), 'receipt is missing patient identity content');
   }
   assert(text.split(/\W+/).includes(String(appointmentNo)), 'receipt contains no matching appointment ID');
   await receipt.close();
