@@ -1219,6 +1219,21 @@
       "env": []
     },
     {
+      "name": "cds-export-lab-documents",
+      "script": "scripts/cds-export-lab-documents-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CDS_EXPORT_GNUPGHOME"
+      ]
+    },
+    {
       "name": "rest-roster-enrolled-to",
       "script": "scripts/rest-roster-enrolled-to-playwright-checks.js",
       "tiers": [
