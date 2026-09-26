@@ -72,8 +72,6 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
 
             MiscUtils.addLoggingOverrideConfiguration(contextPath);
 
-            LocaleUtils.BASE_NAME = "oscarResources";
-
             MiscUtils.setShutdownSignaled(false);
             MiscUtils.registerShutdownHook();
 

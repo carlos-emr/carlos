@@ -159,7 +159,11 @@ public final class LocaleUtils {
 
     static {
         DEFAULT_LOCALE = Locale.ENGLISH;
-        BASE_NAME = "string_tables/strings";
+        // The application's message bundle (src/main/resources/oscarResources_*.properties). The
+        // default used to name "string_tables/strings", a bundle the WAR does not ship; only
+        // ContextStartupListener replaced it, so any lookup made without that listener (unit tests,
+        // code running before the web context starts) silently returned the key itself.
+        BASE_NAME = "oscarResources";
         provinceCache = new HashMap();
     }
 }

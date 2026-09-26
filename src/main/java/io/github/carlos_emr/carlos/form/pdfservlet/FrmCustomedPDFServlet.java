@@ -706,13 +706,12 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     pharmacy.add(pharmacyInfo.getName());
                     pharmacy.add(pharmacyInfo.getAddress());
                     pharmacy.add(pharmacyInfo.getCity() + ", " + pharmacyInfo.getProvince() + ", " + pharmacyInfo.getPostalCode());
-                    // Both numbers, labelled, and only when one is on file: the bare getPhone1() line
-                    // dropped phone2 and wrote a null item for a pharmacy without phone1 (issue #3974).
-                    // A literal label, like the "Rx faxed to" chart note: geti18nTagValue resolves
-                    // against a bundle the WAR does not ship and would print the key itself.
+                    // Both numbers, under the same localized label as the clinic's phone, and only
+                    // when one is on file: the bare getPhone1() line dropped phone2 and wrote a null
+                    // item for a pharmacy without phone1 (issue #3974).
                     String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacyInfo);
                     if (!pharmacyPhone.isEmpty()) {
-                        pharmacy.add("Tel: " + pharmacyPhone);
+                        pharmacy.add(geti18nTagValue(locale, "RxPreview.msgTel") + ": " + pharmacyPhone);
                     }
                     pharmacy.add(pharmacyInfo.getFax());
                     float position = height - 26f;
