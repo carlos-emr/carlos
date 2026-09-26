@@ -243,7 +243,9 @@ public final class IncomingDocUtil {
      */
     private static void restorePermissions(File file, Set<PosixFilePermission> permissions) {
         if (permissions == null) {
-            file.setWritable(true, true);
+            if (!file.setWritable(true, true)) {
+                MiscUtils.getLogger().warn("Could not make a queued document writable again after a failed page operation");
+            }
             return;
         }
         applyPermissions(file, permissions);
@@ -823,32 +825,10 @@ public final class IncomingDocUtil {
                     validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
                 }
 
-                OutputStream deleteFos = recycle ? Files.newOutputStream(recycleScratch.toPath()) : null;
-                try {
-                    Document document = new Document(reader.getPageSizeWithRotation(1));
-                    PdfCopy copy = new PdfCopy(document, copyFos);
-                    PdfCopy deleteCopy = recycle ? new PdfCopy(document, deleteFos) : null;
-                    document.open();
-
-                    try {
-                        for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                            if (pageNumber != pageToDelete) {
-                                copy.addPage(copy.getImportedPage(reader, pageNumber));
-                            } else if (deleteCopy != null) {
-                                deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
-                            }
-                        }
-                    } finally {
-                        // PdfCopy must be closed before Document.close() to flush buffered pages
-                        copy.close();
-                        if (deleteCopy != null) {
-                            deleteCopy.close();
-                        }
-                        document.close();
-                    }
-                } finally {
-                    if (deleteFos != null) {
-                        deleteFos.close();
+                copyPagesExcept(reader, pageToDelete, copyFos);
+                if (recycle) {
+                    try (OutputStream deleteFos = Files.newOutputStream(recycleScratch.toPath())) {
+                        copyOnePage(reader, pageToDelete, deleteFos);
                     }
                 }
             }
@@ -907,6 +887,38 @@ public final class IncomingDocUtil {
             }
         }
         throw new IOException("No unused recycle name for a deleted incoming-document page");
+    }
+
+    /** Writes every page but one to the stream: the queue document with the page removed. */
+    private static void copyPagesExcept(PdfReader reader, int excludedPage, OutputStream out) throws Exception {
+        Document document = new Document(reader.getPageSizeWithRotation(1));
+        PdfCopy copy = new PdfCopy(document, out);
+        try {
+            document.open();
+            for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
+                if (pageNumber != excludedPage) {
+                    copy.addPage(copy.getImportedPage(reader, pageNumber));
+                }
+            }
+        } finally {
+            // PdfCopy must be closed before Document.close() to flush buffered pages
+            copy.close();
+            document.close();
+        }
+    }
+
+    /** Writes one page to the stream: the removed page, for the recycle bin. */
+    private static void copyOnePage(PdfReader reader, int page, OutputStream out) throws Exception {
+        Document document = new Document(reader.getPageSizeWithRotation(page));
+        PdfCopy copy = new PdfCopy(document, out);
+        try {
+            document.open();
+            copy.addPage(copy.getImportedPage(reader, page));
+        } finally {
+            // PdfCopy must be closed before Document.close() to flush buffered pages
+            copy.close();
+            document.close();
+        }
     }
 
     /**
