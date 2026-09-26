@@ -41,7 +41,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
+import io.github.carlos_emr.carlos.billings.ca.bc.MSP.HtmlTeleplanHelper;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import java.io.*;
 import java.math.BigDecimal;
@@ -133,27 +135,9 @@ public class ExtractBean extends Object implements Serializable {
                 batchHeader = "";
             }
 
-            htmlContentHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
-            htmlContentHeader = htmlContentHeader + "<table width='100%' border='0' cellspacing='0' cellpadding='0'>";
-            htmlContentHeader = htmlContentHeader + "<tr>";
-            htmlContentHeader = htmlContentHeader + "<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo + "</td>";
-            htmlContentHeader = htmlContentHeader + "<td colspan='7' class='bodytext'>Payment date of " + output.substring(0, 8) + "</td>";
-            htmlContentHeader = htmlContentHeader + "</tr>";
-            htmlContentHeader = htmlContentHeader + "<tr>";
-            htmlContentHeader = htmlContentHeader + "<td width='9%' class='bodytext'>INVOICE</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='19%' class='bodytext'>NAME</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='12%' class='bodytext'>HEALTH #</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='10%' class='bodytext'>BILLDATE</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='8%' class='bodytext'>CODE</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='14%' align='right' class='bodytext'>BILLED</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='4%' align='right' class='bodytext'>DX</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='5%' align='right' class='bodytext'>DX2</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='6%' align='right' class='bodytext'>DX3</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='8%' align='right' class='bodytext'>SEQUENCE</td>";
-            htmlContentHeader = htmlContentHeader + "<td width='5%' align='right' class='bodytext'>COMMENT</td>";
-            htmlContentHeader = htmlContentHeader + "</tr>";
-
-            htmlContentHeader += errorMsg;
+            // Header, rows and footer are built by HtmlTeleplanHelper so provider/claim values are
+            // HTML-encoded at construction; errorMsg is already-encoded CheckBillingData row markup.
+            htmlContentHeader = HtmlTeleplanHelper.htmlContentHeaderGen(providerNo, output.substring(0, 8), errorMsg);
             errorMsg = "";
 
             // htmlFooter =  "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: 016096: 173 RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: 11277.32</td>  </tr></table></body></html>";
@@ -290,11 +274,19 @@ public class ExtractBean extends Object implements Serializable {
                         BigTotal = BigTotal.add(bdFee);
 
                         if (invCount == 0) {
-                            htmlContent = htmlContent + "<tr><td class='bodytext'>" + "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no="
-                                    + forwardZero(rs2.getString("billingmaster_no"), 7)
-                                    + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + invNo + "</a>" + "</td><td class='bodytext'>" + demoName + "</td><td class='bodytext'>" + rs2.getString("phn") + "</td><td class='bodytext'>" + rs2.getString("service_date") + "</td><td class='bodytext'>" + rs2.getString("billing_code") + "</td><td align='right' class='bodytext'>" + rs2.getString("bill_amount") + "</td><td align='right' class='bodytext'>" + backwardSpace(rs2.getString("dx_code1"), 5) + "</td><td align='right' class='bodytext'>" + backwardSpace(rs2.getString("dx_code2"), 5) + "</td><td align='right' class='bodytext'>" + backwardSpace(rs2.getString("dx_code3"), 5) + "</td><td class='bodytext'>" + forwardZero(rs2.getString("billingmaster_no"), 7) + "</td><td class='bodytext'>&nbsp;</td></tr>";
+                            htmlContent = htmlContent + HtmlTeleplanHelper.htmlLine(rs2.getString("billingmaster_no"), invNo, demoName,
+                                    rs2.getString("phn"), rs2.getString("service_date"), rs2.getString("billing_code"),
+                                    rs2.getString("bill_amount"), rs2.getString("dx_code1"), rs2.getString("dx_code2"),
+                                    rs2.getString("dx_code3"));
                         } else {
-                            htmlContent = htmlContent + "<tr><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'>" + rs2.getString("billing_code") + "</td><td align='right' class='bodytext'>" + rs2.getString("bill_amount") + "</td><td align='right' class='bodytext'>" + backwardSpace(rs2.getString("dx_code1"), 5) + "</td><td align='right' class='bodytext'>" + backwardSpace(rs2.getString("dx_code2"), 5) + "</td><td align='right' class='bodytext'>" + backwardSpace(rs2.getString("dx_code3"), 5) + "</td><td class='bodytext'>" + forwardZero(rs2.getString("billingmaster_no"), 7) + "</td><td class='bodytext'>&nbsp;</td></tr>";
+                            // Continuation line for the same invoice: blank patient columns, encoded claim values.
+                            htmlContent = htmlContent + "<tr><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'>"
+                                    + SafeEncode.forHtmlContent(rs2.getString("billing_code")) + "</td><td align='right' class='bodytext'>"
+                                    + SafeEncode.forHtmlContent(rs2.getString("bill_amount")) + "</td><td align='right' class='bodytext'>"
+                                    + SafeEncode.forHtmlContent(backwardSpace(rs2.getString("dx_code1"), 5)) + "</td><td align='right' class='bodytext'>"
+                                    + SafeEncode.forHtmlContent(backwardSpace(rs2.getString("dx_code2"), 5)) + "</td><td align='right' class='bodytext'>"
+                                    + SafeEncode.forHtmlContent(backwardSpace(rs2.getString("dx_code3"), 5)) + "</td><td class='bodytext'>"
+                                    + SafeEncode.forHtmlContent(forwardZero(rs2.getString("billingmaster_no"), 7)) + "</td><td class='bodytext'>&nbsp;</td></tr>";
                         }
 
                         errorMsg = checkData.checkC02(rs2.getString("billingmaster_no"), rs2);
@@ -324,7 +316,7 @@ public class ExtractBean extends Object implements Serializable {
                     //      htmlValue = htmlValue + htmlContent + "</table>";
                     //      htmlHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
 
-                    htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
+                    htmlFooter = HtmlTeleplanHelper.htmlFooter(providerNo, pCount, BigTotal) + HtmlTeleplanHelper.htmlBottom();
                     htmlCode = htmlContentHeader + htmlContent + htmlFooter;
 
                     if (eFlag.compareTo("1") == 0) {

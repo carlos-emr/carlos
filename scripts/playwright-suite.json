@@ -2428,6 +2428,19 @@
       "env": []
     },
     {
+      "name": "billing-bc-simulation-encoding",
+      "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "facility-selection",
       "script": "scripts/facility-selection-playwright-checks.js",
       "tiers": [
