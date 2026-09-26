@@ -1196,7 +1196,10 @@ public final class Login2Action extends ActionSupport {
                 ? oauthToken : MALFORMED_OAUTH_TOKEN;
         PendingSessionChoiceCache.PendingSessionChoice pending = new PendingSessionChoiceCache.PendingSessionChoice(
                 security.getSecurityNo(), security.getProviderNo(), strAuth, isMobileOptimized, submitType,
-                stagedOauthToken);
+                stagedOauthToken,
+                // execute() routes an account that needs MFA to the challenge before this point, so
+                // reaching the chooser with MFA required means the challenge was just completed.
+                isMfaRequired(security));
         PendingSessionChoices.stage(session, PendingSessionChoiceCache.getInstance().store(pending));
 
         LogAction.addLog(security.getProviderNo(), LogConst.LOGIN, "concurrent_sessions_prompted",
@@ -1218,7 +1221,7 @@ public final class Login2Action extends ActionSupport {
                 this.userSessionManager.describeOtherActiveSessions(securityNo, session);
         request.setAttribute(ConcurrentSessionChoiceViewModel.REQUEST_ATTR,
                 new ConcurrentSessionChoiceViewModel(others, signOutRequired, policy.maxSessions(),
-                        request.getLocale()));
+                        LocaleUtils.resolveBundleLocale(request)));
         return SESSION_CHOICE_RESULT;
     }
 
@@ -1322,6 +1325,16 @@ public final class Login2Action extends ActionSupport {
             response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
             return NONE;
         }
+        if (isMfaRequired(security) && !pending.mfaVerified()) {
+            // MFA was turned on for the account while the chooser was open, so this sign-in never
+            // presented an OTP. End it; the next sign-in goes through the MFA challenge.
+            logger.warn("Session choice refused because MFA is now required: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "mfa_required_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
+            return NONE;
+        }
 
         ConcurrentSessionPolicy policy = ConcurrentSessionPolicy.fromProperties(CarlosProperties.getInstance());
         if (!signOutOthers && policy.isLimitReached(
@@ -1349,6 +1362,10 @@ public final class Login2Action extends ActionSupport {
      * Same account-expiry rule {@link LoginCheckLoginBean} applies at sign-in: an expiry date is
      * set and it is missing or in the past.
      */
+    private static boolean isMfaRequired(Security security) {
+        return MfaManager.isOscarMfaEnabled() && security.isUsingMfa();
+    }
+
     private static boolean isAccountExpired(Security security) {
         return security.getBExpireset() != null && security.getBExpireset() == 1
                 && (security.getDateExpiredate() == null || security.getDateExpiredate().before(new Date()));

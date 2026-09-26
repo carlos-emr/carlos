@@ -127,9 +127,18 @@ final class PendingSessionChoiceCache {
      * @param mobileOptimized whether the original login selected the mobile layout
      * @param submitType the original login's {@code submit} parameter; may be {@code null}
      * @param oauthToken the original login's validated {@code oauth_token}; may be {@code null}
+     * @param mfaVerified whether this sign-in completed an MFA challenge before the chooser, so the
+     *                    submit can tell an MFA requirement added meanwhile from one already met
      */
     record PendingSessionChoice(Integer securityNo, String providerNo, String[] authResult,
-                                boolean mobileOptimized, String submitType, String oauthToken) {
+                                boolean mobileOptimized, String submitType, String oauthToken,
+                                boolean mfaVerified) {
+
+        /** A pending login that did not go through MFA. */
+        PendingSessionChoice(Integer securityNo, String providerNo, String[] authResult,
+                             boolean mobileOptimized, String submitType, String oauthToken) {
+            this(securityNo, providerNo, authResult, mobileOptimized, submitType, oauthToken, false);
+        }
 
         PendingSessionChoice {
             Objects.requireNonNull(securityNo, "securityNo must not be null");
@@ -151,6 +160,7 @@ final class PendingSessionChoiceCache {
         public boolean equals(Object other) {
             return other instanceof PendingSessionChoice that
                     && mobileOptimized == that.mobileOptimized
+                    && mfaVerified == that.mfaVerified
                     && securityNo.equals(that.securityNo)
                     && providerNo.equals(that.providerNo)
                     && Arrays.equals(authResult, that.authResult)
@@ -161,7 +171,7 @@ final class PendingSessionChoiceCache {
         @Override
         public int hashCode() {
             return Objects.hash(securityNo, providerNo, Arrays.hashCode(authResult), mobileOptimized,
-                    submitType, oauthToken);
+                    submitType, oauthToken, mfaVerified);
         }
 
         /** Deliberately omits the authentication result and OAuth token from diagnostics. */

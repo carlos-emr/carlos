@@ -57,7 +57,13 @@ public final class PendingSessionChoices {
 
     /**
      * Invalidates any cached pending login referenced by the session and removes the token.
-     * Safe to call with {@code null}, expired or never-staged sessions.
+     * Safe to call with {@code null}, expired, already invalidated or never-staged sessions.
+     *
+     * <p>The token is dropped under the user's admission lock, which the chooser submit holds from
+     * its checks through the end of the login. A cancel (logout) racing a submit therefore either
+     * lands first, so the submit finds no token and is refused, or waits until the login has
+     * completed; it can never slip in after the submit consumed the token but before the new
+     * session exists.</p>
      *
      * @param session session to clean; may be {@code null}
      */
@@ -65,10 +71,23 @@ public final class PendingSessionChoices {
         if (session == null) {
             return;
         }
-        String token = getToken(session);
-        if (token != null) {
-            PendingSessionChoiceCache.getInstance().invalidate(token);
+        String token;
+        try {
+            token = getToken(session);
+        } catch (IllegalStateException alreadyInvalidated) {
+            // A completing login rotated this session away; nothing is staged on it any more.
+            return;
         }
-        session.removeAttribute(TOKEN_ATTR);
+        if (token != null) {
+            PendingSessionChoiceCache cache = PendingSessionChoiceCache.getInstance();
+            PendingSessionChoiceCache.PendingSessionChoice pending = cache.peek(token);
+            ConcurrentSessionAdmission.serializeUnchecked(pending == null ? null : pending.securityNo(),
+                    () -> cache.invalidate(token));
+        }
+        try {
+            session.removeAttribute(TOKEN_ATTR);
+        } catch (IllegalStateException alreadyInvalidated) {
+            // Same as above: the session ended while this cleanup waited.
+        }
     }
 }

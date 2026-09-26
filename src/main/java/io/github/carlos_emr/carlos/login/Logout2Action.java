@@ -33,6 +33,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -42,6 +43,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -90,6 +92,7 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-02-10
  */
 public class Logout2Action extends ActionSupport {
+    private static final Logger logger = MiscUtils.getLogger();
     /** Servlet request from Struts2 context */
     HttpServletRequest request = ServletActionContext.getRequest();
 
@@ -214,8 +217,13 @@ public class Logout2Action extends ActionSupport {
             String user = (String) session.getAttribute("user");
             PendingMfaChallenges.clearFromSession(session);
             PendingSessionChoices.clearFromSession(session);
-            // Invalidate session to prevent session fixation attacks
-            session.invalidate();
+            // Invalidate session to prevent session fixation attacks. A chooser login that
+            // completed while this logout waited has already rotated the session away.
+            try {
+                session.invalidate();
+            } catch (IllegalStateException alreadyInvalidated) {
+                logger.debug("Session was already invalidated before logout completed");
+            }
             // Log logout event for audit trail (only if user was logged in)
             if (user != null) {
                 LogAction.addLog(user, LogConst.LOGOUT, LogConst.CON_LOGIN, "", request.getRemoteAddr());

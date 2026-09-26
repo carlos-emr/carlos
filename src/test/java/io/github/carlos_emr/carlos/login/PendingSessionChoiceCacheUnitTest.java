@@ -31,9 +31,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -46,6 +48,48 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PendingSessionChoiceCacheUnitTest {
 
     private static final String[] AUTH = {"999998", "Test", "Provider", "", "doctor", "0"};
+
+    @Test
+    @DisplayName("should drop a staged token only under the user's admission lock")
+    void shouldClearTokenUnderAdmissionLock_whenSubmitHoldsIt() throws Exception {
+        // A cancel (logout) must not drop the token while a submit for the same user holds the
+        // admission lock; it waits, so it cannot land between the submit's consume and its login.
+        PendingSessionChoiceCache cache = PendingSessionChoiceCache.getInstance();
+        String token = cache.store(pending());
+        MockHttpSession session = new MockHttpSession();
+        PendingSessionChoices.stage(session, token);
+        ReentrantLock lock = ConcurrentSessionAdmission.lockFor(12345);
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        lock.lock();
+        try {
+            Future<?> cancel = pool.submit(() -> PendingSessionChoices.clearFromSession(session));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!lock.hasQueuedThreads() && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertThat(lock.hasQueuedThreads()).as("cancel waits for the submit").isTrue();
+            assertThat(cache.peek(token)).as("token still staged while the submit runs").isNotNull();
+            lock.unlock();
+            cancel.get(5, TimeUnit.SECONDS);
+            assertThat(cache.peek(token)).isNull();
+            assertThat(PendingSessionChoices.getToken(session)).isNull();
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+            pool.shutdownNow();
+            cache.invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should ignore a session a completing login already invalidated")
+    void shouldIgnoreInvalidatedSession_whenClearing() {
+        MockHttpSession session = new MockHttpSession();
+        session.invalidate();
+
+        assertThatCode(() -> PendingSessionChoices.clearFromSession(session)).doesNotThrowAnyException();
+    }
 
     @Test
     @DisplayName("should let only one of two simultaneous submits consume the same token")

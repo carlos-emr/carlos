@@ -107,6 +107,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
     private String originalPolicy;
     private String originalMax;
     private final List<String> stagedTokens = new ArrayList<>();
+    private String originalMfa;
 
     @Mock private ProviderManager providerManager;
     @Mock private FacilityDao facilityDao;
@@ -148,6 +149,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
 
         originalPolicy = CarlosProperties.getInstance().getProperty(ConcurrentSessionPolicy.POLICY_PROPERTY);
         originalMax = CarlosProperties.getInstance().getProperty(ConcurrentSessionPolicy.MAX_PROPERTY);
+        originalMfa = CarlosProperties.getInstance().getProperty(MfaManager.MFA_ENABLE_PROPERTY);
         stubProvider();
     }
 
@@ -155,6 +157,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
     void tearDown() throws Exception {
         restoreProperty(ConcurrentSessionPolicy.POLICY_PROPERTY, originalPolicy);
         restoreProperty(ConcurrentSessionPolicy.MAX_PROPERTY, originalMax);
+        restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, originalMfa);
         stagedTokens.forEach(token -> PendingSessionChoiceCache.getInstance().invalidate(token));
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
@@ -548,6 +551,41 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
             assertThat(request.getSession().getAttribute("user")).isNull();
             verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should not finish login when MFA was turned on while the chooser was open")
+        void shouldNotFinishLogin_whenMfaRequiredMeanwhile() throws Exception {
+            restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "true");
+            String token = stagePendingChoice();
+            Security withMfa = security();
+            withMfa.setUsingMfa(true);
+            when(securityDao.find(SECURITY_NO)).thenReturn(withMfa);
+
+            String result = newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(decodedRedirect()).contains("/loginfailed");
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should finish login when MFA was already completed before the chooser")
+        void shouldFinishLogin_whenMfaCompletedBeforeChooser() throws Exception {
+            restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "true");
+            String token = PendingSessionChoiceCache.getInstance().store(
+                    new PendingSessionChoiceCache.PendingSessionChoice(SECURITY_NO, PROVIDER_NO, STR_AUTH, false,
+                            null, null, true));
+            stagedTokens.add(token);
+            PendingSessionChoices.stage(request.getSession(true), token);
+            Security withMfa = security();
+            withMfa.setUsingMfa(true);
+            when(securityDao.find(SECURITY_NO)).thenReturn(withMfa);
+
+            newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            verify(userSessionManager).registerUserSession(eq(SECURITY_NO), any(), any());
         }
 
         @Test

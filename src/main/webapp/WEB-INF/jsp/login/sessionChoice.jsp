@@ -61,11 +61,14 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%-- Same locale the view model formats times with, so text and dates never mix languages. --%>
+<c:set var="bundleLocale" value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>" scope="page"/>
+<fmt:setLocale value="${bundleLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="page"/>
 <c:set var="choice" value="${requestScope.concurrentSessionChoice}" scope="page"/>
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${carlos:forHtmlAttribute(bundleLocale.language)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
