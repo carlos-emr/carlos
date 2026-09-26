@@ -152,6 +152,8 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
             paths.when(() -> PathValidationUtils.validateUpload(any(File.class))).thenReturn(file.toFile());
+            InputStream encrypted = spy(new java.io.ByteArrayInputStream("SYNTHETIC".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile())).thenReturn(encrypted);
             paths.when(() -> PathValidationUtils.validateExistingDocumentPath(file.toString())).thenReturn(file.toFile());
             utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(file.toString());
             handlers.when(() -> HandlerClassFactory.getHandler("CML")).thenReturn(handler);
@@ -162,6 +164,8 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
             LabUpload2Action action = new LabUpload2Action();
             action.setImportFile(file.toFile());
             action.execute();
+            paths.verify(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile()));
+            verify(encrypted, atLeastOnce()).close();
         }
     }
 

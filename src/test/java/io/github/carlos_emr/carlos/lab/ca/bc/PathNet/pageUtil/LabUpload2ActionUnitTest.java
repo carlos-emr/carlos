@@ -157,6 +157,39 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldArchiveOriginalBytesWithoutParsing_whenChecksumLookupFails() throws Exception {
+        Path uploaded = Files.writeString(root.resolve("lookup-failure.hl7"), "MSH|lookup failure fixture");
+        Path documentDir = Files.createDirectory(root.resolve("document-store"));
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUploadCheck> duplicateCheck = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
+             MockedConstruction<Connection> connections = mockConstruction(Connection.class)) {
+            paths.when(() -> PathValidationUtils.validateUpload(uploaded.toFile())).thenReturn(uploaded.toFile());
+            List<TrackedStream> opened = trackOpenedStreams(paths, uploaded);
+            CarlosProperties properties = mock(CarlosProperties.class);
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+            duplicateCheck.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class)))
+                    .thenThrow(new IllegalStateException("synthetic checksum outage"));
+
+            assertThat(execute(uploaded, "original.hl7")).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+            assertThat(connections.constructed()).isEmpty();
+            assertThat(transactions.commits).isZero();
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            duplicateCheck.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), anyString()), never());
+            try (var children = Files.list(documentDir)) {
+                var archived = children.toList();
+                assertThat(archived).hasSize(1);
+                assertThat(archived.get(0).getFileName().toString()).startsWith("LabUpload.original.hl7.");
+                assertThat(archived.get(0)).hasBinaryContent("MSH|lookup failure fixture".getBytes(StandardCharsets.UTF_8));
+            }
+            assertThat(opened).hasSize(1).allMatch(TrackedStream::isClosed);
+        }
+    }
+
+    @Test
     void shouldSkipParseAndArchive_whenDuplicateCheckRejectsUpload() throws Exception {
         Path uploaded = Files.writeString(root.resolve("duplicate.hl7"), "MSH|duplicate PathNet content");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));

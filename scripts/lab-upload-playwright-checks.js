@@ -319,12 +319,13 @@ async function workflow(session, options = {}) {
         console.log('    SKIP uploadedPreviously half: CML_UPLOAD_KEY is not set');
         return;
       }
+      // Only the already-stored valid HL7 file may hold a checksum under this run's filename.
+      // Counting owned rows catches a recorded empty report without reimplementing hashing.
       const emptyReport = Buffer.from(`A^${stamp}^20260925^12:00^0^0^0^`);
-      const emptyChecksum = crypto.createHash('md5').update(emptyReport).digest('hex');
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const rejected = await postCml(popup, contextPath, emptyReport, fileName, key);
         h.assert(rejected === 'exception', `A CML report without patients answered "${rejected}"`);
-        h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE md5sum=${h.sqlString(emptyChecksum)}`) === '0',
+        h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '1',
           'The empty CML report committed a checksum');
       }
       const duplicate = await postCml(popup, contextPath, content, fileName, key);

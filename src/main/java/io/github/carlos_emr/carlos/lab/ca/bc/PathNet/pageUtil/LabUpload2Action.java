@@ -132,8 +132,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                                 && archiveInTransaction(uploadContent, archiveName, keptArchive));
             } catch (FileUploadCheck.LookupFailedException lookupEx) {
                 _logger.error("Could not check a PathNet upload's checksum: {}", LogSafe.exceptionTrace(lookupEx.getCause()));
-                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
-                return SUCCESS;
+                // Preserve failed bytes through the diagnostic archive path below.
+                // A failed lookup has neither claimed the checksum nor parsed the lab.
+                stored = null;
             } catch (Exception ex) {
                 _logger.error("PathNet upload could not be stored: {}", LogSafe.exceptionTrace(ex));
                 stored = null;

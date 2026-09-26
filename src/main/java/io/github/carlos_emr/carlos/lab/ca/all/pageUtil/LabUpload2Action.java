@@ -70,7 +70,6 @@ import javax.crypto.spec.SecretKeySpec;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.nio.file.Files;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -142,7 +141,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
             String fileName = importFile.getName();
             String filePath;
-            try (InputStream encrypted = Files.newInputStream(importFile.toPath());
+            try (InputStream encrypted = PathValidationUtils.openValidatedUploadInputStream(importFile);
                     InputStream decrypted = decryptMessage(encrypted, key, clientKey)) {
                 if (decrypted == null) throw new IOException("Lab decryption failed");
                 filePath = type.equals("PDFDOC")
