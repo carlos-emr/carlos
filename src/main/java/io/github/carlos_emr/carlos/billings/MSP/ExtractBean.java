@@ -43,7 +43,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.HtmlTeleplanHelper;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import java.io.*;
 import java.math.BigDecimal;
@@ -279,14 +278,9 @@ public class ExtractBean extends Object implements Serializable {
                                     rs2.getString("bill_amount"), rs2.getString("dx_code1"), rs2.getString("dx_code2"),
                                     rs2.getString("dx_code3"));
                         } else {
-                            // Continuation line for the same invoice: blank patient columns, encoded claim values.
-                            htmlContent = htmlContent + "<tr><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'>"
-                                    + SafeEncode.forHtmlContent(rs2.getString("billing_code")) + "</td><td align='right' class='bodytext'>"
-                                    + SafeEncode.forHtmlContent(rs2.getString("bill_amount")) + "</td><td align='right' class='bodytext'>"
-                                    + SafeEncode.forHtmlContent(backwardSpace(rs2.getString("dx_code1"), 5)) + "</td><td align='right' class='bodytext'>"
-                                    + SafeEncode.forHtmlContent(backwardSpace(rs2.getString("dx_code2"), 5)) + "</td><td align='right' class='bodytext'>"
-                                    + SafeEncode.forHtmlContent(backwardSpace(rs2.getString("dx_code3"), 5)) + "</td><td class='bodytext'>"
-                                    + SafeEncode.forHtmlContent(forwardZero(rs2.getString("billingmaster_no"), 7)) + "</td><td class='bodytext'>&nbsp;</td></tr>";
+                            htmlContent = htmlContent + HtmlTeleplanHelper.continuationLine(rs2.getString("billingmaster_no"),
+                                    rs2.getString("billing_code"), rs2.getString("bill_amount"), rs2.getString("dx_code1"),
+                                    rs2.getString("dx_code2"), rs2.getString("dx_code3"));
                         }
 
                         errorMsg = checkData.checkC02(rs2.getString("billingmaster_no"), rs2);

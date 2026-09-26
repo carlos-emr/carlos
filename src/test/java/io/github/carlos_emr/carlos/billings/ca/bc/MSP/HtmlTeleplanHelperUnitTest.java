@@ -124,4 +124,18 @@ class HtmlTeleplanHelperUnitTest {
                 .doesNotContain("<i>");
         assertThat(HtmlTeleplanHelper.htmlFooter("P", 3, java.math.BigDecimal.ONE)).contains("Billing No: P: 3 RECORDS");
     }
+
+    @Test
+    void shouldBlankPatientColumnsAndEncodeValues_whenRenderingContinuationRow() {
+        String html = HtmlTeleplanHelper.continuationLine("42", "<u>01</u>", "<s>1</s>", "<a>", null, "");
+
+        assertThat(html)
+                .startsWith("<tr><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td>")
+                .contains(SafeEncode.forHtmlContent("<u>01</u>"))
+                .contains("<td class='bodytext'>0000042</td>")
+                .doesNotContain("<u>")
+                .doesNotContain("<s>")
+                .doesNotContain("<a>");
+        assertThat(html.split("<td", -1)).hasSize(12);
+    }
 }

@@ -152,6 +152,28 @@ public class HtmlTeleplanHelper {
     }
 
     /**
+     * Builds a follow-on claim row for an invoice whose first row was already rendered by
+     * {@link #htmlLine}: the invoice, patient, PHN and date columns are left blank and the remaining
+     * claim values are HTML-encoded.
+     *
+     * @return a complete {@code <tr>} fragment safe to concatenate into the Teleplan report table
+     */
+    public static String continuationLine(String billingMasterNo, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
+        StringBuilder html = new StringBuilder("<tr>");
+        for (int i = 0; i < 4; i++) {
+            html.append("<td class='bodytext'></td>");
+        }
+        html.append("<td class='bodytext'>").append(SafeEncode.forHtmlContent(billingCode)).append("</td>");
+        html.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(billAmount)).append("</td>");
+        html.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.backwardSpace(dx1, 5))).append("</td>");
+        html.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.backwardSpace(dx2, 5))).append("</td>");
+        html.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.backwardSpace(dx3, 5))).append("</td>");
+        html.append("<td class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.forwardZero(billingMasterNo, 7))).append("</td>");
+        html.append("<td class='bodytext'>&nbsp;</td></tr>");
+        return html.toString();
+    }
+
+    /**
      * Builds a red validation-error row linking to {@code adjustBill.jsp} for the given billing master record.
      *
      * @param billingMasterNo billingmaster id placed (encoded) in the popup URL
