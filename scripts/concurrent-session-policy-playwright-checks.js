@@ -62,6 +62,7 @@ const {
   appUrl,
   assert,
   assertStrictPage,
+  buildFailureDetails,
   createRecorder,
   createSqlRunner,
   gotoApp,
@@ -79,6 +80,13 @@ async function newContext(browser, config) {
   const context = await newBrowserContext(browser, config);
   context.on('page', (page) => wireStrictPage(page, 'session-policy', recorder));
   return context;
+}
+
+async function waitForPageAssets(page) {
+  await page.waitForLoadState('load');
+  // Fonts may start loading after DOMContentLoaded. Finish them before a test-driven
+  // navigation/reload, which would otherwise abort a valid request and trip strict checks.
+  await page.evaluate(async () => { await document.fonts.ready; });
 }
 
 const SCHEDULE_URL = /provider\/(providercontrol|ViewAppointmentAdminDay)/;
@@ -103,6 +111,7 @@ function readPolicy(env = process.env) {
 async function signIn(context, config, label) {
   const page = await context.newPage();
   await gotoApp(page, config.baseUrl, '/');
+  await waitForPageAssets(page);
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
   const pin = page.locator('#pin');
@@ -119,12 +128,14 @@ async function signIn(context, config, label) {
   if (!atChooser) {
     await page.waitForURL(SCHEDULE_URL, { timeout: 30000 });
   }
+  await waitForPageAssets(page);
   return { page, atChooser };
 }
 
 async function assertAuthenticated(page, config, label) {
   await gotoApp(page, config.baseUrl, '/provider/providercontrol');
   await page.waitForLoadState('domcontentloaded');
+  await waitForPageAssets(page);
   assert(SCHEDULE_URL.test(page.url()), `${label} is no longer signed in: landed on ${new URL(page.url()).pathname}`);
   const html = await page.content();
   assert(/Schedule|appointment|provider/i.test(html), `${label} did not render the schedule`);
@@ -160,8 +171,10 @@ async function assertSignedOutElsewhere(page, config, label) {
   const notice = page.locator('#signedOutElsewhereNotice');
   assert(await notice.count() === 1, `${label} login page did not explain the sign-out`);
   assert((await notice.innerText()).trim().length > 10, `${label} sign-out notice is blank`);
+  await waitForPageAssets(page);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForPageAssets(page);
   assert(await page.locator('#signedOutElsewhereNotice').count() === 0, `${label} notice was shown twice`);
   assert(await heartbeat(page, config) === false, `${label} still has an authenticated session`);
 }
@@ -187,6 +200,7 @@ async function clickAndReachSchedule(page, selector) {
     page.waitForURL(SCHEDULE_URL, { timeout: 30000 }),
     page.locator(selector).click(),
   ]);
+  await waitForPageAssets(page);
 }
 
 async function checkRouteGuards(browser, config, step) {
@@ -380,7 +394,12 @@ if (require.main === module) {
         await checkAllow(browser, config, step, contexts);
       }
       checkAudit(config, since, audited, step);
-      assertStrictPage(recorder);
+      try {
+        assertStrictPage(recorder);
+      } catch (error) {
+        console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
+        throw error;
+      }
     },
     cleanup: async () => {
       for (const context of contexts) {
