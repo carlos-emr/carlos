@@ -443,3 +443,14 @@ recorded in the review status comment on #3929.
 Full Maven verification of these changes passed **13,338 tests**, with zero failures/errors
 and 51 skips, plus Checkstyle and WAR packaging. All **1,025 Node regressions** passed with
 one worker. The VM remained shut down throughout compilation and these host checks.
+
+Installed `.11` passed all ten PDF workflow steps, including exact `0400` permissions on
+both extracted and remaining PDFs, and all three health-care-team steps. The additional
+About check exposed an intermittent self-closing menu race: Playwright can reject the click
+when the menu closes itself, even with `noWaitAfter`. The popup helper now accepts only the
+explicit `closesOpener` case, an actually closed opener, and the specific target-closed
+error; it still requires a real popup and validates its contents. Five regression cases
+cover the expected closure, absent popup, unrelated error, still-open opener and missing
+opt-in. Two cases failed before the repair. All **1,030 Node regressions** now pass, and
+the installed About/calculator/licence workflow passes all four steps. This is a harness-only
+follow-up; `.11` still contains the verified production build from `59cd1f643b`.
