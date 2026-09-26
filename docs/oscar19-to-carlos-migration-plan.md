@@ -1209,7 +1209,8 @@ carlos-emr/carlos-ctl and the manifests ship with carlos-emr
 independently; the paragraph below describes the pre-split layout. carlos-podman already pins a CARLOS release *and its commit* and
 builds the WAR from that tree; its `o19source.py` takes the importer from
 the same commit — downloading that tarball, unpacking only
-`debian/assets/carlos_ctl/o19*.py`, verifying that every package sibling the
+the CLI's `o19*.py` modules (`carlos_ctl/o19*.py` in carlos-emr/carlos-ctl
+since the split), verifying that every package sibling the
 engine imports is one podman can answer, and loading the twelve modules
 under a synthetic package. "The manifest matches the schema the application
 will read" becomes structural instead of a sync chore.
