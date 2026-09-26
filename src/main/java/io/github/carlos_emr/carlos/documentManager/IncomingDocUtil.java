@@ -90,7 +90,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class IncomingDocUtil {
     private static final String INCOMING_DOCUMENT_DIR_PROPERTY = "INCOMINGDOCUMENT_DIR";
     private static final Logger logger = MiscUtils.getLogger();
-    
     /**
      * Validates that a request-controlled path segment is exactly one path
      * component. Unlike PathValidationUtils.validatePath(), this preserves the
@@ -673,51 +672,44 @@ public final class IncomingDocUtil {
         long lastModified = f.lastModified();
         Set<PosixFilePermission> permissions = permissionsOf(f);
 
-        File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
+        // With the recycle bin off, nothing touches the recycle directory: it is neither created
+        // nor required, and no copy of the removed page is written anywhere. Requiring it anyway
+        // made a page delete fail on an install that had turned recycling off and had no writable
+        // Fax_deleted directory.
+        boolean recycle = recycleBinEnabled();
+        File deleteDir = recycle
+                ? PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory")
+                : null;
         File validatedDeleteFile = null;
         File scratch = null;
         File recycleScratch = null;
         File recycled = null;
         boolean replaced = false;
         try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath));
-             IncomingDocumentScratch recycledWork = IncomingDocumentScratch.create(deleteDir)) {
+             IncomingDocumentScratch recycledWork = recycle ? IncomingDocumentScratch.create(deleteDir) : null) {
             scratch = work.file();
-            // The removed page is written to a scratch file in the recycle directory, filed under
-            // a name no other recycle entry holds, and only then is the queue document replaced.
-            // If filing fails the queue is untouched; if the replacement fails the entry this call
-            // filed is removed again. Either way no page is lost and no older entry overwritten.
-            recycleScratch = recycledWork.file();
-            // The source and its permissions remain untouched until the replacement is ready.
+            if (recycle) {
+                recycleScratch = recycledWork.file();
+            }
+            // Prepare both outputs before replacing the queue entry. The source's contents and
+            // permissions remain untouched if preparing or filing the recycled page fails.
             try (PdfReader reader = new PdfReader(filePathName);
                  OutputStream copyFos = work.output()) {
-                String deleteFileName = addPdfNameSuffix(myPdfName,
-                        "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
-                validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
-
-                try (OutputStream deleteFos = recycledWork.output()) {
-                    Document document = new Document(reader.getPageSizeWithRotation(1));
-                    PdfCopy copy = new PdfCopy(document, copyFos);
-                    PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
-                    document.open();
-
-                    try {
-                        for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                            if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
-                                copy.addPage(copy.getImportedPage(reader, pageNumber));
-                            } else {
-                                deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
-                            }
-                        }
-                    } finally {
-                        // PdfCopy must be closed before Document.close() to flush buffered pages
-                        copy.close();
-                        deleteCopy.close();
-                        document.close();
+                int pageToDelete = parsePageNumber(PageNumberToDelete, reader.getNumberOfPages());
+                if (recycle) {
+                    String deleteFileName = addPdfNameSuffix(myPdfName,
+                            "d" + pageToDelete + "of" + reader.getNumberOfPages());
+                    validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
+                }
+                copyPagesExcept(reader, pageToDelete, copyFos);
+                if (recycle) {
+                    try (OutputStream deleteFos = recycledWork.output()) {
+                        copyOnePage(reader, pageToDelete, deleteFos);
                     }
                 }
             }
 
-            if (recycleBinEnabled()) {
+            if (recycle) {
                 recycled = moveToUnusedName(recycleScratch, validatedDeleteFile, deleteDir);
             }
 
@@ -736,7 +728,7 @@ public final class IncomingDocUtil {
                 deleteQuietly(scratch);
                 deleteQuietly(recycled);
             }
-            // Gone already when it was filed; otherwise (recycle bin off, or a failure) discard it.
+            // Gone already when it was filed; otherwise (a failure before filing) discard it.
             deleteQuietly(recycleScratch);
         }
 
@@ -771,6 +763,56 @@ public final class IncomingDocUtil {
             }
         }
         throw new IOException("No unused recycle name for a deleted incoming-document page");
+    }
+
+    /** Writes every page but one to the stream: the queue document with the page removed. */
+    private static void copyPagesExcept(PdfReader reader, int excludedPage, OutputStream out) throws Exception {
+        Document document = new Document(reader.getPageSizeWithRotation(1));
+        PdfCopy copy = new PdfCopy(document, out);
+        try {
+            document.open();
+            for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
+                if (pageNumber != excludedPage) {
+                    copy.addPage(copy.getImportedPage(reader, pageNumber));
+                }
+            }
+        } finally {
+            // PdfCopy must be closed before Document.close() to flush buffered pages
+            copy.close();
+            document.close();
+        }
+    }
+
+    /** Writes one page to the stream: the removed page, for the recycle bin. */
+    private static void copyOnePage(PdfReader reader, int page, OutputStream out) throws Exception {
+        Document document = new Document(reader.getPageSizeWithRotation(page));
+        PdfCopy copy = new PdfCopy(document, out);
+        try {
+            document.open();
+            copy.addPage(copy.getImportedPage(reader, page));
+        } finally {
+            // PdfCopy must be closed before Document.close() to flush buffered pages
+            copy.close();
+            document.close();
+        }
+    }
+
+    /**
+     * The 1-based page a request names, checked against the document. Delete-page used to rely on
+     * the recycle copy being empty to reject a page outside the document; with the recycle bin
+     * off there is no such copy, so the range is checked outright.
+     */
+    private static int parsePageNumber(String pageNumber, int pageCount) {
+        int page;
+        try {
+            page = Integer.parseInt(pageNumber == null ? "" : pageNumber.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid page number", e);
+        }
+        if (page < 1 || page > pageCount) {
+            throw new IllegalArgumentException("Page " + page + " is outside a document of " + pageCount + " pages");
+        }
+        return page;
     }
 
     /** Whether a deleted page is kept in the recycle directory (INCOMINGDOCUMENT_RECYCLEBIN is active). */
@@ -1042,12 +1084,12 @@ public final class IncomingDocUtil {
         // Validate myPdfName to prevent path traversal
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
         
-        String deletedPath = getIncomingDocumentDeletedFilePath(queueId, myPdfDir);
-        File deleteDir = PathValidationUtils.validateConfiguredDirectory(deletedPath, "incoming deleted directory");
-        File deletef = PathValidationUtils.validateGeneratedChildPath(myPdfName, deleteDir);
-        String deletePathName = deletef.getPath();
-
-        if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
+        if (recycleBinEnabled()) {
+            // As in deletePage: the recycle directory is created and required only when it is used.
+            String deletedPath = getIncomingDocumentDeletedFilePath(queueId, myPdfDir);
+            File deleteDir = PathValidationUtils.validateConfiguredDirectory(deletedPath, "incoming deleted directory");
+            File deletef = PathValidationUtils.validateGeneratedChildPath(myPdfName, deleteDir);
+            String deletePathName = deletef.getPath();
             success = f.renameTo(deletef);
             if (!success) {
                 throw new Exception("Error in renaming file from:" + filePathName + " to " + deletePathName);
