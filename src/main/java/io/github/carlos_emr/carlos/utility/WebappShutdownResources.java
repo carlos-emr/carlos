@@ -213,12 +213,15 @@ public final class WebappShutdownResources {
      *
      * @param webappClassLoader class loader of the stopping webapp
      * @return number of scheduler context-loader references released
+     * @throws ClassNotFoundException if the runtime lacks the Java 25 scheduler implementation
      */
-    static int releaseJdkDelaySchedulerClassLoader(ClassLoader webappClassLoader) {
+    static int releaseJdkDelaySchedulerClassLoader(ClassLoader webappClassLoader) throws ClassNotFoundException {
+        // This JDK implementation class is package-private, so instanceof cannot
+        // name it. Resolve it through the bootstrap loader and compare Class identity.
+        Class<?> schedulerClass = Class.forName("java.util.concurrent.DelayScheduler", false, null);
         int released = 0;
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
-            if (thread.getClass().getClassLoader() == null
-                    && "java.util.concurrent.DelayScheduler".equals(thread.getClass().getName())
+            if (thread.getClass() == schedulerClass
                     && "ForkJoinPool.commonPool-delayScheduler".equals(thread.getName())
                     && isSameOrChildClassLoader(thread.getContextClassLoader(), webappClassLoader)) {
                 thread.setContextClassLoader(ClassLoader.getPlatformClassLoader());

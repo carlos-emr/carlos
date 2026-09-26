@@ -65,6 +65,6 @@ class FreeMarkerLocalizedLookupUnitTest extends CarlosUnitTestBase {
         configuration.getTemplate("report.ftl", Locale.CANADA_FRENCH).process(Map.of("label", "fixture"), output);
 
         // Then localization and ordinary template expressions remain functional.
-        assertThat(output.toString()).isEqualTo("Rapport fixture");
+        assertThat(output).hasToString("Rapport fixture");
     }
 }

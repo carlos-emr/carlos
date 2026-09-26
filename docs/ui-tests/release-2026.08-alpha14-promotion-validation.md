@@ -269,6 +269,29 @@ respectively. `carlos-ctl check` passed, including all 29 applied migrations, Dr
 renderer and front-door checks. The earlier build that reused debhelper stamps was rejected
 when byte/identity checks detected a stale WAR; subsequent builds used a clean packaging run.
 
+The subsequent `.6` packages at `aa73aa6a93` include the Java 25 shutdown repair and
+FreeMarker 2.3.35. Verification compared the four affected packaged classes with the tested
+build, required exactly one FreeMarker JAR at 2.3.35, and checked the Debian build identity.
+Lintian reported zero errors and the existing Python-heredoc warning. Installation finished
+with a clean `dpkg --audit` and all `carlos-ctl check` checks passing. Twelve focused browser
+checks passed, including all 34 navbar links, PDF mutation failures, lab-version identity,
+Health Tracker note failure, locale rendering, CSRF, Ocean SQL NULL, and chart-lock lifecycle.
+
+The actual packaged Tomcat startup/shutdown harness reproduced the CARLOS scheduler leak
+before the repair and passed afterward. Three separate, pre-existing DrugRef shutdown
+warnings remain visible: its JDBC driver, MySQL cleanup thread and Hikari housekeeper.
+They are reported separately from CARLOS; this result does not claim a warning-free DrugRef
+redeploy. Sonar's class-name-comparison finding was subsequently addressed by resolving the
+package-private scheduler through the bootstrap loader and comparing Class identity. The
+ten affected Java tests, Checkstyle and WAR verification passed again after that adjustment.
+
+During `.6` unpacking, the VM's backing disk exhausted the host filesystem and QEMU paused.
+After temporarily relocating two older package archives and trimming unused guest blocks,
+the VM resumed in place and the same apt transaction completed. The archives were restored
+with their original ownership and matching SHA256 hashes; 19,411 older build files were
+verified after the temporary storage recovery. Future installs require host backing-store
+headroom as well as guest free space. Final follow-up package results are recorded on #3929.
+
 The 157-entry browser manifest was exercised sequentially through the packaged HTTPS front
 door, with targeted reruns after fixing test defects and supplying missing demo fixtures.
 Latest results by check: **155 pass, one prerequisite failure, one province-specific skip**.

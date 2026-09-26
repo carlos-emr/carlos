@@ -258,8 +258,9 @@ public class WebappShutdownResourcesUnitTest {
 
     private static Thread commonDelayScheduler() throws Exception {
         ForkJoinPool.commonPool().schedule(() -> { }, 1, TimeUnit.MILLISECONDS).get(5, TimeUnit.SECONDS);
+        Class<?> schedulerClass = Class.forName("java.util.concurrent.DelayScheduler", false, null);
         return Thread.getAllStackTraces().keySet().stream()
-                .filter(thread -> "java.util.concurrent.DelayScheduler".equals(thread.getClass().getName())
+                .filter(thread -> thread.getClass() == schedulerClass
                         && "ForkJoinPool.commonPool-delayScheduler".equals(thread.getName()))
                 .findFirst().orElseThrow();
     }
