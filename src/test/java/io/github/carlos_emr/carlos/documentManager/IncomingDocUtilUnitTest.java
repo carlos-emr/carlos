@@ -22,10 +22,13 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -415,6 +418,48 @@ class IncomingDocUtilUnitTest {
         try (Stream<Path> files = Files.list(deleteDir)) {
             assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
         }
+    }
+
+    @Test
+    @DisplayName("should put a read-only source's own permissions back, not writable ones, when a page delete fails")
+    void shouldRestoreReadOnlyPermissions_whenPageDeleteFails() throws Exception {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r-----");
+        Files.setPosixFilePermissions(source.toPath(), readOnly);
+
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(Exception.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should keep a read-only source read-only after its pages are rewritten")
+    void shouldKeepReadOnlyPermissions_whenPageOperationsSucceed() throws Exception {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+        File source = queuedPdf("fax.pdf", 3);
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r-----");
+        Files.setPosixFilePermissions(source.toPath(), readOnly);
+
+        IncomingDocUtil.rotatePage("1", "Fax", "fax.pdf", "1", 90);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.rotateAlPages("1", "Fax", "fax.pdf", 90);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "3");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(source)) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+            assertThat(document.getPage(0).getRotation()).isEqualTo(180);
+        }
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "faxE2.pdf")).isEqualTo(1);
+        assertThat(scratchFilesLeft()).isZero();
     }
 
     @Test

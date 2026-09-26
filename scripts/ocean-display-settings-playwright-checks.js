@@ -28,8 +28,10 @@ const PREF_QUERY = `SELECT \`value\` FROM SystemPreferences WHERE name='${PREF}'
 const PREF_COUNT = `SELECT COUNT(*) FROM SystemPreferences WHERE name='${PREF}'`;
 // Every row, by id: nothing in the schema makes the name unique, and the DAO's save updates
 // every matching row, so a legacy install may carry duplicates that the cleanup must restore
-// one by one.
-const PREF_ROWS = `SELECT id, \`value\`, IF(\`value\` IS NULL,1,0) FROM SystemPreferences WHERE name='${PREF}' ORDER BY id`;
+// one by one. The save also stamps updateDate, so it is part of the snapshot. Both columns
+// carry an IS NULL flag: the mysql client prints SQL NULL and the string 'NULL' identically.
+const PREF_ROWS = `SELECT id, \`value\`, IF(\`value\` IS NULL,1,0), updateDate, IF(updateDate IS NULL,1,0)`
+  + ` FROM SystemPreferences WHERE name='${PREF}' ORDER BY id`;
 
 async function openSettings(s) {
   const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
@@ -80,7 +82,6 @@ async function placeholderCount(s) {
 
 async function workflow(s) {
   const originalRows = s.sql.rows(PREF_ROWS);
-  const originalValue = originalRows.length === 0 ? null : s.sql.value(PREF_QUERY);
   // A save updates the existing rows, or inserts one when there are none.
   const expectedRows = String(Math.max(originalRows.length, 1));
   const hadSingleton = s.sql.value('SELECT COUNT(*) FROM OceanSetting WHERE id=1') === '1';
@@ -88,8 +89,9 @@ async function workflow(s) {
     const ids = originalRows.map((row) => row[0]);
     h.assert(ids.every((id) => /^[1-9]\d*$/.test(id)), 'Invalid SystemPreferences fixture identity');
     s.sql.execute(`DELETE FROM SystemPreferences WHERE name='${PREF}'${ids.length ? ` AND id NOT IN(${ids.join(',')})` : ''}`);
-    for (const [id, value, isNull] of originalRows) {
-      s.sql.execute(`UPDATE SystemPreferences SET \`value\`=${isNull === '1' ? 'NULL' : h.sqlString(value)} WHERE id=${id}`);
+    for (const [id, value, valueIsNull, updateDate, updateDateIsNull] of originalRows) {
+      s.sql.execute(`UPDATE SystemPreferences SET \`value\`=${valueIsNull === '1' ? 'NULL' : h.sqlString(value)},`
+        + ` updateDate=${updateDateIsNull === '1' ? 'NULL' : h.sqlString(updateDate)} WHERE id=${id}`);
     }
     if (!hadSingleton) s.sql.execute('DELETE FROM OceanSetting WHERE id=1 AND settings IS NULL');
     h.assert(JSON.stringify(s.sql.rows(PREF_ROWS)) === JSON.stringify(originalRows), 'Ocean preference restore failed');
@@ -97,7 +99,11 @@ async function workflow(s) {
 
   const { admin, frame } = await openSettings(s);
   await s.step('the settings page reflects the stored preference (absent row means ON)', async () => {
-    const expected = originalValue === null || originalValue === 'true';
+    // An absent row is the default, ON. A row whose value is NULL is not: the action reads it
+    // through SystemPreferences.getValueAsBoolean(), which is "true".equals(value), so a legacy
+    // row with a NULL value shows the switch OFF. The two must not be conflated, and the
+    // first row's value is the one the action's findPreferenceByName returns.
+    const expected = originalRows.length === 0 || originalRows[0][1] === 'true';
     h.assert(await frame.locator('#echart_show_ocean').isChecked() === expected,
       `The Ocean switch shows ${!expected} but the database says ${expected}`);
   });
