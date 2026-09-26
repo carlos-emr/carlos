@@ -41,11 +41,14 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -864,6 +867,7 @@ public final class IncomingDocUtil {
         try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath))) {
             scratch = work.file();
             // Work on private output; never change the source permissions during preparation.
+            Throwable extractionFailure = null;
             try {
                 reader = new PdfReader(filePathName);
                 String extractFileName = addPdfNameSuffix(myPdfName,
@@ -876,8 +880,15 @@ public final class IncomingDocUtil {
                 // CREATE_NEW: an earlier extraction (or any queued document) under this name is
                 // someone's unfiled clinical document; overwriting it lost it without a trace.
                 try {
-                    extractFos = Files.newOutputStream(validatedExtractFile.toPath(),
-                            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                    // Keep incomplete clinical content private regardless of the process umask.
+                    // CREATE_NEW still refuses an existing queued document, including symlinks.
+                    extractFos = permissions == null
+                            ? Files.newOutputStream(validatedExtractFile.toPath(),
+                                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+                            : Channels.newOutputStream(FileChannel.open(validatedExtractFile.toPath(),
+                                    Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
+                                    PosixFilePermissions.asFileAttribute(Set.of(
+                                            PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE))));
                 } catch (FileAlreadyExistsException e) {
                     throw new Exception("A document named " + extractFileName
                             + " is already in this queue. File or delete it, then extract again.", e);
@@ -889,8 +900,11 @@ public final class IncomingDocUtil {
                 extractCopy = new PdfCopy(document, extractFos);
                 document.open();
                 copyExtractedPages(reader, extractList, copy, extractCopy);
+            } catch (Exception | Error failure) {
+                extractionFailure = failure;
+                throw failure;
             } finally {
-                closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader);
+                closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader, extractionFailure);
             }
 
             // One move instead of delete-then-rename, for the same reason as deletePage: a failed
@@ -898,6 +912,7 @@ public final class IncomingDocUtil {
             // Apply the original access mode before publishing; a failure must leave the source intact.
             if (permissions != null) {
                 Files.setPosixFilePermissions(scratch.toPath(), permissions);
+                Files.setPosixFilePermissions(validatedExtractFile.toPath(), permissions);
             }
             Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
             replaced = true;
@@ -1033,29 +1048,29 @@ public final class IncomingDocUtil {
     }
 
     private static void closePageExtractionResources(PdfCopy copy, PdfCopy extractCopy, Document document,
-            OutputStream copyFos, OutputStream extractFos, PdfReader reader) {
-        closePdfResource(copy, "Error closing copy writer during page extraction");
-        closePdfResource(extractCopy, "Error closing extract writer during page extraction");
-        closePdfResource(document, "Error closing PDF document during page extraction");
-        closePdfResource(copyFos, "Error closing copy output stream during page extraction");
-        closePdfResource(extractFos, "Error closing extract output stream during page extraction");
-        closePdfResource(reader, "Error closing PDF reader during page extraction");
-    }
-
-    // message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().
-    @SuppressFBWarnings(
-            value = "CRLF_INJECTION_LOGS",
-            justification = "message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().")
-    private static void closePdfResource(AutoCloseable resource, String message) {
-        if (resource == null) {
-            return;
+            OutputStream copyFos, OutputStream extractFos, PdfReader reader, Throwable extractionFailure) throws IOException {
+        IOException failure = null;
+        for (AutoCloseable resource : new AutoCloseable[] {copy, extractCopy, document, copyFos, extractFos, reader}) {
+            if (resource == null) {
+                continue;
+            }
+            try {
+                resource.close();
+            } catch (Exception closeFailure) {
+                // A PDF writer writes its final cross-reference table on close. Publishing
+                // after this fails can replace the only original with an incomplete PDF.
+                // Close the remaining resources too, then let the caller discard both outputs.
+                if (failure == null) {
+                    failure = new IOException("Could not finish PDF page extraction");
+                }
+                failure.addSuppressed(closeFailure);
+            }
         }
-        try {
-            resource.close();
-        } catch (Exception e) {
-            // exceptionTrace, not the throwable: a close failure here carries the queue or temp PDF
-            // path in its message, and this runs during cleanup of patient documents.
-            MiscUtils.getLogger().error("{}: {}", message, LogSafe.exceptionTrace(e));
+        if (failure != null) {
+            if (extractionFailure == null) {
+                throw failure;
+            }
+            extractionFailure.addSuppressed(failure);
         }
     }
 

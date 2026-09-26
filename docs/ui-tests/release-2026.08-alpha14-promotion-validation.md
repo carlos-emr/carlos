@@ -295,10 +295,11 @@ headroom as well as guest free space. Final follow-up package results are record
 
 The 157-entry browser manifest was exercised sequentially through the packaged HTTPS front
 door, with targeted reruns after fixing test defects and supplying missing demo fixtures.
-Latest results by check: **155 pass, one prerequisite failure, one province-specific skip**.
+At that stage, results by check were **155 pass, one prerequisite failure, one province-specific skip**.
 The prerequisite failure is `o19-migrated-smoke`, because this VM has no imported OSCAR19
 target or break-glass migration credentials. `billing-bc-associations` requires a BC schema;
-this VM is an Ontario installation. These are unverified paths, not passing results.
+this VM is an Ontario installation. Those paths were unverified at that stage; the later
+isolated migration and province validation below supersedes those limitations.
 
 Outside the manifest, the native RTL browser check, full document-annotation harness,
 MariaDB email schema check, prescription DrugRef harness and local fax inbox lifecycle all
@@ -411,3 +412,34 @@ failed backup was reported as an existing snapshot. Resume now repeats the warni
 pre-import snapshot was recorded, without attempting a late backup. Two regression tests
 failed against the old message; those cases and the successful-backup control now pass.
 The complete Debian Python suite passed 1,692 tests (19 skips).
+
+
+### Final PDF failure-path and browser-sequence review
+
+The `.10` full Ontario run completed with **153 passes, one failure and no harness skips**.
+The only failure was `health-care-team`: the test observed the committed removal in SQL and
+navigated away before the AJAX response arrived, aborting its own request. The harness now
+waits for the removed row to disappear before checking persistence and reopening. All three
+workflow steps pass with a real removal response deliberately delayed by 750 ms after the
+server write. The lab-requisition, patient-messenger, chart-lock lifecycle and login checks
+all passed in the full run.
+
+The additional PDF review found that extraction logged and swallowed writer-close errors,
+then published its scratch output over the original even if finalization had failed. It
+also created the extracted PDF with the process default mode, broadening a restricted
+source's access. The strengthened browser check reproduced the latter on installed `.10`.
+Six Java regressions failed against the old implementation: either writer failing on close,
+a lost cleanup diagnostic after an earlier write failure, and three restrictive source modes.
+
+Extraction now creates its exclusive output privately, closes every resource, and aborts
+publication when finalization fails. An earlier write failure remains the primary exception,
+with cleanup failures attached. Regressions confirm preservation of the original and cleanup
+of owned outputs when either writer fails. Both completed PDFs receive the exact source mode. Browser artifact inspection now requires a complete classic PDF
+trailer and a valid cross-reference offset before calling `pdfinfo`, which can otherwise
+repair truncated output and exit successfully. The browser also verifies mode `0400` on
+both outputs of a restricted extraction. Final package and installed-browser follow-up is
+recorded in the review status comment on #3929.
+
+Full Maven verification of these changes passed **13,338 tests**, with zero failures/errors
+and 51 skips, plus Checkstyle and WAR packaging. All **1,025 Node regressions** passed with
+one worker. The VM remained shut down throughout compilation and these host checks.

@@ -23,7 +23,18 @@ function fixturePdf(marker) {
   pdf += offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
   return Buffer.from(`${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
 }
+function assertClassicPdfFinalized(pdf) {
+  // pdfinfo may repair a truncated cross-reference table and still exit zero.
+  // These synthetic inputs and OpenPDF outputs use the classic xref format.
+  const footer = pdf.toString('latin1').match(/startxref\s+(\d+)\s+%%EOF\s*$/);
+  h.assert(footer, 'The generated PDF has no complete final trailer');
+  const offset = Number(footer[1]);
+  h.assert(Number.isSafeInteger(offset) && offset > 0 && offset < pdf.length
+    && pdf.subarray(offset, offset + 4).toString('ascii') === 'xref',
+  'The generated PDF final trailer does not point to its cross-reference table');
+}
 function inspect(file) {
+  assertClassicPdfFinalized(fs.readFileSync(file));
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' });
   const pages = Number(info.match(/^Pages:\s+(\d+)/m)?.[1]);
   h.assert(pages > 0, 'The generated PDF has no readable pages');
@@ -178,6 +189,8 @@ async function workflow(s) {
     h.assert(fs.readFileSync(source).equals(original), 'Invalid page changed the source PDF');
   });
   fs.unlinkSync(destination);
+  // A restrictive source must not become more readable when split into two PDFs.
+  fs.chmodSync(source, 0o400);
   await s.step('extract one page and retain the exact remaining pages', async () => {
     await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
     await h.withExpectedDialogs(page, async () => {
@@ -187,6 +200,8 @@ async function workflow(s) {
     }, { promptText: '2' });
     const left = inspect(source); const right = inspect(destination);
     h.assert(left.pages === 2 && right.pages === 1, 'Extraction produced incorrect page counts');
+    h.assert((fs.statSync(source).mode & 0o777) === 0o400, 'Extraction changed the source access mode');
+    h.assert((fs.statSync(destination).mode & 0o777) === 0o400, 'Extracted PDF widened the source access mode');
     h.assert(left.text.includes(`${s.marker} page 1`) && left.text.includes(`${s.marker} page 3`) && !left.text.includes(`${s.marker} page 2`), 'Remaining PDF contains the wrong pages');
     h.assert(right.text.includes(`${s.marker} page 2`) && !right.text.includes(`${s.marker} page 1`) && !right.text.includes(`${s.marker} page 3`), 'Extracted PDF contains the wrong page');
     h.assert(fs.readFileSync(unrelated).equals(original), 'An unrelated queue PDF changed');
@@ -230,4 +245,4 @@ async function workflow(s) {
   });
 }
 if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: false });
-module.exports = { fixturePdf, inspect, workflow };
+module.exports = { assertClassicPdfFinalized, fixturePdf, inspect, workflow };
