@@ -481,7 +481,7 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
       ]);
       await assertNoErrorPage(page, 'appointment-dob-results');
       expectValue('appointment-dob-keyword', await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue(), expected);
-      expectValue('appointment-search-context', await page.locator('input[type="hidden"][name="displaymode"]').inputValue(), 'Search ');
+      expectValue('appointment-search-context', await page.locator('form[name="titlesearch"] input[type="hidden"][name="displaymode"]').inputValue(), 'Search ');
     }
     for (const invalid of ['198', '1980-13', '%']) {
       await page.locator('form[name="titlesearch"] input[name="keyword"]').fill(invalid);

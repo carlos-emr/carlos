@@ -4,6 +4,7 @@ const ui = require('./playwright-ui');
 
 async function settled(target) {
   await target.waitForLoadState('load');
+  await target.waitForLoadState('networkidle', { timeout: 30000 });
   await target.evaluate(async () => { await document.fonts.ready; });
 }
 
@@ -31,6 +32,7 @@ async function submitSearch(session, target, selector, route, expected) {
 /** Adds UI round trips to the REST protocol check, using only its owned patient/program. */
 async function checkPatientSearchPrivacy(session, program) {
   const { sql, patient, marker, provider, schedule } = session;
+  const keyword = marker.toLowerCase();
   const owned = () => sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(marker)}
     AND demographic_no<>${patient}`).map(row => row[0]);
   session.cleanup(() => {
@@ -40,7 +42,7 @@ async function checkPatientSearchPrivacy(session, program) {
     const list = ids.join(',');
     sql.execute(`DELETE FROM demographic_merged WHERE demographic_no IN (${list}) AND merged_to=${patient};
       DELETE FROM admission WHERE client_id IN (${list}) AND program_id=${program};
-      DELETE FROM recyclebin WHERE tableName='secObjPrivilege'
+      DELETE FROM recyclebin WHERE table_name='secObjPrivilege'
         AND keyword IN (${ids.map(id => h.sqlString(`_all|_eChart$${id}`)).join(',')});
       DELETE FROM demographic WHERE demographic_no IN (${list}) AND last_name=${h.sqlString(marker)}`);
     h.assert(owned().length === 0, 'Pagination fixtures were not removed');
@@ -64,19 +66,19 @@ async function checkPatientSearchPrivacy(session, program) {
   const search = await session.popup(schedule, schedule.locator('a').filter({ hasText: /^Search$/ }), 'private-patient-search');
   await session.step('patient search, sorting and both pagination directions keep terms out of URLs', async () => {
     await search.locator('#search_mode').selectOption('search_name');
-    await search.locator('#keyword').fill(marker);
+    await search.locator('#keyword').fill(keyword);
     await submitSearch(session, search, 'form[name="titlesearch"] input[type="submit"]',
-      '/demographic/DemographicSearch', { keyword: marker, search_mode: 'search_name' });
+      '/demographic/DemographicSearch', { keyword, search_mode: 'search_name' });
     h.assert(await search.locator('#patientResults tr').count() === 11, 'First patient search page has the wrong row count');
     await submitSearch(session, search, 'button[form="search-sort"][value="last_name"]',
-      '/demographic/DemographicSearch', { keyword: marker, orderby: 'last_name', limit1: 0 });
+      '/demographic/DemographicSearch', { keyword, orderby: 'last_name', limit1: 0 });
     await submitSearch(session, search, 'button[form="search-page"][value="10"]',
-      '/demographic/DemographicSearch', { keyword: marker, orderby: 'last_name', limit1: 10 });
+      '/demographic/DemographicSearch', { keyword, orderby: 'last_name', limit1: 10 });
     h.assert(await search.locator('#patientResults tr').count() === 3, 'Second patient search page has the wrong row count');
     await submitSearch(session, search, 'button[form="search-page"][value="0"]',
-      '/demographic/DemographicSearch', { keyword: marker, orderby: 'last_name', limit1: 0 });
+      '/demographic/DemographicSearch', { keyword, orderby: 'last_name', limit1: 0 });
     await submitSearch(session, search, 'form[action$="/demographic/ViewDemographicAddARecordHtm"] button',
-      '/demographic/ViewDemographicAddARecordHtm', { keyword: marker, search_mode: 'search_name' });
+      '/demographic/ViewDemographicAddARecordHtm', { keyword, search_mode: 'search_name' });
     h.assert(await search.locator('form[name="adddemographic"]').count() === 1, 'Patient creation handoff did not render its form');
   });
 
@@ -86,12 +88,12 @@ async function checkPatientSearchPrivacy(session, program) {
         : '/demographic/ViewDemographicSearch2ReportResults';
       // Protocol setup for the legacy callers; each subsequent transition uses the rendered UI.
       const url = new URL(h.appUrl(session.config.baseUrl, route));
-      url.search = new URLSearchParams({ keyword: marker, search_mode: 'search_name',
+      url.search = new URLSearchParams({ keyword, search_mode: 'search_name',
         displaymode: 'Search ', ptstatus: 'active',
         originalpage: new URL(h.appUrl(session.config.baseUrl,
           '/demographic/ViewDemographicAddARecordHtm')).pathname }).toString();
       await search.goto(url.href, { waitUntil: 'load' });
-      const state = { keyword: marker, search_mode: 'search_name' };
+      const state = { keyword, search_mode: 'search_name' };
       await submitSearch(session, search, '#nextPageButton', route, { ...state, limit1: 10 });
       h.assert(await search.locator('input[name="pick_demographic"]').count() === 2,
         'Second picker page has the wrong row count');
@@ -144,8 +146,8 @@ async function checkPatientSearchPrivacy(session, program) {
   }
   await session.step('merged search sorts before paging and preserves its scope using POST', async () => {
     await merge.locator('input[name="search_mode"][value="search_name"]').check();
-    await merge.locator('form[name="titlesearch"] input[name="keyword"]').fill(marker);
-    const state = { keyword: marker, dboperation: 'demographic_search_merged' };
+    await merge.locator('form[name="titlesearch"] input[name="keyword"]').fill(keyword);
+    const state = { keyword, dboperation: 'demographic_search_merged' };
     await submitSearch(session, merge, 'form[name="titlesearch"] button[name="dboperation"]',
       '/admin/DemographicMergeRecord', state);
     await submitSearch(session, merge, 'button[form="search-sort"][value="first_name"]',
@@ -167,9 +169,7 @@ async function checkPatientSearchPrivacy(session, program) {
     h.assert(owned().includes(selected), 'Unmerge selected a patient outside its fixture');
     await box.check();
     const dialogPage = typeof merge.page === 'function' ? merge.page() : merge;
-    const accept = dialog => dialog.accept();
-    dialogPage.on('dialog', accept);
-    try {
+    const dialogs = await h.withExpectedDialogs(dialogPage, async () => {
       await submitSearch(session, merge, 'input[onclick="UnMerge()"]',
         '/admin/MergeRecords', { records: selected, mergeAction: 'unmerge' });
       h.assert(new URL(merge.url()).pathname.endsWith('/admin/DemographicMergeRecord'),
@@ -181,17 +181,17 @@ async function checkPatientSearchPrivacy(session, program) {
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic_merged
         WHERE demographic_no=${selected} AND merged_to=${patient} AND deleted=0`) === '0',
         'Unmerge did not update its owned record');
-    } finally {
-      dialogPage.off('dialog', accept);
-    }
+    });
+    h.assert(dialogs.length === 2 && dialogs[0].type === 'confirm' && dialogs[1].type === 'alert',
+      'Unmerge did not confirm and report its outcome');
     // Restore the search state through the UI before the domain negative control.
-    await merge.locator('form[name="titlesearch"] input[name="keyword"]').fill(marker);
+    await merge.locator('form[name="titlesearch"] input[name="keyword"]').fill(keyword);
   });
   if (process.env.EXPECT_PROGRAM_DOMAIN_RESTRICTION !== undefined) {
     await session.step('merged results obey the configured program domain after admission removal', async () => {
       sql.execute(`DELETE FROM admission WHERE program_id=${program} AND client_id IN (${owned().join(',')})`);
       await submitSearch(session, merge, 'form[name="titlesearch"] button[name="dboperation"]',
-        '/admin/DemographicMergeRecord', { keyword: marker, dboperation: 'demographic_search_merged' });
+        '/admin/DemographicMergeRecord', { keyword, dboperation: 'demographic_search_merged' });
       const expected = process.env.EXPECT_PROGRAM_DOMAIN_RESTRICTION === 'true' ? 0 : 10;
       h.assert(await merge.locator('input[name="records"]').count() === expected,
         'Merged search did not enforce the configured program domain');
