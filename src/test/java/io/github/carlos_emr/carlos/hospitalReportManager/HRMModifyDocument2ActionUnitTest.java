@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
 import io.github.carlos_emr.carlos.commn.dao.IncomingLabRulesDao;
+import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentCommentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao;
@@ -16,6 +17,8 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -71,6 +74,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     private HRMDocumentSubClassDao hrmDocumentSubClassDao;
     private HRMDocumentCommentDao hrmDocumentCommentDao;
     private IncomingLabRulesDao incomingLabRulesDao;
+    private MrpRoutingService mrpRoutingService;
     private SecurityInfoManager securityInfoManager;
     private PlatformTransactionManager transactions;
     private TransactionStatus transactionStatus;
@@ -102,6 +106,12 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(HRMDocumentSubClassDao.class, hrmDocumentSubClassDao);
         registerMock(HRMDocumentCommentDao.class, hrmDocumentCommentDao);
         registerMock(IncomingLabRulesDao.class, incomingLabRulesDao);
+        // The real routing service over the mocked DAOs, so assignProvider is still verified at
+        // the DAO level; Provider Linking Rules are stubbed per test.
+        registerMock(HrmProviderRoutingService.class,
+                new HrmProviderRoutingService(hrmDocumentToProviderDao, incomingLabRulesDao));
+        mrpRoutingService = mock(MrpRoutingService.class);
+        registerMock(MrpRoutingService.class, mrpRoutingService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
 
         request = new MockHttpServletRequest("POST", "/hospitalReportManager/Modify");
@@ -744,5 +754,81 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentAsString()).contains("\"success\":true");
         verify(hrmDocumentToProviderDao, never()).merge(any(HRMDocumentToProvider.class));
+    }
+
+    @Test
+    @DisplayName("should route a matched report to the patient's MRP when provider linking rules are on")
+    void shouldReportMrpRouted_whenLinkingRulesRouteToMrp() throws Exception {
+        when(mrpRoutingService.routeMatchedHrmToMrp(7, 123, "999998")).thenReturn(true);
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"success\":true").contains("\"mrpRouted\":true");
+        verify(hrmDocumentToDemographicDao).merge(any(HRMDocumentToDemographic.class));
+        verify(mrpRoutingService).routeMatchedHrmToMrp(7, 123, "999998");
+    }
+
+    @Test
+    @DisplayName("should report no MRP routing when provider linking rules are off")
+    void shouldReportMrpNotRouted_whenLinkingRulesAreOff() throws Exception {
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true").contains("\"mrpRouted\":false");
+    }
+
+    @Test
+    @DisplayName("should roll the patient match back when MRP routing fails")
+    void shouldRollBackMatch_whenMrpRoutingFails() throws Exception {
+        // One transaction: a report matched to a patient but half-routed to the MRP would be
+        // reported as a success the clinician cannot see is incomplete.
+        when(mrpRoutingService.routeMatchedHrmToMrp(7, 123, "999998"))
+                .thenThrow(new RuntimeException("database down"));
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":false").contains("\"mrpRouted\":false");
+        verify(transactions).rollback(transactionStatus);
+        verify(transactions, never()).commit(any());
+    }
+
+    @Test
+    @DisplayName("should apply forwarding rules and clear unclaimed rows when a provider is assigned")
+    void shouldApplyForwardingAndClearUnclaimed_whenProviderIsAssigned() throws Exception {
+        stubReportExists(7);
+        HRMDocumentToProvider unclaimed = new HRMDocumentToProvider();
+        unclaimed.setHrmDocumentId(7);
+        unclaimed.setProviderNo("-1");
+        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("-1")))
+                .thenReturn(java.util.List.of(unclaimed));
+        IncomingLabRules rule = new IncomingLabRules();
+        rule.setFrwdProviderNo("456");
+        io.github.carlos_emr.carlos.commn.model.IncomingLabRulesType hrmType =
+                new io.github.carlos_emr.carlos.commn.model.IncomingLabRulesType();
+        hrmType.setType("HRM");
+        rule.setForwardTypes(new java.util.ArrayList<>(java.util.List.of(hrmType)));
+        when(incomingLabRulesDao.findCurrentByProviderNo("123")).thenReturn(java.util.List.of(rule));
+        request.addParameter("method", "assignProvider");
+        request.addParameter("reportId", "7");
+        request.addParameter("providerNo", "123");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(hrmDocumentToProviderDao).persist(org.mockito.ArgumentMatchers.<HRMDocumentToProvider>argThat(
+                row -> "123".equals(row.getProviderNo())));
+        verify(hrmDocumentToProviderDao).persist(org.mockito.ArgumentMatchers.<HRMDocumentToProvider>argThat(
+                row -> "456".equals(row.getProviderNo())));
+        verify(hrmDocumentToProviderDao).remove(same(unclaimed));
     }
 }
