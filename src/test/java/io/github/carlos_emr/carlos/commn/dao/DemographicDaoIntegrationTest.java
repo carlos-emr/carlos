@@ -876,4 +876,108 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
             assertThat(row.dateOfBirth.get(Calendar.DAY_OF_MONTH)).isEqualTo(15);
         }
     }
+
+    /**
+     * Tests for the date-of-birth search grammar shared by the {@code searchDemographicByDOB*} overloads
+     * (issue #3956): {@code YYYY}, {@code YYYY-MM}, {@code YYYY-MM-DD} and whole-segment {@code %}
+     * wildcards.
+     *
+     * <p>Patients are born in 1874 so no other fixture row can land in a year-only search, and
+     * results are narrowed to this run's HIN prefix before asserting.</p>
+     */
+    @Nested
+    @DisplayName("searchDemographicByDOB partial and wildcard keywords")
+    class SearchDemographicByDob {
+
+        private Demographic march5;
+        private Demographic march20;
+        private Demographic november5;
+
+        @BeforeEach
+        void createPatients() {
+            march5 = createBornOn("5", "1874", "03", "05");
+            march20 = createBornOn("6", "1874", "03", "20");
+            november5 = createBornOn("7", "1874", "11", "05");
+        }
+
+        private Demographic createBornOn(String hinSuffix, String year, String month, String day) {
+            Demographic demo = createDemographic("Dob", "Search", "ON", uniquePrefix + hinSuffix, "AC");
+            demo.setYearOfBirth(year);
+            demo.setMonthOfBirth(month);
+            demo.setDateOfBirth(day);
+            demographicDao.save(demo);
+            hibernateTemplate.flush();
+            return demo;
+        }
+
+        private List<Integer> search(String keyword) {
+            List<Demographic> results = demographicDao.searchDemographicByDOB(keyword, 100, 0, null, true);
+            assertThat(results).as("DOB search never returns null").isNotNull();
+            return results.stream()
+                .filter(d -> d.getHin() != null && d.getHin().startsWith(uniquePrefix))
+                .map(Demographic::getDemographicNo)
+                .toList();
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should match an exact full date")
+        void shouldReturnOnePatient_forFullDate() {
+            assertThat(search("1874-03-05")).containsExactly(march5.getDemographicNo());
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should match a year-only search")
+        void shouldReturnWholeYear_forYearOnly() {
+            assertThat(search("1874")).containsExactlyInAnyOrder(
+                march5.getDemographicNo(), march20.getDemographicNo(), november5.getDemographicNo());
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should match a year-month search")
+        void shouldReturnMonth_forYearMonth() {
+            assertThat(search("1874-03")).containsExactlyInAnyOrder(
+                march5.getDemographicNo(), march20.getDemographicNo());
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should treat % as a whole-segment wildcard")
+        void shouldMatchAnyMonth_withWildcardMonth() {
+            assertThat(search("1874-%-05")).containsExactlyInAnyOrder(
+                march5.getDemographicNo(), november5.getDemographicNo());
+            assertThat(search("%-03-05")).containsExactly(march5.getDemographicNo());
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should zero-pad one-digit month and day")
+        void shouldMatchStoredPadding_withOneDigitParts() {
+            assertThat(search("1874-3-5")).containsExactly(march5.getDemographicNo());
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should return an empty list for a keyword outside the grammar")
+        void shouldReturnEmptyList_forInvalidKeyword() {
+            assertThat(search("187")).isEmpty();
+            assertThat(search("%")).isEmpty();
+            assertThat(search("1874_03_05")).isEmpty();
+            assertThat(demographicDao.searchMergedDemographicByDOB("187", 100, 0, null, true)).isEmpty();
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should apply the grammar to the status-filtered overloads")
+        void shouldHonourStatusFilter_forPartialDate() {
+            List<Demographic> active = demographicDao.searchDemographicByDOBAndStatus(
+                "1874-03", List.of("AC"), 100, 0, null, true);
+            assertThat(active)
+                .extracting(Demographic::getDemographicNo)
+                .contains(march5.getDemographicNo(), march20.getDemographicNo())
+                .doesNotContain(november5.getDemographicNo());
+        }
+    }
 }

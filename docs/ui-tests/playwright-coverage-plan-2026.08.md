@@ -153,7 +153,7 @@ make; neither is a shortcut around the rule.
 | `surface-audit:workflow-surface` | §4.4 | WorkFlow list |
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |
 | `demographic-edit-update` | §2.4 (also §2.4 `demographic-audit`) | Editing a patient from the Master Record, asserted against the database, restored — and asserted to have been **recorded** in the audit trail with an actor |
-| `patient-search-modes` | §2.4 | Every patient-search mode, the active/inactive/all scope, and the browser-side date-of-birth refusal |
+| `patient-search-modes` | §2.4 | Every patient-search mode (date of birth as a full date, a year-month, and a `%` month wildcard — issue #3956), the active/inactive/all scope, and the browser-side refusal of a malformed date of birth |
 | `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |
 | `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |
@@ -467,7 +467,7 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `demographic-export-import` | Administration ▸ Data Management ▸ Demographic Export; ▸ Import New Demographic | Export produces the CDS XML for the patient (bytes); importing the fixture creates `FAKE-` patients; the import log downloads | Fixture files; delete created rows | `demographic/DemographicExport`, `form/importUpload`, `importLogDownload` |
 | `patient-set-cohort` | Master Record ▸ add to patient set; Schedule ▸ Report ▸ Demographic Report Tool ▸ sets | Set created, patient added, set drives a report row (the `prevention-recall-report` pattern) | Throwaway set | `demographic/ViewAddDemoToPatientSet`, `report/CreateDemographicSet`, `DemographicSetEdit` |
 | `demographic-audit` | Master Record ▸ Edit ▸ clinical section ▸ audit link | The edit `demographic-edit-update` made appears with user and time | Reuse | `demographic/ViewDemographicAudit` |
-| `patient-search-modes` | Schedule ▸ Search: name, HIN, phone, chart no, DOB (existing), address, all; Active/inactive; swipe | Result set per mode; inactive excluded by default and included on request; nothing beyond the search term in the URL | Demo data | `demographic/ViewSearch`, `DemographicSearch`, `ViewZdemographicSwipe` |
+| `patient-search-modes` | Schedule ▸ Search: name, HIN, phone, chart no, DOB (full, YYYY-MM, `%` wildcard), address, all; Active/inactive; swipe | Result set per mode; inactive excluded by default and included on request; nothing beyond the search term in the URL | Demo data | `demographic/ViewSearch`, `DemographicSearch`, `ViewZdemographicSwipe` |
 
 ### 2.5 Chart / encounter
 

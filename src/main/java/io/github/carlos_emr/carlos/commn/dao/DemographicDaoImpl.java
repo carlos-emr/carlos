@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -59,6 +60,7 @@ import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.demographic.data.DobSearchPattern;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
@@ -627,14 +629,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         List<Demographic> list = new ArrayList<Demographic>();
         String queryString = "From Demographic d where d.yearOfBirth like :yearOfBirth AND d.monthOfBirth like :monthOfBirth AND d.dateOfBirth like :dateOfBirth ";
 
-        // format must be yyyy-mm-dd
-        String[] params = dobStr.split("-");
-        if (params.length != 3) {
-            return null;
+        // YYYY, YYYY-MM or YYYY-MM-DD, with "%" allowed as a whole segment (issue #3956).
+        Optional<DobSearchPattern> dob = DobSearchPattern.parse(dobStr);
+        if (dob.isEmpty()) {
+            return list;
         }
-
-        if (params.length != 3)
-            return new ArrayList<Demographic>();
 
         if (statuses != null) {
             queryString += " and d.patientStatus " + ((ignoreStatuses) ? "not" : "") + "  in (:statuses)";
@@ -653,9 +652,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("yearOfBirth", params[0].trim() + "%");
-            q.setParameter("monthOfBirth", params[1].trim() + "%");
-            q.setParameter("dateOfBirth", params[2].trim() + "%");
+            q.setParameter("yearOfBirth", dob.get().year());
+            q.setParameter("monthOfBirth", dob.get().month());
+            q.setParameter("dateOfBirth", dob.get().day());
 
             if (statuses != null) {
                 q.setParameter("statuses", statuses);
@@ -676,19 +675,19 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         List<Demographic> list = new ArrayList<Demographic>();
         String queryString = "From Demographic d where d.yearOfBirth like :yearOfBirth AND d.monthOfBirth like :monthOfBirth AND d.dateOfBirth like :dateOfBirth and d.headRecord is not null ";
 
-        // format must be yyyy-mm-dd
-        String[] params = dobStr.split("-");
-        if (params.length != 3)
-            return new ArrayList<Demographic>();
+        Optional<DobSearchPattern> dob = DobSearchPattern.parse(dobStr);
+        if (dob.isEmpty()) {
+            return list;
+        }
 
         EntityManager session = entityManager();
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("yearOfBirth", params[0].trim() + "%");
-            q.setParameter("monthOfBirth", params[1].trim() + "%");
-            q.setParameter("dateOfBirth", params[2].trim() + "%");
+            q.setParameter("yearOfBirth", dob.get().year());
+            q.setParameter("monthOfBirth", dob.get().month());
+            q.setParameter("dateOfBirth", dob.get().day());
 
             list = q.getResultList();
         return list;

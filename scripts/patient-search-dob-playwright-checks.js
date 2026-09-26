@@ -24,13 +24,18 @@
 /*
  * Browser regression checks for DOB search in the patient search pop-up.
  *
- * Guards against the issue #3237 regression where the DOB auto-formatter in
- * zdemographicfulltitlesearch.jsp silently dropped a typed separator after the
- * year, so typing the required YYYY-MM-DD format appeared to stop accepting
- * input at 4 characters. The script logs in, opens the patient search page,
- * selects DOB mode, and verifies keystroke-by-keystroke entry of a full date
- * (with and without separators), then submits the search and checks the
- * results page renders without errors.
+ * Guards two regressions in the DOB auto-formatter
+ * (share/javascript/dobSearchKeyword.js, used by zdemographicfulltitlesearch.jsp):
+ *   - issue #3237: a typed separator after the year was dropped, so typing
+ *     YYYY-MM-DD appeared to stop accepting input at 4 characters;
+ *   - issue #3956: the % wildcard was stripped and anything shorter than 8
+ *     digits was refused, so YYYY, YYYY-MM and 1975-%-05 searches were
+ *     impossible.
+ * The script logs in, opens the patient search page, selects DOB mode, verifies
+ * keystroke-by-keystroke entry (full dates, separators, wildcards, a mid-field
+ * edit), submits full, year, year-month and wildcard searches and checks each
+ * reaches the results page with the typed keyword intact, and checks that a
+ * malformed date is refused with an alert instead of being submitted.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/patient-search-dob-playwright-checks.js
@@ -65,6 +70,8 @@ const testPin = process.env.TEST_PIN || '2026';
 
 const findings = [];
 const checks = [];
+let expectedDialogs = 0;
+let seenExpectedDialogs = 0;
 
 function normalizedHostname(url) {
   const host = url.hostname.toLowerCase();
@@ -189,8 +196,14 @@ function wirePage(page, label) {
   });
   page.on('dialog', async (dialog) => {
     // Unlike sibling scripts, dialogs are blocking findings here: the DOB
-    // format alert firing on a full date is the regression this script guards.
-    findings.push({ label, type: 'dialog' });
+    // format alert firing on a valid date is the regression this script guards.
+    // expectDialog() is the one sanctioned exception, for the malformed-date step.
+    if (expectedDialogs > 0) {
+      expectedDialogs -= 1;
+      seenExpectedDialogs += 1;
+    } else {
+      findings.push({ label, type: 'dialog' });
+    }
     await dialog.accept();
   });
 }
@@ -246,6 +259,33 @@ async function typeDob(page, text) {
   await page.locator('#keyword').press('End');
   await page.locator('#keyword').pressSequentially(text, { delay: 25 });
   return page.locator('#keyword').inputValue();
+}
+
+async function openDobSearch(page) {
+  await safeGoto(page, '/demographic/ViewSearch', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await assertNoErrorPage(page, 'patient-search');
+  await selectDobMode(page);
+  await clearKeyword(page);
+}
+
+/**
+ * Types a DOB, submits, and asserts the keyword the server received. The form is
+ * a GET, so the query string is the server's view of the field. Result rows are
+ * deliberately not asserted: they would pin the local seed data, not the fix
+ * (the SQL side of partial matching is pinned by DemographicDaoIntegrationTest
+ * and patient-search-modes-playwright-checks.js).
+ */
+async function submitDob(page, label, typed, expectedKeyword) {
+  await openDobSearch(page);
+  await typeDob(page, typed);
+  await Promise.all([
+    waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
+    page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
+  ]);
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await assertNoErrorPage(page, label);
+  expectValue(`${label}-submitted-keyword`, new URL(page.url()).searchParams.get('keyword'), expectedKeyword);
+  expectValue(`${label}-results-table`, await page.locator('#patientResults').count() > 0, true);
 }
 
 async function fillDob(page, text) {
@@ -323,31 +363,52 @@ async function fillDob(page, text) {
     await clearKeyword(page);
     expectValue('dob-double-separators', await typeDob(page, '1980--01--01'), '1980-01-01');
 
-    // A full DOB submits without the format alert and renders the results page.
-    await Promise.all([
-      waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
-      page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
-    ]);
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await assertNoErrorPage(page, 'dob-search-results');
+    // Issue #3956: % survives typing as a whole-segment wildcard, and the
+    // partial shapes are no longer truncated or rejected while typing.
+    await clearKeyword(page);
+    expectValue('dob-wildcard-month', await typeDob(page, '1980-%-01'), '1980-%-01');
+    await clearKeyword(page);
+    expectValue('dob-wildcard-year', await typeDob(page, '%-01-01'), '%-01-01');
+    await clearKeyword(page);
+    expectValue('dob-year-month', await typeDob(page, '1980-01'), '1980-01');
+    await clearKeyword(page);
+    expectValue('dob-one-digit-month-day', await typeDob(page, '1980-1-1'), '1980-1-1');
+    expectValue('dob-paste-wildcard', await fillDob(page, '1980-%-01'), '1980-%-01');
 
-    // Reaching the results URL only proves the format alert did not block submit;
-    // it does not prove the whole date was submitted. The form is a GET, so the
-    // query string is the server's view of the field: a regressed formatter that
-    // truncated at the year would land here with keyword=1980 and still look fine.
-    // Assert on the echoed keyword rather than on result rows — the results table
-    // renders whether or not the local database happens to hold a 1980-01-01
-    // patient, so a row assertion would only pin the seed data, not the fix.
-    expectValue('dob-search-submitted-keyword',
-      new URL(page.url()).searchParams.get('keyword'), '1980-01-01');
-    expectValue('dob-search-results-table',
-      await page.locator('#patientResults').count() > 0, true);
+    // A mid-field edit must not throw the caret to the end: deleting the
+    // month/day separator makes the formatter re-insert it, and the caret has to
+    // stay after the month (7), not jump to the end of the field (10).
+    await fillDob(page, '1980-01-01');
+    await page.locator('#keyword').evaluate((input) => input.setSelectionRange(7, 7));
+    await page.locator('#keyword').press('Delete');
+    expectValue('dob-mid-field-edit', await page.locator('#keyword').inputValue(), '1980-01-01');
+    expectValue('dob-mid-field-caret',
+      await page.locator('#keyword').evaluate((input) => input.selectionStart), 7);
+
+    // Each accepted shape submits without the format alert and reaches the
+    // results page with the whole keyword intact.
+    await submitDob(page, 'dob-search-full', '1980-01-01', '1980-01-01');
+    await submitDob(page, 'dob-search-year', '1980', '1980');
+    await submitDob(page, 'dob-search-year-month', '1980-01', '1980-01');
+    await submitDob(page, 'dob-search-wildcard', '1980-%-01', '1980-%-01');
+
+    // A malformed date is still refused in the browser: exactly one alert, and
+    // the page does not navigate.
+    await openDobSearch(page);
+    await typeDob(page, '198');
+    const beforeUrl = page.url();
+    expectedDialogs = 1;
+    await page.locator('form[name="titlesearch"] input[type="submit"]').first().click();
+    await page.waitForTimeout(750);
+    expectValue('dob-malformed-alerted', seenExpectedDialogs, 1);
+    expectValue('dob-malformed-not-submitted', page.url(), beforeUrl);
+    expectedDialogs = 0;
 
     if (findings.length) {
       throw new Error(`patient search DOB browser check found ${findings.length} issue(s)`);
     }
 
-    console.log('PASS CARLOS EMR patient search DOB entry accepts full YYYY-MM-DD input');
+    console.log('PASS CARLOS EMR patient search DOB entry accepts YYYY, YYYY-MM, YYYY-MM-DD and % wildcards');
   } finally {
     // Dump collected evidence on success and failure alike so a mid-flow
     // timeout (e.g. the DOB alert blocking submit) still reports the checks.

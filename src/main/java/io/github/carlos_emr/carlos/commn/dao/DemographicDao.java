@@ -121,6 +121,15 @@ public interface DemographicDao {
     public List<Demographic> searchMergedDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                            boolean outOfDomain);
 
+    /**
+     * Searches demographics by date of birth.
+     *
+     * <p>All {@code searchDemographicByDOB*} and {@code searchMergedDemographicByDOB} overloads share
+     * one keyword grammar, parsed by {@link io.github.carlos_emr.carlos.demographic.data.DobSearchPattern}:
+     * {@code YYYY}, {@code YYYY-MM} or {@code YYYY-MM-DD}, with {@code %} allowed as a whole-segment
+     * wildcard (for example {@code 1975-%-05}). A keyword outside that grammar returns an empty list,
+     * never {@code null}.</p>
+     */
     public List<Demographic> searchDemographicByDOB(String dobStr, int limit, int offset, String providerNo,
                                                     boolean outOfDomain);
 

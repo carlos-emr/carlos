@@ -41,7 +41,8 @@
     - Multi-mode patient search (name, phone, DOB, address, HIN, chart, demographic #)
     - Ontario health card barcode scanner support (%b610054 format)
     - Global keyboard listener for hands-free barcode scanning
-    - Real-time DOB format validation and formatting
+    - Real-time DOB formatting and validation (YYYY, YYYY-MM or YYYY-MM-DD; % wildcards a
+      whole segment) via share/javascript/dobSearchKeyword.js
     - Inactive/All patient search options
     - Most Recent Patients quick access
     - Out-of-domain search (with appropriate security)
@@ -53,6 +54,7 @@
 
     @since 2006-01-01 (original OSCAR implementation)
     @since 2026-02-09 (CARLOS enhancement: barcode scanner support)
+    @since 2026-09-26 (CARLOS enhancement: partial and wildcard DOB search, issue #3956)
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -71,7 +73,11 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
+<fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
 <script type="application/javascript">
+    var DOB_FORMAT_MESSAGE = '${carlos:forJavaScript(dobFormatMessage)}';
+
     /**
      * Extracts Health Identification Number (HIN) from Ontario health card barcode format.
      * Ontario health card barcodes follow the %b610054 prefix format with HIN at positions 8-18.
@@ -211,29 +217,11 @@
         if (checkTypeIn()) document.titlesearch.submit();
     }
 
+    // DOB formatting/validation lives in share/javascript/dobSearchKeyword.js so the
+    // grammar (YYYY, YYYY-MM, YYYY-MM-DD, % as a whole-segment wildcard) can be unit
+    // tested against the server-side DobSearchPattern parser (issue #3956).
     function formatDateInput(input) {
-        const raw = input.value;
-
-        // Remove any non-digit characters; only the first 8 digits (YYYYMMDD) count
-        const digits = raw.replace(/\D/g, '').substring(0, 8);
-        let value = digits;
-
-        // Format as YYYY-MM-DD
-        if (digits.length > 4) {
-            value = digits.substring(0, 4) + '-' + digits.substring(4);
-        }
-        if (digits.length > 6) {
-            value = value.substring(0, 7) + '-' + value.substring(7);
-        }
-
-        // Keep a separator the user just typed after the year (YYYY) or month
-        // (YYYY-MM). Dropping it made the field look like it stopped accepting
-        // input at 4 characters when typing the required YYYY-MM-DD format.
-        if (/[-/. ]$/.test(raw) && (digits.length === 4 || digits.length === 6)) {
-            value += '-';
-        }
-
-        input.value = value;
+        CarlosDobSearch.formatInput(input);
     }
 
     function checkTypeIn() {
@@ -254,14 +242,12 @@
             document.titlesearch.keyword.value = keyword.value.toLowerCase();
         }
 
-        // DOB format validation
+        // DOB format validation. An empty keyword is left to the server as before;
+        // anything else must be YYYY, YYYY-MM or YYYY-MM-DD with optional % segments.
         if (document.titlesearch.search_mode.value === 'search_dob') {
-            // Remove hyphens for validation
-            const dobValue = keyword.value.replace(/-/g, '');
-
-            // Check if we have enough digits
-            if (dobValue.length > 0 && dobValue.length < 8) {
-                alert("Date format must be YYYY-MM-DD");
+            const dobValue = keyword.value.trim();
+            if (dobValue.length > 0 && !CarlosDobSearch.isValid(dobValue)) {
+                alert(DOB_FORMAT_MESSAGE);
                 typeInOK = false;
             }
         }

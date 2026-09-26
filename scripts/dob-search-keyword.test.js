@@ -1,0 +1,158 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Unit tests for src/main/webapp/share/javascript/dobSearchKeyword.js, the
+ * patient search DOB formatter/validator (issue #3956). Run with:
+ *   node --test scripts/dob-search-keyword.test.js
+ *
+ * The browser validator is user feedback only; DobSearchPattern.java is the
+ * authoritative parser. Both read src/test/resources/demographic/dob-search-keywords.tsv
+ * so an accept/reject decision cannot change on one side without failing the other.
+ */
+
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = path.join(__dirname, '..');
+const dob = require(path.join(ROOT, 'src', 'main', 'webapp', 'share', 'javascript', 'dobSearchKeyword.js'));
+
+const FIXTURE = fs.readFileSync(
+  path.join(ROOT, 'src', 'test', 'resources', 'demographic', 'dob-search-keywords.tsv'),
+  'utf8',
+);
+const FORM_JSP = fs.readFileSync(
+  path.join(ROOT, 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'demographic', 'zdemographicfulltitlesearch.jsp'),
+  'utf8',
+);
+const DAO = fs.readFileSync(
+  path.join(ROOT, 'src', 'main', 'java', 'io', 'github', 'carlos_emr', 'carlos', 'commn', 'dao', 'DemographicDaoImpl.java'),
+  'utf8',
+);
+
+function fixtureCases() {
+  return FIXTURE.split('\n')
+    .filter((line) => line.trim() !== '' && !line.startsWith('#'))
+    .map((line) => {
+      const cols = line.split('\t');
+      return { keyword: cols[0].replace(/<SP>/g, ' '), valid: cols[1] !== 'INVALID' };
+    });
+}
+
+test('the fixture is non-trivial in both directions', () => {
+  const cases = fixtureCases();
+  assert.ok(cases.filter((c) => c.valid).length >= 8, 'expected several accepted shapes');
+  assert.ok(cases.filter((c) => !c.valid).length >= 8, 'expected several rejected shapes');
+});
+
+test('isValid agrees with the server parser on every shared fixture keyword', () => {
+  for (const { keyword, valid } of fixtureCases()) {
+    assert.equal(dob.isValid(keyword), valid, `isValid(${JSON.stringify(keyword)})`);
+  }
+});
+
+test('isValid refuses empty and missing input', () => {
+  for (const value of ['', '   ', null, undefined]) {
+    assert.equal(dob.isValid(value), false);
+  }
+});
+
+test('format keeps the issue #3956 shapes and wildcards intact', () => {
+  const cases = {
+    '1975': '1975',
+    '1975-03': '1975-03',
+    '1975-%-05': '1975-%-05',
+    '%-03-05': '%-03-05',
+    '1975-%': '1975-%',
+    '1975-3-5': '1975-3-5',
+  };
+  for (const [raw, expected] of Object.entries(cases)) {
+    assert.equal(dob.format(raw), expected, `format(${JSON.stringify(raw)})`);
+  }
+});
+
+test('format keeps the pre-existing digit auto-formatting (issue #3237 regression)', () => {
+  const cases = {
+    '19800101': '1980-01-01',
+    '1980-': '1980-',
+    '1980-01-': '1980-01-',
+    '1980/01/01': '1980-01-01',
+    '1980.01.01': '1980-01-01',
+    '1980 01 01': '1980-01-01',
+    '1980010199': '1980-01-01',
+    '1980a01b01': '1980-01-01',
+    '1980--01--01': '1980-01-01',
+    '-1980': '1980',
+    '': '',
+  };
+  for (const [raw, expected] of Object.entries(cases)) {
+    assert.equal(dob.format(raw), expected, `format(${JSON.stringify(raw)})`);
+  }
+});
+
+test('format drops partial-segment and SQL single-character wildcards', () => {
+  assert.equal(dob.format('19%'), '19');
+  assert.equal(dob.format('%%'), '%');
+  assert.equal(dob.format('1975_03_05'), '1975-03-05');
+  assert.ok(!dob.format('1975_%_05').includes('_'));
+});
+
+test('format is idempotent on its own output', () => {
+  const inputs = ['19800101', '1975-%-05', '%-03-05', '1975-3-5', '1980-', '1980 01 01', '%5'];
+  for (const raw of inputs) {
+    const once = dob.format(raw);
+    assert.equal(dob.format(once), once, `format is not stable for ${JSON.stringify(raw)}`);
+  }
+});
+
+test('every keystroke prefix of an accepted keyword formats to a prefix of it', () => {
+  // Typing one character at a time must never rewrite what the user already
+  // entered, which is how the #3237 "stuck at 4 characters" bug presented.
+  for (const target of ['1975-03-05', '1975-%-05', '%-03-05', '1975-03', '1975']) {
+    let value = '';
+    for (const ch of target) {
+      value = dob.format(value + ch);
+      assert.ok(target.startsWith(value), `${JSON.stringify(value)} is not a prefix of ${target}`);
+    }
+    assert.equal(value, target);
+  }
+});
+
+test('formatInput keeps the caret beside the same character on a mid-field edit', () => {
+  // "1980-0101" with the caret after the first month digit: the reformat
+  // inserts a separator later in the string, so the caret must not jump.
+  const input = {
+    value: '1980-0101',
+    selectionStart: 6,
+    setSelectionRange(start, end) { this.selection = [start, end]; },
+  };
+  dob.formatInput(input);
+  assert.equal(input.value, '1980-01-01');
+  assert.deepEqual(input.selection, [6, 6]);
+});
+
+test('formatInput leaves an already-formatted value untouched', () => {
+  const input = {
+    value: '1975-%-05',
+    selectionStart: 2,
+    setSelectionRange() { throw new Error('must not move the caret when nothing changed'); },
+  };
+  dob.formatInput(input);
+  assert.equal(input.value, '1975-%-05');
+});
+
+test('the search form loads the helper and validates through it', () => {
+  assert.match(FORM_JSP, /share\/javascript\/dobSearchKeyword\.js/);
+  assert.match(FORM_JSP, /CarlosDobSearch\.formatInput\(input\)/);
+  assert.match(FORM_JSP, /!CarlosDobSearch\.isValid\(dobValue\)/);
+  // The old 8-digit rule is what issue #3956 removed.
+  assert.ok(!/dobValue\.length < 8/.test(FORM_JSP), 'the 8-digit length check must not come back');
+  // The alert text is localized and JavaScript-encoded, never a raw literal.
+  assert.match(FORM_JSP, /carlos:forJavaScript\(dobFormatMessage\)/);
+});
+
+test('the DAO binds the parsed segments, not a raw split of the keyword', () => {
+  assert.match(DAO, /DobSearchPattern\.parse\(dobStr\)/);
+  assert.match(DAO, /setParameter\("yearOfBirth", dob\.get\(\)\.year\(\)\)/);
+  assert.ok(!/dobStr\.split\("-"\)/.test(DAO), 'the 3-segment split that rejected partial dates must not come back');
+});
