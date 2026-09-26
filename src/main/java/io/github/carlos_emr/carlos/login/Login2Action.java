@@ -67,8 +67,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -1201,7 +1203,8 @@ public final class Login2Action extends ActionSupport {
                 stagedOauthToken,
                 // execute() routes an account that needs MFA to the challenge before this point, so
                 // reaching the chooser with MFA required means the challenge was just completed.
-                isMfaRequired(security));
+                isMfaRequired(security),
+                credentialFingerprint(security));
         PendingSessionChoices.stage(session, PendingSessionChoiceCache.getInstance().store(pending));
 
         LogAction.addLog(security.getProviderNo(), LogConst.LOGIN, "concurrent_sessions_prompted",
@@ -1327,6 +1330,17 @@ public final class Login2Action extends ActionSupport {
             response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
             return NONE;
         }
+        if (!Objects.equals(pending.credentialFingerprint(), credentialFingerprint(security))) {
+            // The password, PIN or PIN-lock settings changed after this sign-in checked them. The
+            // pending login keeps no credentials to re-check, so end it; the next sign-in is
+            // checked against the current values.
+            logger.warn("Session choice refused because the account's credentials changed: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
+            LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "credentials_changed_during_session_choice", ip);
+            PendingSessionChoices.clearFromSession(session);
+            response.sendRedirect(loginFailedRedirectUrl(message("login.concurrentSessions.signInAgain")));
+            return NONE;
+        }
         if (isMfaRequired(security) && !pending.mfaVerified()) {
             // MFA was turned on for the account while the chooser was open, so this sign-in never
             // presented an OTP. End it; the next sign-in goes through the MFA challenge.
@@ -1354,7 +1368,10 @@ public final class Login2Action extends ActionSupport {
             response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
             return NONE;
         }
-        PendingSessionChoices.clearFromSession(session);
+        // Leave the token on the pre-login session until the login rotates that session away
+        // (OscarSessionListener clears it then, on this thread and under this lock). Clearing it
+        // here would let a cancel find no token, skip the admission lock and end the pre-login
+        // session before the new one exists.
         // The role list was captured at sign-in; a role granted or revoked while the chooser was
         // open must be reflected in the session's userrole, as a fresh sign-in would.
         String[] authResult = terminal.authResult();
@@ -1380,6 +1397,27 @@ public final class Login2Action extends ActionSupport {
             }
         }
         return roles.length() == 0 ? null : roles.toString();
+    }
+
+    /**
+     * Digest of the credential fields {@link LoginCheckLoginBean} checks at sign-in: the password
+     * hash, the PIN and the local/remote PIN-lock flags. Binding a pending login to it lets the
+     * chooser submit notice a credential change without keeping any credential itself.
+     *
+     * @param security security row as read now or at sign-in
+     * @return Base64 SHA-256 digest; never {@code null}
+     */
+    static String credentialFingerprint(Security security) {
+        String material = String.join("\u0000",
+                String.valueOf(security.getPassword()), String.valueOf(security.getPin()),
+                String.valueOf(security.getBLocallockset()), String.valueOf(security.getBRemotelockset()));
+        try {
+            return Base64.getEncoder().encodeToString(
+                    MessageDigest.getInstance("SHA-256").digest(material.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            // Every Java platform must provide SHA-256.
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 
     private static boolean isMfaRequired(Security security) {

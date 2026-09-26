@@ -54,13 +54,14 @@ final class PendingSessionChoiceCache {
 
     private static final PendingSessionChoiceCache INSTANCE = new PendingSessionChoiceCache();
 
-    private final Cache<String, PendingSessionChoice> cache;
     /**
-     * Token to security number, kept for the token's whole lifetime even after {@link #consume}.
-     * A cancel racing a submit that already consumed the token still needs the owner to take the
-     * same admission lock; see {@link PendingSessionChoices#clearFromSession}.
+     * One entry per token. A consumed token keeps its entry, with no payload, so its owner stays
+     * known for as long as the completing submit may still be running; see {@link #ownerOf}.
      */
-    private final Cache<String, Integer> owners;
+    private record Entry(PendingSessionChoice choice, Integer owner) {
+    }
+
+    private final Cache<String, Entry> cache;
     private final SecureRandom secureRandom = new SecureRandom();
 
     private PendingSessionChoiceCache() {
@@ -68,16 +69,10 @@ final class PendingSessionChoiceCache {
     }
 
     PendingSessionChoiceCache(Ticker ticker) {
-        Objects.requireNonNull(ticker, "ticker must not be null");
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(TTL)
                 .maximumSize(MAX_SIZE)
-                .ticker(ticker)
-                .build();
-        this.owners = Caffeine.newBuilder()
-                .expireAfterWrite(TTL)
-                .maximumSize(MAX_SIZE)
-                .ticker(ticker)
+                .ticker(Objects.requireNonNull(ticker, "ticker must not be null"))
                 .build();
     }
 
@@ -88,13 +83,25 @@ final class PendingSessionChoiceCache {
     String store(PendingSessionChoice choice) {
         Objects.requireNonNull(choice, "choice must not be null");
         String token = generateToken();
-        owners.put(token, choice.securityNo());
-        cache.put(token, choice);
+        cache.put(token, new Entry(choice, choice.securityNo()));
         return token;
     }
 
+    PendingSessionChoice peek(String token) {
+        if (token == null || token.isEmpty()) {
+            return null;
+        }
+        Entry entry = cache.getIfPresent(token);
+        return entry == null ? null : entry.choice();
+    }
+
     /**
-     * Security number the token was issued for, whether or not it has been consumed yet.
+     * Security number the token was issued for, before and after {@link #consume}.
+     *
+     * <p>The owner lives in the same entry as the payload. Consuming a token rewrites the entry,
+     * which also renews its lifetime, so the owner outlasts the submit that consumed it. A cancel
+     * racing that submit uses it to take the same admission lock
+     * ({@link PendingSessionChoices#clearFromSession}).</p>
      *
      * @return the owner, or {@code null} for an unknown, invalidated or expired token
      */
@@ -102,22 +109,25 @@ final class PendingSessionChoiceCache {
         if (token == null || token.isEmpty()) {
             return null;
         }
-        return owners.getIfPresent(token);
-    }
-
-    PendingSessionChoice peek(String token) {
-        if (token == null || token.isEmpty()) {
-            return null;
-        }
-        return cache.getIfPresent(token);
+        Entry entry = cache.getIfPresent(token);
+        return entry == null ? null : entry.owner();
     }
 
     PendingSessionChoice consume(String token) {
         if (token == null || token.isEmpty()) {
             return null;
         }
-        // Atomic remove-and-return: two concurrent submits of the same token cannot both complete.
-        return cache.asMap().remove(token);
+        // Atomic take-and-mark: two concurrent submits of the same token cannot both complete, and
+        // the consumed entry keeps the owner.
+        PendingSessionChoice[] taken = new PendingSessionChoice[1];
+        cache.asMap().computeIfPresent(token, (key, entry) -> {
+            if (entry.choice() == null) {
+                return entry;
+            }
+            taken[0] = entry.choice();
+            return new Entry(null, entry.owner());
+        });
+        return taken[0];
     }
 
     void invalidate(String token) {
@@ -125,7 +135,6 @@ final class PendingSessionChoiceCache {
             return;
         }
         cache.invalidate(token);
-        owners.invalidate(token);
     }
 
     long size() {
@@ -155,15 +164,18 @@ final class PendingSessionChoiceCache {
      * @param oauthToken the original login's validated {@code oauth_token}; may be {@code null}
      * @param mfaVerified whether this sign-in completed an MFA challenge before the chooser, so the
      *                    submit can tell an MFA requirement added meanwhile from one already met
+     * @param credentialFingerprint digest of the security row's credential fields as they were
+     *                              when the credentials were checked; the submit refuses the login
+     *                              if they changed. {@code null} never matches.
      */
     record PendingSessionChoice(Integer securityNo, String providerNo, String[] authResult,
                                 boolean mobileOptimized, String submitType, String oauthToken,
-                                boolean mfaVerified) {
+                                boolean mfaVerified, String credentialFingerprint) {
 
-        /** A pending login that did not go through MFA. */
+        /** A pending login with no MFA and no credential binding (it cannot complete). */
         PendingSessionChoice(Integer securityNo, String providerNo, String[] authResult,
                              boolean mobileOptimized, String submitType, String oauthToken) {
-            this(securityNo, providerNo, authResult, mobileOptimized, submitType, oauthToken, false);
+            this(securityNo, providerNo, authResult, mobileOptimized, submitType, oauthToken, false, null);
         }
 
         PendingSessionChoice {
@@ -187,6 +199,7 @@ final class PendingSessionChoiceCache {
             return other instanceof PendingSessionChoice that
                     && mobileOptimized == that.mobileOptimized
                     && mfaVerified == that.mfaVerified
+                    && Objects.equals(credentialFingerprint, that.credentialFingerprint)
                     && securityNo.equals(that.securityNo)
                     && providerNo.equals(that.providerNo)
                     && Arrays.equals(authResult, that.authResult)
@@ -197,7 +210,7 @@ final class PendingSessionChoiceCache {
         @Override
         public int hashCode() {
             return Objects.hash(securityNo, providerNo, Arrays.hashCode(authResult), mobileOptimized,
-                    submitType, oauthToken, mfaVerified);
+                    submitType, oauthToken, mfaVerified, credentialFingerprint);
         }
 
         /** Deliberately omits the authentication result and OAuth token from diagnostics. */

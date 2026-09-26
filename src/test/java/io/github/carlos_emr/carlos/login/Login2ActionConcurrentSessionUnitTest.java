@@ -577,7 +577,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "true");
             String token = PendingSessionChoiceCache.getInstance().store(
                     new PendingSessionChoiceCache.PendingSessionChoice(SECURITY_NO, PROVIDER_NO, STR_AUTH, false,
-                            null, null, true));
+                            null, null, true, Login2Action.credentialFingerprint(security())));
             stagedTokens.add(token);
             PendingSessionChoices.stage(request.getSession(true), token);
             Security withMfa = security();
@@ -608,6 +608,42 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             HttpSession established = request.getSession(false);
             assertThat(established).isNotNull();
             assertThat(established.getAttribute("userrole")).isEqualTo("receptionist");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"pin", "password", "remotePinLock"})
+        @DisplayName("should not finish login when a credential changed while the chooser was open")
+        void shouldNotFinishLogin_whenCredentialChangedMeanwhile(String changed) throws Exception {
+            String token = stagePendingChoice();
+            Security current = security();
+            switch (changed) {
+                case "pin" -> current.setPin("9999");
+                case "password" -> current.setPassword("re-encoded");
+                default -> current.setBRemotelockset(1);
+            }
+            when(securityDao.find(SECURITY_NO)).thenReturn(current);
+
+            String result = newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(decodedRedirect()).contains("/loginfailed");
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should keep the token on the pre-login session until the login rotates it away")
+        void shouldKeepTokenOnSession_untilLoginRotatesIt() throws Exception {
+            String token = stagePendingChoice();
+            HttpSession preLogin = request.getSession(false);
+
+            newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            // The old session was invalidated by rotation with the token still on it, so a racing
+            // cancel always finds it and waits on the admission lock (see PendingSessionChoices).
+            assertThat(request.getSession(false)).isNotSameAs(preLogin);
+            assertThat(PendingSessionChoiceCache.getInstance().ownerOf(token)).isEqualTo(SECURITY_NO);
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
         }
 
         @Test
@@ -709,7 +745,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
     private String stagePendingChoice(String oauthToken) {
         String token = PendingSessionChoiceCache.getInstance().store(
                 new PendingSessionChoiceCache.PendingSessionChoice(SECURITY_NO, PROVIDER_NO, STR_AUTH, false, null,
-                        oauthToken));
+                        oauthToken, false, Login2Action.credentialFingerprint(security())));
         PendingSessionChoices.stage(request.getSession(true), token);
         stagedTokens.add(token);
         return token;
