@@ -210,9 +210,13 @@ public class UserSessionManagerImpl implements UserSessionManager {
         if (userSecurityCode == null) {
             return List.of();
         }
-        purgeInvalidSessions();
-        Set<HttpSession> sessions = userSessionMap.get(userSecurityCode);
-        if (sessions == null || sessions.isEmpty()) {
+        // Prune only this user's set: a sign-in must not pay for a sweep of every user's sessions.
+        // The full sweep stays on registration, as before.
+        Set<HttpSession> sessions = userSessionMap.computeIfPresent(userSecurityCode, (key, registered) -> {
+            registered.removeIf(session -> !isLive(session));
+            return registered.isEmpty() ? null : registered;
+        });
+        if (sessions == null) {
             return List.of();
         }
         String currentId = current == null ? null : sessionIdForComparison(current);
