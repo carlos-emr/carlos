@@ -766,12 +766,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function removeInboxhubRow(segmentId, labType) {
         const rowEl = inboxhubItemElement(segmentId, labType);
         if (rowEl.length === 0) {
-            // Nothing followed an item that was never on screen. Clearing the record keeps a
-            // later Rapid Review advance from opening whatever followed an EARLIER
-            // acknowledgement instead of falling back to the first row. An item this window
-            // already removed is different: the popup's window.opener call took it off screen
-            // and remembered its neighbours, and the broadcast that follows must not forget them.
-            if (!isInboxhubItemHandled(segmentId, labType)) { forgetNextInboxhubItem(); }
+            // The remembered neighbours are deliberately left alone. This can be the broadcast
+            // for an item the popup's window.opener call already removed, or an older version
+            // in a lab's chain, which never has a row of its own and is reported after the
+            // version that did -- in both cases the neighbours remembered a moment ago are the
+            // ones Rapid Review must still open. An item that was never on screen forces a
+            // re-fetch, and resetDataPageCount() drops what is stale then.
             return false;
         }
         if (jQuery('#inbox_table').length > 0) {

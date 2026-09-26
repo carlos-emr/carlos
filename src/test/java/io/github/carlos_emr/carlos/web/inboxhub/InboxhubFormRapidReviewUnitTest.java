@@ -198,7 +198,9 @@ class InboxhubFormRapidReviewUnitTest {
      * both and the assertion found its listener in the wrong one.
      */
     private String extractFunction(String jsp, String name) {
-        int start = jsp.indexOf("function " + name + "()");
+        // Matched on the opening parenthesis, not on "()": the functions pinned here take
+        // parameters, and an empty-parenthesis match silently returns -1 for every one of them.
+        int start = jsp.indexOf("function " + name + "(");
         assertThat(start).as("function %s must exist", name).isNotNegative();
         int open = jsp.indexOf('{', start);
         assertThat(open).isNotNegative();

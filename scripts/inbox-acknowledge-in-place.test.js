@@ -475,6 +475,19 @@ test('no fetch in flight means nothing to withdraw and nothing to resume', () =>
   assert.equal(inbox.state.viewFetches, 0);
 });
 
+test('the legacy removeReport opener entry point re-syncs a list still paging, once for the row on screen', () => {
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
+  inbox.context.rapidReviewState = true;
+  inbox.context.removeReport('171', 'HL7');   // the row on screen: a full re-sync is required
+  inbox.context.removeReport('169', 'HL7');   // an older version in its chain: no row, no re-fetch
+  assert.equal(inbox.state.fetches, 1, 'one re-fetch for the chain, not one per version');
+  assert.equal(inbox.totals.totalLabsCount, 3);
+  assert.equal(inbox.context.pendingRapidReviewOpen, true);
+  inbox.render([['170', 'HL7'], ['172', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.deepEqual(inbox.state.opens, ['172'], 'the older version must not make the advance forget the successor');
+});
+
 test('the legacy removeReport opener entry point goes through the shared contract', () => {
   // A popup running an older script calls this once per id in the chain and never asks for a
   // re-fetch itself. Each call is one routing row; the row on screen goes, Rapid Review
