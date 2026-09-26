@@ -482,9 +482,9 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div id="duplicate-member-${ group.key.id }" class="alert alert-info d-none mt-2" role="status">
+                                    <output id="duplicate-member-${ group.key.id }" class="alert alert-info d-none mt-2" style="display: block">
                                         <fmt:message key="messenger.config.MessengerAdmin.msgAlreadyInGroup"/>
-                                    </div>
+                                    </output>
                                 </div>
                                 <div class="row" style="background-color:white;">
                                     <button id="delete-${ group.key.id }" class="btn delete-group-btn float-end"><fmt:message key="messenger.config.MessengerAdmin.btnDeleteGroup"/>

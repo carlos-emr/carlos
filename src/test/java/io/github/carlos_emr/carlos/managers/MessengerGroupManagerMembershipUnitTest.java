@@ -55,7 +55,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -96,7 +95,8 @@ class MessengerGroupManagerMembershipUnitTest {
     @InjectMocks
     private MessengerGroupManager manager;
 
-    private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+    @Mock
+    private LoggedInInfo loggedInInfo;
 
     @BeforeEach
     void allowAdmin() {
@@ -162,7 +162,8 @@ class MessengerGroupManagerMembershipUnitTest {
     @Test
     void shouldRejectDeletedGroup_withoutCreatingOrphanRegistry() {
         when(groupsDao.findForUpdate(GROUP_ID)).thenReturn(null);
-        assertThatThrownBy(() -> manager.addMember(loggedInInfo, contact(), GROUP_ID))
+        ContactIdentifier identifier = contact();
+        assertThatThrownBy(() -> manager.addMember(loggedInInfo, identifier, GROUP_ID))
                 .isInstanceOf(MessengerGroupManager.UnknownGroupException.class);
         verify(groupMembersDao, never()).persist(any());
     }
@@ -265,7 +266,8 @@ class MessengerGroupManagerMembershipUnitTest {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> manager.addMember(loggedInInfo, contact(), GROUP_ID))
+            ContactIdentifier identifier = contact();
+            assertThatThrownBy(() -> manager.addMember(loggedInInfo, identifier, GROUP_ID))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_admin)");
             verify(groupMembersDao, never()).persist(any());
@@ -298,7 +300,8 @@ class MessengerGroupManagerMembershipUnitTest {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> manager.isGroupMember(loggedInInfo, contact(), GROUP_ID))
+            ContactIdentifier identifier = contact();
+            assertThatThrownBy(() -> manager.isGroupMember(loggedInInfo, identifier, GROUP_ID))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_admin)");
         }

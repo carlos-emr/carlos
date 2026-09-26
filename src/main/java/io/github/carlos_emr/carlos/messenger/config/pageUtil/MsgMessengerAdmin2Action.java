@@ -218,7 +218,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
             var result = messengerGroupManager.addMemberIfAbsent(loggedInInfo, contactIdentifier, groupId);
             return result.created() ? writeAddResult(HttpServletResponse.SC_OK, null)
                     : writeAddResult(HttpServletResponse.SC_CONFLICT, "duplicate");
-        } catch (MessengerGroupManager.UnknownGroupException e) {
+        } catch (MessengerGroupManager.UnknownGroupException _) {
             return writeAddResult(HttpServletResponse.SC_BAD_REQUEST, "invalid");
         }
     }
@@ -235,7 +235,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
             if (parts.length > 2) id.setClinicLocationNo(Integer.parseInt(parts[2]));
             if (parts.length > 3) id.setGroupId(Integer.parseInt(parts[3]));
             return id;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -252,7 +252,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         try {
             int groupId = Integer.parseInt(groupParam);
             return groupId >= 0 ? groupId : null;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
