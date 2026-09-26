@@ -110,7 +110,7 @@ Save / Sign / Bill buttons through their handlers because the row sits below the
 ## 0. What has landed so far
 
 Phase 0 of §5 (the shared harness, the suite manifest and the runner) is in the
-repository, and **29 checks implementing this plan are present** — listed
+repository, and **30 checks implementing this plan are present** — listed
 in the second table below, which is the authoritative account of what exists.
 Items outside that implementation table remain planned.
 
@@ -168,6 +168,7 @@ make; neither is a shortcut around the rule.
 | `contact-lifecycle` | §2.4 | External-contact search, punctuation-safe selection, clinical flags, consent, notes, cancellation, association deletion, professional consent/status round-trip, and editing a seeded internal relationship with reciprocal type/flags and duplicate checks |
 | `consultation-directory-crud` | §3.3 | Institution/department create, edit and cancelled/accepted deletion; unselected records survive |
 | `measurement-history` | §2.5 | Dated measurement values, plotted PNG bytes, selected-row deletion and preserved archive |
+| `tickler-validation-messages` | §3.4 | The add and edit tickler popups' validation alert, entered Search ▸ Master Record ▸ Tickler ▸ New Tickler: a failed Save shows exactly one message line, a second failed Save still shows one (issue #3957 — the old pages appended a copy per submit and never cleared it), and a valid save leaves no stale message and writes the restored date to `tickler` |
 
 The navigation audits share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
@@ -302,6 +303,7 @@ priority group where its module lives:
 | `rx-*` (five scripts) | `rx/choosePatient?demographicNo=…` | Chart ▸ Rx (or Master Record ▸ Prescriptions) |
 | `messenger`, `messenger-inbox-actions` | `messenger/DisplayMessages` | Schedule ▸ Msg |
 | `tickler-crud`, `tickler-note-dialog` | `tickler/ViewAddTickler`, `ViewTicklerMain` | Schedule ▸ Tickler ▸ Add Tickler |
+| `tickler-validation-messages` | `tickler/ViewAddTickler`, `ViewTicklerEdit` | Search ▸ Master Record ▸ Tickler ▸ New Tickler; list row ▸ pencil (edit) |
 | `add-login-account`, `assign-role` | `admin/View…AddARecord`, `admin/ProviderRole` | Schedule ▸ Administration ▸ User Management ▸ … |
 | `allergy-add-penicillin`, `allergy-rx-alert` | `rx/showAllergy`, `encounter/IncomingEncounter` | Chart ▸ Allergies |
 | `eform-*` (six scripts) | `eform/efmformmanager`, `efmformadd_data`, `efmshowform_data` | Schedule ▸ Administration ▸ Forms/eForms ▸ Manage eForms; Chart ▸ eForms |

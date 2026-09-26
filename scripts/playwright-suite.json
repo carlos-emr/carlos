@@ -1972,6 +1972,19 @@
       ]
     },
     {
+      "name": "tickler-validation-messages",
+      "script": "scripts/tickler-validation-messages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "next-appointment-lookup",
       "script": "scripts/next-appointment-lookup-playwright-checks.js",
       "tiers": [
