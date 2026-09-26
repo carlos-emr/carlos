@@ -32,8 +32,12 @@
  *     that sat below the target in the table's display order before the click.
  *     Opening the first row -- a different result, by construction -- is the
  *     regression itself.
- *   - THE ACKNOWLEDGED ROW IS GONE and the rest of the list is unchanged, in
- *     the same order.
+ *   - THE ACKNOWLEDGED ROW IS GONE, together with the OLDER VERSIONS of the same
+ *     lab that the acknowledgement files (the popup names them in its hidden
+ *     multiID chain), and the rest of the list is unchanged, in the same order.
+ *     The demo dataset carries one accession with over thirty versions, so a
+ *     check that expected exactly one row to go would misread that filing as
+ *     a disturbed list.
  *   - NO RE-FETCH: the list was fully loaded, so a displayInboxList POST
  *     between the click and the advance would mean the in-place path has
  *     regressed as well.
@@ -121,6 +125,24 @@ async function acknowledgeControl(popup) {
     if (await control.isVisible().catch(() => false)) { return control; }
   }
   return null;
+}
+
+/**
+ * The rows an acknowledgement of this lab takes with it: the lab itself and the older versions
+ * in its chain, which the acknowledgement files. Read off the popup's hidden multiID input
+ * (oldest first) the way oscarMDSIndex.js's acknowledgedVersionIds() reads it: everything up to
+ * and including the acknowledged version. A lab with no chain yields just itself.
+ */
+async function filedVersionsOf(popup, identity) {
+  const [type, segment] = identity.split(':');
+  const chain = await popup.evaluate(() => {
+    const input = document.querySelector('form[id^="acknowledgeForm_"] input[name="multiID"]')
+      || document.querySelector('input[name="multiID"]');
+    return input ? input.value : '';
+  });
+  const ids = String(chain || '').split(',').map((id) => id.trim()).filter((id) => /^\d+$/.test(id));
+  const at = ids.indexOf(segment);
+  return (at < 0 ? [segment] : ids.slice(0, at + 1)).map((id) => `${type}:${id}`);
 }
 
 /**
@@ -222,7 +244,11 @@ async function main() {
     if (!target) {
       throw new SkipCheck('no lab row between the first and last offers an Acknowledge control; every candidate is already acknowledged');
     }
-    const expectedNext = before[target.index + 1];
+    // Everything this acknowledgement takes off the list: the lab and the older versions it
+    // files. The row Rapid Review must open is the first row below the target that is NOT one
+    // of them -- an older version sitting directly below would leave with the acknowledgement.
+    const filed = await filedVersionsOf(target.popup, target.identity);
+    const expectedNext = before.slice(target.index + 1).find((identity) => !filed.includes(identity));
     assert(expectedNext && expectedNext !== before[0],
       `the row below ${target.identity} is ${expectedNext}, which is also the first row, so this check could not tell the fix from the bug`);
     // Read BEFORE the acknowledgement: the row is still on screen and its link still says which
@@ -292,18 +318,24 @@ async function main() {
     const refetches = afterClick.filter((request) => REFETCH_PATTERN.test(request));
     assert(refetches.length === 0,
       `Acknowledging one result re-ran the whole inbox search (${refetches.length} request(s)): ${refetches.slice(0, 2).join(', ')}`);
-    // 4. The rest of the list is the same, in the same order.
-    const expected = before.filter((identity) => identity !== target.identity);
+    // 4. The rest of the list is the same, in the same order: only the acknowledged lab and
+    //    the older versions it filed are gone.
+    const expected = before.filter((identity) => identity !== target.identity && !filed.includes(identity));
     assert(JSON.stringify(after) === JSON.stringify(expected),
-      `Acknowledging ${target.identity} disturbed the rest of the list (${before.length} row(s) before, ${after.length} after).`
-      + `\n    before: ${before.slice(0, 6).join(', ')}...\n    after:  ${after.slice(0, 6).join(', ')}...`);
+      `Acknowledging ${target.identity} disturbed the rest of the list (${before.length} row(s) before, ${after.length} after, `
+      + `${filed.length} version(s) expected to leave).`
+      + `\n    before: ${before.slice(0, 6).join(', ')}...\n    after:  ${after.slice(0, 6).join(', ')}...`
+      + `\n    unexpectedly missing: ${expected.filter((identity) => !after.includes(identity)).slice(0, 6).join(', ')}`
+      + `\n    unexpectedly present: ${after.filter((identity) => !expected.includes(identity)).slice(0, 6).join(', ')}`);
 
     await nextPopup.close().catch(() => {});
     assertStrictPage(recorder, ['inbox', 'lab']);
 
-    console.log(`  acknowledged ${target.identity} (row ${target.index + 1} of ${before.length}) with Rapid Review on`);
-    console.log(`  Rapid Review opened ${expectedNext}, the row below it; first row was ${before[0]}; no inbox re-fetch`);
-    return { acknowledged: target.identity, opened: expectedNext, firstRow: before[0], rows: before.length };
+    console.log(`  acknowledged ${target.identity} (row ${target.index + 1} of ${before.length}) with Rapid Review on; `
+      + `${filed.length} version(s) filed`);
+    console.log(`  Rapid Review opened ${expectedNext}, the row below it; first row was ${before[0]}; no inbox re-fetch; `
+      + `${before.length} row(s) -> ${after.length}`);
+    return { acknowledged: target.identity, opened: expectedNext, firstRow: before[0], rows: before.length, filed: filed.length };
   } finally {
     await browser.close().catch(() => {});
   }
@@ -313,4 +345,4 @@ if (require.main === module) {
   runCheck({ name: 'inbox-rapid-review-advance', run: main });
 }
 
-module.exports = { enterListMode, main, openAcknowledgeableTarget, resultIdentityOf, rowLinkTarget, rowsInDisplayOrder };
+module.exports = { enterListMode, filedVersionsOf, main, openAcknowledgeableTarget, resultIdentityOf, rowLinkTarget, rowsInDisplayOrder };
