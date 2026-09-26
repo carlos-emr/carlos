@@ -80,22 +80,24 @@ async function listedLabels(page, marker) {
 async function runReport(page, s, screen, date, scenario) {
   await h.gotoApp(page, s.config.baseUrl, screen.path);
   await h.assertNotErrorPage(page, `${screen.name} report control`);
-  const form = page.locator('form[name="serviceform"]');
-  await form.locator('input[name="reportAction"][value="unbilled"]').check();
-  await form.locator('select[name="providerview"]').selectOption(s.provider);
-  await form.locator('input[name="xml_vdate"]').fill(date);
-  await form.locator('input[name="xml_appointment_date"]').fill(date);
-  await form.locator('input[name="includeNoShow"]').setChecked(scenario.noShow);
-  await form.locator('input[name="includeCancelled"]').setChecked(scenario.cancelled);
+  // The legacy markup nests <form name="serviceform"> directly inside <table>,
+  // so the HTML parser leaves the controls outside the form element (they stay
+  // form-associated, not descendants). Locate them page-wide: each page has one
+  // report form.
+  await page.locator('input[name="reportAction"][value="unbilled"]').check();
+  await page.locator('select[name="providerview"]').selectOption(s.provider);
+  await page.locator('input[name="xml_vdate"]').fill(date);
+  await page.locator('input[name="xml_appointment_date"]').fill(date);
+  await page.locator('input[name="includeNoShow"]').setChecked(scenario.noShow);
+  await page.locator('input[name="includeCancelled"]').setChecked(scenario.cancelled);
   await Promise.all([
     page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-    form.locator('input[type="submit"]').click(),
+    page.locator('input[type="submit"][value="Create Report"]').click(),
   ]);
   await h.assertNotErrorPage(page, `${screen.name} unbilled report`);
-  const echoed = page.locator('form[name="serviceform"]');
-  h.assert(await echoed.locator('input[name="includeNoShow"]').isChecked() === scenario.noShow,
+  h.assert(await page.locator('input[name="includeNoShow"]').isChecked() === scenario.noShow,
     `${screen.name}: Include No-Show checkbox state was not echoed after submit`);
-  h.assert(await echoed.locator('input[name="includeCancelled"]').isChecked() === scenario.cancelled,
+  h.assert(await page.locator('input[name="includeCancelled"]').isChecked() === scenario.cancelled,
     `${screen.name}: Include Cancelled checkbox state was not echoed after submit`);
   return listedLabels(page, s.marker);
 }
