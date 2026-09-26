@@ -53,6 +53,7 @@ function loadPlaywright() {
   }
 }
 const { chromium } = loadPlaywright();
+const { clickAndAwaitReload } = require('./lib/playwright-ui');
 
 const baseUrl = (process.env.BASE_URL || 'https://127.0.0.1').replace(/\/+$/, '');
 const parsedBase = new URL(baseUrl);
@@ -68,9 +69,14 @@ function credentials() {
   let pin = process.env.ADMIN_PIN;
   if (process.env.ADMIN_FILE) {
     const text = fs.readFileSync(process.env.ADMIN_FILE, 'utf8');
+    // "  user:  carlosdoc" lines; matched by splitting, not by a RegExp
+    // assembled from the field name
     const field = (name) => {
-      const m = text.match(new RegExp(`^\\s*${name}:\\s+(\\S+)\\s*$`, 'm'));
-      return m ? m[1] : undefined;
+      for (const line of text.split(/\r?\n/)) {
+        const [key, ...rest] = line.trim().split(/\s+/);
+        if (key === `${name}:` && rest.length === 1) return rest[0];
+      }
+      return undefined;
     };
     user = user || field('user');
     password = password || field('password');
@@ -102,10 +108,11 @@ async function fillLogin(page, { user, password, pin }) {
   await page.locator('#username').fill(user);
   await page.locator('#password').fill(password);
   await page.locator('#pin').fill(pin);
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
-  ]);
+  // armed before the click: the login POST always navigates (to the schedule,
+  // the forced reset, or the login failure page), and a wait armed after the
+  // click could be satisfied by the form that is already there
+  await clickAndAwaitReload(page, page.locator('input[type="submit"], button[type="submit"]').first(),
+    { label: 'the login button', timeout: 30000 });
 }
 
 async function expectSchedulePage(page, label) {
@@ -172,10 +179,8 @@ async function expectSchedulePage(page, label) {
       await page.locator('input[name="oldPassword"]').fill(creds.password);
       await page.locator('input[name="newPassword"]').fill(newPassword);
       await page.locator('input[name="confirmPassword"]').fill(newPassword);
-      await Promise.all([
-        page.waitForLoadState('domcontentloaded').catch(() => {}),
-        page.locator('input[type="submit"]').first().click(),
-      ]);
+      await clickAndAwaitReload(page, page.locator('input[type="submit"]').first(),
+        { label: 'the password reset button', timeout: 30000 });
       await expectSchedulePage(page, 'after the forced reset');
     });
 

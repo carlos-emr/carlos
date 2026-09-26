@@ -239,7 +239,7 @@ print("ok")
 
 // Behavioral tests mock only the external database/systemd boundary. They run
 // the complete repair command and assert its exit status and persistent state.
-test('repair failure and recovery behavior', () => {
+test('repair failure and recovery behavior', { skip: !ctlSrc && 'set CARLOS_CTL_SRC to a carlos-ctl checkout' }, () => {
   const result = spawnSync('python3', [path.join(__dirname, 'deb-install-completion-tests.py')],
     { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);

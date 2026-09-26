@@ -2562,6 +2562,27 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "deb-login",
+      "script": "scripts/deb-login-playwright-checks.js",
+      "tiers": [
+        "front-door",
+        "extended"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ADMIN_FILE",
+        "ADMIN_PASSWORD",
+        "ADMIN_PIN",
+        "ADMIN_USER",
+        "NEW_PASSWORD",
+        "STRICT_TLS"
+      ]
     }
   ]
 }

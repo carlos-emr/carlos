@@ -20,6 +20,8 @@ jobs:
     name: Node Script Regressions
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
     steps:
       - name: Check out source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -32,6 +34,26 @@ jobs:
           cache: npm
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
+      # Several script tests read carlos-ctl, which is its own repository
+      # since the split; the checkout is the release debian/carlos-ctl.pin
+      # names, so they run against the CLI a release ships. Those tests skip
+      # without it, and a pin whose tag is not published yet (the CLI
+      # release lands before the CARLOS one) is a warning here, not a
+      # failure: debian-python-tests.yml is the job that enforces the pin.
+      - name: Check out the pinned carlos-ctl release
+        run: |
+          set -euo pipefail
+          tag="$(sed -n 's/^tag=//p' debian/carlos-ctl.pin)"
+          if [ -z "$tag" ]; then
+            echo "::error::debian/carlos-ctl.pin names no tag"
+            exit 1
+          fi
+          if git clone --quiet --depth 1 --branch "$tag" \
+              https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"; then
+            echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
+          else
+            echo "::warning::carlos-ctl tag $tag is not published yet; the CLI-dependent script tests are skipped"
+          fi
       - name: Run all script regressions
         run: npm run test:scripts
       - name: Install Chromium for the isolated RTL fixture

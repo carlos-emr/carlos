@@ -78,6 +78,9 @@ MANIFEST_FILES = {
 #: where the carlos-ctl package is imported from, in order (see
 #: ctl_module); resolved once from --ctl-src / $CARLOS_CTL_SRC
 CTL_SRC: Optional[Path] = None
+#: the carlos_ctl modules the generator may import (an allow-list: the
+#: name reaches importlib.import_module)
+CTL_MODULES = ("o19_preflight",)
 MIGRATION_DIR = REPO_ROOT / "database" / "mysql" / "migration"
 
 # O19 schema sources, relative to --oscar-src, in load order. Data/ICD scripts
@@ -1080,13 +1083,21 @@ def ctl_module(name: str):
     generator is about to write -- a circular start.
     """
     import importlib
+    if name not in CTL_MODULES:
+        raise ValueError("ctl_module: {0!r} is not one of {1}".format(
+            name, ", ".join(CTL_MODULES)))
     src = CTL_SRC or (Path(os.environ["CARLOS_CTL_SRC"])
                       if os.environ.get("CARLOS_CTL_SRC") else None)
-    candidates = [str(src)] if src else []
-    candidates.append("/usr/lib/carlos-ctl")
-    for cand in candidates:
-        if cand not in sys.path and (Path(cand) / "carlos_ctl").is_dir():
-            sys.path.append(cand)
+    # The named checkout goes FIRST: it must win over any other carlos_ctl
+    # already importable (another checkout on PYTHONPATH), or the
+    # properties baseline would come from one parser while the preflight
+    # block is rewritten in another tree. The installed package is the
+    # last resort and goes last.
+    if src and str(src) not in sys.path and (src / "carlos_ctl").is_dir():
+        sys.path.insert(0, str(src))
+    installed = "/usr/lib/carlos-ctl"
+    if installed not in sys.path and (Path(installed) / "carlos_ctl").is_dir():
+        sys.path.append(installed)
     try:
         return importlib.import_module("carlos_ctl." + name)
     except ImportError as exc:

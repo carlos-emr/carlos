@@ -174,7 +174,8 @@ override_dh_auto_test:
 	# because a malformed one fails an import at a clinic, not a build.
 	set -e; for f in debian/assets/o19-manifest/*.json; do \
 	  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); \
-	    assert d.get("format")==1 and d.get("kind"), sys.argv[1]' "$$f"; \
+	    assert type(d.get("format")) is int and d["format"]==1 and d.get("kind")' "$$f" \
+	    || { echo "carlos-emr: OSCAR 19 manifest $$f is malformed (not format 1, or not JSON)" >&2; exit 1; }; \
 	done
 
 override_dh_auto_clean:

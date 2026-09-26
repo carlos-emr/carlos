@@ -41,7 +41,9 @@ Build-Depends:
 # eForm renderer (debian/fetch-chromium.sh). Not needed when the
 # build supplies CHROMIUM_DIST or sets SKIP_EFORM_RENDERER.
  curl,
- unzip
+ unzip,
+# override_dh_auto_test parses every shipped OSCAR 19 manifest with python3
+ python3:any
 Standards-Version: 4.7.0
 Homepage: https://github.com/carlos-emr/carlos
 Vcs-Git: https://github.com/carlos-emr/carlos.git
