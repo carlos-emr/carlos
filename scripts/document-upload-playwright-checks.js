@@ -69,6 +69,7 @@
  */
 
 const { chromium } = require('playwright');
+const { releaseChartLocks, closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -243,6 +244,7 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     console.log('PASS chart document Forward: visible dialog, empty-recipient refusal, autocomplete, persisted routing');
   } finally {
     context.off('page', trackPage);
+    await releaseChartLocks(context, config.baseUrl, [...ownedPages]);
     for (const page of ownedPages) {
       await page.close().catch(() => {});
     }
@@ -566,6 +568,7 @@ function documentRowCount() {
 
     assertNoPageErrors(recorder);
 
+    await releaseChartLocks(context, config.baseUrl);
     await context.close();
 
     console.log(
@@ -589,6 +592,6 @@ function documentRowCount() {
     cleanupProbeDocuments();
     cleanupMysqlDefaults();
     fs.rmSync(workDir, { recursive: true, force: true });
-    await browser.close();
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
 })();

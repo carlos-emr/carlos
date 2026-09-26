@@ -239,6 +239,7 @@ Additional confirmed repairs:
 | A service dependency could start the new renderer after stopping the old renderer failed | A persistent marker also gates the new systemd unit. The disposable-VM fault test uses a legacy service with `RefuseManualStop=yes`, verifies the new renderer stays down, and verifies reconfiguration recovers. |
 | Java 25's shared delay scheduler retained the stopped CARLOS webapp class loader | Packaged Tomcat shutdown exposed `ForkJoinPool.commonPool-delayScheduler` retaining the CARLOS loader. Shutdown now detaches only this exact bootstrap-loaded JDK thread's context loader when it belongs to the stopping webapp. It never stops the shared scheduler. Tests use the real scheduler, verify subsequent scheduling still works, and preserve other applications' loaders and ordinary similarly named threads. |
 | The promoted WAR still contained FreeMarker 2.3.34, affected by CVE-2026-84939 | Pin the transitive dependency to 2.3.35 and regenerate its integrity lock. An isolated probe reproduced locale-derived `../` storage paths on 2.3.34 and passed on 2.3.35. Regression tests exercise malformed language, country and variant components, and normal French-Canadian template rendering with the previous compatibility setting. |
+| A stale chart session could delete a lock explicitly transferred to another session | A two-session browser probe against package `.7` reproduced the loss of the new owner's lock. Release now atomically matches provider, patient, note and authenticated session in the database DELETE. Five real Hibernate/H2 cases cover transferred ownership, unrelated locks, repeated release and missing session identities; the committed chart lifecycle harness drives the explicit takeover and both releases. |
 
 The dependency review checked all three open Dependabot alerts. The two `image-size`
 alerts affect the default branch, but this release already locks 2.0.4, beyond the fixed
@@ -326,3 +327,21 @@ eForms, so exhausting that chart's pagination within a short smoke-test limit wa
 valid small-fixture assumption. Optional module flags, episode privileges, three marked
 export appointments and the temporarily absent provider stamp were supplied explicitly for
 their checks, with original values retained for restoration.
+
+### Final serial-suite follow-up
+
+The `.7` full run completed with 149 passes, five failures and two skips. Four failures
+were chart consumers encountering locks left by earlier checks; the other failure was the
+missing OSCAR19 target, while document pagination and BC billing lacked their fixtures.
+Lock acquisition times traced the initial leaked locks to the calculator, document-pagination
+and chart-print checks. Their teardown now awaits authenticated release, including the short
+period when printing suppresses download-triggered pagehide release. Chart popups opened by
+navigation audits are also released before closure, scoped to the popup being closed. This
+is test teardown; the normal-close browser assertion still runs before any helper cleanup.
+
+Investigating that interaction exposed the separate production stale-session race described
+above. The fix uses one conditional DELETE, so a cached lock object or a takeover between a
+read and a delete cannot remove the new session's lock. The focused Java run passed 86 tests
+and the full script regression run passed 1,021 tests. Full Maven verification then passed
+13,330 tests with zero failures/errors and 51 skips, including Checkstyle and WAR packaging.
+Follow-up package, browser and migration results are recorded on #3929.

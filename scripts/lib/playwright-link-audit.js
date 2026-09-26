@@ -573,7 +573,11 @@ async function auditCatalogue(options) {
         await screenshot(target.page, screenshotDir, safeName).catch(() => {});
       }
       if (target && target.isPopup) {
-        await target.page.close().catch(() => {});
+        try {
+          if (options.beforePopupClose) await options.beforePopupClose(target.page);
+        } finally {
+          await target.page.close().catch(() => {});
+        }
       } else if (hostPage.url() !== hostUrl) {
         await hostPage.goBack({ timeout }).catch(() => {});
         await hostPage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});

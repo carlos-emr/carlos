@@ -35,3 +35,26 @@ test('a failed release fails cleanup while still closing the browser', async () 
   await assert.rejects(closeBrowserWithChartCleanup(browser, base), /Release failed/);
   assert.equal(closed, true);
 });
+
+test('final teardown releases its selected chart even while printing suppresses pagehide release', async () => {
+  const vm = require('node:vm');
+  let released = 0;
+  const page = {
+    isClosed: () => false,
+    url: () => 'https://127.0.0.1/carlos/CaseManagementEntry',
+    evaluate: async fn => vm.runInNewContext(`(${fn.toString()})()`, {
+      document: { forms: { caseManagementEntryForm: { elements: { noteId: { value: '0' } } } } },
+      needToReleaseLock: false,
+      demographicNo: '17', CarlosAjax: { getCsrfToken: () => 'fixture' },
+    }),
+  };
+  const context = {
+    pages: () => { throw new Error('Caller-owned pages must not be inspected'); },
+    request: { post: async () => {
+      released++;
+      return { status: () => 200, dispose: async () => {} };
+    } },
+  };
+  await releaseChartLocks(context, base, [page]);
+  assert.equal(released, 1);
+});

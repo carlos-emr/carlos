@@ -5,14 +5,17 @@ const { appUrl, assert } = require('./playwright-harness');
 // beacon reaches the server. Await the same authenticated release operation
 // before tearing down these test charts. Never force another lock,
 // delete drafts, or use this helper to test the application's unload behaviour.
-async function releaseChartLocks(context, baseUrl) {
+async function releaseChartLocks(context, baseUrl, pages = context.pages()) {
   const endpoint = appUrl(baseUrl, '/CaseManagementEntry');
   const appRoot = endpoint.slice(0, endpoint.lastIndexOf('/') + 1);
-  for (const page of context.pages()) {
+  for (const page of pages) {
     if (page.isClosed() || !page.url().startsWith(appRoot)) continue;
     const form = await page.evaluate(() => {
       const chart = document.forms.caseManagementEntryForm;
-      if (!chart || !chart.elements.noteId || globalThis.needToReleaseLock === false) return null;
+      // This is final test teardown, not the download-triggered pagehide that
+      // temporarily suppresses release while printing. Await the authenticated
+      // release even during that short suppression window.
+      if (!chart || !chart.elements.noteId) return null;
       return {
         method: 'releaseNoteLock',
         demographicNo: String(globalThis.demographicNo),
