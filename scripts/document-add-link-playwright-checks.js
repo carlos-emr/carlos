@@ -26,6 +26,11 @@
  *      stores no row, and raises no dialog.
  *   4. A link containing a double quote (attribute break-out attempt) is refused
  *      the same way.
+ *   Behind the packaged nginx + ModSecurity front door the CRS usually refuses
+ *   3 and 4 with a 403 before CARLOS sees them. That still counts as refused
+ *   (nothing stored, nginx-served 403), and the run logs which layer refused;
+ *   point BASE_URL at bare Tomcat to exercise the application-layer message.
+ *   EXPECT_FRONT_DOOR=true requires at least one front-door refusal.
  *
  * Environment (deb-install contract, docs/ui-tests/deb-install-validation.md):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
@@ -96,19 +101,40 @@ async function assertStored(page, config, description, expectedUrl) {
   return documentNo;
 }
 
-async function assertRejected(page, description, url, label) {
-  const response = await submitLink(page, description, url);
-  assert(response.status() < 400, `${label}: rejected Add Link returned HTTP ${response.status()}`);
-  const alert = page.locator('#addLinkDiv .alert-danger');
-  await alert.first().waitFor({ state: 'visible', timeout: 15000 });
-  assert(/http:\/\/ and https:\/\//.test(await alert.first().innerText()),
-    `${label}: the Add Link panel did not explain that only http/https links are allowed`);
-  assert(await page.locator('#addLinkDiv #html').inputValue() === url,
-    `${label}: the rejected URL was not kept in the field for correction`);
-  assert(await page.locator('#addLinkDiv #html.is-invalid').count() === 1,
-    `${label}: the URL field is not marked invalid`);
-  assert(docRows(`${description} (link)`).length === 0 && docRows(description).length === 0,
-    `${label}: a rejected link was stored`);
+/**
+ * Submits an unsafe URL on its own page and asserts it was refused with nothing stored.
+ *
+ * Behind the packaged nginx + ModSecurity front door the CRS may refuse the POST with a
+ * bare 403 before CARLOS sees it; that is a valid (earlier) refusal, attributed to the
+ * WAF only when nginx served it. Against bare Tomcat the application must refuse it
+ * itself: the Add Link panel shows the http/https error, keeps the typed value for
+ * correction and marks the field invalid. Returns which layer refused.
+ */
+async function assertRejected(context, config, demographicNo, recorder, description, url, label) {
+  const page = await context.newPage();
+  const pageLabel = `reject-${label}`;
+  wireStrictPage(page, pageLabel, recorder);
+  try {
+    await openReport(page, config, demographicNo);
+    const response = await submitLink(page, description, url);
+    assert(docRows(`${description} (link)`).length === 0 && docRows(description).length === 0,
+      `${label}: a rejected link was stored`);
+    if (response.status() === 403 && /nginx/i.test(response.headers().server || '')) {
+      return { label, layer: 'front-door', pageLabel };
+    }
+    assert(response.status() < 400, `${label}: rejected Add Link returned HTTP ${response.status()}`);
+    const alert = page.locator('#addLinkDiv .alert-danger');
+    await alert.first().waitFor({ state: 'visible', timeout: 15000 });
+    assert(/http:\/\/ and https:\/\//.test(await alert.first().innerText()),
+      `${label}: the Add Link panel did not explain that only http/https links are allowed`);
+    assert(await page.locator('#addLinkDiv #html').inputValue() === url,
+      `${label}: the rejected URL was not kept in the field for correction`);
+    assert(await page.locator('#addLinkDiv #html.is-invalid').count() === 1,
+      `${label}: the URL field is not marked invalid`);
+    return { label, layer: 'application', pageLabel };
+  } finally {
+    await page.close();
+  }
 }
 
 async function main() {
@@ -162,14 +188,24 @@ async function main() {
     await assertStored(page, config, bareDesc, `https://${PROBE_HOST}/schemeless`);
 
     // 3. and 4. unsafe input is refused without storing anything or running script.
-    await openReport(page, config, demographicNo);
-    await assertRejected(page, `${marker}-javascript`, 'javascript:alert(document.domain)', 'javascript: scheme');
-    await openReport(page, config, demographicNo);
-    await assertRejected(page, `${marker}-quote`, `https://${PROBE_HOST}/x"onmouseover="alert(1)`, 'double quote');
+    const refusals = [
+      await assertRejected(context, config, demographicNo, recorder,
+        `${marker}-javascript`, 'javascript:alert(document.domain)', 'javascript-scheme'),
+      await assertRejected(context, config, demographicNo, recorder,
+        `${marker}-quote`, `https://${PROBE_HOST}/x"onmouseover="alert(1)`, 'double-quote'),
+    ];
+    for (const refusal of refusals) console.log(`${refusal.label}: refused by the ${refusal.layer}`);
+    if (config.expectFrontDoor) {
+      assert(refusals.some((r) => r.layer === 'front-door'), 'EXPECT_FRONT_DOOR is set but no refusal came from nginx');
+    }
 
     assert(recorder.dialogs.length === 0, 'a dialog was raised; the link input reached a script context');
-    assertStrictPage(recorder);
-    return { demographicNo, stored: 2, rejected: 2 };
+    // A WAF refusal is a deliberate 403 on that probe page only; every other page stays strict.
+    const wafPages = new Set(refusals.filter((r) => r.layer === 'front-door').map((r) => r.pageLabel));
+    const strictLabels = [...new Set([...recorder.pageErrors, ...recorder.consoleIssues, ...recorder.requestFailures,
+      ...recorder.badResponses, ...recorder.unexpectedDialogs].map((e) => e.label))].filter((l) => !wafPages.has(l));
+    assertStrictPage(recorder, ['edoc-report', 'link-viewer', 'login', ...strictLabels]);
+    return { demographicNo, stored: 2, refusals: refusals.map((r) => `${r.label}:${r.layer}`).join(',') };
   } finally {
     if (browser) await browser.close();
   }
