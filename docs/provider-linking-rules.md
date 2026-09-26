@@ -63,6 +63,8 @@ Rules shared by every path:
 - **Every change of the switch is audited** in the `log` table:
   `action = 'update'`, `content = 'providerLinkingRules'`, `data = 'enabled=true|false'`, with the
   administrator's provider number and IP address.
+- **Audit entries are written only after the change commits.** A match that rolls back leaves
+  no entry, so the log never records a routing that did not happen.
 - **Every automatic routing is audited** in the `log` table:
   `action = 'route to MRP'`, `content = 'providerLinkingRules'`,
   `contentId = '<HL7|MDS|CML|…|HRM>:<report id>'`, `demographic_no` (not recorded for an HL7
@@ -76,12 +78,23 @@ Rules shared by every path:
 | Piece | Class |
 |---|---|
 | Read and change the switch, and audit changes | `lab.service.ProviderLinkingRulesService` |
+| Defer an audit entry until its transaction commits | `lab.service.CommittedAudit` |
 | Decide on and perform MRP routing, and audit it | `lab.service.MrpRoutingService` |
 | Route an HRM report to a provider (row, forwarding rules, unclaimed cleanup); shared with the manual assign-provider action | `hospitalReportManager.service.HrmProviderRoutingService` |
 | HL7 upload hook | `MessageUploader.routeToProviders` |
 | Lab Patient Match hook (now POST only) | `mds.pageUtil.PatientMatch2Action` |
 | HRM assign-patient hook, and the viewer reload | `HRMModifyDocument2Action.assignDemographic`, `hospitalReportManager/hrmActions.js` |
 | Admin page | `admin.web.ProviderLinkingRules2Action`, `admin.web.SaveProviderLinkingRules2Action`, `WEB-INF/jsp/admin/providerLinkingRules.jsp` |
+
+**Related HRM fix.** HRM changes run under a report lock (`HRMDocumentDao.findForUpdate`). That
+lock loads the eager `matchedProviders` and `matchedDemographics` collections. Removing one of
+those rows with `EntityManager.remove()` made the next flush throw
+`TransientPropertyValueException`. As a result, assigning a provider to an unclaimed report
+failed on `release/2026.08`, and so did unlinking or re-linking a patient. The unclaimed and
+patient rows are now deleted in bulk
+(`HRMDocumentToProviderDao.deleteByHrmDocumentIdAndProviderNo`,
+`HRMDocumentToDemographicDao.deleteByHrmDocumentId`). `HRMModifyTransactionIntegrationTest`
+pins all four cases.
 
 The unused `auto_link_to_mrp` key and its `ProviderManager2` methods, left over from the fork's
 first commit, were removed. They required a security object CARLOS never seeded, and nothing

@@ -274,6 +274,47 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should audit an HRM routing only once the match commits")
+        void shouldDeferAudit_untilTransactionCommits() {
+            when(rules.isEnabled()).thenReturn(true);
+            givenPatientWithMrp(MRP);
+            givenProvider(MRP, "1");
+            org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+            try {
+                service.routeMatchedHrmToMrp(7, PATIENT, "999998");
+                logActionMock.verifyNoInteractions();
+
+                org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()
+                        .forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+
+                logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(MrpRoutingService.AUDIT_ACTION),
+                        eq(MrpRoutingService.AUDIT_CONTENT), eq("HRM:7"), isNull(), eq("42"), eq("mrp=101")));
+            } finally {
+                org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+
+        @Test
+        @DisplayName("should leave no audit entry for a match that rolls back")
+        void shouldNotAudit_whenTransactionRollsBack() {
+            // The packaged install once logged "route to MRP" for an HRM match whose transaction
+            // then failed at flush: the MRP never received the report, yet the audit said so.
+            when(rules.isEnabled()).thenReturn(true);
+            givenPatientWithMrp(MRP);
+            givenProvider(MRP, "1");
+            org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+            try {
+                service.routeMatchedHrmToMrp(7, PATIENT, "999998");
+                org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()
+                        .forEach(sync -> sync.afterCompletion(
+                                org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK));
+                logActionMock.verifyNoInteractions();
+            } finally {
+                org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+
+        @Test
         @DisplayName("should not route an HRM report to an MRP of 0")
         void shouldSkip_whenMrpIsZero() {
             when(rules.isEnabled()).thenReturn(true);

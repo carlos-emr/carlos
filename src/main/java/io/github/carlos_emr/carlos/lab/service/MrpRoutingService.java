@@ -59,7 +59,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * <p>No privilege is checked here: the decision must be the same whoever triggers the match, and
  * the callers have already authorised the match itself. Sending a result to the MRP widens who
  * can see it, but only to the provider the chart names as responsible for the patient. Each
- * automatic routing is written to the audit log; nothing from the report is logged.</p>
+ * automatic routing is written to the audit log once it has committed; nothing from the report is
+ * logged.</p>
  *
  * @since 2026-09-26
  */
@@ -209,10 +210,13 @@ public class MrpRoutingService {
 
     private void audit(String actorProviderNo, String type, String reportId, String mrp, Integer demographicNo) {
         // The audit log is the authorised record of who can see what; the application log only
-        // gets identifiers, sanitised, and never report content.
-        LogAction.addLog(actorProviderNo, AUDIT_ACTION, AUDIT_CONTENT, type + ":" + reportId, null,
-                demographicNo == null ? null : demographicNo.toString(), "mrp=" + mrp);
-        logger.info("Provider linking rules routed {} report {} to its MRP",
-                LogSafe.sanitize(type), LogSafe.sanitize(reportId));
+        // gets identifiers, sanitised, and never report content. Deferred to commit: an HRM match
+        // rolled back after routing must not leave a routing in the audit log that never happened.
+        CommittedAudit.write(() -> {
+            LogAction.addLog(actorProviderNo, AUDIT_ACTION, AUDIT_CONTENT, type + ":" + reportId, null,
+                    demographicNo == null ? null : demographicNo.toString(), "mrp=" + mrp);
+            logger.info("Provider linking rules routed {} report {} to its MRP",
+                    LogSafe.sanitize(type), LogSafe.sanitize(reportId));
+        });
     }
 }

@@ -108,7 +108,9 @@ public class ProviderLinkingRulesService {
             }
         }
 
-        LogAction.addLog(loggedInInfo, LogConst.UPDATE, AUDIT_CONTENT, null, null, "enabled=" + value);
+        // Recorded once the change has committed, so a failed save is never audited as made.
+        CommittedAudit.write(() ->
+                LogAction.addLog(loggedInInfo, LogConst.UPDATE, AUDIT_CONTENT, null, null, "enabled=" + value));
         return enabled;
     }
 
