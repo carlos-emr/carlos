@@ -3,9 +3,13 @@
 Development-side tooling for the `carlos-ctl import-o19` clinic importer.
 Design and operational spec: `docs/oscar19-to-carlos-migration-plan.md`;
 operator runbook for the shipped verbs: `docs/o19-import-deb.md`.
-The importer itself ships with the Debian package
-(`debian/assets/carlos_ctl/o19*.py`); this directory holds what does NOT
-ship — the manifest generator, its curation overlays, and rehearsal fixtures.
+The importer itself is part of the `carlos-ctl` package, its own repository
+since the split ([carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl),
+`carlos_ctl/o19*.py`); this directory holds what stays beside the schema —
+the manifest generator, its curation overlays, the shipped manifests' tests
+(`tests/`) and rehearsal fixtures. The generated manifests themselves are
+`debian/assets/o19-manifest/*.json`, installed by `carlos-emr` under
+`/usr/share/carlos-emr/o19-manifest/` and loaded by the CLI at run time.
 
 > The migration path is **(experimental)**: every migration's output should
 > receive a technical review — verification report, spot checks, UI smoke —
@@ -57,24 +61,37 @@ git clone --branch OSCAR_19_RC1 --depth 1 \
 git -C /tmp/oscar19 fetch --depth 1 origin \
     a7900d569d3faf741993e5e1da8c14021bbefede
 git -C /tmp/oscar19 checkout --detach FETCH_HEAD
-python3 scripts/migration/o19/generate_manifests.py --oscar-src /tmp/oscar19
-cd debian/assets && python3 -m unittest discover -s carlos_ctl/tests -t .
+python3 scripts/migration/o19/generate_manifests.py --oscar-src /tmp/oscar19 \
+    --ctl-src /path/to/carlos-ctl
+CARLOS_CTL_SRC=/path/to/carlos-ctl \
+    python3 -m unittest discover -s scripts/migration/o19/tests -t .
+(cd /path/to/carlos-ctl && CARLOS_SRC="$OLDPWD" python3 -m unittest discover -s tests -t .)
 ```
+
+`--ctl-src` names a checkout of carlos-emr/carlos-ctl: the generator borrows
+the CLI's properties parser from it (or from `$CARLOS_CTL_SRC`, or the
+installed package under `/usr/lib/carlos-ctl`) and refreshes the manifest
+copy inlined in its `carlos_ctl/o19_preflight.py` — commit that in the
+carlos-ctl repository when it changes. Without `--ctl-src` the JSON is
+written and the inlined copy is left alone (`carlos-ctl o19-preflight
+--write-standalone` inlines the installed manifest at any time).
 
 Use the exact source commit recorded in `fixtures/PROVENANCE.md`: the
 `OSCAR_19_RC1` tag alone points to a different tree and does not reproduce
 the shipped manifests. For verification, add `--check` to generation.
 
-Outputs (generated — never hand-edit): `debian/assets/carlos_ctl/
-o19map_schema.py`, `o19map_props.py`, and the marker-delimited data block in
-`o19_preflight.py`. Any O19 table the overlays don't classify is emitted as
+Outputs (generated — never hand-edit): `debian/assets/o19-manifest/
+o19map_schema.json`, `o19map_props.json`, `o19_preflight.json` (each with
+`"format": 1`, which the CLI's loader checks) and, with `--ctl-src`, the
+marker-delimited data block in the CLI's `o19_preflight.py`. Any O19 table
+the overlays don't classify is emitted as
 class `unknown`, which `test_manifest_integrity.py` refuses — classify it in
 `overrides_schema.py` and bump `SCHEMA_MAP_VERSION` (`o19map-N`; deliberately
 not CalVer-shaped so it can't be misread as a CARLOS release version).
 
 `--check` regenerates in memory and exits non-zero on drift (for review);
-it covers both manifest modules and the generated block in
-`o19_preflight.py`. The outputs carry no wall-clock stamp, only the O19
+it covers the three JSON manifests and, with `--ctl-src`, the generated
+block in `o19_preflight.py`. The outputs carry no wall-clock stamp, only the O19
 source commit, so an unchanged input regenerates byte-identical output.
 Credential-bearing stock defaults are never emitted (`SECRET_DEFAULT_KEYS`
 lists the keys instead; the props phase always surfaces them for review).

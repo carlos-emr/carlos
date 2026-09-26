@@ -378,7 +378,7 @@ shipped). Being additive (`INSERT IGNORE` only), it never touches
 the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 (The devcontainer counterpart is `.devcontainer/db/scripts/populate_db.sh`;
 if the two ever disagree about the RTL chain, that script and
-`debian/assets/carlos_ctl/dbops.py` are the authorities.)
+`carlos_ctl/dbops.py` in carlos-emr/carlos-ctl are the authorities.)
 
 `carlos-ctl demo-data` also copies the demo document FILES (the PDFs the
 dump's document rows reference, plus the fictitious HRM report that

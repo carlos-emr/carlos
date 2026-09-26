@@ -4,7 +4,9 @@
 # Build the Debian packages (carlos-emr for amd64, which carries the eForm
 # renderer's vendored Chromium; carlos-emr-drugref; and the empty transitional
 # carlos-emr-eform-renderer that upgrades pre-merge installs), attach them to
-# the release, and PUBLISH the release as the final step.
+# the release together with the pinned carlos-ctl package (built and attested
+# by carlos-emr/carlos-ctl's own release workflow; debian/carlos-ctl.pin names
+# the release), and PUBLISH the release as the final step.
 #
 # DESIGN — a SEPARATE workflow from publish-release.yml, but it FINALIZES the
 # release: publish-release.yml leaves the release as a DRAFT carrying the WAR +
@@ -179,6 +181,18 @@ jobs:
                 missing_pkgs="$missing_pkgs $pkg"
               fi
             done
+            # The pinned carlos-ctl package is part of the install (carlos-emr
+            # depends on it), so a release without it is not finished either.
+            # Judged by the tag's own pin: a backfill of a tag that predates
+            # the split has no pin and expects no such asset.
+            ctl_tag="$(sed -n 's/^tag=//p' debian/carlos-ctl.pin 2>/dev/null || true)"
+            if [ -n "$ctl_tag" ]; then
+              ctl_re="$(printf '%s' "$ctl_tag" | sed 's/[.]/\\./g; s/-/[.~]/g')"
+              if ! printf '%s\n' "$info" | tail -n +2 | grep -q "^carlos-ctl_${ctl_re}_all\.deb\$"; then
+                state=missing
+                missing_pkgs="$missing_pkgs carlos-ctl($ctl_tag)"
+              fi
+            fi
           fi
           case "$state" in
             draft|none)
@@ -305,8 +319,28 @@ jobs:
         if: env.SKIP != 'true'
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
+          # Only the packages THIS build produced. The carlos-ctl .deb added
+          # below carries the attestation its own release workflow created
+          # (verified there against carlos-emr/carlos-ctl); re-attesting it
+          # here would claim this run built bytes it merely downloaded.
           subject-path: |
-            release-assets/*.deb
+            release-assets/carlos-emr*.deb
+
+      - name: Add the pinned carlos-ctl package to the release assets
+        if: env.SKIP != 'true'
+        run: |
+          set -euo pipefail
+          # carlos-emr depends on carlos-ctl, which is its own package with its
+          # own releases (carlos-emr/carlos-ctl). Every carlos release
+          # re-attaches the pinned carlos-ctl .deb and its .sha256 so one
+          # release page carries the whole install; the fetch verifies the
+          # download against that release's .sha256 AND its build-provenance
+          # attestation before the file can become a release asset here.
+          # Attesting is not repeated (see the previous step); operators verify
+          # this asset with `gh attestation verify ... --repo carlos-emr/carlos-ctl`.
+          debian/fetch-carlos-ctl.sh /tmp/carlos-ctl
+          cp /tmp/carlos-ctl/carlos-ctl_*_all.deb /tmp/carlos-ctl/carlos-ctl_*_all.deb.sha256 release-assets/
+          ls -la release-assets
 
       - name: Upload and verify the release assets
         if: env.SKIP != 'true'

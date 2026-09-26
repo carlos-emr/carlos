@@ -23,6 +23,8 @@ q() { mariadb -u root carlos -Nse "$1" 2>/dev/null | tr '\n' ',' | sed 's/,$//';
 echo "pkg.carlos-emr=$(dpkg-query -W -f='${Version}' carlos-emr 2>/dev/null)"
 echo "pkg.drugref=$(dpkg-query -W -f='${Version}' carlos-emr-drugref 2>/dev/null)"
 echo "pkg.renderer=$(dpkg-query -W -f='${Version}' carlos-emr-eform-renderer 2>/dev/null)"
+echo "pkg.carlos-ctl=$(dpkg-query -W -f='${Version}' carlos-ctl 2>/dev/null)"
+echo "ctl.owner=$(dpkg -S /usr/sbin/carlos-ctl 2>/dev/null | cut -d: -f1)"
 echo "service.active=$(systemctl is-active carlos-emr 2>/dev/null)"
 echo "service.nrestarts=$(systemctl show carlos-emr -p NRestarts --value 2>/dev/null)"
 echo "flyway.count=$(q 'SELECT COUNT(*) FROM flyway_schema_history WHERE success=1')"

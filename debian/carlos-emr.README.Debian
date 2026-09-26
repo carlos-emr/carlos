@@ -107,11 +107,18 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
                                          and read-only to the service account
   /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
+  /usr/share/carlos-emr/o19-manifest/    the OSCAR 19 import manifests (JSON;
+                                         read by carlos-ctl import-o19)
   /usr/lib/carlos-emr/                   the administrative helpers
   /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
                                          chromedriver (run by the
                                          carlos-emr-render-browser service)
-  /usr/sbin/carlos-ctl                    the administration command
+  /usr/sbin/carlos-ctl                    the administration command -- the
+                                         separate carlos-ctl package, which
+                                         carlos-emr depends on (its code is
+                                         under /usr/lib/carlos-ctl; through
+                                         2026.08.0~alpha15 it was part of
+                                         carlos-emr)
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
   /etc/carlos-emr/carlos.properties      application configuration + credentials
