@@ -90,6 +90,8 @@ public class RootEntryRedirectFilter extends HttpFilter {
      * cookie is still present here whether the browser arrived from the heartbeat redirect or from
      * {@link io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver}.</p>
      */
+    // FindSecBugs SERVLET_SESSION_ID: the requested id is only hashed and looked up in RevokedUserSessions; it is never logged, echoed or trusted as identity.
+    @SuppressFBWarnings(value = "SERVLET_SESSION_ID", justification = "requested session id is only hashed for a RevokedUserSessions lookup; never logged, echoed or trusted as identity")
     static void markSignedOutElsewhere(HttpServletRequest request) {
         String requestedSessionId = request.getRequestedSessionId();
         if (requestedSessionId != null && !request.isRequestedSessionIdValid()

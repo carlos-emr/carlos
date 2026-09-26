@@ -1122,6 +1122,8 @@ public final class Login2Action extends ActionSupport {
      * Counts the user's other sessions and acts on the policy's decision. Runs under the per-user
      * admission lock taken by {@link #applyConcurrentSessionPolicy}.
      */
+    // FindSecBugs XSS_SERVLET: the AJAX refusal is a Jackson-serialized JSON body with a bundle message, not an HTML sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "AJAX refusal is a Jackson-serialized JSON body carrying a resource-bundle message, not an HTML XSS sink")
     private String admitUnderPolicy(Security security, String[] strAuth, String ip, boolean isMobileOptimized,
                                     String submitType, boolean ajaxResponse, String oauthToken,
                                     ConcurrentSessionPolicy policy) throws IOException {
@@ -1233,7 +1235,8 @@ public final class Login2Action extends ActionSupport {
      * @throws IOException if redirecting or writing the response fails
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path, not an attacker-controlled external URL")
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the HTTP method name against "POST"; not a security decision on user text.
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"}, justification = "UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL. IMPROPER_UNICODE: case-insensitive comparison of the HTTP method name against POST")
     public String submitSessionChoice() throws IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
@@ -1263,6 +1266,24 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
+        // The account re-check, limit re-check, token consumption and completion run under the same
+        // per-user lock as a direct login, so a login racing this submit is counted before either
+        // registers and an account change cannot slip between check and completion.
+        return ConcurrentSessionAdmission.serialize(pending.securityNo(),
+                () -> completeSessionChoice(session, token, pending, signOutOthers, ip));
+    }
+
+    /**
+     * Re-checks the limit, consumes the pending login and completes it. Runs under the per-user
+     * admission lock taken by {@link #submitSessionChoice()}.
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path, not an attacker-controlled external URL")
+    private String completeSessionChoice(HttpSession session, String token,
+                                         PendingSessionChoiceCache.PendingSessionChoice pending,
+                                         boolean signOutOthers, String ip) throws IOException {
+        // Re-checked inside the admission lock so an account change cannot land between this check
+        // and the token being consumed.
         Security security = this.securityDao.find(pending.securityNo());
         Provider provider = this.providerDao.getProvider(pending.providerNo());
         if (security == null || provider == null || "0".equals(provider.getStatus())
@@ -1278,21 +1299,6 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
-        // The re-check, token consumption and completion run under the same per-user lock as a
-        // direct login, so a login racing this submit is counted before either registers.
-        return ConcurrentSessionAdmission.serialize(pending.securityNo(),
-                () -> completeSessionChoice(session, token, pending, security, signOutOthers, ip));
-    }
-
-    /**
-     * Re-checks the limit, consumes the pending login and completes it. Runs under the per-user
-     * admission lock taken by {@link #submitSessionChoice()}.
-     */
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path, not an attacker-controlled external URL")
-    private String completeSessionChoice(HttpSession session, String token,
-                                         PendingSessionChoiceCache.PendingSessionChoice pending,
-                                         Security security, boolean signOutOthers, String ip) throws IOException {
         ConcurrentSessionPolicy policy = ConcurrentSessionPolicy.fromProperties(CarlosProperties.getInstance());
         if (!signOutOthers && policy.isLimitReached(
                 this.userSessionManager.countOtherActiveSessions(pending.securityNo(), session))) {
@@ -1374,8 +1380,17 @@ public final class Login2Action extends ActionSupport {
                                               boolean isMobileOptimized, String submitType,
                                               boolean ajaxResponse, String oauthToken,
                                               OtherSessions otherSessions) throws IOException {
-        String result = establishAuthenticatedSession(security, strAuth, ip, isMobileOptimized, submitType,
-                ajaxResponse, oauthToken);
+        String result;
+        try {
+            result = establishAuthenticatedSession(security, strAuth, ip, isMobileOptimized, submitType,
+                    ajaxResponse, oauthToken);
+        } catch (IOException | RuntimeException setupFailure) {
+            // A session registered but not fully set up must not linger in the registry, where it
+            // would count toward the concurrent-session limit. Invalidating it runs
+            // OscarSessionListener, which unregisters it.
+            invalidateQuietly(request.getSession(false));
+            throw setupFailure;
+        }
         // Settle other sessions only once the new one has survived every failure-prone setup step
         // (provider load, facility, logged-in info, OAuth binding). If setup failed, the new
         // session was invalidated or an exception is propagating, and the user's existing sessions
@@ -1385,6 +1400,17 @@ public final class Login2Action extends ActionSupport {
             settleOtherSessions(security, established, strAuth[0], ip, otherSessions);
         }
         return result;
+    }
+
+    private static void invalidateQuietly(HttpSession session) {
+        if (session == null) {
+            return;
+        }
+        try {
+            session.invalidate();
+        } catch (IllegalStateException alreadyInvalid) {
+            // Already gone; nothing to clean up.
+        }
     }
 
     private static boolean isSignedIn(HttpSession session) {

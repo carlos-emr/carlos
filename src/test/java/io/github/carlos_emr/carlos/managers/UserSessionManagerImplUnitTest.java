@@ -239,4 +239,28 @@ class UserSessionManagerImplUnitTest {
         when(session.getAttribute(UserSessionManagerImpl.KEY_LOGIN_REMOTE_ADDR)).thenReturn(remoteAddr);
         return session;
     }
+
+    @Test
+    @DisplayName("should publish the revocation marker before the session dies")
+    void shouldPublishMarker_beforeInvalidating() {
+        UserSessionManagerImpl manager = new UserSessionManagerImpl();
+        Integer securityCode = 3987;
+        MockHttpSession keep = new MockHttpSession();
+        java.util.concurrent.atomic.AtomicBoolean markedWhileDying = new java.util.concurrent.atomic.AtomicBoolean();
+        MockHttpSession other = new MockHttpSession() {
+            @Override
+            public void invalidate() {
+                // What an old browser racing the destroy would see from the rejection path.
+                markedWhileDying.set(RevokedUserSessions.isRevoked(getId()));
+                super.invalidate();
+            }
+        };
+        manager.registerUserSession(securityCode, keep);
+        manager.registerUserSession(securityCode, other);
+
+        manager.invalidateOtherSessions(securityCode, keep);
+
+        assertThat(markedWhileDying.get()).isTrue();
+        RevokedUserSessions.consume(other.getId());
+    }
 }

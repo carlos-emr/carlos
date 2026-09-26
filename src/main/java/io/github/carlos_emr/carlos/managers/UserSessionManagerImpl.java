@@ -180,16 +180,18 @@ public class UserSessionManagerImpl implements UserSessionManager {
         int revoked = 0;
         for (HttpSession session : otherLiveSessions(userSecurityCode, keep)) {
             String sessionId = sessionIdForComparison(session);
+            // Mark BEFORE invalidating: the old browser can hit the rejection path the moment the
+            // session dies, and must already find the marker there. If the session turns out to be
+            // gone already (expired or signed out concurrently), withdraw the marker so that
+            // browser is not told another sign-in removed it.
+            RevokedUserSessions.mark(sessionId);
             try {
                 session.invalidate();
             } catch (IllegalStateException e) {
-                // Already gone (expired or signed out concurrently): nothing to revoke or report.
+                RevokedUserSessions.consume(sessionId);
                 logger.debug("Session already invalidated: {}", e.getMessage());
                 continue;
             }
-            // Mark only after a successful invalidate so a browser whose session simply expired is
-            // not later told that another sign-in removed it.
-            RevokedUserSessions.mark(sessionId);
             revoked++;
         }
         if (revoked > 0) {

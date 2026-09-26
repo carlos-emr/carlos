@@ -73,7 +73,9 @@ error rather than signing out sessions the user was never asked about.
 - **Other sessions are signed out only after the new login fully succeeds.** The new session is
   registered first. The older sessions are settled only once it has passed every failure-prone
   setup step: provider load, facility, logged-in info and OAuth binding. A login that fails
-  part-way leaves the user's existing sessions, and any unsaved work in them, untouched.
+  part-way leaves the user's existing sessions, and any unsaved work in them, untouched. A new
+  session whose setup throws is invalidated, so it never lingers in the registry and counts toward
+  the limit.
 - **One admission at a time per user.** Counting, deciding, registering and settling run under a
   per-user lock (`ConcurrentSessionAdmission`; 64 lock stripes, per JVM). Two simultaneous logins
   for the same account therefore cannot both count the same sessions. Without the lock, both could
@@ -85,6 +87,8 @@ error rather than signing out sessions the user was never asked about.
   each session. That runs `OscarSessionListener`, which releases case-note locks, clears pending
   MFA and chooser state, and unregisters the session. The registry takes a snapshot first because
   the listener modifies the same registry entry.
+- **The marker is published before the session dies.** A browser racing the invalidation already
+  finds the marker. If the session turns out to be gone already, the marker is withdrawn.
 - **The signed-out notice cannot be forged.** `RevokedUserSessions` keeps a SHA-256 digest of each
   revoked session id, never the id itself, for three hours. `UnauthenticatedRejectionResolver`
   sends a browser whose cookie names a revoked session to `/index` rather than `/logoutPage`,

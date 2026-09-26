@@ -75,7 +75,8 @@ public final class UnauthenticatedRejectionResolver {
      * status-code routes receive {@code text/plain}.</p>
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    // FindSecBugs SERVLET_SESSION_ID: the requested session id is only hashed for a RevokedUserSessions lookup; it is never logged, echoed or trusted as identity.
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "SERVLET_SESSION_ID"}, justification = "UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL. SERVLET_SESSION_ID: requested session id is only hashed for a RevokedUserSessions lookup; never logged, echoed or trusted as identity")
     public static void rejectUnauthenticatedRequest(
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {

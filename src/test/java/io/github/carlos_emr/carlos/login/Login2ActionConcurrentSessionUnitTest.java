@@ -284,6 +284,23 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should invalidate a partially set-up session and sign nobody out when setup throws")
+        void shouldInvalidatePartialSession_whenSetupThrows() throws Exception {
+            setPolicy("single", null);
+            when(userSessionManager.countOtherActiveSessions(eq(SECURITY_NO), any())).thenReturn(1);
+            when(providerPreferenceDao.find(PROVIDER_NO)).thenThrow(new IllegalStateException("database unavailable"));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> signIn())
+                    .isInstanceOf(IllegalStateException.class);
+
+            org.mockito.ArgumentCaptor<HttpSession> registered = org.mockito.ArgumentCaptor.forClass(HttpSession.class);
+            verify(userSessionManager).registerUserSession(eq(SECURITY_NO), registered.capture(), eq("10.1.2.3"));
+            assertThat(((MockHttpSession) registered.getValue()).isInvalid())
+                    .as("a half-built session must not linger in the registry").isTrue();
+            verify(userSessionManager, never()).invalidateOtherSessions(any(), any());
+        }
+
+        @Test
         @DisplayName("should keep sessions for an AJAX client that cannot be asked")
         void shouldKeepSessions_forAjaxClientUnderPromptPolicy() throws Exception {
             setPolicy("prompt", null);
