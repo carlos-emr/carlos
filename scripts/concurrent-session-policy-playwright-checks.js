@@ -142,12 +142,12 @@ async function signIn(context, config, label) {
 async function passFacilitySelection(page) {
   await page.waitForURL(AFTER_FACILITY_OR_SCHEDULE, { timeout: 30000 });
   if (/select_facility/i.test(page.url())) {
-    step('complete facility selection before checking the schedule');
     await waitForPageAssets(page);
     await Promise.all([
       page.waitForURL(SCHEDULE_URL, { timeout: 30000 }),
       page.locator('form button[type="submit"], form input[type="submit"]').first().click(),
     ]);
+    console.log('  ok selected a facility before reaching the schedule');
   }
   await page.waitForURL(SCHEDULE_URL, { timeout: 30000 });
 }

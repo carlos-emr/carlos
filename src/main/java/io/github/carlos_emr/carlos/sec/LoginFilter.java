@@ -228,6 +228,9 @@ public class LoginFilter implements Filter {
             "/images/favicon.ico",
             "/images/OSCAR-LOGO.gif",
             "/images/cloud-bg.svg",
+            // Assets included by the facility chooser's caisi_html_top.jspf layout.
+            "/css/caisi_css.css",
+            "/js/global.js",
             "/library/bootstrap/",
             "/library/jquery/",
             "/library/flatpickr/",
