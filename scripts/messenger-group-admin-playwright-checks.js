@@ -58,7 +58,7 @@
  */
 
 const {
-  assert, assertNotErrorPage, assertNoPageErrors, assertStrictPage, createRecorder, createSqlRunner, gotoApp,
+  appUrl, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, gotoApp,
   launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
 } = require('./lib/playwright-harness');
 const { clickInjectsPanel, clickOpensPopupOrNavigates, typeAutocomplete } = require('./lib/playwright-ui');
@@ -155,6 +155,39 @@ async function postAdd(page, memberId, groupId) {
         resolve({ status: xhr.status, body: xhr.responseText });
       });
   }), { member: memberId, group: String(groupId) });
+}
+
+// Consume only the deliberately exercised failures, by exact method, URL,
+// status and count. Preserve the recorder and all unrelated strict signals.
+function assertExpectedProbeResponses(recorder, expectedResponses) {
+  const key = (method, url, status) => JSON.stringify([method, url, status]);
+  const remaining = new Map();
+  for (const expected of expectedResponses) {
+    const id = key(expected.method, expected.url, expected.status);
+    remaining.set(id, (remaining.get(id) || 0) + expected.count);
+  }
+  const networkConsole = new Map();
+  const badResponses = recorder.badResponses.filter(entry => {
+    const id = key(entry.method, entry.url, entry.status);
+    if (entry.label !== 'duplicate-probe' || !(remaining.get(id) > 0)) return true;
+    remaining.set(id, remaining.get(id) - 1);
+    const consoleId = key('POST', entry.url, entry.status);
+    networkConsole.set(consoleId, (networkConsole.get(consoleId) || 0) + 1);
+    return false;
+  });
+  assert([...remaining.values()].every(count => count === 0), 'A deliberate probe response was not observed');
+  // Chromium also reports these exact failed HTTP requests as console errors.
+  // Match that built-in message and location against a consumed POST response;
+  // application console messages and extra occurrences still fail the check.
+  const consoleIssues = recorder.consoleIssues.filter(entry => {
+    const match = /^Failed to load resource: the server responded with a status of (\d{3}) \([^\n]*\)$/.exec(entry.text);
+    const id = key('POST', entry.location?.url, match ? Number(match[1]) : 0);
+    if (entry.label !== 'duplicate-probe' || entry.type !== 'error' || !match
+        || !(networkConsole.get(id) > 0)) return true;
+    networkConsole.set(id, networkConsole.get(id) - 1);
+    return false;
+  });
+  assertStrictPage({ ...recorder, badResponses, consoleIssues }, ['duplicate-probe']);
 }
 
 async function main() {
@@ -258,8 +291,6 @@ async function main() {
     assert(await adminPage.locator(`#add-member-id-${state.groupId}`).inputValue() === '',
       'picking a provider already in the group still staged its id for Add Contact');
     await addButton.click({ force: true, timeout: 2000 }).catch(() => {});
-    await adminPage.waitForTimeout(500);
-    adminPage.off('request', countAdds);
     assert(duplicatePosts === 0, `the page posted ${duplicatePosts} add(s) for a provider already in the group`);
     assert(memberRows(state.groupId) === 1, 'the group row count moved after the in-page duplicate pick');
 
@@ -267,6 +298,15 @@ async function main() {
     //    deliberate 409s are not read as findings on the admin shell.
     const probe = await context.newPage();
     wireStrictPage(probe, 'duplicate-probe', recorder);
+    const expectedResponses = [];
+    const expectFailure = (query, status, count = 1) => expectedResponses.push({
+      method: 'POST', url: appUrl(config.baseUrl, `/messenger?${query}`), status, count,
+    });
+    const expectAddFailure = (member, group, status, count = 1) => expectFailure(
+      `method=add&member=${encodeURIComponent(member)}&group=${encodeURIComponent(String(group))}`, status, count);
+    expectAddFailure(memberId, state.groupId, 409);
+    expectAddFailure(memberId, 0, 409);
+    expectAddFailure(memberId, 'abc', 400);
     await gotoApp(probe, config.baseUrl, '/messenger?method=fetch');
     await probe.locator('#local-contacts').waitFor({ state: 'attached', timeout: TIMEOUT });
     const groupDuplicate = await postAdd(probe, memberId, state.groupId);
@@ -283,12 +323,14 @@ async function main() {
       // Action tests still require HTTP 400 when that value reaches Struts.
       const expected = malformed === '123--1' ? [400, 403] : [400];
       assert(expected.includes(rejected.status), `malformed contact answered unexpected HTTP ${rejected.status}`);
+      expectAddFailure(malformed, state.groupId, rejected.status);
     }
 
     // Only the owned fixture memberships are reset. Verify a failed checkbox add
     // restores its unchecked state and shows an actionable error.
     sql.execute(`DELETE FROM groupMembers_tbl WHERE provider_No=${sqlString(state.activeProviderNo)}`);
     await probe.reload({ waitUntil: 'domcontentloaded' });
+    expectAddFailure(memberId, 0, 503);
     const addUrl = /\/messenger\?method=add&/;
     await probe.route(addUrl, route => route.fulfill({
       status: 503, contentType: 'application/json', body: '{"success":false}',
@@ -304,12 +346,16 @@ async function main() {
 
     // Deliberately concurrent HTTP requests are one regression test: the server
     // must return exactly one new group membership and one registry row.
+    expectAddFailure(memberId, state.groupId, 409, 7);
     const raced = await Promise.all(Array.from({ length: 8 }, () => postAdd(probe, memberId, state.groupId)));
     assert(raced.filter(response => response.status === 200).length === 1,
       'concurrent first adds did not report exactly one created membership');
     assert(raced.filter(response => response.status === 409).length === 7,
       'concurrent duplicate adds did not return conflict');
     await probe.reload({ waitUntil: 'domcontentloaded' });
+    expectFailure(`method=remove&member=${encodeURIComponent(memberId)}`, 503);
+    expectFailure(`method=remove&member=${encodeURIComponent(memberId)}&group=${state.groupId}`, 503);
+    expectFailure(`method=remove&group=${state.groupId}`, 503);
     const removeUrl = /\/messenger\?method=remove&/;
     await probe.route(removeUrl, route => route.fulfill({ status: 503, body: 'Unavailable' }));
     await fixtureBox.uncheck();
@@ -327,6 +373,7 @@ async function main() {
     await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
     assert(await probe.locator(`#group-${state.groupId}`).count() === 1, 'failed group deletion hid the group');
     await probe.unroute(removeUrl);
+    expectFailure(`method=create&groupName=${encodeURIComponent(groupName + ' rejected')}`, 503);
     const createUrl = /\/messenger\?method=create&/;
     await probe.route(createUrl, route => route.fulfill({ status: 503, body: 'Unavailable' }));
     await probe.locator('a.nav-link[href="#new-group"]').click();
@@ -337,7 +384,8 @@ async function main() {
       'failed group creation wrote a group');
     await probe.unroute(createUrl);
     console.log('PASS membership removal and group mutation failure feedback');
-    assertNoPageErrors(recorder, ['duplicate-probe']);
+    await probe.waitForLoadState('networkidle');
+    assertExpectedProbeResponses(recorder, expectedResponses);
     console.log('PASS malformed contacts, failure recovery, and concurrent membership creation');
     await probe.close();
     assert(memberRows(state.groupId) === 1, `the server wrote a second group row (${memberRows(state.groupId)} rows)`);
@@ -383,6 +431,8 @@ async function main() {
     console.log('PASS group and registry removal without duplicate memberships');
 
 
+    adminPage.off('request', countAdds);
+    assert(duplicatePosts === 0, 'the page posted a delayed add after the duplicate pick');
     assertStrictPage(recorder, ['login', 'administration']);
     return { groupId: state.groupId };
   } finally {
@@ -394,4 +444,4 @@ if (require.main === module) {
   runCheck({ name: 'messenger-group-admin', run: main, cleanup });
 }
 
-module.exports = { pickUnusedProviderNo };
+module.exports = { pickUnusedProviderNo, assertExpectedProbeResponses };

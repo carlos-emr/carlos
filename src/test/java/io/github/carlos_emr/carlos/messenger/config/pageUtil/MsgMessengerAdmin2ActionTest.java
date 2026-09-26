@@ -243,7 +243,7 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldPreserveAllFourContactComponents() throws Exception {
+    void shouldPreserveAllFourContactComponents_whenMemberHasFourComponents() throws Exception {
         allowPrivilege("_admin", "w");
         getMockRequest().setMethod("POST");
         addRequestParameter("method", "add");

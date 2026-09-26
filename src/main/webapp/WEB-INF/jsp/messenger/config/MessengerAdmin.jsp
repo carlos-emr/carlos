@@ -169,7 +169,9 @@
                             if (status === 'error') showMembershipError();
                         });
                         // Check the appropriate checkbox in the member list display
-                        $("div#addContacts input[type='checkbox'][value^='" + memberId + "']").prop("checked", true);
+                        $("div#addContacts input[type='checkbox']").filter(function () {
+                            return this.value === memberId;
+                        }).prop("checked", true);
                     }).fail(function (xhr) {
                         // 409: the server refused a second membership row for this contact.
                         // For the general registry (group 0) the checkbox already shows the

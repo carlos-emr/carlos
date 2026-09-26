@@ -52,7 +52,7 @@ number for ANY location — shared or province — is `V1.0.37`. The version lin
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
 run — including `common/V1.0.36` on either province after this change. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.33`) but would silently
+apply fine on a fresh install (version order places it before `common/V1.0.36`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.
