@@ -75,6 +75,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.report.UnbilledReportStatusParameters" %>
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -213,6 +214,19 @@
                     href="#"
                     onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
             </td>
+        </tr>
+        <tr>
+            <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
+                 opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
+            <td width="30%" align="right"><font size="2" color="#333333" face="Verdana, Arial, Helvetica, sans-serif">
+                <b>Unbilled:</b>
+                <label><input type="checkbox" name="includeNoShow" value="true"
+                    <%= UnbilledReportStatusParameters.includeNoShow(request) ? "checked" : "" %>> Include No-Show</label>
+                <label><input type="checkbox" name="includeCancelled" value="true"
+                    <%= UnbilledReportStatusParameters.includeCancelled(request) ? "checked" : "" %>> Include Cancelled</label>
+            </font></td>
+            <td></td>
+            <td></td>
         </tr>
     </form>
 </table>

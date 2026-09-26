@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
+import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.BeanUtils;
@@ -564,16 +565,44 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
-    /**
-     * Searches for unbilled appointments within a specified date range for a given provider.
-     */
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate) {
-        String sql = "select a from Appointment a where a.providerNo=?1 and a.appointmentDate >=?2 and a.appointmentDate<=?3 and a.status NOT LIKE 'B%' and a.demographicNo <> 0 order by a.appointmentDate desc, a.startTime desc";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, providerNo);
-        query.setParameter(2, startDate);
-        query.setParameter(3, endDate);
+        return search_unbill_history_daterange(providerNo, startDate, endDate, false, false);
+    }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Ported from open-osp/Open-O PR #134 / #186 (Chitrank Davé), which added
+     * the No-Show/Cancelled filter to the BC unbilled report. CARLOS inverts the
+     * flags to "include" so the default call excludes both statuses on every
+     * unbilled screen (issue #3960), and binds the status prefixes as
+     * parameters.</p>
+     */
+    @Override
+    public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate,
+                                                             boolean includeNoShow, boolean includeCancelled) {
+        StringBuilder jpql = new StringBuilder("select a from Appointment a where a.providerNo = :providerNo"
+                + " and a.appointmentDate >= :startDate and a.appointmentDate <= :endDate"
+                + " and a.status not like :billedPrefix");
+        if (!includeCancelled) {
+            jpql.append(" and a.status not like :cancelledPrefix");
+        }
+        if (!includeNoShow) {
+            jpql.append(" and a.status not like :noShowPrefix");
+        }
+        jpql.append(" and a.demographicNo <> 0 order by a.appointmentDate desc, a.startTime desc");
+
+        Query query = entityManager.createQuery(jpql.toString());
+        query.setParameter("providerNo", providerNo);
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
+        query.setParameter("billedPrefix", AppointmentStatus.APPOINTMENT_STATUS_BILLED + "%");
+        if (!includeCancelled) {
+            query.setParameter("cancelledPrefix", AppointmentStatus.APPOINTMENT_STATUS_CANCELLED + "%");
+        }
+        if (!includeNoShow) {
+            query.setParameter("noShowPrefix", AppointmentStatus.APPOINTMENT_STATUS_NO_SHOW + "%");
+        }
         return query.getResultList();
     }
 

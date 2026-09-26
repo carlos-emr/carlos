@@ -200,6 +200,17 @@
                     onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
             </td>
         </tr>
+        <tr>
+            <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
+                 opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
+            <td width="30%" align="right"><font size="2" color="#333333" face="Verdana, Arial, Helvetica, sans-serif">
+                <b>Unbilled:</b>
+                <label><input type="checkbox" name="includeNoShow" value="true"> Include No-Show</label>
+                <label><input type="checkbox" name="includeCancelled" value="true"> Include Cancelled</label>
+            </font></td>
+            <td></td>
+            <td></td>
+        </tr>
     </form>
 </table>
 <p><font face="Arial, Helvetica, sans-serif" size="2"> </font></p>

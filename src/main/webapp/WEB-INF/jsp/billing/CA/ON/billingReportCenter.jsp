@@ -120,6 +120,17 @@
                 <label class="form-check-label">FLU</label>
             </div>
 
+            <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
+                 opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
+            <div class="form-check form-check-inline" style="margin-left:10px;">
+                <input class="form-check-input" type="checkbox" id="includeNoShow" name="includeNoShow" value="true">
+                <label class="form-check-label" for="includeNoShow">Include No-Show</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="includeCancelled" name="includeCancelled" value="true">
+                <label class="form-check-label" for="includeCancelled">Include Cancelled</label>
+            </div>
+
             &nbsp;&nbsp;Provider
             <select name="providerview" class="form-select form-select-sm" style="width:auto; display:inline-block;">
                 <c:forEach var="row" items="${reportCenterModel.providerRows}">

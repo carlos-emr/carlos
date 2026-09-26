@@ -1017,6 +1017,18 @@
       "timeoutSec": 300
     },
     {
+      "name": "billing-unbilled-report",
+      "script": "scripts/billing-unbilled-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
       "name": "flu-billing-report",
       "script": "scripts/flu-billing-report-playwright-checks.js",
       "tiers": [

@@ -37,7 +37,12 @@
    if (dateEnd.compareTo("") == 0) dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
    if (dateBegin.compareTo("") == 0) dateBegin="1950-01-01"; // set to any early time to start search from beginning
 
-   	List<Appointment> bs = appointmentDao.search_unbill_history_daterange(request.getParameter("providerview"),ConversionUtils.fromDateString(dateBegin),ConversionUtils.fromDateString(dateEnd));
+   	// No-Show / Cancelled visits are excluded unless opted in via the checkboxes
+   	// on billingReportControl.jsp (issue #3960; open-osp/Open-O PR #134/#186).
+   	List<Appointment> bs = appointmentDao.search_unbill_history_daterange(request.getParameter("providerview"),
+   			ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd),
+   			UnbilledReportStatusParameters.includeNoShow(request),
+   			UnbilledReportStatusParameters.includeCancelled(request));
 
   boolean bodd=false;
   nItems=0;
@@ -78,13 +83,13 @@
 		<TD align="center" width="10%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptTime==null?"00:00:00":apptTime%></font></b></TD>
 		<TD align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value="<%= demoName %>"/></font></b></TD>
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason%> </font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value="<%= reason %>"/> </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,1000, "<%= request.getContextPath() %>/billing?billRegion=<%=URLEncoder.encode(oscarVariables.getProperty("billregion"))%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=apptNo%>&demographic_name=<%=URLEncoder.encode(demoName)%>&status=<%=apptStatus%>&demographic_no=<%=demoNo%>&user_no=<%=userno%>&apptProvider_no=<%=providerview%>&appointment_date=<%=apptDate%>&start_time=<%=apptTime==null?"00:00:00":apptTime%>&bNewForm=1")'
-			title="<%=reason%>">Bill |$|</a></font></b></TD>
+			title="<carlos:encode value="<%= reason %>" context="htmlAttribute"/>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;
     }
