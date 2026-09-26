@@ -146,6 +146,16 @@ async function checkPatientSearchPrivacy(session, program) {
   } else {
     merge = await session.popup(admin, admin.locator('a[onclick*="DemographicMergeRecord"]'), 'private-merge-search');
   }
+  await session.step('merge search controls have associated accessible labels', async () => {
+    const controls = merge.locator('form[name="titlesearch"] input[type="radio"], #merge-keyword');
+    h.assert(await controls.count() === 6, 'Merge search controls are missing');
+    for (const control of await controls.all()) {
+      h.assert(await control.evaluate(element => element.labels.length === 1 &&
+        element.labels[0].textContent.trim().length > 0), 'Merge search control lacks its label');
+    }
+    await merge.locator('label[for="merge-mode-dob"]').click();
+    h.assert(await merge.locator('#merge-mode-dob').isChecked(), 'DOB label did not activate its radio');
+  });
   await session.step('merged search sorts before paging and preserves its scope using POST', async () => {
     await merge.locator('input[name="search_mode"][value="search_name"]').check();
     await merge.locator('form[name="titlesearch"] input[name="keyword"]').fill(keyword);

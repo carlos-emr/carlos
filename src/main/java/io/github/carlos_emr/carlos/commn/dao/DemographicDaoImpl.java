@@ -532,6 +532,10 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     @Override
+    // S2077: predicate/order helpers return only fixed literals; the domain subquery is constant.
+    // Keyword and provider values enter exclusively through setParameter, never query text.
+    // Integration tests exercise injection-shaped values across all modes and domain filtering.
+    @SuppressWarnings("java:S2077")
     public List<Demographic> searchForMerge(DemographicMergeSearch search, String providerNo, boolean outOfDomain) {
         if (search.keyword() == null || (!outOfDomain && (providerNo == null || providerNo.isBlank()))) {
             return List.of();

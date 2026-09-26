@@ -743,7 +743,7 @@ public class DemographicService extends AbstractServiceImpl {
 
         int offset = startIndex == null ? 0 : startIndex;
         int limit = itemsToReturn == null ? 10 : itemsToReturn;
-        if (offset < 0 || limit < 0 || limit > DemographicDao.MAX_SEARCH_RESULT_SIZE) {
+        if (offset < 0 || limit < 1 || limit > DemographicDao.MAX_SEARCH_RESULT_SIZE) {
             throw new BadRequestException("Invalid patient search pagination");
         }
         DemographicSearchRequest req = convertFromJSON(json);

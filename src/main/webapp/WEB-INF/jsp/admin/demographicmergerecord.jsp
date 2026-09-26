@@ -180,19 +180,20 @@
           onSubmit="return checkTypeIn()">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
-        <fmt:message key="admin.demographicmergerecord.searchPrompt"/>
+        <label for="merge-keyword"><fmt:message key="admin.demographicmergerecord.searchPrompt"/></label>
 
-        <input type="radio" name="search_mode" value="search_name" <%=searchMode.equals("search_name")?"checked":""%> >
-        <fmt:message key="admin.demographicmergerecord.name"/>
-        <input type="radio" name="search_mode"
-               value="search_phone" <%=searchMode.equals("search_phone")?"checked":""%>    > <fmt:message key="admin.demographicmergerecord.phone"/>
-        <input type="radio" name="search_mode" value="search_dob" <%=searchMode.equals("search_dob")?"checked":""%> >
-        <fmt:message key="admin.demographicmergerecord.dob"/>
-        <input type="radio" name="search_mode"
-               value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.address"/>
-        <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.hin"/>
+        <input type="radio" id="merge-mode-name" name="search_mode" value="search_name" <%=searchMode.equals("search_name")?"checked":""%>>
+        <label for="merge-mode-name"><fmt:message key="admin.demographicmergerecord.name"/></label>
+        <input type="radio" id="merge-mode-phone" name="search_mode" value="search_phone" <%=searchMode.equals("search_phone")?"checked":""%>>
+        <label for="merge-mode-phone"><fmt:message key="admin.demographicmergerecord.phone"/></label>
+        <input type="radio" id="merge-mode-dob" name="search_mode" value="search_dob" <%=searchMode.equals("search_dob")?"checked":""%>>
+        <label for="merge-mode-dob"><fmt:message key="admin.demographicmergerecord.dob"/></label>
+        <input type="radio" id="merge-mode-address" name="search_mode" value="search_address" <%=searchMode.equals("search_address")?"checked":""%>>
+        <label for="merge-mode-address"><fmt:message key="admin.demographicmergerecord.address"/></label>
+        <input type="radio" id="merge-mode-hin" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>>
+        <label for="merge-mode-hin"><fmt:message key="admin.demographicmergerecord.hin"/></label>
 
-        <input type="text" NAME="keyword" class="form-control"
+        <input type="text" id="merge-keyword" NAME="keyword" class="form-control"
                oninput="if(document.titlesearch.search_mode.value === 'search_dob') CarlosDobSearch.formatInput(this);" MAXLENGTH="100" value="<%=(keyword != null)?SafeEncode.forHtmlAttribute(keyword):""%>">
         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">

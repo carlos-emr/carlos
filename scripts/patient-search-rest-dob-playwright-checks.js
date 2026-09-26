@@ -84,7 +84,7 @@ async function workflow(session) {
       h.assert(response.status() === 400, `Invalid REST options answered HTTP ${response.status()}`);
     }
     for (const query of ['?startIndex=-1', '?startIndex=abc', '?startIndex=2147483649',
-      '?itemsToReturn=-1', '?itemsToReturn=501', '?itemsToReturn=abc']) {
+      '?itemsToReturn=-1', '?itemsToReturn=0', '?itemsToReturn=501', '?itemsToReturn=abc']) {
       const response = await rawSearch({ type: 'DOB', term: year }, query);
       h.assert(response.status() === 400, `Invalid REST pagination answered HTTP ${response.status()}`);
     }

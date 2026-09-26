@@ -375,7 +375,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         void shouldRejectInvalidPagination_beforeSearching() {
             for (String[] query : List.of(new String[]{"startIndex", "-1"}, new String[]{"startIndex", "abc"},
                     new String[]{"startIndex", "2147483648"}, new String[]{"itemsToReturn", "-1"},
-                    new String[]{"itemsToReturn", "501"}, new String[]{"itemsToReturn", "abc"})) {
+                    new String[]{"itemsToReturn", "0"}, new String[]{"itemsToReturn", "501"}, new String[]{"itemsToReturn", "abc"})) {
                 try (Response response = request().path("/demographics/search").query(query[0], query[1])
                         .post("{\"type\":\"DOB\",\"term\":\"1980\"}")) {
                     assertThat(response.getStatus()).as("invalid pagination").isEqualTo(400);

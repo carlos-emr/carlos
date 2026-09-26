@@ -1177,6 +1177,27 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @DisplayName("should bind injection-shaped keywords and provider identifiers as data")
+        void shouldTreatQuerySyntaxAsData_whenSearchingForMerge() {
+            String hostile = "' OR 1=1 --";
+            for (String mode : List.of("search_name", "search_dob", "search_phone", "search_hin", "search_address")) {
+                for (boolean merged : List.of(false, true)) {
+                    var search = new DemographicMergeSearch(mode, hostile, "last_name", 0, 10, merged);
+                    assertThat(demographicDao.searchForMerge(search, "999998", true)).as(mode).isEmpty();
+                    assertThat(demographicDao.searchForMerge(search, "999998", false)).as(mode).isEmpty();
+                }
+            }
+            var search = new DemographicMergeSearch("search_name", uniquePrefix, "last_name", 0, 10, false);
+            assertThat(demographicDao.searchForMerge(search, hostile, false)).isEmpty();
+            first.setLastName(hostile);
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+            var literal = new DemographicMergeSearch("search_name", hostile, "last_name", 0, 10, false);
+            assertThat(demographicDao.searchForMerge(literal, "999998", false))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+        }
+
+        @Test
         @DisplayName("should sort the full merged result before limiting the page")
         void shouldSortBeforePagination_whenSearchingMergedRecords() {
             var page = new DemographicMergeSearch("search_name", uniquePrefix, "first_name", 0, 1, true);
