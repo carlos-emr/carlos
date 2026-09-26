@@ -309,7 +309,7 @@ async function main() {
     const context = await browser.newContext();
     const tab = await context.newPage();
 
-    await tab.goto(`${base}/embedded`);
+    await tab.goto(`${base}/embedded`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const served = await tab.evaluate('window.__result');
     try {
       assert(JSON.stringify(served.ht.dataAtReturn) === '["101.5","99"]',
@@ -336,7 +336,7 @@ async function main() {
     }
 
     const hitsAfterEmbedded = networkHits.length;
-    await tab.goto(`${base}/absent`);
+    await tab.goto(`${base}/absent`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const unserved = await tab.evaluate('window.__result');
     try {
       assert(unserved.ht.status === 404,
@@ -348,7 +348,7 @@ async function main() {
       failures.push(`absent payload: ${error.message}`);
     }
 
-    await tab.goto(`${base}/signature`);
+    await tab.goto(`${base}/signature`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const signature = await tab.evaluate('window.__signatureResult');
     try {
       assert(signature && signature.installed, 'jSignature guard was not installed before window load');
@@ -370,7 +370,7 @@ async function main() {
       failures.push(`jSignature compatibility: ${error.message}`);
     }
 
-    await tab.goto(`${base}/signature-async`);
+    await tab.goto(`${base}/signature-async`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const asyncSignature = await tab.evaluate('window.__asyncSignatureResult');
     try {
       assert(asyncSignature && asyncSignature.absentAtReady === true,
@@ -385,7 +385,7 @@ async function main() {
 
     for (const preloaded of [false, true]) {
       const label = preloaded ? 'with preloaded jQuery' : 'without preloaded jQuery';
-      await tab.goto(`${base}/aliases-${preloaded ? 'with' : 'no'}-preload`);
+      await tab.goto(`${base}/aliases-${preloaded ? 'with' : 'no'}-preload`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
       const aliases = await tab.evaluate('window.__aliasesResult');
       try {
         assert(aliases && aliases.readyState === 'loading',

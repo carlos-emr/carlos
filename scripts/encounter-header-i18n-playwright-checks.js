@@ -74,6 +74,7 @@
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
+const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { clickOpensPopup, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
@@ -287,7 +288,8 @@ async function walkInLanguage(browser, config, language, options) {
     assertStrictPage(recorder);
     return header;
   } finally {
-    await context.close().catch(() => {});
+    try { await releaseChartLocks(context, config.baseUrl); }
+    finally { await context.close(); }
   }
 }
 

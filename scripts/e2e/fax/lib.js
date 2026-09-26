@@ -130,7 +130,7 @@ async function csrfToken(p) {
 // POST a form-encoded request from WITHIN the page context so it carries the
 // session cookies and same-origin credentials, with the scraped CSRF token
 // appended. url must be absolute (c.base + path) — a relative path would drop
-// the /carlos context. Returns { status, url }.
+// the /carlos context. Returns { status, url, contentType, body }.
 async function postForm(p, url, params) {
   const token = await csrfToken(p);
   // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- url is the validated base + a constant path and params are test-controlled; no untrusted input reaches evaluate
@@ -142,7 +142,8 @@ async function postForm(p, url, params) {
       body,
       credentials: 'same-origin',
     });
-    return { status: res.status, url: res.url };
+    return { status: res.status, url: res.url,
+      contentType: res.headers.get('content-type') || '', body: await res.text() };
   }, { url, params, token });
 }
 
