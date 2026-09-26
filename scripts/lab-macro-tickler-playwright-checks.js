@@ -24,8 +24,11 @@
  *      comment, tickler message, assignee, 2 weeks) and asserts the
  *      provider's labMacroJSON property carries it;
  *   2. opens a lab result routed to the provider and still unacknowledged
- *      (the Macros dropdown only renders then), runs the macro, and asserts
- *      the JSON success reply and that the lab window closed itself;
+ *      (the Macros dropdown only renders then); first POSTs the same macro run
+ *      with another patient's demographicNo and asserts it is refused as a
+ *      whole (success=false, lab still unacknowledged, no tickler), then runs
+ *      the macro from the dropdown and asserts the JSON success reply and
+ *      that the lab window closed itself;
  *   3. asserts the tickler row: message, patient from the lab, assignee,
  *      creator, service date = today + 14 days, priority default, plus the
  *      ticklerdocs row back to the lab (#3984), and that the lab is now
@@ -237,6 +240,33 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await assertNotErrorPage(lab, 'lab display');
     const macroMenu = lab.locator('.macro-dropdown');
     assert(await macroMenu.count(), 'lab display did not render the Macros dropdown for an unacknowledged lab with macros defined');
+
+    // 2a. A crafted run naming another patient must be refused as a whole: the attachment is
+    // validated before the acknowledgement, so the lab stays unacknowledged and no tickler
+    // is created (#3984). Same POST the page makes, with the demographicNo swapped.
+    const foreignDemographicNo = sql(`SELECT demographic_no FROM demographic WHERE demographic_no<>${Number(fixture.demographicNo)} AND demographic_no>0 ORDER BY demographic_no LIMIT 1`);
+    if (foreignDemographicNo) {
+      const refused = await lab.evaluate(async ({ ctx, name, demographicNo, labNo }) => {
+        const params = new URLSearchParams();
+        const formEl = document.getElementById(`acknowledgeForm_${labNo}`) || document.querySelector(`form[name="acknowledgeForm_${labNo}"]`);
+        if (formEl) new FormData(formEl).forEach((value, key) => params.append(key, value));
+        const token = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (!params.has('CSRF-TOKEN')) params.append('CSRF-TOKEN', token ? token.value : '');
+        const response = await fetch(`${ctx}/oscarMDS/RunMacro?name=${encodeURIComponent(name)}&demographicNo=${encodeURIComponent(demographicNo)}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString(), credentials: 'same-origin',
+        });
+        return { status: response.status, text: await response.text() };
+      }, { ctx: config.baseUrl.pathname, name: macroName, demographicNo: foreignDemographicNo, labNo: fixture.labNo });
+      const refusedJson = (() => { try { return JSON.parse(refused.text); } catch (e) { return null; } })();
+      assert(refusedJson && refusedJson.success === false && refusedJson.acknowledged !== true,
+        `macro run for another patient was not refused: HTTP ${refused.status} ${refused.text.slice(0, 200)}`);
+      assert(ticklerRows().length === 0, 'macro run for another patient created a tickler');
+      const untouched = sql(`SELECT status FROM providerLabRouting WHERE lab_no=${Number(fixture.labNo)} AND lab_type='HL7' AND provider_no='${escapeSql(providerNo)}' ORDER BY id DESC LIMIT 1`);
+      assert(untouched === 'N', `macro run for another patient acknowledged the lab (routing status "${untouched}")`);
+      // The page's recorder flags 4xx/5xx; a refused macro answers 200 with success=false.
+    } else {
+      console.log('SKIP crafted foreign-patient macro: only one patient in this database');
+    }
     await macroMenu.locator('button.dropdown-toggle').click();
     const entry = macroMenu.locator('a.dropdown-item', { hasText: macroName }).first();
     await entry.waitFor({ state: 'visible', timeout: 15000 });
@@ -279,7 +309,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
-    console.log(`PASS lab macro "${macroName}" created tickler ${tickler.id} for demographic ${fixture.demographicNo} from lab ${fixture.labNo} and acknowledged the lab`);
+    console.log(`PASS lab macro "${macroName}" created tickler ${tickler.id} for demographic ${fixture.demographicNo} from lab ${fixture.labNo} and acknowledged the lab; a run naming another patient was refused without acknowledging`);
   } catch (error) {
     console.error(`FAIL lab macro tickler check: ${error.stack || error.message}`);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));

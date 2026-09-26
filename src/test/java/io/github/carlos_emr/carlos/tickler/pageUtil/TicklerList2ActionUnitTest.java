@@ -15,7 +15,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.HashMap;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("fast")
@@ -68,5 +78,48 @@ class TicklerList2ActionUnitTest {
                 .doesNotContainKey("id").doesNotContainKey("tableId").doesNotContainKey("formName");
         assertThat(links.get(1)).containsEntry("tableName", "MDS").containsEntry("tableId", 77L)
                 .containsKey("id").doesNotContainKey("restricted");
+    }
+
+    @Test
+    @DisplayName("should treat every link as restricted when tickler read is denied for the patient")
+    void shouldMarkLinkUnreadable_whenTicklerReadDeniedForPatient() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        // The endpoint proved the global _tickler right only; a patient-specific denial wins.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001")).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        TicklerListDTO dto = new TicklerListDTO();
+        dto.setId(7);
+        dto.setDemographicNo(1001);
+        TicklerLinkDTO document = TicklerLinkDTO.fromTicklerDocs(new TicklerDocs(7, 11, TicklerDocs.DOCTYPE_DOC, "999998"));
+        TicklerLinkDTO untyped = new TicklerLinkDTO();
+        untyped.setTableName("DOC");
+
+        Map<String, Boolean> cache = new HashMap<>();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, document, cache)).isFalse();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, untyped, cache)).isFalse();
+        verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("should gate a link on tickler read and then on its type, once per patient")
+    void shouldMarkLinkReadable_whenTicklerAndTypeReadable() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+        TicklerListDTO dto = new TicklerListDTO();
+        dto.setId(7);
+        dto.setDemographicNo(1001);
+        TicklerLinkDTO document = TicklerLinkDTO.fromTicklerDocs(new TicklerDocs(7, 11, TicklerDocs.DOCTYPE_DOC, "999998"));
+        TicklerLinkDTO lab = TicklerLinkDTO.fromTicklerDocs(new TicklerDocs(7, 77, TicklerDocs.DOCTYPE_LAB, "999998"));
+
+        Map<String, Boolean> cache = new HashMap<>();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, document, cache)).isTrue();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, document, cache)).isTrue();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, lab, cache)).isFalse();
+        verify(securityInfoManager, org.mockito.Mockito.times(1)).hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001");
+        verify(securityInfoManager, org.mockito.Mockito.times(1)).hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001");
     }
 }

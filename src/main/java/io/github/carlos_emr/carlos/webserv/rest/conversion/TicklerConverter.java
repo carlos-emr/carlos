@@ -64,6 +64,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
 
+    private static final String TICKLER_SECURITY_OBJECT = "_tickler";
+
     private boolean includeLinks;
     private boolean includeComments;
     private boolean includeUpdates;
@@ -131,11 +133,14 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
             // The REST ticklerLinks shape stays as it was: tableName carries the legacy
             // tickler_link code (DOC, HRM, the lab source, plus EFORM/FORM for the new types)
             // while the rows themselves now come from ticklerdocs. The endpoint only proves
-            // _tickler read, so each row is gated on the patient-scoped read right of its own
-            // type (the same gate as the picker and the list JSON); a row the caller may not
-            // read is left out rather than redacted, since the shape has no restricted flag.
+            // the global _tickler read, and a patient-specific denial takes precedence over
+            // it, so the rows are gated on _tickler read for this patient and then on the
+            // patient-scoped read right of their own type (the same gates as the picker and
+            // the list JSON); a row the caller may not read is left out rather than redacted,
+            // since the shape has no restricted flag.
             Map<DocumentType, Boolean> readable = new EnumMap<>(DocumentType.class);
-            for (TicklerDocs attachment : ticklerDocsDao.findByTicklerId(d.getId())) {
+            boolean ticklerReadable = isReadable(loggedInInfo, TICKLER_SECURITY_OBJECT, t.getDemographicNo());
+            for (TicklerDocs attachment : ticklerReadable ? ticklerDocsDao.findByTicklerId(d.getId()) : List.<TicklerDocs>of()) {
                 DocumentType documentType = DocumentType.fromType(attachment.getDocType());
                 if (documentType != null && !readable.computeIfAbsent(documentType,
                         type -> isTypeReadable(loggedInInfo, type, t.getDemographicNo()))) {
@@ -190,8 +195,12 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
      * row.</p>
      */
     private static boolean isTypeReadable(LoggedInInfo loggedInInfo, DocumentType documentType, Integer demographicNo) {
+        return isReadable(loggedInInfo, TicklerAttachmentService.readSecurityObject(documentType), demographicNo);
+    }
+
+    private static boolean isReadable(LoggedInInfo loggedInInfo, String securityObject, Integer demographicNo) {
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-        return securityInfoManager.hasPrivilege(loggedInInfo, TicklerAttachmentService.readSecurityObject(documentType),
+        return securityInfoManager.hasPrivilege(loggedInInfo, securityObject,
                 SecurityInfoManager.READ, demographicNo == null ? null : String.valueOf(demographicNo));
     }
 

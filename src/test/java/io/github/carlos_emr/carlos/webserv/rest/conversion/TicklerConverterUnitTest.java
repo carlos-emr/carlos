@@ -91,6 +91,7 @@ class TicklerConverterUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should leave out attachments of a type the caller may not read for the patient")
     void shouldOmitLinks_whenTypeReadDenied() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001")).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001")).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(true);
         TicklerConverter converter = new TicklerConverter();
@@ -99,6 +100,22 @@ class TicklerConverterUnitTest extends CarlosUnitTestBase {
         List<TicklerLinkTo1> links = converter.getAsTransferObject(loggedInInfo, tickler).getTicklerLinks();
 
         assertThat(links).singleElement().extracting(TicklerLinkTo1::getTableName).isEqualTo("MDS");
+    }
+
+    @Test
+    @DisplayName("should leave out every attachment when tickler read is denied for the patient")
+    void shouldOmitAllLinks_whenTicklerReadDeniedForPatient() throws Exception {
+        // The endpoint proved the global right only; a patient-specific denial wins over it.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001")).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        TicklerConverter converter = new TicklerConverter();
+        converter.setIncludeLinks(true);
+
+        List<TicklerLinkTo1> links = converter.getAsTransferObject(loggedInInfo, tickler).getTicklerLinks();
+
+        assertThat(links).isEmpty();
+        org.mockito.Mockito.verify(ticklerDocsDao, org.mockito.Mockito.never()).findByTicklerId(any());
     }
 
     @Test

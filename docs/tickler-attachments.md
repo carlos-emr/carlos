@@ -61,8 +61,9 @@ data-migration gaps in that PR closed rather than copied.
   through Save and Close unchanged, since the reader had no way to un-check it.
 - `requireAttachable(loggedInInfo, demographicNo, ids)` runs the same rights and ownership
   checks without writing, for flows that create the tickler and attach in one step: the lab
-  macro (`ReportMacro2Action`) checks first and creates no tickler when the lab may not be
-  attached to that patient, then attaches through `syncAttachments`.
+  macro (`ReportMacro2Action`) checks before any side effect and refuses the whole macro,
+  acknowledgement included, when the lab may not be attached to that patient; otherwise it
+  acknowledges, persists the tickler and attaches through `syncAttachments`.
 - Restricted types on edit: a reader who lacks read on an attachment's type still sees that
   something is attached. The Edit form carries those rows through as `data-restricted` hidden
   delegates, so a save after opening the picker resubmits them unchanged; `syncAttachments`
@@ -71,7 +72,10 @@ data-migration gaps in that PR closed rather than copied.
   such links are returned as `{tableName, restricted: true}` with no identifier at all (neither
   the item id nor the `ticklerdocs` row id), and `ticklerMain.jsp` renders an unlinked, titled
   paperclip. The REST `TicklerConverter` applies the gate too and leaves denied rows out, since
-  the `ticklerLinks` shape has no restricted flag.
+  the `ticklerLinks` shape has no restricted flag. Both endpoints only prove the global
+  `_tickler` read right up front, and a patient-specific denial takes precedence over it, so
+  each link is first gated on `_tickler` read for the tickler's patient (cached per patient and
+  page) and only then on its type.
 - Picker endpoint: `previewDocs?method=fetchTicklerDocuments&demographicNo=N`
   (`DocumentPreview2Action`), gated by `_tickler` read on the patient, per-type read gates for
   each section, selection enabled by `_tickler` write; a non-positive or non-numeric
@@ -80,9 +84,10 @@ data-migration gaps in that PR closed rather than copied.
   into the picker selection and records the session provider as creator; `EditTickler2Action`
   is POST-only (405 otherwise, registered in `MutatorActionGetRejectionContractUnitTest`) and
   syncs attachments only with the marker; `ReportMacro2Action` attaches the lab through the
-  service (`requireAttachable` before the tickler is created, then `syncAttachments`), so the
-  request's `segmentID`/`labType`/`demographicNo` are checked against the patient's routing
-  and the caller's `_tickler` write right before anything is written.
+  service (`requireAttachable` before the acknowledgement and the tickler, then
+  `syncAttachments`), so the request's `segmentID`/`labType`/`demographicNo` are checked
+  against the patient's routing and the caller's `_tickler` write right before anything is
+  written or acknowledged.
 - Readers: `TicklerDaoImpl.loadLinksForTicklerDTOs` (tickler list JSON), `TicklerManagerImpl`
   (ticklers for an HL7 lab), `EDocUtil.getHtmlTicklers` (ticklers for a document), the REST
   `TicklerConverter` (`ticklerLinks` keeps its shape: `tableName` carries `DOC`, `HRM`, the lab

@@ -29,6 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -155,8 +157,8 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.api.Test
-    @DisplayName("should not create the macro tickler when the lab id is not usable, without logging it")
-    void shouldSkipTickler_whenSegmentIdInvalid() throws Exception {
+    @DisplayName("should fail the macro before any side effect when the lab id is not usable, without logging it")
+    void shouldFailMacro_whenSegmentIdInvalid() throws Exception {
         var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
         request.setParameter("segmentID", "PRIVATE_SEGMENT_VALUE");
         request.setParameter("labType", "HL7");
@@ -177,7 +179,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
             var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
-            assertThat(outcome.success()).isTrue();
+            assertThat(outcome.success()).isFalse();
             verify(ticklers, never()).persist(any(Tickler.class));
             verify(links, never()).syncAttachments(any(), any(), any());
             assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalArgumentException"));
@@ -186,8 +188,8 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.api.Test
-    @DisplayName("should not create the macro tickler when the lab may not be attached to that patient")
-    void shouldSkipTickler_whenAttachmentRefused() throws Exception {
+    @DisplayName("should refuse the whole macro, acknowledgement included, when the lab may not be attached to that patient")
+    void shouldFailMacroWithoutAcknowledging_whenAttachmentRefused() throws Exception {
         var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
         request.setParameter("segmentID", "123");
         request.setParameter("labType", "HL7");
@@ -200,15 +202,19 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         doThrow(new SecurityException("lab attachment does not belong to the patient PRIVATE_DETAIL"))
                 .when(links).requireAttachable(eq(info), eq(1), any());
         var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("acknowledge").put("comment", "reviewed");
         macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
         try (var servlet = mockStatic(ServletActionContext.class);
              var session = mockStatic(LoggedInInfo.class);
+             var routing = mockStatic(CommonLabResultData.class);
              var logs = LogCapture.forLogger(ReportMacro2Action.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
             var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
-            assertThat(outcome.success()).isTrue();
+            assertThat(outcome.success()).isFalse();
             assertThat(outcome.acknowledged()).isFalse();
+            // The attachment is validated before the acknowledgement touches the routing rows.
+            routing.verify(() -> CommonLabResultData.acknowledgeReport(anyInt(), anyString(), any(), any(), anyBoolean(), any()), never());
             verify(ticklers, never()).persist(any(Tickler.class));
             verify(links, never()).syncAttachments(any(), any(), any());
             assertThat(logs.messages()).anyMatch(message -> message.contains("lab attachment refused"));

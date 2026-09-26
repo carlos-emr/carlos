@@ -152,7 +152,7 @@ public class TicklerList2Action extends ActionSupport {
             for (TicklerListDTO dto : ticklerDTOs) {
                 rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale,
                         formNamesFor(loggedInInfo, dto, formNamesByDemographic),
-                        link -> isLinkReadable(loggedInInfo, dto, link, readableByTypeAndPatient)));
+                        link -> isLinkReadable(securityInfoManager, loggedInInfo, dto, link, readableByTypeAndPatient)));
 
                 if (dto.getComments() != null && !dto.getComments().isEmpty()) {
                     commentsMap.put(String.valueOf(dto.getId()), buildCommentsArray(dto.getComments(), dateFormat, timeFormat, today));
@@ -325,18 +325,25 @@ public class TicklerList2Action extends ActionSupport {
     }
 
     /**
-     * Whether the reader may open an attachment: read on the attachment type's security object
-     * for the tickler's patient, the same gate the picker and the Add/Edit windows apply.
-     * Rows with no recorded type (none after the {@code ticklerdocs} migration) stay readable
-     * so a legacy row is never hidden by a lookup that cannot classify it.
+     * Whether the reader may open an attachment: {@code _tickler} read for the tickler's patient
+     * (the endpoint only proved the global right, and a patient-specific denial takes precedence
+     * over it) and read on the attachment type's security object for that patient, the same
+     * gates the picker and the Add/Edit windows apply. A row with no recorded type (none after
+     * the {@code ticklerdocs} migration) is subject to the patient gate only, so a legacy row is
+     * never hidden by a lookup that cannot classify it but never shown across a patient denial.
      */
-    private boolean isLinkReadable(LoggedInInfo loggedInInfo, TicklerListDTO dto, TicklerLinkDTO link,
-                                   Map<String, Boolean> cache) {
+    static boolean isLinkReadable(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
+                                  TicklerListDTO dto, TicklerLinkDTO link, Map<String, Boolean> cache) {
+        String demographicNo = dto.getDemographicNo() == null ? null : String.valueOf(dto.getDemographicNo());
+        boolean ticklerReadable = cache.computeIfAbsent("_tickler:" + demographicNo,
+                key -> securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, demographicNo));
+        if (!ticklerReadable) {
+            return false;
+        }
         DocumentType documentType = DocumentType.fromType(link.getDocType());
         if (documentType == null) {
             return true;
         }
-        String demographicNo = dto.getDemographicNo() == null ? null : String.valueOf(dto.getDemographicNo());
         return cache.computeIfAbsent(documentType.getType() + ":" + demographicNo,
                 key -> securityInfoManager.hasPrivilege(loggedInInfo,
                         TicklerAttachmentService.readSecurityObject(documentType), SecurityInfoManager.READ, demographicNo));
