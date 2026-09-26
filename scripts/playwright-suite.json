@@ -1540,6 +1540,23 @@
       "timeoutSec": 300
     },
     {
+      "name": "rx-fax-pharmacy-phone",
+      "script": "scripts/rx-fax-pharmacy-phone-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "env": [
+        "RX_FAX_DEMOGRAPHIC_NO",
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_ROUND_TRIP_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "rx-fax-record-binding",
       "script": "scripts/rx-fax-record-binding-playwright-checks.js",
       "tiers": [

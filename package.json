@@ -71,6 +71,7 @@
     "test:prescription-signature-playwright": "node scripts/prescription-signature-playwright-checks.js",
     "test:rx-fax-signature-stamp-playwright": "node scripts/rx-fax-signature-stamp-playwright-checks.js",
     "test:rx-fax-record-binding-playwright": "node scripts/rx-fax-record-binding-playwright-checks.js",
+    "test:rx-fax-pharmacy-phone-playwright": "node scripts/rx-fax-pharmacy-phone-playwright-checks.js",
     "test:rx-fax-reprint-represcribe-playwright": "node scripts/rx-fax-reprint-represcribe-playwright-checks.js",
     "test:report-demographic-navigation-playwright": "node scripts/report-demographic-navigation-playwright-checks.js",
     "test:flowsheet-admin-playwright": "node scripts/flowsheet-admin-playwright-checks.js",
