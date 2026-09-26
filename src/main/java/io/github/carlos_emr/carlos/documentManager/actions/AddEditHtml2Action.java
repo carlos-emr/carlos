@@ -36,10 +36,12 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Hashtable;
+import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.documentManager.DocumentLink;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -106,17 +108,19 @@ public class AddEditHtml2Action extends ActionSupport {
             return "failed";
         }
         if (this.getMode().equals("addLink")) {
-            //the 'html' variable is the url
-            //checks for http://
-            String html = this.getHtml();
-            if (html.indexOf("http://") == -1) {
-                html = "http://" + html;
+            // The 'html' field carries the URL. Only http/https links are stored; a schemeless
+            // entry gets https:// (never http:// in front of an existing https://, issue #3949).
+            Optional<String> url = DocumentLink.normalizeUrl(this.getHtml());
+            if (url.isEmpty()) {
+                errors.put("urlinvalid", "dms.error.urlInvalid");
+                request.setAttribute("linkhtmlerrors", errors);
+                request.setAttribute("completedForm", submittedForm());
+                request.setAttribute("function", request.getParameter("function"));
+                request.setAttribute("functionid", request.getParameter("functionid"));
+                return "failed";
             }
-            html = "<script type=\"text/javascript\" language=\"Javascript\">\n" +
-                    "window.location='" + html + "'\n" +
-                    "</script>";
-            this.setDocDesc(this.getDocDesc() + " (link)");
-            this.setHtml(html);
+            this.setDocDesc(this.getDocDesc() + DocumentLink.DESCRIPTION_SUFFIX);
+            this.setHtml(DocumentLink.toRedirectHtml(url.get()));
             fileName = "link";
         } else if (this.getMode().equals("addHtml")) {
             fileName = "html";

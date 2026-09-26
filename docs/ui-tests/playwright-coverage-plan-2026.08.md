@@ -310,6 +310,7 @@ priority group where its module lives:
 | `lab-pdf-footer` | `lab/CA/ALL/PrintPDF` | Search ▸ Master Record ▸ E-Chart ▸ Urinalysis ▸ Print; poppler-utils required; full expected confidentiality notice, printable bounds, no overlap and page numbering on every page |
 | `patient-messenger-context` | `messenger/DisplayDemographicMessages` | Search ▸ Master Record ▸ E-Chart ▸ Messenger tab; two demo patients in one session, eight subject/date sorts retain patient context; owned message fixtures cleaned |
 | `document-upload` | `web/inboxhub/Inboxhub` | Schedule ▸ Inbox ▸ Doc Upload |
+| `document-add-link` | `documentManager/ViewDocumentReport?function=demographic…` | Chart ▸ eDocs ▸ Add Link; https kept (no `http://https://`), schemeless gets `https://`, opening the stored link lands on the https URL (host intercepted in-browser), `javascript:` and quote-bearing URLs refused with nothing stored (#3949) |
 | `consultation-*` (four) | `encounter/ViewRequest?requestId=…` | Schedule ▸ Consultations ▸ row |
 
 Once the shared `navigate.*` map exists (§2.1) each of these becomes a one-line change.
