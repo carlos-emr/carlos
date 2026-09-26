@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerMeasurementPersister.EntryOutcome;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerMeasurementPersister.ValidationFailure;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.logging.log4j.Logger;
@@ -121,8 +120,9 @@ public class HealthTrackerSubmissionService {
         }
 
         String noteText = noteComposer.compose(accepted, new Date());
-        if (!noteText.isEmpty()) {
-            saveNote(demographicNo, providerNo, programNo, noteText, appointmentNo);
+        if (!noteText.isEmpty() && !saveNote(demographicNo, providerNo, programNo, noteText, appointmentNo)) {
+            failures.add(new ValidationFailure("oscarEncounter.healthTracker.noteSaveFailed", List.of()));
+            noteText = "";
         }
 
         return new HealthTrackerSubmissionResult(persistedCount, rejected, failures, noteText);
@@ -133,9 +133,10 @@ public class HealthTrackerSubmissionService {
      *
      * <p>Note creation is best effort: the measurements are already committed by
      * the time this runs, and losing the convenience note must not turn a
-     * successful save into an error page for the clinician.
+     * successful measurement save into an exception page. The returned failure is
+     * shown in the tracker so the missing note is not silently reported as saved.
      */
-    private void saveNote(int demographicNo, String providerNo, String programNo, String noteText, int appointmentNo) {
+    private boolean saveNote(int demographicNo, String providerNo, String programNo, String noteText, int appointmentNo) {
         try {
             Date now = new Date();
             CaseManagementNote note = new CaseManagementNote();
@@ -155,9 +156,11 @@ public class HealthTrackerSubmissionService {
             note.setAppointmentNo(appointmentNo);
 
             caseManagementManager.saveNoteSimple(note);
+            return true;
         } catch (RuntimeException e) {
-            logger.error("Health Tracker measurements saved but the progress note could not be filed for demographic {}",
-                    LogSafe.sanitize(String.valueOf(demographicNo)), e);
+            // Persistence exceptions can embed the clinical note or SQL parameters.
+            logger.error("Health Tracker measurements saved but the progress note could not be filed");
+            return false;
         }
     }
 

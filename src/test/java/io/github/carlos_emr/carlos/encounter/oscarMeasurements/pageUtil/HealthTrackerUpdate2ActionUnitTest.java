@@ -299,6 +299,20 @@ class HealthTrackerUpdate2ActionUnitTest {
                         + "?demographic_no=111&template=tracker");
     }
 
+    @Test
+    void shouldShowWarning_whenMeasurementsSaveButNoteFails() throws Exception {
+        givenTrackerFlowsheet();
+        request.addParameter("template", "tracker");
+        when(submissionService.submit(any(), any(), anyInt(), nullable(String.class), anyInt(),
+                nullable(String.class), anyString()))
+                .thenReturn(new HealthTrackerSubmissionResult(1, List.of(),
+                        List.of(new ValidationFailure("oscarEncounter.healthTracker.noteSaveFailed", List.of())), ""));
+        assertThat(action.execute()).isEqualTo("failure");
+        assertThat(String.valueOf(request.getAttribute("testOutput")))
+                .contains("oscarEncounter.healthTracker.noteSaveFailed");
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
     private void givenCleanSubmission() {
         when(submissionService.submit(any(), any(), anyInt(), nullable(String.class), anyInt(),
                 nullable(String.class), anyString()))
