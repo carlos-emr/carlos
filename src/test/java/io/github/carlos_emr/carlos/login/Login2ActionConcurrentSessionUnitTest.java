@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -109,6 +110,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
     private String originalMax;
     private final List<String> stagedTokens = new ArrayList<>();
     private String originalMfa;
+    private String originalLegacyPin;
 
     @Mock private ProviderManager providerManager;
     @Mock private FacilityDao facilityDao;
@@ -151,6 +153,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         originalPolicy = CarlosProperties.getInstance().getProperty(ConcurrentSessionPolicy.POLICY_PROPERTY);
         originalMax = CarlosProperties.getInstance().getProperty(ConcurrentSessionPolicy.MAX_PROPERTY);
         originalMfa = CarlosProperties.getInstance().getProperty(MfaManager.MFA_ENABLE_PROPERTY);
+        originalLegacyPin = CarlosProperties.getInstance().getProperty(MfaManager.MFA_LEGACY_PIN_ENABLE);
         stubProvider();
     }
 
@@ -159,6 +162,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         restoreProperty(ConcurrentSessionPolicy.POLICY_PROPERTY, originalPolicy);
         restoreProperty(ConcurrentSessionPolicy.MAX_PROPERTY, originalMax);
         restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, originalMfa);
+        restoreProperty(MfaManager.MFA_LEGACY_PIN_ENABLE, originalLegacyPin);
         stagedTokens.forEach(token -> PendingSessionChoiceCache.getInstance().invalidate(token));
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
@@ -631,6 +635,59 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             assertThat(decodedRedirect()).contains("/loginfailed");
             assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
             verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+        }
+
+        @ParameterizedTest
+        @CsvSource({
+                "keep, false, true", "signOutOthers, false, true",
+                "keep, true, false", "signOutOthers, true, false"
+        })
+        @DisplayName("should reject the pending login when the explicit legacy PIN setting changes")
+        void shouldRejectPendingLogin_whenExplicitLegacyPinChanges(String choice, String before, String after)
+                throws Exception {
+            restoreProperty(MfaManager.MFA_LEGACY_PIN_ENABLE, before);
+            String token = stagePendingChoice();
+            restoreProperty(MfaManager.MFA_LEGACY_PIN_ENABLE, after);
+
+            newAction(choice).submitSessionChoice();
+
+            assertThat(decodedRedirect()).contains("/loginfailed");
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            assertThat(request.getSession().getAttribute("user")).isNull();
+            verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+            verify(userSessionManager, never()).invalidateOtherSessions(any(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"keep", "signOutOthers"})
+        @DisplayName("should reject the pending login when the default legacy PIN setting changes")
+        void shouldRejectPendingLogin_whenDefaultLegacyPinChanges(String choice) throws Exception {
+            restoreProperty(MfaManager.MFA_LEGACY_PIN_ENABLE, null);
+            restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "true");
+            String token = stagePendingChoice();
+            // With no explicit legacy PIN property, disabling global MFA enables PIN checks
+            // even for this account whose own MFA and credential fields have not changed.
+            restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "false");
+
+            newAction(choice).submitSessionChoice();
+
+            assertThat(decodedRedirect()).contains("/loginfailed");
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+            verify(userSessionManager, never()).invalidateOtherSessions(any(), any());
+        }
+
+        @Test
+        @DisplayName("should finish the pending login when an explicit PIN setting preserves the effective mode")
+        void shouldFinishPendingLogin_whenEffectiveLegacyPinModeIsUnchanged() throws Exception {
+            restoreProperty(MfaManager.MFA_LEGACY_PIN_ENABLE, "true");
+            restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "true");
+            stagePendingChoice();
+            restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "false");
+
+            newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            verify(userSessionManager).registerUserSession(eq(SECURITY_NO), any(), any());
         }
 
         @Test

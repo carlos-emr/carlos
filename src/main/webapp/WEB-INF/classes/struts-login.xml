@@ -27,6 +27,12 @@
 -->
 <struts>
     <package name="login" namespace="/" extends="carlos-default" strict-method-invocation="true">
+        <!-- The legacy Patient Intake role still produces this result from Login2Action.
+             Its standalone interface is no longer shipped; use the standard authenticated
+             landing route, with the user's existing roles and access checks. -->
+        <global-results>
+            <result name="patientIntake" type="redirect">/provider/providercontrol</result>
+        </global-results>
 
         <action name="index" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
             <result name="success">/WEB-INF/jsp/login/index.jsp</result>

@@ -134,6 +134,24 @@ class LoginJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("patient intake logins should resolve to the authenticated landing route from every login stage")
+    void shouldResolvePatientIntakeResult_fromEveryLoginStage() throws IOException {
+        String struts = Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8);
+        // Login2Action's existing action test exercises the Patient Intake role. Its returned
+        // result also needs a mapping: otherwise Struts throws after authentication succeeds.
+        int globalsStart = struts.indexOf("<global-results>");
+        int globalsEnd = struts.indexOf("</global-results>", globalsStart);
+        assertThat(globalsStart).isGreaterThanOrEqualTo(0);
+        assertThat(globalsEnd).isGreaterThan(globalsStart);
+        assertThat(struts.substring(globalsStart, globalsEnd))
+                .contains("<result name=\"patientIntake\" type=\"redirect\">/provider/providercontrol</result>");
+        for (String route : new String[]{"login", "mfa/loginMfa", "forcepasswordresetSubmit", "login/sessionChoice"}) {
+            assertThat(actionBlock(struts, route))
+                    .contains("class=\"io.github.carlos_emr.carlos.login.Login2Action\"");
+        }
+    }
+
+    @Test
     @DisplayName("MFA submit route should be mapped and CSRF protected")
     void shouldMapAndProtectMfaSubmitRoute_whenOtpFormPosts() throws IOException {
         String struts = Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8);

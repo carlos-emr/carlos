@@ -61,14 +61,25 @@ const {
   SkipCheck,
   appUrl,
   assert,
+  assertStrictPage,
+  createRecorder,
   createSqlRunner,
   gotoApp,
   launchBrowser,
-  newContext,
+  newContext: newBrowserContext,
   readConfig,
   runCheck,
   sqlString,
+  wireStrictPage,
 } = require('./lib/playwright-harness');
+
+const recorder = createRecorder();
+
+async function newContext(browser, config) {
+  const context = await newBrowserContext(browser, config);
+  context.on('page', (page) => wireStrictPage(page, 'session-policy', recorder));
+  return context;
+}
 
 const SCHEDULE_URL = /provider\/(providercontrol|ViewAppointmentAdminDay)/;
 const AFTER_LOGIN_SUBMIT = /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility|\/login[?#]|\/login$/i;
@@ -94,7 +105,8 @@ async function signIn(context, config, label) {
   await gotoApp(page, config.baseUrl, '/');
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
-  await page.locator('#pin').fill(config.testPin);
+  const pin = page.locator('#pin');
+  if (await pin.count() > 0) await pin.fill(config.testPin);
   await Promise.all([
     page.waitForURL(AFTER_LOGIN_SUBMIT, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
@@ -368,6 +380,7 @@ if (require.main === module) {
         await checkAllow(browser, config, step, contexts);
       }
       checkAudit(config, since, audited, step);
+      assertStrictPage(recorder);
     },
     cleanup: async () => {
       for (const context of contexts) {

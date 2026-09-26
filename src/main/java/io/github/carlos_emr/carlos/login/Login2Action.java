@@ -1331,7 +1331,7 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         if (!Objects.equals(pending.credentialFingerprint(), credentialFingerprint(security))) {
-            // The password, PIN, PIN-lock settings or MFA mode changed after this sign-in checked
+            // The password, PIN, PIN-lock settings or effective authentication mode changed after this sign-in checked
             // them. The pending login keeps no credentials to re-check, so end it; the next sign-in
             // is checked against the current values and mode.
             logger.warn("Session choice refused because the account's credentials changed: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
@@ -1388,10 +1388,6 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Same account-expiry rule {@link LoginCheckLoginBean} applies at sign-in: an expiry date is
-     * set and it is missing or in the past.
-     */
-    /**
      * The comma-separated active role list, built the way {@link LoginCheckLoginBean} builds it at
      * sign-in; {@code null} when the provider has no active role.
      */
@@ -1407,8 +1403,9 @@ public final class Login2Action extends ActionSupport {
 
     /**
      * Digest of the fields that decide how {@link LoginCheckLoginBean} authenticates the account:
-     * the password hash, the PIN, the local/remote PIN-lock flags and whether the account uses MFA
-     * (which switches the PIN check off). Binding a pending login to it lets the chooser submit
+     * the password hash, the PIN, the local/remote PIN-lock flags, whether the account uses MFA
+     * (which switches the PIN check off), and the effective global legacy-PIN setting, including
+     * its default derived from the global MFA setting. Binding a pending login to it lets the chooser submit
      * notice a credential or authentication-mode change without keeping any credential itself.
      *
      * @param security security row as read now or at sign-in
@@ -1418,7 +1415,7 @@ public final class Login2Action extends ActionSupport {
         String material = String.join("\u0000",
                 String.valueOf(security.getPassword()), String.valueOf(security.getPin()),
                 String.valueOf(security.getBLocallockset()), String.valueOf(security.getBRemotelockset()),
-                String.valueOf(security.isUsingMfa()));
+                String.valueOf(security.isUsingMfa()), String.valueOf(MfaManager.isOscarLegacyPinEnabled()));
         try {
             return Base64.getEncoder().encodeToString(
                     MessageDigest.getInstance("SHA-256").digest(material.getBytes(StandardCharsets.UTF_8)));
@@ -1432,6 +1429,7 @@ public final class Login2Action extends ActionSupport {
         return MfaManager.isOscarMfaEnabled() && security.isUsingMfa();
     }
 
+    /** Same account-expiry rule that {@link LoginCheckLoginBean} applies at sign-in. */
     private static boolean isAccountExpired(Security security) {
         return security.getBExpireset() != null && security.getBExpireset() == 1
                 && (security.getDateExpiredate() == null || security.getDateExpiredate().before(new Date()));
