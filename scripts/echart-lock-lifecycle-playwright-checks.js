@@ -74,6 +74,24 @@ async function main() {
       await releaseChartLocks(s.context, s.config.baseUrl);
       h.assert(s.sql.value(count) === '0', 'Repeated teardown changed the released lock');
     });
+    await s.step('logging out with an open chart releases the destroyed session lock', async () => {
+      const closing = await h.newContext(s.context.browser(), s.config);
+      try {
+        const schedule = await h.login(closing, s.config, s.recorder);
+        const { masterPage } = await openMasterRecord(closing, schedule, s.recorder, {
+          searchTerm: s.marker, preferredDemographicNo: s.patient, timeout: 20000,
+        });
+        const chart = await openChart(closing, masterPage, s.recorder, 20000);
+        await waitForNavbars(chart, 20000);
+        await expectValue(s.sql, count, '1', 'The logout fixture did not acquire its note lock');
+        await h.gotoApp(schedule, s.config.baseUrl, '/logoutPage');
+        await expectValue(s.sql, count, '0', 'Session destruction left the open chart lock behind');
+        await h.gotoApp(schedule, s.config.baseUrl, '/provider/providercontrol');
+        await schedule.locator('#username').waitFor({ state: 'visible', timeout: 20000 });
+      } finally {
+        await closing.close();
+      }
+    });
   });
 }
 

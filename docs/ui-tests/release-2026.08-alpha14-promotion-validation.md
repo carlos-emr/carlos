@@ -345,3 +345,34 @@ read and a delete cannot remove the new session's lock. The focused Java run pas
 and the full script regression run passed 1,021 tests. Full Maven verification then passed
 13,330 tests with zero failures/errors and 51 skips, including Checkstyle and WAR packaging.
 Follow-up package, browser and migration results are recorded on #3929.
+
+### Session destruction and final harness review
+
+The `.8` full Ontario run completed with 152 passes and two failures. The lab-requisition
+check inspected a popup before its destination controls were ready and left its chart lock
+behind when Chromium closed; the later patient-messenger check then encountered that lock.
+The lock timestamp matched the failed lab check. Waiting for the actual destination controls
+and awaiting authenticated teardown fixed the sequence: all ten related checks passed,
+including patient-messenger, and no chart locks remained. The separate signature-fallback
+check also passed. These reruns establish cumulative coverage, not a claim that the original
+full run passed unchanged.
+
+The optional eForm fax-preview check passed protected POST preparation, cross-session read
+and cancellation refusals, successful owner cancellation and replay rejection. Email schema,
+native rich text letter measurements, all 105 document-annotation assertions, prescription
+DrugRef and the owned local fax-inbox lifecycle passed on `.8` as well.
+
+The final code review found the same ownership race in session destruction: selecting locks
+by session and subsequently deleting by ID can delete a lock transferred between those two
+operations. It also logged each entire lock through reflective `toString()`, exposing the
+raw session identifier, patient number and IP address. A regression reproduced all three
+disclosures before the change. Session destruction now performs one DELETE constrained by
+the destroyed session ID and logs only the count removed. The Hibernate test preserves a
+transferred lock despite an older persistence context retaining the original ownership,
+while removing the other locks still owned by the expired session. Missing/blank identities
+are refused. All 12 focused logging, MFA-cleanup and database tests passed. The browser lock
+lifecycle now also verifies logout with an open chart and subsequent authentication refusal.
+
+The subsequent full Maven verification passed 13,332 tests with zero failures/errors and
+51 skips, plus Checkstyle and WAR packaging. All 1,021 script regressions also passed
+with one worker. The VM remained shut down throughout.

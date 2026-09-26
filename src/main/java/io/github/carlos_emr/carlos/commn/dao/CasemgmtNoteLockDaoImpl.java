@@ -88,6 +88,16 @@ public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> i
     }
 
     @Override
+    public int removeAllForSession(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return 0;
+        }
+        Query query = entityManager.createQuery("delete from CasemgmtNoteLock lock where lock.sessionId = :sessionId");
+        query.setParameter("sessionId", sessionId);
+        return query.executeUpdate();
+    }
+
+    @Override
     public List<CasemgmtNoteLock> findBySession(String sessionId) {
         Query query = entityManager.createQuery("select lock from CasemgmtNoteLock lock where lock.sessionId = :sessionId");
 

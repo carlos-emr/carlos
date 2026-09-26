@@ -76,6 +76,28 @@ class CasemgmtNoteLockDaoIntegrationTest {
     }
 
     @Test
+    void shouldPreserveTransferredLock_whenOriginalSessionIsDestroyedAfterOwnershipRead() {
+        seed("1001", 1, 0, "first-session");
+        seed("1001", 2, 42, "first-session");
+        seed("1001", 3, 0, "first-session");
+        try (var first = factory.createEntityManager(); var second = factory.createEntityManager()) {
+            var stale = dao(first).findBySession("first-session");
+            assertThat(stale).hasSize(3);
+            second.getTransaction().begin();
+            dao(second).findByNoteDemo(3, 0L).setSessionId("second-session");
+            second.getTransaction().commit();
+            assertThat(stale).allMatch(lock -> "first-session".equals(lock.getSessionId()));
+
+            first.getTransaction().begin();
+            assertThat(dao(first).removeAllForSession("first-session")).isEqualTo(2);
+            first.getTransaction().commit();
+            first.clear();
+            assertThat(dao(first).findBySession("first-session")).isEmpty();
+            assertThat(dao(first).findByNoteDemo(3, 0L).getSessionId()).isEqualTo("second-session");
+        }
+    }
+
+    @Test
     void shouldOnlyRemoveMatchingLock_whenCurrentSessionReleasesTwice() {
         seed("1001", 1, 0, "owner");
         seed("1001", 2, 0, "owner");
@@ -103,6 +125,7 @@ class CasemgmtNoteLockDaoIntegrationTest {
         try (var em = factory.createEntityManager()) {
             em.getTransaction().begin();
             assertThat(dao(em).removeForSession("1001", 1, 0L, session)).isZero();
+            assertThat(dao(em).removeAllForSession(session)).isZero();
             em.getTransaction().commit();
             assertThat(dao(em).findByNoteDemo(1, 0L)).isNotNull();
         }
