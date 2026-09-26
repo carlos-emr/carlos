@@ -132,6 +132,12 @@ function createFixture(db, options) {
     db.execute(`INSERT INTO provider (${providerColumns.map((c) => `\`${c}\``).join(',')})`
       + ` SELECT ${select.join(',')} FROM provider WHERE provider_no=${sqlString(template)}`);
     state.providers[member] = { providerNo, ohipNo };
+    // Put the provider in the operator's sites. With _site_access_privacy the
+    // diskette page lists only providers who share a site with the operator,
+    // which is how a clinic's own providers are always set up.
+    db.execute(`INSERT IGNORE INTO providersite (provider_no, site_id) SELECT DISTINCT ${sqlString(providerNo)}, s.site_id`
+      + ` FROM providersite s WHERE s.provider_no=${sqlString(template)} OR s.provider_no IN`
+      + ` (SELECT provider_no FROM security WHERE user_name=${sqlString(options.testUser)})`);
   }
 
   const demo = options.demographicNo
@@ -158,15 +164,17 @@ function createFixture(db, options) {
   for (const claim of claims) {
     const { providerNo, ohipNo } = state.providers[claim.member];
     const total = claim.items.reduce((sum, item) => sum + Number(item.fee), 0).toFixed(2);
+    // Optional claim fields are stored as '' (never NULL), exactly as the
+    // bill-entry save writes them: the claim-file writer dereferences them.
     db.execute('INSERT INTO billing_on_cheader1 (header_id, transc_id, rec_id, hin, ver, dob, pay_program, payee,'
-      + ' location, demographic_no, provider_no, appointment_no, demographic_name, sex, province, billing_date,'
+      + ' ref_num, facilty_num, admission_date, ref_lab_num, man_review, location, demographic_no, provider_no, appointment_no, demographic_name, sex, province, billing_date,'
       + ' billing_time, total, paid, status, comment1, visittype, provider_ohip_no, provider_rma_no, apptProvider_no,'
       + ' creator, clinic)'
       + ` VALUES (0, 'HE', 'H', ${sqlString(hin)}, ${sqlString(ver || '')}, ${sqlString(dob8)}, 'HCP', 'P',`
-      + ` '0000', ${Number(demographicNo)}, ${sqlString(providerNo)}, 0, 'PW3942,Fixture', ${sqlString(sex === 'F' ? '2' : '1')},`
+      + ` '', '', '', '', '', '0000', ${Number(demographicNo)}, ${sqlString(providerNo)}, 0, 'PW3942,Fixture', ${sqlString(sex === 'F' ? '2' : '1')},`
       + ` 'ON', ${sqlString(options.window.serviceDate)}, '09:00:00', ${total}, 0.00, 'O',`
       + ` ${sqlString(`PW3942 ${claim.member}`)}, '00', ${sqlString(ohipNo)}, '', ${sqlString(providerNo)},`
-      + ` ${sqlString(providerNo)}, NULL)`);
+      + ` ${sqlString(providerNo)}, '')`);
     const headerId = db.value(`SELECT MAX(id) FROM billing_on_cheader1 WHERE provider_no=${sqlString(providerNo)}`
       + ` AND comment1=${sqlString(`PW3942 ${claim.member}`)}`);
     assert(/^\d+$/.test(headerId), `could not seed the ${claim.member} claim header`);
@@ -218,7 +226,10 @@ function removeFixture(db, state, diskDir) {
     });
   }
   for (const { providerNo } of Object.values(state.providers)) {
-    attempt(`provider ${providerNo}`, () => db.execute(`DELETE FROM provider WHERE provider_no=${sqlString(providerNo)}`));
+    attempt(`provider ${providerNo}`, () => {
+      db.execute(`DELETE FROM providersite WHERE provider_no=${sqlString(providerNo)}`);
+      db.execute(`DELETE FROM provider WHERE provider_no=${sqlString(providerNo)}`);
+    });
   }
   if (failures.length) {
     throw new Error(`fixture cleanup incomplete: ${failures.join('; ')}`);
@@ -233,9 +244,16 @@ async function generateAllProvidersDisk(context, config, recorder, window) {
   const form = page.locator('form[name="form1"]');
   await form.waitFor({ state: 'visible', timeout: 30000 });
   await form.locator('select[name="providers"]').selectOption('all');
-  await form.locator('#xml_vdate').fill(window.start);
-  await form.locator('#xml_appointment_date').fill(window.end);
-  await page.keyboard.press('Escape');
+  // Both date inputs carry flatpickr (allowInput): typing sets the value, and
+  // the open calendar then covers the submit button until the user clicks
+  // away -- so click the page heading, as an operator would, and wait for it.
+  for (const [selector, value] of [['#xml_vdate', window.start], ['#xml_appointment_date', window.end]]) {
+    await form.locator(selector).fill(value);
+    await page.locator('h3').first().click();
+    await page.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 10000 })
+      .catch(() => page.locator('.flatpickr-calendar.open').first().waitFor({ state: 'hidden', timeout: 10000 }));
+    assert(await form.locator(selector).inputValue() === value, `the ${selector} date did not keep ${value}`);
+  }
   const useProviderMoh = form.locator('#useProviderMOH');
   if (await useProviderMoh.isChecked()) {
     await useProviderMoh.uncheck();
@@ -248,6 +266,10 @@ async function generateAllProvidersDisk(context, config, recorder, window) {
   assert(response.status() === 200, `Create Report answered HTTP ${response.status()}`);
   await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
   await assertNotErrorPage(page, 'OHIP diskette page after Create Report');
+  // A failed generation is mapped to an operator error page that still
+  // answers 200; only the diskette page itself carries the Create Report form.
+  assert(await page.locator('form[name="form1"]').count() === 1,
+    'Create Report did not return to the diskette page; disk generation failed (see the server log incident id)');
   return page;
 }
 
@@ -269,7 +291,9 @@ async function main() {
   let browser = null;
 
   const run = async () => {
-    state = createFixture(db, { templateProvider, window, paidCode, demographicNo });
+    state = createFixture(db, {
+      templateProvider, window, paidCode, demographicNo, testUser: config.testUser,
+    });
     const { ZERO, PAID, EMPTY } = state.providers;
 
     browser = await launchBrowser(config);
@@ -284,12 +308,23 @@ async function main() {
 
     // The OHIP file, fetched the way the operator downloads it: the link the page renders.
     const link = page.locator(`a[href*="filename=${encodeURIComponent(ohipFile)}"]`).first();
-    assert(await link.count(), `the diskette page lists no download link for the new group file ${ohipFile}`);
+    if (!(await link.count())) {
+      // File names and statuses only -- never row content.
+      const listed = await page.locator('a[href*="homepath=ohipdownload"]').evaluateAll(
+        (anchors) => anchors.map((a) => new URL(a.href).searchParams.get('filename')));
+      const statuses = db.rows(`SELECT d.status, f.status FROM billing_on_diskname d JOIN billing_on_filename f`
+        + ` ON f.disk_id=d.id WHERE d.id=${Number(diskId)}`).map((r) => r.join('/'));
+      assert(false, `the diskette page lists no download link for the new group file ${ohipFile}`
+        + ` (page ${new URL(page.url()).pathname}, ${await page.locator('table tbody tr').count()} rows, links: ${listed.slice(0, 10).join(', ') || 'none'}; disk/filename status: ${statuses.join(', ')})`);
+    }
     const href = new URL(await link.getAttribute('href'), page.url()).toString();
     const download = await context.request.get(href, { maxRedirects: 0 });
     assert(download.status() === 200, `downloading ${ohipFile} answered HTTP ${download.status()}`);
     const claimFile = (await download.body()).toString('latin1');
-    const records = claimFile.split(/\r?\n/).filter(Boolean);
+    // Records end in CR and usually start with LF, but a group file concatenates
+    // member batches directly, so one member's trailer (HEE...\r) runs straight
+    // into the next member's HEB: split on either character.
+    const records = claimFile.split(/[\r\n]+/).filter(Boolean);
     const batchHeaders = records.filter((line) => line.startsWith('HEB'));
     const claimHeaders = records.filter((line) => line.startsWith('HEH'));
     const claimItems = records.filter((line) => line.startsWith('HET'));

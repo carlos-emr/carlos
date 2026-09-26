@@ -1399,3 +1399,49 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### Issue #3942 group OHIP disk $0-total validation (2026-09-26)
+
+Validation of the `BillingOnDiskService` fix (a group member whose claims total
+$0 was left off the group OHIP disk), run against freshly built packages
+(`2026.09.0~snapshot24`: `carlos-emr_…_amd64`, `carlos-emr-drugref_…_all`,
+`carlos-emr-eform-renderer_…_all`, built with `dpkg-buildpackage -us -uc -b`
+from the branch; lintian `--fail-on error` clean) installed with the section 3
+preseed on a fresh Ubuntu 26.04 container.
+
+**Environment deviations from the runbook above.** No LXD: the target was an
+Ubuntu 26.04 **container** running systemd (`--privileged`, host network,
+cgroup2 mounted over `/sys/fs/cgroup` before `/sbin/init`). Two container
+artefacts were worked around before `apt install`, neither a packaging defect:
+the image's `/usr/sbin/policy-rc.d` (which blocks every service start, so
+MariaDB never came up) was removed, and because the kernel had no IPv6 the
+stock nginx `default` site's `listen [::]` lines were dropped (CARLOS's own
+rendered site already omits `[::]` without an IPv6 stack). The WAR was built
+once with `mvn package` and handed to the packaging as `CARLOS_WAR` because
+Maven Central rate-limited (HTTP 429) the repeated clean-cache downloads. With
+that, the install finished with `INSTALL_RC=0` and `carlos-ctl check` reported
+**All checks passed** (front door, WAF blocking, live DrugRef lookup, 432 tables,
+29 Flyway migrations).
+
+**Results.** After the first-login reset (section 6),
+`billing-on-group-disk-zero-total-playwright-checks.js` (with
+`OHIP_DISK_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/download`):
+
+| Build under test | Result |
+|---|---|
+| fixed package | **PASS** — $0 member and paid member submitted, empty member omitted (2 batches, 3 items) |
+| pre-fix `BillingOnDiskService` classes swapped into the same install, service restarted | **FAIL** — `issue #3942: the $0-total member's batch … is missing from the group disk` |
+| fixed classes restored | **PASS**, also through `run-playwright-suite.js --only billing-on-group-disk-zero-total` |
+
+Every run left no fixture rows (providers, `providersite`, claims, disks,
+batch headers) and, with `OHIP_DISK_DIR` set, no disk files.
+`billing-on-submit`, `application-health` and `billing-payment-types` also
+passed on the same install. Changed-line coverage of the Java fix from the
+focused unit tests (`scripts/coverage/changed_line_audit.py`): 2/2 executable
+lines covered.
+
+Fixture notes learned on this install: the fixture providers must share a site
+with the operator (the demo `admin` role carries `_site_access_privacy`, and the
+diskette page lists only same-site providers), and the seeded claim header must
+store its optional fields as `''` like the bill-entry save does — a `NULL`
+`ref_num` makes `OhipClaimFileService` throw while building the claim header.
