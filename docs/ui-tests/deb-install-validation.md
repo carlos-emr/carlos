@@ -520,7 +520,9 @@ export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=
 # using explicit local database access and the mounted server document directory.
 export PRESCRIPTION_SIGNATURE_CLEANUP=true
 export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
-# lab-upload-playwright-checks.js deletes its own archived LabUpload.lab-upload-probe-* files here.
+# Both lab-upload workflows delete their own archived LabUpload.lab-upload-probe-* files here.
+# Configure CML_UPLOAD_KEY on this isolated server and export the same value for full legacy CML coverage.
+# The extended lab-upload-rollback check also needs CREATE/DROP TRIGGER privileges in the test DB.
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
