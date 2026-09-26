@@ -78,43 +78,43 @@ async function workflow(s) {
   const page = await s.context.newPage();
   h.wireStrictPage(page, 'billing-bc-simulation', s.recorder);
 
-  await s.step('billing provider is created through Add Provider', async () => {
-    // Through the app, not SQL: genSimulation iterates ProviderDao.getActiveProviders(), which is
-    // @Cacheable (5-minute TTL). Only an app-side provider save evicts that cache, so a provider
-    // inserted behind the app's back would be invisible to the simulation on a warm install.
-    await h.gotoApp(page, s.config.baseUrl, '/admin/ViewProviderAddARecordHtm');
-    const form = page.locator('form[name="searchprovider"]');
-    const providerNoInput = form.locator('input[name="provider_no"]').first();
-    await providerNoInput.waitFor({ state: 'visible' });
-    if ((await providerNoInput.getAttribute('readonly')) === null) {
-      await providerNoInput.fill(unusedValue(s.sql, 'provider', 'provider_no', '9'));
-    }
-    await form.locator('input[name="last_name"]').fill(s.marker);
-    await form.locator('input[name="first_name"]').fill(firstName);
-    await form.locator('select[name="provider_type"]').selectOption('doctor');
-    await form.locator('select[name="sex"]').selectOption('F');
-    await form.locator('input[name="ohip_no"]').fill(ohipNo);
-    await form.locator('input[name="billing_no"]').fill(ohipNo);
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
-      form.locator('input[type="submit"]').first().click(),
-    ]);
-    providerNo = s.sql.value(`SELECT provider_no FROM provider WHERE ${ownedProvider} AND ohip_no=${h.sqlString(ohipNo)} AND status='1'`);
-    h.assert(providerNo, 'Add Provider did not create the active billing provider');
-  });
-
-  billingNo = s.sql.value(`INSERT INTO billing (clinic_no,demographic_no,provider_no,appointment_no,demographic_name,
-      billing_date,billing_time,update_date,update_time,status,provider_ohip_no,billingtype,creator,total)
-    VALUES (0,0,${h.sqlString(providerNo)},0,${h.sqlString(NAME_PAYLOAD)},CURDATE(),CURTIME(),CURDATE(),CURTIME(),
-      'O',${h.sqlString(ohipNo)},'MSP',${h.sqlString(s.provider)},'23.00'); SELECT LAST_INSERT_ID()`);
-  h.assert(/^[1-9]\d*$/.test(billingNo), 'BC billing fixture was not created');
-  billingmasterNo = s.sql.value(`INSERT INTO billingmaster (billing_no,createdate,billingstatus,demographic_no,appointment_no,
-      phn,billing_unit,billing_code,bill_amount,service_date,dx_code1,paymentMethod)
-    VALUES (${billingNo},NOW(),'O',0,0,${h.sqlString(PHN_PAYLOAD)},'001',${h.sqlString(CODE_PAYLOAD)},'23.00',
-      DATE_FORMAT(CURDATE(),'%Y%m%d'),'250',6); SELECT LAST_INSERT_ID()`);
-  h.assert(/^[1-9]\d*$/.test(billingmasterNo), 'BC billingmaster fixture was not created');
-
   try {
+    await s.step('billing provider is created through Add Provider', async () => {
+      // Through the app, not SQL: genSimulation iterates ProviderDao.getActiveProviders(), which is
+      // @Cacheable (5-minute TTL). Only an app-side provider save evicts that cache, so a provider
+      // inserted behind the app's back would be invisible to the simulation on a warm install.
+      await h.gotoApp(page, s.config.baseUrl, '/admin/ViewProviderAddARecordHtm');
+      const form = page.locator('form[name="searchprovider"]');
+      const providerNoInput = form.locator('input[name="provider_no"]').first();
+      await providerNoInput.waitFor({ state: 'visible' });
+      if ((await providerNoInput.getAttribute('readonly')) === null) {
+        await providerNoInput.fill(unusedValue(s.sql, 'provider', 'provider_no', '9'));
+      }
+      await form.locator('input[name="last_name"]').fill(s.marker);
+      await form.locator('input[name="first_name"]').fill(firstName);
+      await form.locator('select[name="provider_type"]').selectOption('doctor');
+      await form.locator('select[name="sex"]').selectOption('F');
+      await form.locator('input[name="ohip_no"]').fill(ohipNo);
+      await form.locator('input[name="billing_no"]').fill(ohipNo);
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+        form.locator('input[type="submit"]').first().click(),
+      ]);
+      providerNo = s.sql.value(`SELECT provider_no FROM provider WHERE ${ownedProvider} AND ohip_no=${h.sqlString(ohipNo)} AND status='1'`);
+      h.assert(providerNo, 'Add Provider did not create the active billing provider');
+    });
+
+    billingNo = s.sql.value(`INSERT INTO billing (clinic_no,demographic_no,provider_no,appointment_no,demographic_name,
+        billing_date,billing_time,update_date,update_time,status,provider_ohip_no,billingtype,creator,total)
+      VALUES (0,0,${h.sqlString(providerNo)},0,${h.sqlString(NAME_PAYLOAD)},CURDATE(),CURTIME(),CURDATE(),CURTIME(),
+        'O',${h.sqlString(ohipNo)},'MSP',${h.sqlString(s.provider)},'23.00'); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(billingNo), 'BC billing fixture was not created');
+    billingmasterNo = s.sql.value(`INSERT INTO billingmaster (billing_no,createdate,billingstatus,demographic_no,appointment_no,
+        phn,billing_unit,billing_code,bill_amount,service_date,dx_code1,paymentMethod)
+      VALUES (${billingNo},NOW(),'O',0,0,${h.sqlString(PHN_PAYLOAD)},'001',${h.sqlString(CODE_PAYLOAD)},'23.00',
+        DATE_FORMAT(CURDATE(),'%Y%m%d'),'250',6); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(billingmasterNo), 'BC billingmaster fixture was not created');
+
     await s.step('simulation form renders for the billing admin', async () => {
       await h.gotoApp(page, s.config.baseUrl, '/billing/CA/BC/ViewBillingSim');
       await h.assertNotErrorPage(page, 'BC billing simulation form');
@@ -162,7 +162,10 @@ async function workflow(s) {
     // cached active list for later checks against the same Tomcat. Best effort: never mask
     // the step failure that brought us here.
     try {
-      await deactivateProvider(page, s, providerNo);
+      // Look the provider up by its unique stamp: a failure after Add Provider saved it but
+      // before providerNo was read must still evict the cache.
+      await deactivateProvider(page, s, providerNo
+        || s.sql.value(`SELECT provider_no FROM provider WHERE ${ownedProvider} AND status='1'`));
     } catch (error) {
       console.error(`  WARN billing-bc-simulation-encoding: provider cache eviction failed: ${error.message}`);
     }
