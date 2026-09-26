@@ -204,6 +204,8 @@ function assert(condition, message) {
   }
 }
 
+const testContexts = new Set();
+
 async function record(name, fn) {
   const start = Date.now();
   try {
@@ -213,6 +215,13 @@ async function record(name, fn) {
   } catch (error) {
     failures.push({ name, error });
     console.log(`FAIL ${name}: ${error.message}`);
+  } finally {
+    // A failed assertion must not leave its browser processes alive while later
+    // checks run, especially on a memory-constrained validation VM.
+    for (const context of testContexts) {
+      await context.close().catch(() => {});
+    }
+    testContexts.clear();
   }
 }
 
@@ -229,7 +238,9 @@ async function assertResponseNotBlank(response, label, minBytes = 100) {
 }
 
 async function newBrowserContext(browser) {
-  return browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  testContexts.add(context);
+  return context;
 }
 
 async function login(page, password = testPassword) {
@@ -328,10 +339,12 @@ async function expectSchedulePage(page, label) {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       await gotoApp(page, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      // logoutPage submits its logout form after a delay. Wait for the final login
+      // page so that pending submission cannot abort the next route's navigation.
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated provider redirect');
       await gotoApp(page, '/billing/CA/ON/ViewBillingONMRI', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated billing MRI redirect');
       await context.close();
     });

@@ -1990,10 +1990,15 @@ def run_p3(ctx) -> None:
 
     The only phase whose failure the operator may sign off: with no
     backup configured, `--accept no-pre-backup` (or `--dev-target`)
-    records the phase as skipped and says so in the report. Everything
-    after this point assumes a restorable snapshot exists."""
+    records the phase as skipped and says so in the report. Resuming
+    that acknowledged skip must not claim a rollback snapshot exists."""
     if phase_done(ctx["state"], "backup"):
-        log("backup: pre-import snapshot already taken — skipping")
+        recorded = ctx["state"]["phases"]["backup"]
+        if recorded.get("skipped") or recorded.get("unit_failed"):
+            warn("backup: resuming WITHOUT a pre-import snapshot "
+                 "(previously acknowledged); no rollback point was recorded")
+        else:
+            log("backup: pre-import snapshot already taken — skipping")
         return
     if not HOST.backup_configured():
         if "no-pre-backup" in ctx["accepted"] or ctx["dev_target"]:

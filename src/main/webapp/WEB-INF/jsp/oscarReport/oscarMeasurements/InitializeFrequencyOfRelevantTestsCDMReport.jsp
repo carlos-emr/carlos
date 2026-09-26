@@ -145,12 +145,12 @@
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="text" name='startDateA'
                                                 value='${carlos:forHtmlAttribute(lastYear)}' size="10"> <img
-                                                src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
+                                                src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
                                                 onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializeFrequencyOfRelevantTestsCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="text" name='endDateA' value='${carlos:forHtmlAttribute(today)}'
-                                                size="10"> <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0"
+                                                size="10"> <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
                                                                 onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializeFrequencyOfRelevantTestsCDMReportForm"%>','','width=300,height=300')"/>
                                         </td>
                                         <td width="450" class="fieldBox" bgcolor="#ddddff"></td>
@@ -197,10 +197,10 @@
                                         <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="moreThan" size="6"/></td>
                                         <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="lessThan" size="6"/></td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="startDateD" value='${carlos:forHtmlAttribute(lastYear)}' size="10"> 
-                                            <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0" onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"/>
+                                            <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0" onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"/>
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="endDateD" value='${carlos:forHtmlAttribute(today)}' size="10"> 
-                                            <img src="<%= request.getContextPath() %>/img/calendar.gif" border="0" onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"/>
+                                            <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0" onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"/>
                                         </td>
                                         <input type="hidden" name='value(measurementTypeD${ctr.index})' value="${carlos:forHtmlAttribute(measurementType.type)}"/>
                                     </tr>
@@ -210,8 +210,10 @@
                                         <td width="200" class="fieldBox" bgcolor="#ddddff"></td>
                                         <td width="200" class="fieldBox" bgcolor="#ddddff">
                                             <table>
+                                                <%-- See InitializePatientsMetGuidelineCDMReport.jsp: row N's instructions are
+                                                     the Nth handler of measurementTypes, including legacy stored ones. --%>
                                                 <%int k = 0;%>
-                                                <c:forEach var="mInstrc" items="${mInstrcs[ctr.index].measuringInstrcVector}" varStatus="index">
+                                                <c:forEach var="mInstrc" items="${measurementTypes.measuringInstrcBeanVector[ctr.index].measuringInstrcVector}" varStatus="index">
                                                     <tr>
                                                         <td><input type="checkbox"
                                                                    name='value(mInstrcsCheckboxD${ctr.index}${index.index})'

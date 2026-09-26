@@ -228,6 +228,9 @@ class HealthTrackerSubmissionServiceUnitTest {
 
         assertThat(result.persistedCount()).isEqualTo(1);
         assertThat(result.hasRejections()).isFalse();
+        assertThat(result.noteText()).isEmpty();
+        assertThat(result.failures()).extracting(ValidationFailure::messageKey)
+                .containsExactly("oscarEncounter.healthTracker.noteSaveFailed");
     }
 
     @Test
