@@ -238,6 +238,13 @@ Additional confirmed repairs:
 | Health Tracker could report success when measurement rows persisted but the progress note failed | Display a localized warning after note persistence failure. A browser test injects a database failure and verifies the measurements remain, no note is reported as saved, and the warning is visible. |
 | A service dependency could start the new renderer after stopping the old renderer failed | A persistent marker also gates the new systemd unit. The disposable-VM fault test uses a legacy service with `RefuseManualStop=yes`, verifies the new renderer stays down, and verifies reconfiguration recovers. |
 | Java 25's shared delay scheduler retained the stopped CARLOS webapp class loader | Packaged Tomcat shutdown exposed `ForkJoinPool.commonPool-delayScheduler` retaining the CARLOS loader. Shutdown now detaches only this exact bootstrap-loaded JDK thread's context loader when it belongs to the stopping webapp. It never stops the shared scheduler. Tests use the real scheduler, verify subsequent scheduling still works, and preserve other applications' loaders and ordinary similarly named threads. |
+| The promoted WAR still contained FreeMarker 2.3.34, affected by CVE-2026-84939 | Pin the transitive dependency to 2.3.35 and regenerate its integrity lock. An isolated probe reproduced locale-derived `../` storage paths on 2.3.34 and passed on 2.3.35. Regression tests exercise malformed language, country and variant components, and normal French-Canadian template rendering with the previous compatibility setting. |
+
+The dependency review checked all three open Dependabot alerts. The two `image-size`
+alerts affect the default branch, but this release already locks 2.0.4, beyond the fixed
+2.0.3 threshold. FreeMarker was still vulnerable in the release WAR. The upgrade follows
+[Apache's advisory](https://lists.apache.org/thread/hrd7o2ylwkkswdyhyzllgqt0f80kyd5y)
+and [2.3.35 release notes](https://freemarker.apache.org/docs/versions_2_3_35.html).
 
 The validation itself exposed gaps that are now covered in `scripts/`:
 
@@ -276,8 +283,8 @@ document, note and routing fixtures afterward. It does not establish live SRFax 
 or scheduler de-duplication: no live development account was supplied.
 
 The script regression suite passed **1,019 tests** with one worker. Final full Maven `verify`
-reported **13,321 tests, zero failures, zero errors, 51 skips**, with Checkstyle and WAR
-packaging also passing. This includes the real Java 25 scheduler regression tests and
+reported **13,325 tests, zero failures, zero errors, 51 skips**, with Checkstyle and WAR
+packaging also passing. This includes the real Java 25 scheduler and FreeMarker locale regression tests and
 supersedes the earlier localized-property encoding failure, which was corrected with ASCII
 escaping. Mockito's JVM attachment requires running this suite outside the agent sandbox;
 Checkstyle needed a 2 GiB Maven heap. Debian Python checks passed 1,689 tests; package
