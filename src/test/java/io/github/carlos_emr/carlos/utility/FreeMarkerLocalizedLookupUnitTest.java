@@ -41,8 +41,8 @@ class FreeMarkerLocalizedLookupUnitTest extends CarlosUnitTestBase {
         configuration.setTemplateLoader(loader);
 
         // When malformed input reaches any of the language, country or variant components.
-        for (Locale locale : List.of(Locale.of(fragment), Locale.of("en", fragment),
-                Locale.of("en", "CA", fragment))) {
+        for (Locale locale : List.of(new Locale(fragment), new Locale("en", fragment),
+                new Locale("en", "CA", fragment))) {
             assertThat(configuration.getTemplate("report.ftl", locale).getSourceName()).isEqualTo("report.ftl");
         }
 
