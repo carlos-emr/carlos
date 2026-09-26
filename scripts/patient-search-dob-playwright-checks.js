@@ -290,7 +290,7 @@ async function submitDob(page, label, typed, expectedKeyword, prefilled = false)
   await openDobSearch(page);
   if (prefilled) {
     // A restored/server-populated value does not dispatch an input event.
-    await page.locator('#keyword').evaluate((input, value) => { input.value = value; }, typed);
+    await page.locator('#keyword').evaluate((input, value) => { input.value = value; }, typed); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- typed is a fixed synthetic DOB fixture assigned only to an input value, never executed or used as a URL
   } else {
     await typeDob(page, typed);
   }
@@ -460,7 +460,7 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
       await page.locator('select[name="search_mode"]').selectOption('search_dob');
       const keyword = page.locator('form[name="titlesearch"] input[name="keyword"]');
       if (prefilled) {
-        await keyword.evaluate((input, value) => { input.value = value; }, typed);
+        await keyword.evaluate((input, value) => { input.value = value; }, typed); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- typed is a fixed synthetic DOB fixture assigned only to an input value, never executed or used as a URL
       } else {
         await keyword.fill(typed);
       }
