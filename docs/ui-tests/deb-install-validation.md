@@ -643,6 +643,12 @@ suite_failed=0
 # demographic 1 / provider 999998 and clean up after themselves; the few knobs they take:
 #   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
 #   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
+#   GROUP_DISK_SERVICE_DATE=2003-02-03 GROUP_DISK_PAID_CODE=A007A
+#                                (billing-on-group-disk-zero-total, issue #3942: generates an "All Providers"
+#                                OHIP disk over a 5-day window around the date, which must hold no other
+#                                unbilled claim -- the check SKIPs otherwise. It seeds a throwaway billing
+#                                group and removes every disk, batch, claim and provider row it created;
+#                                set OHIP_DISK_DIR to the install's HOME_DIR to remove the disk files too)
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
