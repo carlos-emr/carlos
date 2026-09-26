@@ -96,6 +96,11 @@ class SafeEncodeUnitTest {
         }
 
         @Test
+        void shouldReturnEmpty_forHtmlContentWithBreakMarkers_whenValueIsNull() {
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers(null)).isEmpty();
+        }
+
+        @Test
         void shouldReturnEmpty_forHtmlAttribute_whenValueIsNull() {
             assertThat(SafeEncode.forHtmlAttribute(null)).isEmpty();
         }
@@ -249,6 +254,56 @@ class SafeEncodeUnitTest {
 
             assertThat(SafeEncode.forHtmlContentWithBreaks(input))
                     .isEqualTo(expected);
+        }
+
+        @Test
+        void shouldRenderBreakMarkersAsLineBreaks_forHtmlContentWithBreakMarkers() {
+            // The three spellings HL7 lab handlers emit for the \.br\ escape, plus casing.
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("a<br />b<br/>c<br>d<BR>e"))
+                    .isEqualTo("a<br/>b<br/>c<br/>d<br/>e");
+        }
+
+        @Test
+        void shouldRenderRawNewlinesAsLineBreaks_forHtmlContentWithBreakMarkers() {
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("a\r\nb\nc<br />d"))
+                    .isEqualTo("a<br/>b<br/>c<br/>d");
+        }
+
+        @Test
+        void shouldKeepOtherMarkupEscaped_forHtmlContentWithBreakMarkers() {
+            String input = "5.2<br /><script>alert('x')</script><img src=x onerror=alert(1)>&amp;";
+            String rendered = SafeEncode.forHtmlContentWithBreakMarkers(input);
+
+            assertThat(rendered)
+                    .isEqualTo("5.2<br/>" + Encode.forHtmlContent(
+                            "<script>alert('x')</script><img src=x onerror=alert(1)>&amp;"))
+                    .doesNotContain("<script", "<img");
+        }
+
+        @Test
+        void shouldEscapeBreakTagWithAttributes_forHtmlContentWithBreakMarkers() {
+            // Only the bare marker is a line break; a <br> carrying attributes is data.
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("<br onclick=alert(1)>"))
+                    .isEqualTo(Encode.forHtmlContent("<br onclick=alert(1)>"));
+        }
+
+        @Test
+        void shouldNotTreatEncodedMarkerAsBreak_forHtmlContentWithBreakMarkers() {
+            // Text that already spells an escaped marker stays visible text, double-escaped.
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("&lt;br /&gt;"))
+                    .isEqualTo(Encode.forHtmlContent("&lt;br /&gt;"));
+        }
+
+        @Test
+        void shouldMatchForHtmlContent_forHtmlContentWithBreakMarkers_whenNoBreaks() {
+            for (String input : NON_NULL_INPUTS) {
+                if (input.contains("\n") || input.contains("\r") || input.contains("<br")) {
+                    continue;
+                }
+                assertThat(SafeEncode.forHtmlContentWithBreakMarkers(input))
+                        .as("forHtmlContentWithBreakMarkers(%s)", input)
+                        .isEqualTo(Encode.forHtmlContent(input));
+            }
         }
 
         @Test

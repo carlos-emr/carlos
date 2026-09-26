@@ -128,6 +128,18 @@ class CarlosEncodeTagUnitTest {
         }
 
         @Test
+        void shouldDispatchToForHtmlContentWithBreakMarkers_whenContextIsHtmlWithBreakMarkers() throws JspException {
+            run("htmlWithBreakMarkers", "5.2<br />Repeat <b>");
+            assertThat(captured.toString()).isEqualTo("5.2<br/>Repeat &lt;b&gt;");
+        }
+
+        @Test
+        void shouldRenderEmpty_whenHtmlWithBreakMarkersValueIsNull() throws JspException {
+            run("htmlWithBreakMarkers", null);
+            assertThat(captured.toString()).isEmpty();
+        }
+
+        @Test
         void shouldDispatchToForHtmlAttribute_whenContextIsHtmlAttribute() throws JspException {
             run("htmlAttribute", "\" onerror=alert(1)");
             assertThat(captured.toString()).isEqualTo(Encode.forHtmlAttribute("\" onerror=alert(1)"));

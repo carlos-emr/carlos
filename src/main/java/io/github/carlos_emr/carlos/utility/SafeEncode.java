@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.regex.Pattern;
 
 import org.owasp.encoder.Encode;
 
@@ -61,6 +62,14 @@ public final class SafeEncode {
     private SafeEncode() {
         // static-only
     }
+
+    /**
+     * Raw-text line-break markers accepted by {@link #forHtmlContentWithBreakMarkers(String)}:
+     * {@code <br>}, {@code <br/>} and {@code <br />}, case-insensitive. Deliberately narrow —
+     * no attributes, no other tags — and free of nested quantifiers so it stays linear on
+     * untrusted input.
+     */
+    private static final Pattern BREAK_MARKER = Pattern.compile("(?i)<br\\s*/?>");
 
     /** Coalesce {@code null} to empty string. */
     private static String nz(String s) {
@@ -122,6 +131,41 @@ public final class SafeEncode {
             }
         }
         return builder == null ? encoded : builder.toString();
+    }
+
+    /**
+     * Encode HTML content whose producer marks line breaks with {@code <br>} tags, and render
+     * those breaks (and any raw newlines) as {@code <br/>}.
+     *
+     * <p>Built for HL7 lab text: the lab message handlers translate the HL7 {@code \.br\}
+     * escape into a literal {@code <br />} inside the string they return, and that marker is a
+     * shared contract (the lab PDF, the upload splitter and the demographic export all parse
+     * it). Plain {@link #forHtmlContent(String)} escapes the marker, so the page shows a
+     * visible {@code <br />} instead of a line break.
+     *
+     * <p>The markers are turned into {@code \n} in the <em>raw</em> value, which is then passed
+     * through {@link #forHtmlContentWithBreaks(String)}: everything is HTML-encoded first and
+     * the only markup emitted is the constant {@code <br/>}. Any other tag, attribute or entity
+     * in the value stays escaped, so this does not widen the XSS surface. A marker that
+     * carries attributes (for example {@code <br onclick=...>}) is not a marker and is escaped
+     * like any other text.
+     *
+     * <p>Adapted from open-osp/Open-O PR #225 ({@code HtmlEncodingUtils.encodeForHtmlAllowingBreaks},
+     * Liam Stanziani), reworked to substitute the markers before encoding rather than un-escaping
+     * encoded output, and to reuse CARLOS's null-safe newline rendering. See issue #3953.
+     *
+     * @param value String the untrusted text; {@code null} renders as empty
+     * @return String the HTML-encoded text with line breaks rendered as {@code <br/>}
+     */
+    public static String forHtmlContentWithBreakMarkers(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        return forHtmlContentWithBreaks(BREAK_MARKER.matcher(value).replaceAll("\n"));
+    }
+
+    public static void forHtmlContentWithBreakMarkers(Writer out, String value) throws IOException {
+        out.write(forHtmlContentWithBreakMarkers(value));
     }
 
     public static void forHtmlContent(Writer out, String value) throws IOException {
