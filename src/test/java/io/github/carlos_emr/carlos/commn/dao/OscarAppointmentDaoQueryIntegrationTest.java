@@ -763,8 +763,15 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
     // ========================================================================
 
     /**
-     * Tests for {@link OscarAppointmentDao#search_unbill_history_daterange(String, Date, Date)}.
-     * Finds unbilled appointments (status not starting with 'B') for a provider in a date range.
+     * Tests for {@link OscarAppointmentDao#search_unbill_history_daterange(String, Date, Date)}
+     * and its include-flag overload. Finds appointments that still need billing (status not
+     * starting with 'B', and by default not 'C' Cancelled or 'N' No-Show) for a provider in a
+     * date range (issue #3960).
+     *
+     * <p>Case sensitivity of the status prefixes (lowercase {@code c} "Customized 3" must stay
+     * listed) depends on the production {@code utf8mb4_bin} collation of {@code appointment.status},
+     * which H2's MySQL mode does not model; it is asserted against MariaDB by
+     * {@code scripts/billing-unbilled-report-playwright-checks.js}.</p>
      */
     @Nested
     @DisplayName("search_unbill_history_daterange")
@@ -816,6 +823,99 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             assertThat(result).hasSizeGreaterThanOrEqualTo(2);
             assertThat(result.get(0).getId()).isEqualTo(newer.getId());
             assertThat(result.get(1).getId()).isEqualTo(older.getId());
+        }
+
+        @Test
+        @DisplayName("should exclude cancelled and no-show appointments by default")
+        void shouldExcludeCancelledAndNoShow_byDefault() {
+            // Given
+            Appointment pending = createAndPersist(today, PROVIDER_NO, 100, "t");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment cancelledSigned = createAndPersist(today, PROVIDER_NO, 102, "CS");
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 103, "N");
+            Appointment noShowVerified = createAndPersist(today, PROVIDER_NO, 104, "NV");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId).contains(pending.getId())
+                    .doesNotContain(cancelled.getId(), cancelledSigned.getId(),
+                            noShow.getId(), noShowVerified.getId());
+        }
+
+        @Test
+        @DisplayName("should match the three-argument form when both include flags are false")
+        void shouldMatchDefaultOverload_whenIncludeFlagsFalse() {
+            // Given
+            createAndPersist(today, PROVIDER_NO, 100, "H");
+            createAndPersist(today, PROVIDER_NO, 101, "C");
+            createAndPersist(today, PROVIDER_NO, 102, "N");
+            createAndPersist(today, PROVIDER_NO, 103, "B");
+
+            // When
+            List<Appointment> defaults = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow);
+            List<Appointment> explicit = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow, false, false);
+
+            // Then
+            assertThat(explicit).extracting(Appointment::getId)
+                    .containsExactlyElementsOf(defaults.stream().map(Appointment::getId).toList());
+        }
+
+        @Test
+        @DisplayName("should include no-show appointments only when requested")
+        void shouldIncludeNoShowOnly_whenNoShowFlagSet() {
+            // Given
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 100, "N");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow, true, false);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId).contains(noShow.getId())
+                    .doesNotContain(cancelled.getId(), billed.getId());
+        }
+
+        @Test
+        @DisplayName("should include cancelled appointments only when requested")
+        void shouldIncludeCancelledOnly_whenCancelledFlagSet() {
+            // Given
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 100, "N");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow, false, true);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId).contains(cancelled.getId())
+                    .doesNotContain(noShow.getId(), billed.getId());
+        }
+
+        @Test
+        @DisplayName("should still exclude billed appointments when both include flags are set")
+        void shouldExcludeBilled_whenBothIncludeFlagsSet() {
+            // Given
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 100, "N");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
+            Appointment zeroDemo = createAndPersist(today, PROVIDER_NO, 0, "N");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow, true, true);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId)
+                    .contains(noShow.getId(), cancelled.getId())
+                    .doesNotContain(billed.getId(), zeroDemo.getId());
         }
     }
 

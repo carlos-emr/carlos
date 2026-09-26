@@ -50,4 +50,29 @@ class BillingReportControlViewModelAssemblerUnitTest {
 
         assertThat(model.getProviderOptions()).isEmpty();
     }
+
+    @Test
+    void shouldDefaultUnbilledStatusFilters_toExcluded() {
+        BillingReportControlViewModel model =
+                new BillingReportControlViewModelAssembler(mock(ReportProviderDao.class))
+                        .assemble(new MockHttpServletRequest(), null);
+
+        assertThat(model.isIncludeNoShow()).isFalse();
+        assertThat(model.isIncludeCancelled()).isFalse();
+    }
+
+    @Test
+    void shouldEchoUnbilledStatusFilters_whenCheckboxesSubmitted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("reportAction", "unbilled");
+        request.setParameter("includeNoShow", "true");
+        request.setParameter("includeCancelled", "true");
+
+        BillingReportControlViewModel model =
+                new BillingReportControlViewModelAssembler(mock(ReportProviderDao.class))
+                        .assemble(request, null);
+
+        assertThat(model.isIncludeNoShow()).isTrue();
+        assertThat(model.isIncludeCancelled()).isTrue();
+    }
 }
