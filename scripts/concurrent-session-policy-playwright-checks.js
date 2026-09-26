@@ -313,6 +313,9 @@ async function checkLimit(browser, config, step, contexts, max, policy) {
 }
 
 function checkAudit(config, since, expected, step) {
+  if (expected.length === 0) {
+    return;
+  }
   if (!config.mysql.password) {
     step('audit rows not checked (MYSQL_PASSWORD not set)');
     return;
