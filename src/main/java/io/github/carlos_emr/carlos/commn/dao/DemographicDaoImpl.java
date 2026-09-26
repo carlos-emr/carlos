@@ -104,7 +104,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
-        "fnLike", "lnLike", "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", "dayob"
+        "fnLike", "lnLike", "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", "dayob",
+        "keyword", "extraKeyword", "year", "month"
     );
 
     static Logger log = MiscUtils.getLogger();
@@ -2769,7 +2770,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         String fieldname = "";
         String regularexp = "regexp";
 
-        if (searchRequest.getKeyword().indexOf("*") != -1 || searchRequest.getKeyword().indexOf("%") != -1) {
+        if (searchRequest.getMode() != SEARCHMODE.DOB
+                && (searchRequest.getKeyword().indexOf("*") != -1 || searchRequest.getKeyword().indexOf("%") != -1)) {
             regularexp = "like";
         }
 
@@ -2787,26 +2789,13 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             fieldname = "d.hin";
         }
         if (searchRequest.getMode() == SEARCHMODE.DOB) {
-            fieldname = "d.year_of_birth = :year and d.month_of_birth = :month and d.date_of_birth ";
-
-            try {
-                String year = searchRequest.getKeyword().substring(0, 4);
-                String month = searchRequest.getKeyword().substring(5, 7);
-                String day = searchRequest.getKeyword().substring(8);
-
-                params.put("year", year);
-                params.put("month", month);
-                params.put("keyword", day);
-
-                // Validate the date parts
-                new GregorianCalendar(Integer.parseInt(year), Integer.parseInt(month) - 1,
-                    Integer.parseInt(day));
-            } catch (Exception e) {
-                // this is okay, person inputed a bad date, we'll ignore for now
-                params.put("year", null);
-                params.put("month", null);
-                params.put("keyword", null);
-            }
+            fieldname = "d.year_of_birth like :year and d.month_of_birth like :month and d.date_of_birth ";
+            regularexp = "like";
+            Optional<DobSearchPattern> dob = DobSearchPattern.parse(searchRequest.getKeyword());
+            // Null bindings deliberately produce no matches for invalid/missing input.
+            params.put("year", dob.map(DobSearchPattern::year).orElse(null));
+            params.put("month", dob.map(DobSearchPattern::month).orElse(null));
+            params.put("keyword", dob.map(DobSearchPattern::day).orElse(null));
         }
         if (searchRequest.getMode() == SEARCHMODE.ChartNo) {
             fieldname = "d.chart_no";

@@ -1462,6 +1462,20 @@
       "timeoutSec": 300
     },
     {
+      "name": "patient-search-rest-dob",
+      "script": "scripts/patient-search-rest-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns a synthetic patient and an unused DOB year; verifies REST count/results, invalid inputs, status and pagination; removes its fixture on success or failure."
+    },
+    {
       "name": "patient-search-modes",
       "script": "scripts/patient-search-modes-playwright-checks.js",
       "tiers": [

@@ -309,6 +309,34 @@ async function fillDob(page, text) {
   return page.locator('#keyword').inputValue();
 }
 
+async function expectValidationWithoutNavigation(page, submitSelector, label) {
+  const beforeDialogs = seenExpectedDialogs;
+  expectedDialogs = 1;
+  let navigationRequested = false;
+  const onRequest = (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+      navigationRequested = true;
+    }
+  };
+  page.on('request', onRequest);
+  try {
+    // Observe commit rather than load: a slow response must not hide a submit.
+    // Also observe requests, including those whose response has not committed.
+    const navigation = page.waitForNavigation({ waitUntil: 'commit', timeout: 1500 })
+      .then(() => true, (error) => {
+        if (error.name === 'TimeoutError') return false;
+        throw error;
+      });
+    await page.locator(submitSelector).first().click();
+    const committed = await navigation;
+    expectValue(`${label}-alerted`, seenExpectedDialogs, beforeDialogs + 1);
+    expectValue(`${label}-no-navigation`, navigationRequested || committed, false);
+  } finally {
+    expectedDialogs = 0;
+    page.off('request', onRequest);
+  }
+}
+
 (async () => {
   const launchOptions = {
     headless: true,
@@ -414,12 +442,9 @@ async function fillDob(page, text) {
     await openDobSearch(page);
     await typeDob(page, '198');
     const beforeUrl = page.url();
-    expectedDialogs = 1;
-    await page.locator('form[name="titlesearch"] input[type="submit"]').first().click();
-    await page.waitForTimeout(750);
-    expectValue('dob-malformed-alerted', seenExpectedDialogs, 1);
+    await expectValidationWithoutNavigation(page,
+      'form[name="titlesearch"] input[type="submit"]', 'dob-malformed');
     expectValue('dob-malformed-not-submitted', page.url(), beforeUrl);
-    expectedDialogs = 0;
 
     // Appointment/contact pickers have their own search form and POST routing.
     // Exercise the actual dropdown and submission, including its localized alert.
@@ -449,13 +474,9 @@ async function fillDob(page, text) {
     }
     for (const invalid of ['198', '1980-13', '%']) {
       await page.locator('form[name="titlesearch"] input[name="keyword"]').fill(invalid);
-      const beforeDialogs = seenExpectedDialogs;
-      expectedDialogs = 1;
-      await page.locator('form[name="titlesearch"] input[type="submit"]').first().click();
-      await page.waitForTimeout(750);
-      expectValue('appointment-malformed-alerted', seenExpectedDialogs, beforeDialogs + 1);
+      await expectValidationWithoutNavigation(page,
+        'form[name="titlesearch"] input[type="submit"]', 'appointment-malformed');
       expectValue('appointment-malformed-retained', await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue(), invalid);
-      expectedDialogs = 0;
     }
 
     // The report picker is a name-only result page: it has no titlesearch form.
