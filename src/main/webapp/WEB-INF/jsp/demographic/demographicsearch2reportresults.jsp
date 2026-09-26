@@ -117,50 +117,8 @@
     <title><fmt:message key="demographic.demographicsearch2apptresults.title"/>(demographicsearch2reportresults)</title>
 
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-    <script language="JavaScript">
-        function setfocus() {
-            this.focus();
-            document.titlesearch.keyword.focus();
-            document.titlesearch.keyword.select();
-        }
-
-        function checkTypeIn() {
-            var dob = document.titlesearch.keyword;
-
-            if (dob.value.indexOf('%b610054') == 0 && dob.value.length > 18) {
-                document.titlesearch.keyword.value = dob.value.substring(8, 18);
-                document.titlesearch.search_mode[4].checked = true;
-            }
-
-            if (document.titlesearch.search_mode[2].checked) {
-                if (dob.value.length == 8) {
-                    dob.value = dob.value.substring(0, 4) + "-" + dob.value.substring(4, 6) + "-" + dob.value.substring(6, 8);
-                }
-                if (dob.value.length != 10) {
-                    alert("<fmt:message key="demographic.demographicsearch2apptresults.msgWrongDOB"/>");
-                    return false;
-                } else {
-                    return true;
-                }
-            } else {
-                return true;
-            }
-        }
-
-        function searchInactive() {
-            document.titlesearch.ptstatus.value = "inactive"
-            if (checkTypeIn()) document.forms[0].submit()
-        }
-
-        function searchAll() {
-            document.titlesearch.ptstatus.value = ""
-            if (checkTypeIn()) document.forms[0].submit()
-        }
-
-
-    </SCRIPT>
 </head>
-<body bgcolor="white" bgproperties="fixed" onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
+<body bgcolor="white" bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0">
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr class="subject">

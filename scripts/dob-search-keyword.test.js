@@ -156,3 +156,51 @@ test('the DAO binds the parsed segments, not a raw split of the keyword', () => 
   assert.match(DAO, /setParameter\("yearOfBirth", dob\.get\(\)\.year\(\)\)/);
   assert.ok(!/dobStr\.split\("-"\)/.test(DAO), 'the 3-segment split that rejected partial dates must not come back');
 });
+
+// Execute the appointment form's real submit handler with a dropdown contract.
+// A legacy radio-button index check silently accepts malformed dates here.
+function appointmentSubmit(keyword, mode = 'search_dob') {
+  const source = fs.readFileSync(path.join(ROOT,
+    'src/main/webapp/WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp'), 'utf8');
+  const start = source.indexOf('function checkTypeIn() {');
+  const end = source.indexOf('function searchInactive()', start);
+  assert.ok(start >= 0 && end > start);
+  const alerts = [];
+  const form = { keyword: { value: keyword }, search_mode: { value: mode } };
+  // Dropdown options expose selected, never the checked property of a radio.
+  for (let i = 0; i < 7; i++) form.search_mode[i] = { selected: false };
+  const context = {
+    document: { titlesearch: form }, CarlosDobSearch: dob,
+    DOB_FORMAT_MESSAGE: 'localized DOB guidance', alert: message => alerts.push(message),
+  };
+  require('node:vm').runInNewContext(source.slice(start, end).replace(/<fmt:message[^>]+\/>/g, 'localized DOB guidance'), context);
+  return { accepted: context.checkTypeIn(), alerts, form };
+}
+
+test('appointment dropdown rejects malformed DOB rather than silently submitting', () => {
+  for (const keyword of ['198', '1980-13', '1980-01-32', '%', '%-%-%']) {
+    const result = appointmentSubmit(keyword);
+    assert.equal(result.accepted, false, keyword);
+    assert.deepEqual(result.alerts, ['localized DOB guidance']);
+  }
+});
+
+test('appointment dropdown preserves full, partial and wildcard DOB searches', () => {
+  for (const keyword of ['1980', '1980-01', '1980-01-01', '1980-%-01', '%-01-01', '1980-']) {
+    const result = appointmentSubmit(keyword);
+    assert.equal(result.accepted, true, keyword);
+    assert.deepEqual(result.alerts, []);
+    assert.equal(result.form.keyword.value, keyword);
+  }
+});
+
+test('appointment search still supports other modes and exact-length card swipes', () => {
+  assert.equal(appointmentSubmit('Example', 'search_name').accepted, true);
+  assert.equal(appointmentSubmit('', 'search_dob').accepted, true);
+  for (const keyword of ['%b6100541234567890', '%b6100541234567890EXTRA']) {
+    const result = appointmentSubmit(keyword, 'search_name');
+    assert.equal(result.accepted, true);
+    assert.equal(result.form.search_mode.value, 'search_hin');
+    assert.equal(result.form.keyword.value, '1234567890');
+  }
+});

@@ -191,35 +191,7 @@
                 document.titlesearch.keyword.select();
             }
 
-            function checkTypeIn() {
-                var dob = document.titlesearch.keyword;
-                typeInOK = true;
-
-                if (dob.value.indexOf('%b610054') == 0 && dob.value.length > 18) {
-                    document.titlesearch.keyword.value = dob.value.substring(8, 18);
-                    document.titlesearch.search_mode[4].checked = true;
-                }
-                if (document.titlesearch.search_mode[0].checked) {
-                    var keyword = document.titlesearch.keyword.value;
-                    var keywordLowerCase = keyword.toLowerCase();
-                    document.titlesearch.keyword.value = keywordLowerCase;
-                }
-                if (document.titlesearch.search_mode[2].checked) {
-                    if (dob.value.length == 8) {
-                        dob.value = dob.value.substring(0, 4) + "-"
-                            + dob.value.substring(4, 6) + "-"
-                            + dob.value.substring(6, 8);
-                    }
-                    if (dob.value.length != 10) {
-                        alert("<fmt:message key="demographic.search.msgWrongDOB"/>");
-                        typeInOK = false;
-                    }
-
-                    return typeInOK;
-                } else {
-                    return true;
-                }
-            }
+            // Search validation is supplied by zdemographicfulltitlesearch.jsp below.
 
             function popup(vheight, vwidth, varpage) {
                 var page = varpage;

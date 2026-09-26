@@ -35,7 +35,9 @@
  * keystroke-by-keystroke entry (full dates, separators, wildcards, a mid-field
  * edit), submits full, year, year-month and wildcard searches and checks each
  * reaches the results page with the typed keyword intact, and checks that a
- * malformed date is refused with an alert instead of being submitted.
+ * malformed date is refused with an alert instead of being submitted. It also
+ * exercises the appointment picker form and opens the name-only report picker
+ * to catch stale validation/focus handlers.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/patient-search-dob-playwright-checks.js
@@ -136,8 +138,10 @@ function isWithinConfiguredApp(url) {
     && (appRoot === '/' || url.pathname === appRoot || url.pathname.startsWith(`${appRoot}/`));
 }
 
-async function safeGoto(page, appPath, options) {
-  const response = await page.goto(appUrl(appPath), options); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default // NOSONAR - same rationale
+async function safeGoto(page, appPath, options, parameters = {}) {
+  const target = new URL(appUrl(appPath));
+  target.search = new URLSearchParams(parameters).toString();
+  const response = await page.goto(target.toString(), options); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default // NOSONAR - same rationale
   if (!isWithinConfiguredApp(new URL(page.url()))) {
     throw new Error('Navigation left the configured CARLOS EMR application');
   }
@@ -410,6 +414,45 @@ async function fillDob(page, text) {
     expectValue('dob-malformed-alerted', seenExpectedDialogs, 1);
     expectValue('dob-malformed-not-submitted', page.url(), beforeUrl);
     expectedDialogs = 0;
+
+    // Appointment/contact pickers have their own search form and POST routing.
+    // Exercise the actual dropdown and submission, including its localized alert.
+    await safeGoto(page, '/demographic/DemographicSearch',
+      { waitUntil: 'domcontentloaded', timeout: 30000 },
+      { displaymode: 'Search ', search_mode: 'search_dob', keyword: '1980', ptstatus: 'active' });
+    await assertNoErrorPage(page, 'appointment-search');
+    for (const [typed, expected] of [
+      ['1980', '1980'], ['1980-01', '1980-01'],
+      ['1980-%-01', '1980-%-01'], ['19800101', '1980-01-01'],
+    ]) {
+      await page.locator('select[name="search_mode"]').selectOption('search_dob');
+      await page.locator('form[name="titlesearch"] input[name="keyword"]').fill(typed);
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+        page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
+      ]);
+      await assertNoErrorPage(page, 'appointment-dob-results');
+      expectValue('appointment-dob-keyword', await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue(), expected);
+      expectValue('appointment-search-context', await page.locator('input[type="hidden"][name="displaymode"]').inputValue(), 'Search ');
+    }
+    for (const invalid of ['198', '1980-13', '%']) {
+      await page.locator('form[name="titlesearch"] input[name="keyword"]').fill(invalid);
+      const beforeDialogs = seenExpectedDialogs;
+      expectedDialogs = 1;
+      await page.locator('form[name="titlesearch"] input[type="submit"]').first().click();
+      await page.waitForTimeout(750);
+      expectValue('appointment-malformed-alerted', seenExpectedDialogs, beforeDialogs + 1);
+      expectValue('appointment-malformed-retained', await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue(), invalid);
+      expectedDialogs = 0;
+    }
+
+    // The report picker is a name-only result page: it has no titlesearch form.
+    // Opening it must not run stale DOB/focus code against a nonexistent form.
+    await safeGoto(page, '/demographic/ViewDemographicSearch2ReportResults',
+      { waitUntil: 'load', timeout: 30000 }, { keyword: 'FAKE-PW-NO-MATCH' });
+    await assertNoErrorPage(page, 'report-picker');
+    expectValue('report-picker-results-form', await page.locator('form[name="addform"]').count(), 1);
+    expectValue('report-picker-has-no-search-form', await page.locator('form[name="titlesearch"]').count(), 0);
 
     if (findings.length) {
       throw new Error(`patient search DOB browser check found ${findings.length} issue(s)`);

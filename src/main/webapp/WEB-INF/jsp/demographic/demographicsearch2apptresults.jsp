@@ -58,6 +58,7 @@
 
 <!DOCTYPE HTML>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -176,7 +177,10 @@
     <%-- global.css: CARLOS color overrides for Bootstrap (this page doesn't use global-head.jspf) --%>
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
+    <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <script language="JavaScript">
+        var DOB_FORMAT_MESSAGE = '${carlos:forJavaScript(dobFormatMessage)}';
         function setfocus() {
             this.focus();
             document.titlesearch.keyword.focus();
@@ -191,26 +195,22 @@
         }
 
         function checkTypeIn() {
-            var dob = document.titlesearch.keyword;
-
-            if (dob.value.indexOf('%b610054') == 0 && dob.value.length > 18) {
-                document.titlesearch.keyword.value = dob.value.substring(8, 18);
-                document.titlesearch.search_mode[4].checked = true;
-            }
-
-            if (document.titlesearch.search_mode[2].checked) {
-                if (dob.value.length == 8) {
-                    dob.value = dob.value.substring(0, 4) + "-" + dob.value.substring(4, 6) + "-" + dob.value.substring(6, 8);
-                }
-                if (dob.value.length != 10) {
-                    alert("<fmt:message key="demographic.demographicsearch2apptresults.msgWrongDOB"/>");
-                    return false;
-                } else {
-                    return true;
-                }
-            } else {
+            var form = document.titlesearch;
+            var keyword = form.keyword;
+            // Preserve Ontario card-swiping support when selecting a patient.
+            if (/^%b610054[0-9]{10}/.test(keyword.value)) {
+                keyword.value = keyword.value.substring(8, 18);
+                form.search_mode.value = 'search_hin';
                 return true;
             }
+            if (form.search_mode.value === 'search_dob') {
+                var value = keyword.value.trim();
+                if (value.length > 0 && !CarlosDobSearch.isValid(value)) {
+                    alert(DOB_FORMAT_MESSAGE);
+                    return false;
+                }
+            }
+            return true;
         }
 
         function searchInactive() {
@@ -240,7 +240,8 @@
         <div id="demographicSearch" class="searchBox input-group select-group" style="margin-bottom:10px;">
             <%--    <ul style="display: flex;">--%>
             <%--        <li>--%>
-            <select class="wideInput form-select" name="search_mode">
+            <select class="wideInput form-select" name="search_mode"
+                    onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
                 <option value="search_name" <%="search_name".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optName"/>
                 </option>
@@ -267,6 +268,7 @@
             <%--        <li>--%>
 
             <input type="text" class="wideInput form-control" NAME="keyword"
+                   oninput="if(document.titlesearch.search_mode.value === 'search_dob') CarlosDobSearch.formatInput(this);"
                    VALUE="<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="htmlAttribute"/>" SIZE="17" MAXLENGTH="100"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <%--        </li>--%>
             <%--        <li>--%>
@@ -324,7 +326,7 @@
                    class="leftButton top btn btn-link">
                     <fmt:message key="global.btnCancel"/>
                 </a>
-                <input type="SUBMIT" class="btn btn-primary" name="displaymode"
+                <input type="SUBMIT" class="btn btn-primary"
                        value='<fmt:message key="global.search"/>'
                        title='<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>'>
                 <INPUT TYPE="button" id="inactiveButton" class="btn btn-secondary"
