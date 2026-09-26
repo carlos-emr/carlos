@@ -6,6 +6,8 @@ import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -42,6 +44,7 @@ class TicklerConverterUnitTest extends CarlosUnitTestBase {
 
     private TicklerDocsDao ticklerDocsDao;
     private SecurityInfoManager securityInfoManager;
+    private TicklerAttachmentService attachmentService;
     private LoggedInInfo loggedInInfo;
     private Tickler tickler;
 
@@ -56,7 +59,12 @@ class TicklerConverterUnitTest extends CarlosUnitTestBase {
         registerMock(TicklerDocsDao.class, ticklerDocsDao);
         registerMock(ProgramDao.class, mock(ProgramDao.class));
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        attachmentService = mock(TicklerAttachmentService.class);
+        registerMock(TicklerAttachmentService.class, attachmentService);
         loggedInInfo = mock(LoggedInInfo.class);
+        // Items are the patient's unless a test moves one.
+        org.mockito.Mockito.lenient().when(attachmentService.belongsToPatient(any(), any(), org.mockito.ArgumentMatchers.anyInt(), any(), any()))
+                .thenReturn(true);
 
         Demographic demographic = new Demographic();
         demographic.setLastName("Patient");
@@ -116,6 +124,19 @@ class TicklerConverterUnitTest extends CarlosUnitTestBase {
 
         assertThat(links).isEmpty();
         org.mockito.Mockito.verify(ticklerDocsDao, org.mockito.Mockito.never()).findByTicklerId(any());
+    }
+
+    @Test
+    @DisplayName("should leave out an attachment whose item has moved to another patient")
+    void shouldOmitLink_whenItemNoLongerThePatients() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), anyString(), eq(SecurityInfoManager.READ), eq("1001"))).thenReturn(true);
+        when(attachmentService.belongsToPatient(loggedInInfo, DocumentType.DOC, 11, null, 1001)).thenReturn(false);
+        TicklerConverter converter = new TicklerConverter();
+        converter.setIncludeLinks(true);
+
+        List<TicklerLinkTo1> links = converter.getAsTransferObject(loggedInInfo, tickler).getTicklerLinks();
+
+        assertThat(links).singleElement().extracting(TicklerLinkTo1::getTableName).isEqualTo("MDS");
     }
 
     @Test

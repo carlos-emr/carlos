@@ -148,8 +148,12 @@ public class TicklerList2Action extends ActionSupport {
             // Per-type read rights are patient-scoped, so they are resolved once per
             // (type, patient) on the page; a link the reader may not open is marked restricted.
             Map<String, Boolean> readableByTypeAndPatient = new HashMap<>();
+            // An item that has moved to another patient since it was attached is left out of
+            // the row altogether, whatever the reader's rights.
+            Map<String, Boolean> ownedByItemAndPatient = new HashMap<>();
 
             for (TicklerListDTO dto : ticklerDTOs) {
+                dto.setLinks(ownedLinks(ticklerAttachmentService, loggedInInfo, dto, ownedByItemAndPatient));
                 rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale,
                         formNamesFor(loggedInInfo, dto, formNamesByDemographic),
                         link -> isLinkReadable(securityInfoManager, loggedInInfo, dto, link, readableByTypeAndPatient)));
@@ -322,6 +326,35 @@ public class TicklerList2Action extends ActionSupport {
         row.put("links", links);
 
         return row;
+    }
+
+    /**
+     * Keeps the links whose item still belongs to the tickler's patient, looked up afresh
+     * (cached per item and patient for the page). A row that was valid when written can name
+     * a document since re-filed or an HRM report since re-assigned; such a link is dropped
+     * rather than rendered, restricted or not, so the list never surfaces another patient's
+     * item. Rows with no recorded type cannot be checked and are kept.
+     */
+    static List<TicklerLinkDTO> ownedLinks(TicklerAttachmentService ticklerAttachmentService, LoggedInInfo loggedInInfo,
+                                          TicklerListDTO dto, Map<String, Boolean> cache) {
+        if (dto.getLinks() == null || dto.getLinks().isEmpty()) {
+            return dto.getLinks();
+        }
+        List<TicklerLinkDTO> owned = new ArrayList<>();
+        for (TicklerLinkDTO link : dto.getLinks()) {
+            DocumentType documentType = DocumentType.fromType(link.getDocType());
+            if (documentType == null || link.getTableId() == null) {
+                owned.add(link);
+                continue;
+            }
+            String key = documentType.getType() + ":" + link.getTableId() + ":" + link.getLabType() + ":" + dto.getDemographicNo();
+            boolean stillOwned = cache.computeIfAbsent(key, k -> ticklerAttachmentService.belongsToPatient(loggedInInfo,
+                    documentType, link.getTableId().intValue(), link.getLabType(), dto.getDemographicNo()));
+            if (stillOwned) {
+                owned.add(link);
+            }
+        }
+        return owned;
     }
 
     /**

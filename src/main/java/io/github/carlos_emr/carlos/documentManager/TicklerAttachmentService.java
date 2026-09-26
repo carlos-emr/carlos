@@ -212,15 +212,22 @@ public class TicklerAttachmentService {
                 requireTypeReadable(loggedInInfo, documentType, demographicNo);
             }
             // Ownership checks come before any write, so a rejected submission leaves the
-            // stored set untouched rather than half-synchronised.
+            // stored set untouched rather than half-synchronised. A new item that is not the
+            // patient's is refused; a live item is re-verified too, since a document can be
+            // re-filed and an HRM report re-assigned after it was attached, and one that has
+            // moved is detached (audited) rather than kept on the patient's tickler.
+            Set<AttachmentRef> stale = new HashSet<>();
             for (AttachmentRef ref : wanted) {
                 if (!existing.containsKey(ref)) {
                     requireBelongsToPatient(loggedInInfo, documentType, ref, demographicNo);
+                } else if (!belongsToPatient(loggedInInfo, documentType, ref, demographicNo)) {
+                    logger.warn("Detaching tickler attachment: {} item is no longer the tickler's patient's", documentType.getName());
+                    stale.add(ref);
                 }
             }
 
             for (Map.Entry<AttachmentRef, TicklerDocs> storedEntry : existing.entrySet()) {
-                if (!wanted.contains(storedEntry.getKey())) {
+                if (!wanted.contains(storedEntry.getKey()) || stale.contains(storedEntry.getKey())) {
                     TicklerDocs storedDoc = storedEntry.getValue();
                     storedDoc.setDeleted(TicklerDocs.DELETED_FLAG);
                     ticklerDocsDao.merge(storedDoc);
@@ -294,8 +301,8 @@ public class TicklerAttachmentService {
      *
      * @param loggedInInfo LoggedInInfo the authenticated session
      * @param tickler Tickler the tickler being shown
-     * @return List&lt;TicklerAttachmentData&gt; every live attachment, oldest first; items of a type
-     *         the caller may not read are returned unnamed
+     * @return List&lt;TicklerAttachmentData&gt; every live attachment whose item is still the
+     *         patient's, oldest first; items of a type the caller may not read are returned unnamed
      * @throws SecurityException when the caller lacks {@code _tickler} read on the patient
      */
     public List<TicklerAttachmentData> listAttachments(LoggedInInfo loggedInInfo, Tickler tickler) {
@@ -392,6 +399,13 @@ public class TicklerAttachmentService {
                 return null;
             }
             String documentId = String.valueOf(ticklerDoc.getDocumentNo());
+            // A row is only shown while its item is still the patient's: a document re-filed or
+            // an HRM report re-assigned since it was attached is left out, whatever the caller's
+            // rights, so a tickler never surfaces another patient's item.
+            if (!belongsToPatient(loggedInInfo, documentType, ticklerDoc.getDocumentNo(), ticklerDoc.getLabType(), demographicNo)) {
+                logger.warn("Omitting tickler attachment: {} item is no longer the tickler's patient's", documentType.getName());
+                return null;
+            }
             boolean viewable = readable.computeIfAbsent(documentType,
                     type -> isTypeReadable(loggedInInfo, type, demographicNo));
             if (!viewable) {
@@ -493,7 +507,40 @@ public class TicklerAttachmentService {
      */
     private void requireBelongsToPatient(LoggedInInfo loggedInInfo, DocumentType documentType,
                                          AttachmentRef ref, Integer demographicNo) {
+        if (!belongsToPatient(loggedInInfo, documentType, ref, demographicNo)) {
+            // The identifiers are PHI-correlating; the message names only the type.
+            logger.warn("Rejected tickler attachment: {} item is not the tickler's patient's", documentType.getName());
+            throw new SecurityException(documentType.getName() + " attachment does not belong to the patient");
+        }
+    }
+
+    /**
+     * Whether a stored or submitted item currently belongs to the patient, looked up afresh:
+     * a document can be re-filed and an HRM report re-assigned after it was attached, and a
+     * row that was valid when written must not surface another patient's item later. Readers
+     * that resolve {@code ticklerdocs} rows call this before exposing a row.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session (encounter form lookups need it)
+     * @param documentType DocumentType the attachment type
+     * @param documentNo int the item id
+     * @param labType String the lab source for labs (blank reads as HL7), ignored otherwise
+     * @param demographicNo Integer the tickler's patient
+     * @return boolean true when the item is the patient's now
+     */
+    public boolean belongsToPatient(LoggedInInfo loggedInInfo, DocumentType documentType, int documentNo,
+                                    String labType, Integer demographicNo) {
+        String source = documentType == DocumentType.LAB
+                ? (labType == null || labType.trim().isEmpty() ? LabResultData.HL7TEXT : labType.trim())
+                : null;
+        return belongsToPatient(loggedInInfo, documentType, new AttachmentRef(documentNo, source), demographicNo);
+    }
+
+    private boolean belongsToPatient(LoggedInInfo loggedInInfo, DocumentType documentType,
+                                     AttachmentRef ref, Integer demographicNo) {
         Integer documentNo = ref.documentNo();
+        if (demographicNo == null) {
+            return false;
+        }
         boolean owned;
         switch (documentType) {
             case DOC:
@@ -517,11 +564,7 @@ public class TicklerAttachmentService {
                 owned = false;
                 break;
         }
-        if (!owned) {
-            // The identifiers are PHI-correlating; the message names only the type.
-            logger.warn("Rejected tickler attachment: {} item is not the tickler's patient's", documentType.getName());
-            throw new SecurityException(documentType.getName() + " attachment does not belong to the patient");
-        }
+        return owned;
     }
 
     private boolean documentBelongsToPatient(Integer documentNo, Integer demographicNo) {

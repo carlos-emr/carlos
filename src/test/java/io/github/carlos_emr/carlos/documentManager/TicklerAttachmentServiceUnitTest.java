@@ -252,6 +252,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should treat the same id under two sources as two different labs")
         void shouldKeepBothLabs_whenSourcesDiffer() {
             labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
+            labOwnedBy(77, DEMOGRAPHIC_NO, "HL7");
             TicklerDocs storedHl7 = stored(77, "L");
             storedHl7.setLabType("HL7");
             when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(storedHl7));
@@ -321,11 +322,11 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should soft-delete stored items of a submitted type that were not resubmitted")
         void shouldDetachRemovedItems_whenTypeIsResubmitted() {
-            // Ownership was proven when 11 was attached; a resubmission of a stored item is
-            // not re-verified, so no ctl_document lookup is stubbed here.
+            // A resubmitted stored item is re-verified against the document's current filing.
             TicklerDocs kept = stored(11, "D");
             TicklerDocs removed = stored(12, "D");
             when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(kept, removed));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
 
@@ -335,6 +336,25 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             verify(ticklerDocsDao, never()).persist(any());
             logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
                     eq("TicklerAttachmentService.delete"), eq("ticklerId=42,type=D,documentNo=12")));
+        }
+
+        @Test
+        @DisplayName("should detach a live item that has since moved to another patient, even when resubmitted")
+        void shouldDetachStaleItem_whenResubmittedButNoLongerThePatients() {
+            TicklerDocs moved = stored(11, "D");
+            TicklerDocs kept = stored(12, "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(moved, kept));
+            documentOwnedBy(11, DEMOGRAPHIC_NO + 1);
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11", "12"));
+
+            assertThat(moved.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            assertThat(kept.getDeleted()).isNull();
+            verify(ticklerDocsDao).merge(moved);
+            verify(ticklerDocsDao, never()).persist(any());
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("TicklerAttachmentService.delete"), eq("ticklerId=42,type=D,documentNo=11")));
         }
 
         @Test
@@ -532,6 +552,8 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             TicklerDocs eForm = stored(5, "E");
             TicklerDocs form = stored(3, "F");
             when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(doc, lab, eForm, form));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            labOwnedBy(77, DEMOGRAPHIC_NO, "HL7");
 
             Document document = new Document();
             document.setDocdesc("Referral letter");
@@ -542,6 +564,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
 
             EFormData eFormData = new EFormData();
             eFormData.setFormName("Consent");
+            eFormData.setDemographicId(DEMOGRAPHIC_NO);
             when(eFormDataDao.find(5)).thenReturn(eFormData);
 
             when(formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, DEMOGRAPHIC_NO, true, false))
@@ -564,6 +587,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             TicklerDocs mds = stored(77, "L");
             mds.setLabType("MDS");
             when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(mds));
+            labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
             when(documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, "1001")).thenReturn(List.of(
                     new AttachmentLabResultData("77", "HL7 CBC", new Date(), "HL7"),
                     new AttachmentLabResultData("77", "MDS Lipids", new Date(), "MDS")));
@@ -578,6 +602,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should list but not name items of a type the caller cannot read")
         void shouldRedactName_whenTypeReadDenied() {
             when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001")).thenReturn(false);
 
             List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
@@ -593,11 +618,28 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should fall back to a generic label when the item no longer resolves")
         void shouldUseGenericLabel_whenItemMissing() {
             when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
             when(documentDao.getDocument("11")).thenReturn(null);
 
             List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
 
             assertThat(attachments.get(0).getDisplayName()).isEqualTo("doc #11");
+        }
+
+        @Test
+        @DisplayName("should leave out an attached document that has since been re-filed to another patient")
+        void shouldOmitAttachment_whenItemNoLongerThePatients() {
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D"), stored(12, "D")));
+            documentOwnedBy(11, DEMOGRAPHIC_NO + 1);
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
+            Document document = new Document();
+            document.setDocdesc("Still here");
+            when(documentDao.getDocument("12")).thenReturn(document);
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).extracting(TicklerAttachmentData::getDocumentId).containsExactly("12");
+            verify(documentDao, never()).getDocument("11");
         }
 
         @Test
@@ -623,6 +665,8 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             first.setLabType("HL7");
             TicklerDocs second = new TicklerDocs(TICKLER_ID + 1, 78, "L", PROVIDER_NO);
             second.setLabType("MDS");
+            labOwnedBy(77, DEMOGRAPHIC_NO, "HL7");
+            labOwnedBy(78, DEMOGRAPHIC_NO, "MDS");
             when(ticklerDocsDao.findByTicklerIds(List.of(TICKLER_ID, TICKLER_ID + 1, TICKLER_ID + 2)))
                     .thenReturn(List.of(first, second));
             when(documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, "1001")).thenReturn(List.of(

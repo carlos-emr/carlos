@@ -36,6 +36,9 @@
  *      set untouched (the parallel fork detached everything on every save).
  *   4. Tickler list and patient tickler view render one attachment link per live row, and
  *      the list JSON carries the legacy viewer code per link.
+ *   6. Re-filed item: the stored lab's routing is moved to another patient underneath the
+ *      row; the Edit window and the list JSON leave it out, a save that resubmits it
+ *      detaches it, and the routing is restored.
  *   5. Crafted requests: another patient's document, a lab id under a source that does not
  *      route it, and a document id submitted as a DOC-sourced lab are refused by the edit
  *      action and the stored rows are unchanged; a GET to the edit action is 405; the picker
@@ -94,7 +97,19 @@ function liveRows(ticklerNo) {
   return attachmentRows(ticklerNo).filter((row) => row.deleted === '');
 }
 
+// Set while step 6 has moved the stored lab's routing to another patient; restored on cleanup.
+let movedLabFixture = null;
+
+function restoreMovedLab() {
+  if (!movedLabFixture) {
+    return;
+  }
+  db.execute(`UPDATE patientLabRouting SET demographic_no=${Number(demographicNo)} WHERE lab_no=${Number(movedLabFixture.labNo)} AND lab_type=${sqlString(movedLabFixture.labType)} AND demographic_no=${Number(movedLabFixture.otherPatient)}`);
+  movedLabFixture = null;
+}
+
 function cleanupRows() {
+  restoreMovedLab();
   for (const row of ticklerRows()) {
     db.execute(`DELETE FROM ticklerdocs WHERE tickler_id=${Number(row.id)}`);
     db.execute(`DELETE FROM tickler_comments WHERE tickler_no=${Number(row.id)}`);
@@ -396,11 +411,43 @@ async function postEditForm(page, fields) {
     assert(picker.status() === 200 && /attachDocumentsForm/.test(await picker.text()), 'picker endpoint did not render the picker for the patient');
     await guardPage.close();
 
+    // 6. An item re-filed to another patient since it was attached -----------------------
+    // The lab's routing is moved to another patient underneath the stored row: the Edit
+    // window and the list JSON leave the row out, and a save that resubmits it detaches it
+    // (audited) instead of keeping another patient's item on this tickler.
+    const otherPatient = db.value(`SELECT demographic_no FROM demographic WHERE demographic_no<>${Number(demographicNo)} AND demographic_no>0 ORDER BY demographic_no LIMIT 1`);
+    if (otherPatient) {
+      const movedLab = live.find((row) => row.doctype === 'L');
+      movedLabFixture = { labNo: movedLab.documentNo, labType: movedLab.labType, otherPatient };
+      db.execute(`UPDATE patientLabRouting SET demographic_no=${Number(otherPatient)} WHERE lab_no=${Number(movedLab.documentNo)} AND lab_type=${sqlString(movedLab.labType)} AND demographic_no=${Number(demographicNo)}`);
+      const movedPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-moved');
+      assert(await movedPage.locator(`#delegate_labNo${movedLab.labType}${movedLab.documentNo}`).count() === 0,
+        'edit form still lists a lab re-filed to another patient');
+      const movedJson = await movedPage.request.get(
+        `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=A&start=0&length=500`,
+      );
+      const movedRow = (await movedJson.json()).data.find((row) => row.id === Number(ticklerNo));
+      assert(movedRow && !movedRow.links.some((link) => link.tableName === movedLab.labType && link.tableId === Number(movedLab.documentNo)),
+        `ListTicklers still carries a lab re-filed to another patient: ${JSON.stringify(movedRow && movedRow.links)}`);
+      assert(liveRows(ticklerNo).some((row) => row.doctype === 'L'), 'reading the tickler changed its stored rows');
+      const staleSave = await postEditForm(movedPage, {
+        method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
+        xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `${movedLab.labType}:${movedLab.documentNo}`,
+      });
+      assert(/tickler-edit-ok/.test(staleSave.text), `resubmitting a moved lab failed the edit: HTTP ${staleSave.status}`);
+      assert(!liveRows(ticklerNo).some((row) => row.doctype === 'L'), 'a lab re-filed to another patient stayed attached after a save');
+      assert(attachmentRows(ticklerNo).some((row) => row.doctype === 'L' && row.deleted === 'Y'), 'the moved lab row was not soft-deleted');
+      await movedPage.close();
+      restoreMovedLab();
+    } else {
+      console.log('SKIP re-filed item step: only one patient in this database');
+    }
+
     const pageErrors = recorder.pageErrors || [];
     assert(pageErrors.length === 0, `pages reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await context.close();
-    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, re-attached (row revived) and detached again, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, DOC lab source, GET, bad picker id) refused`);
+    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, re-attached (row revived) and detached again, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, DOC lab source, GET, bad picker id) refused, re-filed lab left out and detached on save`);
   } catch (error) {
     if (error instanceof SkipCheck) {
       console.log(`SKIP ${error.message}`);

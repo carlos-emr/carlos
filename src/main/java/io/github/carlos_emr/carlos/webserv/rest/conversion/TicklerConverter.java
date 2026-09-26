@@ -140,10 +140,17 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
             // since the shape has no restricted flag.
             Map<DocumentType, Boolean> readable = new EnumMap<>(DocumentType.class);
             boolean ticklerReadable = isReadable(loggedInInfo, TICKLER_SECURITY_OBJECT, t.getDemographicNo());
+            TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
             for (TicklerDocs attachment : ticklerReadable ? ticklerDocsDao.findByTicklerId(d.getId()) : List.<TicklerDocs>of()) {
                 DocumentType documentType = DocumentType.fromType(attachment.getDocType());
                 if (documentType != null && !readable.computeIfAbsent(documentType,
                         type -> isTypeReadable(loggedInInfo, type, t.getDemographicNo()))) {
+                    continue;
+                }
+                // Looked up afresh: an item re-filed to another patient since it was attached
+                // is left out rather than serialised under this patient's tickler.
+                if (documentType != null && !ticklerAttachmentService.belongsToPatient(loggedInInfo, documentType,
+                        attachment.getDocumentNo(), attachment.getLabType(), t.getDemographicNo())) {
                     continue;
                 }
                 TicklerLinkTo1 link = new TicklerLinkTo1();

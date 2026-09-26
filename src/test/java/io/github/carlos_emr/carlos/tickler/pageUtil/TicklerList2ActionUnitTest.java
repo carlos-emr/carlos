@@ -122,4 +122,30 @@ class TicklerList2ActionUnitTest {
         verify(securityInfoManager, org.mockito.Mockito.times(1)).hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001");
         verify(securityInfoManager, org.mockito.Mockito.times(1)).hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001");
     }
+
+    @Test
+    @DisplayName("should drop a link whose item has moved to another patient, and check each item once per page")
+    void shouldDropLink_whenItemNoLongerThePatients() {
+        io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService service =
+                mock(io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        TicklerListDTO dto = new TicklerListDTO();
+        dto.setId(7);
+        dto.setDemographicNo(1001);
+        TicklerLinkDTO moved = TicklerLinkDTO.fromTicklerDocs(new TicklerDocs(7, 11, TicklerDocs.DOCTYPE_DOC, "999998"));
+        TicklerDocs storedLab = new TicklerDocs(7, 77, TicklerDocs.DOCTYPE_LAB, "999998");
+        storedLab.setLabType("MDS");
+        TicklerLinkDTO lab = TicklerLinkDTO.fromTicklerDocs(storedLab);
+        dto.setLinks(List.of(moved, lab));
+        when(service.belongsToPatient(loggedInInfo, io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC, 11, null, 1001)).thenReturn(false);
+        when(service.belongsToPatient(loggedInInfo, io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB, 77, "MDS", 1001)).thenReturn(true);
+
+        Map<String, Boolean> cache = new HashMap<>();
+        List<TicklerLinkDTO> owned = TicklerList2Action.ownedLinks(service, loggedInInfo, dto, cache);
+        TicklerList2Action.ownedLinks(service, loggedInInfo, dto, cache);
+
+        assertThat(owned).containsExactly(lab);
+        verify(service, org.mockito.Mockito.times(1)).belongsToPatient(loggedInInfo,
+                io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC, 11, null, 1001);
+    }
 }

@@ -41,7 +41,13 @@ data-migration gaps in that PR closed rather than copied.
     re-attached item revives its detached row (one row per tickler, item and source) instead of
     adding another.
   - `listAttachments` requires `_tickler` read; items of a type the caller may not open are
-    returned unnamed so the view renders a generic "restricted" label. The page overload
+    returned unnamed so the view renders a generic "restricted" label. Every row's item is
+    looked up afresh (`belongsToPatient`): a document re-filed or an HRM report re-assigned to
+    another patient since it was attached is left out, and `syncAttachments` detaches such a
+    row (audited) when the tickler is next saved, so a tickler never surfaces another patient's
+    item. The list JSON (`TicklerList2Action.ownedLinks`), the REST converter and the document
+    browser's `EDocUtil.getHtmlTicklers` (which compares the tickler's patient with the
+    document's current filing) apply the same rule. The page overload
     (`listAttachments(loggedInInfo, ticklers)`) fetches the rows of a whole page in one query and
     loads each patient's lab, HRM and form name collections at most once; the patient tickler
     view uses it so a patient with many ticklers is not one query and one lab reload per row.

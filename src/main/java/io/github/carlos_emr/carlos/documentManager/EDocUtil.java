@@ -1186,17 +1186,32 @@ public final class EDocUtil {
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
 
         // Attachments live in ticklerdocs (#3984); the legacy tickler_link rows were backfilled.
-        List<TicklerDocs> attachments = ticklerDocsDao().findByDocument(Integer.valueOf(docId), TicklerDocs.DOCTYPE_DOC);
+        Integer documentNo = Integer.valueOf(docId);
+        List<TicklerDocs> attachments = ticklerDocsDao().findByDocument(documentNo, TicklerDocs.DOCTYPE_DOC);
         String HtmlTickler = "";
 
-        if (attachments != null) {
+        if (attachments != null && !attachments.isEmpty()) {
+            // The document's patients now: a tickler attached before the document was re-filed
+            // belongs to another patient and is not this document's tickler any more.
+            java.util.Set<Integer> documentPatients = new java.util.HashSet<Integer>();
+            List<CtlDocument> filings = ctlDocumentDao().findByDocumentNoAndModule(documentNo, "demographic");
+            if (filings != null) {
+                for (CtlDocument filing : filings) {
+                    if (filing.getId() != null) {
+                        documentPatients.add(filing.getId().getModuleId());
+                    }
+                }
+            }
             for (TicklerDocs attachment : attachments) {
                 Tickler t = ticklerManager().getTickler(loggedInInfo, attachment.getTicklerId());
+                if (t == null || !documentPatients.contains(t.getDemographicNo())) {
+                    continue;
+                }
                 // getTickler proves the global _tickler right only; this is reached from an
                 // _edoc-gated page, and a patient-specific denial takes precedence, so the
                 // message is only rendered when the caller may read ticklers for that patient.
-                if (t != null && securityInfoManager().hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ,
-                        t.getDemographicNo() == null ? null : String.valueOf(t.getDemographicNo()))) {
+                if (securityInfoManager().hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ,
+                        String.valueOf(t.getDemographicNo()))) {
                     HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
                 }
             }
