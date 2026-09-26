@@ -37,8 +37,9 @@ DE16.066; the insert is existence-guarded because `measurementType.type` is not 
 `V1.0.33__aacp_provided_revised_reviewed_validation.sql` moves the Asthma Action Plan (AACP)
 measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (OntarioMD DE16.098).
 `V1.0.35__tickler_docs.sql` creates `ticklerdocs`, the multi-attachment tickler store behind the
-shared attachment picker (#3984), and backfills it idempotently from `tickler_link` (creator and
-creation date preserved, lab source kept in `lab_type`); `tickler_link` stays read-only for one release.
+shared attachment picker (#3984), with the standard `lastUpdateUser` / `lastUpdateDate` audit pair,
+and backfills it idempotently from `tickler_link` (creator and creation date preserved, lab source
+kept in `lab_type`); `tickler_link` stays read-only for one release.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration

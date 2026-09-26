@@ -121,6 +121,19 @@ class TicklerDocsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("create")
+        @DisplayName("should persist the audit pair with the attaching provider")
+        void shouldPersistAuditPair_whenAttachmentSaved() {
+            TicklerDocs saved = persistAttachment(TICKLER_ID, 11, TicklerDocs.DOCTYPE_DOC, null);
+            entityManager.clear();
+
+            TicklerDocs found = ticklerDocsDao.find(saved.getId());
+
+            assertThat(found.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+            assertThat(found.getLastUpdateDate()).isNotNull();
+        }
+
+        @Test
         @Tag("read")
         @DisplayName("should return detached rows as well when loading a tickler's rows for update")
         void shouldReturnDetachedRowsToo_whenFindingAllForUpdate() {

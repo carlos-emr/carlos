@@ -9,7 +9,9 @@
 --     lab attachment can be opened in the right viewer without re-resolving it from
 --     the routing tables, and so the legacy `tickler_link.table_name` is not lost.
 --   * The backfill copies WHO attached (the tickler's creator) and WHEN (the tickler's
---     creation date) instead of writing an empty provider and today's date.
+--     creation date) instead of writing an empty provider and today's date, into
+--     `provider_no` / `attach_date` and into the repository's audit pair
+--     `lastUpdateUser` / `lastUpdateDate`, which every write of the row restamps.
 --   * Only `tickler_link.table_name` values with a known meaning are migrated. Anything
 --     else stays in `tickler_link` untouched rather than being guessed as a lab.
 --   * A legacy link is only migrated when the item belongs to the tickler's patient
@@ -33,6 +35,8 @@ CREATE TABLE IF NOT EXISTS `ticklerdocs` (
   `deleted` char(1) DEFAULT NULL,
   `attach_date` date DEFAULT NULL,
   `provider_no` varchar(6) NOT NULL,
+  `lastUpdateUser` varchar(100) NOT NULL DEFAULT 'system',
+  `lastUpdateDate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_ticklerdocs_tickler_id` (`tickler_id`),
   KEY `idx_ticklerdocs_document` (`doctype`, `document_no`)
@@ -42,7 +46,8 @@ CREATE TABLE IF NOT EXISTS `ticklerdocs` (
 --   DOC                -> D, lab_type NULL
 --   HRM                -> H, lab_type NULL
 --   HL7, MDS, CML, BCP -> L, lab_type = the original code
-INSERT INTO `ticklerdocs` (`tickler_id`, `document_no`, `doctype`, `lab_type`, `deleted`, `attach_date`, `provider_no`)
+INSERT INTO `ticklerdocs` (`tickler_id`, `document_no`, `doctype`, `lab_type`, `deleted`, `attach_date`, `provider_no`,
+                           `lastUpdateUser`, `lastUpdateDate`)
 SELECT
   src.`tickler_no`,
   src.`table_id`,
@@ -50,7 +55,9 @@ SELECT
   src.`lab_type`,
   NULL,
   src.`attach_date`,
-  src.`provider_no`
+  src.`provider_no`,
+  src.`last_update_user`,
+  src.`last_update_date`
 FROM (
   SELECT DISTINCT
     tl.`tickler_no`,
@@ -65,7 +72,11 @@ FROM (
       ELSE tl.`table_name`
     END AS `lab_type`,
     COALESCE(DATE(t.`creation_date`), DATE(t.`update_date`), CURDATE()) AS `attach_date`,
-    COALESCE(t.`creator`, '') AS `provider_no`
+    COALESCE(t.`creator`, '') AS `provider_no`,
+    -- The audit pair records who last wrote the row and when: for a backfilled row that is
+    -- the tickler's creator at the tickler's creation, the only write the link ever had.
+    COALESCE(NULLIF(t.`creator`, ''), 'system') AS `last_update_user`,
+    COALESCE(t.`creation_date`, t.`update_date`, CURRENT_TIMESTAMP) AS `last_update_date`
   FROM `tickler_link` tl
   JOIN `tickler` t ON t.`tickler_no` = tl.`tickler_no`
   WHERE tl.`table_name` IN ('DOC', 'HRM', 'HL7', 'MDS', 'CML', 'BCP')

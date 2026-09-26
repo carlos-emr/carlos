@@ -109,6 +109,18 @@ class ConsultAttachmentJspRegressionTest {
     }
 
     @Test
+    @DisplayName("Consult page should walk lab version chains for HL7 labs only and match versions by source")
+    void shouldWalkVersionChains_forHl7LabsOnly() throws Exception {
+        String jsp = normalizeWhitespace(Files.readString(CONSULT_JSP, StandardCharsets.UTF_8));
+
+        assertThat(jsp)
+                .contains("boolean hl7Lab = LabResultData.HL7TEXT.equals(attachedLab1.getLabType());")
+                .contains("? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\") : new String[]{attachedLab1.getSegmentID()};")
+                .contains("|| !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())")
+                .doesNotContain("String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\");");
+    }
+
+    @Test
     @DisplayName("Consult page should authorize the resolved request demographic before loading patient data")
     void shouldAuthorizeResolvedRequestDemographic_beforeLoadingPatientData() throws Exception {
         String jsp = normalizeWhitespace(Files.readString(CONSULT_JSP, StandardCharsets.UTF_8));

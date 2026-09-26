@@ -64,6 +64,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -624,6 +625,39 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
 
             assertThat(attachments.get(0).getDisplayName()).isEqualTo("doc #11");
+        }
+
+        @Test
+        @DisplayName("should keep a form row restricted, without the authorising forms lookup, when form read is denied")
+        void shouldKeepFormRestricted_whenFormReadDenied() {
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(3, "F")));
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "1001")).thenReturn(false);
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).hasSize(1);
+            assertThat(attachments.get(0).isViewable()).isFalse();
+            assertThat(attachments.get(0).getDisplayName()).isNull();
+            verify(formsManager, never()).getEncounterFormsbyDemographicNumber(any(), any(), anyBoolean(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("should stamp the audit pair on attach, detach and revive")
+        void shouldStampAuditPair_onEveryWrite() {
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            // 12 is stored but not resubmitted, so no ownership lookup is made for it.
+            TicklerDocs removed = stored(12, "D");
+            removed.setLastUpdateUser("000001");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(removed));
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
+
+            ArgumentCaptor<TicklerDocs> captor = ArgumentCaptor.forClass(TicklerDocs.class);
+            verify(ticklerDocsDao).persist(captor.capture());
+            assertThat(captor.getValue().getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+            assertThat(captor.getValue().getLastUpdateDate()).isNotNull();
+            assertThat(removed.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            assertThat(removed.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
         }
 
         @Test

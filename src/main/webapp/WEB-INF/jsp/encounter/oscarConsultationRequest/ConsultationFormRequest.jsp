@@ -309,14 +309,21 @@
                 if (attachedLabsSortedByVersions.contains(attachedLab1)) {
                     continue;
                 }
-                String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",");
+                // Version chains exist for HL7 labs only, and segment ids are only unique within a
+                // source: the chain is walked for HL7 labs and matched on source and id, so an
+                // MDS/CML/BCP lab sharing an id with an HL7 version is never pulled into its place.
+                boolean hl7Lab = LabResultData.HL7TEXT.equals(attachedLab1.getLabType());
+                String[] matchingLabIds = hl7Lab
+                        ? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",")
+                        : new String[]{attachedLab1.getSegmentID()};
                 if (matchingLabIds.length == 1) {
                     attachedLabsSortedByVersions.add(attachedLab1);
                     continue;
                 }
                 for (int i = matchingLabIds.length - 1; i >= 0; i--) {
                     for (LabResultData attachedLab2 : attachedLabs) {
-                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])) {
+                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])
+                                || !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())) {
                             continue;
                         }
                         if (i != matchingLabIds.length - 1) {

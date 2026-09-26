@@ -12,7 +12,9 @@ data-migration gaps in that PR closed rather than copied.
 - Table `ticklerdocs` (`database/mysql/migration/common/V1.0.35__tickler_docs.sql`), mirroring
   `consultdocs`/`EFormDocs`: `tickler_id`, `document_no`, `doctype` (`D` document, `L` lab,
   `E` eForm, `F` encounter form, `H` HRM), `lab_type` (lab source: HL7/MDS/CML/BCP, labs only),
-  `deleted` (soft delete, `Y`), `attach_date`, `provider_no`.
+  `deleted` (soft delete, `Y`), `attach_date`, `provider_no`, plus the repository audit pair
+  `lastUpdateUser` / `lastUpdateDate`, restamped by every write (attach, detach, revive) through
+  `TicklerDocs.stampUpdate`.
 - Entity `commn.model.TicklerDocs`; DAO `commn.dao.TicklerDocsDao` with per-tickler finders, the
   batched `findByTicklerIds` for the list, and the reverse finders `findByDocument` /
   `findByLab` for "ticklers for this document / lab".
@@ -52,7 +54,9 @@ data-migration gaps in that PR closed rather than copied.
     loads each patient's lab, HRM and form name collections at most once; the patient tickler
     view uses it so a patient with many ticklers is not one query and one lab reload per row.
   - `formNamesByFormId` resolves encounter form names per patient, dropping ids claimed by more
-    than one form type (form ids are only unique per form table).
+    than one form type (form ids are only unique per form table). The forms lookup authorises on
+    `_form` read, so `belongsToPatient` keeps a form row as restricted for a caller without that
+    right (no identifier leaves the server) instead of failing the page.
 - Request contract `documentManager.data.TicklerAttachmentParameters`: the picker parameters
   (`docNo`, `labNo`, `eFormNo`, `hrmNo`, `formNo`) plus the `attachmentsSubmitted=1` marker the
   tickler forms set when the picker's selection is authoritative. Without the marker an edit

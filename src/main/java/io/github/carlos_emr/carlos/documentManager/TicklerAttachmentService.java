@@ -230,6 +230,7 @@ public class TicklerAttachmentService {
                 if (!wanted.contains(storedEntry.getKey()) || stale.contains(storedEntry.getKey())) {
                     TicklerDocs storedDoc = storedEntry.getValue();
                     storedDoc.setDeleted(TicklerDocs.DELETED_FLAG);
+                    storedDoc.stampUpdate(providerNo);
                     ticklerDocsDao.merge(storedDoc);
                     audit(loggedInInfo, LogConst.DELETE, tickler, documentType, storedDoc.getDocumentNo());
                 }
@@ -245,6 +246,7 @@ public class TicklerAttachmentService {
                     revived.setDeleted(null);
                     revived.setProviderNo(providerNo);
                     revived.setAttachDate(new Date());
+                    revived.stampUpdate(providerNo);
                     ticklerDocsDao.merge(revived);
                 } else {
                     TicklerDocs ticklerDocs = new TicklerDocs(tickler.getId(), ref.documentNo(), documentType.getType(), providerNo);
@@ -558,7 +560,12 @@ public class TicklerAttachmentService {
                 owned = hrmBelongsToPatient(documentNo, demographicNo);
                 break;
             case FORM:
-                owned = formBelongsToPatient(loggedInInfo, documentNo, demographicNo);
+                // The forms lookup authorises on _form read for the patient. A caller without it
+                // sees the row restricted anyway (no identifier leaves the server), so the row is
+                // kept as restricted rather than failing the page with a SecurityException; a
+                // caller who may read forms gets the real answer.
+                owned = !isTypeReadable(loggedInInfo, DocumentType.FORM, demographicNo)
+                        || formBelongsToPatient(loggedInInfo, documentNo, demographicNo);
                 break;
             default:
                 owned = false;

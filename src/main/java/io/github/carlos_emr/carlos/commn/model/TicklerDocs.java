@@ -86,6 +86,12 @@ public class TicklerDocs extends AbstractModel<Integer> {
     @Column(name = "provider_no")
     private String providerNo;
 
+    /** Repository audit pair: who last wrote the row (attach, detach, revive) and when. */
+    private String lastUpdateUser;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastUpdateDate;
+
     public TicklerDocs() {
     }
 
@@ -95,6 +101,18 @@ public class TicklerDocs extends AbstractModel<Integer> {
         setDocType(docType);
         setProviderNo(providerNo);
         setAttachDate(new Date());
+        stampUpdate(providerNo);
+    }
+
+    /**
+     * Records the writer and time of the current change; every write of the row goes through
+     * here so the audit pair is never left at its insert value after a detach or a revival.
+     *
+     * @param providerNo String the session provider making the change
+     */
+    public void stampUpdate(String providerNo) {
+        setLastUpdateUser(providerNo == null || providerNo.isEmpty() ? "system" : providerNo);
+        setLastUpdateDate(new Date());
     }
 
     @Override
@@ -160,5 +178,21 @@ public class TicklerDocs extends AbstractModel<Integer> {
 
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
+    }
+
+    public String getLastUpdateUser() {
+        return lastUpdateUser;
+    }
+
+    public void setLastUpdateUser(String lastUpdateUser) {
+        this.lastUpdateUser = lastUpdateUser;
+    }
+
+    public Date getLastUpdateDate() {
+        return lastUpdateDate;
+    }
+
+    public void setLastUpdateDate(Date lastUpdateDate) {
+        this.lastUpdateDate = lastUpdateDate;
     }
 }
