@@ -45,9 +45,21 @@
  * The lab rows are removed afterwards; the patient is removed by the workflow
  * session. All names and identifiers are fictitious (FAKE-/PW3946- prefixes).
  *
+ * ENCRYPTION. The packaged default is demographic.export.encryptedOnly=true: the
+ * export is refused unless PGP is configured (PGP_BIN/PGP_KEY/PGP_ENV), and a
+ * fresh install has no PGP. Keep that default and give the check the recipient's
+ * GnuPG home in CDS_EXPORT_GNUPGHOME: the .pgp download is decrypted with it
+ * before the zip is read. docs/ui-tests/deb-install-validation.md ("CDS export
+ * lab documents") shows a throwaway key and the PGP_BIN wrapper. An install that
+ * refuses the export for want of PGP makes the check SKIP, naming that fixture,
+ * rather than fail; an unencrypted zip (encryptedOnly=false) is read directly.
+ *
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_* (fixture rows)
- * Needs python3 on the runner to prove the exported XML is well-formed.
+ *   CDS_EXPORT_GNUPGHOME  GnuPG home holding the export recipient's secret key
+ *                         (needed when the install encrypts exports; read as root)
+ * Needs python3 on the runner to prove the exported XML is well-formed, and gpg
+ * when the export is encrypted.
  */
 
 const fs = require('node:fs');
@@ -55,7 +67,6 @@ const zlib = require('node:zlib');
 const { randomBytes } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
-const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 
 // Same shape as src/test/java/.../lab/ca/all/parsers/PathL7EmbeddedDocumentMessage.java.
@@ -174,6 +185,41 @@ function assertWellFormed(xml) {
   }
 }
 
+/**
+ * Submits the export and waits for its outcome: the download, or the page's
+ * error banner. The banner is only a SKIP when the page also says PGP is not
+ * available (the encrypted-only default on an install without PGP); any other
+ * refusal is a failure.
+ */
+async function exportDownload(page) {
+  const downloaded = page.waitForEvent('download', { timeout: 180000 }).then(download => ({ download }));
+  const refused = page.locator('#exportErrorMessage').waitFor({ state: 'visible', timeout: 180000 })
+    .then(() => ({ refused: true }));
+  await page.locator('#DemographicExportForm input[type="submit"]').click();
+  const outcome = await Promise.race([downloaded, refused]);
+  downloaded.catch(() => {});
+  refused.catch(() => {});
+  if (outcome.download) return outcome.download;
+  const pgpMissing = await page.locator('#pgpReady').inputValue() !== 'Yes';
+  if (pgpMissing) {
+    throw new h.SkipCheck('the export was refused: this install exports encrypted files only and has no PGP '
+      + 'configured (configure PGP_BIN/PGP_KEY/PGP_ENV and set CDS_EXPORT_GNUPGHOME)');
+  }
+  throw new Error('the export page reported that the export failed');
+}
+
+function decryptExport(encrypted) {
+  const home = process.env.CDS_EXPORT_GNUPGHOME;
+  if (!home) throw new h.SkipCheck('the export is PGP-encrypted; set CDS_EXPORT_GNUPGHOME to decrypt it');
+  try {
+    return execFileSync('gpg', ['--homedir', home, '--batch', '--quiet', '--decrypt'],
+      { input: encrypted, stdio: ['pipe', 'pipe', 'pipe'], timeout: 60000, maxBuffer: 256 * 1024 * 1024 });
+  } catch (error) {
+    if (error.code === 'ENOENT') throw new h.SkipCheck('gpg is needed to decrypt the PGP-encrypted export');
+    throw new Error('the PGP-encrypted export could not be decrypted with CDS_EXPORT_GNUPGHOME');
+  }
+}
+
 function seedLab(s) {
   const accession = `PW3946-${randomBytes(6).toString('hex')}`;
   const message = Buffer.from(buildMessage(accession, s.marker), 'utf8').toString('base64');
@@ -217,11 +263,10 @@ async function workflow(s) {
   let xml;
   await s.step('exporting Laboratory Results downloads a zip holding the patient file', async () => {
     await exportPage.locator('input[name="exLaboratoryResults"]').check();
-    const produced = await ui.clickDownloadsOrOpens(exportPage,
-      exportPage.locator('#DemographicExportForm input[type="submit"]'),
-      { context: s.context, recorder: s.recorder, label: 'cds-export-download', timeout: 120000 });
-    h.assert(produced.kind === 'download', 'exporting did not produce a download');
-    const entries = readZip(fs.readFileSync(await produced.download.path()));
+    const download = await exportDownload(exportPage);
+    let zip = fs.readFileSync(await download.path());
+    if (download.suggestedFilename().toLowerCase().endsWith('.pgp')) zip = decryptExport(zip);
+    const entries = readZip(zip);
     const xmlNames = [...entries.keys()].filter(name => name.toLowerCase().endsWith('.xml'));
     h.assert(xmlNames.length === 1, `expected one patient XML in the export zip, found ${xmlNames.length}`);
     xml = entries.get(xmlNames[0]).toString('utf8');

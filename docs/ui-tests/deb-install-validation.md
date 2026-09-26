@@ -437,6 +437,40 @@ VALUES
  ('999998','2026-08-10','11:00:00','11:15:00','LOCAL_SEED_OBEC_REPORT_3',81,'','','','',NULL,'','','t',NOW(),'carlosdoc');"
 ```
 
+`cds-export-lab-documents-playwright-checks.js` (#3946) needs one more
+fixture, and it deliberately does **not** relax the package's
+`demographic.export.encryptedOnly=true` default: it gives the install a PGP
+recipient instead. A fresh install has no PGP (`PGP_BIN` names a nonexistent
+`/usr/bin/pgpgpg`), so without this the export page warns, the action refuses
+every export, and the check SKIPs naming this fixture. `PGPEncrypt` runs
+`PGP_BIN PGP_CMD FILE PGP_KEY` with only `PGP_ENV` in the environment and
+expects `FILE.pgp` (the PGP 2 convention); the wrapper below maps that onto
+GnuPG. The key is a throwaway validation key, never an operator's.
+
+```bash
+lxc exec carlos-test -- bash -c '
+  set -e
+  apt-get install -y gnupg
+  G=/var/lib/carlos-emr/export-gnupg
+  install -d -o carlos -g carlos -m 0700 "$G"
+  runuser -u carlos -- gpg --homedir "$G" --batch --passphrase "" \
+      --quick-gen-key "CARLOS Export Validation <export-validation@carlos.invalid>" default default never
+  printf "%s\n" "#!/bin/sh" \
+    "# PGP 2-style front end for GnuPG: carlos-export-pgp -e FILE RECIPIENT -> FILE.pgp" \
+    "[ \"\$1\" = -e ] && [ -n \"\$2\" ] && [ -n \"\$3\" ] || exit 2" \
+    "exec /usr/bin/gpg --batch --yes --trust-model always --output \"\$2.pgp\" --recipient \"\$3\" --encrypt \"\$2\"" \
+    > /usr/local/bin/carlos-export-pgp
+  chmod 0755 /usr/local/bin/carlos-export-pgp
+  sed -i "s#^PGP_BIN: .*#PGP_BIN: /usr/local/bin/carlos-export-pgp#;
+          s#^PGP_KEY: .*#PGP_KEY: export-validation@carlos.invalid#;
+          s#^PGP_ENV: .*#PGP_ENV: GNUPGHOME=$G#" /etc/carlos-emr/carlos.properties'
+```
+
+The keyring sits under `/var/lib/carlos-emr`, the only tree the hardened
+`carlos-emr.service` may write (gpg writes its trust database and lock files
+there). Export `CDS_EXPORT_GNUPGHOME=/var/lib/carlos-emr/export-gnupg` for the
+suite; the check runs as root and decrypts the `.pgp` download with it.
+
 Restart once after loading so nothing serves from a pre-load cache:
 
 ```bash

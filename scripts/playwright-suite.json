@@ -1216,7 +1216,9 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": []
+      "env": [
+        "CDS_EXPORT_GNUPGHOME"
+      ]
     },
     {
       "name": "rest-roster-enrolled-to",

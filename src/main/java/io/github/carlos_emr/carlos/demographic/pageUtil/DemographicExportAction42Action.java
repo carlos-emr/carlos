@@ -596,7 +596,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                             exportError.add("Error! No Gender for Patient " + demoNo);
                         }
 
-                        String sin = demographic.getSin().replaceAll("\\-", "");
+                        // demographic.sin is nullable (patients created outside the add form have none);
+                        // a NULL here used to abort the whole patient's export with a 500.
+                        String sin = StringUtils.noNull(demographic.getSin()).replaceAll("\\-", "");
                         if (StringUtils.filled(sin) && sin.length() == 9) {
                             demo.setSIN(sin);
                         }
