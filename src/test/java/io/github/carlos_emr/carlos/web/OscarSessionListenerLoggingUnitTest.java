@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.web;
 
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -19,10 +20,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -69,11 +72,35 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep lock details private when destroying a session with an open chart")
+    void shouldKeepLockDetailsPrivate_whenSessionHasOpenChart() {
+        HttpSession session = mock(HttpSession.class);
+        when(session.getId()).thenReturn(RAW_SESSION_ID);
+        CasemgmtNoteLock lock = new CasemgmtNoteLock();
+        lock.setId(7L);
+        lock.setSessionId(RAW_SESSION_ID);
+        lock.setDemographicNo(987654);
+        lock.setProviderNo("1001");
+        lock.setNoteId(0L);
+        lock.setIpAddress("192.0.2.123");
+        when(casemgmtNoteLockDao.findBySession(RAW_SESSION_ID)).thenReturn(List.of(lock));
+        when(casemgmtNoteLockDao.removeAllForSession(RAW_SESSION_ID)).thenReturn(1);
+
+        new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
+
+        assertThat(logs.messages().toString()).doesNotContain(RAW_SESSION_ID, "987654", "192.0.2.123");
+        assertThat(logs.messages()).contains("Removed 1 note locks for destroyed session");
+        assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        verify(casemgmtNoteLockDao).removeAllForSession(RAW_SESSION_ID);
+        verify(casemgmtNoteLockDao, never()).findBySession(RAW_SESSION_ID);
+        verify(casemgmtNoteLockDao, never()).remove(lock.getId());
+    }
+
+    @Test
     @DisplayName("should redact session identifier when session is destroyed")
     void shouldRedactSessionIdentifier_whenSessionIsDestroyed() {
         HttpSession session = mock(HttpSession.class);
         when(session.getId()).thenReturn(RAW_SESSION_ID);
-        when(casemgmtNoteLockDao.findBySession(RAW_SESSION_ID)).thenReturn(Collections.emptyList());
 
         new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
 

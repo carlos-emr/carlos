@@ -17,13 +17,11 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
-import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Session-listener coverage for pending MFA cache cleanup on timeout or container teardown.
@@ -52,7 +50,6 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
         session.setAttribute(PendingMfaChallenges.AUTH_ATTR, Boolean.TRUE);
         session.setAttribute(PendingMfaChallenges.PROVIDER_NO_ATTR, "999998");
         session.setAttribute(PendingMfaChallenges.TOKEN_ATTR, token);
-        when(casemgmtNoteLockDao.findBySession(session.getId())).thenReturn(Collections.emptyList());
 
         try {
             new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
@@ -68,7 +65,6 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
     @DisplayName("should not throw when session has no pending MFA token")
     void shouldNotThrow_whenSessionHasNoToken() {
         MockHttpSession session = new MockHttpSession();
-        when(casemgmtNoteLockDao.findBySession(session.getId())).thenReturn(Collections.emptyList());
 
         assertThatCode(() -> new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session)))
                 .doesNotThrowAnyException();
@@ -79,7 +75,6 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
     @DisplayName("should clear Fax2Action's per-session claimed-fax-file-paths lock when session is destroyed")
     void shouldClearFax2ActionSessionLock_whenSessionIsDestroyed() {
         MockHttpSession session = new MockHttpSession();
-        when(casemgmtNoteLockDao.findBySession(session.getId())).thenReturn(Collections.emptyList());
         // Populate the per-session lock registry the same way a real fax preview/queue request
         // would.
         io.github.carlos_emr.carlos.fax.action.Fax2Action.registerClaimedFaxFilePathsLockForTest(session.getId());

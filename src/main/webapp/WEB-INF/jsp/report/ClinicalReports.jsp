@@ -47,6 +47,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@page import="org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVPrinter,java.io.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
@@ -401,8 +402,8 @@
 
                                 <select id="numerator_measurements" name="numerator_measurements">
                                     <% for (EctMeasurementTypesBean measurementTypes : vec) {%>
-                                    <option value="<%=measurementTypes.getType()%>"  <%=sel(measurementTypes.getType(), "" + request.getAttribute("numerator_measurements"))%>   ><%=measurementTypes.getTypeDisplayName()%>
-                                        (<%=measurementTypes.getType()%>) (<%=measurementTypes.getMeasuringInstrc() %>)
+                                    <option value="<%=SafeEncode.forHtmlAttribute(measurementTypes.getType())%>"  <%=sel(measurementTypes.getType(), "" + request.getAttribute("numerator_measurements"))%>   ><%=SafeEncode.forHtmlContent(measurementTypes.getTypeDisplayName())%>
+                                        (<%=SafeEncode.forHtmlContent(measurementTypes.getType())%>) (<%=SafeEncode.forHtmlContent(measurementTypes.getMeasuringInstrc()) %>)
                                     </option>
                                     <% }%>
                                 </select>
@@ -469,8 +470,8 @@
 
                                 <select id="numerator<%=i %>_measurements" name="numerator<%=i %>_measurements">
                                     <% for (EctMeasurementTypesBean measurementTypes : vec) {%>
-                                    <option value="<%=measurementTypes.getType()%>"  <%=sel(measurementTypes.getType(), "" + request.getAttribute("numerator" + i + "_measurements"))%>   ><%=measurementTypes.getTypeDisplayName()%>
-                                        (<%=measurementTypes.getType()%>) (<%=measurementTypes.getMeasuringInstrc() %>)
+                                    <option value="<%=SafeEncode.forHtmlAttribute(measurementTypes.getType())%>"  <%=sel(measurementTypes.getType(), "" + request.getAttribute("numerator" + i + "_measurements"))%>   ><%=SafeEncode.forHtmlContent(measurementTypes.getTypeDisplayName())%>
+                                        (<%=SafeEncode.forHtmlContent(measurementTypes.getType())%>) (<%=SafeEncode.forHtmlContent(measurementTypes.getMeasuringInstrc()) %>)
                                     </option>
                                     <% }%>
                                 </select>
@@ -590,8 +591,8 @@
                                             measInst = StringUtils.abbreviate(measurementTypes.getMeasuringInstrc(), 25);
                                         }
                                     %>
-                                    <option value="<%=measurementTypes.getType()%>" <%=sel(measurementTypes.getType(), "" + request.getAttribute("report_measurement" + rm))%> ><%=measurementTypes.getTypeDisplayName()%>
-                                        (<%=measurementTypes.getType()%>) (<%=measInst %>)
+                                    <option value="<%=SafeEncode.forHtmlAttribute(measurementTypes.getType())%>" <%=sel(measurementTypes.getType(), "" + request.getAttribute("report_measurement" + rm))%> ><%=SafeEncode.forHtmlContent(measurementTypes.getTypeDisplayName())%>
+                                        (<%=SafeEncode.forHtmlContent(measurementTypes.getType())%>) (<%=SafeEncode.forHtmlContent(measInst) %>)
                                     </option>
                                     <% }%>
                                 </select>

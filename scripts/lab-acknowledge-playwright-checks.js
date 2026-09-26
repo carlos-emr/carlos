@@ -126,8 +126,8 @@ let originalQueueLinkStatus = null;
 // can be linked to several queues, and restoring by document_id would overwrite the
 // rows this check never changed.
 let queueLinkRowId = null;
-// The second, read-only fixture: a lab whose accession has a NEWER version, so the
-// Inboxhub row and the page it opens are different segments.
+// The second, read-only fixture has a newer version. Its Inbox row must still open
+// the selected segment; an explicit showLatest request is tested separately.
 let showLatestProbe = null;
 let showLatestRoutingCreated = false;
 
@@ -196,7 +196,7 @@ async function waitFor(probe, description, timeoutMs = 30000) {
 /**
  * Returns the segment labDisplay will render for this lab under showLatest=true.
  *
- * The Inboxhub opens labs with showLatest=true, and on that flag labDisplay.jsp
+ * Legacy callers may request showLatest=true, and on that flag labDisplay.jsp
  * REPLACES the requested segment with the last element of
  * Hl7textResultsData.getMatchingLabs(): the labs sharing its non-empty accession
  * number whose OBR date lies within four months of the requested lab's, in the
@@ -229,14 +229,11 @@ function resolveSegment() {
     assert(linked, `LAB_SEGMENT_ID=${requested} is not an HL7 lab linked to a patient`);
     const rendered = renderedSegmentFor(requested);
     assert(rendered === requested,
-      `LAB_SEGMENT_ID=${requested} is not the version labDisplay renders for its accession (that is ${rendered});`
-      + ' the Inboxhub opens labs with showLatest=true, so the page would render'
-      + ` ${rendered} and this check would review a segment it never routed`);
+      `LAB_SEGMENT_ID=${requested} is not the latest version (${rendered});`
+      + ' this acknowledgement fixture deliberately reviews the latest report');
     return { segmentId: requested, demographicNo: linked };
   }
-  // Only a lab that is its own rendered segment qualifies, for the reason in
-  // renderedSegmentFor: the demo dataset ships one accession with 30-odd versions,
-  // and the lowest lab_no of that chain is exactly the segment showLatest moves off.
+  // Acknowledge the latest version; historical row identity is covered separately.
   const candidates = sqlRows(
     'SELECT h.lab_no, pl.demographic_no FROM hl7TextInfo h'
     + " JOIN patientLabRouting pl ON pl.lab_no=h.lab_no AND pl.lab_type='HL7'"
@@ -316,10 +313,9 @@ function cleanupQueueLink() {
 /**
  * Finds a routed-but-superseded lab, if the deployment has one.
  *
- * Everything downstream of the showLatest substitution has to key on the segment the
- * page RESOLVES to, not the one the row asked for. The acknowledge half of this check
- * deliberately routes a lab that is its own rendered segment, so it cannot see a
- * mix-up; this probe is the other case, and it is read-only -- it never acknowledges.
+ * Opens that exact report from the Inbox, then explicitly requests showLatest to
+ * verify that the viewer's received date follows the rendered version. This probe
+ * is read-only -- it never acknowledges.
  * Returns null when no accession on this deployment has two versions with different
  * received dates, in which case there is nothing to assert.
  */
@@ -471,7 +467,7 @@ async function openLabFromInboxhub(context, inboxhub) {
   assert(token,
     'the lab display bootstrapped no CSRF-TOKEN input; its acknowledge fetch would be rejected');
   // The form id carries the segment the page actually resolved to. Asserting it
-  // matches the routed one pins the showLatest contract from the operator's side:
+  // matches the routed one pins report identity from the operator's side:
   // the Inboxhub row promises a lab, and the page it opens must be that lab.
   const renderedSegments = await popup.locator('form[id^="acknowledgeForm_"]')
     .evaluateAll((forms) => forms.map((form) => form.id.replace('acknowledgeForm_', '')));
@@ -487,9 +483,7 @@ async function openLabFromInboxhub(context, inboxhub) {
 /**
  * Opens the superseded lab from its own Inboxhub row, read-only.
  *
- * Same path as the acknowledge open -- the row's link, not a typed URL -- because the
- * showLatest parameter this whole assertion is about is something the row supplies and
- * an address bar does not.
+ * Same path as the acknowledge open: the row's link must preserve its identity.
  */
 async function openSupersededLabFromInboxhub(context) {
   const inboxhub = await openInboxhubFromSchedule(context);
@@ -509,9 +503,12 @@ async function openSupersededLabFromInboxhub(context) {
 
   const renderedSegments = await popup.locator('form[id^="acknowledgeForm_"]')
     .evaluateAll((forms) => forms.map((form) => form.id.replace('acknowledgeForm_', '')));
-  assert(renderedSegments.includes(showLatestProbe.rendered),
-    `the Inboxhub row for lab ${showLatestProbe.requested} was expected to open the newer segment`
-    + ` ${showLatestProbe.rendered}, but the page carries ${JSON.stringify(renderedSegments)}`);
+  assert(renderedSegments.length === 1 && renderedSegments[0] === showLatestProbe.requested,
+    `the Inboxhub row for lab ${showLatestProbe.requested} silently opened another report:`
+    + ` ${JSON.stringify(renderedSegments)}`);
+  assert((await popup.locator('body').innerText()).includes(showLatestProbe.requestedDate),
+    'The selected historical report does not carry its own received date');
+  pass('an older Inbox report opens that exact version and received date');
   await inboxhub.close().catch(() => {});
   return popup;
 }
@@ -653,6 +650,15 @@ async function checkCumulativeValues(context) {
     if (showLatestProbe) {
       seedShowLatestRouting(showLatestProbe);
       const probePage = await openSupersededLabFromInboxhub(context);
+      // Legacy callers can still explicitly request the latest version. Keep the
+      // date/audit substitution regression covered separately from row identity.
+      const latestUrl = new URL(probePage.url());
+      latestUrl.searchParams.set('showLatest', 'true');
+      await gotoApp(probePage, config.baseUrl, latestUrl.pathname.slice(new URL(config.baseUrl).pathname.length)
+        + latestUrl.search);
+      await assertNotErrorPage(probePage, 'explicit latest lab display');
+      assert(await probePage.locator(`#acknowledgeForm_${showLatestProbe.rendered}`).count() === 1,
+        'An explicit latest-version request did not open the expected report');
       const probeText = await probePage.locator('body').innerText();
       assert(probeText.includes(showLatestProbe.renderedDate),
         `the lab display rendered segment ${showLatestProbe.rendered} but its header does not carry`
