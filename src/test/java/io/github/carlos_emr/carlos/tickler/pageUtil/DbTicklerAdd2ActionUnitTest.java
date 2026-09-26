@@ -143,10 +143,10 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should attach a forwarded lab as a lab when the picker was never opened")
+    @DisplayName("should attach a forwarded lab under its named source when the picker was never opened")
     @SuppressWarnings("unchecked")
     void shouldSyncOnlyForwardedType_whenPickerNotSubmitted() throws Exception {
-        request.setParameter("docType", "HL7");
+        request.setParameter("docType", "mds");
         request.setParameter("docId", "5");
 
         new DbTicklerAdd2Action().execute();
@@ -154,7 +154,7 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<Map<DocumentType, ? extends Collection<String>>> captor = ArgumentCaptor.forClass(Map.class);
         verify(ticklerAttachmentService).syncAttachments(eq(loggedInInfo), any(Tickler.class), captor.capture());
         assertThat(captor.getValue()).containsOnlyKeys(DocumentType.LAB);
-        assertThat(captor.getValue().get(DocumentType.LAB)).containsExactly("5");
+        assertThat(captor.getValue().get(DocumentType.LAB)).containsExactly("MDS:5");
     }
 
     @Test

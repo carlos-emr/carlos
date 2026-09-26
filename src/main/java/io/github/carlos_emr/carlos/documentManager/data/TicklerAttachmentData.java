@@ -77,4 +77,16 @@ public class TicklerAttachmentData {
     public String getParameterName() {
         return TicklerAttachmentParameters.parameterName(documentType);
     }
+
+    /**
+     * The value the tickler form submits for this attachment: the id, or for labs the
+     * source-qualified {@code <source>:<segmentId>} form (see
+     * {@link TicklerAttachmentParameters#labValue}).
+     */
+    public String getSubmissionValue() {
+        if (documentType == DocumentType.LAB) {
+            return TicklerAttachmentParameters.labValue(labType, documentId);
+        }
+        return documentId;
+    }
 }

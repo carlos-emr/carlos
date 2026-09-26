@@ -143,7 +143,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         routing.setLabNo(labNo);
         routing.setLabType(labType);
         routing.setDemographicNo(demographicNo);
-        when(patientLabRoutingDao.findDemographicByLabId(labNo)).thenReturn(routing);
+        when(patientLabRoutingDao.findDemographics(labType, labNo)).thenReturn(routing);
     }
 
     @Nested
@@ -193,16 +193,31 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should record the lab source when attaching a lab")
+        @DisplayName("should check a lab against its own source's routing and record that source")
         void shouldKeepLabType_whenAttachingLab() {
             labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
+            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77"));
+
+            ArgumentCaptor<TicklerDocs> captor = ArgumentCaptor.forClass(TicklerDocs.class);
+            verify(ticklerDocsDao).persist(captor.capture());
+            assertThat(captor.getValue().getLabType()).isEqualTo("MDS");
+            assertThat(captor.getValue().getDocumentNo()).isEqualTo(77);
+            verify(patientLabRoutingDao, never()).findDemographics(eq("HL7"), any());
+        }
+
+        @Test
+        @DisplayName("should read a bare lab id as an HL7 lab")
+        void shouldDefaultToHl7_whenLabValueHasNoSource() {
+            labOwnedBy(77, DEMOGRAPHIC_NO, "HL7");
             when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "77"));
 
             ArgumentCaptor<TicklerDocs> captor = ArgumentCaptor.forClass(TicklerDocs.class);
             verify(ticklerDocsDao).persist(captor.capture());
-            assertThat(captor.getValue().getLabType()).isEqualTo("MDS");
+            assertThat(captor.getValue().getLabType()).isEqualTo("HL7");
         }
 
         @Test
@@ -212,6 +227,46 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "77")))
                     .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should not accept an HL7 lab's id under another source")
+        void shouldRejectLab_whenSourceDoesNotRouteThatId() {
+            // The patient's HL7 lab 77 exists, but nothing routes MDS lab 77 to anyone.
+            PatientLabRouting hl7Routing = new PatientLabRouting();
+            hl7Routing.setLabNo(77);
+            hl7Routing.setLabType("HL7");
+            hl7Routing.setDemographicNo(DEMOGRAPHIC_NO);
+            lenient().when(patientLabRoutingDao.findDemographics("HL7", 77)).thenReturn(hl7Routing);
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77")))
+                    .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should treat the same id under two sources as two different labs")
+        void shouldKeepBothLabs_whenSourcesDiffer() {
+            labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
+            TicklerDocs storedHl7 = stored(77, "L");
+            storedHl7.setLabType("HL7");
+            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of(storedHl7));
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "HL7:77", "MDS:77"));
+
+            ArgumentCaptor<TicklerDocs> captor = ArgumentCaptor.forClass(TicklerDocs.class);
+            verify(ticklerDocsDao).persist(captor.capture());
+            assertThat(captor.getValue().getLabType()).isEqualTo("MDS");
+            assertThat(storedHl7.getDeleted()).isNull();
+            verify(ticklerDocsDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should reject a malformed lab value")
+        void shouldThrowIllegalArgument_whenLabValueMalformed() {
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:")))
+                    .isInstanceOf(IllegalArgumentException.class);
             verify(ticklerDocsDao, never()).persist(any());
         }
 
@@ -254,7 +309,8 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should soft-delete stored items of a submitted type that were not resubmitted")
         void shouldDetachRemovedItems_whenTypeIsResubmitted() {
-            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            // Ownership was proven when 11 was attached; a resubmission of a stored item is
+            // not re-verified, so no ctl_document lookup is stubbed here.
             TicklerDocs kept = stored(11, "D");
             TicklerDocs removed = stored(12, "D");
             when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "D")).thenReturn(List.of(kept, removed));
@@ -308,6 +364,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse adding a type the caller cannot read")
         void shouldThrowSecurityException_whenTypeReadDeniedAndIdsSubmitted() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
 
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "77")))
                     .isInstanceOf(SecurityException.class)
@@ -319,11 +376,47 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should not detach items of a type the caller cannot read")
         void shouldLeaveTypeUntouched_whenTypeReadDeniedAndNothingSubmitted() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB));
 
-            verify(ticklerDocsDao, never()).findByTicklerIdDocType(any(), any());
             verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should leave a type the caller cannot read alone when its stored set is resubmitted unchanged")
+        void shouldLeaveTypeUntouched_whenTypeReadDeniedAndStoredSetResubmitted() {
+            // The Edit form carries restricted rows through as hidden delegates, so a save
+            // after opening the picker resubmits exactly the stored set for that type.
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+            TicklerDocs mds = stored(77, "L");
+            mds.setLabType("MDS");
+            TicklerDocs legacyHl7 = stored(78, "L");
+            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of(mds, legacyHl7));
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77", "HL7:78"));
+
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
+            verify(patientLabRoutingDao, never()).findDemographics(any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse changing a type the caller cannot read")
+        void shouldThrowSecurityException_whenTypeReadDeniedAndStoredSetChanged() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+            TicklerDocs mds = stored(77, "L");
+            mds.setLabType("MDS");
+            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of(mds));
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77", "MDS:79")))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_lab)");
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB)))
+                    .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
         }
 
         @Test
@@ -353,7 +446,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             document.setDocdesc("Referral letter");
             when(documentDao.getDocument("11")).thenReturn(document);
 
-            AttachmentLabResultData labData = new AttachmentLabResultData("77", "CBC", new Date());
+            AttachmentLabResultData labData = new AttachmentLabResultData("77", "CBC", new Date(), "HL7");
             when(documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, "1001")).thenReturn(List.of(labData));
 
             EFormData eFormData = new EFormData();
@@ -369,7 +462,25 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
                     .containsExactly("Referral letter", "CBC", "Consent", "Rourke");
             assertThat(attachments).allMatch(TicklerAttachmentData::isViewable);
             assertThat(attachments.get(1).getLabType()).isEqualTo("HL7");
+            assertThat(attachments.get(1).getSubmissionValue()).isEqualTo("HL7:77");
             assertThat(attachments.get(0).getParameterName()).isEqualTo("docNo");
+            assertThat(attachments.get(0).getSubmissionValue()).isEqualTo("11");
+        }
+
+        @Test
+        @DisplayName("should name a lab by its own source, not by an HL7 lab sharing the id")
+        void shouldResolveLabName_bySource() {
+            TicklerDocs mds = stored(77, "L");
+            mds.setLabType("MDS");
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(mds));
+            when(documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, "1001")).thenReturn(List.of(
+                    new AttachmentLabResultData("77", "HL7 CBC", new Date(), "HL7"),
+                    new AttachmentLabResultData("77", "MDS Lipids", new Date(), "MDS")));
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).extracting(TicklerAttachmentData::getDisplayName).containsExactly("MDS Lipids");
+            assertThat(attachments.get(0).getSubmissionValue()).isEqualTo("MDS:77");
         }
 
         @Test

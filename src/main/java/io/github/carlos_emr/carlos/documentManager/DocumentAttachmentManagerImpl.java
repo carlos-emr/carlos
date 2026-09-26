@@ -243,7 +243,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 continue;
             }
 
-            AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj());
+            AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj(), lab.getLabType());
 
             /*
              * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.

@@ -37,7 +37,18 @@ data-migration gaps in that PR closed rather than copied.
 - Request contract `documentManager.data.TicklerAttachmentParameters`: the picker parameters
   (`docNo`, `labNo`, `eFormNo`, `hrmNo`, `formNo`) plus the `attachmentsSubmitted=1` marker the
   tickler forms set when the picker's selection is authoritative. Without the marker an edit
-  leaves the stored set untouched.
+  leaves the stored set untouched. Lab ids are only unique within their source (HL7, MDS, CML
+  and BCP each number their own tables), so a tickler `labNo` value is source-qualified:
+  `HL7:123`. The picker's lab checkboxes carry `data-lab-type`, the dialog builds the value from
+  it, and the service checks ownership against that source's `patientLabRouting` row; a bare id
+  is read as HL7, which keeps the legacy `docType=HL7&docId=` forward links working.
+- Restricted types on edit: a reader who lacks read on an attachment's type still sees that
+  something is attached. The Edit form carries those rows through as `data-restricted` hidden
+  delegates, so a save after opening the picker resubmits them unchanged; `syncAttachments`
+  leaves a type the caller cannot read alone when the submitted set equals the stored set and
+  refuses any difference. The tickler list JSON (`ListTicklers`) applies the same per-type gate:
+  such links are returned as `{tableName, restricted: true}` with no record id, and
+  `ticklerMain.jsp` renders an unlinked, titled paperclip.
 - Picker endpoint: `previewDocs?method=fetchTicklerDocuments&demographicNo=N`
   (`DocumentPreview2Action`), gated by `_tickler` read on the patient, per-type read gates for
   each section, selection enabled by `_tickler` write; a non-positive or non-numeric

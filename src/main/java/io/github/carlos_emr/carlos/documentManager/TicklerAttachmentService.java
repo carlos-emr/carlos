@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData;
+import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -149,10 +150,12 @@ public class TicklerAttachmentService {
      * @param loggedInInfo LoggedInInfo the authenticated session; its provider is recorded as the
      *        attaching provider
      * @param tickler Tickler the persisted tickler (needs id and demographic)
-     * @param submitted Map&lt;DocumentType, ? extends Collection&lt;String&gt;&gt; the desired ids per type
-     * @throws SecurityException when the caller lacks {@code _tickler} write on the patient, lacks
-     *         read on a submitted type, or submits an id that is not the patient's
-     * @throws IllegalArgumentException when an id is not numeric
+     * @param submitted Map&lt;DocumentType, ? extends Collection&lt;String&gt;&gt; the desired ids per type;
+     *        lab ids carry their source ({@code HL7:123}, see
+     *        {@link TicklerAttachmentParameters#labValue}), a bare lab id means HL7
+     * @throws SecurityException when the caller lacks {@code _tickler} write on the patient,
+     *         changes a type the caller cannot read, or submits an id that is not the patient's
+     * @throws IllegalArgumentException when an id is not numeric or a lab value is malformed
      */
     @Transactional
     public void syncAttachments(LoggedInInfo loggedInInfo, Tickler tickler,
@@ -169,40 +172,46 @@ public class TicklerAttachmentService {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         for (Map.Entry<DocumentType, ? extends Collection<String>> entry : submitted.entrySet()) {
             DocumentType documentType = entry.getKey();
-            Set<Integer> wanted = parseIds(entry.getValue());
-            // Ownership and type-read checks come before any write, so a rejected submission
-            // leaves the stored set untouched rather than half-synchronised. A caller who cannot
-            // read a type never sees its items in the picker, so an empty submission for that
-            // type is "nothing shown", not "detach all": the stored rows are left alone.
+            Set<AttachmentRef> wanted = parseRefs(documentType, entry.getValue());
+            List<TicklerDocs> stored = ticklerDocsDao.findByTicklerIdDocType(tickler.getId(), documentType.getType());
+            Map<AttachmentRef, TicklerDocs> existing = new HashMap<>();
+            for (TicklerDocs storedDoc : stored) {
+                existing.put(AttachmentRef.of(documentType, storedDoc), storedDoc);
+            }
+            // A caller who cannot read a type never sees its items in the picker: the form
+            // carries the stored rows through as restricted delegates, so a submission that
+            // equals the stored set is "nothing shown", not a change, and the rows are left
+            // alone. Any difference would add or drop items the caller may not see.
             if (!isTypeReadable(loggedInInfo, documentType, demographicNo)) {
-                if (wanted.isEmpty()) {
+                if (wanted.equals(existing.keySet())) {
                     continue;
                 }
                 requireTypeReadable(loggedInInfo, documentType, demographicNo);
             }
-            Map<Integer, String> labTypes = new HashMap<>();
-            for (Integer documentNo : wanted) {
-                labTypes.put(documentNo, requireBelongsToPatient(loggedInInfo, documentType, documentNo, demographicNo));
+            // Ownership checks come before any write, so a rejected submission leaves the
+            // stored set untouched rather than half-synchronised.
+            for (AttachmentRef ref : wanted) {
+                if (!existing.containsKey(ref)) {
+                    requireBelongsToPatient(loggedInInfo, documentType, ref, demographicNo);
+                }
             }
 
-            List<TicklerDocs> stored = ticklerDocsDao.findByTicklerIdDocType(tickler.getId(), documentType.getType());
-            Set<Integer> existing = new HashSet<>();
-            for (TicklerDocs storedDoc : stored) {
-                existing.add(storedDoc.getDocumentNo());
-                if (!wanted.contains(storedDoc.getDocumentNo())) {
+            for (Map.Entry<AttachmentRef, TicklerDocs> storedEntry : existing.entrySet()) {
+                if (!wanted.contains(storedEntry.getKey())) {
+                    TicklerDocs storedDoc = storedEntry.getValue();
                     storedDoc.setDeleted(TicklerDocs.DELETED);
                     ticklerDocsDao.merge(storedDoc);
                     audit(loggedInInfo, LogConst.DELETE, tickler, documentType, storedDoc.getDocumentNo());
                 }
             }
-            for (Integer documentNo : wanted) {
-                if (existing.contains(documentNo)) {
+            for (AttachmentRef ref : wanted) {
+                if (existing.containsKey(ref)) {
                     continue;
                 }
-                TicklerDocs ticklerDocs = new TicklerDocs(tickler.getId(), documentNo, documentType.getType(), providerNo);
-                ticklerDocs.setLabType(labTypes.get(documentNo));
+                TicklerDocs ticklerDocs = new TicklerDocs(tickler.getId(), ref.documentNo(), documentType.getType(), providerNo);
+                ticklerDocs.setLabType(ref.labType());
                 ticklerDocsDao.persist(ticklerDocs);
-                audit(loggedInInfo, LogConst.ADD, tickler, documentType, documentNo);
+                audit(loggedInInfo, LogConst.ADD, tickler, documentType, ref.documentNo());
             }
         }
     }
@@ -250,9 +259,9 @@ public class TicklerAttachmentService {
                     break;
                 case LAB:
                     if (labNames == null) {
-                        labNames = labNamesBySegmentId(loggedInInfo, demographicNo);
+                        labNames = labNamesBySourceAndSegmentId(loggedInInfo, demographicNo);
                     }
-                    displayName = labNames.get(documentId);
+                    displayName = labNames.get(TicklerAttachmentParameters.labValue(ticklerDoc.getLabType(), documentId));
                     break;
                 case EFORM:
                     EFormData eForm = eFormDataDao.find(ticklerDoc.getDocumentNo());
@@ -330,23 +339,23 @@ public class TicklerAttachmentService {
     }
 
     /**
-     * Verifies the item belongs to the patient and returns the lab source for labs.
+     * Verifies the item belongs to the patient. Labs are checked against the routing row of
+     * their own source: segment ids are only unique per source, so an HL7 lookup for an MDS
+     * id would either miss or hit an unrelated HL7 lab.
      *
-     * @return String the lab type for {@link DocumentType#LAB}, otherwise {@code null}
      * @throws SecurityException when the item does not exist or belongs to another patient
      */
-    private String requireBelongsToPatient(LoggedInInfo loggedInInfo, DocumentType documentType,
-                                           Integer documentNo, Integer demographicNo) {
+    private void requireBelongsToPatient(LoggedInInfo loggedInInfo, DocumentType documentType,
+                                         AttachmentRef ref, Integer demographicNo) {
+        Integer documentNo = ref.documentNo();
         boolean owned;
-        String labType = null;
         switch (documentType) {
             case DOC:
                 owned = documentBelongsToPatient(documentNo, demographicNo);
                 break;
             case LAB:
-                PatientLabRouting routing = patientLabRoutingDao.findDemographicByLabId(documentNo);
+                PatientLabRouting routing = patientLabRoutingDao.findDemographics(ref.labType(), documentNo);
                 owned = routing != null && demographicNo.equals(routing.getDemographicNo());
-                labType = owned && routing.getLabType() != null ? routing.getLabType() : LabResultData.HL7TEXT;
                 break;
             case EFORM:
                 EFormData eForm = eFormDataDao.find(documentNo.intValue());
@@ -367,7 +376,6 @@ public class TicklerAttachmentService {
             logger.warn("Rejected tickler attachment: {} item is not the tickler's patient's", documentType.getName());
             throw new SecurityException(documentType.getName() + " attachment does not belong to the patient");
         }
-        return labType;
     }
 
     private boolean documentBelongsToPatient(Integer documentNo, Integer demographicNo) {
@@ -418,16 +426,18 @@ public class TicklerAttachmentService {
         return false;
     }
 
-    private Map<String, String> labNamesBySegmentId(LoggedInInfo loggedInInfo, Integer demographicNo) {
+    /** Lab names keyed by {@link TicklerAttachmentParameters#labValue}; sources number their own ids. */
+    private Map<String, String> labNamesBySourceAndSegmentId(LoggedInInfo loggedInInfo, Integer demographicNo) {
         Map<String, String> labNames = new HashMap<>();
         for (AttachmentLabResultData lab : documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo,
                 String.valueOf(demographicNo))) {
-            labNames.put(lab.getSegmentID(), lab.getLabName());
+            labNames.put(TicklerAttachmentParameters.labValue(lab.getLabType(), lab.getSegmentID()), lab.getLabName());
             // Older versions are labelled "vN <name>" to match the picker's own labels.
             int totalVersions = lab.getLabVersionIds().size();
             int index = 0;
             for (String versionSegmentId : lab.getLabVersionIds().keySet()) {
-                labNames.put(versionSegmentId, "v" + (totalVersions - index) + " " + lab.getLabName());
+                labNames.put(TicklerAttachmentParameters.labValue(lab.getLabType(), versionSegmentId),
+                        "v" + (totalVersions - index) + " " + lab.getLabName());
                 index++;
             }
         }
@@ -446,22 +456,46 @@ public class TicklerAttachmentService {
         return names;
     }
 
-    private static Set<Integer> parseIds(Collection<String> values) {
-        Set<Integer> ids = new LinkedHashSet<>();
+    private static Set<AttachmentRef> parseRefs(DocumentType documentType, Collection<String> values) {
+        Set<AttachmentRef> refs = new LinkedHashSet<>();
         if (values == null) {
-            return ids;
+            return refs;
         }
         for (String value : values) {
             if (value == null || value.trim().isEmpty()) {
                 continue;
             }
+            String labType = null;
+            String id = value.trim();
+            if (documentType == DocumentType.LAB) {
+                String[] parts = TicklerAttachmentParameters.parseLabValue(id);
+                labType = parts[0];
+                id = parts[1];
+            }
             try {
-                ids.add(Integer.valueOf(value.trim()));
+                refs.add(new AttachmentRef(Integer.valueOf(id), labType));
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("attachment id is not numeric", e);
             }
         }
-        return ids;
+        return refs;
+    }
+
+    /**
+     * Identity of one attachment within a type: the id, plus the lab source for labs. Lab
+     * rows persisted before the source was recorded compare as HL7, the only source the
+     * legacy links ever named.
+     */
+    private record AttachmentRef(Integer documentNo, String labType) {
+
+        static AttachmentRef of(DocumentType documentType, TicklerDocs stored) {
+            if (documentType != DocumentType.LAB) {
+                return new AttachmentRef(stored.getDocumentNo(), null);
+            }
+            String labType = stored.getLabType();
+            return new AttachmentRef(stored.getDocumentNo(),
+                    labType == null || labType.trim().isEmpty() ? LabResultData.HL7TEXT : labType.trim());
+        }
     }
 
     private static void audit(LoggedInInfo loggedInInfo, String action, Tickler tickler,

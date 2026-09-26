@@ -299,6 +299,7 @@
             <fmt:message key="tickler.ticklerMain.tooltipEdit" var="msgTooltipEdit"/>
             <fmt:message key="tickler.ticklerMain.tooltipAddNote" var="msgTooltipAddNote"/>
             <fmt:message key="tickler.ticklerMain.tooltipViewAttachment" var="msgTooltipViewAttachment"/>
+            <fmt:message key="tickler.attachments.restricted" var="msgAttachmentRestricted"/>
             <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
@@ -308,6 +309,7 @@
             const i18nEditTickler = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipEdit") %>' context="javaScriptBlock"/>';
             const i18nAddNote = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipAddNote") %>' context="javaScriptBlock"/>';
             const i18nViewAttachment = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipViewAttachment") %>' context="javaScriptBlock"/>';
+            const i18nAttachmentRestricted = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgAttachmentRestricted") %>' context="javaScriptBlock"/>';
             let ticklerResultsTable;
             document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
@@ -524,6 +526,10 @@
             // link.tableName carries the legacy viewer code (lab source, DOC, HRM) plus EFORM and
             // FORM for the two attachment types the ticklerdocs store added (#3984).
             function buildAttachmentLink(link, row) {
+                if (link.restricted) {
+                    // The server withheld the id: the reader lacks read on this attachment type.
+                    return ' <i class="fas fa-paperclip text-muted attachment-restricted" title="' + i18nAttachmentRestricted + '"></i>';
+                }
                 var tableName = link.tableName;
                 var encodedId = encodeUrlParam(link.tableId);
                 var url = '';

@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Pins the request contract between the attachment picker and the tickler actions, and the
@@ -89,6 +90,35 @@ class TicklerAttachmentParametersUnitTest {
         assertThat(TicklerAttachmentParameters.fromLegacyDocType(null)).isNull();
         assertThat(TicklerAttachmentParameters.fromLegacyDocType("  ")).isNull();
         assertThat(TicklerAttachmentParameters.fromLegacyDocType("XYZ")).isNull();
+    }
+
+    @Test
+    @DisplayName("should qualify lab ids with their source and read a bare id as HL7")
+    void shouldRoundTripLabValue_withSource() {
+        assertThat(TicklerAttachmentParameters.labValue("MDS", "77")).isEqualTo("MDS:77");
+        assertThat(TicklerAttachmentParameters.labValue(null, "77")).isEqualTo("HL7:77");
+        assertThat(TicklerAttachmentParameters.labValue(" ", "77")).isEqualTo("HL7:77");
+        assertThat(TicklerAttachmentParameters.parseLabValue("MDS:77")).containsExactly("MDS", "77");
+        assertThat(TicklerAttachmentParameters.parseLabValue(" CML : 5 ")).containsExactly("CML", "5");
+        assertThat(TicklerAttachmentParameters.parseLabValue("77")).containsExactly("HL7", "77");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"HL7,HL7", "hl7,HL7", "MDS,MDS", "cml,CML", "bcp,BCP"})
+    @DisplayName("should resolve legacy lab codes to the canonical source constant")
+    void shouldResolveLegacyLabSource_toCanonicalCode(String legacy, String expected) {
+        assertThat(TicklerAttachmentParameters.legacyLabSource(legacy)).isEqualTo(expected);
+        assertThat(TicklerAttachmentParameters.legacyLabSource("DOC")).isNull();
+        assertThat(TicklerAttachmentParameters.legacyLabSource(null)).isNull();
+    }
+
+    @Test
+    @DisplayName("should reject blank or half-empty lab values")
+    void shouldRejectLabValue_whenMalformed() {
+        assertThatThrownBy(() -> TicklerAttachmentParameters.parseLabValue(null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TicklerAttachmentParameters.parseLabValue("  ")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TicklerAttachmentParameters.parseLabValue(":77")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TicklerAttachmentParameters.parseLabValue("MDS:")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

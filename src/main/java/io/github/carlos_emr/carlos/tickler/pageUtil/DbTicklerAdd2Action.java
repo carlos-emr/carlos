@@ -196,7 +196,12 @@ public final class DbTicklerAdd2Action extends ActionSupport {
             DocumentType forwardedType = TicklerAttachmentParameters.fromLegacyDocType(docType);
             if (forwardedType != null && docId != null && !docId.trim().isEmpty()
                     && !"null".equalsIgnoreCase(docId.trim())) {
-                submitted.computeIfAbsent(forwardedType, type -> new LinkedHashSet<>()).add(docId.trim());
+                // A legacy lab forward names its source in docType (HL7, MDS, ...); keep it with
+                // the id so ownership is checked against that source's routing.
+                String forwardedId = forwardedType == DocumentType.LAB
+                        ? TicklerAttachmentParameters.labValue(TicklerAttachmentParameters.legacyLabSource(docType), docId.trim())
+                        : docId.trim();
+                submitted.computeIfAbsent(forwardedType, type -> new LinkedHashSet<>()).add(forwardedId);
             } else if (docType != null && !docType.trim().isEmpty()) {
                 MiscUtils.getLogger().warn("Ignoring unknown forwarded docType for ticklerNo={}: {}",
                         ticklerNo, LogSafe.sanitize(docType));

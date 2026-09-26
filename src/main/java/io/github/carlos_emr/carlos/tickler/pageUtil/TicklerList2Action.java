@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -51,6 +52,7 @@ import org.slf4j.LoggerFactory;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -143,9 +145,14 @@ public class TicklerList2Action extends ActionSupport {
             // form, so the client needs the name to build its link.
             Map<Integer, Map<String, String>> formNamesByDemographic = new HashMap<>();
 
+            // Per-type read rights are patient-scoped, so they are resolved once per
+            // (type, patient) on the page; a link the reader may not open is marked restricted.
+            Map<String, Boolean> readableByTypeAndPatient = new HashMap<>();
+
             for (TicklerListDTO dto : ticklerDTOs) {
                 rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale,
-                        formNamesFor(loggedInInfo, dto, formNamesByDemographic)));
+                        formNamesFor(loggedInInfo, dto, formNamesByDemographic),
+                        link -> isLinkReadable(loggedInInfo, dto, link, readableByTypeAndPatient)));
 
                 if (dto.getComments() != null && !dto.getComments().isEmpty()) {
                     commentsMap.put(String.valueOf(dto.getId()), buildCommentsArray(dto.getComments(), dateFormat, timeFormat, today));
@@ -264,10 +271,12 @@ public class TicklerList2Action extends ActionSupport {
      * @param dateFormat SimpleDateFormat thread-local date formatter
      * @param locale Locale the request locale for status description i18n
      * @param formNames Map&lt;String, String&gt; form id to form name for this tickler's patient
+     * @param linkReadable Predicate&lt;TicklerLinkDTO&gt; whether the reader may open the linked item
      * @return Map containing the tickler row data
      */
-    private Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat,
-                                                Locale locale, Map<String, String> formNames) {
+    static Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat,
+                                               Locale locale, Map<String, String> formNames,
+                                               Predicate<TicklerLinkDTO> linkReadable) {
         Map<String, Object> row = new HashMap<>();
         row.put("id", dto.getId());
         row.put("message", dto.getMessage() != null ? dto.getMessage() : "");
@@ -289,6 +298,14 @@ public class TicklerList2Action extends ActionSupport {
                 Map<String, Object> linkMap = new HashMap<>();
                 linkMap.put("id", link.getId());
                 linkMap.put("tableName", link.getTableName());
+                if (!linkReadable.test(link)) {
+                    // The reader holds _tickler but not the item's type: the row still shows
+                    // that something is attached, but neither the record id nor a viewer URL
+                    // leaves the server (the id is PHI-correlating and the viewer would refuse).
+                    linkMap.put("restricted", Boolean.TRUE);
+                    links.add(linkMap);
+                    continue;
+                }
                 linkMap.put("tableId", link.getTableId());
                 if (TicklerLinkDTO.TABLE_NAME_FORM.equals(link.getTableName())) {
                     // Left absent when the form no longer resolves (or the id is ambiguous); the
@@ -304,6 +321,24 @@ public class TicklerList2Action extends ActionSupport {
         row.put("links", links);
 
         return row;
+    }
+
+    /**
+     * Whether the reader may open an attachment: read on the attachment type's security object
+     * for the tickler's patient, the same gate the picker and the Add/Edit windows apply.
+     * Rows with no recorded type (none after the {@code ticklerdocs} migration) stay readable
+     * so a legacy row is never hidden by a lookup that cannot classify it.
+     */
+    private boolean isLinkReadable(LoggedInInfo loggedInInfo, TicklerListDTO dto, TicklerLinkDTO link,
+                                   Map<String, Boolean> cache) {
+        DocumentType documentType = DocumentType.fromType(link.getDocType());
+        if (documentType == null) {
+            return true;
+        }
+        String demographicNo = dto.getDemographicNo() == null ? null : String.valueOf(dto.getDemographicNo());
+        return cache.computeIfAbsent(documentType.getType() + ":" + demographicNo,
+                key -> securityInfoManager.hasPrivilege(loggedInInfo,
+                        TicklerAttachmentService.readSecurityObject(documentType), SecurityInfoManager.READ, demographicNo));
     }
 
     /**
@@ -381,7 +416,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param warnDays int the warning threshold in days
      * @return boolean true if the tickler should show a warning
      */
-    private boolean isWarning(TicklerListDTO dto, int warnDays) {
+    private static boolean isWarning(TicklerListDTO dto, int warnDays) {
         if (dto.getServiceDate() == null || warnDays <= 0) {
             return false;
         }

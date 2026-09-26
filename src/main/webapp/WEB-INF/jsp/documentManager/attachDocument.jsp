@@ -552,6 +552,7 @@
                                     <li class="lab ${loop.index > 19 ? 'd-none' : ''}">
                                         <input class="lab_check" type="checkbox" name="labNo"
                                                id="labNo${ lab.segmentID }" value="${lab.segmentID}"
+                                               data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
                                                title="${carlos:forHtmlAttribute(labName)}"
                                                <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
                                         <label for="labNo${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
@@ -572,6 +573,7 @@
                                                 <li>
                                                     <input class="lab_check"
                                                            data-version="${totalVersions - versionLoop.index}"
+                                                           data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
                                                            type="checkbox" name="labNo" id="labNo${ version.key }"
                                                            value="${version.key}"
                                                            title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}"

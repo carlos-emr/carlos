@@ -35,6 +35,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <fmt:message var="ticklerAttachmentsSaveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
 <fmt:message var="ticklerAttachmentsSelectPatientText" key="tickler.attachments.selectPatientFirst"/>
 <div id="attachDocumentDisplay" style="display:none;"></div>
@@ -63,7 +64,8 @@
                 }
                 // Pre-check the picker for everything already on the form.
                 $form.find('.delegateAttachment').each(function () {
-                    var element = jQuery('#attachDocumentsForm').find('#' + jQuery.escapeSelector(this.name + this.value));
+                    var itemId = jQuery(this).attr('data-item-id') || this.value;
+                    var element = jQuery('#attachDocumentsForm').find('#' + jQuery.escapeSelector(this.name + itemId));
                     if (element.length === 0) {
                         return;
                     }
@@ -99,10 +101,17 @@
                         .not('[disabled]')
                         .each(function () {
                             var element = jQuery(this);
+                            // Lab ids are only unique per source, so a lab is submitted as
+                            // "<source>:<id>" (the action reads a bare id as HL7).
+                            var labType = element.attr('data-lab-type');
+                            var value = element.hasClass('lab_check') && labType
+                                ? labType + ':' + element.val()
+                                : element.val();
                             jQuery('<input />', {
                                 type: 'hidden',
                                 name: element.attr('name'),
-                                value: element.val(),
+                                value: value,
+                                'data-item-id': element.val(),
                                 id: 'delegate_' + element.attr('name') + element.val(),
                                 'class': 'delegateAttachment'
                             }).appendTo($form.find('.tickler-attachments'));

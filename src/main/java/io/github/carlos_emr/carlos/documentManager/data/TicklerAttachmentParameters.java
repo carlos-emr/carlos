@@ -44,12 +44,21 @@ import jakarta.servlet.http.HttpServletRequest;
  * the picker's selection is authoritative. Without the marker a sync would read "no ids" as
  * "detach everything", which is what the parallel fork's edit action did on every save.</p>
  *
+ * <p>Lab ids are only unique within their source (HL7, MDS, CML, BCP all number their own
+ * tables), so a tickler {@code labNo} value carries the source as a prefix:
+ * {@code HL7:123}. A bare id is read as an HL7 lab, which keeps the legacy
+ * {@code docType=HL7&docId=} forward links working. See {@link #labValue} and
+ * {@link #parseLabValue}.</p>
+ *
  * @since 2026-09-26
  */
 public final class TicklerAttachmentParameters {
 
     /** Present (value {@code 1}) when the form's picker selection should replace the stored set. */
     public static final String SUBMITTED_MARKER = "attachmentsSubmitted";
+
+    /** Separates the lab source from the segment id in a tickler {@code labNo} value. */
+    public static final char LAB_SOURCE_SEPARATOR = ':';
 
     private static final Map<DocumentType, String> PARAMETER_NAMES;
 
@@ -118,6 +127,43 @@ public final class TicklerAttachmentParameters {
     }
 
     /**
+     * Builds the {@code labNo} value for a lab: {@code <source>:<segmentId>}. A blank source is
+     * recorded as HL7, the only source the legacy links ever named.
+     *
+     * @param labType String the lab source, may be null
+     * @param labNo String the segment id
+     * @return String the value the tickler forms submit for that lab
+     */
+    public static String labValue(String labType, String labNo) {
+        String source = labType == null || labType.trim().isEmpty() ? LabResultData.HL7TEXT : labType.trim();
+        return source + LAB_SOURCE_SEPARATOR + labNo;
+    }
+
+    /**
+     * Splits a submitted {@code labNo} value into its source and segment id.
+     *
+     * @param value String {@code <source>:<segmentId>}, or a bare segment id
+     * @return String[] {@code {source, segmentId}}; the source is HL7 when the value carries none
+     * @throws IllegalArgumentException when the value is blank or the source or id is empty
+     */
+    public static String[] parseLabValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("blank lab attachment id");
+        }
+        String trimmed = value.trim();
+        int separator = trimmed.indexOf(LAB_SOURCE_SEPARATOR);
+        if (separator < 0) {
+            return new String[]{LabResultData.HL7TEXT, trimmed};
+        }
+        String source = trimmed.substring(0, separator).trim();
+        String labNo = trimmed.substring(separator + 1).trim();
+        if (source.isEmpty() || labNo.isEmpty()) {
+            throw new IllegalArgumentException("malformed lab attachment id");
+        }
+        return new String[]{source, labNo};
+    }
+
+    /**
      * Maps a legacy forward-from-document {@code docType} code (a {@code tickler_link.table_name}
      * value: {@code DOC}, {@code HRM} or a lab source such as {@code HL7}) to the attachment type
      * it belongs to.
@@ -138,9 +184,32 @@ public final class TicklerAttachmentParameters {
         if (LabResultData.HRM.equalsIgnoreCase(code)) {
             return DocumentType.HRM;
         }
-        if (List.of(LabResultData.HL7TEXT, LabResultData.MDS, LabResultData.CML, LabResultData.EXCELLERIS)
-                .stream().anyMatch(code::equalsIgnoreCase)) {
+        if (legacyLabSource(code) != null) {
             return DocumentType.LAB;
+        }
+        return null;
+    }
+
+    /**
+     * Resolves a legacy lab {@code docType} code to the canonical lab source constant, so the
+     * value stored in {@code ticklerdocs.lab_type} matches what the routing table and the
+     * viewers switch on regardless of how the caller spelled it.
+     *
+     * @param legacyDocType String the legacy code, may be null
+     * @return String {@code HL7}, {@code MDS}, {@code CML} or {@code BCP}; {@code null} for
+     *         anything else
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public static String legacyLabSource(String legacyDocType) {
+        if (legacyDocType == null) {
+            return null;
+        }
+        String code = legacyDocType.trim();
+        for (String source : List.of(LabResultData.HL7TEXT, LabResultData.MDS, LabResultData.CML, LabResultData.EXCELLERIS)) {
+            if (source.equalsIgnoreCase(code)) {
+                return source;
+            }
         }
         return null;
     }

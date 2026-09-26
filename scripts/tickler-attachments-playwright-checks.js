@@ -226,6 +226,9 @@ async function postEditForm(page, fields) {
       'edit form badge did not show the stored attachment count');
     assert(await editPage.locator('#attachmentNames li').count() === expectedCount, 'edit form did not list every attachment by name');
     assert(await editPage.locator(`#delegate_docNo${picked.D}`).count() === 1, 'document delegate input missing on edit form');
+    const storedLabType = live.find((row) => row.doctype === 'L').labType;
+    assert(await editPage.locator(`#delegate_labNo${picked.L}`).inputValue() === `${storedLabType}:${picked.L}`,
+      'lab delegate input does not carry the lab source');
     await openPicker(editPage);
     const docBox = editPage.locator(`#attachDocumentsForm #docNo${picked.D}`);
     assert(await docBox.isChecked(), 'stored document was not pre-checked in the picker');
@@ -290,6 +293,17 @@ async function postEditForm(page, fields) {
     } else {
       console.log('SKIP crafted foreign-document POST: no other patient document in this database');
     }
+    // A lab id is only meaningful within its source: the same id under a source that does not
+    // route it to this patient must be refused, and the stored lab must survive the attempt.
+    const storedLab = live.find((row) => row.doctype === 'L');
+    const wrongSource = storedLab.labType === 'HL7' ? 'MDS' : 'HL7';
+    const wrongSourceRefused = await postEditForm(guardPage, {
+      method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
+      xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `${wrongSource}:${storedLab.documentNo}`,
+    });
+    assert(!/tickler-edit-ok/.test(wrongSourceRefused.text), 'edit action accepted a lab id under the wrong source');
+    assert(liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === storedLab.labType && row.documentNo === storedLab.documentNo),
+      `stored lab was disturbed by the refused wrong-source POST: ${JSON.stringify(attachmentRows(ticklerNo))}`);
     const getStatus = await guardPage.evaluate(async (ctx) => {
       const response = await fetch(`${ctx}/tickler/EditTickler?method=editTickler&ticklerNo=1`, { credentials: 'same-origin' });
       return response.status;
@@ -305,7 +319,7 @@ async function postEditForm(page, fields) {
     assert(pageErrors.length === 0, `pages reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await context.close();
-    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, plain edit untouched, lists rendered, crafted requests refused`);
+    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, GET, bad picker id) refused`);
   } catch (error) {
     if (error instanceof SkipCheck) {
       console.log(`SKIP ${error.message}`);
