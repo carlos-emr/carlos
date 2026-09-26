@@ -418,6 +418,8 @@ async function main() {
       'concurrent first adds did not report exactly one created membership');
     assert(raced.filter(response => response.status === 409).length === 7,
       'concurrent duplicate adds did not return conflict');
+    assert(memberRows(state.groupId) === 1, 'concurrent adds did not leave exactly one group membership');
+    assert(memberRows(0) === 1, 'concurrent adds did not leave exactly one registry membership');
     await probe.reload({ waitUntil: 'domcontentloaded' });
     expectFailure(`method=remove&member=${encodeURIComponent(memberId)}`, 503);
     expectFailure(`method=remove&member=${encodeURIComponent(memberId)}&group=${state.groupId}`, 503);
