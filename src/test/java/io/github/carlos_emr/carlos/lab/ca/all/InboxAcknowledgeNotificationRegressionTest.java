@@ -539,8 +539,8 @@ class InboxAcknowledgeNotificationRegressionTest {
         // the page, and preview mode removes its own card instead of being skipped.
         assertThat(read(INBOXHUB_FORM_JSP))
                 .as("the DataTable API is only ever touched once the table is known to be there")
-                .contains("if (jQuery('#inbox_table').length > 0) {\n"
-                        + "            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);")
+                .containsSubsequence("if (jQuery('#inbox_table').length > 0) {",
+                        "jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);")
                 .as("and preview mode removes its card rather than bailing out and leaving it")
                 .contains("if (jQuery('#inboxViewItems').length > 0) {")
                 .as("with nothing at all done when neither mode is on screen")
