@@ -2044,6 +2044,24 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "echart-prevention-row-links",
+      "script": "scripts/echart-prevention-row-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient, its preventions and its note draft; local disposable database only."
+    },
+    {
       "name": "allergy-custom-lifecycle",
       "script": "scripts/allergy-custom-lifecycle-playwright-checks.js",
       "tiers": [

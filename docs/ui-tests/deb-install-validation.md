@@ -19,6 +19,15 @@ The two checks added since, `echart-print-playwright-checks.js` and
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
 through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
 has not been re-run on a later snapshot.
+`echart-prevention-row-links-playwright-checks.js` (issue #3975) was run on
+2026-09-26 against a 2026.09.0~snapshot24 package built from the
+`release/2026.08` port branch (DrugRef built from the pinned revision, pinned
+Chromium fetched) and installed into an Ubuntu 26.04 container with the demo
+dataset: **PASS** through `:443`, together with `prevention-lifecycle`,
+`prevention-add-data`, `prevention-brand-picker`, `echart-navbar-modules`,
+`echart-note-editor` and `echart-playwright`. Run with the pre-#3975
+`close.jsp` swapped back into the installed webapp, the new check **FAILS**
+("Closing the prevention form reloaded the eChart"), so it guards the fix.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -289,6 +298,17 @@ DrugRef WAR as evidence for a promotion. The commands above clear those
 overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 
 ## 2. Create the test VM
+
+> **Without LXD (Docker, systemd as PID 1).** The packages need systemd, and
+> the systemd in Ubuntu 26.04 no longer boots on a cgroup-v1 host. On such a
+> host run a `--privileged` container whose entrypoint unmounts
+> `/sys/fs/cgroup`, mounts `cgroup2` there and then execs `/sbin/init`. Remove
+> the image's `/usr/sbin/policy-rc.d` **before** `apt-get install`, or the
+> maintainer scripts cannot start MariaDB and nginx and the install stops
+> half-provisioned (recover with `carlos-ctl finish-install` and
+> `dpkg-reconfigure carlos-emr-drugref`). On a host without IPv6, nginx's stock
+> `default` site (`listen [::]:80`) fails `nginx -t` until the package replaces
+> it; the CARLOS site itself emits `[::]` listeners only when IPv6 exists.
 
 ```bash
 lxc launch ubuntu:26.04 carlos-test --vm \
