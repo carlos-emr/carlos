@@ -162,7 +162,7 @@ public class PDFHandler implements MessageHandler {
             if ((batchPDFProviderNo != null) && !batchPDFProviderNo.isEmpty()) {
 
                 ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
-                providerInboxRoutingDao.addToProviderInbox(batchPDFProviderNo, Integer.parseInt(doc_no), "DOC");
+                providerInboxRoutingDao.routeToProviderInbox(batchPDFProviderNo, Integer.parseInt(doc_no), "DOC");
 
                 //Add to default queue for now, not sure how or if any other queues can be used anyway (MAB)                 
                 QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) SpringUtils.getBean(QueueDocumentLinkDao.class);
@@ -173,7 +173,7 @@ public class PDFHandler implements MessageHandler {
                 String[] providers = providerStr.trim().split(" ");
                 ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
                 for (String provider : providers) {
-                    providerInboxRoutingDao.addToProviderInbox(provider, Integer.parseInt(doc_no), "DOC");
+                    providerInboxRoutingDao.routeToProviderInbox(provider, Integer.parseInt(doc_no), "DOC");
                 }
             }
         } catch (FileNotFoundException e) {

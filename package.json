@@ -21,6 +21,7 @@
     "test:echart-consult-specialist-playwright": "node scripts/echart-consult-specialist-playwright-checks.js",
     "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
+    "test:lab-upload-playwright": "node scripts/lab-upload-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
     "test:add-login-account-playwright": "node scripts/add-login-account-playwright-checks.js",
     "test:assign-role-playwright": "node scripts/assign-role-playwright-checks.js",
@@ -158,6 +159,7 @@
     "test:facility-selection-playwright": "node scripts/facility-selection-playwright-checks.js",
     "test:health-care-team-playwright": "node scripts/health-care-team-playwright-checks.js",
     "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js",
+    "test:lab-upload-rollback-playwright": "node scripts/lab-upload-rollback-playwright-checks.js",
     "test:demographic-label-content-playwright": "node scripts/demographic-label-content-playwright-checks.js",
     "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js"
   },

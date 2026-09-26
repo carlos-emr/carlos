@@ -63,6 +63,11 @@ jobs:
       # .semgrep/README.md instructs maintainers to disable in the Semgrep Cloud
       # policy; while they were not invoked here, disabling those built-ins left
       # CWE-117 and CWE-22 with no CI coverage at all.
+      - name: Test CARLOS document-path sanitizer model
+        run: |
+          semgrep --test --config .semgrep/path-traversal-carlos.yml \
+            src/test/semgrep/path-traversal-carlos.java
+
       - name: Run CARLOS custom Semgrep rules
         id: run_semgrep_carlos
         # Findings stay non-blocking, but a scanner execution or configuration

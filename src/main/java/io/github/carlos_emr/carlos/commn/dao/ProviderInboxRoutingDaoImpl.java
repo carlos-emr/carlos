@@ -125,45 +125,50 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
     @SuppressWarnings("unchecked")
     @Override
     public void addToProviderInbox(String providerNo, Integer labNo, String labType) {
-        ArrayList<String> listofAdditionalProviders = new ArrayList<String>();
-        boolean fileForMainProvider = false;
-
         try {
-            Query rulesQuery = entityManager
-                    .createQuery("FROM IncomingLabRules r WHERE r.archive = '0' AND r.providerNo = ?1");
-            rulesQuery.setParameter(1, providerNo);
-
-            for (IncomingLabRules rules : (List<IncomingLabRules>) rulesQuery.getResultList()) {
-                String status = rules.getStatus();
-                String frwdProvider = rules.getFrwdProviderNo();
-
-                listofAdditionalProviders.add(frwdProvider);
-                if (status != null && status.equals("F"))
-                    fileForMainProvider = true;
-            }
-
-            ProviderInboxItem p = new ProviderInboxItem();
-            p.setProviderNo(providerNo);
-            p.setLabNo(labNo);
-            p.setLabType(labType);
-            p.setStatus(fileForMainProvider ? ProviderInboxItem.FILE : ProviderInboxItem.NEW);
-
-            List<ProviderInboxItem> documentsLinkedWithProvider = findDocumentsLinkedWithProvider(labType, labNo, providerNo);
-            if (documentsLinkedWithProvider.isEmpty()) {
-                persist(p);
-            } else {
-                ProviderInboxItem existingProviderInboxItem = documentsLinkedWithProvider.get(0);
-                existingProviderInboxItem.setStatus(p.getStatus());
-                merge(existingProviderInboxItem);
-            }
-
-            for (String provider : listofAdditionalProviders) {
-                addToProviderInbox(provider, labNo, labType);
-            }
+            routeToProviderInbox(providerNo, labNo, labType);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
+    }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public void routeToProviderInbox(String providerNo, Integer labNo, String labType) {
+        ArrayList<String> listofAdditionalProviders = new ArrayList<String>();
+        boolean fileForMainProvider = false;
+
+        Query rulesQuery = entityManager
+                .createQuery("FROM IncomingLabRules r WHERE r.archive = '0' AND r.providerNo = ?1");
+        rulesQuery.setParameter(1, providerNo);
+
+        for (IncomingLabRules rules : (List<IncomingLabRules>) rulesQuery.getResultList()) {
+            String status = rules.getStatus();
+            String frwdProvider = rules.getFrwdProviderNo();
+
+            listofAdditionalProviders.add(frwdProvider);
+            if (status != null && status.equals("F"))
+                fileForMainProvider = true;
+        }
+
+        ProviderInboxItem p = new ProviderInboxItem();
+        p.setProviderNo(providerNo);
+        p.setLabNo(labNo);
+        p.setLabType(labType);
+        p.setStatus(fileForMainProvider ? ProviderInboxItem.FILE : ProviderInboxItem.NEW);
+
+        List<ProviderInboxItem> documentsLinkedWithProvider = findDocumentsLinkedWithProvider(labType, labNo, providerNo);
+        if (documentsLinkedWithProvider.isEmpty()) {
+            persist(p);
+        } else {
+            ProviderInboxItem existingProviderInboxItem = documentsLinkedWithProvider.get(0);
+            existingProviderInboxItem.setStatus(p.getStatus());
+            merge(existingProviderInboxItem);
+        }
+
+        for (String provider : listofAdditionalProviders) {
+            routeToProviderInbox(provider, labNo, labType);
+        }
     }
 
 }

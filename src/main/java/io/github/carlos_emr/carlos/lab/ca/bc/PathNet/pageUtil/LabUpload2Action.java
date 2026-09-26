@@ -57,6 +57,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
@@ -104,7 +107,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().debug("Lab Upload content type = " + importFile.getName());
             // Re-validate at point of use for static analysis visibility
             File validatedImportFile = PathValidationUtils.validateUpload(importFile);
-            filename = importFile.getName();
+            filename = uploadedFileName == null ? importFile.getName() : uploadedFileName;
 
             // Snapshot the upload once. The duplicate check, parser, and archive writer each consume
             // a stream, and the file stream cannot be reset; reopening the path per reader could also
@@ -115,43 +118,41 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 uploadContent = uploadStream.readAllBytes();
             }
 
-            int check = FileUploadCheck.addFile(filename, new ByteArrayInputStream(uploadContent), proNo);
-            if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                Connection connection = new Connection();
-                ArrayList<String> messages = connection.Retrieve(new ByteArrayInputStream(uploadContent));
-                if (messages != null) {
-                    try {
-                        int size = messages.size();
-
-                        String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-                        for (int i = 0; i < size; i++) {
-                            if (_logger.isDebugEnabled()) {
-                                _logger.debug("Call Message Constructor for message # " + i);
-                            }
-                            Message message = new Message(now);
-                            if (_logger.isDebugEnabled()) {
-                                _logger.debug("Call Message.Parse for message # " + i);
-                            }
-                            message.Parse(messages.get(i));
-                            if (_logger.isDebugEnabled()) {
-                                _logger.debug("Call Message.ToDatabase for message # " + i);
-                            }
-                            message.ToDatabase();
-                        }
-                        outcome = "success";
-                    } catch (Exception ex) {
-                        //success = false; //<- for future when transactional
-                        _logger.error("Error - oscar.PathNet.Contorller - Message: " + ex.getMessage() + " = " + ex.toString(), ex);
-                        outcome = OUTCOME_EXCEPTION;
-                    }
-                    //connection.Acknowledge(success);
-                }
-                //SAVE FILE TO DISK
-                if (!saveFile(new ByteArrayInputStream(uploadContent), filename)) {
-                    outcome = OUTCOME_EXCEPTION;
-                }
-            } else {
+            // storeIfNew records the checksum in the same transaction as the messages' rows, so a
+            // failure leaves neither and a retry stores the batch; a real duplicate is refused. It
+            // holds the checksum lock throughout, so a concurrent upload of the same file is never
+            // told uploadedPreviously for a batch that then rolls back.
+            FileUploadCheck.StoreOutcome stored;
+            // The archive written in the store step, cleared only if a confirmed rollback removed it.
+            AtomicReference<File> keptArchive = new AtomicReference<>();
+            try {
+                String archiveName = filename;
+                stored = FileUploadCheck.storeIfNew(filename, () -> new ByteArrayInputStream(uploadContent), proNo,
+                        checksumId -> storeMessages(uploadContent)
+                                && archiveInTransaction(uploadContent, archiveName, keptArchive));
+            } catch (FileUploadCheck.LookupFailedException lookupEx) {
+                _logger.error("Could not check a PathNet upload's checksum: {}", LogSafe.exceptionTrace(lookupEx.getCause()));
+                // Preserve failed bytes through the diagnostic archive path below.
+                // A failed lookup has neither claimed the checksum nor parsed the lab.
+                stored = null;
+            } catch (Exception ex) {
+                _logger.error("PathNet upload could not be stored: {}", LogSafe.exceptionTrace(ex));
+                stored = null;
+            }
+            if (stored == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
                 outcome = "uploadedPreviously";
+            } else if (stored == FileUploadCheck.StoreOutcome.STORED) {
+                // Archived inside the committed transaction; nothing may fail after the commit.
+                outcome = "success";
+            } else {
+                outcome = OUTCOME_EXCEPTION;
+                // A batch that was not stored is still archived for diagnosis, as before; the
+                // outcome is a failure either way, so a failed write here changes nothing. Skipped
+                // when the store step's archive survived: the commit outcome is then unknown and
+                // the batch may be stored, so a second copy would duplicate it.
+                if (keptArchive.get() == null) {
+                    saveFile(new ByteArrayInputStream(uploadContent), filename);
+                }
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -165,19 +166,78 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     public LabUpload2Action() {
     }
 
+    /**
+     * Parses every message in the upload and writes it to the database. Runs inside
+     * {@link FileUploadCheck#storeIfNew}'s transaction, so the rows of every message and the
+     * checksum commit together; a failing message rolls back the ones before it.
+     *
+     * @param uploadContent the upload's bytes
+     * @return {@code false} when the upload holds no messages, which rejects it
+     * @throws Exception when a message cannot be parsed or stored
+     */
+    private static boolean storeMessages(byte[] uploadContent) throws Exception {
+        ArrayList<String> messages = new Connection().Retrieve(new ByteArrayInputStream(uploadContent));
+        // Retrieve answers null for an unreadable batch and an empty list for one declaring zero
+        // messages; neither stored anything, so neither may commit a checksum that refuses a retry.
+        if (messages == null || messages.isEmpty()) {
+            return false;
+        }
+        String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        for (int i = 0; i < messages.size(); i++) {
+            Message message = new Message(now);
+            message.Parse(messages.get(i));
+            message.ToDatabase();
+        }
+        return true;
+    }
+
 
     /**
-     * Save a Jakarta FormFile to a preconfigured place.
+     * Archives a stored batch inside {@link FileUploadCheck#storeIfNew}'s transaction.
      *
-     * @param stream
-     * @param filename
-     * @return boolean
+     * <p>Written after the messages, before the commit: a failed write rejects the batch, rolling
+     * back its messages and checksum so the client's retry stores it, instead of committing a lab
+     * with no archive and answering a retryable {@code exception} that the retry then refuses as
+     * {@code uploadedPreviously}. If the transaction later rolls back, the archive is removed with
+     * the rows; after a commit, or a commit whose outcome is unknown, it is kept.</p>
+     *
+     * @param kept receives the archive written; cleared again when a rollback removes it
+     * @return {@code false} when the archive could not be written, which rejects the batch
      */
-    private static boolean saveFile(InputStream stream, String filename) {
-        String retVal = null;
-        boolean isAdded = true;
+    private static boolean archiveInTransaction(byte[] uploadContent, String filename, AtomicReference<File> kept) {
+        File archived = saveFile(new ByteArrayInputStream(uploadContent), filename, kept);
+        if (archived == null) {
+            return false;
+        }
+        kept.set(archived);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    // Cleared only once the file is really gone: if the delete fails the archive is
+                    // still on disk, and the failure path must not write a second copy beside it.
+                    if (status == STATUS_ROLLED_BACK && deletePartialOutput(archived)) {
+                        kept.set(null);
+                    }
+                }
+            });
+        }
+        return true;
+    }
 
+    /**
+     * Writes the upload to {@code DOCUMENT_DIR} under a new, generated name.
+     *
+     * @return the complete file, or {@code null} on failure (a partial file may remain if cleanup fails)
+     */
+    private static File saveFile(InputStream stream, String filename) {
+        return saveFile(stream, filename, new AtomicReference<>());
+    }
+
+    /** Also retains an owned partial file when cleanup fails, preventing a second archive. */
+    private static File saveFile(InputStream stream, String filename, AtomicReference<File> kept) {
         File outputFile = null;
+        boolean created = false;
 
         try (InputStream uploadStream = stream) {
             //retrieve the file data
@@ -196,45 +256,51 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // destroyed the colliding upload's lab.
             try (OutputStream bos = Files.newOutputStream(outputFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                created = true;
+                kept.set(outputFile);
                 uploadStream.transferTo(bos);
             }
-            retVal = outputFile.getPath();
         } catch (FileAlreadyExistsException nameCollision) {
             MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
-            return isAdded = false;
+            return null;
         } catch (IOException | SecurityException ioe) {
-            // Remove any partial output: the collision case is handled above, so a file existing
-            // here was created by this call. Left behind, it would look like a complete lab to the
-            // import scan.
-            deletePartialOutput(outputFile);
+            // Only a successful CREATE_NEW establishes ownership. An open failure may name
+            // somebody else's file. Retain an undeletable partial output to suppress a second copy.
+            if (created && deletePartialOutput(outputFile)) {
+                kept.set(null);
+            }
             // exceptionTrace: the message of a filesystem exception here is the generated path,
             // whose basename embeds the caller-supplied lab filename.
             MiscUtils.getLogger().error("Error writing PathNet lab upload: {}", LogSafe.exceptionTrace(ioe));
-            return isAdded = false;
+            return null;
         }
 
-        return isAdded;
+        return outputFile;
     }
 
     /**
-     * Removes a partially written upload. Only ever called for a destination this invocation
-     * created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
+     * Removes a partially written or rolled-back upload. Only ever called for a destination this
+     * invocation created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
      *
      * @param outputFile the destination to remove, or {@code null} if none was created
+     * @return {@code true} when no such file remains
      */
-    private static void deletePartialOutput(File outputFile) {
+    private static boolean deletePartialOutput(File outputFile) {
         if (outputFile == null) {
-            return;
+            return true;
         }
         try {
             Files.deleteIfExists(outputFile.toPath());
-        } catch (IOException deleteException) {
+            return true;
+        } catch (IOException | SecurityException deleteException) {
             MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
                     deleteException.getClass().getSimpleName());
+            return false;
         }
     }
 
     private File importFile;
+    private String uploadedFileName;
     private String uploadValidationError;
 
     @Override
@@ -244,6 +310,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
             try {
                 PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+                this.uploadedFileName = uploaded.getOriginalName();
             } catch (FileValidationException e) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
             }

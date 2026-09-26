@@ -70,7 +70,6 @@ import javax.crypto.spec.SecretKeySpec;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.nio.file.Files;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -140,21 +139,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 return SUCCESS;
             }
 
-            InputStream is = decryptMessage(Files.newInputStream(importFile.toPath()), key, clientKey);
             String fileName = importFile.getName();
-            String filePath = null;
-            if (type.equals("PDFDOC")) {
-                filePath = Utilities.savePdfFile(is, fileName);
-            } else {
-                filePath = Utilities.saveFile(is, fileName);
+            String filePath;
+            try (InputStream encrypted = PathValidationUtils.openValidatedUploadInputStream(importFile);
+                    InputStream decrypted = decryptMessage(encrypted, key, clientKey)) {
+                if (decrypted == null) throw new IOException("Lab decryption failed");
+                filePath = type.equals("PDFDOC")
+                        ? Utilities.savePdfFile(decrypted, fileName) : Utilities.saveFile(decrypted, fileName);
             }
             if (filePath == null) {
-                // saveFile/savePdfFile return null when the write failed, and neither closes the
-                // decrypted stream when it fails before opening its output.
-                is.close();
-                // Thrown rather than returned: the shared epilogue below is what honours
-                // use_http_response_code, so returning here would have sent a client that asked for
-                // HTTP status codes a success response despite httpCode being set to 500.
+                // Reach the shared epilogue so use_http_response_code also reports the failure.
                 throw new IOException("Lab file save returned no path");
             }
 
@@ -180,23 +174,26 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 }
 
 
-                is = new FileInputStream(file);
-                try {
-                    int check = FileUploadCheck.addFile(file.getName(), is, "0");
-                    if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        if ((audit = msgHandler.parse(loggedInInfo, service, filePath, check, request.getRemoteAddr())) != null) {
-                            outcome = "uploaded";
-                            httpCode = HttpServletResponse.SC_OK;
-                        } else {
-                            outcome = "upload failed";
-                            httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
-                        }
-                    } else {
-                        outcome = "uploaded previously";
-                        httpCode = HttpServletResponse.SC_CONFLICT;
-                    }
-                } finally {
-                    is.close();
+                java.util.concurrent.atomic.AtomicReference<String> parsedAudit = new java.util.concurrent.atomic.AtomicReference<>();
+                FileUploadCheck.StoreOutcome stored = FileUploadCheck.storeIfNew(file.getName(),
+                        () -> new FileInputStream(file), "0", checksumId -> {
+                            if (msgHandler == null) {
+                                return false;
+                            }
+                            parsedAudit.set(msgHandler.parse(loggedInInfo, service, file.getPath(),
+                                    checksumId, request.getRemoteAddr()));
+                            return parsedAudit.get() != null;
+                        });
+                if (stored == FileUploadCheck.StoreOutcome.STORED) {
+                    audit = parsedAudit.get();
+                    outcome = "uploaded";
+                    httpCode = HttpServletResponse.SC_OK;
+                } else if (stored == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+                    outcome = "uploaded previously";
+                    httpCode = HttpServletResponse.SC_CONFLICT;
+                } else {
+                    outcome = "upload failed";
+                    httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
                 }
             } else {
                 logger.info("failed to validate");

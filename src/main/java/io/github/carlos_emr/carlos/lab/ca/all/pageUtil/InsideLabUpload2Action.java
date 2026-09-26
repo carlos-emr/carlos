@@ -186,26 +186,33 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             MiscUtils.getLogger().error("Invalid saved lab file path", e);
             return FileStatus.FAILED;
         }
-        int checkFileUploadedSuccessfully;
-
-        try (InputStream localFileInputStream = Files.newInputStream(path)) {
-            String providerNumber = (String) request.getSession().getAttribute("user");
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(fileName, localFileInputStream, providerNumber);
-            if (checkFileUploadedSuccessfully == FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                return FileStatus.EXISTS;
-            }
-        } catch (IOException e) {
+        String providerNumber = (String) request.getSession().getAttribute("user");
+        FileUploadCheck.StoreOutcome stored;
+        try {
+            // The handler stores the lab inside storeIfNew's transaction, with the checksum it links
+            // its rows to. A handler that fails or returns null rolls both back, so the file can be
+            // uploaded again instead of being reported "Already uploaded" forever; a concurrent upload
+            // of the same file waits on the checksum lock instead of seeing this one in flight.
+            stored = FileUploadCheck.storeIfNew(fileName, () -> Files.newInputStream(path), providerNumber,
+                    checksumId -> {
+                        MessageHandler msgHandler = HandlerClassFactory.getHandler(fileType);
+                        return msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checksumId,
+                                request.getRemoteAddr()) != null;
+                    });
+        } catch (Exception e) {
             // exceptionTrace: Files.newInputStream failures carry the validated path, whose
             // basename comes from the uploaded lab filename.
             MiscUtils.getLogger().error("Error occurred while processing uploaded lab file: {}", LogSafe.exceptionTrace(e));
             return FileStatus.FAILED;
         }
-
-        MessageHandler msgHandler = HandlerClassFactory.getHandler(fileType);
-        if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, request.getRemoteAddr())) != null) {
-            return FileStatus.COMPLETED;
+        switch (stored) {
+            case ALREADY_RECORDED:
+                return FileStatus.EXISTS;
+            case STORED:
+                return FileStatus.COMPLETED;
+            default:
+                return FileStatus.INVALID;
         }
-        return FileStatus.INVALID;
     }
 
     public List<File> getImportFiles() 
