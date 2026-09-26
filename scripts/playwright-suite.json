@@ -2562,6 +2562,22 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "form-asset-paths",
+      "script": "scripts/form-asset-paths-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_DEMOGRAPHIC_NO",
+        "FORM_PROVIDER_NO"
+      ]
     }
   ]
 }
