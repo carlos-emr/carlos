@@ -17,6 +17,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.RevokedUserSessions;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
@@ -38,6 +39,7 @@ import org.apache.logging.log4j.Logger;
 public final class UnauthenticatedRejectionResolver {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String LOGOUT_PATH = "/logoutPage";
+    private static final String LOGIN_PATH = "/index";
 
     /**
      * Paths whose unauthenticated responses are consumed by scripts, downloads, or generated
@@ -100,6 +102,13 @@ public final class UnauthenticatedRejectionResolver {
 
         if (statusCodeRoute) {
             writeStatusCodeRejection(request, response);
+        } else if (RevokedUserSessions.isRevoked(request.getRequestedSessionId())) {
+            // Issue #3980: this browser's session was signed out by a newer sign-in for the same
+            // user. Go straight to the login page, which explains why (RootEntryRedirectFilter
+            // consumes the marker). Not /logoutPage: its POST to /logout deletes the session cookie,
+            // and with it the only link back to the marker. /index is exempt from LoginFilter, so
+            // this cannot loop (#2245). Background/status-code routes above never consume it.
+            response.sendRedirect(request.getContextPath() + LOGIN_PATH);
         } else {
             response.sendRedirect(request.getContextPath() + LOGOUT_PATH);
         }

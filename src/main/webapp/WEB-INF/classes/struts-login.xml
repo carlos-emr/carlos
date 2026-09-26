@@ -74,6 +74,7 @@
             <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
             <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
             <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
+            <result name="sessionChoice">/WEB-INF/jsp/login/sessionChoice.jsp</result>
         </action>
         <action name="forcepasswordresetSubmit" class="io.github.carlos_emr.carlos.login.Login2Action">
             <result name="provider" type="redirect">/provider/providercontrol</result>
@@ -83,6 +84,7 @@
             <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
             <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
             <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
+            <result name="sessionChoice">/WEB-INF/jsp/login/sessionChoice.jsp</result>
         </action>
         <action name="mfa/loginMfa" class="io.github.carlos_emr.carlos.login.Login2Action">
             <result name="provider" type="redirect">/provider/providercontrol</result>
@@ -92,6 +94,23 @@
             <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
             <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
             <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
+            <result name="sessionChoice">/WEB-INF/jsp/login/sessionChoice.jsp</result>
+        </action>
+        <!--
+            Concurrent-session chooser submit (issue #3980). Reached only after password, PIN, MFA
+            and any forced reset have succeeded, while the login waits in PendingSessionChoiceCache.
+            POST-only (405 otherwise) and CSRF-protected: unlike /login it is not listed as
+            unprotected in Owasp.CsrfGuard.properties. LoginFilter lets it through without an
+            authenticated session because it sits under the exempt /login prefix.
+        -->
+        <action name="login/sessionChoice" class="io.github.carlos_emr.carlos.login.Login2Action" method="submitSessionChoice">
+            <result name="provider" type="redirect">/provider/providercontrol</result>
+            <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
+            <result name="error">/WEB-INF/jsp/login/loginfailed.jsp</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
+            <result name="sessionChoice">/WEB-INF/jsp/login/sessionChoice.jsp</result>
+            <allowed-methods>submitSessionChoice</allowed-methods>
         </action>
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
 

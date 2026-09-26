@@ -51,6 +51,7 @@
     "test:tickler-demo-main-playwright": "node scripts/tickler-demo-main-playwright-checks.js",
     "test:logout-session-invalidation-playwright": "node scripts/logout-session-invalidation-playwright-checks.js",
     "test:multiple-session-playwright": "node scripts/multiple-session-playwright-checks.js",
+    "test:concurrent-session-policy-playwright": "node scripts/concurrent-session-policy-playwright-checks.js",
     "test:logout-redirect-playwright": "node scripts/logout-redirect-playwright-checks.js",
     "test:eform-render-playwright": "node scripts/eform-render-playwright-checks.js",
     "test:eform-print-save-playwright": "node scripts/eform-print-save-playwright-checks.js",

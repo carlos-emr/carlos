@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.sec;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.RevokedUserSessions;
 
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +24,7 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -334,6 +336,56 @@ class UnauthenticatedRejectionResolverUnitTest extends CarlosUnitTestBase {
         assertThat(UnauthenticatedRejectionResolver.matchesStatusCodePath("/Download")).isTrue();
         assertThat(UnauthenticatedRejectionResolver.matchesStatusCodePath("/Download/file.pdf")).isTrue();
         assertThat(UnauthenticatedRejectionResolver.matchesStatusCodePath("/Downloads")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should redirect to login page without consuming marker when session was signed out elsewhere")
+    void shouldRedirectToLoginPage_whenSessionWasSignedOutElsewhere() throws Exception {
+        String revokedSessionId = "revoked-" + UUID.randomUUID();
+        RevokedUserSessions.mark(revokedSessionId);
+        MockHttpServletRequest request = request("/provider/providercontrol");
+        request.addHeader("Accept", "text/html");
+        request.setRequestedSessionId(revokedSessionId);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+
+        // /index, not /logoutPage: the logout POST would delete the cookie that links to the marker.
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/index");
+        assertThat(RevokedUserSessions.isRevoked(revokedSessionId))
+                .as("the login page consumes the marker, not the resolver")
+                .isTrue();
+        RevokedUserSessions.consume(revokedSessionId);
+    }
+
+    @Test
+    @DisplayName("should keep marker for the login page when a background request is rejected")
+    void shouldKeepMarker_whenBackgroundRequestIsRejected() throws Exception {
+        String revokedSessionId = "revoked-" + UUID.randomUUID();
+        RevokedUserSessions.mark(revokedSessionId);
+        MockHttpServletRequest request = request("/provider/ViewTabAlertsRefresh");
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        request.setRequestedSessionId(revokedSessionId);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+
+        assertTextUnauthorized(response);
+        assertThat(RevokedUserSessions.isRevoked(revokedSessionId)).isTrue();
+        RevokedUserSessions.consume(revokedSessionId);
+    }
+
+    @Test
+    @DisplayName("should keep logout page redirect when session was not signed out elsewhere")
+    void shouldRedirectToLogoutPage_whenRequestedSessionWasNotRevoked() throws Exception {
+        MockHttpServletRequest request = request("/provider/providercontrol");
+        request.addHeader("Accept", "text/html");
+        request.setRequestedSessionId("expired-" + UUID.randomUUID());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
     }
 
     private static MockHttpServletRequest request(String path) {

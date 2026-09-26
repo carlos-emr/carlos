@@ -520,7 +520,15 @@ test('login works through the authentication stages in whatever order they arriv
   // a 30s timeout instead of the next turn of the loop.
   const resetStage = body.slice(body.indexOf('forcepasswordreset/i.test(url)'));
   assert.match(resetStage.slice(0, resetStage.indexOf('continue;')),
-    /waitForURL\(\/providercontrol\|appointment\|select_facility\|loginMfa\/i/);
+    /waitForURL\(\/providercontrol\|appointment\|select_facility\|loginMfa\|forcepasswordresetSubmit\/i/);
+
+  // Issue #3980: the concurrent-session chooser can follow the password, the
+  // reset or the OTP, and renders at whichever URL that POST used, so it is
+  // detected by its form, first in the loop, before the URL-based MFA test.
+  const chooser = body.indexOf("page.locator('#sessionChoiceForm').count()");
+  assert.ok(chooser > body.indexOf('for (let stage') && chooser < body.indexOf('loginMfa/i.test(url)'),
+    'the session chooser stage must be inside the loop and ahead of the MFA stage');
+  assert.match(body, /#keepOtherSessions/, 'the harness keeps other sessions when the policy allows it');
 
   // And the loop is bounded, with a diagnosis rather than a silent success when
   // a stage keeps re-serving itself.

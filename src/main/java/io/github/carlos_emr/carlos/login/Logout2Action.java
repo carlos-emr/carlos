@@ -213,6 +213,7 @@ public class Logout2Action extends ActionSupport {
         if (session != null) {
             String user = (String) session.getAttribute("user");
             PendingMfaChallenges.clearFromSession(session);
+            PendingSessionChoices.clearFromSession(session);
             // Invalidate session to prevent session fixation attacks
             session.invalidate();
             // Log logout event for audit trail (only if user was logged in)

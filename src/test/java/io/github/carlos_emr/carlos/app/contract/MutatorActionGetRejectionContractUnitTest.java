@@ -289,6 +289,12 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action",
         // Login gate: GET renders the selector, but selectedFacilityId is mutation intent.
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        // Login: a legacy multi-route action. /login, /forcepasswordresetSubmit and /mfa/loginMfa
+        // redirect a GET to the login-failed page without authenticating; the concurrent-session
+        // chooser route (/login/sessionChoice -> submitSessionChoice, issue #3980) answers GET/HEAD
+        // with 405 before reading the pending login or touching another session. Covered by
+        // Login2ActionConcurrentSessionUnitTest and Login2ActionForcedPasswordResetUnitTest.
+        "io.github.carlos_emr.carlos.login.Login2Action",
         // Ontario billing: dual-purpose pages reject GET only when mutation-intent params exist.
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
@@ -427,6 +433,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        // login slice: Login2Action gained the POST-only concurrent-session chooser submit
+        // (issue #3980); the login package is not in IN_SCOPE_PACKAGE_PREFIXES.
+        "io.github.carlos_emr.carlos.login.Login2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // eform slice: only these are registered; broader slice audit tracked in issue #2828.
         "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",

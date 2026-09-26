@@ -862,9 +862,19 @@ async function assertNotErrorPage(page, label, options = {}) {
  * The 33 private copies each handled a different subset, which is why issue
  * #3313 saw "every suite except login lands on the forced-reset page and fails
  * at its login helper". Branches: the schedule (normal), the forced reset (a
- * freshly installed deb flags its generated credential), the MFA challenge, and
- * the facility chooser for a provider in more than one facility.
+ * freshly installed deb flags its generated credential), the MFA challenge, the
+ * concurrent-session chooser (issue #3980; only under a non-default
+ * login.concurrent_sessions policy), and the facility chooser for a provider in
+ * more than one facility.
  */
+/**
+ * Where the first login submit can land. The last alternative is the
+ * concurrent-session chooser, which renders as the forward result of the POST to
+ * /login itself. A redirect to the schedule never commits /login as a URL, so it
+ * cannot match early.
+ */
+const LOGIN_STAGE_URL = /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility|\/login(?:[?#]|$)/i;
+
 async function login(context, config, recorder, options = {}) {
   const page = await context.newPage();
   wireStrictPage(page, options.label || 'login', recorder, options);
@@ -880,7 +890,7 @@ async function login(context, config, recorder, options = {}) {
   assert(await page.locator('#username').inputValue() === config.testUser, 'login username field changed before submit');
   assert(await page.locator('#password').inputValue() === config.testPassword, 'login password field changed before submit');
   await settleOperations([
-    page.waitForURL(/providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i, { timeout: 30000 }),
+    page.waitForURL(LOGIN_STAGE_URL, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -896,15 +906,33 @@ async function login(context, config, recorder, options = {}) {
   //
   // Bounded so a stage that keeps re-serving itself (a wrong OTP, a reset the
   // server rejects) fails with a diagnosis instead of spinning.
-  const STAGES = 4;
+  const STAGES = 5;
   for (let stage = 0; stage < STAGES; stage += 1) {
     const url = page.url();
+    // Checked FIRST and by content, not URL: the chooser is the forward result of
+    // whichever POST finished authentication, so it renders at /login,
+    // /mfa/loginMfa or /forcepasswordresetSubmit -- and the MFA test below would
+    // otherwise mistake it for another OTP prompt.
+    if (await page.locator('#sessionChoiceForm').count() > 0) {
+      // Keep the other sessions when the policy allows it: a suite check must not
+      // sign out a session some other check (or a person) is using. When the
+      // session limit is reached "keep" is not offered and signing out is the
+      // only way on.
+      const keep = page.locator('#keepOtherSessions');
+      const choice = await keep.count() > 0 ? keep : page.locator('#signOutOtherSessions');
+      await settleOperations([
+        page.waitForURL(/providercontrol|appointment|select_facility/i, { timeout: 30000 }),
+        choice.click(),
+      ]);
+      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+      continue;
+    }
     if (/loginMfa/i.test(url)) {
       assert(typeof options.mfaCode === 'function',
         `${config.testUser} is enrolled in MFA; pass options.mfaCode to supply the challenge response`);
       await page.locator('input[name="mfaCode"], #mfaCode').first().fill(await options.mfaCode());
       await settleOperations([
-        page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility/i, { timeout: 30000 }),
+        page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility|sessionChoice|loginMfa/i, { timeout: 30000 }),
         page.locator('input[type="submit"], button[type="submit"]').first().click(),
       ]);
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -928,7 +956,7 @@ async function login(context, config, recorder, options = {}) {
       // challenge; leaving it out made that landing a 30s timeout rather than
       // the next turn of this loop.
       await settleOperations([
-        page.waitForURL(/providercontrol|appointment|select_facility|loginMfa/i, { timeout: 30000 }),
+        page.waitForURL(/providercontrol|appointment|select_facility|loginMfa|forcepasswordresetSubmit/i, { timeout: 30000 }),
         page.locator('input[type="submit"], button[type="submit"]').first().click(),
       ]);
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -938,7 +966,7 @@ async function login(context, config, recorder, options = {}) {
     break;
   }
 
-  assert(!/loginMfa|forcepasswordreset/i.test(page.url()),
+  assert(!/loginMfa|forcepasswordreset/i.test(page.url()) && await page.locator('#sessionChoiceForm').count() === 0,
     `login is still on ${pathOnly(page.url())} after working through the authentication stages, so the `
     + 'credentials or the OTP are being refused rather than the flow having more steps');
 

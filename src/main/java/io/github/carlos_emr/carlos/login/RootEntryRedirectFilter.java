@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.login;
 
 import java.io.IOException;
 
+import io.github.carlos_emr.carlos.managers.RevokedUserSessions;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.FilterChain;
@@ -67,6 +68,7 @@ public class RootEntryRedirectFilter extends HttpFilter {
                 rejectNonViewMethod(request, response, requestUri, "login entry view");
                 return;
             }
+            markSignedOutElsewhere(request);
             request.getRequestDispatcher(LOGIN_JSP).forward(request, response);
             return;
         }
@@ -77,6 +79,23 @@ public class RootEntryRedirectFilter extends HttpFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Sets {@link RevokedUserSessions#NOTICE_REQUEST_ATTR} when this browser's old session was
+     * signed out by a newer sign-in for the same user (issue #3980), so the login page can say so.
+     *
+     * <p>Only a session id the container no longer recognises is looked up, and the marker is
+     * consumed, so the notice appears once. The login page uses {@code session="false"}, so the stale
+     * cookie is still present here whether the browser arrived from the heartbeat redirect or from
+     * {@link io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver}.</p>
+     */
+    static void markSignedOutElsewhere(HttpServletRequest request) {
+        String requestedSessionId = request.getRequestedSessionId();
+        if (requestedSessionId != null && !request.isRequestedSessionIdValid()
+                && RevokedUserSessions.consume(requestedSessionId)) {
+            request.setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+        }
     }
 
     static boolean isLoginEntryRequest(String requestUri, String contextPath) {

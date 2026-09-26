@@ -33,6 +33,9 @@
  *   TEST_USER=carlosdoc
  *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   CONCURRENT_SESSION_POLICY=allow  the server's login.concurrent_sessions.policy (issue #3980).
+ *     The default-policy check (a second browser signs in with no chooser) runs only for allow;
+ *     scripts/concurrent-session-policy-playwright-checks.js covers prompt and single.
  */
 
 const { chromium, request } = require('playwright');
@@ -372,6 +375,43 @@ async function expectSchedulePage(page, label) {
       await expectSchedulePage(page, 'normal login schedule');
       await context.close();
     });
+
+    await record('concurrent-session chooser route rejects GET/HEAD and a bare POST', async () => {
+      // Issue #3980: the chooser submit is a POST-only, CSRF-protected mutator. It must answer
+      // GET/HEAD with 405 and must not authenticate a POST that carries no pending login.
+      const api = await request.newContext({ ignoreHTTPSErrors: true });
+      for (const method of ['GET', 'HEAD']) {
+        const res = await api.fetch(appUrl('/login/sessionChoice'), { method, maxRedirects: 0 });
+        assert(res.status() === 405, `${method} /login/sessionChoice expected 405, got ${res.status()}`);
+      }
+      const post = await api.post(appUrl('/login/sessionChoice'), {
+        form: { sessionChoice: 'signOutOthers' }, maxRedirects: 0,
+      });
+      assert(!/providercontrol/.test(post.headers().location || ''), 'bare chooser POST reached the schedule');
+      const heartbeat = await api.get(appUrl('/status/SessionHeartbeat'));
+      assert((await heartbeat.json()).valid === false, 'bare chooser POST created an authenticated session');
+      await api.dispose();
+    });
+
+    if ((process.env.CONCURRENT_SESSION_POLICY || 'allow').toLowerCase() === 'allow') {
+      await record('default concurrent-session policy signs a second browser in with no chooser', async () => {
+        // Acceptance for issue #3980: with login.concurrent_sessions.policy=allow (the default)
+        // login behaves exactly as before -- a second browser reaches the schedule directly and
+        // the first stays signed in.
+        setForcedResetBaseline(0);
+        const first = await newBrowserContext(browser);
+        const second = await newBrowserContext(browser);
+        const firstPage = await first.newPage();
+        const secondPage = await second.newPage();
+        await login(firstPage);
+        await expectSchedulePage(firstPage, 'first browser schedule');
+        await login(secondPage);
+        await expectSchedulePage(secondPage, 'second browser schedule');
+        assert(await secondPage.locator('#sessionChoiceForm').count() === 0, 'default policy showed the chooser');
+        await gotoApp(firstPage, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
+        await expectSchedulePage(firstPage, 'first browser after second login');
+      });
+    }
 
     await record('direct authenticated appointment-day action renders nonblank HTML', async () => {
       setForcedResetBaseline(0);

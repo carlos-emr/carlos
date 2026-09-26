@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 import io.github.carlos_emr.carlos.login.PendingMfaChallenges;
+import io.github.carlos_emr.carlos.login.PendingSessionChoices;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManagerImpl;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -57,6 +58,7 @@ public class OscarSessionListener implements HttpSessionListener {
         String id = se.getSession().getId();
         MiscUtils.getLogger().info("session is being destroyed - {}", getSessionLogReference(id));
         PendingMfaChallenges.clearFromSession(se.getSession());
+        PendingSessionChoices.clearFromSession(se.getSession());
         SpringUtils.getBean(EFormRenderApprovalService.class)
                 .invalidateStagedFaxPreviewsForSession(id);
         Fax2Action.clearClaimedFaxFilePathsLockForSession(id);

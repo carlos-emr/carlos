@@ -1011,6 +1011,35 @@ Notes on the contract:
   filter — set `response.sanitization.enabled=false` in
   `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
   must FAIL. Restore the property and restart afterwards.
+- **`concurrent-session-policy-playwright-checks.js` runs once per policy**
+  (issue #3980). The suite loop runs it under the shipped default
+  (`login.concurrent_sessions.policy=allow`), where it proves a second browser
+  signs in with no chooser and that `/login/sessionChoice` answers GET/HEAD with
+  405. Then exercise the other policies one at a time. Each one needs an edit to
+  `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and a run with the
+  matching environment:
+
+  ```bash
+  for p in prompt single; do
+    sed -i "s/^login.concurrent_sessions.policy=.*/login.concurrent_sessions.policy=$p/" /etc/carlos-emr/carlos.properties
+    carlos-ctl restart
+    CONCURRENT_SESSION_POLICY=$p node scripts/concurrent-session-policy-playwright-checks.js
+  done
+  sed -i 's/^login.concurrent_sessions.policy=.*/login.concurrent_sessions.policy=prompt/;
+          s/^login.concurrent_sessions.max=.*/login.concurrent_sessions.max=2/' /etc/carlos-emr/carlos.properties
+  carlos-ctl restart
+  CONCURRENT_SESSION_POLICY=prompt CONCURRENT_SESSION_MAX=2 \
+    node scripts/concurrent-session-policy-playwright-checks.js
+  # restore the shipped defaults
+  sed -i 's/^login.concurrent_sessions.policy=.*/login.concurrent_sessions.policy=allow/;
+          s/^login.concurrent_sessions.max=.*/login.concurrent_sessions.max=0/' /etc/carlos-emr/carlos.properties
+  carlos-ctl restart
+  ```
+
+  Under `prompt` and `single` it signs the test user's other sessions out, so
+  run these passes after the suite loop, not inside it. With the `MYSQL_*`
+  block exported it also asserts the `concurrent_sessions_*` audit rows. See
+  [docs/concurrent-session-policy.md](../concurrent-session-policy.md).
 
 ## 7. Exercise the upgrade path
 

@@ -635,6 +635,15 @@ body {
                     </div>
                 </c:if>
 
+                <%-- Issue #3980: this browser's session was signed out because the same account
+                     signed in elsewhere. Set only by RootEntryRedirectFilter from a server-side
+                     marker (never a URL parameter), and shown once. --%>
+                <c:if test="${ requestScope.signedOutElsewhere eq true }">
+                    <div class="alert" role="status" id="signedOutElsewhereNotice">
+                        <fmt:message key="login.signedOutElsewhere"/>
+                    </div>
+                </c:if>
+
                 <div class="card-body">
                     <div class="leftinput">
                         <%--
