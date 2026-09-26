@@ -122,6 +122,7 @@
     "test:clinical-calculators-playwright": "node scripts/clinical-calculators-playwright-checks.js",
     "test:demographic-labels-playwright": "node scripts/demographic-labels-playwright-checks.js",
     "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js",
+    "test:inbox-lab-versions-playwright": "node scripts/inbox-lab-versions-playwright-checks.js",
     "test:inbox-preview-acknowledge-playwright": "node scripts/inbox-preview-acknowledge-playwright-checks.js",
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
@@ -155,11 +156,15 @@
     "test:rh-form-workflow-playwright": "node scripts/rh-form-workflow-playwright-checks.js",
     "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js",
     "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
+    "test:ocean-display-settings-playwright": "node scripts/ocean-display-settings-playwright-checks.js",
+    "test:hrm-retired-statement-playwright": "node scripts/hrm-retired-statement-playwright-checks.js",
+    "test:clinic-demo-name-playwright": "node scripts/clinic-demo-name-playwright-checks.js",
     "test:facility-selection-playwright": "node scripts/facility-selection-playwright-checks.js",
     "test:health-care-team-playwright": "node scripts/health-care-team-playwright-checks.js",
     "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js",
     "test:demographic-label-content-playwright": "node scripts/demographic-label-content-playwright-checks.js",
-    "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js"
+    "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js",
+    "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

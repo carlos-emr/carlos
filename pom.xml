@@ -185,6 +185,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Struts' transitive FreeMarker 2.3.34 permits malformed locales to
+                 alter template lookup paths (CVE-2026-84939). Keep localized
+                 rendering while using the upstream locale-validation fix. -->
+            <dependency>
+                <groupId>org.freemarker</groupId>
+                <artifactId>freemarker</artifactId>
+                <version>2.3.35</version>
+            </dependency>
             <!-- JAXB dependencies for Jakarta EE (jakarta.xml.bind namespace) -->
             <dependency>
                 <groupId>jakarta.xml.bind</groupId>

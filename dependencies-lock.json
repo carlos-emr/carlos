@@ -2814,11 +2814,11 @@
   }, {
     "groupId" : "org.freemarker",
     "artifactId" : "freemarker",
-    "version" : "2.3.34",
+    "version" : "2.3.35",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:WLxuFXRS9rOnCn0bz7iQE+cgTnFuJnOGAU9oNPtmpWMz/ktTjvJbZRkTq1hb+lyPoBAVnZarlS3kKoLtuVUvyg=="
+    "integrity" : "sha512:NwfTMVR3/0n0Cd7lrrYyjEJs3bVrnMluiNNm4pKw/klbXHxIk0CfBZwtLVGw73ROilEHptvShsXxhuvrx2fMKg=="
   }, {
     "groupId" : "org.glassfish.external",
     "artifactId" : "management-api",
