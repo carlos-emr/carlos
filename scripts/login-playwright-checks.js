@@ -393,7 +393,10 @@ async function expectSchedulePage(page, label) {
       await api.dispose();
     });
 
-    if ((process.env.CONCURRENT_SESSION_POLICY || 'allow').toLowerCase() === 'allow') {
+    // A nonzero login.concurrent_sessions.max shows the chooser even under allow; that case is
+    // covered by checkLimit in concurrent-session-policy-playwright-checks.js.
+    if ((process.env.CONCURRENT_SESSION_POLICY || 'allow').toLowerCase() === 'allow'
+        && (process.env.CONCURRENT_SESSION_MAX || '0').trim() === '0') {
       await record('default concurrent-session policy signs a second browser in with no chooser', async () => {
         // Acceptance for issue #3980: with login.concurrent_sessions.policy=allow (the default)
         // login behaves exactly as before -- a second browser reaches the schedule directly and

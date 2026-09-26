@@ -26,6 +26,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -42,6 +46,35 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PendingSessionChoiceCacheUnitTest {
 
     private static final String[] AUTH = {"999998", "Test", "Provider", "", "doctor", "0"};
+
+    @Test
+    @DisplayName("should let only one of two simultaneous submits consume the same token")
+    void shouldConsumeOnce_whenTwoSubmitsRace() throws Exception {
+        // Two chooser submits carrying the same token, released together: the cache's atomic
+        // remove must hand the pending login to exactly one of them.
+        PendingSessionChoiceCache cache = PendingSessionChoiceCache.getInstance();
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 200; round++) {
+                String token = cache.store(pending());
+                CountDownLatch start = new CountDownLatch(1);
+                Future<PendingSessionChoiceCache.PendingSessionChoice> first = pool.submit(() -> {
+                    start.await();
+                    return cache.consume(token);
+                });
+                Future<PendingSessionChoiceCache.PendingSessionChoice> second = pool.submit(() -> {
+                    start.await();
+                    return cache.consume(token);
+                });
+                start.countDown();
+                int winners = (first.get(5, TimeUnit.SECONDS) != null ? 1 : 0)
+                        + (second.get(5, TimeUnit.SECONDS) != null ? 1 : 0);
+                assertThat(winners).as("round %d", round).isEqualTo(1);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
 
     @Test
     @DisplayName("should keep the pending login behind an opaque token and consume it once")

@@ -77,8 +77,10 @@ function readPolicy(env = process.env) {
   const policy = (env.CONCURRENT_SESSION_POLICY || 'allow').trim().toLowerCase();
   assert(['allow', 'prompt', 'single'].includes(policy),
     `CONCURRENT_SESSION_POLICY must be allow, prompt or single, got ${policy}`);
-  const max = Number.parseInt(env.CONCURRENT_SESSION_MAX || '0', 10);
-  assert(Number.isInteger(max) && max >= 0, 'CONCURRENT_SESSION_MAX must be a whole number');
+  const rawMax = (env.CONCURRENT_SESSION_MAX || '0').trim();
+  // Validate the whole string: parseInt would silently truncate "2.5" or "2abc" to 2.
+  assert(/^\d+$/.test(rawMax), `CONCURRENT_SESSION_MAX must be a whole number, got ${rawMax}`);
+  const max = Number(rawMax);
   return { policy, max };
 }
 
