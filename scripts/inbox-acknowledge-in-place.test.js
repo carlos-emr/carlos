@@ -185,20 +185,11 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
   class DOMParser {
     parseFromString(html, type) {
       assert.equal(type, 'text/html');
-      // A fetched page is described to the fixture as "segment:type" tokens, one per card, with
-      // any <script>...</script> kept apart the way a parsed document keeps its script elements.
-      // (Plain index arithmetic, not a regular expression: this is a fixture format, not HTML
-      // filtering, and a filtering-shaped regexp reads as one to static analysis.)
-      const OPEN = '<script>';
-      const CLOSE = '</script>';
+      // A fetched page is described to the fixture as "type:segment" tokens, one per card, and
+      // "script{...}" blocks standing in for the page's script elements (a fixture notation,
+      // deliberately not markup: the fixture is not parsing HTML and must not look as if it were).
       const scripts = [];
-      let content = html;
-      for (let at = content.indexOf(OPEN); at >= 0; at = content.indexOf(OPEN)) {
-        const end = content.indexOf(CLOSE, at);
-        assert.ok(end > at, 'fixture script element is not closed');
-        scripts.push({ textContent: content.slice(at + OPEN.length, end) });
-        content = content.slice(0, at) + ' ' + content.slice(end + CLOSE.length);
-      }
+      const content = html.replace(/script\{([^}]*)\}/g, (_, body) => { scripts.push({ textContent: body }); return ' '; });
       const cards = content.split(/\s+/).filter(token => /^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/.test(token))
         .map(token => { const [labType, segmentId] = token.split(':'); return element(segmentId, labType); });
       return { querySelectorAll(selector) {
@@ -441,7 +432,7 @@ test('a waiting preview advance gives up quietly when the list turns out to be f
   const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
   inbox.context.rapidReviewState = true;
   inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
-  inbox.answerBoundary('HL7:170 <script>hasMoreData = false;</script>');
+  inbox.answerBoundary('HL7:170 script{hasMoreData = false;}');
   assert.deepEqual(inbox.state.scrolls, []);
   assert.equal(inbox.context.pendingRapidReviewOpen, false, 'nothing more will arrive, so nothing is owed');
 });
@@ -651,7 +642,7 @@ test('a card with no rendered predecessor goes in ahead of its rendered successo
 test('the boundary re-sync adopts the end-of-results flag the page carries', () => {
   const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
-  inbox.answerBoundary('HL7:171 <script>hasMoreData = false;</script>');
+  inbox.answerBoundary('HL7:171 script{hasMoreData = false;}');
   assert.equal(inbox.context.hasMoreData, false);
 });
 
