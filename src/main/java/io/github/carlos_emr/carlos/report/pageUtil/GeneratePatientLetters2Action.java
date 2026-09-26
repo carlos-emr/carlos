@@ -90,30 +90,42 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_report)");
         }
 
-        String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
-        System.setProperty("jasper.reports.compile.class.path", classpath);
+        // Letter generation files a document per patient and can mark follow-ups, so it only runs
+        // from the Generate Letters form POST; refuse GET/HEAD before any of that happens.
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                log.warn("Unable to send 405 for non-POST letter generation", e);
+            }
+            return NONE;
+        }
 
         String[] demos = request.getParameterValues("demos");
         String id = request.getParameter("reportLetter");
         String providerNo = (String) request.getSession().getAttribute("user");
 
+        // Nothing checked on the form is a user mistake: say so on the page rather than returning an
+        // empty response. Checked before the template is loaded so no work is done (issue #3963).
+        if (demos == null || demos.length == 0) {
+            log.warn("Letter generation requested with no patients selected");
+            request.setAttribute(GenerateEnvelopes2Action.NO_PATIENTS_SELECTED_ATTRIBUTE, Boolean.TRUE);
+            return INPUT;
+        }
+
         // Validate all demographic numbers are strictly numeric to prevent path traversal
         // via crafted values flowing into the generated filename.
-        if (demos != null) {
-            for (String demo : demos) {
-                if (demo == null || !demo.matches("\\d+")) {
-                    log.warn("Invalid non-numeric demographic number rejected: {}", LogSafe.sanitize(demo));
-                    throw new SecurityException("Invalid demographic number");
-                }
+        for (String demo : demos) {
+            if (demo == null || !demo.matches("\\d+")) {
+                log.warn("Invalid non-numeric demographic number rejected: {}", LogSafe.sanitize(demo));
+                throw new SecurityException("Invalid demographic number");
             }
         }
 
+        ManagePatientLetters2Action.configureJasperCompileClasspath(request);
+
         if (log.isTraceEnabled()) {
-            if (demos == null) {
-                log.trace("demos was null");
-            } else {
-                log.trace("# of demos " + demos.length);
-            }
+            log.trace("# of demos " + demos.length);
         }
 
         ServletOutputStream sos = null;
@@ -137,10 +149,6 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         }
 
         ArrayList<Object> fullPatientlist = new ArrayList<Object>();
-
-        if (demos == null || demos.length == 0) {
-            return null;
-        }
 
         File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         //for each demographic generate a letter for that patient
@@ -247,7 +255,8 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         if (log.isTraceEnabled()) {
             log.trace("End of GeneratePatientLetters Action");
         }
-        return null;
+        // The PDF has been streamed; stop Struts from resolving a result into the download.
+        return NONE;
     }
 
 }

@@ -217,8 +217,14 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
             <td valign="top" class="MainTableRightColumn"><form
                     action="${pageContext.request.contextPath}/report/GenerateLetters" method="POST"
-                    id="listDemographic">
+                    id="listDemographic" onsubmit="return hasSelectedPatient()">
 
+                <%-- Set by GenerateLetters / GenerateEnvelopes when the submission named no printable patient. --%>
+                <% if (Boolean.TRUE.equals(request.getAttribute("noPatientsSelected"))) { %>
+                <div id="noPatientsSelected" role="alert" style="color:#b00020; font-weight:bold; margin-bottom:6px;">
+                    <fmt:message key="report.GenerateLetters.noPatientsSelected"/>
+                </div>
+                <% } %>
                 <%
                     ManageLetters mLetter = new ManageLetters();
                     ArrayList list = mLetter.getActiveReportList();
@@ -297,11 +303,28 @@
     %>
     </div>
 
+    <fmt:message key="report.GenerateLetters.noPatientsSelected" var="noPatientsSelectedMessage"/>
     <script type="text/javascript">
         // Calendar.setup( { inputField : "asofDate", ifFormat : "%Y-%m-%d", showsTime :false, button : "date", singleClick : true, step : 1 } );
+        // Unchecked boxes are not submitted, so a round trip with nothing selected would come back
+        // without the patient list. Catch it here; the actions still reject it server-side.
+        function hasSelectedPatient() {
+            if (document.querySelector('#listDemographic input[name="demos"]:checked')) {
+                return true;
+            }
+            alert("${carlos:forJavaScript(noPatientsSelectedMessage)}");
+            return false;
+        }
+
         function genEnvelopes(form) {
+            if (!hasSelectedPatient()) {
+                return;
+            }
             var formEl = document.getElementById('listDemographic');
-            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes?" + new URLSearchParams(new FormData(formEl)).toString();
+            var formData = new FormData(formEl);
+            // Envelopes are a GET download; keep the CSRFGuard token out of the URL, history and logs.
+            formData.delete('CSRF-TOKEN');
+            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes?" + new URLSearchParams(formData).toString();
         }
 
     </script>

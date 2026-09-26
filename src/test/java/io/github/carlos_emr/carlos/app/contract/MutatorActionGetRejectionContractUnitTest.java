@@ -198,6 +198,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
+            // Letter generation files a document per patient and marks follow-ups; template upload
+            // persists a report_letters row. Both are _report r, POST-only (issue #3963).
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action",
+                    "_report", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action",
+                    "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",

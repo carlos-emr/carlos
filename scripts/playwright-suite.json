@@ -1540,6 +1540,22 @@
       "timeoutSec": 300
     },
     {
+      "name": "patient-letters-envelopes",
+      "script": "scripts/patient-letters-envelopes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DEMOGRAPHIC_NO",
+        "MYSQL_DOCKER_CONTAINER"
+      ]
+    },
+    {
       "name": "rx-fax-record-binding",
       "script": "scripts/rx-fax-record-binding-playwright-checks.js",
       "tiers": [
