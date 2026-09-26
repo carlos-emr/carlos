@@ -99,7 +99,10 @@
 
         function checkData() {
             var b = true;
-            if (document.forms[0].provider.value == "000000") {
+            // The select is named "providers"; the old "provider" lookup threw a TypeError on
+            // every submit, so this guard never ran and the error was left in the console.
+            var providers = document.forms[0].providers;
+            if (providers && providers.value == "000000") {
                 alert("Please select a providers!");
                 b = false;
             }//else if(document.forms[0].xml_vdate.value==""){
