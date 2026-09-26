@@ -286,9 +286,14 @@ async function openDobSearch(page) {
  * (the SQL side of partial matching is pinned by DemographicDaoIntegrationTest
  * and patient-search-modes-playwright-checks.js).
  */
-async function submitDob(page, label, typed, expectedKeyword) {
+async function submitDob(page, label, typed, expectedKeyword, prefilled = false) {
   await openDobSearch(page);
-  await typeDob(page, typed);
+  if (prefilled) {
+    // A restored/server-populated value does not dispatch an input event.
+    await page.locator('#keyword').evaluate((input, value) => { input.value = value; }, typed);
+  } else {
+    await typeDob(page, typed);
+  }
   await Promise.all([
     waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
     page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
@@ -399,6 +404,7 @@ async function fillDob(page, text) {
     // Each accepted shape submits without the format alert and reaches the
     // results page with the whole keyword intact.
     await submitDob(page, 'dob-search-full', '1980-01-01', '1980-01-01');
+    await submitDob(page, 'dob-search-prefilled', '19800101', '1980-01-01', true);
     await submitDob(page, 'dob-search-year', '1980', '1980');
     await submitDob(page, 'dob-search-year-month', '1980-01', '1980-01');
     await submitDob(page, 'dob-search-wildcard', '1980-%-01', '1980-%-01');
@@ -421,12 +427,18 @@ async function fillDob(page, text) {
       { waitUntil: 'domcontentloaded', timeout: 30000 },
       { displaymode: 'Search ', search_mode: 'search_dob', keyword: '1980', ptstatus: 'active' });
     await assertNoErrorPage(page, 'appointment-search');
-    for (const [typed, expected] of [
+    for (const [typed, expected, prefilled] of [
       ['1980', '1980'], ['1980-01', '1980-01'],
       ['1980-%-01', '1980-%-01'], ['19800101', '1980-01-01'],
+      ['19800101', '1980-01-01', true],
     ]) {
       await page.locator('select[name="search_mode"]').selectOption('search_dob');
-      await page.locator('form[name="titlesearch"] input[name="keyword"]').fill(typed);
+      const keyword = page.locator('form[name="titlesearch"] input[name="keyword"]');
+      if (prefilled) {
+        await keyword.evaluate((input, value) => { input.value = value; }, typed);
+      } else {
+        await keyword.fill(typed);
+      }
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
         page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),

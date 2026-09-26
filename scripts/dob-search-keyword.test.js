@@ -204,3 +204,16 @@ test('appointment search still supports other modes and exact-length card swipes
     assert.equal(result.form.keyword.value, '1234567890');
   }
 });
+
+test('appointment submit normalizes a prefilled eight-digit DOB without an input event', () => {
+  const result = appointmentSubmit('19800101');
+  assert.equal(result.accepted, true);
+  assert.equal(result.form.keyword.value, '1980-01-01');
+  assert.deepEqual(result.alerts, []);
+});
+
+test('appointment submit does not repair arbitrary malformed prefilled input', () => {
+  for (const keyword of ['1980abc0101', '19800132', '19801301']) {
+    assert.equal(appointmentSubmit(keyword).accepted, false);
+  }
+});

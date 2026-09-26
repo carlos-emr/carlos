@@ -246,7 +246,12 @@
         // DOB format validation. An empty keyword is left to the server as before;
         // anything else must be YYYY, YYYY-MM or YYYY-MM-DD with optional % segments.
         if (document.titlesearch.search_mode.value === 'search_dob') {
-            const dobValue = keyword.value.trim();
+            let dobValue = keyword.value.trim();
+            // Preserve compact dates restored/populated without an input event.
+            if (/^[0-9]{8}$/.test(dobValue)) {
+                keyword.value = CarlosDobSearch.format(dobValue);
+                dobValue = keyword.value;
+            }
             if (dobValue.length > 0 && !CarlosDobSearch.isValid(dobValue)) {
                 alert(DOB_FORMAT_MESSAGE);
                 typeInOK = false;

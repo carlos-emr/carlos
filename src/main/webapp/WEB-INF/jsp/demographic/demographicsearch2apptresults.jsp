@@ -205,6 +205,11 @@
             }
             if (form.search_mode.value === 'search_dob') {
                 var value = keyword.value.trim();
+                // Server-populated/restored values need not fire an input event.
+                if (/^[0-9]{8}$/.test(value)) {
+                    keyword.value = CarlosDobSearch.format(value);
+                    value = keyword.value;
+                }
                 if (value.length > 0 && !CarlosDobSearch.isValid(value)) {
                     alert(DOB_FORMAT_MESSAGE);
                     return false;
