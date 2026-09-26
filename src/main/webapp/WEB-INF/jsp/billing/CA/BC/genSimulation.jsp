@@ -61,7 +61,7 @@
 
     int bCount = 1;
     String batchCount = "0";
-    String provider = request.getParameter("providers");
+    String provider = Objects.requireNonNullElse(request.getParameter("providers"), "%");
 
     String proOHIP = "";
     String billinggroup_no;
@@ -80,7 +80,8 @@
     }
 
     for (Provider p : providerDao.getActiveProviders()) {
-        if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
+        if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()
+                && ("%".equals(provider) || provider.equals(p.getOhipNo()))) {
 
             proOHIP = p.getOhipNo();
 
@@ -113,6 +114,6 @@
 
 <jsp:forward page='/billing/CA/BC/ViewBillingSim'>
     <jsp:param name="xml_appointment_date" value='<%= dateEnd %>'/>
-    <jsp:param name="xml_v_date" value='<%= dateBegin %>'/>
-    <jsp:param name="provider" value='<%= provider %>'/>
+    <jsp:param name="xml_vdate" value='<%= dateBegin %>'/>
+    <jsp:param name="providers" value='<%= provider %>'/>
 </jsp:forward>

@@ -5,7 +5,7 @@
  * ViewGenSimulation -> billingSim.jsp) prints server-built report HTML raw, so every
  * claim-record value must be encoded where ExtractBean/HtmlTeleplanHelper build the rows.
  *
- * The check owns one throwaway provider (FAKE- marker, unique OHIP number, created through
+ * The check owns two throwaway providers (FAKE- marker, unique OHIP number, created through
  * Admin > Add Provider so the cached active-provider list is evicted) and one MSP claim
  * (billing + billingmaster) whose patient name, PHN and fee code carry markup.
  * It drives the real simulation form, then asserts that:
@@ -49,6 +49,17 @@ async function deactivateProvider(page, s, providerNo) {
     'Provider update did not deactivate the fixture provider');
 }
 
+// Preserve the scenario failure and every teardown failure; cleanup must never turn a FAIL into PASS.
+async function withProviderCleanup(run, deactivate, close) {
+  const errors = [];
+  try { await run(); } catch (error) { errors.push(error); }
+  for (const cleanup of [deactivate, close]) {
+    try { await cleanup(); } catch (error) { errors.push(error); }
+  }
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) throw new AggregateError(errors, errors.map(error => error.message).join('; '));
+}
+
 async function workflow(s) {
   if (s.sql.value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='billingmaster'") !== '1') {
     throw new h.SkipCheck('BC billing schema is required');
@@ -78,8 +89,8 @@ async function workflow(s) {
   const page = await s.context.newPage();
   h.wireStrictPage(page, 'billing-bc-simulation', s.recorder);
 
-  try {
-    await s.step('billing provider is created through Add Provider', async () => {
+  await withProviderCleanup(async () => {
+    async function createOwnedProvider(billingNumber) {
       // Through the app, not SQL: genSimulation iterates ProviderDao.getActiveProviders(), which is
       // @Cacheable (5-minute TTL). Only an app-side provider save evicts that cache, so a provider
       // inserted behind the app's back would be invisible to the simulation on a warm install.
@@ -94,14 +105,21 @@ async function workflow(s) {
       await form.locator('input[name="first_name"]').fill(firstName);
       await form.locator('select[name="provider_type"]').selectOption('doctor');
       await form.locator('select[name="sex"]').selectOption('F');
-      await form.locator('input[name="ohip_no"]').fill(ohipNo);
-      await form.locator('input[name="billing_no"]').fill(ohipNo);
+      await form.locator('input[name="ohip_no"]').fill(billingNumber);
+      await form.locator('input[name="billing_no"]').fill(billingNumber);
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
         form.locator('input[type="submit"]').first().click(),
       ]);
-      providerNo = s.sql.value(`SELECT provider_no FROM provider WHERE ${ownedProvider} AND ohip_no=${h.sqlString(ohipNo)} AND status='1'`);
-      h.assert(providerNo, 'Add Provider did not create the active billing provider');
+      const created = s.sql.value(`SELECT provider_no FROM provider WHERE ${ownedProvider} AND ohip_no=${h.sqlString(billingNumber)} AND status='1'`);
+      h.assert(created, 'Add Provider did not create the active billing provider');
+      return created;
+    }
+    await s.step('two owned billing providers are created through Add Provider', async () => {
+      providerNo = await createOwnedProvider(ohipNo);
+      await createOwnedProvider(unusedValue(s.sql, 'provider', 'ohip_no', '8'));
+      h.assert(s.sql.value(`SELECT COUNT(*) FROM provider WHERE ${ownedProvider} AND status='1'`) === '2',
+        'The provider-selection negative control is missing');
     });
 
     billingNo = s.sql.value(`INSERT INTO billing (clinic_no,demographic_no,provider_no,appointment_no,demographic_name,
@@ -119,6 +137,7 @@ async function workflow(s) {
       await h.gotoApp(page, s.config.baseUrl, '/billing/CA/BC/ViewBillingSim');
       await h.assertNotErrorPage(page, 'BC billing simulation form');
       h.assert(await page.locator('input[name="xml_appointment_date"]').count() === 1, 'Simulation form did not render');
+      await page.locator('select[name="providers"]').selectOption(ohipNo);
     });
 
     await s.step('patient-record markup renders as text in the simulation report', async () => {
@@ -133,13 +152,21 @@ async function workflow(s) {
         page.locator('input[type="submit"][value="Create Report"]').click(),
       ]);
       await h.assertNotErrorPage(page, 'BC billing simulation report');
+      h.assert(await page.locator('select[name="providers"]').inputValue() === ohipNo,
+        'Simulation lost the selected provider');
+      h.assert(await page.locator('input[name="xml_vdate"]').inputValue() === today,
+        'Simulation lost its start date');
+      const headings = page.locator('td').filter({ hasText: /^Billing Invoice for Billing No\./ });
+      h.assert(await headings.count() === 1, 'Simulation included an unselected billing provider');
+      h.assert((await headings.innerText()).trim().endsWith(ohipNo), 'Simulation rendered the wrong provider');
+
 
       // The invoice cell is exactly the billing number, so an exact accessible-name match finds the row.
       const invoiceLink = page.getByRole('link', { name: billingNo, exact: true });
       h.assert(await invoiceLink.count() >= 1, 'The owned claim row was not in the simulation report');
       const row = invoiceLink.first().locator('xpath=ancestor::tr[1]');
       const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
-      h.assert(cells.includes(NAME_PAYLOAD), `Patient name was not rendered as literal text: ${JSON.stringify(cells[1])}`);
+      h.assert(cells.includes(NAME_PAYLOAD), 'Patient name was not rendered as literal text');
       h.assert(cells.includes(PHN_PAYLOAD), 'PHN was not rendered as literal text');
       h.assert(cells.includes(CODE_PAYLOAD), 'Fee code was not rendered as literal text');
       h.assert(await row.locator('img, b, u, script').count() === 0, 'Claim markup was parsed into report elements');
@@ -147,7 +174,7 @@ async function workflow(s) {
       h.assert(await page.evaluate(() => window.__carlos3950) === undefined, 'Injected onerror handler executed');
       const onClick = await invoiceLink.first().getAttribute('onclick');
       h.assert(/adjustBill\.jsp\?billingmaster_no=\d{7}'/.test(onClick || ''),
-        `Adjustment link lost its shape: ${onClick}`);
+        'Adjustment link lost its shape');
     });
 
     await s.step('simulation stayed a dry run', async () => {
@@ -156,22 +183,16 @@ async function workflow(s) {
         'Simulation marked the billingmaster row billed');
       h.assert(s.sql.value('SELECT COUNT(*) FROM log_teleplantx') === teleplanLogCount, 'Simulation wrote teleplan log rows');
     });
-  } finally {
-    // Deactivate through the app so ProviderDao.updateProvider() evicts the 5-minute
-    // ACTIVE_PROVIDERS cache. The SQL cleanup alone would leave the deleted provider in the
-    // cached active list for later checks against the same Tomcat. Best effort: never mask
-    // the step failure that brought us here.
-    try {
-      // Look the provider up by its unique stamp: a failure after Add Provider saved it but
-      // before providerNo was read must still evict the cache.
-      await deactivateProvider(page, s, providerNo
-        || s.sql.value(`SELECT provider_no FROM provider WHERE ${ownedProvider} AND status='1'`));
-    } catch (error) {
-      console.error(`  WARN billing-bc-simulation-encoding: provider cache eviction failed: ${error.message}`);
+  }, async () => {
+    // Find every saved fixture, including a provider whose creation step failed
+    // before its assigned number was read. Attempt both deactivations before SQL cleanup.
+    const errors = [];
+    for (const [ownedNo] of s.sql.rows(`SELECT provider_no FROM provider WHERE ${ownedProvider} AND status='1'`)) {
+      try { await deactivateProvider(page, s, ownedNo); } catch (error) { errors.push(error); }
     }
-  }
-  await page.close();
+    if (errors.length) throw new AggregateError(errors, errors.map(error => error.message).join('; '));
+  }, () => page.close());
 }
 
 if (require.main === module) runWorkflow('billing-bc-simulation-encoding', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, withProviderCleanup };

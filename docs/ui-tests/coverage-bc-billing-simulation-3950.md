@@ -30,6 +30,8 @@ Reference: openo-beta/Open-O#2438 (LiamStanziani) made the same server-side enco
 
 The browser check also found a pre-existing page bug. `billingSim.jsp` `checkData()` read `document.forms[0].provider`, but the select is named `providers`, so every "Create Report" submit threw a `TypeError`.
 
+The simulation also ignored its provider selection on the server and forwarded the provider/start date under the wrong parameter names. It now filters to the selected billing number (or explicitly all providers) and retains both form values.
+
 ## Coverage
 
 **Java unit tests** (`@Tag("unit")`):
@@ -48,15 +50,16 @@ The browser check also found a pre-existing page bug. `billingSim.jsp` `checkDat
 
 **Browser check** `billing-bc-simulation-encoding` (manifest tier `core`, provinces `BC`, `npm run test:billing-bc-simulation-encoding-playwright`):
 
-1. Creates a FAKE provider with a unique OHIP number through Admin ▸ Add Provider. It must go through the app: `ProviderDao.getActiveProviders()` is cached for 5 minutes, and only an app-side save evicts it.
+1. Creates two FAKE providers with unique OHIP numbers through Admin ▸ Add Provider. It must go through the app: `ProviderDao.getActiveProviders()` is cached for 5 minutes, and only an app-side save evicts it.
 2. Seeds one MSP `billing`/`billingmaster` claim with markup in the patient name, PHN and fee code.
-3. Submits the real simulation form and asserts:
+3. Selects the first owned provider and submits the real simulation form. The second provider is a negative control. Asserts:
+   - exactly the selected provider is reported, and the provider/start date remain selected;
    - the three values render as literal text in the claim row;
    - no element was parsed from them and no injected handler ran;
    - the adjustment link keeps its `billingmaster_no=NNNNNNN` shape;
    - the form submit raised no page error.
 4. Verifies the simulation stayed a dry run: claim statuses stay `O` and no `log_teleplantx` rows are written.
-5. Removes every owned row.
+5. Deactivates both providers through the app, then removes every owned row. Setup, cache-eviction and page-close failures fail the check and remain visible together. Failure-injection Node tests cover these teardown paths.
 
 On an Ontario install the check reports SKIP.
 
