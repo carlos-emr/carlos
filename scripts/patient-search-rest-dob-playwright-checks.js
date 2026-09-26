@@ -6,12 +6,43 @@
  * ownership and removes the patient on success or failure. Diagnostics contain
  * no patient identifiers, search terms or response bodies.
  * Environment: BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*.
+ * Optional EXPECT_PROGRAM_DOMAIN_RESTRICTION=true/false verifies the configured
+ * mode by removing only the fixture admission after the positive assertions.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
 async function workflow(session) {
-  const { sql, patient, context, config } = session;
+  const { sql, patient, provider, marker, context, config } = session;
+  // REST always enforces the program domain when Caisi is enabled, regardless
+  // of the UI's outside-domain preference. Own the whole relationship so this
+  // fixture works in both modes and never changes an existing enrolment.
+  const programName = `${marker}-DOB`;
+  session.cleanup(() => {
+    const program = sql.value(`SELECT id FROM program WHERE name=${h.sqlString(programName)}`);
+    if (!program) return;
+    h.assert(/^[1-9]\d*$/.test(program), 'The owned program identity is invalid');
+    sql.execute(`DELETE FROM admission WHERE client_id=${patient} AND program_id=${program};
+      DELETE FROM program_provider WHERE program_id=${program} AND provider_no=${h.sqlString(provider)};
+      DELETE FROM program WHERE id=${program} AND name=${h.sqlString(programName)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM program WHERE id=${program}`) === '0',
+      'The owned program was not removed');
+  });
+  const program = sql.value(`INSERT INTO program
+    (facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,
+     physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax)
+    SELECT id,${h.sqlString(programName)},'service',1,'active',0,0,0,0,0,0,'none',0,150
+    FROM Facility ORDER BY id LIMIT 1;
+    SELECT id FROM program WHERE name=${h.sqlString(programName)}`);
+  h.assert(/^[1-9]\d*$/.test(program), 'The owned program could not be created');
+  sql.execute(`INSERT INTO program_provider (program_id,provider_no)
+    VALUES (${program},${h.sqlString(provider)});
+    INSERT INTO admission (client_id,program_id,provider_no,admission_date,
+      admission_from_transfer,discharge_from_transfer,admission_status,lastUpdateDate)
+    VALUES (${patient},${program},${h.sqlString(provider)},NOW(),0,0,'current',NOW())`);
+  h.assert(sql.value(`SELECT COUNT(*) FROM program_provider pp JOIN admission a ON pp.program_id=a.program_id
+    WHERE pp.provider_no=${h.sqlString(provider)} AND a.client_id=${patient}`) === '1',
+    'The REST fixture is not in the test provider program domain');
   const usedYears = new Set(sql.rows('SELECT DISTINCT year_of_birth FROM demographic')
     .map(row => row[0]));
   const year = Array.from({ length: 100 }, (_, index) => String(1700 + index))
@@ -58,7 +89,18 @@ async function workflow(session) {
     h.assert(inactive.total === 1 && inactive.content.length === 1
       && String(inactive.content[0].demographicNo) === patient, 'REST DOB inactive search did not return its fixture');
   });
+  const expectedDomain = process.env.EXPECT_PROGRAM_DOMAIN_RESTRICTION;
+  if (expectedDomain !== undefined) {
+    h.assert(['true', 'false'].includes(expectedDomain), 'Invalid expected program-domain mode');
+    await session.step('configured program-domain restriction controls patient visibility', async () => {
+      sql.execute(`DELETE FROM admission WHERE client_id=${patient} AND program_id=${program}`);
+      const result = await search(year, false);
+      const count = expectedDomain === 'true' ? 0 : 1;
+      h.assert(result.total === count && result.content.length === count,
+        'REST search did not enforce the expected program-domain mode');
+    });
+  }
 }
 
-if (require.main === module) runWorkflow('patient-search-rest-dob', workflow);
+if (require.main === module) runWorkflow('patient-search-rest-dob', workflow, { openMaster: false });
 module.exports = { workflow };

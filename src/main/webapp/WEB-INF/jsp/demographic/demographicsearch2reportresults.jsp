@@ -118,7 +118,7 @@
 
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 </head>
-<body bgcolor="white" bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0">
+<body style="background-color: white; background-attachment: fixed; margin: 0">
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr class="subject">

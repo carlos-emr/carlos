@@ -102,10 +102,15 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     private static final String FLU_DATE_OF_BIRTH = "dob_formatted";
     private static final String FLU_AGE = "age";
 
+    private static final String PARAM_FIRST_NAME_LIKE = "fnLike";
+    private static final String PARAM_LAST_NAME_LIKE = "lnLike";
+    private static final String PARAM_DAY_OF_BIRTH = "dayob";
+    private static final String PARAM_KEYWORD = "keyword";
+
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
-        "fnLike", "lnLike", "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", "dayob",
-        "keyword", "extraKeyword", "year", "month"
+        PARAM_FIRST_NAME_LIKE, PARAM_LAST_NAME_LIKE, "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", PARAM_DAY_OF_BIRTH,
+        PARAM_KEYWORD, "extraKeyword", "year", "month"
     );
 
     static Logger log = MiscUtils.getLogger();
@@ -146,7 +151,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         int dNo = 0;
         try {
             dNo = Integer.parseInt(demographic_no);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
 
@@ -1458,7 +1463,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         Integer val = null;
         try {
             val = Integer.valueOf(demographicNoStr.trim());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             // ignore
         }
         if (val != null) {
@@ -1780,11 +1785,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         if (firstName.length() > 0) {
             hql += " AND (lower(d.lastName) like lower(:fnLike) OR lower(d.alias) like lower(:fnLike) OR lower(d.firstName) like lower(:fnLike))";
-            params.put("fnLike", firstNameL);
+            params.put(PARAM_FIRST_NAME_LIKE, firstNameL);
         }
         if (lastName.length() > 0) {
             hql += " AND (lower(d.firstName) like lower(:lnLike) OR lower(d.alias) like lower(:lnLike) OR lower(d.lastName) like lower(:lnLike))";
-            params.put("lnLike", lastNameL);
+            params.put(PARAM_LAST_NAME_LIKE, lastNameL);
         }
 
         if (bean.getDob() != null && bean.getDob().length() > 0) {
@@ -1890,18 +1895,18 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         if (firstName.length() > 0) {
             hql += " AND (lower(d.firstName) like lower(:fnLike) OR lower(d.alias) like lower(:fnLike))";
-            params.put("fnLike", firstNameL);
+            params.put(PARAM_FIRST_NAME_LIKE, firstNameL);
         }
         if (lastName.length() > 0) {
             hql += " AND (lower(d.lastName) like lower(:lnLike) OR lower(d.alias) like lower(:lnLike))";
-            params.put("lnLike", lastNameL);
+            params.put(PARAM_LAST_NAME_LIKE, lastNameL);
         }
 
         if (bean.getDob() != null && bean.getDob().length() > 0) {
             hql += " AND d.yearOfBirth = :yob AND d.monthOfBirth = :mob AND d.dateOfBirth = :dayob";
             params.put("yob", bean.getYearOfBirth());
             params.put("mob", bean.getMonthOfBirth());
-            params.put("dayob", bean.getDayOfBirth());
+            params.put(PARAM_DAY_OF_BIRTH, bean.getDayOfBirth());
         }
 
         if (bean.getHealthCardNumber() != null && bean.getHealthCardNumber().length() > 0) {
@@ -2001,14 +2006,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             sql += " AND ((lower(d.first_name) like lower(:fnLike) OR lower(d.alias) like lower(:fnLike))"
                 + " OR (LEFT(SOUNDEX(d.first_name),2) = LEFT(SOUNDEX(:fnSoundex),2))"
                 + " OR (LEFT(SOUNDEX(d.alias),2) = LEFT(SOUNDEX(:fnSoundex),2)))";
-            params.put("fnLike", firstNameL);
+            params.put(PARAM_FIRST_NAME_LIKE, firstNameL);
             params.put("fnSoundex", firstName);
         }
         if (lastName.length() > 0) {
             sql += " AND ((lower(d.last_name) like lower(:lnLike) OR lower(d.alias) like lower(:lnLike))"
                 + " OR (LEFT(SOUNDEX(d.last_name),2) = LEFT(SOUNDEX(:lnSoundex),2))"
                 + " OR (LEFT(SOUNDEX(d.alias),2) = LEFT(SOUNDEX(:lnSoundex),2)))";
-            params.put("lnLike", lastNameL);
+            params.put(PARAM_LAST_NAME_LIKE, lastNameL);
             params.put("lnSoundex", lastName);
         }
 
@@ -2016,7 +2021,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             sql += " AND d.year_of_birth = :yob AND d.month_of_birth = :mob AND d.date_of_birth = :dayob";
             params.put("yob", bean.getYearOfBirth());
             params.put("mob", bean.getMonthOfBirth());
-            params.put("dayob", bean.getDayOfBirth());
+            params.put(PARAM_DAY_OF_BIRTH, bean.getDayOfBirth());
         }
 
         if (bean.getHealthCardNumber() != null && bean.getHealthCardNumber().length() > 0) {
@@ -2765,7 +2770,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                                                   Map<String, Object> params, String select) {
         CarlosProperties props = CarlosProperties.getInstance();
 
-        params.put("keyword", searchRequest.getKeyword());
+        params.put(PARAM_KEYWORD, searchRequest.getKeyword());
 
         String fieldname = "";
         String regularexp = "regexp";
@@ -2795,7 +2800,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             // Null bindings deliberately produce no matches for invalid/missing input.
             params.put("year", dob.map(DobSearchPattern::year).orElse(null));
             params.put("month", dob.map(DobSearchPattern::month).orElse(null));
-            params.put("keyword", dob.map(DobSearchPattern::day).orElse(null));
+            params.put(PARAM_KEYWORD, dob.map(DobSearchPattern::day).orElse(null));
         }
         if (searchRequest.getMode() == SEARCHMODE.ChartNo) {
             fieldname = "d.chart_no";
@@ -2809,14 +2814,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 fieldname = "lower(d.last_name)";
             } else if (searchRequest.getKeyword().indexOf(",") == (searchRequest.getKeyword().length() - 1)) {
                 fieldname = "lower(d.last_name)";
-                params.put("keyword",
+                params.put(PARAM_KEYWORD,
                     searchRequest.getKeyword().substring(0, searchRequest.getKeyword().length() - 1).trim());
             } else if (searchRequest.getKeyword().indexOf(",") == 0) {
                 fieldname = "lower(d.first_name)";
-                params.put("keyword", searchRequest.getKeyword().substring(1).trim());
+                params.put(PARAM_KEYWORD, searchRequest.getKeyword().substring(1).trim());
             } else {
                 params.put("extraKeyword", searchRequest.getKeyword().split(",")[0].trim());
-                params.put("keyword", searchRequest.getKeyword().split(",")[1].trim());
+                params.put(PARAM_KEYWORD, searchRequest.getKeyword().split(",")[1].trim());
                 fieldname = "lower(d.last_name) " + regularexp + " :extraKeyword" + " and lower(d.first_name) ";
             }
         }

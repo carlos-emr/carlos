@@ -245,7 +245,8 @@
         <div id="demographicSearch" class="searchBox input-group select-group" style="margin-bottom:10px;">
             <%--    <ul style="display: flex;">--%>
             <%--        <li>--%>
-            <select class="wideInput form-select" name="search_mode"
+            <label class="visually-hidden" for="appointment-search-mode"><fmt:message key="demographic.zdemographicfulltitlesearch.msgBy"/></label>
+            <select id="appointment-search-mode" class="wideInput form-select" name="search_mode"
                     onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
                 <option value="search_name" <%="search_name".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optName"/>

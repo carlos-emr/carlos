@@ -59,7 +59,7 @@ public record DobSearchPattern(String year, String month, String day) {
     /** The SQL {@code LIKE} wildcard, accepted only as a whole segment. */
     public static final String WILDCARD = "%";
 
-    private static final Pattern YEAR = Pattern.compile("\\d{4}");
+    private static final Pattern YEAR_PATTERN = Pattern.compile("\\d{4}");
     private static final Pattern MONTH_OR_DAY = Pattern.compile("\\d{1,2}");
 
     /**
@@ -91,7 +91,7 @@ public record DobSearchPattern(String year, String month, String day) {
         String month = segment(segments, 1);
         String day = segment(segments, 2);
 
-        if (!WILDCARD.equals(year) && !YEAR.matcher(year).matches()) {
+        if (!WILDCARD.equals(year) && !YEAR_PATTERN.matcher(year).matches()) {
             return Optional.empty();
         }
         month = normalizeMonthOrDay(month, 12);
