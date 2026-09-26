@@ -1427,3 +1427,68 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### CDS export lab documents validation (2026-09-26)
+
+Validation of issue #3946 (embedded HL7 lab documents exported as CDS
+`Reports`, XML 1.0-illegal characters stripped from lab values, the 120-character
+result limit applied to every result value) on packages built from the PR
+branch, `2026.09.0~snapshot24`, with DrugRef and the eForm renderer included.
+
+**Environment deviations.** As in the chart header validation above, the target
+was an Ubuntu 26.04 **container** running systemd (`--privileged`, the host's
+cgroup2 hierarchy bind-mounted at `/sys/fs/cgroup`) on the host network, not an
+LXD VM. The image's `/usr/sbin/policy-rc.d` was removed before `apt-get install`
+so the maintainer scripts could start services; the only install warning was the
+stock Ubuntu nginx site failing to bind `[::]:80` on a host network without IPv6,
+which cleared once CARLOS rendered its own front door (no install-incomplete
+marker remained). `reset-seed-admin` was preseeded `false`; the first-login reset
+was still enforced and was completed once with `drugref-update-playwright-checks.js`.
+`carlos-ctl check` then reported **All checks passed** (WAF blocking, live DrugRef
+lookup, 29 Flyway migrations).
+
+**Encryption.** The package default `demographic.export.encryptedOnly=true` was
+kept. Before the PGP fixture in section 4 existed the check reported
+`SKIP ... has no PGP configured` (exit 2) and left no fixture rows behind; with
+the section 4 snippet applied verbatim it downloaded, decrypted and read the
+`.pgp` export.
+
+**Results** (`EXPECT_FRONT_DOOR=true`, through `https://127.0.0.1/carlos`,
+`node scripts/run-playwright-suite.js --province ON --only ...`):
+
+| Check | Result |
+|---|---|
+| `cds-export-lab-documents` | PASS |
+| `lab-acknowledge`, `lab-pdf-footer`, `lab-macro-tickler`, `lab-requisition-links` | PASS |
+| `master-record-tabs` (17 items opened, 1 skipped by policy) | PASS |
+| `demographic-gates`, `upstream-small-fixes` | PASS |
+
+**Negative controls** on the same install, by replacing classes in the exploded
+webapp: the pre-fix `DemographicExportAction42Action` (with only the NULL-SIN
+guard applied, so the export could reach the labs) FAILED with
+`expected the lab's 3 discrete results as LaboratoryResults, found 4` (the PDF
+exported as a lab result value); the pre-fix `demographicExport.jsp` FAILED with
+the page error `TypeError: Cannot read properties of null (reading 'value') at
+checkValidOptions` and no success banner, because the single-patient form fell
+back to a plain POST. Without the NULL-SIN guard the export of the check's
+synthetic patient (no SIN) answered HTTP 500.
+
+**Java coverage** of the changed lines, from a JaCoCo run of the focused tests
+(`CdsXmlTextUnitTest`, `CdsEmbeddedLabDocumentUnitTest`,
+`MessageHandlerEmbeddedDocumentUnitTest`, `DemographicExportAction42Action*Test`
+and the lab handler suites; 778 tests, 0 failures):
+
+```bash
+mvn -B test -Dtest='CdsXmlTextUnitTest,CdsEmbeddedLabDocumentUnitTest,MessageHandlerEmbeddedDocumentUnitTest,DemographicExportAction42Action*Test,*HandlerUnitTest' \
+    org.jacoco:jacoco-maven-plugin:0.8.14:report
+python3 scripts/coverage/changed_line_audit.py target/site/jacoco/jacoco.xml origin/release/2026.08 HEAD --per-file
+```
+
+reported 166 of 179 changed executable lines covered (92.7%): `CdsEmbeddedLabDocument`
+71/71, `CdsXmlText` 25/25, `MessageHandler` 2/2, `DemographicExportAction42Action`
+68/81 (the uncovered lines are the OBR-comment loop, the physician-annotation
+merge and the NULL-SIN guard in the single-patient demographics block; the
+browser check exercises the last of these). `changed_line_audit.py`
+now accepts the head revision as optional (working tree against the base) and
+`--per-file`; its unit tests run with
+`python3 -m unittest discover -s scripts/coverage`.
