@@ -171,7 +171,7 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
             query.setParameter("providerNo", contact.getContactId());
             query.setParameter("facilityId", contact.getFacilityId());
         }
-        // Current read on MariaDB, even if permission checks established a repeatable-read snapshot.
+        // Read current rows after the coordination lock; the manager uses READ_COMMITTED.
         var rows = query.setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
         for (GroupMembers row : rows) entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         return rows;

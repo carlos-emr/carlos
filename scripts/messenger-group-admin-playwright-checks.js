@@ -104,8 +104,8 @@ function cleanup() {
     return;
   }
   try {
-    if (state.activeProviderNo) {
-      sql.execute(`DELETE FROM groupMembers_tbl WHERE provider_No=${sqlString(state.activeProviderNo)}`);
+    for (const providerNo of [state.activeProviderNo, state.deactivatedProviderNo]) {
+      if (providerNo) sql.execute(`DELETE FROM groupMembers_tbl WHERE provider_No=${sqlString(providerNo)}`);
     }
     if (state.groupId === null) {
       // The group may exist even if the step that records its id failed.
@@ -279,7 +279,10 @@ async function main() {
     assert(invalidGroup.status === 400, `an add with a non-numeric group answered HTTP ${invalidGroup.status}, expected 400`);
     for (const malformed of ['abc-def', '-9-0-145', '123--1', '123-0-2147483648', '123-0-1-2-3']) {
       const rejected = await postAdd(probe, malformed, state.groupId);
-      assert(rejected.status === 400, `malformed contact answered HTTP ${rejected.status}, expected 400`);
+      // A double hyphen is also a SQL-comment signature rejected by the WAF.
+      // Action tests still require HTTP 400 when that value reaches Struts.
+      const expected = malformed === '123--1' ? [400, 403] : [400];
+      assert(expected.includes(rejected.status), `malformed contact answered unexpected HTTP ${rejected.status}`);
     }
 
     // Only the owned fixture memberships are reset. Verify a failed checkbox add
@@ -306,11 +309,78 @@ async function main() {
       'concurrent first adds did not report exactly one created membership');
     assert(raced.filter(response => response.status === 409).length === 7,
       'concurrent duplicate adds did not return conflict');
+    await probe.reload({ waitUntil: 'domcontentloaded' });
+    const removeUrl = /\/messenger\?method=remove&/;
+    await probe.route(removeUrl, route => route.fulfill({ status: 503, body: 'Unavailable' }));
+    await fixtureBox.uncheck();
+    await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
+    assert(await fixtureBox.isChecked(), 'failed removal left the registry checkbox unchecked');
+    assert(await fixtureBox.isEnabled(), 'failed removal left the checkbox disabled');
+    assert(memberRows(0) === 1, 'failed removal changed the registry');
+    await probe.locator('a.nav-link[href="#manageGroups"]').click();
+    await probe.locator(`a.nav-link[href="#group-${state.groupId}"]`).click();
+    await probe.locator(`#group-member-list-${state.groupId} i.group-member`).first().click();
+    await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
+    assert(await probe.locator(`#group-member-list-${state.groupId} .contact-entry`).count() === 1,
+      'failed group member removal hid the member');
+    await probe.locator(`#delete-${state.groupId}`).click();
+    await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
+    assert(await probe.locator(`#group-${state.groupId}`).count() === 1, 'failed group deletion hid the group');
+    await probe.unroute(removeUrl);
+    const createUrl = /\/messenger\?method=create&/;
+    await probe.route(createUrl, route => route.fulfill({ status: 503, body: 'Unavailable' }));
+    await probe.locator('a.nav-link[href="#new-group"]').click();
+    await probe.locator('#new-group-name').fill(groupName + ' rejected');
+    await probe.locator('#add-group-btn').click();
+    await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
+    assert(sql.value(`SELECT COUNT(*) FROM groups_tbl WHERE groupDesc=${sqlString(groupName + ' rejected')}`) === '0',
+      'failed group creation wrote a group');
+    await probe.unroute(createUrl);
+    console.log('PASS membership removal and group mutation failure feedback');
     assertNoPageErrors(recorder, ['duplicate-probe']);
     console.log('PASS malformed contacts, failure recovery, and concurrent membership creation');
     await probe.close();
     assert(memberRows(state.groupId) === 1, `the server wrote a second group row (${memberRows(state.groupId)} rows)`);
     assert(memberRows(0) === 1, `the server wrote a second registry row (${memberRows(0)} rows)`);
+
+    // Historical duplicate/retired membership rows must not become duplicate
+    // recipients. Keep the stored rows intact and verify the rendered group.
+    sql.execute('INSERT INTO groupMembers_tbl (groupID,provider_No,facilityId) VALUES'
+      + ` (${Number(state.groupId)},${sqlString(state.activeProviderNo)},0),`
+      + ` (${Number(state.groupId)},${sqlString(state.deactivatedProviderNo)},0)`);
+    await gotoApp(adminPage, config.baseUrl, '/messenger?method=fetch');
+    await adminPage.locator(`a.nav-link[href="#group-${state.groupId}"]`).click();
+    const groupMembers = adminPage.locator(`#group-member-list-${state.groupId}`);
+    assert(await groupMembers.locator(`[data-member-key^="${state.activeProviderNo}-"]`).count() === 1,
+      'legacy duplicate rows produced duplicate group recipients');
+    assert(!(await groupMembers.innerText()).includes(deactivatedLastName),
+      'legacy group membership exposed a retired provider');
+    assert(memberRows(state.groupId) === 2, 'rendering the group unexpectedly rewrote legacy memberships');
+    console.log('PASS legacy duplicate and retired group memberships');
+    await Promise.all([
+      adminPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/messenger\?method=remove&member=/.test(response.url()), { timeout: TIMEOUT }),
+      groupMembers.locator('i.group-member').first().click(),
+    ]);
+    await groupMembers.locator('.contact-entry').waitFor({ state: 'detached', timeout: TIMEOUT });
+    assert(memberRows(state.groupId) === 0, 'removing the legacy recipient left duplicate membership rows');
+    assert(memberRows(0) === 1, 'group removal also removed the registry membership');
+    await Promise.all([
+      adminPage.waitForResponse(response => response.request().method() === 'GET'
+        && /\/messenger\?method=fetch/.test(response.url()), { timeout: TIMEOUT }),
+      adminPage.locator(`#delete-${state.groupId}`).click(),
+    ]);
+    assert(sql.value(`SELECT COUNT(*) FROM groups_tbl WHERE groupID=${Number(state.groupId)}`) === '0',
+      'group deletion did not delete the group');
+    await adminPage.locator('a.nav-link[href="#addContacts"]').click();
+    await Promise.all([
+      adminPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/messenger\?method=remove&member=/.test(response.url()), { timeout: TIMEOUT }),
+      adminPage.locator(`#local-contacts input[type="checkbox"][value="${memberId}"]`).uncheck(),
+    ]);
+    assert(memberRows(0) === 0, 'removing the contact left its registry membership');
+    console.log('PASS group and registry removal without duplicate memberships');
+
 
     assertStrictPage(recorder, ['login', 'administration']);
     return { groupId: state.groupId };

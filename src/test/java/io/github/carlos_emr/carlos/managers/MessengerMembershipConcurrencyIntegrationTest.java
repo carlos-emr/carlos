@@ -44,12 +44,16 @@ class MessengerMembershipConcurrencyIntegrationTest {
         final LoggedInInfo info = mock(LoggedInInfo.class);
 
         Fixture() throws Exception {
-            factory = new Configuration().addAnnotatedClass(GroupMembers.class).addAnnotatedClass(Groups.class)
+            // Match spring_jpa.xml: its vendor adapter configures connection retention
+            // and the dialect required for per-transaction isolation levels.
+            var vendor = new org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter();
+            var configuration = new Configuration().addAnnotatedClass(GroupMembers.class).addAnnotatedClass(Groups.class)
                     .setProperty("hibernate.connection.driver_class", "org.h2.Driver")
                     .setProperty("hibernate.connection.url", url)
                     .setProperty("hibernate.hbm2ddl.auto", "create-drop")
-                    .setProperty("hibernate.connection.pool_size", "4")
-                    .buildSessionFactory();
+                    .setProperty("hibernate.connection.pool_size", "4");
+            configuration.getProperties().putAll(vendor.getJpaPropertyMap());
+            factory = configuration.buildSessionFactory();
             try (var connection = DriverManager.getConnection(url)) {
                 // Repeatability matters if deployment is interrupted after the DDL commits.
                 for (int attempt = 0; attempt < 2; attempt++) {
@@ -66,11 +70,18 @@ class MessengerMembershipConcurrencyIntegrationTest {
                 statement.execute("INSERT INTO groups_tbl(groupID,parentID,groupDesc) VALUES(7,0,'One'),(8,0,'Two'),(13,0,'Rejected')");
             }
             var security = mock(SecurityInfoManager.class);
-            when(security.hasPrivilege(any(), eq("_admin"), any(), isNull())).thenReturn(true);
+            when(security.hasPrivilege(any(), eq("_admin"), any(), isNull())).thenAnswer(call -> {
+                assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                        .getCurrentTransactionIsolationLevel())
+                        .isEqualTo(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+                return true;
+            });
             ReflectionTestUtils.setField(target, "securityInfoManager", security);
             var proxy = new ProxyFactory(target);
             proxy.setProxyTargetClass(true);
-            proxy.addAdvice(new TransactionInterceptor(new JpaTransactionManager(factory), new AnnotationTransactionAttributeSource()));
+            var transactions = new JpaTransactionManager(factory);
+            transactions.setJpaDialect(vendor.getJpaDialect());
+            proxy.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
             manager = (MessengerGroupManager) proxy.getProxy();
         }
 

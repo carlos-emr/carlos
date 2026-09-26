@@ -40,6 +40,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 
@@ -186,10 +187,13 @@ public class MessengerGroupManager {
      * @return List<MsgProviderData>
      */
     private List<MsgProviderData> getMemberData(LoggedInInfo loggedInInfo, List<GroupMembers> groupMemberList) {
-        List<MsgProviderData> memberDataList = new ArrayList<MsgProviderData>();
+        List<MsgProviderData> memberDataList = new ArrayList<>();
+        // Older databases can contain repeated memberships. Preserve their rows,
+        // but expose each local recipient only once to group message composition.
+        Set<String> recipients = new HashSet<>();
         for (GroupMembers groupMember : groupMemberList) {
             MsgProviderData messengerContact = getMemberData(loggedInInfo, groupMember);
-            if (messengerContact != null) {
+            if (messengerContact != null && recipients.add(messengerContact.getId().getContactId())) {
                 memberDataList.add(messengerContact);
             }
         }
@@ -240,6 +244,9 @@ public class MessengerGroupManager {
     public MsgProviderData getLocalMember(LoggedInInfo loggedInInfo, String providerNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_admin)");
+        }
+        if (!isContactableProviderNo(providerNo)) {
+            return null;
         }
         MsgProviderData msgProviderData = null;
         Provider provider = providerManager.getProviderIfActive(loggedInInfo, providerNo);
@@ -358,7 +365,7 @@ public class MessengerGroupManager {
      * @param groupId
      * @return
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean removeGroup(LoggedInInfo loggedInInfo, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
@@ -386,7 +393,7 @@ public class MessengerGroupManager {
     }
 
     /** Replace legacy group selections under the same lock used by modern add/remove. */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void replaceGroupMembers(LoggedInInfo info, int groupId, String[] providers) {
         if (!securityInfoManager.hasPrivilege(info, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
@@ -412,13 +419,18 @@ public class MessengerGroupManager {
     public record AddMemberResult(int id, boolean created) { }
 
     /** Compatibility entry point: return the existing id on a duplicate. */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public int addMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
         return addMemberIfAbsent(loggedInInfo, contactIdentifier, groupId).id();
     }
 
-    /** Atomically create a membership and its registry entry, or report an existing membership. */
-    @Transactional
+    /**
+     * Atomically create a membership and its registry entry, or report an existing membership.
+     * READ_COMMITTED avoids a pre-lock permission-check snapshot on MariaDB 11.6+,
+     * whose default snapshot isolation rejects rows inserted while this transaction waited.
+     * The database coordination lock supplies serialization for membership writes.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AddMemberResult addMemberIfAbsent(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
@@ -451,7 +463,7 @@ public class MessengerGroupManager {
      * @param contactIdentifier
      * @return
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean removeMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
@@ -470,7 +482,7 @@ public class MessengerGroupManager {
      * Remove a messenger member from any given group.
      * Does not remove member from other groups or from the main messenger membership registry.
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean removeGroupMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");

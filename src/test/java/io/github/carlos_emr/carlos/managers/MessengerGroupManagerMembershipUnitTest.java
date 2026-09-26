@@ -167,6 +167,29 @@ class MessengerGroupManagerMembershipUnitTest {
         verify(groupMembersDao, never()).persist(any());
     }
 
+    @Test
+    void shouldHideRetiredAndDuplicateLegacyMembers_whenReadingGroup() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        GroupMembers retired = row(3, GROUP_ID);
+        retired.setProviderNo("-101");
+        GroupMembers inactive = row(4, GROUP_ID);
+        inactive.setProviderNo("202");
+        when(groupMembersDao.findLocalByGroupId(GROUP_ID))
+                .thenReturn(List.of(row(1, GROUP_ID), row(2, GROUP_ID), retired, inactive));
+        Provider active = new Provider();
+        active.setProviderNo(PROVIDER_NO);
+        active.setFirstName("Test");
+        active.setLastName("Active");
+        when(providerManager.getProviderIfActive(loggedInInfo, PROVIDER_NO)).thenReturn(active);
+        when(providerManager.getProviderIfActive(loggedInInfo, "202")).thenReturn(null);
+
+        assertThat(manager.getGroupMembers(loggedInInfo, GROUP_ID))
+                .extracting(member -> member.getId().getContactId()).containsExactly(PROVIDER_NO);
+        verify(providerManager, never()).getProviderIfActive(loggedInInfo, "-101");
+        verify(groupMembersDao, never()).remove(any());
+    }
+
     @Nested
     @DisplayName("addMember")
     class AddMember {
