@@ -25,6 +25,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
@@ -497,4 +500,43 @@ class IncomingDocUtilUnitTest {
             assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
         }
     }
+    @Test
+    void shouldReapOnlyAbandonedScratch_whenQueueIsListed() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        Path directory = source.toPath().getParent();
+        FileTime old = FileTime.from(Instant.now().minus(2, ChronoUnit.DAYS));
+        Path stale = Files.writeString(directory.resolve(".carlos-123.tmp"), "abandoned PDF");
+        Files.setLastModifiedTime(stale, old);
+        Path recent = Files.writeString(directory.resolve(".carlos-124.tmp"), "recent work");
+        Path unrelated = Files.writeString(directory.resolve(".carlos-operator.tmp"), "operator file");
+        Files.setLastModifiedTime(unrelated, old);
+        Path link = Files.createSymbolicLink(directory.resolve(".carlos-125.tmp"), stale);
+        try (IncomingDocumentScratch active = IncomingDocumentScratch.create(directory.toFile())) {
+            Files.setLastModifiedTime(active.file().toPath(), old);
+            assertThat(new IncomingDocUtil().getDocList(directory.toString())).containsExactly("fax.pdf");
+            assertThat(stale).doesNotExist();
+            assertThat(recent).exists();
+            assertThat(unrelated).exists();
+            assertThat(Files.isSymbolicLink(link)).isTrue();
+            assertThat(active.file()).exists();
+        }
+        assertThat(Files.readAllBytes(source.toPath())).isNotEmpty();
+    }
+
+    @Test
+    void shouldBoundScratchCleanup_whenManyFilesAreAbandoned() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        Path directory = source.toPath().getParent();
+        FileTime old = FileTime.from(Instant.now().minus(2, ChronoUnit.DAYS));
+        for (int index = 0; index < 105; index++) {
+            Path stale = Files.writeString(directory.resolve(".carlos-" + index + ".tmp"), "abandoned PDF");
+            Files.setLastModifiedTime(stale, old);
+        }
+        new IncomingDocUtil().getDocList(directory.toString());
+        assertThat(scratchFilesLeft()).isEqualTo(5);
+        new IncomingDocUtil().getDocList(directory.toString());
+        assertThat(scratchFilesLeft()).isZero();
+        assertThat(source).exists();
+    }
+
 }

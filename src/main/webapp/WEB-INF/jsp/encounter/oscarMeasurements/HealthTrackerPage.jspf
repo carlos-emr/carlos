@@ -494,7 +494,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <span id="validation-alert-body">
         <% if (request.getAttribute("testOutput") != null) { %>
-        <strong>The following values were not updated due to an error:</strong><br>
+        <strong>Some parts of this save need attention:</strong><br>
         <pre class="mb-0"><carlos:encode value='<%= String.valueOf(request.getAttribute("testOutput")) %>' context="html"/></pre>
         <% } %>
         </span>

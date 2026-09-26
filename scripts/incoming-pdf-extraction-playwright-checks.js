@@ -63,6 +63,18 @@ async function workflow(s) {
       fs.chownSync(file, queueOwner.uid, queueOwner.gid);
     }
   }
+  const scratchId = `${Date.now()}${process.pid}`;
+  const staleScratch = path.join(directory, `.carlos-${scratchId}1.tmp`);
+  const recentScratch = path.join(directory, `.carlos-${scratchId}2.tmp`);
+  const unrelatedHidden = path.join(directory, `.carlos-operator-${scratchId}.tmp`);
+  for (const file of [staleScratch, recentScratch, unrelatedHidden]) {
+    fs.writeFileSync(file, original, { flag: 'wx', mode: 0o600 }); owned.push(file);
+    const owner = fs.statSync(directory);
+    fs.chownSync(file, owner.uid, owner.gid);
+  }
+  const staleTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  fs.utimesSync(staleScratch, staleTime, staleTime);
+  fs.utimesSync(unrelatedHidden, staleTime, staleTime);
   h.assert(inspect(source).pages === 3, 'The synthetic input PDF is not three pages');
   const { page: inbox } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
     { context: s.context, recorder: s.recorder, label: 'incoming-pdf-inbox' });
@@ -78,6 +90,12 @@ async function workflow(s) {
   await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
   h.assert((await page.locator('fieldset legend').allTextContents()).some(text => text.includes(name)), 'Incoming queue did not open the owned PDF');
   const extract = () => page.locator('button[onclick^="extractPagePdf("]');
+  await s.step('reap abandoned scratch files while preserving fresh work and unrelated hidden files', async () => {
+    h.assert(!fs.existsSync(staleScratch), 'Queue access left an abandoned CARLOS scratch file');
+    h.assert(fs.readFileSync(recentScratch).equals(original), 'Queue cleanup removed recent scratch work');
+    h.assert(fs.readFileSync(unrelatedHidden).equals(original), 'Queue cleanup changed an unrelated hidden file');
+    h.assert(fs.readFileSync(source).equals(original), 'Scratch cleanup changed the queued PDF');
+  });
   await s.step('reject GET mutations and POST without CSRF without changing the source', async () => {
     const form = await page.locator('form[name="PdfInfoForm"]').evaluate(form => ({
       action: form.action,

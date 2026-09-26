@@ -286,46 +286,13 @@ public class APISendGridEmailSender {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    /**
-     * Returns the stored transport configuration JSON, or throws the checked exception the
-     * senders' callers already handle when the row carries no configuration at all.
-     *
-     * @param emailConfig the configuration row being used to send
-     * @return the non-blank configuration JSON
-     * @throws EmailSendingException when configDetails is NULL or blank; Jackson would otherwise
-     *         throw an unchecked IllegalArgumentException from {@code readTree(null)}
-     */
-    private static String requireConfigDetails(EmailConfig emailConfig) throws EmailSendingException {
-        String configJson = emailConfig == null ? null : emailConfig.getConfigDetailsJson();
-        if (configJson == null || configJson.isBlank()) {
-            throw new EmailSendingException("No transport configuration stored for "
-                    + (emailConfig == null ? "the email account" : emailConfig.getSenderEmail()));
-        }
-        return configJson;
-    }
-
     private String getAPIKey() throws EmailSendingException {
-        String apiKey;
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(requireConfigDetails(emailConfig));
-            apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
-        }
-        return apiKey;
+        return EmailTransportConfiguration.requiredText(EmailTransportConfiguration.parse(emailConfig), "api_key");
     }
-
 
     private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(requireConfigDetails(emailConfig));
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
-        }
-        return endPointBuilder.toString();
+        JsonNode settings = EmailTransportConfiguration.parse(emailConfig);
+        return settings.has("end_point")
+                ? EmailTransportConfiguration.requiredText(settings, "end_point") : DEFAULT_END_POINT;
     }
 }

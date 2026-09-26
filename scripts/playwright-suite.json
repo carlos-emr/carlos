@@ -1076,6 +1076,19 @@
       ]
     },
     {
+      "name": "inbox-lab-versions",
+      "script": "scripts/inbox-lab-versions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": []
+    },
+    {
       "name": "inbox-preview-acknowledge",
       "script": "scripts/inbox-preview-acknowledge-playwright-checks.js",
       "tiers": [

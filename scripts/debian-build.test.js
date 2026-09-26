@@ -114,6 +114,10 @@ test('renderer provisioning and restart are gated on the provisioning lock', () 
 // rather than having its working directory deleted from under it.
 test('a legacy renderer that would not stop keeps its home and holds the new browser', () => {
   const postinst = fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8');
+  const unit = fs.readFileSync(path.join(__dirname, '..', 'debian/assets/systemd/carlos-emr-render-browser.service'), 'utf8');
+  assert.match(unit, /^ConditionPathExists=!\/var\/lib\/carlos-emr\/\.legacy-renderer-live$/m);
+  assert.match(postinst, /if \[ "\$\{OLD_RENDERER_LIVE\}" = 1 \]; then\n +: > "\$\{STATE\}\/\.legacy-renderer-live"/);
+  assert.match(postinst, /else\n +rm -f "\$\{STATE\}\/\.legacy-renderer-live"/);
   assert.match(postinst, /deb-systemd-invoke stop carlos-emr-chromedriver\.service >\/dev\/null 2>&1 \|\| true\n +if systemctl is-active --quiet carlos-emr-chromedriver\.service; then\n +OLD_RENDERER_LIVE=1/);
   assert.match(postinst, /if \[ "\$\{OLD_RENDERER_LIVE\}" = 0 \] \\\n +&& \[ -d "\$\{STATE\}\/render" \] && \[ ! -L "\$\{STATE\}\/render" \]; then\n +rm -rf "\$\{STATE\}\/render"/);
 });

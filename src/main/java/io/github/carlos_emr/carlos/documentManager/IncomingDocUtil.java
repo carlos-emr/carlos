@@ -52,7 +52,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -122,60 +121,16 @@ public final class IncomingDocUtil {
     }
 
     /**
-     * Creates a fresh scratch file for rewriting a queued document. It lives in the queue's own
-     * directory so the final {@link Files#move} is a same-filesystem rename, and it has a unique
-     * name. The old fixed {@code "T" + name} scratch path overwrote any queued document that
-     * happened to carry that name. The {@code .tmp} suffix keeps it out of the queue listing,
-     * which shows only {@code *.pdf}.
-     *
-     * @param queueDir the validated queue directory
-     * @param permissions the source document's permissions, applied so the replacement keeps
-     *        them; {@code null} leaves the owner-only default
-     * @return the new, empty scratch file
-     * @throws IOException if the scratch file cannot be created
-     */
-    // queueDir comes from getIncomingDocumentFilePath (validated against INCOMINGDOCUMENT_DIR); the name is generated here
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "queueDir comes from getIncomingDocumentFilePath (validated against INCOMINGDOCUMENT_DIR); the name is generated here")
-    private static File newScratchFile(File queueDir, Set<PosixFilePermission> permissions) throws IOException {
-        Path scratch = Files.createTempFile(queueDir.toPath(), ".carlos-", ".tmp");
-        if (permissions != null) {
-            try {
-                Files.setPosixFilePermissions(scratch, permissions);
-            } catch (IOException | UnsupportedOperationException e) {
-                MiscUtils.getLogger().warn("Could not copy a queued document's permissions to its scratch file");
-            }
-        }
-        return scratch.toFile();
-    }
-
-    /**
      * The document's own POSIX permissions, exactly as found, or null where the filesystem does
-     * not support them. This is the set put back on the source after a failed operation and
-     * onto the replacement after a successful one; it is never used for a scratch file, which
-     * needs {@link #writable(Set)}.
+     * not support them. They are applied to the completed scratch copy before replacement.
+     * A failed permission read aborts preparation; the original is never chmodded.
      */
-    private static Set<PosixFilePermission> permissionsOf(File file) {
+    private static Set<PosixFilePermission> permissionsOf(File file) throws IOException {
         try {
             return Files.getPosixFilePermissions(file.toPath());
-        } catch (IOException | UnsupportedOperationException e) {
+        } catch (UnsupportedOperationException e) {
             return null;
         }
-    }
-
-    /**
-     * A scratch file's permissions: the source's plus owner read/write, so the copy can be
-     * written even when the queued document itself is read-only. Kept separate from the source's
-     * own set so a read-only document is not restored, or replaced, as a writable one.
-     */
-    private static Set<PosixFilePermission> writable(Set<PosixFilePermission> permissions) {
-        if (permissions == null) {
-            return null;
-        }
-        Set<PosixFilePermission> writable = EnumSet.noneOf(PosixFilePermission.class);
-        writable.addAll(permissions);
-        writable.add(PosixFilePermission.OWNER_READ);
-        writable.add(PosixFilePermission.OWNER_WRITE);
-        return writable;
     }
 
     /** Best-effort removal of a scratch or partial output file after a failed page operation. */
@@ -187,35 +142,6 @@ public final class IncomingDocUtil {
             Files.deleteIfExists(file.toPath());
         } catch (IOException e) {
             MiscUtils.getLogger().warn("Could not remove a scratch file left by a failed incoming-document page operation");
-        }
-    }
-
-    /**
-     * Puts a source document's own permissions back after a failed operation marked it read-only.
-     * Where the filesystem has no POSIX permissions the only change made was
-     * {@code setReadOnly()}, so the only thing to undo is that.
-     */
-    private static void restorePermissions(File file, Set<PosixFilePermission> permissions) {
-        if (permissions == null) {
-            file.setWritable(true, true);
-            return;
-        }
-        applyPermissions(file, permissions);
-    }
-
-    /**
-     * Gives the file that now holds a queued document the document's own permissions. After a
-     * successful operation that file is the moved scratch copy, which was created writable so it
-     * could be written; a document that was read-only in the queue stays read-only.
-     */
-    private static void applyPermissions(File file, Set<PosixFilePermission> permissions) {
-        if (permissions == null) {
-            return;
-        }
-        try {
-            Files.setPosixFilePermissions(file.toPath(), permissions);
-        } catch (IOException | UnsupportedOperationException e) {
-            MiscUtils.getLogger().warn("Could not put a queued document's permissions on the file that now holds it");
         }
     }
 
@@ -338,6 +264,7 @@ public final class IncomingDocUtil {
         }
 
         File dir = PathValidationUtils.validateConfiguredDirectory(directory, "incoming document directory");
+        IncomingDocumentScratch.cleanup(dir);
         File[] listOfFiles = dir.listFiles(pdfFilter);
         if (listOfFiles == null) {
             logger.error("Unable to list incoming document directory: {}",
@@ -634,30 +561,33 @@ public final class IncomingDocUtil {
         long lastModified = f.lastModified();
 
         Set<PosixFilePermission> permissions = permissionsOf(f);
-        File scratch = newScratchFile(new File(basePath), writable(permissions));
-        boolean replaced = false;
-        try {
-            try (PdfReader reader = new PdfReader(filePathName);
-                 OutputStream fos = Files.newOutputStream(scratch.toPath())) {
-                int rotatedegrees = (reader.getPageRotation(Integer.parseInt(MyPdfPageNumber)) + degrees) % 360;
-                reader.getPageN(Integer.parseInt(MyPdfPageNumber)).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
-                PdfStamper stp = new PdfStamper(reader, fos);
-                stp.close();
+        try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath))) {
+            File scratch = work.file();
+            boolean replaced = false;
+            try {
+                try (PdfReader reader = new PdfReader(filePathName);
+                     OutputStream fos = work.output()) {
+                    int rotatedegrees = (reader.getPageRotation(Integer.parseInt(MyPdfPageNumber)) + degrees) % 360;
+                    reader.getPageN(Integer.parseInt(MyPdfPageNumber)).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+                    PdfStamper stp = new PdfStamper(reader, fos);
+                    stp.close();
+                }
+                // One move instead of delete-then-rename: a failed rename after the delete lost the
+                // queued document outright.
+                // Apply the original access mode before publishing; a failure must leave the source intact.
+                if (permissions != null) {
+                    Files.setPosixFilePermissions(scratch.toPath(), permissions);
+                }
+                Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                replaced = true;
+            } finally {
+                if (!replaced) {
+                    deleteQuietly(scratch);
+                }
             }
-            // One move instead of delete-then-rename: a failed rename after the delete lost the
-            // queued document outright.
-            Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            replaced = true;
-        } finally {
-            if (!replaced) {
-                deleteQuietly(scratch);
+            if (!f.setLastModified(lastModified)) {
+                MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after rotating a page");
             }
-        }
-        // The replacement is the scratch copy, created writable; give it the document's own
-        // permissions so a read-only queue entry stays read-only.
-        applyPermissions(f, permissions);
-        if (!f.setLastModified(lastModified)) {
-            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after rotating a page");
         }
     }
 
@@ -686,31 +616,34 @@ public final class IncomingDocUtil {
         long lastModified = f.lastModified();
 
         Set<PosixFilePermission> permissions = permissionsOf(f);
-        File scratch = newScratchFile(new File(basePath), writable(permissions));
-        boolean replaced = false;
-        try {
-            try (PdfReader reader = new PdfReader(filePathName);
-                 OutputStream fos = Files.newOutputStream(scratch.toPath())) {
-                for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
-                    int rotatedegrees = (reader.getPageRotation(p) + degrees) % 360;
-                    reader.getPageN(p).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+        try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath))) {
+            File scratch = work.file();
+            boolean replaced = false;
+            try {
+                try (PdfReader reader = new PdfReader(filePathName);
+                     OutputStream fos = work.output()) {
+                    for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
+                        int rotatedegrees = (reader.getPageRotation(p) + degrees) % 360;
+                        reader.getPageN(p).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+                    }
+                    PdfStamper stp = new PdfStamper(reader, fos);
+                    stp.close();
                 }
-                PdfStamper stp = new PdfStamper(reader, fos);
-                stp.close();
+                // One move instead of delete-then-rename, as in rotatePage.
+                // Apply the original access mode before publishing; a failure must leave the source intact.
+                if (permissions != null) {
+                    Files.setPosixFilePermissions(scratch.toPath(), permissions);
+                }
+                Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                replaced = true;
+            } finally {
+                if (!replaced) {
+                    deleteQuietly(scratch);
+                }
             }
-            // One move instead of delete-then-rename, as in rotatePage.
-            Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            replaced = true;
-        } finally {
-            if (!replaced) {
-                deleteQuietly(scratch);
+            if (!f.setLastModified(lastModified)) {
+                MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after rotating its pages");
             }
-        }
-        // The replacement is the scratch copy, created writable; give it the document's own
-        // permissions so a read-only queue entry stays read-only.
-        applyPermissions(f, permissions);
-        if (!f.setLastModified(lastModified)) {
-            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after rotating its pages");
         }
     }
 
@@ -746,23 +679,22 @@ public final class IncomingDocUtil {
         File recycleScratch = null;
         File recycled = null;
         boolean replaced = false;
-        try {
-            scratch = newScratchFile(new File(basePath), writable(permissions));
+        try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath));
+             IncomingDocumentScratch recycledWork = IncomingDocumentScratch.create(deleteDir)) {
+            scratch = work.file();
             // The removed page is written to a scratch file in the recycle directory, filed under
             // a name no other recycle entry holds, and only then is the queue document replaced.
             // If filing fails the queue is untouched; if the replacement fails the entry this call
             // filed is removed again. Either way no page is lost and no older entry overwritten.
-            recycleScratch = newScratchFile(deleteDir, writable(permissions));
-            // Only once setup has succeeded, so a failure above cannot leave the source read-only;
-            // the finally below restores its permissions whenever the replacement did not happen.
-            f.setReadOnly();
+            recycleScratch = recycledWork.file();
+            // The source and its permissions remain untouched until the replacement is ready.
             try (PdfReader reader = new PdfReader(filePathName);
-                 OutputStream copyFos = Files.newOutputStream(scratch.toPath())) {
+                 OutputStream copyFos = work.output()) {
                 String deleteFileName = addPdfNameSuffix(myPdfName,
                         "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
                 validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
 
-                try (OutputStream deleteFos = Files.newOutputStream(recycleScratch.toPath())) {
+                try (OutputStream deleteFos = recycledWork.output()) {
                     Document document = new Document(reader.getPageSizeWithRotation(1));
                     PdfCopy copy = new PdfCopy(document, copyFos);
                     PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
@@ -793,21 +725,21 @@ public final class IncomingDocUtil {
             // replacement over the gap. Delete-then-rename lost the document outright whenever the
             // rename failed (permissions, a cross-filesystem temp dir): the queue entry was already
             // gone and the remaining pages were left stranded under the temp name.
+            // Apply the original access mode before publishing; a failure must leave the source intact.
+            if (permissions != null) {
+                Files.setPosixFilePermissions(scratch.toPath(), permissions);
+            }
             Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
             replaced = true;
         } finally {
             if (!replaced) {
                 deleteQuietly(scratch);
                 deleteQuietly(recycled);
-                restorePermissions(f, permissions);
             }
             // Gone already when it was filed; otherwise (recycle bin off, or a failure) discard it.
             deleteQuietly(recycleScratch);
         }
 
-        // The replacement is the scratch copy, created writable; give it the document's own
-        // permissions so a read-only queue entry stays read-only.
-        applyPermissions(f, permissions);
         // Carrying the original mtime over is cosmetic and must not abort the operation:
         // File.setLastModified is best-effort and returns false on filesystems that do not
         // support it, long after the replacement is already in place.
@@ -888,9 +820,9 @@ public final class IncomingDocUtil {
         boolean extractCreated = false;
         boolean replaced = false;
 
-        try {
-            // Inside the try, so the finally restores the source's permissions on any failure.
-            f.setReadOnly();
+        try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath))) {
+            scratch = work.file();
+            // Work on private output; never change the source permissions during preparation.
             try {
                 reader = new PdfReader(filePathName);
                 String extractFileName = addPdfNameSuffix(myPdfName,
@@ -899,8 +831,7 @@ public final class IncomingDocUtil {
 
                 extractList = buildExtractList(pageNumbersToExtract, reader.getNumberOfPages());
 
-                scratch = newScratchFile(new File(basePath), writable(permissions));
-                copyFos = Files.newOutputStream(scratch.toPath());
+                copyFos = work.output();
                 // CREATE_NEW: an earlier extraction (or any queued document) under this name is
                 // someone's unfiled clinical document; overwriting it lost it without a trace.
                 try {
@@ -923,23 +854,23 @@ public final class IncomingDocUtil {
 
             // One move instead of delete-then-rename, for the same reason as deletePage: a failed
             // rename after an unconditional delete lost the queued document entirely.
+            // Apply the original access mode before publishing; a failure must leave the source intact.
+            if (permissions != null) {
+                Files.setPosixFilePermissions(scratch.toPath(), permissions);
+            }
             Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
             replaced = true;
         } finally {
             if (!replaced) {
-                // Leave the queue exactly as it was: the source untouched and writable again, no
+                // Leave the queue exactly as it was: the source and its permissions untouched, no
                 // scratch file, and no half-written extract (but never one this call did not create).
                 deleteQuietly(scratch);
                 if (extractCreated) {
                     deleteQuietly(validatedExtractFile);
                 }
-                restorePermissions(f, permissions);
             }
         }
 
-        // The replacement is the scratch copy, created writable; give it the document's own
-        // permissions so a read-only queue entry stays read-only.
-        applyPermissions(f, permissions);
         // Both mtime carry-overs are cosmetic and deliberately not fatal.
         if (!f.setLastModified(lastModified)) {
             MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after extracting pages");

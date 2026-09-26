@@ -23,7 +23,6 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * SMTP email sender for OpenO EMR healthcare system.
@@ -129,24 +128,6 @@ public class SMTPEmailSender {
     }
 
     /**
-     * Returns the stored transport configuration JSON, or throws the checked exception the
-     * senders' callers already handle when the row carries no configuration at all.
-     *
-     * @param emailConfig the configuration row being used to send
-     * @return the non-blank configuration JSON
-     * @throws EmailSendingException when configDetails is NULL or blank; Jackson would otherwise
-     *         throw an unchecked IllegalArgumentException from {@code readTree(null)}
-     */
-    protected static String requireConfigDetails(EmailConfig emailConfig) throws EmailSendingException {
-        String configJson = emailConfig == null ? null : emailConfig.getConfigDetailsJson();
-        if (configJson == null || configJson.isBlank()) {
-            throw new EmailSendingException("No transport configuration stored for "
-                    + (emailConfig == null ? "the email account" : emailConfig.getSenderEmail()));
-        }
-        return configJson;
-    }
-
-    /**
      * Creates a JavaMailSender configured for TLS-encrypted SMTP transmission.
      *
      * <p>Parses the EmailConfig's JSON configuration to extract SMTP server settings
@@ -169,35 +150,21 @@ public class SMTPEmailSender {
      */
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        ObjectMapper objectMapper = new ObjectMapper();
-        // A NULL or blank configDetails row (the column allows NULL and the alpha14 widening
-        // migration preserves it) must surface as the checked EmailSendingException the callers
-        // handle, not as Jackson's IllegalArgumentException from readTree(null).
-        String configJson = requireConfigDetails(emailConfig);
-        try {
-            JsonNode jsonNode = objectMapper.readTree(configJson);
-            String host = jsonNode.get("host").asText();
-            String port = jsonNode.get("port").asText();
-            String username = jsonNode.get("username").asText();
-            String password = jsonNode.get("password").asText();
+        JsonNode jsonNode = EmailTransportConfiguration.parse(emailConfig);
+        mailSender.setHost(EmailTransportConfiguration.requiredText(jsonNode, "host"));
+        mailSender.setPort(EmailTransportConfiguration.port(jsonNode));
+        mailSender.setUsername(EmailTransportConfiguration.requiredText(jsonNode, "username"));
+        mailSender.setPassword(EmailTransportConfiguration.requiredText(jsonNode, "password"));
 
-            mailSender.setHost(host);
-            mailSender.setPort(Integer.parseInt(port));
-            mailSender.setUsername(username);
-            mailSender.setPassword(password);
+        Properties properties = new Properties();
+        properties.put("mail.transport.protocol", "smtp");
+        properties.put("mail.smtp.auth", "true");
+        properties.put("mail.smtp.starttls.enable", "true");
+        properties.put("mail.smtp.starttls.required", "true");
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
+        properties.put("mail.debug", "false");
 
-            Properties properties = new Properties();
-            properties.put("mail.transport.protocol", "smtp");
-            properties.put("mail.smtp.auth", "true");
-            properties.put("mail.smtp.starttls.enable", "true");
-            properties.put("mail.smtp.starttls.required", "true");
-            properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
-            properties.put("mail.debug", "false");
-
-            mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
-        }
+        mailSender.setJavaMailProperties(properties);
         return mailSender;
     }
 

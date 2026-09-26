@@ -1026,6 +1026,15 @@ except ValueError:
                     echo "carlos-emr:   sudo dpkg-reconfigure carlos-emr" >&2
                 fi
             fi
+            # The EMR's Wants dependency can start the new browser even when this
+            # postinst skips its explicit restart. Its unit condition consumes this
+            # durable marker, including after reboot, until a successful repair.
+            if [ "${OLD_RENDERER_LIVE}" = 1 ]; then
+                : > "${STATE}/.legacy-renderer-live"
+                deb-systemd-invoke stop carlos-emr-render-browser.service >/dev/null 2>&1 || true
+            else
+                rm -f "${STATE}/.legacy-renderer-live"
+            fi
             if [ ! -e /usr/lib/systemd/system/carlos-emr-chromedriver.service ] \
                 && [ ! -e /lib/systemd/system/carlos-emr-chromedriver.service ]; then
                 if [ -d /run/systemd/system ]; then
