@@ -42,6 +42,11 @@
             if (typeof self.opener.refreshInfo === 'function') {
                 self.opener.refreshInfo();
                 self.setTimeout(closeThisWindow, 5000);
+            } else if (self.opener.reloadWindows) {
+                // Opened from an eChart Preventions row, not the prevention list. Reloading the
+                // eChart would discard an unsaved encounter note; its reloadWindows poller notices
+                // this popup closing and refreshes only the Preventions box.
+                self.close();
             } else {
                 self.opener.location.reload();
                 self.close();
