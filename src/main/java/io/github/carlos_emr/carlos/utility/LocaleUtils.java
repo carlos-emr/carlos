@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -89,13 +90,18 @@ public final class LocaleUtils {
      * @param request current request; {@code null} is tolerated and yields the English fallback
      * @return the locale to load {@link #BASE_NAME} with; never {@code null}
      */
+    // FindSecBugs SERVLET_HEADER: Accept-Language is client-controlled by design; it only selects
+    // among the message bundles this WAR ships (anything else falls back to English) and is
+    // logged, sanitized, at DEBUG. It never reaches an authorization decision or raw output.
+    @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Accept-Language is used for message-bundle negotiation among shipped bundles and sanitized DEBUG diagnostics only; not an authorization decision or raw output")
     public static Locale resolveBundleLocale(ServletRequest request) {
+        String acceptLanguage = null;
         if (request instanceof HttpServletRequest httpRequest) {
-            String acceptLanguage = httpRequest.getHeader("Accept-Language");
+            acceptLanguage = httpRequest.getHeader("Accept-Language");
             // Without a preference, getLocales() supplies the container's default locale.
             // Treat that as an absent browser preference, not a supported language choice.
             if (acceptLanguage == null || acceptLanguage.isBlank()) {
-                return DEFAULT_LOCALE;
+                return logResolved(DEFAULT_LOCALE, acceptLanguage, request);
             }
         }
         Enumeration<Locale> preferred = request == null ? null : request.getLocales();
@@ -103,12 +109,32 @@ public final class LocaleUtils {
             Locale candidate = preferred.nextElement();
             try {
                 ResourceBundle.getBundle(BASE_NAME, candidate, NO_FALLBACK_CONTROL);
-                return candidate;
+                return logResolved(candidate, acceptLanguage, request);
             } catch (MissingResourceException _) {
                 // No bundle for this preference; try the browser's next choice.
             }
         }
-        return DEFAULT_LOCALE;
+        return logResolved(DEFAULT_LOCALE, acceptLanguage, request);
+    }
+
+    /**
+     * Records, at DEBUG only, which locale a request negotiated and from what. A field report
+     * of a page rendered in the wrong language cannot be diagnosed from the page alone: the
+     * markup carries the negotiated language (the chart's {@code lang} attributes), and this
+     * line pairs it with the raw preference the server saw for that request. {@code Accept-Language}
+     * and the request path carry no patient data, but both are client-controlled, so the path
+     * goes through {@link LogSafe#sanitizeUri(String)} (it strips a URL-rewritten
+     * {@code ;jsessionid} bearer token) and the header through {@link LogSafe#sanitize(String)}
+     * (log-injection escaping). No-op unless DEBUG is enabled for this logger.
+     */
+    private static Locale logResolved(Locale resolved, String acceptLanguage, ServletRequest request) {
+        if (logger.isDebugEnabled()) {
+            String path = request instanceof HttpServletRequest httpRequest
+                    ? LogSafe.sanitizeUri(httpRequest.getRequestURI()) : null;
+            logger.debug("Negotiated bundle locale {} for {} from Accept-Language [{}] (bundle base {})",
+                    resolved, path, LogSafe.sanitize(acceptLanguage), BASE_NAME);
+        }
+        return resolved;
     }
 
     public static String getMessage(String localeString, String key) {

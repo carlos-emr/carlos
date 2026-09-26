@@ -39,7 +39,11 @@
   and provider context; there are no direct request parameters for this fragment.
   i18n: every label here resolves against the BROWSER locale. JSTL and the Java-rendered
   identity block both receive the negotiated bundle locale explicitly (see Demographic#getStandardIdentificationHtml) because the JVM default
-  and LocaleContextHolder both report the server's language on this request path.
+  and LocaleContextHolder both report the server's language on this request path. The
+  negotiated language is published as the lang attribute of #header-top-row (and of the chart
+  page's <html>, see newEncounterLayout.jsp) so a rendered page states which language the
+  server resolved for that request; LocaleUtils logs the same at DEBUG with the raw
+  Accept-Language it came from.
   @since 2026-09-17
 --%>
 
@@ -89,6 +93,10 @@
     // Same resolution the <fmt:message> tags below perform, so the Java-rendered identity
     // block and the JSP-rendered labels can never end up in two different languages.
     Locale browserLocale = LocaleUtils.resolveBundleLocale(request);
+    // Published on the header container as its lang attribute: correct HTML for a fragment whose
+    // language is negotiated per request, and the one place a field report can show which
+    // language the SERVER chose for that very render (a screenshot of the text alone cannot).
+    pageContext.setAttribute("negotiatedLanguageTag", browserLocale.toLanguageTag());
 %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
@@ -125,7 +133,7 @@ function fallbackCopy(text) {
 }
 </script>
 
-<div id="header-top-row">
+<div id="header-top-row" lang="${carlos:forHtmlAttribute(negotiatedLanguageTag)}">
     <div id="left-column">
         <div id="branding-logo">
             <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
