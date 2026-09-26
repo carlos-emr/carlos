@@ -182,6 +182,18 @@ page around it looked translated.
 | 42 | The chart header offered TWO links to the clinical calculators, labelled identically, differing only in passing `sex`/`age` in the query string instead of `demo` | Both anchors were in `newEncounterHeader.jsp`; the packaged install rendered `calcCount: 2` with `calcTexts: ["calculators", "calculators"]`. The `demo=` form survives, because `calculators.jsp` resolves sex and age from the record and `admin-fragment-navigation.test.js` already asserts patient attributes stay out of navigation URLs. Live: `encounter-header-i18n-playwright-checks.js` asserts exactly one, and `clinical-calculators-playwright-checks.js` still reaches the calculators by clicking it | `fixed` |
 | 43 | The note-template search legend, its input placeholder and the template-shortcut overlay placeholder were literal English in the markup and in an inline script, so no translation could reach them | `<legend>Template Search</legend>` and `placeholder="template name"` in `ChartNotes.jsp`; `searchInput.placeholder = 'Search templates\u2026'` in `newEncounterLayout.js.jsp`. Reproduced on the packaged install: a `fr-CA` browser read `Template Search` / `template name`. Fixed with `encounter.templateSearch.*` keys in all five shipped bundles. Following the translation checklist, the new non-English entries are explicitly marked English placeholders pending verified translations. Live: `encounter-header-i18n-playwright-checks.js`; static: `EncounterChartHeaderI18nUnitTest` fails if the literals come back | `fixed` |
 
+## 7. Found while validating Provider Linking Rules (#3971, September 2026)
+
+Both findings come from the packaged Ubuntu 26.04 install described in
+[deb-install-validation.md](deb-install-validation.md#provider-linking-rules-validation-2026-09-26).
+Each was then reproduced against the unmodified `release/2026.08` code, so neither was
+introduced by the #3971 change.
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 44 | Assigning a provider to an unclaimed HRM report, unlinking an HRM report from its patient, and re-linking it all fail with "Error encountered" and roll back | `mutateReport()` locks the report with `HRMDocumentDao.findForUpdate`, which loads the eager, unidirectional `matchedProviders` / `matchedDemographics` collections. The handlers then `EntityManager.remove()` rows from those collections, so the flush throws `TransientPropertyValueException ... HRMDocument.matchedProviders` (or `matchedDemographics`). Reproduced on the package through the new check's HRM step, and on unmodified `release/2026.08` by `HRMModifyTransactionIntegrationTest.shouldClaimUnclaimedReport_whenProviderIsAssigned`. Fixed with bulk deletes (`HRMDocumentToProviderDao.deleteByHrmDocumentIdAndProviderNo`, `HRMDocumentToDemographicDao.deleteByHrmDocumentId`); four integration tests pin claim, MRP routing, unlink and re-link. Live: `provider-linking-rules-playwright-checks.js` unlinks through the viewer's (remove) link and assigns through its autocomplete | `fixed` |
+| 45 | Inbox review-status filter "Filed" returns a lab the unfiltered list does not | Live `inboxhub-filters` on the demo dataset, run after `lab-acknowledge` and `inbox-preview-acknowledge`: `Filed returned row HL7:44, which the unfiltered list does not contain`. Demo lab 44 is routed to provider 999998 with status `F`. The same failure reproduces with the unmodified `release/2026.08` WAR exploded over the same install, so it is not a Provider Linking Rules effect. It is the lab-side counterpart of finding 20 (an HRM row visible under All but under no status) | `open` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is
