@@ -135,8 +135,12 @@ class InboxhubFormRapidReviewUnitTest {
                         "currentFetchRequest.abort();",
                         "isFetchingData = false;",
                         "resumePaging = true;",
+                        "isFetchingData = true;",
                         "mergeInboxhubPreviewCards(data);",
-                        "if (resumePaging) { fetchInboxhubViewData(); }");
+                        "if (resumePaging || isInboxhubPreviewScrolledToEnd()) { fetchInboxhubViewData(); }");
+        assertThat(extractFunction(jsp, "resetDataPageCount"))
+                .as("a new result set withdraws a boundary re-sync of the old one")
+                .contains("superseded.request.abort();");
         assertThat(extractFunction(jsp, "resetDataPageCount"))
                 .as("a search the clinician makes drops a pending advance armed for another result set")
                 .contains("if (!pendingRapidReviewOpen || pendingRapidReviewGeneration !== inboxhubResultSetGeneration) {");
@@ -158,8 +162,11 @@ class InboxhubFormRapidReviewUnitTest {
                 .contains("anchor.after(entry.card);")
                 .contains("following.before(entry.card);")
                 .contains("container.append(entry.card);")
-                .as("the page's scripts are not executed; the end-of-results flag is read off the text")
-                .contains("if (/hasMoreData\\s*=\\s*false/.test(data)) { hasMoreData = false; }");
+                .as("the page's scripts are not executed; the end-of-results flag is read off the parsed "
+                        + "script elements only, never off rendered content")
+                .contains("Array.prototype.some.call(parsed.querySelectorAll('script'),")
+                .contains("return /hasMoreData\\s*=\\s*false/.test(script.textContent || '');")
+                .doesNotContain(".test(data)");
         assertThat(extractFunction(jsp, "resetDataPageCount"))
                 .as("a new result set invalidates any boundary answer still in flight")
                 .containsSubsequence("forgetHandledInboxhubItems();", "inboxhubResultSetGeneration++;");

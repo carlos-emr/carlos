@@ -149,7 +149,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
     set onmessage(handler) { listener = handler; }
     close() {}
   }
-  const container = { scrollHeight: shortPreview ? 100 : 900, clientHeight: 400,
+  const container = { scrollHeight: shortPreview ? 100 : 900, clientHeight: 400, scrollTop: 0,
     append(node) { rendered.push(node); state.inserted.push(node.segmentId); } };
   const form = {
     saved: null, raw: '',
@@ -177,15 +177,24 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
   jQuery.ajax = options => {
     assert.equal(options.method, 'POST');
     assert.match(options.url, /Inboxhub\?method=displayInboxView$/);
-    state.boundaryRequests.push(options);
+    const request = { aborted: false, abort() { this.aborted = true; state.boundaryAborted++; options.error({}, 'abort'); } };
+    state.boundaryRequests.push(Object.assign(options, { request }));
+    return request;
   };
+  state.boundaryAborted = 0;
   class DOMParser {
     parseFromString(html, type) {
       assert.equal(type, 'text/html');
-      // A fetched page is described to the fixture as "segment:type" tokens, one per card.
-      const cards = html.split(/\s+/).filter(token => /^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/.test(token))
+      // A fetched page is described to the fixture as "segment:type" tokens, one per card, with
+      // any <script>...</script> kept apart the way a parsed document keeps its script elements.
+      const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => ({ textContent: match[1] }));
+      const content = html.replace(/<script>[\s\S]*?<\/script>/g, ' ');
+      const cards = content.split(/\s+/).filter(token => /^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/.test(token))
         .map(token => { const [labType, segmentId] = token.split(':'); return element(segmentId, labType); });
-      return { querySelectorAll(selector) { assert.equal(selector, '.document-card'); return cards; } };
+      return { querySelectorAll(selector) {
+        if (selector === 'script') { return scripts; }
+        assert.equal(selector, '.document-card'); return cards;
+      } };
     }
   }
 
@@ -228,6 +237,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
     startPageFetch: () => { context.isFetchingData = true; context.currentFetchRequest = { abort() { state.aborted++; } }; },
     // Answers the most recent boundary re-sync request with a page of cards.
     answerBoundary: html => { state.boundaryRequests[state.boundaryRequests.length - 1].success(html); },
+    container,
     failBoundary: () => { state.boundaryRequests[state.boundaryRequests.length - 1].error({}, 'error'); },
   };
 }
@@ -459,11 +469,12 @@ test('a next-page fetch in flight is withdrawn before the boundary re-sync and a
   inbox.startPageFetch();
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
   assert.equal(inbox.state.aborted, 1, 'the in-flight page is withdrawn');
-  assert.equal(inbox.context.isFetchingData, false);
+  assert.equal(inbox.context.isFetchingData, true, 'the hold passes from the withdrawn page to the boundary re-sync');
   assert.equal(inbox.state.boundaryRequests.length, 1);
   assert.equal(inbox.state.viewFetches, 0, 'the page is not asked for again before the boundary has been merged');
   inbox.answerBoundary('HL7:171 HL7:172');
   assert.deepEqual(inbox.shown(), ['HL7:171', 'HL7:172']);
+  assert.equal(inbox.context.isFetchingData, false, 'released before the page is asked for again');
   assert.equal(inbox.state.viewFetches, 1, 'and then it is, post-shift');
 });
 
@@ -639,6 +650,49 @@ test('a boundary re-sync that fails falls back to the full re-fetch rather than 
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
   inbox.failBoundary();
   assert.equal(inbox.state.fetches, 1);
+});
+
+test('the boundary re-sync holds the next-page fetch off until it has merged', () => {
+  // The preview scroll handler starts the next page only while isFetchingData is false. A page
+  // appended in the middle of the merge could leave the shifted card with no rendered
+  // neighbour to sit beside, so the re-sync owns the flag for as long as it is in flight.
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.context.isFetchingData, true, 'held while the boundary answer is outstanding');
+  inbox.answerBoundary('HL7:171 HL7:172');
+  assert.equal(inbox.context.isFetchingData, false, 'released once merged');
+  assert.equal(inbox.state.viewFetches, 0, 'the clinician has not scrolled to the end, so nothing is asked for');
+});
+
+test('paging resumes after the merge when the clinician scrolled to the end meanwhile', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.container.scrollTop = inbox.container.scrollHeight - inbox.container.clientHeight;   // at the bottom
+  inbox.answerBoundary('HL7:171 HL7:172');
+  assert.equal(inbox.state.viewFetches, 1, 'the scroll the hold swallowed is honoured now');
+});
+
+test('a second acknowledgement during a boundary re-sync supersedes it for the same page', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 2);
+  inbox.startPageFetch();
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.boundaryRequests.length, 2);
+  assert.equal(inbox.state.boundaryRequests[0].request.aborted, true, 'the first answer would be stale');
+  assert.equal(inbox.state.fetches, 0, 'an abort is not a failure and starts no full re-fetch');
+  assert.equal(inbox.context.isFetchingData, true, 'the hold passes to the newer re-sync');
+  inbox.answerBoundary('HL7:172 HL7:173 HL7:174');
+  assert.deepEqual(inbox.shown(), ['HL7:172', 'HL7:173', 'HL7:174']);
+  assert.equal(inbox.state.viewFetches, 1, 'the withdrawn page fetch is resumed once, by the re-sync that finished');
+});
+
+test('the end-of-results flag is read off the page\'s script elements, never off rendered content', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  // A card whose rendered text happens to spell the statement must not end paging.
+  inbox.answerBoundary('HL7:171 hasMoreData = false HL7:172');
+  assert.equal(inbox.context.hasMoreData, true);
+  assert.deepEqual(inbox.shown(), ['HL7:171', 'HL7:172']);
 });
 
 test('a failed boundary re-sync carries a waiting Rapid Review advance into the full re-fetch', () => {

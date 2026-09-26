@@ -1158,6 +1158,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      *                   moot), so the caller must NOT fall back to the full re-fetch; false in
      *                   list mode, which still needs one
      */
+    /**
+     * The boundary re-sync in flight, if any: its request and whether paging must resume once it
+     * has landed. A second acknowledgement while one is in flight re-syncs the same page and
+     * supersedes it, inheriting that answer.
+     */
+    var pendingBoundaryResync = null;
+
     function resyncInboxhubPreviewBoundary() {
         if (jQuery('#inboxViewItems').length === 0) { return false; }
         // A next-page request already in flight may have been computed BEFORE the
@@ -1168,28 +1175,41 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         // — post-shift — once the merge is done. (A response that has already landed needs
         // nothing of the sort: it is then the last loaded page, and the page re-synced below.)
         let resumePaging = false;
-        if (isFetchingData && currentFetchRequest) {
+        if (pendingBoundaryResync !== null) {
+            // An earlier re-sync of this same page has not answered yet; this one supersedes it.
+            const superseded = pendingBoundaryResync;
+            pendingBoundaryResync = null;
+            resumePaging = superseded.resumePaging;
+            superseded.request.abort();
+        } else if (isFetchingData && currentFetchRequest) {
             currentFetchRequest.abort();
-            isFetchingData = false;
             resumePaging = true;
         }
         const boundaryPage = page - 1;
         if (boundaryPage < 1) {
+            isFetchingData = false;
             if (resumePaging) { fetchInboxhubViewData(); }
             return true;
         }
+        // Held for the duration: the preview scroll handler starts the next page only while
+        // this is false, and a page appended in the middle of the merge could leave the
+        // shifted card with no rendered neighbour to sit beside. Paging resumes below once the
+        // merge has landed, when the clinician has scrolled to the end meanwhile.
+        isFetchingData = true;
         const generation = inboxhubResultSetGeneration;
         const url = inboxContextPath + "/web/inboxhub/Inboxhub?method=displayInboxView";
-        jQuery.ajax({
+        const request = jQuery.ajax({
             url: url,
             method: 'POST',
             data: inboxSearchFormData + filter + "&page=" + boundaryPage + "&pageSize=" + pageSize,
             success: function(data) {
+                settle();
                 if (generation !== inboxhubResultSetGeneration) { return; }
                 mergeInboxhubPreviewCards(data);
-                if (resumePaging) { fetchInboxhubViewData(); }
+                if (resumePaging || isInboxhubPreviewScrolledToEnd()) { fetchInboxhubViewData(); }
             },
             error: function(xhr, status) {
+                settle();
                 // The full re-fetch is the safe answer when the boundary page cannot be read:
                 // slower, but it never leaves a result unfetched. A Rapid Review advance still
                 // waiting on this page is carried over to the result set that re-fetch creates;
@@ -1200,7 +1220,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                 }
             }
         });
+        pendingBoundaryResync = { request: request, resumePaging: resumePaging };
+        // Releases the in-flight hold, unless a newer re-sync or a new result set owns it now.
+        function settle() {
+            if (pendingBoundaryResync !== null && pendingBoundaryResync.request === request) {
+                pendingBoundaryResync = null;
+            }
+            if (generation === inboxhubResultSetGeneration && pendingBoundaryResync === null) {
+                isFetchingData = false;
+            }
+        }
         return true;
+    }
+
+    /** Whether the preview list is scrolled to where its scroll handler would ask for the next page. */
+    function isInboxhubPreviewScrolledToEnd() {
+        const container = document.getElementById('inboxViewItems');
+        if (!container) { return false; }
+        return container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
     }
 
     /**
@@ -1212,14 +1249,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * beside so the page keeps the server's order. A card this window itself took off
      * screen is not put back, even if a stale answer still lists it. The page's own scripts
      * are not run: the only one that matters is the end-of-results flag, which is read off
-     * the response text instead.
+     * the parsed script elements instead.
      *
      * @param {string} data the HTML the server rendered for one preview page
      */
     function mergeInboxhubPreviewCards(data) {
         const container = document.getElementById('inboxViewItems');
         if (!container) { return; }
-        const fetched = new DOMParser().parseFromString(data, 'text/html').querySelectorAll('.document-card');
+        const parsed = new DOMParser().parseFromString(data, 'text/html');
+        const fetched = parsed.querySelectorAll('.document-card');
         const entries = [];
         fetched.forEach(function(card) {
             const segmentId = card.getAttribute('data-segment-id');
@@ -1246,7 +1284,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             }
             entry.rendered = entry.card;
         });
-        if (/hasMoreData\s*=\s*false/.test(data)) { hasMoreData = false; }
+        // The page's scripts are not run, so its end-of-results statement is read off the
+        // parsed script elements — and only those: rendered patient text is never consulted.
+        const endOfResults = Array.prototype.some.call(parsed.querySelectorAll('script'),
+            function(script) { return /hasMoreData\s*=\s*false/.test(script.textContent || ''); });
+        if (endOfResults) { hasMoreData = false; }
         settlePendingPreviewAdvance();
     }
 
@@ -1592,6 +1634,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
         if (currentFetchRequest) {
             currentFetchRequest.abort();  // Cancel the ongoing AJAX request
+        }
+        if (pendingBoundaryResync !== null) {
+            // A boundary re-sync of the result set being discarded; its answer would be dropped
+            // by the generation check anyway, and it must not release the next fetch's hold.
+            const superseded = pendingBoundaryResync;
+            pendingBoundaryResync = null;
+            superseded.request.abort();
         }
         jQuery("#inboxhubMode").empty();
         // The rendered result set is going away, so what this window took off screen is no
