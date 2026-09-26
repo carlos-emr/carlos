@@ -129,11 +129,11 @@ class InboxhubFormRapidReviewUnitTest {
                         "armPendingRapidReview(inboxhubResultSetGeneration + 1);",
                         "return settled;");
         assertThat(extractFunction(jsp, "resyncInboxhubPreviewBoundary"))
-                .as("a next-page fetch in flight may carry the pre-shift window; it is withdrawn and asked for again after the merge")
+                .as("a next-page fetch in flight may carry the pre-shift window; it is withdrawn, the "
+                        + "hold passes to the re-sync, and the page is asked for again after the merge")
                 .containsSubsequence(
                         "if (isFetchingData && currentFetchRequest) {",
                         "currentFetchRequest.abort();",
-                        "isFetchingData = false;",
                         "resumePaging = true;",
                         "isFetchingData = true;",
                         "mergeInboxhubPreviewCards(data);",
