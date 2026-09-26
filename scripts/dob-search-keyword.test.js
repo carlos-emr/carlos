@@ -79,10 +79,6 @@ test('format keeps the pre-existing digit auto-formatting (issue #3237 regressio
     '1980/01/01': '1980-01-01',
     '1980.01.01': '1980-01-01',
     '1980 01 01': '1980-01-01',
-    '1980010199': '1980-01-01',
-    '1980a01b01': '1980-01-01',
-    '1980--01--01': '1980-01-01',
-    '-1980': '1980',
     '': '',
   };
   for (const [raw, expected] of Object.entries(cases)) {
@@ -90,11 +86,11 @@ test('format keeps the pre-existing digit auto-formatting (issue #3237 regressio
   }
 });
 
-test('format drops partial-segment and SQL single-character wildcards', () => {
-  assert.equal(dob.format('19%'), '19');
-  assert.equal(dob.format('%%'), '%');
-  assert.equal(dob.format('1975_03_05'), '1975-03-05');
-  assert.ok(!dob.format('1975_%_05').includes('_'));
+test('format preserves malformed input so validation cannot silently search a different date', () => {
+  for (const raw of ['19%', '%%', '1975_03_05', '1975_%_05', '1980010199', '1980a01b01', '1980--01--01', '-1980']) {
+    assert.equal(dob.format(raw), raw);
+    assert.equal(dob.isValid(dob.format(raw)), false);
+  }
 });
 
 test('format is idempotent on its own output', () => {
@@ -246,10 +242,12 @@ for (const [jsp, formName] of [['addappointment.jsp', 'ADDAPPT'], ['editappointm
     const end = source.indexOf('\n            }', start) + '\n            }'.length;
     assert.ok(start >= 0 && end > start);
     for (const [typed, mode, expected] of [
-      ['1980', 'search_dob', '1980'], ['1980/01', 'search_dob', '1980-01'],
+      ['1980', 'search_dob', '1980'], [' 1980-01 ', 'search_dob', '1980-01'], ['1980/01', 'search_dob', '1980-01'],
       ['1980-%-01', 'search_dob', '1980-%-01'], ['19800101', 'search_dob', '1980-01-01'],
       ['%b6100541234567890', 'search_hin', '1234567890'],
       ['Example Patient', 'search_name', 'Example Patient'],
+      ['  Example Patient  ', 'search_name', 'Example Patient'],
+      ['1980 Main Street', 'search_address', '1980 Main Street'],
       ['555-555-1212', 'search_phone', '555-555-1212'], ['1234567890', 'search_hin', '1234567890'],
     ]) {
       const form = { keyword: { value: typed }, displaymode: { value: '' } };
@@ -258,10 +256,21 @@ for (const [jsp, formName] of [['addappointment.jsp', 'ADDAPPT'], ['editappointm
       const context = { CarlosDobSearch: dob, console: { log: (...args) => logs.push(args) },
         document: { forms: { [formName]: form }, getElementById: () => searchMode } };
       require('node:vm').runInNewContext(source.slice(start, end), context);
-      context.parseSearch();
+      assert.equal(context.parseSearch(), true);
       assert.equal(searchMode.value, mode);
       assert.equal(form.keyword.value, expected);
       assert.equal(logs.length, 0, 'search terms must not reach the console');
     }
+    for (const typed of ['1980-13', '1980-01-32', '19801301', '%', '1980--01']) {
+      const form = { keyword: { value: typed }, displaymode: { value: '' } };
+      const alerts = [];
+      const context = { CarlosDobSearch: dob, alert: text => alerts.push(text),
+        document: { forms: { [formName]: form }, getElementById: () => ({ value: '' }) } };
+      require('node:vm').runInNewContext(source.slice(start, end), context);
+      assert.equal(context.parseSearch(), false, typed);
+      assert.equal(alerts.length, 1);
+      assert.equal(form.keyword.value, typed);
+    }
+    assert.match(source, /onclick="if \(!parseSearch\(\)\) return false;/);
   });
 }

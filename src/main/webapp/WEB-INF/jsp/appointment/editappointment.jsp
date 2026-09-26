@@ -261,6 +261,7 @@
 <html>
     <head>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
+        <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="appointment.editappointment.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -678,7 +679,8 @@
                 document.getElementById("search_mode").value = 'search_name';
 
                 var keyObj = document.forms['EDITAPPT'].keyword;
-                var keyVal = keyObj.value;
+                var keyVal = keyObj.value.trim();
+                keyObj.value = keyVal;
 
                 // start with the loosest pattern
                 // address pattern 293 Meridian
@@ -708,12 +710,17 @@
                     document.getElementById("search_mode").value = "search_phone";
                 }
 
-                // Use the shared grammar for full, partial and wildcard DOBs.
+                // Reject date-shaped invalid input before handing it to the picker.
+                // Ordinary names and street addresses remain general searches.
                 const dob = /^[0-9]{8}$/.test(keyVal)
                     ? CarlosDobSearch.format(keyVal) : keyVal.replace(/[/. ]/g, '-');
                 if (CarlosDobSearch.isValid(dob)) {
                     keyObj.value = dob;
                     document.getElementById("search_mode").value = "search_dob";
+                } else if (/^[0-9%./ -]+$/.test(keyVal)
+                        && (/^(?:[0-9]{4}|%)(?:[-/. ]|$)/.test(keyVal) || /^[0-9]{8}$/.test(keyVal))) {
+                    alert('${carlos:forJavaScript(dobFormatMessage)}');
+                    return false;
                 }
 
                 //swipe pattern
@@ -721,6 +728,7 @@
                     keyObj.value = keyVal.substring(8, 18);
                     document.getElementById("search_mode").value = "search_hin";
                 }
+                return true;
             }
 
             jQuery(document).ready(function () {
@@ -1046,7 +1054,7 @@
                         <input type="hidden" name="ptstatus" value="active">
                         <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-primary" style="margin-bottom:10px;"
                                formaction="<%=request.getContextPath() %>/demographic/DemographicSearch"
-                               onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
+                               onclick="if (!parseSearch()) return false; document.forms['EDITAPPT'].displaymode.value='Search '"
                                value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
                     <td>

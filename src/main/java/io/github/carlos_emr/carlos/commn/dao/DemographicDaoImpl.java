@@ -88,7 +88,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 @Transactional
 public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEventPublisherAware, DemographicDao {
 
-    private static final int MAX_SELECT_SIZE = 500;
+    private static final int MAX_SELECT_SIZE = DemographicDao.MAX_SEARCH_RESULT_SIZE;
     private static final String FLU_DEMOGRAPHIC_NO = "demographic_no";
     private static final String FLU_PATIENT_NAME = "patient_name";
     private static final String FLU_PHONE = "phone";

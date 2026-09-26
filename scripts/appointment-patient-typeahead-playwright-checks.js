@@ -77,6 +77,7 @@ const {
   readConfig,
   runCheck,
   wirePage,
+  withExpectedDialogs,
 } = require('./lib/playwright-harness');
 
 const appointmentNo = process.env.APPOINTMENT_NO || '1';
@@ -294,7 +295,7 @@ async function submitWithoutBlur(context, recorder, spec, baseUrl) {
 
 async function searchHandoffs(context, recorder, spec, baseUrl) {
   for (const [typed, mode, expected] of [
-    ['1980', 'search_dob', '1980'], ['1980/01', 'search_dob', '1980-01'],
+    ['1980', 'search_dob', '1980'], [' 1980-01 ', 'search_dob', '1980-01'], ['1980/01', 'search_dob', '1980-01'],
     ['1980-%-01', 'search_dob', '1980-%-01'], ['19800101', 'search_dob', '1980-01-01'],
     ['%b6100541234567890', 'search_hin', '1234567890'],
   ]) {
@@ -313,6 +314,23 @@ async function searchHandoffs(context, recorder, spec, baseUrl) {
     assert(await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue() === expected,
       `${spec.label}: the picker received the wrong search keyword`);
     assert(!termLogged, `${spec.label}: a search term reached the browser console`);
+    await page.close();
+  }
+  for (const malformed of ['1980-13', '19801301', '1980--01', '%']) {
+    const { page, posts } = await openPage(context, recorder, spec, baseUrl);
+    let handoffs = 0;
+    page.on('request', request => {
+      if (new URL(request.url()).pathname.endsWith('/demographic/DemographicSearch')) handoffs += 1;
+    });
+    const beforeUrl = page.url();
+    await page.locator('#keyword').fill(malformed);
+    const dialogs = await withExpectedDialogs(page, () => page.locator('#searchBtn').click());
+    assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text.length > 10,
+      `${spec.label}: malformed DOB did not show one validation alert`);
+    assert(handoffs === 0 && posts.length === 0 && page.url() === beforeUrl,
+      `${spec.label}: malformed DOB submitted or navigated`);
+    assert(await page.locator('#keyword').inputValue() === malformed,
+      `${spec.label}: malformed DOB was silently changed`);
     await page.close();
   }
   console.log(`PASS ${spec.label}: partial/wildcard DOB and card swipes reach the picker without leaking terms`);

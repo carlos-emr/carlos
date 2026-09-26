@@ -51,23 +51,26 @@
      *
      * Digits auto-advance into the next segment once a segment is full, a typed
      * separator (- / . or space) closes a non-empty segment early (so 1975-3-5
-     * survives), % fills an empty segment, and everything else is dropped. A
+     * survives), and % fills an empty segment. Malformed input is preserved for
+     * validation instead of being silently changed into a different search. A
      * separator typed after a segment is kept, so the field never looks stuck.
      *
      * @param {string} raw the current field value
      * @returns {string} the formatted value
      */
     function format(raw) {
-        var cleaned = String(raw == null ? '' : raw)
-            .replace(/[/. ]/g, '-')
-            .replace(/[^0-9%-]/g, '');
+        raw = String(raw == null ? '' : raw);
+        var cleaned = raw.trim().replace(/[/. ]/g, '-');
+        if (/[^0-9%-]/.test(cleaned)) return raw;
         var segments = [];
         var current = '';
 
         for (var i = 0; i < cleaned.length; i++) {
             var ch = cleaned.charAt(i);
             if (ch === '-') {
-                if (current !== '' && segments.length < 2) {
+                if (current === '') return raw;
+                if (segments.length === 2) return i === cleaned.length - 1 ? cleaned : raw;
+                if (segments.length < 2) {
                     segments.push(current);
                     current = '';
                 }
@@ -75,9 +78,8 @@
             }
             if (ch === WILDCARD) {
                 // Only a whole segment may be a wildcard; "19%" is not supported.
-                if (current === '') {
-                    current = WILDCARD;
-                }
+                if (current !== '') return raw;
+                current = WILDCARD;
                 continue;
             }
             var full = current === WILDCARD || current.length >= SEGMENT_MAX[segments.length];
@@ -85,6 +87,8 @@
                 if (segments.length < 2) {
                     segments.push(current);
                     current = ch;
+                } else {
+                    return raw;
                 }
                 continue;
             }

@@ -52,6 +52,9 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 public interface DemographicDao {
 
+    /** Maximum number of patient search results returned in one request. */
+    int MAX_SEARCH_RESULT_SIZE = 500;
+
     public List<Integer> getMergedDemographics(Integer demographicNo);
 
     public Demographic getDemographic(String demographic_no);

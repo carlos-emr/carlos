@@ -55,7 +55,7 @@ async function workflow(session) {
     const url = h.appUrl(config.baseUrl,
       `/ws/rs/demographics/search?startIndex=${startIndex}&itemsToReturn=10`);
     const response = await context.request.post(url, {
-      data: { type: 'DOB', term, active },
+      data: { type: 'DOB', term, active, outofdomain: true },
       headers: { Accept: 'application/json', Origin: config.baseUrl.origin },
       timeout: 30000,
     });
@@ -65,6 +65,34 @@ async function workflow(session) {
     h.assert(Array.isArray(data.content), 'REST DOB search did not return a result list');
     return data;
   }
+
+  async function rawSearch(payload, query = '') {
+    return context.request.post(h.appUrl(config.baseUrl, `/ws/rs/demographics/search${query}`), {
+      data: JSON.stringify(payload), headers: {
+        Accept: 'application/json', 'Content-Type': 'application/json', Origin: config.baseUrl.origin,
+      }, timeout: 30000,
+    });
+  }
+  await session.step('REST rejects invalid request options before searching and defaults missing pagination', async () => {
+    for (const payload of [null, { type: 'Unknown', term: year }, { type: {}, term: year },
+      { type: 'DOB', term: {} }, { type: 'DOB', term: year, active: 'maybe' },
+      { type: 'DOB', term: year, params: [] },
+      { type: 'DOB', term: year, params: { 'sorting[Unknown]': 'asc' } },
+      { type: 'DOB', term: year, params: { 'sorting[DOB]': 'sideways' } }]) {
+      const response = await rawSearch(payload);
+      h.assert(response.status() === 400, `Invalid REST options answered HTTP ${response.status()}`);
+    }
+    for (const query of ['?startIndex=-1', '?startIndex=abc', '?startIndex=2147483649',
+      '?itemsToReturn=-1', '?itemsToReturn=501', '?itemsToReturn=abc']) {
+      const response = await rawSearch({ type: 'DOB', term: year }, query);
+      h.assert(response.status() === 400, `Invalid REST pagination answered HTTP ${response.status()}`);
+    }
+    const response = await rawSearch({ type: 'DOB', term: year, active: true, params: { 'sorting[DOB]': 'desc' } });
+    h.assert(response.status() === 200, 'REST pagination defaults failed');
+    const data = await response.json();
+    h.assert(data.total === 1 && data.content.length === 1 && String(data.content[0].demographicNo) === patient,
+      'REST pagination defaults or sorting returned the wrong result');
+  });
 
   await session.step('partial, wildcard and padded DOB searches return the owned patient and matching count', async () => {
     for (const term of [year, `${year}-03`, `${year}-03-05`, `${year}-3-5`, `${year}-%-05`, `${year}-`]) {

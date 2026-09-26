@@ -352,4 +352,61 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/content")).hasSize(0);
         }
     }
+    @Nested
+    @DisplayName("POST /demographics/search validation")
+    class SearchValidation {
+        @Test
+        void shouldRejectMalformedOptions_beforeSearching() {
+            for (String body : List.of(
+                    "null", "{\"type\":\"Unknown\",\"term\":\"1980\"}",
+                    "{\"type\":{},\"term\":\"1980\"}", "{\"type\":\"DOB\",\"term\":{}}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"active\":\"maybe\"}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"params\":[]}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"params\":{\"sorting[Unknown]\":\"asc\"}}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"params\":{\"sorting[DOB]\":\"sideways\"}}")) {
+                try (Response response = request().path("/demographics/search").post(body)) {
+                    assertThat(response.getStatus()).as("malformed request options").isEqualTo(400);
+                }
+            }
+            org.mockito.Mockito.verifyNoInteractions(mockDemographicManager);
+        }
+
+        @Test
+        void shouldRejectInvalidPagination_beforeSearching() {
+            for (String[] query : List.of(new String[]{"startIndex", "-1"}, new String[]{"startIndex", "abc"},
+                    new String[]{"startIndex", "2147483648"}, new String[]{"itemsToReturn", "-1"},
+                    new String[]{"itemsToReturn", "501"}, new String[]{"itemsToReturn", "abc"})) {
+                try (Response response = request().path("/demographics/search").query(query[0], query[1])
+                        .post("{\"type\":\"DOB\",\"term\":\"1980\"}")) {
+                    assertThat(response.getStatus()).as("invalid pagination").isEqualTo(400);
+                }
+            }
+            org.mockito.Mockito.verifyNoInteractions(mockDemographicManager);
+        }
+
+        @Test
+        void shouldPreserveScalarCompatibility_whenKeywordIsNumericAndBooleanIsText() {
+            try (Response response = request().path("/demographics/search")
+                    .post("{\"type\":\"DOB\",\"term\":1980,\"active\":\"TRUE\",\"params\":{\"sorting[DOB]\":\"desc\"}}")) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            org.mockito.Mockito.verify(mockDemographicManager).searchPatientsCount(any(),
+                    org.mockito.ArgumentMatchers.argThat(req -> "1980".equals(req.getKeyword()) && req.isActive()
+                            && req.getSortDir() == io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest.SORTDIR.desc));
+        }
+
+        @Test
+        void shouldDefaultPaginationAndNameMode_whenOptionsAreAbsent() {
+            when(mockDemographicManager.searchPatientsCount(any(), any())).thenReturn(1);
+            when(mockDemographicManager.searchPatients(any(), any(), eq(0), eq(10))).thenReturn(List.of());
+            try (Response response = request().path("/demographics/search").post("{\"term\":\"Synthetic\"}")) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(responseJson(response).at("/total").intValue()).isEqualTo(1);
+            }
+            org.mockito.Mockito.verify(mockDemographicManager).searchPatients(any(),
+                    org.mockito.ArgumentMatchers.argThat(req -> req.getMode() == io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest.SEARCHMODE.Name),
+                    eq(0), eq(10));
+        }
+    }
+
 }

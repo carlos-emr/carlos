@@ -445,6 +445,14 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
     await expectValidationWithoutNavigation(page,
       'form[name="titlesearch"] input[type="submit"]', 'dob-malformed');
     expectValue('dob-malformed-not-submitted', page.url(), beforeUrl);
+    for (const malformed of ['1980a01b01', '1980010199', '1980--01--01', '19%80']) {
+      await fillDob(page, malformed);
+      expectValue('dob-malformed-preserved', await page.locator('#keyword').inputValue(), malformed);
+      await expectValidationWithoutNavigation(page,
+        'form[name="titlesearch"] input[type="submit"]', 'dob-malformed-paste');
+      expectValue('dob-malformed-paste-not-submitted', page.url(), beforeUrl);
+    }
+
 
     // Appointment/contact pickers have their own search form and POST routing.
     // Exercise the actual dropdown and submission, including its localized alert.
