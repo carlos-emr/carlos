@@ -163,7 +163,8 @@ a session by its shortened reference only.
   Under the default policy, `scripts/login-playwright-checks.js` also checks that a second browser
   signs in with no chooser, and that the chooser route rejects GET, HEAD and CSRF-less POSTs. The
   shared harness `login()` keeps other sessions when the chooser appears, so the rest of the suite
-  also runs under `prompt`.
+  also runs under `prompt`. It never signs other sessions out: at the session limit it fails with a
+  diagnosis instead, so run the rest of the suite with no limit set.
 
 ## Differences from the parallel fork
 

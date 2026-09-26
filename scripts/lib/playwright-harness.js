@@ -914,15 +914,18 @@ async function login(context, config, recorder, options = {}) {
     // /mfa/loginMfa or /forcepasswordresetSubmit -- and the MFA test below would
     // otherwise mistake it for another OTP prompt.
     if (await page.locator('#sessionChoiceForm').count() > 0) {
-      // Keep the other sessions when the policy allows it: a suite check must not
-      // sign out a session some other check (or a person) is using. When the
-      // session limit is reached "keep" is not offered and signing out is the
-      // only way on.
+      // Always keep the other sessions: a suite check must not sign out a session
+      // some other check (or a person) is using, and lose its unsaved work. When
+      // the session limit is reached "keep" is not offered; fail with a diagnosis
+      // rather than revoke. Deliberate revocation is exercised only by the
+      // isolated concurrent-session-policy check.
       const keep = page.locator('#keepOtherSessions');
-      const choice = await keep.count() > 0 ? keep : page.locator('#signOutOtherSessions');
+      assert(await keep.count() > 0,
+        `${config.testUser} is at the configured login.concurrent_sessions.max limit; the shared login() `
+        + 'never signs other sessions out. Raise the limit or sign the other sessions out first.');
       await settleOperations([
         page.waitForURL(/providercontrol|appointment|select_facility/i, { timeout: 30000 }),
-        choice.click(),
+        keep.click(),
       ]);
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       continue;

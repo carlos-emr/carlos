@@ -529,6 +529,9 @@ test('login works through the authentication stages in whatever order they arriv
   assert.ok(chooser > body.indexOf('for (let stage') && chooser < body.indexOf('loginMfa/i.test(url)'),
     'the session chooser stage must be inside the loop and ahead of the MFA stage');
   assert.match(body, /#keepOtherSessions/, 'the harness keeps other sessions when the policy allows it');
+  // A shared sign-in must never revoke another browser's session; only the
+  // isolated policy check signs sessions out.
+  assert.doesNotMatch(body, /#signOutOtherSessions/, 'the shared login() must never sign other sessions out');
 
   // And the loop is bounded, with a diagnosis rather than a silent success when
   // a stage keeps re-serving itself.

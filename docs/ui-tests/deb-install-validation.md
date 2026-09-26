@@ -1020,20 +1020,22 @@ Notes on the contract:
   matching environment:
 
   ```bash
+  policy_failed=0
   for p in prompt single; do
     sed -i "s/^login.concurrent_sessions.policy=.*/login.concurrent_sessions.policy=$p/" /etc/carlos-emr/carlos.properties
     carlos-ctl restart
-    CONCURRENT_SESSION_POLICY=$p node scripts/concurrent-session-policy-playwright-checks.js
+    CONCURRENT_SESSION_POLICY=$p node scripts/concurrent-session-policy-playwright-checks.js || policy_failed=1
   done
   sed -i 's/^login.concurrent_sessions.policy=.*/login.concurrent_sessions.policy=prompt/;
           s/^login.concurrent_sessions.max=.*/login.concurrent_sessions.max=2/' /etc/carlos-emr/carlos.properties
   carlos-ctl restart
   CONCURRENT_SESSION_POLICY=prompt CONCURRENT_SESSION_MAX=2 \
-    node scripts/concurrent-session-policy-playwright-checks.js
-  # restore the shipped defaults
+    node scripts/concurrent-session-policy-playwright-checks.js || policy_failed=1
+  # restore the shipped defaults even when a pass failed, then report the result
   sed -i 's/^login.concurrent_sessions.policy=.*/login.concurrent_sessions.policy=allow/;
           s/^login.concurrent_sessions.max=.*/login.concurrent_sessions.max=0/' /etc/carlos-emr/carlos.properties
   carlos-ctl restart
+  [ "$policy_failed" -eq 0 ] || { echo "concurrent-session policy check FAILED" >&2; false; }
   ```
 
   Under `prompt` and `single` it signs the test user's other sessions out, so

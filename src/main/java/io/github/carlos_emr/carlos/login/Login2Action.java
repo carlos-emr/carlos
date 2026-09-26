@@ -2548,6 +2548,12 @@ public final class Login2Action extends ActionSupport {
         this.mfaRegistrationFlow = mfaRegistrationFlow;
     }
 
+    /**
+     * Returns the concurrent-session chooser answer submitted to {@code /login/sessionChoice}.
+     *
+     * @return {@link #SESSION_CHOICE_KEEP}, {@link #SESSION_CHOICE_SIGN_OUT}, or an unvalidated
+     *         request value, which {@link #submitSessionChoice()} rejects
+     */
     public String getSessionChoice() {
         return sessionChoice;
     }
