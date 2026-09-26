@@ -141,6 +141,13 @@
             }
 
             function checkValidOptions() {
+                // A single-patient export (opened from the master record) carries demographicNo
+                // and renders no set/provider selectors. Dereferencing them threw, the submit
+                // handler aborted, and the browser fell back to a plain form POST that bypassed
+                // the X-Export-Status handling below.
+                if (document.getElementById("demographicNo")) {
+                    return true;
+                }
                 var pt = document.getElementById("patientSet").value;
                 var pn = document.getElementById("providerNo").value;
 
