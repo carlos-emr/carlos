@@ -12,7 +12,9 @@
  *   - the simulation form submits without a page error;
  *   - the markup renders as literal text in the report row (no element, no script ran);
  *   - the simulation stayed a dry run (claim statuses and teleplan log untouched);
- *   - every owned row is removed afterwards.
+ *   - every owned row is removed afterwards. The provider is first deactivated through
+ *     Admin > Update Provider so the cached active-provider list is evicted again; a SQL
+ *     delete alone would leave a ghost provider cached for later checks.
  *
  * BC-only: skipped when the BC billingmaster table is absent. Uses the common harness
  * environment contract (BASE_URL, TEST_USER/TEST_PASSWORD/TEST_PIN, MYSQL_*); no extra env.
@@ -32,6 +34,19 @@ function unusedValue(sql, table, column, prefix) {
     if (sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=${h.sqlString(value)}`) === '0') return value;
   }
   throw new Error(`Could not find an unused ${table}.${column}`);
+}
+
+async function deactivateProvider(page, s, providerNo) {
+  if (!providerNo) return;
+  await h.gotoApp(page, s.config.baseUrl, `/admin/ViewProviderUpdateProvider?keyword=${encodeURIComponent(providerNo)}`);
+  const form = page.locator('form[name="updatearecord"]');
+  await form.locator('#statusInactive').check();
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    form.locator('input[type="submit"][name="subbutton"]').click(),
+  ]);
+  h.assert(s.sql.value(`SELECT status FROM provider WHERE provider_no=${h.sqlString(providerNo)}`) === '0',
+    'Provider update did not deactivate the fixture provider');
 }
 
 async function workflow(s) {
@@ -99,46 +114,59 @@ async function workflow(s) {
       DATE_FORMAT(CURDATE(),'%Y%m%d'),'250',6); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(billingmasterNo), 'BC billingmaster fixture was not created');
 
-  await s.step('simulation form renders for the billing admin', async () => {
-    await h.gotoApp(page, s.config.baseUrl, '/billing/CA/BC/ViewBillingSim');
-    await h.assertNotErrorPage(page, 'BC billing simulation form');
-    h.assert(await page.locator('input[name="xml_appointment_date"]').count() === 1, 'Simulation form did not render');
-  });
+  try {
+    await s.step('simulation form renders for the billing admin', async () => {
+      await h.gotoApp(page, s.config.baseUrl, '/billing/CA/BC/ViewBillingSim');
+      await h.assertNotErrorPage(page, 'BC billing simulation form');
+      h.assert(await page.locator('input[name="xml_appointment_date"]').count() === 1, 'Simulation form did not render');
+    });
 
-  await s.step('patient-record markup renders as text in the simulation report', async () => {
-    const today = s.sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
-    // The date inputs are readonly calendar targets; set them the way the popup would.
-    await page.evaluate(({ from, to }) => {
-      document.querySelector('input[name="xml_vdate"]').value = from;
-      document.querySelector('input[name="xml_appointment_date"]').value = to;
-    }, { from: today, to: today });
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }),
-      page.locator('input[type="submit"][value="Create Report"]').click(),
-    ]);
-    await h.assertNotErrorPage(page, 'BC billing simulation report');
+    await s.step('patient-record markup renders as text in the simulation report', async () => {
+      const today = s.sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
+      // The date inputs are readonly calendar targets; set them the way the popup would.
+      await page.evaluate(({ from, to }) => {
+        document.querySelector('input[name="xml_vdate"]').value = from;
+        document.querySelector('input[name="xml_appointment_date"]').value = to;
+      }, { from: today, to: today });
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }),
+        page.locator('input[type="submit"][value="Create Report"]').click(),
+      ]);
+      await h.assertNotErrorPage(page, 'BC billing simulation report');
 
-    const invoiceLink = page.locator('a', { hasText: new RegExp(`^\\s*${billingNo}\\s*$`) });
-    h.assert(await invoiceLink.count() >= 1, 'The owned claim row was not in the simulation report');
-    const row = invoiceLink.first().locator('xpath=ancestor::tr[1]');
-    const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
-    h.assert(cells.includes(NAME_PAYLOAD), `Patient name was not rendered as literal text: ${JSON.stringify(cells[1])}`);
-    h.assert(cells.includes(PHN_PAYLOAD), 'PHN was not rendered as literal text');
-    h.assert(cells.includes(CODE_PAYLOAD), 'Fee code was not rendered as literal text');
-    h.assert(await row.locator('img, b, u, script').count() === 0, 'Claim markup was parsed into report elements');
-    h.assert(await page.locator('img[src="x"]').count() === 0, 'Injected image element exists on the report page');
-    h.assert(await page.evaluate(() => window.__carlos3950) === undefined, 'Injected onerror handler executed');
-    const onClick = await invoiceLink.first().getAttribute('onclick');
-    h.assert(/adjustBill\.jsp\?billingmaster_no=\d{7}'/.test(onClick || ''),
-      `Adjustment link lost its shape: ${onClick}`);
-  });
+      // The invoice cell is exactly the billing number, so an exact accessible-name match finds the row.
+      const invoiceLink = page.getByRole('link', { name: billingNo, exact: true });
+      h.assert(await invoiceLink.count() >= 1, 'The owned claim row was not in the simulation report');
+      const row = invoiceLink.first().locator('xpath=ancestor::tr[1]');
+      const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
+      h.assert(cells.includes(NAME_PAYLOAD), `Patient name was not rendered as literal text: ${JSON.stringify(cells[1])}`);
+      h.assert(cells.includes(PHN_PAYLOAD), 'PHN was not rendered as literal text');
+      h.assert(cells.includes(CODE_PAYLOAD), 'Fee code was not rendered as literal text');
+      h.assert(await row.locator('img, b, u, script').count() === 0, 'Claim markup was parsed into report elements');
+      h.assert(await page.locator('img[src="x"]').count() === 0, 'Injected image element exists on the report page');
+      h.assert(await page.evaluate(() => window.__carlos3950) === undefined, 'Injected onerror handler executed');
+      const onClick = await invoiceLink.first().getAttribute('onclick');
+      h.assert(/adjustBill\.jsp\?billingmaster_no=\d{7}'/.test(onClick || ''),
+        `Adjustment link lost its shape: ${onClick}`);
+    });
 
-  await s.step('simulation stayed a dry run', async () => {
-    h.assert(s.sql.value(`SELECT status FROM billing WHERE billing_no=${billingNo}`) === 'O', 'Simulation marked the claim billed');
-    h.assert(s.sql.value(`SELECT billingstatus FROM billingmaster WHERE billingmaster_no=${billingmasterNo}`) === 'O',
-      'Simulation marked the billingmaster row billed');
-    h.assert(s.sql.value('SELECT COUNT(*) FROM log_teleplantx') === teleplanLogCount, 'Simulation wrote teleplan log rows');
-  });
+    await s.step('simulation stayed a dry run', async () => {
+      h.assert(s.sql.value(`SELECT status FROM billing WHERE billing_no=${billingNo}`) === 'O', 'Simulation marked the claim billed');
+      h.assert(s.sql.value(`SELECT billingstatus FROM billingmaster WHERE billingmaster_no=${billingmasterNo}`) === 'O',
+        'Simulation marked the billingmaster row billed');
+      h.assert(s.sql.value('SELECT COUNT(*) FROM log_teleplantx') === teleplanLogCount, 'Simulation wrote teleplan log rows');
+    });
+  } finally {
+    // Deactivate through the app so ProviderDao.updateProvider() evicts the 5-minute
+    // ACTIVE_PROVIDERS cache. The SQL cleanup alone would leave the deleted provider in the
+    // cached active list for later checks against the same Tomcat. Best effort: never mask
+    // the step failure that brought us here.
+    try {
+      await deactivateProvider(page, s, providerNo);
+    } catch (error) {
+      console.error(`  WARN billing-bc-simulation-encoding: provider cache eviction failed: ${error.message}`);
+    }
+  }
   await page.close();
 }
 
