@@ -116,7 +116,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
                 String safeProviderNo = LogSafe.sanitize(providerNo);
                 String safeNextResult = LogSafe.sanitize(nextResult);
                 String safeRemoteAddr = LogSafe.sanitize(request.getRemoteAddr());
-                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
+                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         safeProviderNo, safeNextResult, safeRemoteAddr);
             }
             return redirectToFacilitySelection(request, response);
