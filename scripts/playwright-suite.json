@@ -1389,6 +1389,19 @@
       ]
     },
     {
+      "name": "messenger-group-admin",
+      "script": "scripts/messenger-group-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "multiple-session",
       "script": "scripts/multiple-session-playwright-checks.js",
       "tiers": [

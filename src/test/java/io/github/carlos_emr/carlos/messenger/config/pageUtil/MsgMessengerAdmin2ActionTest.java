@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.messenger.config.pageUtil;
 
-import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -37,6 +36,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -52,7 +52,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 /**
  * Unit tests for {@link MsgMessengerAdmin2Action} privilege + method gating.
@@ -76,8 +78,6 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
     private MessengerGroupManager mockGroupManager;
     @Mock
     private GroupsDao mockGroupsDao;
-    @Mock
-    private GroupMembersDao mockGroupMembersDao;
 
     private MsgMessengerAdmin2Action action;
 
@@ -87,7 +87,6 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(MessengerGroupManager.class, mockGroupManager);
         replaceSpringUtilsBean(GroupsDao.class, mockGroupsDao);
-        replaceSpringUtilsBean(GroupMembersDao.class, mockGroupMembersDao);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
@@ -97,7 +96,6 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         inject("securityInfoManager", mockSecurityInfoManager);
         inject("messengerGroupManager", mockGroupManager);
         inject("groupsDao", mockGroupsDao);
-        inject("groupMembersDao", mockGroupMembersDao);
     }
 
     private void inject(String field, Object value) throws Exception {
@@ -166,12 +164,114 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         allowPrivilege("_admin", "w");
         getMockRequest().setMethod("POST");
         addRequestParameter("method", "add");
-        addRequestParameter("member", "1:" + TEST_PROVIDER);
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
+        addRequestParameter("group", "7");
+
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenReturn(new MessengerGroupManager.AddMemberResult(1, true));
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockGroupManager).addMemberIfAbsent(any(), any(), eq(7));
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(getMockResponse().getContentType()).startsWith("application/json");
+        assertThat(getMockResponse().getContentAsString()).isEqualTo("{\"success\":true}");
+    }
+
+    @Test
+    @DisplayName("should answer 409 and write nothing when the contact is already in the group")
+    void shouldReturnConflict_whenMemberAlreadyInGroup() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
+        addRequestParameter("group", "7");
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenReturn(new MessengerGroupManager.AddMemberResult(1, false));
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+        assertThat(getMockResponse().getContentAsString()).contains("\"reason\":\"duplicate\"");
+        verify(mockGroupManager).addMemberIfAbsent(any(), any(), eq(7));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "-3", "7.5"})
+    @DisplayName("should answer 400 and write nothing when the group id is not a non-negative integer")
+    void shouldReturnBadRequest_whenGroupIdInvalid(String groupId) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
+        addRequestParameter("group", groupId);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(mockGroupManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc-def", "-9-0-145", " ", "123-", "123--1", "123-0-1-2-3",
+            "123-2147483648", "123-0-2147483648", "123-0-1-2147483648", "1234567", "123-0-x"})
+    void shouldRejectMalformedMember_withoutManagerCalls(String member) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", member);
+        addRequestParameter("group", "7");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        assertThat(getMockResponse().getContentAsString()).contains("\"reason\":\"invalid\"");
+        verifyNoInteractions(mockGroupManager);
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenGroupWasDeleted() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
+        addRequestParameter("group", "7");
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenThrow(new MessengerGroupManager.UnknownGroupException());
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void shouldPreserveAllFourContactComponents_whenMemberHasFourComponents() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", "123-4-145-6");
+        addRequestParameter("group", "7");
+        when(mockGroupManager.addMemberIfAbsent(any(), any(), eq(7)))
+                .thenReturn(new MessengerGroupManager.AddMemberResult(1, true));
+        executeAction(action);
+        var contact = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.messenger.data.ContactIdentifier.class);
+        verify(mockGroupManager).addMemberIfAbsent(any(), contact.capture(), eq(7));
+        assertThat(contact.getValue().getContactId()).isEqualTo("123");
+        assertThat(contact.getValue().getFacilityId()).isEqualTo(4);
+        assertThat(contact.getValue().getClinicLocationNo()).isEqualTo(145);
+        assertThat(contact.getValue().getGroupId()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("should answer 400 and write nothing when no member is given")
+    void shouldReturnBadRequest_whenMemberMissing() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
         addRequestParameter("group", "7");
 
         executeAction(action);
 
-        verify(mockGroupManager).addMember(any(), any(), eq(7));
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(mockGroupManager);
     }
 
     @Test
@@ -197,9 +297,124 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         getMockRequest().setMethod("POST");
         addRequestParameter("method", "remove");
         addRequestParameter("group", "7");
+        when(mockGroupManager.removeGroup(any(), eq(7))).thenReturn(true);
 
         executeAction(action);
 
         verify(mockGroupManager).removeGroup(any(), eq(7));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"remove, abc", "remove, -1", "remove, 2147483648",
+            "create, abc", "create, -1", "create, 2147483648",
+            "delete, abc", "delete, -1", "delete, 2147483648",
+            "update, abc", "update, -1", "update, 2147483648"})
+    void shouldRejectMalformedGroupId_withoutMutating(String method, String group) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", method);
+        addRequestParameter("group", group);
+        addRequestParameter("parentId", group);
+        addRequestParameter("groupName", "Valid");
+        action.setGrpNo(group);
+        action.setUpdate(java.util.ResourceBundle.getBundle("oscarResources", getMockRequest().getLocale())
+                .getString("messenger.config.MessengerAdmin.btnUpdateGroupMembers"));
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockGroupManager, mockGroupsDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"123-x", "123-2147483648", "123--1", "-9-0-1"})
+    void shouldRejectMalformedRemoval_withoutMutating(String member) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "remove");
+        addRequestParameter("member", member);
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockGroupManager);
+    }
+
+    @Test
+    void shouldRejectStaleLegacyUpdate_withoutWritingAddressBook() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "update");
+        action.setGrpNo("7");
+        action.setUpdate(java.util.ResourceBundle.getBundle("oscarResources", getMockRequest().getLocale())
+                .getString("messenger.config.MessengerAdmin.btnUpdateGroupMembers"));
+        doThrow(new MessengerGroupManager.UnknownGroupException()).when(mockGroupManager)
+                .replaceGroupMembers(any(), eq(7), any());
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void shouldRejectMissingLegacyOperation_insteadOfThrowing() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "update");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockGroupManager);
+    }
+
+    @Test
+    void shouldRejectAmbiguousLegacyOperation_withoutChoosingDeletion() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "update");
+        action.setGrpNo("7");
+        var bundle = java.util.ResourceBundle.getBundle("oscarResources", getMockRequest().getLocale());
+        action.setUpdate(bundle.getString("messenger.config.MessengerAdmin.btnUpdateGroupMembers"));
+        action.setDelete(bundle.getString("messenger.config.MessengerAdmin.btnDeleteThisGroup"));
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockGroupManager, mockGroupsDao);
+    }
+
+    @Test
+    void shouldReturnConflict_whenDeletingGroupWithChildren() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "remove");
+        addRequestParameter("group", "7");
+        when(mockGroupManager.removeGroup(any(), eq(7))).thenThrow(new MessengerGroupManager.GroupHasChildrenException());
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(409);
+        assertThat(getMockResponse().getContentAsString()).contains("\"reason\":\"children\"");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectLegacyCreation_withoutMutatingOnReadRequest(String method) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod(method);
+        var legacy = new MsgMessengerCreateGroup2Action();
+        legacy.setGroupName("Child");
+        legacy.setParentID("7");
+        legacy.setType2("1");
+        assertThat(legacy.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(405);
+        verifyNoInteractions(mockGroupManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1", "2"})
+    void shouldHandleMissingGroup_inLegacyCreationAndRename(String operation) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        var legacy = new MsgMessengerCreateGroup2Action();
+        legacy.setGroupName("Child");
+        legacy.setParentID("7");
+        legacy.setType2(operation);
+        if ("1".equals(operation)) {
+            when(mockGroupManager.addGroup(any(), any(), eq(7))).thenThrow(new MessengerGroupManager.UnknownGroupException());
+        } else {
+            doThrow(new MessengerGroupManager.UnknownGroupException()).when(mockGroupManager).renameGroup(any(), eq(7), any());
+        }
+        assertThat(legacy.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
     }
 }

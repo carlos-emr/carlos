@@ -19,6 +19,15 @@ The two checks added since, `echart-print-playwright-checks.js` and
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
 through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
 has not been re-run on a later snapshot.
+`messenger-group-admin-playwright-checks.js` (issue #3964) was added on
+2026-09-26 and run against a 2026.09.0~snapshot24 package built from the
+`release/2026.08` fix branch and installed into an Ubuntu 26.04 container
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`): **PASS**, alongside
+`messenger`, `messenger-inbox-actions`, `surface-audit:messenger-surface` and
+`admin-index-links` (`ADMIN_LINKS_ONLY=messenger`). The same check **FAILS**
+against the unfixed release head and against each half of the fix swapped back
+in isolation (old page: Add Contact enabled before a pick; old action: a
+duplicate add answered 200 instead of 409).
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
