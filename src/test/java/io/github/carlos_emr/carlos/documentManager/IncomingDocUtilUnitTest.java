@@ -66,20 +66,32 @@ class IncomingDocUtilUnitTest {
     Path incomingRoot;
 
     private String previousIncomingDocumentDir;
+    private String previousRecycleBin;
 
     @BeforeEach
     void setUp() {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        previousRecycleBin = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_RECYCLEBIN");
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
     }
 
     @AfterEach
     void tearDown() {
-        if (previousIncomingDocumentDir == null) {
-            CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+        restoreProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+        restoreProperty("INCOMINGDOCUMENT_RECYCLEBIN", previousRecycleBin);
+    }
+
+    private static void restoreProperty(String name, String previous) {
+        if (previous == null) {
+            CarlosProperties.getInstance().remove(name);
         } else {
-            CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+            CarlosProperties.getInstance().setProperty(name, previous);
         }
+    }
+
+    /** The recycle directory the delete operations would use; it must not appear when recycling is off. */
+    private Path recycleDirectory() {
+        return incomingRoot.resolve("1").resolve("Fax_deleted");
     }
 
     @Test
@@ -505,6 +517,48 @@ class IncomingDocUtilUnitTest {
         assertThat(staleRecycled).doesNotExist();
         assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(1);
         assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should delete a page without creating or needing the recycle directory when the recycle bin is off")
+    void shouldDeletePageWithoutRecycleDirectory_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        queuedPdf("fax.pdf", 3);
+        assertThat(recycleDirectory()).doesNotExist();
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        assertThat(recycleDirectory()).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should reject a page outside the document, leaving it untouched, when the recycle bin is off")
+    void shouldRejectPageOutsideDocument_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(recycleDirectory()).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should delete a queued document without creating the recycle directory when the recycle bin is off")
+    void shouldDeleteDocumentWithoutRecycleDirectory_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        File source = queuedPdf("fax.pdf", 1);
+
+        IncomingDocUtil.DeletePDF("1", "Fax", "fax.pdf");
+
+        assertThat(source).doesNotExist();
+        assertThat(recycleDirectory()).doesNotExist();
     }
 
     @Test

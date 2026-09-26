@@ -788,7 +788,14 @@ public final class IncomingDocUtil {
         long lastModified = f.lastModified();
         Set<PosixFilePermission> permissions = permissionsOf(f);
 
-        File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
+        // With the recycle bin off, nothing touches the recycle directory: it is neither created
+        // nor required, and no copy of the removed page is written anywhere. Requiring it anyway
+        // made a page delete fail on an install that had turned recycling off and had no writable
+        // Fax_deleted directory.
+        boolean recycle = recycleBinEnabled();
+        File deleteDir = recycle
+                ? PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory")
+                : null;
         File validatedDeleteFile = null;
         File scratch = null;
         File recycleScratch = null;
@@ -796,44 +803,57 @@ public final class IncomingDocUtil {
         boolean replaced = false;
         try {
             scratch = newScratchFile(new File(basePath), writable(permissions));
-            // The removed page is written to a scratch file in the recycle directory, filed under
-            // a name no other recycle entry holds, and only then is the queue document replaced.
-            // If filing fails the queue is untouched; if the replacement fails the entry this call
-            // filed is removed again. Either way no page is lost and no older entry overwritten.
-            recycleScratch = newScratchFile(deleteDir, writable(permissions));
+            if (recycle) {
+                // The removed page is written to a scratch file in the recycle directory, filed
+                // under a name no other recycle entry holds, and only then is the queue document
+                // replaced. If filing fails the queue is untouched; if the replacement fails the
+                // entry this call filed is removed again. Either way no page is lost and no older
+                // entry overwritten.
+                recycleScratch = newScratchFile(deleteDir, writable(permissions));
+            }
             // Only once setup has succeeded, so a failure above cannot leave the source read-only;
             // the finally below restores its permissions whenever the replacement did not happen.
             f.setReadOnly();
             try (PdfReader reader = new PdfReader(filePathName);
                  OutputStream copyFos = Files.newOutputStream(scratch.toPath())) {
-                String deleteFileName = addPdfNameSuffix(myPdfName,
-                        "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
-                validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
+                int pageToDelete = parsePageNumber(PageNumberToDelete, reader.getNumberOfPages());
+                if (recycle) {
+                    String deleteFileName = addPdfNameSuffix(myPdfName,
+                            "d" + pageToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
+                    validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
+                }
 
-                try (OutputStream deleteFos = Files.newOutputStream(recycleScratch.toPath())) {
+                OutputStream deleteFos = recycle ? Files.newOutputStream(recycleScratch.toPath()) : null;
+                try {
                     Document document = new Document(reader.getPageSizeWithRotation(1));
                     PdfCopy copy = new PdfCopy(document, copyFos);
-                    PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
+                    PdfCopy deleteCopy = recycle ? new PdfCopy(document, deleteFos) : null;
                     document.open();
 
                     try {
                         for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                            if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
+                            if (pageNumber != pageToDelete) {
                                 copy.addPage(copy.getImportedPage(reader, pageNumber));
-                            } else {
+                            } else if (deleteCopy != null) {
                                 deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
                             }
                         }
                     } finally {
                         // PdfCopy must be closed before Document.close() to flush buffered pages
                         copy.close();
-                        deleteCopy.close();
+                        if (deleteCopy != null) {
+                            deleteCopy.close();
+                        }
                         document.close();
+                    }
+                } finally {
+                    if (deleteFos != null) {
+                        deleteFos.close();
                     }
                 }
             }
 
-            if (recycleBinEnabled()) {
+            if (recycle) {
                 recycled = moveToUnusedName(recycleScratch, validatedDeleteFile, deleteDir);
             }
 
@@ -849,7 +869,7 @@ public final class IncomingDocUtil {
                 deleteQuietly(recycled);
                 restorePermissions(f, permissions);
             }
-            // Gone already when it was filed; otherwise (recycle bin off, or a failure) discard it.
+            // Gone already when it was filed; otherwise (a failure before filing) discard it.
             deleteQuietly(recycleScratch);
         }
 
@@ -887,6 +907,24 @@ public final class IncomingDocUtil {
             }
         }
         throw new IOException("No unused recycle name for a deleted incoming-document page");
+    }
+
+    /**
+     * The 1-based page a request names, checked against the document. Delete-page used to rely on
+     * the recycle copy being empty to reject a page outside the document; with the recycle bin
+     * off there is no such copy, so the range is checked outright.
+     */
+    private static int parsePageNumber(String pageNumber, int pageCount) {
+        int page;
+        try {
+            page = Integer.parseInt(pageNumber == null ? "" : pageNumber.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid page number", e);
+        }
+        if (page < 1 || page > pageCount) {
+            throw new IllegalArgumentException("Page " + page + " is outside a document of " + pageCount + " pages");
+        }
+        return page;
     }
 
     /** Whether a deleted page is kept in the recycle directory (INCOMINGDOCUMENT_RECYCLEBIN is active). */
@@ -1159,12 +1197,12 @@ public final class IncomingDocUtil {
         // Validate myPdfName to prevent path traversal
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
         
-        String deletedPath = getIncomingDocumentDeletedFilePath(queueId, myPdfDir);
-        File deleteDir = PathValidationUtils.validateConfiguredDirectory(deletedPath, "incoming deleted directory");
-        File deletef = PathValidationUtils.validateGeneratedChildPath(myPdfName, deleteDir);
-        String deletePathName = deletef.getPath();
-
-        if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
+        if (recycleBinEnabled()) {
+            // As in deletePage: the recycle directory is created and required only when it is used.
+            String deletedPath = getIncomingDocumentDeletedFilePath(queueId, myPdfDir);
+            File deleteDir = PathValidationUtils.validateConfiguredDirectory(deletedPath, "incoming deleted directory");
+            File deletef = PathValidationUtils.validateGeneratedChildPath(myPdfName, deleteDir);
+            String deletePathName = deletef.getPath();
             success = f.renameTo(deletef);
             if (!success) {
                 throw new Exception("Error in renaming file from:" + filePathName + " to " + deletePathName);
