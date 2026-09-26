@@ -298,6 +298,9 @@ public class MessengerGroupManager {
      * This list is used in the Messenger Configuration to present potential members that can be enrolled into
      * the Messenger system.
      *
+     * <p>Providers with a negative provider number are excluded: {@code -1} is the system
+     * account and other negative numbers mark deactivated providers.</p>
+     *
      * @param loggedInInfo
      * @return List<MsgProviderData>
      */
@@ -310,7 +313,7 @@ public class MessengerGroupManager {
         List<Provider> localProviders = providerManager.getProviders(loggedInInfo, Boolean.TRUE);
 
         for (Provider provider : localProviders) {
-            if (!provider.getProviderNo().equals("-1")
+            if (isContactableProviderNo(provider.getProviderNo())
                     && provider.getLastName() != null
                     && !provider.getLastName().isEmpty()) {
                 MsgProviderData messengerContact = new MsgProviderData(provider);
@@ -376,14 +379,30 @@ public class MessengerGroupManager {
      * Make a provider into a Messenger member. Adding to a group is
      * optional
      *
+     * <p>Idempotent: when the contact is already a member of {@code groupId} no row is
+     * written and the existing membership id is returned. Callers that need to tell the
+     * user "already a member" should ask {@link #isGroupMember} first.</p>
+     *
      * @param loggedInInfo
      * @param contactIdentifier
      * @param groupId
-     * @return group member ID
+     * @return group member ID (the existing one when the contact was already a member)
      */
     public int addMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        /*
+         * groupMembers_tbl has no unique key on (facilityId, member_id, groupID), so this
+         * check is the only thing preventing a second row for the same contact. A duplicate
+         * row makes group messages fan out twice to the same recipient. Re-adding an
+         * existing member is therefore a no-op that answers the existing row's id.
+         */
+        GroupMembers existing = findMembership(contactIdentifier, groupId);
+        if (existing != null) {
+            logger.debug("Messenger member already present in group {}; skipping insert", groupId);
+            return existing.getId();
         }
 
         GroupMembers groupMembers = new GroupMembers();
@@ -398,7 +417,7 @@ public class MessengerGroupManager {
          * Indicated by a groupId greater than 0.
          * But first check if the general membership exists before adding.
          */
-        if (groupId > 0 && !isRegistered(contactIdentifier)) {
+        if (groupId > 0 && findMembership(contactIdentifier, 0) == null) {
             GroupMembers registeredMember = new GroupMembers();
             BeanUtils.copyProperties(groupMembers, registeredMember);
             registeredMember.setGroupId(0);
@@ -452,7 +471,7 @@ public class MessengerGroupManager {
         List<OscarCommLocations> oscarCommLocations = oscarCommLocationsDao.findByCurrent1(1);
         Integer oscarCommLocationsID = null;
 
-        if (oscarCommLocations != null) {
+        if (oscarCommLocations != null && !oscarCommLocations.isEmpty()) {
             oscarCommLocationsID = oscarCommLocations.get(0).getId();
         }
 
@@ -470,15 +489,45 @@ public class MessengerGroupManager {
         }
     }
 
-    private boolean isRegistered(ContactIdentifier contactIdentifier) {
-        //override the group id with 0 to ensure registered status
-        int groupId = contactIdentifier.getGroupId();
-        contactIdentifier.setGroupId(0);
-        // pass to the database for validation
-        GroupMembers groupMember = groupMembersDao.findByIdentity(contactIdentifier);
-        // set the group id back to the original.
-        contactIdentifier.setGroupId(groupId);
-        return groupMember != null && groupMember.getId() != null;
+    /**
+     * Report whether a contact is already a member of a group. Group {@code 0} is the general
+     * Messenger membership registry, so {@code isGroupMember(info, contact, 0)} answers whether
+     * the contact is a Messenger member at all.
+     *
+     * @param loggedInInfo the current user; requires {@code _admin} read
+     * @param contactIdentifier the contact; only its contact id and facility id are compared
+     * @param groupId the group to look in
+     * @return {@code true} when a membership row already exists for that contact and group
+     * @throws SecurityException if the user lacks {@code _admin} read
+     */
+    public boolean isGroupMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+        return findMembership(contactIdentifier, groupId) != null;
+    }
+
+    /**
+     * Whether a provider number may be offered as a Messenger contact. {@code -1} is the
+     * system account, and administrators deactivate a provider by renumbering it to another
+     * negative value, so no negative number is a real, reachable contact.
+     */
+    static boolean isContactableProviderNo(String providerNo) {
+        return providerNo != null && !providerNo.isEmpty() && !providerNo.startsWith("-");
+    }
+
+    /**
+     * Find an existing membership row for the contact in the given group. The lookup uses a copy
+     * of the identifier so the caller's {@code groupId} is never mutated. When legacy duplicate
+     * rows already exist the first one is returned (the DAO caps the query at one row).
+     */
+    private GroupMembers findMembership(ContactIdentifier contactIdentifier, int groupId) {
+        ContactIdentifier lookup = new ContactIdentifier();
+        lookup.setContactId(contactIdentifier.getContactId());
+        lookup.setFacilityId(contactIdentifier.getFacilityId());
+        lookup.setGroupId(groupId);
+        GroupMembers groupMember = groupMembersDao.findByIdentity(lookup);
+        return groupMember != null && groupMember.getId() != null ? groupMember : null;
     }
 
     public boolean checkProviderStatus(String providerNo) {

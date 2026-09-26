@@ -50,8 +50,11 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -169,9 +172,62 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         addRequestParameter("member", "1:" + TEST_PROVIDER);
         addRequestParameter("group", "7");
 
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockGroupManager).addMember(any(), any(), eq(7));
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(getMockResponse().getContentType()).startsWith("application/json");
+        assertThat(getMockResponse().getContentAsString()).isEqualTo("{\"success\":true}");
+    }
+
+    @Test
+    @DisplayName("should answer 409 and write nothing when the contact is already in the group")
+    void shouldReturnConflict_whenMemberAlreadyInGroup() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
+        addRequestParameter("group", "7");
+        when(mockGroupManager.isGroupMember(any(), any(), eq(7))).thenReturn(true);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+        assertThat(getMockResponse().getContentAsString()).contains("\"reason\":\"duplicate\"");
+        verify(mockGroupManager, never()).addMember(any(), any(), anyInt());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "-3", "7.5"})
+    @DisplayName("should answer 400 and write nothing when the group id is not a non-negative integer")
+    void shouldReturnBadRequest_whenGroupIdInvalid(String groupId) throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("member", TEST_PROVIDER + "-0-1");
+        addRequestParameter("group", groupId);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(mockGroupManager);
+    }
+
+    @Test
+    @DisplayName("should answer 400 and write nothing when no member is given")
+    void shouldReturnBadRequest_whenMemberMissing() throws Exception {
+        allowPrivilege("_admin", "w");
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "add");
+        addRequestParameter("group", "7");
+
         executeAction(action);
 
-        verify(mockGroupManager).addMember(any(), any(), eq(7));
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(mockGroupManager);
     }
 
     @Test

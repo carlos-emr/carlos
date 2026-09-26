@@ -1,0 +1,295 @@
+#!/usr/bin/env node
+/*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
+ * Browser check for Messenger Group Admin membership rules (issue #3964).
+ *
+ * Two defects, both invisible until a message is sent:
+ *
+ *   1. A provider could be added to the same group twice. groupMembers_tbl has no
+ *      unique key and nothing checked, so the second click wrote a second row and
+ *      every later message to that group reached that provider twice.
+ *   2. Deactivated providers (renumbered to a negative provider number) were
+ *      still offered as messaging contacts; only the -1 system account was hidden.
+ *
+ * WHAT IT DRIVES, THE WAY AN ADMINISTRATOR DOES. Schedule > Administration >
+ * System Management > Messenger Group Admin, which the Administration shell
+ * AJAX-injects into #dynamic-content (the page's own scripts then run inside
+ * the shell, so a check that opened /messenger?method=fetch directly would test
+ * a shape no operator sees). Then:
+ *
+ *   a. Manage Contacts lists the active fixture provider and lists NO negative
+ *      provider number, including a freshly inserted deactivated one;
+ *   b. the "+" tab creates a throwaway group;
+ *   c. the group's "Last, First" typeahead offers the fixture provider once
+ *      (the group lists are not a source), the Add Contact button stays disabled
+ *      until a pick, and adding writes exactly one group row and one registry row;
+ *   d. picking the same provider again shows "already in this group", keeps
+ *      Add Contact disabled and sends nothing;
+ *   e. the server refuses a duplicate on its own: a direct POST for the same
+ *      member answers 409 for the group and for the registry (group 0), and the
+ *      row counts do not move.
+ *
+ * Fixtures (all removed in cleanup, including after a failure or a signal): two
+ * provider rows -- an active one and a deactivated negative-numbered one -- whose
+ * numbers are chosen unused at run time, the throwaway group, and every
+ * groupMembers_tbl row for the fixture provider or that group.
+ *
+ * Defaults are for the local devcontainer:
+ *   npm run test:messenger-group-admin-playwright
+ *
+ * Environment (common contract in lib/playwright-harness.js readConfig()):
+ *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (required: the check asserts rows)
+ *
+ * IMPLEMENTS: coverage plan section 3.4, `messenger-group-admin`
+ * (docs/ui-tests/playwright-coverage-plan-2026.08.md).
+ */
+
+const {
+  assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, gotoApp,
+  launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
+} = require('./lib/playwright-harness');
+const { clickInjectsPanel, clickOpensPopupOrNavigates, typeAutocomplete } = require('./lib/playwright-ui');
+
+const TIMEOUT = 30000;
+const stamp = String(Date.now()).slice(-6);
+const fixtureLastName = `PWMSGADM${stamp}`;
+const deactivatedLastName = `PWMSGNEG${stamp}`;
+const groupName = `PW group ${stamp}`;
+
+const state = {
+  sql: null,
+  activeProviderNo: null,
+  deactivatedProviderNo: null,
+  groupId: null,
+};
+
+function pickUnusedProviderNo(sql, prefix) {
+  // provider_no is varchar(6): prefix + digits, retried until the number is free.
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const digits = String(Math.floor(Math.random() * 10 ** (6 - prefix.length))).padStart(6 - prefix.length, '0');
+    const candidate = `${prefix}${digits}`;
+    if (sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${sqlString(candidate)}`) === '0') {
+      return candidate;
+    }
+  }
+  throw new Error(`could not find an unused provider number with prefix ${prefix}`);
+}
+
+function insertProvider(sql, providerNo, lastName) {
+  sql.execute('INSERT INTO provider (provider_no, last_name, first_name, provider_type, specialty, sex, status, lastUpdateDate)'
+    + ` VALUES (${sqlString(providerNo)}, ${sqlString(lastName)}, 'Fixture', 'doctor', '', 'U', '1', NOW())`);
+}
+
+function memberRows(groupId) {
+  return Number(state.sql.value('SELECT COUNT(*) FROM groupMembers_tbl'
+    + ` WHERE provider_No=${sqlString(state.activeProviderNo)} AND facilityId=0 AND groupID=${Number(groupId)}`));
+}
+
+function cleanup() {
+  const { sql } = state;
+  if (!sql) {
+    return;
+  }
+  try {
+    if (state.activeProviderNo) {
+      sql.execute(`DELETE FROM groupMembers_tbl WHERE provider_No=${sqlString(state.activeProviderNo)}`);
+    }
+    if (state.groupId === null) {
+      // The group may exist even if the step that records its id failed.
+      const id = sql.value(`SELECT groupID FROM groups_tbl WHERE groupDesc=${sqlString(groupName)} LIMIT 1`);
+      state.groupId = id ? Number(id) : null;
+    }
+    if (state.groupId !== null) {
+      sql.execute(`DELETE FROM groupMembers_tbl WHERE groupID=${Number(state.groupId)}`);
+      sql.execute(`DELETE FROM groups_tbl WHERE groupID=${Number(state.groupId)}`);
+    }
+    for (const providerNo of [state.activeProviderNo, state.deactivatedProviderNo]) {
+      if (providerNo) {
+        sql.execute(`DELETE FROM provider WHERE provider_no=${sqlString(providerNo)}`);
+      }
+    }
+  } finally {
+    sql.dispose();
+    state.sql = null;
+  }
+}
+
+/** Expand the accordion section that holds a left-nav link, then return the link. */
+async function revealAdminLink(adminPage, selector) {
+  const link = adminPage.locator(selector).first();
+  assert(await link.count() > 0, `the Administration panel has no ${selector} link for this user`);
+  const sectionId = await link.evaluate((node) => {
+    const section = node.closest('.accordion-collapse');
+    return section ? section.id : null;
+  });
+  if (sectionId && !(await link.isVisible())) {
+    await adminPage.locator(`[data-bs-target="#${sectionId}"]`).first().click();
+    await link.waitFor({ state: 'visible', timeout: TIMEOUT });
+  }
+  return link;
+}
+
+/**
+ * POST an add from inside the page, the way the page's own addMember() does, so
+ * CSRFGuard's XHR hijack supplies the token. Answers the HTTP status and body.
+ */
+async function postAdd(page, memberId, groupId) {
+  return page.evaluate(({ member, group }) => new Promise((resolve) => {
+    // eslint-disable-next-line no-undef
+    $.post(`${window.ctx}/messenger?method=add&member=${encodeURIComponent(member)}&group=${encodeURIComponent(group)}`)
+      .always((dataOrXhr, _status, xhrOrError) => {
+        const xhr = dataOrXhr && dataOrXhr.status !== undefined ? dataOrXhr : xhrOrError;
+        resolve({ status: xhr.status, body: xhr.responseText });
+      });
+  }), { member: memberId, group: String(groupId) });
+}
+
+async function main() {
+  const config = readConfig();
+  state.sql = createSqlRunner(config.mysql);
+  const { sql } = state;
+
+  state.activeProviderNo = pickUnusedProviderNo(sql, '9');
+  state.deactivatedProviderNo = pickUnusedProviderNo(sql, '-9');
+  insertProvider(sql, state.activeProviderNo, fixtureLastName);
+  insertProvider(sql, state.deactivatedProviderNo, deactivatedLastName);
+
+  const recorder = createRecorder();
+  const browser = await launchBrowser(config);
+  try {
+    const context = await newContext(browser, config);
+    const schedulePage = await login(context, config, recorder);
+
+    // Schedule > Administration.
+    const opener = schedulePage.locator('#admin-panel, #admin2').first();
+    assert(await opener.count() > 0, 'the schedule offers no Administration control (#admin-panel / #admin2)');
+    const { page: adminPage } = await clickOpensPopupOrNavigates(schedulePage, opener, {
+      context, label: 'administration', recorder, timeout: TIMEOUT,
+    });
+    wireStrictPage(adminPage, 'administration', recorder);
+
+    // System Management > Messenger Group Admin, injected into the shell.
+    const adminLink = await revealAdminLink(adminPage, 'a.contentLink[href$="/messenger?method=fetch"]');
+    await clickInjectsPanel(adminPage, adminLink, { marker: '#local-contacts', timeout: TIMEOUT });
+    await assertNotErrorPage(adminPage, 'messenger group admin');
+
+    // a. Contact list: active fixture present once; no negative provider number at all.
+    const contactBoxes = adminPage.locator('#local-contacts input[type="checkbox"]');
+    const contactValues = await contactBoxes.evaluateAll((nodes) => nodes.map((node) => node.value));
+    assert(contactValues.filter((value) => value.startsWith(`${state.activeProviderNo}-`)).length === 1,
+      `Manage Contacts did not list the active fixture provider exactly once (${contactValues.length} contacts listed)`);
+    const negatives = contactValues.filter((value) => value.startsWith('-'));
+    assert(negatives.length === 0,
+      `Manage Contacts listed ${negatives.length} negative (system or deactivated) provider number(s): ${negatives.join(', ')}`);
+    assert(!(await adminPage.locator('#local-contacts').innerText()).includes(deactivatedLastName),
+      'Manage Contacts listed the deactivated fixture provider by name');
+    const memberId = contactValues.find((value) => value.startsWith(`${state.activeProviderNo}-`));
+
+    // b. Create a throwaway group through the "+" tab.
+    await adminPage.locator('a.nav-link[href="#manageGroups"]').click();
+    await adminPage.locator('a.nav-link[href="#new-group"]').click();
+    await adminPage.locator('#new-group-name').fill(groupName);
+    await Promise.all([
+      adminPage.waitForResponse((response) => response.request().method() === 'GET'
+        && /\/messenger\?method=fetch/.test(response.url()), { timeout: TIMEOUT }),
+      adminPage.locator('#add-group-btn').click(),
+    ]);
+    const groupIdText = sql.value(`SELECT groupID FROM groups_tbl WHERE groupDesc=${sqlString(groupName)} LIMIT 1`);
+    assert(/^\d+$/.test(groupIdText), 'creating a group from the "+" tab wrote no groups_tbl row');
+    state.groupId = Number(groupIdText);
+    const groupTab = adminPage.locator(`a.nav-link[href="#group-${state.groupId}"]`);
+    await groupTab.waitFor({ state: 'visible', timeout: TIMEOUT });
+    await groupTab.click();
+
+    const search = adminPage.locator(`input.search-provider[id="${state.groupId}"]`);
+    const addButton = adminPage.locator(`#add-${state.groupId}`);
+    const duplicateAlert = adminPage.locator(`#duplicate-member-${state.groupId}`);
+    assert(await addButton.isDisabled(), 'Add Contact was enabled before any contact had been picked');
+
+    // c. Typeahead offers the fixture once; adding writes one group row + one registry row.
+    await search.click();
+    await search.type(fixtureLastName.slice(0, 10), { delay: 40 });
+    const menu = adminPage.locator('.ui-autocomplete:visible li');
+    await menu.first().waitFor({ state: 'visible', timeout: TIMEOUT });
+    const offered = await menu.allInnerTexts();
+    assert(offered.filter((text) => text.includes(fixtureLastName)).length === 1,
+      `the group typeahead offered the fixture provider ${offered.filter((t) => t.includes(fixtureLastName)).length} times`);
+    await search.fill('');
+    await typeAutocomplete(adminPage, search, fixtureLastName.slice(0, 10), {
+      option: fixtureLastName, hidden: `#add-member-id-${state.groupId}`, timeout: TIMEOUT,
+    });
+    assert(await addButton.isEnabled(), 'Add Contact stayed disabled after a contact was picked');
+    const [addResponse] = await Promise.all([
+      adminPage.waitForResponse((response) => response.request().method() === 'POST'
+        && /\/messenger\?method=add&/.test(response.url()), { timeout: TIMEOUT }),
+      addButton.click(),
+    ]);
+    assert(addResponse.status() === 200, `adding the contact answered HTTP ${addResponse.status()}`);
+    await adminPage.locator(`#group-member-list-${state.groupId} [data-member-key^="${state.activeProviderNo}-"]`)
+      .first().waitFor({ state: 'visible', timeout: TIMEOUT });
+    assert(memberRows(state.groupId) === 1, `expected one group row after the add, found ${memberRows(state.groupId)}`);
+    assert(memberRows(0) === 1, `expected one registry (group 0) row after the add, found ${memberRows(0)}`);
+    assert(await addButton.isDisabled(), 'Add Contact stayed enabled after the add, inviting a double submit');
+
+    // d. Picking the same provider again is stopped in the page; nothing is posted.
+    let duplicatePosts = 0;
+    const countAdds = (request) => {
+      if (request.method() === 'POST' && /\/messenger\?method=add&/.test(request.url())) {
+        duplicatePosts += 1;
+      }
+    };
+    adminPage.on('request', countAdds);
+    await typeAutocomplete(adminPage, search, fixtureLastName.slice(0, 10), { option: fixtureLastName, timeout: TIMEOUT });
+    await duplicateAlert.waitFor({ state: 'visible', timeout: TIMEOUT });
+    assert(await addButton.isDisabled(), 'Add Contact was enabled for a provider already in the group');
+    assert(await adminPage.locator(`#add-member-id-${state.groupId}`).inputValue() === '',
+      'picking a provider already in the group still staged its id for Add Contact');
+    await addButton.click({ force: true, timeout: 2000 }).catch(() => {});
+    await adminPage.waitForTimeout(500);
+    adminPage.off('request', countAdds);
+    assert(duplicatePosts === 0, `the page posted ${duplicatePosts} add(s) for a provider already in the group`);
+    assert(memberRows(state.groupId) === 1, 'the group row count moved after the in-page duplicate pick');
+
+    // e. The server refuses a duplicate on its own. A separate page so its
+    //    deliberate 409s are not read as findings on the admin shell.
+    const probe = await context.newPage();
+    wireStrictPage(probe, 'duplicate-probe', recorder);
+    await gotoApp(probe, config.baseUrl, '/messenger?method=fetch');
+    await probe.locator('#local-contacts').waitFor({ state: 'attached', timeout: TIMEOUT });
+    const groupDuplicate = await postAdd(probe, memberId, state.groupId);
+    assert(groupDuplicate.status === 409 && /"reason":"duplicate"/.test(groupDuplicate.body),
+      `a duplicate group add answered HTTP ${groupDuplicate.status} (${String(groupDuplicate.body).slice(0, 80)}), expected 409 duplicate`);
+    const registryDuplicate = await postAdd(probe, memberId, 0);
+    assert(registryDuplicate.status === 409,
+      `a duplicate registry (group 0) add answered HTTP ${registryDuplicate.status}, expected 409`);
+    const invalidGroup = await postAdd(probe, memberId, 'abc');
+    assert(invalidGroup.status === 400, `an add with a non-numeric group answered HTTP ${invalidGroup.status}, expected 400`);
+    await probe.close();
+    assert(memberRows(state.groupId) === 1, `the server wrote a second group row (${memberRows(state.groupId)} rows)`);
+    assert(memberRows(0) === 1, `the server wrote a second registry row (${memberRows(0)} rows)`);
+
+    assertStrictPage(recorder, ['login', 'administration']);
+    return { groupId: state.groupId };
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+if (require.main === module) {
+  runCheck({ name: 'messenger-group-admin', run: main, cleanup });
+}
+
+module.exports = { pickUnusedProviderNo };

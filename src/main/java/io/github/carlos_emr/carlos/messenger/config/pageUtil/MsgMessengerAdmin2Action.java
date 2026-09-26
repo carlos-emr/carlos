@@ -186,29 +186,66 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * Adds a healthcare provider or contact to a messenger group.
      * 
      * <p>This method handles adding members to groups using composite identifiers.
-     * The member ID is expected to be in a composite format that includes the contact
-     * type and identifier.</p>
+     * The member ID is expected to be in the composite format produced by
+     * {@link ContactIdentifier#getCompositeId()}.</p>
+     *
+     * <p>Direct-response endpoint. It answers a small JSON body the admin page reads:
+     * <ul>
+     *   <li>{@code 200 {"success":true}} when the membership was written;</li>
+     *   <li>{@code 409 {"success":false,"reason":"duplicate"}} when the contact is already
+     *       in that group, so the page can say so instead of silently writing a second row
+     *       (a duplicate row delivers every group message twice);</li>
+     *   <li>{@code 400 {"success":false,"reason":"invalid"}} when {@code member} is missing or
+     *       {@code group} is not a non-negative integer.</li>
+     * </ul>
      * 
-     * Request parameter "member": The composite member ID to add (format: type:id).
+     * Request parameter "member": The composite member ID to add.
      * Request parameter "group": The target group ID, defaults to "0" (root) if not specified.
      *
-     * @return NONE as response is set via request attribute
+     * @return NONE; the response body is written directly
+     * @throws java.io.IOException if the JSON response cannot be written
      */
     @SuppressWarnings("unused")
-    public String add() {
+    public String add() throws java.io.IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String memberId = request.getParameter("member");
-        String groupId = request.getParameter("group");
-        if (groupId == null) {
-            groupId = "0";
+        Integer groupId = parseGroupId(request.getParameter("group"));
+        if (memberId == null || memberId.isEmpty() || groupId == null) {
+            return writeAddResult(HttpServletResponse.SC_BAD_REQUEST, "{\"success\":false,\"reason\":\"invalid\"}");
         }
-        if (memberId != null && !memberId.isEmpty()) {
-            // Parse the composite ID which contains contact type and identifier
-            ContactIdentifier contactIdentifier = new ContactIdentifier(memberId);
-            messengerGroupManager.addMember(loggedInInfo, contactIdentifier, Integer.parseInt(groupId));
-        }
-        request.setAttribute("success", true);
 
+        // Parse the composite ID which contains contact type and identifier
+        ContactIdentifier contactIdentifier = new ContactIdentifier(memberId);
+        if (messengerGroupManager.isGroupMember(loggedInInfo, contactIdentifier, groupId)) {
+            return writeAddResult(HttpServletResponse.SC_CONFLICT, "{\"success\":false,\"reason\":\"duplicate\"}");
+        }
+        // addMember is itself idempotent, which covers a double-click racing past the check above.
+        messengerGroupManager.addMember(loggedInInfo, contactIdentifier, groupId);
+        return writeAddResult(HttpServletResponse.SC_OK, "{\"success\":true}");
+    }
+
+    /**
+     * Parse the {@code group} parameter; absent means the general registry (group 0).
+     *
+     * @return the group id, or {@code null} when the value is not a non-negative integer
+     */
+    private static Integer parseGroupId(String groupParam) {
+        if (groupParam == null || groupParam.isEmpty()) {
+            return 0;
+        }
+        try {
+            int groupId = Integer.parseInt(groupParam);
+            return groupId >= 0 ? groupId : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String writeAddResult(int status, String json) throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(json);
         return NONE;
     }
 
