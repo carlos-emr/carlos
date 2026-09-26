@@ -158,10 +158,10 @@ public class ManagePatientLetters2Action extends ActionSupport implements Upload
     /**
      * Passes the JSP compiler classpath to JasperReports when the container publishes one.
      *
-     * <p>Legacy Tomcat exposed it as the {@code org.apache.catalina.jsp_classpath} context
-     * attribute; current Tomcat does not, and {@link System#setProperty(String, String)} rejects a
-     * {@code null} value with a {@code NullPointerException}. When the attribute is absent the
-     * property is left alone and JasperReports uses its own classpath.</p>
+     * <p>Tomcat publishes it as the {@code org.apache.catalina.jsp_classpath} context attribute.
+     * Other containers (and unit tests) may not, and {@link System#setProperty(String, String)}
+     * rejects a {@code null} value with a {@code NullPointerException}; in that case the property
+     * is left alone and JasperReports uses its own classpath.</p>
      *
      * @param request HttpServletRequest the current request
      */
