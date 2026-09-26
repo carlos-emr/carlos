@@ -162,10 +162,16 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
     @org.springframework.transaction.annotation.Transactional(
             propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public List<GroupMembers> findMembershipsForUpdate(Integer groupId, ContactIdentifier contact) {
-        String jpql = "SELECT x FROM GroupMembers x WHERE 1=1";
-        if (groupId != null) jpql += " AND x.groupId=:groupId";
-        if (contact != null) jpql += " AND x.providerNo=:providerNo AND x.facilityId=:facilityId";
-        var query = entityManager.createQuery(jpql + " ORDER BY x.id", GroupMembers.class);
+        // Select a complete static query; all identifiers remain bound parameters.
+        String jpql;
+        if (groupId == null) {
+            jpql = contact == null ? "SELECT x FROM GroupMembers x ORDER BY x.id"
+                    : "SELECT x FROM GroupMembers x WHERE x.providerNo=:providerNo AND x.facilityId=:facilityId ORDER BY x.id";
+        } else {
+            jpql = contact == null ? "SELECT x FROM GroupMembers x WHERE x.groupId=:groupId ORDER BY x.id"
+                    : "SELECT x FROM GroupMembers x WHERE x.groupId=:groupId AND x.providerNo=:providerNo AND x.facilityId=:facilityId ORDER BY x.id";
+        }
+        var query = entityManager.createQuery(jpql, GroupMembers.class);
         if (groupId != null) query.setParameter("groupId", groupId);
         if (contact != null) {
             query.setParameter("providerNo", contact.getContactId());

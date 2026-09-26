@@ -168,6 +168,46 @@ class MessengerGroupManagerMembershipUnitTest {
         verify(groupMembersDao, never()).persist(any());
     }
 
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"101"})
+    void shouldRejectDeletedGroup_beforeReplacingAnyMembership(String provider) {
+        when(groupsDao.findForUpdate(GROUP_ID)).thenReturn(null);
+        String[] providers = provider == null ? null : provider.isEmpty() ? new String[0] : new String[]{provider};
+        assertThatThrownBy(() -> manager.replaceGroupMembers(loggedInInfo, GROUP_ID, providers))
+                .isInstanceOf(MessengerGroupManager.UnknownGroupException.class);
+        verify(groupMembersDao).lockMembershipChanges();
+        verify(groupMembersDao, never()).findMembershipsForUpdate(any(), any());
+        verify(groupMembersDao, never()).remove(any());
+        verify(groupMembersDao, never()).persist(any());
+    }
+
+    @Test
+    void shouldPreserveGroupAndMemberships_whenGroupHasChildren() {
+        when(groupsDao.findByParentId(GROUP_ID)).thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.Groups()));
+        assertThatThrownBy(() -> manager.removeGroup(loggedInInfo, GROUP_ID))
+                .isInstanceOf(MessengerGroupManager.GroupHasChildrenException.class);
+        verify(groupsDao, never()).remove(any());
+        verify(groupMembersDao, never()).remove(any());
+    }
+
+    @Test
+    void shouldRejectChildCreation_whenParentWasDeleted() {
+        when(groupsDao.findForUpdate(GROUP_ID)).thenReturn(null);
+        assertThatThrownBy(() -> manager.addGroup(loggedInInfo, "Child", GROUP_ID))
+                .isInstanceOf(MessengerGroupManager.UnknownGroupException.class);
+        verify(groupsDao, never()).persist(any());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "123456789012345678901234567890123456789012345678901"})
+    void shouldRejectInvalidGroupName_beforePersisting(String name) {
+        assertThatThrownBy(() -> manager.addGroup(loggedInInfo, name, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(groupsDao, never()).persist(any());
+    }
+
     @Test
     void shouldHideRetiredAndDuplicateLegacyMembers_whenReadingGroup() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null))

@@ -346,15 +346,50 @@ public class MessengerGroupManager {
      * @param parentId
      * @return the new Group ID
      */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public int addGroup(LoggedInInfo loggedInInfo, String groupName, int parentId) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
+        lockGroupChange(loggedInInfo, parentId);
         Groups group = new Groups();
-        group.setGroupDesc(groupName);
+        group.setGroupDesc(validGroupName(groupName));
         group.setParentId(parentId);
         groupsDao.persist(group);
         return group.getId();
+    }
+
+    /**
+     * Renames an existing non-root group under the same lock as creation and deletion.
+     *
+     * @param info current user; requires administrator write privilege
+     * @param groupId existing group identifier, greater than zero
+     * @param groupName nonblank display name, at most 50 characters after trimming
+     * @throws UnknownGroupException if the group was deleted or the root was selected
+     * @throws IllegalArgumentException if the display name is invalid
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void renameGroup(LoggedInInfo info, int groupId, String groupName) {
+        lockGroupChange(info, groupId);
+        if (groupId == 0) throw new UnknownGroupException();
+        Groups group = groupsDao.findForUpdate(groupId);
+        group.setGroupDesc(validGroupName(groupName));
+        groupsDao.merge(group);
+    }
+
+    private static String validGroupName(String name) {
+        String normalized = name == null ? "" : name.strip();
+        if (normalized.isEmpty() || normalized.codePointCount(0, normalized.length()) > 50) {
+            throw new IllegalArgumentException("Invalid Messenger group name");
+        }
+        return normalized;
+    }
+
+    private void lockGroupChange(LoggedInInfo info, int groupId) {
+        if (!securityInfoManager.hasPrivilege(info, "_admin", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+        groupMembersDao.lockMembershipChanges();
+        if (groupId < 0 || (groupId != 0 && groupsDao.findForUpdate(groupId) == null)) {
+            throw new UnknownGroupException();
+        }
     }
 
     /**
@@ -363,7 +398,8 @@ public class MessengerGroupManager {
      *
      * @param loggedInInfo
      * @param groupId
-     * @return
+     * @return true if removed; false for the root or a missing group
+     * @throws GroupHasChildrenException if deleting the group would orphan child groups
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean removeGroup(LoggedInInfo loggedInInfo, int groupId) {
@@ -371,6 +407,8 @@ public class MessengerGroupManager {
             throw new SecurityException("missing required sec object (_admin)");
         }
         groupMembersDao.lockMembershipChanges();
+        if (groupId <= 0 || groupsDao.findForUpdate(groupId) == null) return false;
+        if (!groupsDao.findByParentId(groupId).isEmpty()) throw new GroupHasChildrenException();
         boolean removed = false;
         if (groupsDao.remove(groupId)) {
             // remove all members from this group id
@@ -392,13 +430,17 @@ public class MessengerGroupManager {
         return removed;
     }
 
-    /** Replace legacy group selections under the same lock used by modern add/remove. */
+    /**
+     * Replaces legacy group selections atomically, validating the group before changing rows.
+     *
+     * @param info current user; requires administrator write privilege
+     * @param groupId existing group identifier, or zero for the general registry
+     * @param providers selected local providers; null or empty clears the group's selection
+     * @throws UnknownGroupException if a non-root group no longer exists
+     */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void replaceGroupMembers(LoggedInInfo info, int groupId, String[] providers) {
-        if (!securityInfoManager.hasPrivilege(info, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-        groupMembersDao.lockMembershipChanges();
+        lockGroupChange(info, groupId);
         for (GroupMembers member : groupMembersDao.findMembershipsForUpdate(groupId, null)) {
             groupMembersDao.remove(member.getId());
         }
@@ -406,7 +448,7 @@ public class MessengerGroupManager {
             for (String provider : new LinkedHashSet<>(Arrays.asList(providers))) {
                 ContactIdentifier contact = new ContactIdentifier();
                 contact.setContactId(provider);
-                addMemberIfAbsent(info, contact, groupId);
+                insertMemberUnderLock(contact, groupId);
             }
         }
     }
@@ -415,13 +457,19 @@ public class MessengerGroupManager {
         public UnknownGroupException() { super("Messenger group no longer exists"); }
     }
 
+    /** Deletion was refused because the group's children must be removed first. */
+    public static class GroupHasChildrenException extends IllegalArgumentException {
+        public GroupHasChildrenException() { super("Messenger group has child groups"); }
+    }
+
     /** Result of the atomic membership operation, including whether this request inserted it. */
     public record AddMemberResult(int id, boolean created) { }
 
     /** Compatibility entry point: return the existing id on a duplicate. */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public int addMember(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
-        return addMemberIfAbsent(loggedInInfo, contactIdentifier, groupId).id();
+        lockGroupChange(loggedInInfo, groupId);
+        return insertMemberUnderLock(contactIdentifier, groupId).id();
     }
 
     /**
@@ -432,11 +480,12 @@ public class MessengerGroupManager {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public AddMemberResult addMemberIfAbsent(LoggedInInfo loggedInInfo, ContactIdentifier contactIdentifier, int groupId) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-        groupMembersDao.lockMembershipChanges();
-        if (groupId != 0 && groupsDao.findForUpdate(groupId) == null) throw new UnknownGroupException();
+        lockGroupChange(loggedInInfo, groupId);
+        return insertMemberUnderLock(contactIdentifier, groupId);
+    }
+
+    /** Caller holds the coordination/group locks in its public transactional entry point. */
+    private AddMemberResult insertMemberUnderLock(ContactIdentifier contactIdentifier, int groupId) {
         List<GroupMembers> existing = groupMembersDao.findMembershipsForUpdate(groupId, contactIdentifier);
         if (!existing.isEmpty()) return new AddMemberResult(existing.getFirst().getId(), false);
 

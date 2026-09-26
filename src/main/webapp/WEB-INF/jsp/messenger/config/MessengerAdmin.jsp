@@ -415,9 +415,9 @@
                             <c:forEach items="${ localContacts }" var="contact" varStatus="count">
                                 <div class="row contact-entry">
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" value="${carlos:forHtmlAttribute(contact.id.compositeId)}"
+                                        <input type="checkbox" id="contact-enabled-${count.index}" class="form-check-input" value="${carlos:forHtmlAttribute(contact.id.compositeId)}"
                                             ${ contact.member ? 'checked="checked"' : '' } />
-                                        <label class="form-check-label">
+                                        <label class="form-check-label" for="contact-enabled-${count.index}">
                                         <span id="${carlos:forHtmlAttribute(contact.id.compositeId)}" class="provider-name"
                                               data-member-key="${carlos:forHtmlAttribute(contact.id.contactId)}-${ contact.id.facilityId }">
 									${carlos:forHtml(contact.lastName)}, ${carlos:forHtml(contact.firstName)}

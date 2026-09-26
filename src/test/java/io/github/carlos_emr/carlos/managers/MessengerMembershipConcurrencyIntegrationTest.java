@@ -158,4 +158,63 @@ class MessengerMembershipConcurrencyIntegrationTest {
             assertThat(fixture.count(0)).isEqualTo(1);
         }
     }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldRejectStaleReplacement_withoutChangingRegistry(boolean clear) throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.add(7);
+            assertThat(fixture.manager.removeGroup(fixture.info, 7)).isTrue();
+            String[] providers = clear ? null : new String[]{"101"};
+            assertThatThrownBy(() -> fixture.manager.replaceGroupMembers(fixture.info, 7, providers))
+                    .isInstanceOf(MessengerGroupManager.UnknownGroupException.class);
+            assertThat(fixture.count(7)).isZero();
+            assertThat(fixture.count(0)).isEqualTo(1);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldPreserveHierarchy_whenCreationRacesParentDeletion(boolean createFirst) throws Exception {
+        try (var fixture = new Fixture()) {
+            var locked = new CountDownLatch(1);
+            var release = new CountDownLatch(1);
+            var attempted = new CountDownLatch(1);
+            var first = new java.util.concurrent.atomic.AtomicBoolean(true);
+            doAnswer(call -> {
+                boolean hold = first.getAndSet(false);
+                if (!hold) attempted.countDown();
+                call.callRealMethod();
+                if (hold) {
+                    locked.countDown();
+                    assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+                }
+                return null;
+            }).when(fixture.dao).lockMembershipChanges();
+            var workers = Executors.newFixedThreadPool(2);
+            java.util.concurrent.Callable<Object> create = () -> fixture.manager.addGroup(fixture.info, "Child", 7);
+            java.util.concurrent.Callable<Object> delete = () -> fixture.manager.removeGroup(fixture.info, 7);
+            try {
+                var winner = workers.submit(createFirst ? create : delete);
+                assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+                var waiter = workers.submit(createFirst ? delete : create);
+                assertThat(attempted.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThatThrownBy(() -> waiter.get(150, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+                release.countDown();
+                assertThat(winner.get(5, TimeUnit.SECONDS)).isNotNull();
+                assertThatThrownBy(() -> waiter.get(5, TimeUnit.SECONDS)).hasCauseInstanceOf(createFirst
+                        ? MessengerGroupManager.GroupHasChildrenException.class : MessengerGroupManager.UnknownGroupException.class);
+                try (var connection = DriverManager.getConnection(fixture.url); var query = connection.createStatement();
+                     var rows = query.executeQuery("SELECT COUNT(*) FROM groups_tbl child LEFT JOIN groups_tbl parent "
+                             + "ON child.parentID=parent.groupID WHERE child.parentID <> 0 AND parent.groupID IS NULL")) {
+                    rows.next();
+                    assertThat(rows.getInt(1)).isZero();
+                }
+            } finally {
+                release.countDown();
+                workers.shutdownNow();
+                assertThat(workers.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+            }
+        }
+    }
 }

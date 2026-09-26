@@ -68,12 +68,14 @@ const stamp = String(Date.now()).slice(-6);
 const fixtureLastName = `PWMSGADM${stamp}`;
 const deactivatedLastName = `PWMSGNEG${stamp}`;
 const groupName = `PW group ${stamp}`;
+const childGroupName = `PW child ${stamp}`;
 
 const state = {
   sql: null,
   activeProviderNo: null,
   deactivatedProviderNo: null,
   groupId: null,
+  childGroupId: null,
 };
 
 function pickUnusedProviderNo(sql, prefix) {
@@ -104,6 +106,13 @@ function cleanup() {
     return;
   }
   try {
+    const childIds = new Set(sql.rows(`SELECT groupID FROM groups_tbl WHERE groupDesc=${sqlString(childGroupName)}`)
+      .map(row => Number(row[0])));
+    if (state.childGroupId) childIds.add(state.childGroupId);
+    for (const childId of childIds) {
+      sql.execute(`DELETE FROM groupMembers_tbl WHERE groupID=${Number(childId)}`);
+      sql.execute(`DELETE FROM groups_tbl WHERE groupID=${Number(childId)}`);
+    }
     for (const providerNo of [state.activeProviderNo, state.deactivatedProviderNo]) {
       if (providerNo) sql.execute(`DELETE FROM groupMembers_tbl WHERE provider_No=${sqlString(providerNo)}`);
     }
@@ -155,6 +164,15 @@ async function postAdd(page, memberId, groupId) {
         resolve({ status: xhr.status, body: xhr.responseText });
       });
   }), { member: memberId, group: String(groupId) });
+}
+
+async function postMutation(page, query, endpoint = '/messenger') {
+  return page.evaluate(({ queryString, route }) => new Promise(resolve => {
+    $.post(`${window.ctx}${route}?${queryString}`).always((dataOrXhr, _status, xhrOrError) => {
+      const xhr = dataOrXhr && dataOrXhr.status !== undefined ? dataOrXhr : xhrOrError;
+      resolve({ status: xhr.status, body: xhr.responseText });
+    });
+  }), { queryString: query, route: endpoint });
 }
 
 // Consume only the deliberately exercised failures, by exact method, URL,
@@ -393,6 +411,50 @@ async function main() {
       'failed group creation wrote a group');
     await probe.unroute(createUrl);
     console.log('PASS membership removal and group mutation failure feedback');
+
+    for (const query of [
+      'method=remove&group=abc',
+      `method=remove&member=123-2147483648&group=${state.groupId}`,
+      `method=create&groupName=${encodeURIComponent(childGroupName)}&parentId=2147483648`,
+      'method=create&groupName=',
+      'method=delete&grpNo=abc',
+      `method=update&grpNo=${state.groupId}`,
+      `method=update&grpNo=${state.groupId}&update=${encodeURIComponent('Update group members')}&delete=${encodeURIComponent('Delete this group')}`,
+    ]) {
+      expectFailure(query, 400);
+      assert((await postMutation(probe, query)).status === 400, 'malformed group mutation did not return 400');
+    }
+    const childCreated = await postMutation(probe,
+      `method=create&groupName=${encodeURIComponent(childGroupName)}&parentId=${state.groupId}`);
+    assert(childCreated.status === 200, 'could not create the owned child-group fixture');
+    state.childGroupId = Number(sql.value(`SELECT groupID FROM groups_tbl WHERE groupDesc=${sqlString(childGroupName)}`));
+    assert(Number.isSafeInteger(state.childGroupId) && state.childGroupId > 0, 'missing child-group fixture');
+    const removeParent = `method=remove&group=${state.groupId}`;
+    expectFailure(removeParent, 409);
+    assert((await postMutation(probe, removeParent)).status === 409, 'parent with children was deleted');
+    assert(sql.value(`SELECT COUNT(*) FROM groups_tbl WHERE groupID=${state.groupId}`) === '1',
+      'parent-group rejection still deleted its row');
+    assert((await postMutation(probe, `method=remove&group=${state.childGroupId}`)).status === 200,
+      'could not delete the child fixture');
+    for (const providers of ['', `&providers=${encodeURIComponent(state.activeProviderNo)}`]) {
+      const staleUpdate = `method=update&grpNo=${state.childGroupId}&update=${encodeURIComponent('Update group members')}${providers}`;
+      expectFailure(staleUpdate, 400);
+      assert((await postMutation(probe, staleUpdate)).status === 400, 'stale legacy replacement did not return 400');
+    }
+    assert(sql.value(`SELECT COUNT(*) FROM groupMembers_tbl WHERE groupID=${state.childGroupId}`) === '0',
+      'stale replacement created orphan memberships');
+    for (const type of ['1', '2']) {
+      const query = `type2=${type}&parentID=${state.childGroupId}&groupName=${encodeURIComponent(childGroupName)}`;
+      expectedResponses.push({ method: 'POST', url: appUrl(config.baseUrl, `/messenger/AddGroup?${query}`), status: 400, count: 1 });
+      assert((await postMutation(probe, query, '/messenger/AddGroup')).status === 400,
+        'legacy create/rename of a deleted group did not return 400');
+    }
+    const readMutation = await probe.request.get(appUrl(config.baseUrl,
+      `/messenger/AddGroup?type2=1&parentID=${state.groupId}&groupName=${encodeURIComponent(childGroupName)}`));
+    assert(readMutation.status() === 405, 'legacy group creation accepted GET');
+    assert(sql.value(`SELECT COUNT(*) FROM groups_tbl WHERE groupDesc=${sqlString(childGroupName)}`) === '0',
+      'rejected legacy creation still wrote a group');
+    console.log('PASS malformed mutations, stale legacy updates, and child-group protection');
     await probe.waitForLoadState('networkidle');
     assertExpectedProbeResponses(recorder, expectedResponses);
     console.log('PASS malformed contacts, failure recovery, and concurrent membership creation');
