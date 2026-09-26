@@ -45,10 +45,14 @@ package's.
 
 ## 1. Assess the clinic first (before any backup is shipped)
 
-Copy ONE file to the OSCAR 19 server and run it against the live database:
+Write the standalone assessment script on the CARLOS host (it carries the
+installed `carlos-emr`'s import manifest, so the assessment and the import
+agree on every ruling; write it again after upgrading `carlos-emr`), copy
+that ONE file to the OSCAR 19 server and run it against the live database:
 
 ```bash
-scp /usr/lib/carlos-emr/carlos_ctl/o19_preflight.py o19-server:
+sudo carlos-ctl o19-preflight --write-standalone o19_preflight.py
+scp o19_preflight.py o19-server:
 ssh o19-server python3 o19_preflight.py --db oscar --province on \
     --mysql-cmd mysql --mysql-arg=-uroot --mysql-password-file /root/.o19pw \
     --properties /path/to/oscar.properties --json preflight.json \

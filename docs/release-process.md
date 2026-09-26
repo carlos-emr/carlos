@@ -216,6 +216,17 @@ Each GitHub release contains:
   every `-` written as `.` (for example `2026.08.0.alpha14`). Through
   2026.08.0-alpha13 the main package was `_all` and the renderer a real `_amd64`
   package; see `docs/install-deb.md`.
+- `carlos-ctl_CTLVERSION_all.deb` and its `.sha256`: the release of
+  [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) that
+  `debian/carlos-ctl.pin` names, downloaded, verified (checksum and
+  attestation) and re-attached by the same workflow. It is attested by the
+  carlos-ctl release workflow, not by this repository's: verify it with
+  `--repo carlos-emr/carlos-ctl`. The `Debian Packages` workflow refuses to
+  finish a release whose pinned `carlos-ctl` release does not exist yet, so
+  cut the `carlos-ctl` release (and move the pin) before tagging CARLOS. The
+  pin is the version a release SHIPS; `carlos-emr`'s `Depends: carlos-ctl
+  (>= ...)` in `debian/control` is the oldest CLI its maintainer scripts can
+  run with, and is raised only when they start using a new verb or flag.
 
 GitHub source archives supplement but do not replace the compiled WAR. Verify a
 download before deployment:
@@ -225,6 +236,8 @@ sha256sum --check carlos-VERSION.war.sha256
 sha256sum --check carlos-VERSION-cyclonedx.json.sha256
 gh attestation verify carlos-VERSION.war --repo carlos-emr/carlos
 gh attestation verify carlos-VERSION-cyclonedx.json --repo carlos-emr/carlos
+gh attestation verify carlos-emr_DEBVERSION_amd64.deb --repo carlos-emr/carlos
+gh attestation verify carlos-ctl_CTLVERSION_all.deb --repo carlos-emr/carlos-ctl
 ```
 
 Alpha, beta, and release-candidate versions are GitHub prereleases. Only stable

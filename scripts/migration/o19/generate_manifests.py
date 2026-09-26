@@ -6,31 +6,45 @@
 Parses the OSCAR 19 schema sources (a Bitbucket oscaremr/oscar checkout) and
 the CARLOS Flyway migration set, diffs them, deep-merges the hand-curated
 overlays (overrides_schema.py / overrides_props.py in this directory), and
-writes the shipped manifest modules:
+writes the shipped manifests as JSON DATA:
 
-    debian/assets/carlos_ctl/o19map_schema.py
-    debian/assets/carlos_ctl/o19map_props.py
+    debian/assets/o19-manifest/o19map_schema.json
+    debian/assets/o19-manifest/o19map_props.json
+    debian/assets/o19-manifest/o19_preflight.json
 
-plus the generated-data block inside debian/assets/carlos_ctl/o19_preflight.py
-(rewritten between its BEGIN/END GENERATED DATA markers; the file is skipped
-with a note while it does not exist yet).
+The carlos-emr package installs them under /usr/share/carlos-emr/o19-manifest/,
+and the carlos-ctl CLI (its own repository and package since the split, see
+carlos-emr/carlos-ctl) loads them from there at run time -- o19map_schema.py
+and o19map_props.py over there are loaders, not data. The manifests describe
+THIS tree's schema, so they live and regenerate beside it; every file carries
+`"format": MANIFEST_FORMAT`, which the loader checks before trusting a key.
 
-The generated modules are DATA — never edit them by hand. Curation lives in
+The standalone assessment script (carlos_ctl/o19_preflight.py in the
+carlos-ctl repository) is copied ALONE to the clinic's OSCAR 19 server and may
+read no file beside itself, so it keeps an inlined copy of o19_preflight.json
+between its BEGIN/END GENERATED DATA markers. `carlos-ctl o19-preflight
+--write-standalone` re-inlines the installed manifest at any time; this
+generator refreshes the checked-in copy when pointed at a carlos-ctl checkout
+with --ctl-src (the block is also compared under --check then).
+
+The generated files are DATA — never edit them by hand. Curation lives in
 the overrides files, which survive regeneration. Any O19 table not classified
 by the overlay is emitted with class "unknown", which the manifest integrity
-test (debian/assets/carlos_ctl/tests/test_manifest_integrity.py) fails on —
+test (scripts/migration/o19/tests/test_manifest_integrity.py) fails on —
 forcing every table to be consciously classified before the manifest ships.
 
 Usage:
     python3 scripts/migration/o19/generate_manifests.py \\
-        --oscar-src /path/to/oscar
+        --oscar-src /path/to/oscar [--ctl-src /path/to/carlos-ctl]
     python3 scripts/migration/o19/generate_manifests.py \\
         --oscar-src /path/to/oscar --check
 
 --check regenerates in memory and exits non-zero if the committed outputs
 differ (drift detection for reviews).
 
-The CARLOS migration directory is only ever READ.
+The CARLOS migration directory is only ever READ. The carlos_ctl package
+(the properties parser the props phase uses) is imported from --ctl-src,
+$CARLOS_CTL_SRC, an installed carlos-ctl package, or /usr/lib/carlos-ctl.
 """
 
 from __future__ import annotations
@@ -38,13 +52,32 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+import json
+import os
 import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CTL_DIR = REPO_ROOT / "debian" / "assets" / "carlos_ctl"
+# The shipped manifests, installed by debian/rules under
+# /usr/share/carlos-emr/o19-manifest/ (see util.MANIFEST_DIR in carlos-ctl).
+MANIFEST_DIR = REPO_ROOT / "debian" / "assets" / "o19-manifest"
+#: The manifest FORMAT version, carried by every file as `"format"`. Bump
+#: it when a consumer could misread the previous shape (a renamed key, a
+#: changed value type), never for content changes: the loader refuses a
+#: format it does not know, and the content is versioned separately by
+#: SCHEMA_MAP_VERSION / PROPS_MAP_VERSION.
+MANIFEST_FORMAT = 1
+#: manifest kind -> file name; the kind is written into the file too
+MANIFEST_FILES = {
+    "o19map-schema": "o19map_schema.json",
+    "o19map-props": "o19map_props.json",
+    "o19-preflight": "o19_preflight.json",
+}
+#: where the carlos-ctl package is imported from, in order (see
+#: ctl_module); resolved once from --ctl-src / $CARLOS_CTL_SRC
+CTL_SRC: Optional[Path] = None
 MIGRATION_DIR = REPO_ROOT / "database" / "mysql" / "migration"
 
 # O19 schema sources, relative to --oscar-src, in load order. Data/ICD scripts
@@ -1029,10 +1062,38 @@ def parse_properties(path: Path) -> Dict[str, str]:
     """Active key=value pairs with java.util.Properties semantics (the same
     parser the props phase uses, so the baseline diff compares like with
     like); last occurrence wins."""
-    sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
-    from carlos_ctl.o19props import parse_properties_text
+    parse_properties_text = ctl_module("o19_preflight").parse_properties_text
     return dict(parse_properties_text(
         path.read_text(encoding="latin-1")))
+
+
+def ctl_module(name: str):
+    """Import `carlos_ctl.<name>` from wherever the CLI is available.
+
+    The CLI lives in its own repository (carlos-emr/carlos-ctl) since the
+    package split; this generator needs its properties parser so the
+    baseline diff compares like with like. Resolution order: --ctl-src /
+    $CARLOS_CTL_SRC (a checkout), whatever `carlos_ctl` is already
+    importable, then the installed package's directory. The STANDALONE
+    o19_preflight module is asked for the parser rather than o19props:
+    o19props imports the props manifest at load, which is the file this
+    generator is about to write -- a circular start.
+    """
+    import importlib
+    src = CTL_SRC or (Path(os.environ["CARLOS_CTL_SRC"])
+                      if os.environ.get("CARLOS_CTL_SRC") else None)
+    candidates = [str(src)] if src else []
+    candidates.append("/usr/lib/carlos-ctl")
+    for cand in candidates:
+        if cand not in sys.path and (Path(cand) / "carlos_ctl").is_dir():
+            sys.path.append(cand)
+    try:
+        return importlib.import_module("carlos_ctl." + name)
+    except ImportError as exc:
+        raise SystemExit(
+            "generator: cannot import carlos_ctl.{0} ({1}). Point --ctl-src "
+            "(or $CARLOS_CTL_SRC) at a checkout of carlos-emr/carlos-ctl, or "
+            "install the carlos-ctl package.".format(name, exc))
 
 
 # keys whose stock value is a credential. Their defaults are NEVER emitted
@@ -1844,169 +1905,117 @@ def schema_map_version(tables, ov, province: str) -> str:
                            + sorted(tables.items()))
 
 
-def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
-                       o19_commit: str, extras: Optional[Dict] = None,
-                       profiles: Optional[Dict] = None) -> str:
-    """Render `o19map_schema.py` in full.
+def schema_manifest_data(tables, carlos: Schema, seed_counts, ov,
+                         o19_commit: str, extras: Optional[Dict] = None,
+                         profiles: Optional[Dict] = None) -> Dict:
+    """The schema manifest (`o19map_schema.json`) as data, in the order the
+    file carries it.
 
     Output is deterministic -- sorted throughout and carrying the O19
     source commit rather than a wall-clock stamp -- so an unchanged
     input regenerates byte-identical output and `--check` means
-    something."""
+    something. Every value is JSON-shaped: tuples are emitted as lists,
+    and the loader in carlos-ctl hands them to the ETL as lists too.
+
+    The keys, and what they mean to the importer:
+
+    * TABLES / CARLOS_COLUMNS: the classified O19 tables and the CARLOS
+      columns behind each copy/merge-class one.
+    * SEED_ROW_COUNTS: rows the CARLOS Flyway migrations seed into
+      copy/merge-class tables, counted from literal VALUES tuples. The P0
+      pristine sweep requires copy-class tables to hold EXACTLY these
+      rows (else none) and merge-class tables AT LEAST these rows: merge
+      tables are CARLOS reference seeds that later migrations may also
+      grow via INSERT ... SELECT, which no static count can see; clinical
+      data never lives there.
+    * PRISTINE_TOLERATED_TABLES: copy-class tables the P0 pristine sweep
+      tolerates rows in -- all REPLACE_SEED, and all with a row count the
+      deploy produces that no static count of the Flyway migrations can
+      predict. Per province, because a seed that is uncountable in one
+      province's migration set may be a literal in another's.
+    * SUPPORTED_PROVINCES: provinces this build will RUN, not merely
+      carry a profile for; a profile becomes supported once a full
+      rehearsal of that province has passed P0-P7.
+    * REQUIRED_TABLES: tables the import cannot run without.
+    * CREDENTIAL_TABLES: copy-class tables whose rows are credentials,
+      copied verbatim and named in the ETL report under a rotate/verify
+      advisory.
+    * CLAIM_HEADER_TABLE: the claim header P7 aggregates by fiscal year,
+      per province (the money check).
+    * STARTUP_CREATED_ROWS: rows the webapp creates on its first start,
+      tolerated by the P0 sweep on a booted host and deleted by the seed
+      script before the clinic's rows copy.
+    * STOCK_ROLE_NAMES / ROLE_TEMPLATE_MIN_JACCARD: role names the CARLOS
+      seed defines; any other imported role is clinic-custom and gets its
+      CARLOS-era grants from a template stock role.
+    * PREVENTION_TYPE_MAP / KNOWN_PREVENTION_TYPES: legacy prevention
+      type spellings -> Health Canada code (from the standardize script
+      the roles post-step replays), and the codes PreventionItems.xml
+      renders.
+    * PRIMITIVE_COLUMNS: columns a CARLOS JPA entity maps to a JAVA
+      PRIMITIVE; the ETL supplies a value for these whatever the
+      column's own nullability says (o19etl.primitive_fallback).
+    * PROFILES: every province beyond the default, selected by the
+      loader's bind(); only the PROFILE_NAMES are repeated per province.
+    """
     extras = extras or {}
+    province = extras.get("province", "on")
     copy_tables = sorted(t for t, e in tables.items()
                          if e["class"] in ("copy", "merge"))
     carlos_columns = {t: list(carlos.tables[t]) for t in copy_tables}
     seeded = {t: seed_counts[t] for t in sorted(seed_counts)
               if t in copy_tables and seed_counts[t] > 0}
-    out = [GENERATED_HEADER]
-    out.append('"""OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""\n')
-    province = extras.get("province", "on")
-    out.append("SCHEMA_MAP_VERSION = {!r}".format(
-        schema_map_version(tables, ov, province)))
-    out.append("O19_PROFILE = {!r}".format(province))
+    data: Dict = {}
+    data["SCHEMA_MAP_VERSION"] = schema_map_version(tables, ov, province)
+    data["O19_PROFILE"] = province
     # provenance is the O19 commit only — no wall-clock stamp, so --check
     # compares content, not the day it was generated
-    out.append("O19_SOURCE_COMMIT = {!r}\n".format(o19_commit))
-    out.append("TABLES = " + _fmt(tables) + "\n")
-    out.append("CARLOS_COLUMNS = " + _fmt(carlos_columns) + "\n")
-    out.append("# rows the CARLOS Flyway migrations seed into copy/merge-class"
-               " tables, counted from\n# literal VALUES tuples."
-               " The P0 pristine"
-               " sweep requires copy-class tables to hold\n# EXACTLY these"
-               " rows (else none) and merge-class tables AT LEAST these rows:"
-               " merge\n# tables are CARLOS reference seeds that later"
-               " migrations may also grow via\n# INSERT ... SELECT, which no"
-               " static count can see; clinical data never lives there.")
-    out.append("SEED_ROW_COUNTS = " + _fmt(seeded) + "\n")
-    out.append("# copy-class tables the P0 pristine sweep tolerates rows"
-               " in: all REPLACE_SEED,\n# and all with a row count the"
-               " deploy produces that no static count of the Flyway\n#"
-               " migrations can predict (a seed written as INSERT ..."
-               " SELECT, or rows the\n# webapp writes on first start)."
-               " Per province, because a seed that is\n# uncountable in"
-               " one province's migration set may be a literal in"
-               " another's.")
-    out.append("PRISTINE_TOLERATED_TABLES = "
-               + _fmt(sorted(TableRules(
-                   ov, extras.get("province", "on")).pristine_tolerated))
-               + "\n")
-    out.append("# provinces this build will RUN, not merely carry a"
-               " profile for. A profile becomes\n# supported once a full"
-               " rehearsal of that province has passed P0-P7; until then"
-               "\n# the import and preflight gates refuse the host and say"
-               " why.")
-    out.append("SUPPORTED_PROVINCES = "
-               + _fmt(list(ov.SUPPORTED_PROVINCES)) + "\n")
-    out.append("# tables the import cannot run without (o19etl "
-               "pre-checks and the roles step)")
-    out.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)) + "\n")
-    out.append("CARLOSDOC_SEED_DELETES = "
-               + _fmt(list(ov.CARLOSDOC_SEED_DELETES)) + "\n")
-    out.append("SEED_PROVIDER_NO = {!r}".format(ov.SEED_PROVIDER_NO))
-    out.append("SEED_USER_NAME = {!r}".format(ov.SEED_USER_NAME))
-    out.append("# copy-class tables whose rows are credentials (OAuth consumer"
-               " secrets, signing\n# keys): copied verbatim, named in the ETL"
-               " report under a rotate/verify advisory")
-    out.append("CREDENTIAL_TABLES = "
-               + _fmt(list(getattr(ov, "CREDENTIAL_TABLES", []))) + "\n")
-    out.append("# the claim header P7 aggregates by fiscal year, per"
-               " province: the money check.\n# Keyed by province rather"
-               " than emitted per profile because the import reads it"
-               "\n# for the host's province, which it has already"
-               " asserted against the profile.")
-    out.append("CLAIM_HEADER_TABLE = "
-               + _fmt(dict(getattr(ov, "CLAIM_HEADER_TABLE", {}))) + "\n")
-    out.append("# rows the webapp creates on its first start (the OSCAR"
-               " program, the seeded\n# clinician's membership, the default"
-               " site): tolerated by the P0 sweep on a booted\n# host and"
-               " deleted by the seed script before the clinic's rows copy")
-    out.append("STARTUP_CREATED_ROWS = "
-               + _fmt(list(getattr(ov, "STARTUP_CREATED_ROWS", []))) + "\n")
-    out.append("# role names the CARLOS Flyway seed defines (secRole); any"
-               " other imported role\n# is clinic-custom and gets its"
-               " CARLOS-era grants from a template stock role")
-    out.append("STOCK_ROLE_NAMES = "
-               + _fmt(list(extras.get("stock_role_names", []))) + "\n")
-    out.append("ROLE_TEMPLATE_MIN_JACCARD = {!r}\n".format(
-        getattr(ov, "ROLE_TEMPLATE_MIN_JACCARD", 0.3)))
-    out.append("# legacy preventions.prevention_type spellings -> Health"
-               " Canada code, from\n# database/mysql/updates/"
-               "update-2026-03-10-"
-               "standardize-prevention-types.sql; the\n# roles post-step"
-               " applies them to imported rows (Flyway never sees clinic"
-               " data)")
-    out.append("PREVENTION_TYPE_MAP = "
-               + _fmt(dict(sorted(extras.get("prevention_type_map",
-                                             {}).items()))) + "\n")
-    out.append("# prevention type codes PreventionItems.xml renders; any"
-               " other imported code shows\n# as an unconfigured prevention"
-               " and is reported")
-    out.append("KNOWN_PREVENTION_TYPES = "
-               + _fmt(list(extras.get("known_prevention_types", []))) + "\n")
-    out.append("# columns a CARLOS JPA entity maps to a JAVA PRIMITIVE."
-               " Hibernate cannot hydrate\n# NULL into one -- it throws"
-               " `Can not set int field ... to null value` and the page"
-               "\n# reading the row answers HTTP 500 -- so the ETL supplies"
-               " a value for these\n# whatever the column's own nullability"
-               " says (see o19etl.primitive_fallback).")
-    out.append("PRIMITIVE_COLUMNS = "
-               + _fmt(primitive_columns(copy_tables, carlos, extras)) + "\n")
-    out.append(_profiles_block(ov, extras, profiles))
-    out.append(BIND_SOURCE.replace(
-        "{names}", _fmt(list(PROFILE_NAMES))))
-    return "\n".join(out).rstrip("\n") + "\n"
+    data["O19_SOURCE_COMMIT"] = o19_commit
+    data["TABLES"] = tables
+    data["CARLOS_COLUMNS"] = carlos_columns
+    data["SEED_ROW_COUNTS"] = seeded
+    data["PRISTINE_TOLERATED_TABLES"] = sorted(
+        TableRules(ov, province).pristine_tolerated)
+    data["SUPPORTED_PROVINCES"] = list(ov.SUPPORTED_PROVINCES)
+    data["REQUIRED_TABLES"] = list(ov.REQUIRED_TABLES)
+    data["CARLOSDOC_SEED_DELETES"] = [list(x)
+                                      for x in ov.CARLOSDOC_SEED_DELETES]
+    data["SEED_PROVIDER_NO"] = ov.SEED_PROVIDER_NO
+    data["SEED_USER_NAME"] = ov.SEED_USER_NAME
+    data["CREDENTIAL_TABLES"] = list(getattr(ov, "CREDENTIAL_TABLES", []))
+    data["CLAIM_HEADER_TABLE"] = dict(getattr(ov, "CLAIM_HEADER_TABLE", {}))
+    data["STARTUP_CREATED_ROWS"] = [
+        list(x) for x in getattr(ov, "STARTUP_CREATED_ROWS", [])]
+    data["STOCK_ROLE_NAMES"] = list(extras.get("stock_role_names", []))
+    data["ROLE_TEMPLATE_MIN_JACCARD"] = getattr(
+        ov, "ROLE_TEMPLATE_MIN_JACCARD", 0.3)
+    data["PREVENTION_TYPE_MAP"] = dict(sorted(
+        extras.get("prevention_type_map", {}).items()))
+    data["KNOWN_PREVENTION_TYPES"] = list(
+        extras.get("known_prevention_types", []))
+    data["PRIMITIVE_COLUMNS"] = primitive_columns(copy_tables, carlos, extras)
+    data["PROFILES"] = _schema_profiles(ov, extras, profiles)
+    return data
 
 
-#: The names above that are PER-PROVINCE. Everything else in the module
-#: is a curated overlay list that holds for every profile.
+#: The names above that are PER-PROVINCE. Everything else in the manifest
+#: is a curated overlay list that holds for every profile. The loader in
+#: carlos-ctl (o19map_schema._PROFILE_NAMES) carries the same list; the
+#: contract test there pins the two together.
 PROFILE_NAMES = ("SCHEMA_MAP_VERSION", "O19_PROFILE", "TABLES",
                  "CARLOS_COLUMNS", "SEED_ROW_COUNTS", "STOCK_ROLE_NAMES",
                  "PRIMITIVE_COLUMNS", "PRISTINE_TOLERATED_TABLES")
 
-#: `bind()`, appended verbatim to the generated module. One package
-#: serves both provinces (debconf picks one at install time from the same
-#: .deb), so the manifest carries both profiles and the caller selects.
-#: Forgetting to call it is SAFE: the module-level names stay the default
-#: profile, and both province gates assert `O19_PROFILE` against the
-#: host's configured province before any work happens, so a BC host
-#: running an unbound manifest is refused rather than mis-migrated.
-BIND_SOURCE = '''
-#: the names above bind() rebinds, and their module-level values captured
-#: BEFORE any bind can run. Without this snapshot bind() would be one-way
-#: -- there would be no way back to the default profile once another was
-#: selected -- and a process that binds twice (the test suite does) would
-#: carry the first selection into the second.
-_PROFILE_NAMES = {names}
-_DEFAULT_PROFILE = dict((n, globals()[n]) for n in _PROFILE_NAMES)
 
-
-def bind(province):
-    """Point this module's per-province names at `province`'s profile.
-
-    Returns the profile name now bound. A province this manifest does not
-    carry leaves the module unchanged -- the caller's own gate refuses
-    it, and refusing is what should happen.
-    """
-    data = PROFILES.get(province)
-    if data is None and province == _DEFAULT_PROFILE['O19_PROFILE']:
-        data = _DEFAULT_PROFILE
-    if data is not None:
-        globals().update(data)
-    return O19_PROFILE
-'''
-
-
-def _profiles_block(ov, extras, profiles) -> str:
-    """`PROFILES`: every province beyond the module-level default."""
+def _schema_profiles(ov, extras, profiles) -> Dict:
+    """`PROFILES`: every province beyond the manifest's default. Same
+    shape as the top-level names; only what actually differs between
+    provinces is repeated."""
     extras = extras or {}
+    out: Dict = {}
     if not profiles:
-        return "PROFILES = {}\n"
+        return out
     default = extras.get("province", "on")
-    out = ["# Every province beyond the module-level default, selected by",
-           "# bind(). Same shape as the names above; only what actually",
-           "# differs between provinces is repeated here.",
-           "PROFILES = {"]
     for province, data in sorted(profiles.items()):
         if province == default:
             continue
@@ -2031,13 +2040,22 @@ def _profiles_block(ov, extras, profiles) -> str:
             "PRISTINE_TOLERATED_TABLES": sorted(
                 TableRules(ov, province).pristine_tolerated),
         }
-        out.append("    {0!r}: {{".format(province))
-        for name in PROFILE_NAMES:
-            out.append("        {0!r}: {1},".format(
-                name, _fmt(body[name]).replace("\n", "\n        ")))
-        out.append("    },")
-    out.append("}\n")
-    return "\n".join(out)
+        out[province] = {name: body[name] for name in PROFILE_NAMES}
+    return out
+
+
+def emit_json(kind: str, data: Dict) -> str:
+    """One shipped manifest file: the format version and kind first, so
+    a loader can refuse before it reads a single data key, then the data
+    in emission order. indent=1 keeps the diff line-per-value without
+    the file being four times the size it needs to be."""
+    if kind not in MANIFEST_FILES:
+        raise SystemExit("unknown manifest kind: {0}".format(kind))
+    envelope = {"format": MANIFEST_FORMAT, "kind": kind,
+                "generator": "scripts/migration/o19/generate_manifests.py"}
+    envelope.update(data)
+    return json.dumps(envelope, indent=1, ensure_ascii=False) + "\n"
+
 
 
 def primitive_columns(copy_tables: List[str], carlos: Schema,
@@ -2146,15 +2164,33 @@ def bundle_key_renames(o19_bundle, carlos_bundle, ov):
     return renames
 
 
-def emit_props_module(o19_defaults, ov, carlos_defaults=None,
-                      bundle_renames=None) -> str:
-    """Render `o19map_props.py`.
+def props_manifest_data(o19_defaults, ov, carlos_defaults=None,
+                        bundle_renames=None) -> Dict:
+    """The properties manifest (`o19map_props.json`) as data.
 
     Refuses outright if any stock OSCAR 19 property key has no
     disposition: an undisposed key drops out of the migration with
     nobody having decided that, so it is a generation failure rather
     than a warning. Credential-bearing stock defaults are never
-    emitted."""
+    emitted.
+
+    * O19_DEFAULTS: active keys of the stock O19 oscar_mcmaster.properties
+      — the baseline-diff reference: clinic keys equal to these defaults
+      are ignored (CARLOS defaults win).
+    * SECRET_DEFAULT_KEYS: stock keys whose value is a credential; their
+      defaults are deliberately not shipped — the props phase always
+      surfaces these for review instead of baseline-diffing them.
+    * CARLOS_DEFAULTS: CARLOS's own default for the `carry` keys where it
+      DIFFERS from the O19 default: the baseline diff leaves such a key
+      untouched (CARLOS wins), which silently flips the clinic's
+      behaviour at cutover unless the props report names it.
+    * BUNDLE_KEY_RENAMES: oscarResources bundle keys CARLOS renamed,
+      verified against the CARLOS bundle: a `rewrite: bundle` value's
+      ${...} tokens are remapped through this before the value is
+      carried, and a token that is not a key here is refused.
+    * KEYS / PREFIX_RULES: the curated dispositions (PREFIX_RULES as
+      [prefix, spec] pairs, first match wins).
+    """
     undisposed = undisposed_property_keys(o19_defaults, ov)
     if undisposed:
         raise SystemExit(
@@ -2164,40 +2200,20 @@ def emit_props_module(o19_defaults, ov, carlos_defaults=None,
             "of the migration without anyone deciding that:\n  ".format(
                 len(undisposed)) + "\n  ".join(undisposed))
     defaults, secret_keys = split_secret_defaults(o19_defaults)
-    out = [GENERATED_HEADER]
-    out.append('"""OSCAR 19 -> CARLOS properties manifest."""\n')
-    out.append("PROPS_MAP_VERSION = {!r}\n".format(
-        content_version(ov.PROPS_MAP_VERSION,
-                        (sorted(ov.KEYS.items()),
-                         list(ov.PREFIX_RULES)))))
-    out.append("# active keys of the stock O19 oscar_mcmaster.properties —"
-               " the baseline-diff\n# reference: clinic keys equal to these"
-               " defaults are ignored (CARLOS defaults win)")
-    out.append("O19_DEFAULTS = " + _fmt(dict(sorted(defaults.items())))
-               + "\n")
-    out.append("# stock keys whose value is a credential: their defaults are"
-               " deliberately not\n# shipped — the props phase always"
-               " surfaces these for review instead of\n# baseline-diffing"
-               " them")
-    out.append("SECRET_DEFAULT_KEYS = " + _fmt(secret_keys) + "\n")
-    out.append("# CARLOS's own default for the `carry` keys where it"
-               " DIFFERS from the O19 default:\n# the baseline diff leaves"
-               " such a key untouched (CARLOS wins), which silently flips"
-               "\n# the clinic's behaviour at cutover unless the props"
-               " report names it")
-    out.append("CARLOS_DEFAULTS = " + _fmt(dict(sorted(
-        divergent_carlos_defaults(defaults, carlos_defaults or {},
-                                  ov).items()))) + "\n")
-    out.append("# oscarResources bundle keys CARLOS renamed, verified"
-               " against the CARLOS bundle:\n# a `rewrite: bundle` value's"
-               " ${...} tokens are remapped through this before the value"
-               "\n# is carried, and a token that is not a key here is"
-               " refused (needs-review)")
-    out.append("BUNDLE_KEY_RENAMES = "
-               + _fmt(dict(sorted((bundle_renames or {}).items()))) + "\n")
-    out.append("KEYS = " + _fmt(dict(sorted(ov.KEYS.items()))) + "\n")
-    out.append("PREFIX_RULES = " + _fmt(list(ov.PREFIX_RULES)) + "\n")
-    return "\n".join(out).rstrip("\n") + "\n"
+    data: Dict = {}
+    data["PROPS_MAP_VERSION"] = content_version(
+        ov.PROPS_MAP_VERSION,
+        (sorted(ov.KEYS.items()), list(ov.PREFIX_RULES)))
+    data["O19_DEFAULTS"] = dict(sorted(defaults.items()))
+    data["SECRET_DEFAULT_KEYS"] = list(secret_keys)
+    data["CARLOS_DEFAULTS"] = dict(sorted(divergent_carlos_defaults(
+        defaults, carlos_defaults or {}, ov).items()))
+    data["BUNDLE_KEY_RENAMES"] = dict(sorted(
+        (bundle_renames or {}).items()))
+    data["KEYS"] = dict(sorted(ov.KEYS.items()))
+    data["PREFIX_RULES"] = [list(rule) for rule in ov.PREFIX_RULES]
+    return data
+
 
 
 #: The names in the preflight's generated block that are PER-PROVINCE.
@@ -2208,40 +2224,6 @@ PREFLIGHT_PROFILE_NAMES = ("SCHEMA_MAP_VERSION", "O19_PROFILE",
                            "PATIENT_DATA_TABLES", "KNOWN_TABLES",
                            "B3_FLAGGED_COLUMNS", "CHARSET_SCAN",
                            "STOCK_ROLE_NAMES")
-
-#: `bind()` for the preflight. Emitted INSIDE the generated block because
-#: the preflight ships as ONE standalone file for the clinic's server --
-#: there is no hand-written module beside it to put this in -- and
-#: because the names it rebinds are generated in the same block. Same
-#: contract as the schema manifest's: an unknown province leaves the
-#: module on its default profile and `run_checks`' province gate refuses
-#: the host, which is the safe direction.
-PREFLIGHT_BIND_SOURCE = '''
-
-#: the names above bind() rebinds, and their module-level values captured
-#: BEFORE any bind can run -- so bind() can always return to the default
-#: profile instead of being a one-way switch.
-_PROFILE_NAMES = {names}
-_DEFAULT_PROFILE = dict((n, globals()[n]) for n in _PROFILE_NAMES)
-
-
-def bind(province):
-    """Point this file's per-province names at `province`'s profile.
-
-    Returns the profile name now bound. A province this build does not
-    carry leaves the data unchanged, and the province gate in
-    run_checks() then refuses the host rather than assessing it against
-    another province's rulings.
-    """
-    data = PROFILES.get(province)
-    if data is None and province == _DEFAULT_PROFILE['O19_PROFILE']:
-        data = _DEFAULT_PROFILE
-    if data is not None:
-        globals().update(data)
-    return O19_PROFILE
-
-'''
-
 
 def _preflight_profile(tables, province: str, stock_role_names, ov) -> Dict:
     """The preflight's per-province data for one profile.
@@ -2273,98 +2255,113 @@ def _preflight_profile(tables, province: str, stock_role_names, ov) -> Dict:
     }
 
 
-def _preflight_profiles_block(ov, extras, profiles) -> str:
-    """`PROFILES`: every province beyond the module-level default.
+#: The names of the preflight block, in emission order, before PROFILES.
+#: Shared with carlos_ctl.o19manifest.PREFLIGHT_BLOCK_NAMES, which renders
+#: the same block from the installed JSON (--write-standalone).
+PREFLIGHT_BLOCK_NAMES = (
+    "SCHEMA_MAP_VERSION", "O19_PROFILE", "SUPPORTED_PROVINCES",
+    "REQUIRED_TABLES", "PATIENT_DATA_TABLES", "KNOWN_TABLES",
+    "B3_FLAGGED_COLUMNS", "CHARSET_SCAN", "DROPPED_PROP_PREFIXES",
+    "DROPPED_PROP_KEYS", "STOCK_ROLE_NAMES", "LEGACY_PREVENTION_TYPES",
+)
 
-    Each profile is a SEPARATE module-level dict rather than one nested
-    literal, because this file is 79 columns wide and a fourth level of
-    indentation pushes the longest B3 predicate past it. The names are
-    generated data like everything else in the block."""
+
+def preflight_manifest_data(tables, ov, props_ov,
+                            extras: Optional[Dict] = None,
+                            profiles: Optional[Dict] = None) -> Dict:
+    """The preflight manifest (`o19_preflight.json`) as data: table
+    classes, patient tables, dropped columns and their emptiness
+    predicates, and the property keys the import prunes.
+
+    * O19_PROFILE is the province this data was curated FOR. The check
+      refuses a host configured for another one: every ruling here --
+      which table is copied, which column is dropped, which row counts
+      as patient data -- was decided against one province's schema, and
+      running it against another would classify silently and wrongly.
+    * SUPPORTED_PROVINCES: provinces this build will RUN, not merely
+      carry a profile for.
+    * DROPPED_PROP_PREFIXES / DROPPED_PROP_KEYS are DERIVED from the
+      properties overlay, never maintained beside it: the same lists
+      prune the clinic's `property` TABLE, and a hand-written copy had
+      drifted six prefixes behind the file rules — so hsfo_* keys were
+      dropped from oscar.properties while the matching property rows
+      survived the import and CARLOS read them back.
+    * PROFILES: every province beyond the default; only the
+      PREFLIGHT_PROFILE_NAMES are repeated per province.
+    """
     extras = extras or {}
-    default = extras.get("province", "on")
-    others = [p for p in sorted(profiles or {}) if p != default]
-    if not others:
-        return "PROFILES = {}"
-    out = ["# Every province beyond the module-level default, selected by",
-           "# bind(). Same names as above; only what differs is repeated."]
+    default_province = extras.get("province", "on")
+    default = _preflight_profile(tables, default_province,
+                                 extras.get("stock_role_names", []), ov)
+    data: Dict = {}
+    data["SCHEMA_MAP_VERSION"] = default["SCHEMA_MAP_VERSION"]
+    data["O19_PROFILE"] = default["O19_PROFILE"]
+    data["SUPPORTED_PROVINCES"] = list(ov.SUPPORTED_PROVINCES)
+    data["REQUIRED_TABLES"] = list(ov.REQUIRED_TABLES)
+    data["PATIENT_DATA_TABLES"] = default["PATIENT_DATA_TABLES"]
+    data["KNOWN_TABLES"] = default["KNOWN_TABLES"]
+    data["B3_FLAGGED_COLUMNS"] = default["B3_FLAGGED_COLUMNS"]
+    data["CHARSET_SCAN"] = default["CHARSET_SCAN"]
+    data["DROPPED_PROP_PREFIXES"] = [
+        p for p, spec in props_ov.PREFIX_RULES
+        if spec.get("d") == "dropped-flag"]
+    data["DROPPED_PROP_KEYS"] = sorted(
+        k for k, spec in props_ov.KEYS.items()
+        if spec.get("d") == "dropped-flag")
+    data["STOCK_ROLE_NAMES"] = default["STOCK_ROLE_NAMES"]
+    data["LEGACY_PREVENTION_TYPES"] = sorted(
+        extras.get("prevention_type_map", {}))
+    data["PROFILES"] = {}
+    for province in sorted(profiles or {}):
+        if province == default_province:
+            continue
+        p = profiles[province]
+        body = _preflight_profile(p["tables"], province,
+                                  p["stock_role_names"], ov)
+        data["PROFILES"][province] = {
+            name: body[name] for name in PREFLIGHT_PROFILE_NAMES}
+    return data
+
+
+def render_preflight_block(data: Dict) -> str:
+    """Render the marker-delimited data block of `o19_preflight.py` from
+    the preflight manifest data (the JSON's keys, format envelope aside).
+
+    The preflight ships as one standalone file for the clinic's server,
+    so its manifest data is inlined between markers rather than read
+    from a file. Each extra province is a SEPARATE module-level dict
+    rather than one nested literal, because that file is 79 columns wide
+    and a fourth level of indentation pushes the longest B3 predicate
+    past it.
+
+    carlos_ctl.o19manifest.render_preflight_block is a copy of this
+    function (the CLI re-inlines the installed manifest without this
+    generator); keep the two byte-for-byte, the contract test in the
+    carlos-ctl repository compares their output.
+    """
+    lines = [MARKER_BEGIN]
+    for name in PREFLIGHT_BLOCK_NAMES:
+        width = 79 if name == "B3_FLAGGED_COLUMNS" else None
+        lines.append("{0} = {1}".format(
+            name, _fmt(data[name], pair_width=width)))
+    others = sorted(data.get("PROFILES") or {})
     for province in others:
-        data = profiles[province]
-        body = _preflight_profile(data["tables"], province,
-                                  data["stock_role_names"], ov)
-        out.append("PROFILE_{0} = {{".format(province.upper()))
+        body = data["PROFILES"][province]
+        lines.append("PROFILE_{0} = {{".format(province.upper()))
         for name in PREFLIGHT_PROFILE_NAMES:
             width = 75 if name == "B3_FLAGGED_COLUMNS" else None
             rendered = _fmt(body[name], indent=1, pair_width=width)
-            out.append("    {0!r}: {1},".format(name, rendered))
-        out.append("}")
-        out.append("")
-    out.append("PROFILES = {"
-               + ", ".join("{0!r}: PROFILE_{1}".format(p, p.upper())
-                           for p in others)
-               + "}")
-    return "\n".join(out)
-
-
-def emit_preflight_data(tables, ov, props_ov,
-                        extras: Optional[Dict] = None,
-                        profiles: Optional[Dict] = None) -> str:
-    """Render the generated block of `o19_preflight.py` (table classes,
-    patient tables, dropped columns and their emptiness predicates).
-
-    The preflight ships as one standalone file for the clinic's server,
-    so its manifest data is inlined between markers rather than
-    imported."""
-    extras = extras or {}
-    default = _preflight_profile(tables, extras.get("province", "on"),
-                                 extras.get("stock_role_names", []), ov)
-    lines = [MARKER_BEGIN]
-    lines.append("SCHEMA_MAP_VERSION = {!r}".format(
-        default["SCHEMA_MAP_VERSION"]))
-    # the province this data was curated FOR. The check refuses a host
-    # configured for another one: every ruling below -- which table is
-    # copied, which column is dropped, which row counts as patient data
-    # -- was decided against one province's schema, and running it
-    # against another would classify silently and wrongly.
-    lines.append("O19_PROFILE = {!r}".format(default["O19_PROFILE"]))
-    # provinces this build will RUN, not merely carry a profile for:
-    # a curated profile is reviewable and testable from the day it is
-    # written, but only a full P0-P7 rehearsal makes it supported.
-    lines.append("SUPPORTED_PROVINCES = "
-                 + _fmt(list(ov.SUPPORTED_PROVINCES)))
-    lines.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)))
-    lines.append("PATIENT_DATA_TABLES = "
-                 + _fmt(default["PATIENT_DATA_TABLES"]))
-    lines.append("KNOWN_TABLES = " + _fmt(default["KNOWN_TABLES"]))
-    lines.append("B3_FLAGGED_COLUMNS = "
-                 + _fmt(default["B3_FLAGGED_COLUMNS"], pair_width=79))
-    lines.append("CHARSET_SCAN = " + _fmt(default["CHARSET_SCAN"]))
-    # DERIVED from the properties overlay, never maintained beside it:
-    # the same list prunes the clinic's `property` TABLE, and the
-    # hand-written copy had drifted six prefixes behind the file rules —
-    # so hsfo_* keys were dropped from oscar.properties while the
-    # matching property rows survived the import and CARLOS read them
-    # back.
-    lines.append("DROPPED_PROP_PREFIXES = " + _fmt(
-        [p for p, spec in props_ov.PREFIX_RULES
-         if spec.get("d") == "dropped-flag"]))
-    # …and the keys classified by NAME rather than by prefix. Without
-    # these the same drift reappears one level down: the key is dropped
-    # from oscar.properties while its `property` table row survives the
-    # import and CARLOS reads it back.
-    lines.append("DROPPED_PROP_KEYS = " + _fmt(
-        sorted(k for k, spec in props_ov.KEYS.items()
-               if spec.get("d") == "dropped-flag")))
-    lines.append("STOCK_ROLE_NAMES = " + _fmt(default["STOCK_ROLE_NAMES"]))
-    lines.append("LEGACY_PREVENTION_TYPES = "
-                 + _fmt(sorted(extras.get("prevention_type_map", {}))))
-    lines.append(_preflight_profiles_block(ov, extras, profiles))
-    lines.append(PREFLIGHT_BIND_SOURCE.replace(
-        "{names}", _fmt(list(PREFLIGHT_PROFILE_NAMES))))
+            lines.append("    {0!r}: {1},".format(name, rendered))
+        lines.append("}")
+    lines.append("PROFILES = {"
+                 + ", ".join("{0!r}: PROFILE_{1}".format(p, p.upper())
+                             for p in others)
+                 + "}")
     lines.append(MARKER_END)
     block = "\n".join(lines)
     # o19_preflight.py is a hand-written 79-column file and the lint gate
     # covers it. A generated line that overflows is caught HERE, naming
-    # the line, rather than as an E501 on a DO-NOT-EDIT file whose author
+    # the line, rather than as an E501 on a DO-NOT-EDIT block whose author
     # is this function.
     for line in block.split("\n"):
         if len(line) > 79:
@@ -2372,6 +2369,16 @@ def emit_preflight_data(tables, ov, props_ov,
                 "generated preflight line exceeds 79 columns ({0}): "
                 "{1}".format(len(line), line))
     return block
+
+
+def emit_preflight_data(tables, ov, props_ov,
+                        extras: Optional[Dict] = None,
+                        profiles: Optional[Dict] = None) -> str:
+    """The generated block of `o19_preflight.py`: the preflight manifest
+    data, rendered (see render_preflight_block)."""
+    return render_preflight_block(
+        preflight_manifest_data(tables, ov, props_ov, extras, profiles))
+
 
 
 def rewrite_markers(path: Path, block: str) -> bool:
@@ -2496,7 +2503,14 @@ def main() -> int:
                     help="path to an oscaremr/oscar (OSCAR 19) checkout")
     ap.add_argument("--check", action="store_true",
                     help="verify committed outputs match; write nothing")
+    ap.add_argument("--ctl-src", type=Path, default=None,
+                    help="a checkout of carlos-emr/carlos-ctl: its "
+                         "carlos_ctl package supplies the properties "
+                         "parser, and its o19_preflight.py generated-data "
+                         "block is rewritten (or, with --check, compared)")
     args = ap.parse_args()
+    global CTL_SRC
+    CTL_SRC = args.ctl_src
 
     oscar = Path(args.oscar_src)
     if not (oscar / "database/mysql/oscarinit.sql").is_file():
@@ -2552,18 +2566,23 @@ def main() -> int:
         parse_properties(oscar / O19_RESOURCE_BUNDLE),
         parse_properties(CARLOS_RESOURCE_BUNDLE), ov_props)
 
-    schema_out = emit_schema_module(tables, carlos, seed_counts, ov_schema,
-                                    commit, extras, profiles)
-    props_out = emit_props_module(o19_defaults, ov_props, carlos_defaults,
-                                  bundle_renames)
-    preflight_block = emit_preflight_data(tables, ov_schema, ov_props,
-                                          extras, profiles)
+    outputs = {
+        "o19map-schema": schema_manifest_data(
+            tables, carlos, seed_counts, ov_schema, commit, extras,
+            profiles),
+        "o19map-props": props_manifest_data(
+            o19_defaults, ov_props, carlos_defaults, bundle_renames),
+        "o19-preflight": preflight_manifest_data(
+            tables, ov_schema, ov_props, extras, profiles),
+    }
+    targets = [(MANIFEST_DIR / MANIFEST_FILES[kind], emit_json(kind, data))
+               for kind, data in outputs.items()]
+    preflight_block = render_preflight_block(outputs["o19-preflight"])
+    preflight = (args.ctl_src / "carlos_ctl" / "o19_preflight.py"
+                 if args.ctl_src else None)
+    if preflight is not None and not preflight.is_file():
+        return ap.error("--ctl-src has no carlos_ctl/o19_preflight.py")
 
-    targets = [
-        (CTL_DIR / "o19map_schema.py", schema_out),
-        (CTL_DIR / "o19map_props.py", props_out),
-    ]
-    preflight = CTL_DIR / "o19_preflight.py"
     if args.check:
         rc = 0
         for path, content in targets:
@@ -2574,7 +2593,7 @@ def main() -> int:
                 rc = 1
         # the embedded preflight data is generated too — drift there is
         # exactly the stale-classification case --check exists to catch
-        if preflight.is_file():
+        if preflight is not None:
             text = preflight.read_text(encoding="utf-8")
             b, e = text.find(MARKER_BEGIN), text.find(MARKER_END)
             current = text[b:e + len(MARKER_END)] if b != -1 and e > b else ""
@@ -2584,19 +2603,20 @@ def main() -> int:
                 rc = 1
         return rc
 
+    MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
     for path, content in targets:
         path.write_text(content, encoding="utf-8")
         print("wrote {}".format(path))
 
-    if preflight.is_file():
+    if preflight is not None:
         if rewrite_markers(preflight, preflight_block):
             print("rewrote generated-data block in {}".format(preflight))
         else:
             print("generated-data block in {} already current"
                   .format(preflight))
     else:
-        print("note: {} does not exist yet — generated-data block skipped"
-              .format(preflight))
+        print("note: no --ctl-src given — the generated-data block in the "
+              "carlos-ctl checkout's o19_preflight.py was not refreshed")
     return 0
 
 

@@ -1,17 +1,43 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
+#
+# The Python regressions around the Debian packaging, and the contract with
+# the carlos-ctl package (carlos-emr/carlos-ctl) that carlos-emr depends on:
+#
+#   * debian/assets/tests: packaging-contract tests (the backup script vs.
+#     the postrm, the OSCAR 19 import guard and its three callers, the
+#     release-asset checksum generator in deb-packages.yml).
+#   * scripts/migration/o19/tests: the manifest generator and the shipped
+#     OSCAR 19 manifests (debian/assets/o19-manifest), read through the
+#     pinned carlos-ctl's loaders.
+#   * the pinned carlos-ctl's own suite with CARLOS_SRC pointing at this
+#     checkout: its contract tests (the login-name rule the importer
+#     mirrors, the Flyway set db-baseline adopts, the rules that ship the
+#     o19 fixups, the runbook the man page must agree with) run here and
+#     nowhere else.
+#
+# The carlos-ctl checkout is the release debian/carlos-ctl.pin names, so this
+# job answers "does the CLI a release ships still agree with this tree".
 name: Debian Python Regressions
 
 on:
   pull_request:
     paths:
       - 'debian/**'
+      - 'scripts/migration/o19/**'
+      - 'src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java'
+      - 'database/mysql/migration/**'
+      - 'docs/o19-import-deb.md'
       - '.github/workflows/deb-packages.yml'
       - '.github/workflows/debian-python-tests.yml'
   push:
     branches: [develop, 'release/**']
     paths:
       - 'debian/**'
+      - 'scripts/migration/o19/**'
+      - 'src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java'
+      - 'database/mysql/migration/**'
+      - 'docs/o19-import-deb.md'
       - '.github/workflows/deb-packages.yml'
       - '.github/workflows/debian-python-tests.yml'
 
@@ -22,16 +48,37 @@ jobs:
   tests:
     name: Debian Python regressions
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+      - name: Check out the pinned carlos-ctl release
+        run: |
+          set -euo pipefail
+          tag="$(sed -n 's/^tag=//p' debian/carlos-ctl.pin)"
+          if [ -z "$tag" ]; then
+            echo "::error::debian/carlos-ctl.pin names no tag"
+            exit 1
+          fi
+          git clone --quiet --depth 1 --branch "$tag" \
+            https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"
+          echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
       # Ubuntu 26.04 ships Python 3.14. The runner's 3.12 CSV reader has
       # a known QUOTE_NOTNULL bug and cannot validate the target semantics.
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.14'
-      - name: Run isolated Debian tooling regressions
-        working-directory: debian/assets
-        run: python3 -m unittest discover -s carlos_ctl/tests -t .
+      - name: Install the CLI's runtime dependency
+        run: pip install bcrypt==5.0.0
+      - name: Packaging-contract tests
+        run: python3 -m unittest discover -s debian/assets/tests -t .
+      - name: Manifest generator and shipped-manifest tests
+        run: python3 -m unittest discover -s scripts/migration/o19/tests -t .
+      - name: The pinned carlos-ctl suite against this checkout
+        working-directory: ${{ env.CARLOS_CTL_SRC }}
+        env:
+          CARLOS_SRC: ${{ github.workspace }}
+        run: python3 -m unittest discover -s tests -t .

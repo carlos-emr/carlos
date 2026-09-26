@@ -1,3 +1,27 @@
+carlos-emr (2026.09.0~snapshot25) resolute; urgency=medium
+
+  * The carlos-ctl administration command is its own package now, built from
+    carlos-emr/carlos-ctl, and carlos-emr depends on it (carlos-ctl >= 1.0.0).
+    This package no longer ships /usr/sbin/carlos-ctl, the carlosctl alias,
+    /usr/lib/carlos-emr/carlos_ctl or the carlos-ctl(8) man page; the new
+    package takes those paths over on upgrade (Breaks/Replaces carlos-emr
+    << 2026.09.0~snapshot25), and this postinst removes the bytecode cache
+    the old copy left behind. The operator's install and upgrade command is
+    unchanged apart from one more file: carlos-ctl_<version>_all.deb, which
+    every carlos release re-attaches from the pinned carlos-ctl release
+    (debian/carlos-ctl.pin, debian/fetch-carlos-ctl.sh).
+  * The OSCAR 19 import manifests ship as data with this package, under
+    /usr/share/carlos-emr/o19-manifest/ (JSON with a format version), rather
+    than as modules inside the CLI: they describe this package's schema, so
+    a migration that touches an imported table regenerates them here and
+    never needs a CLI release. The generator writes debian/assets/o19-manifest/.
+  * carlos-emr-provision.service starts /usr/sbin/carlos-ctl finish-install.
+  * python3-bcrypt, iproute2, procps and the jq recommendation moved to
+    carlos-ctl; python3, curl and mariadb-client stay (the postinst, the
+    import guard and the backup job use them directly).
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 26 Sep 2026 15:24:19 +0000
+
 carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
 
   * carlos-emr is now Architecture: amd64 and carries the eForm renderer

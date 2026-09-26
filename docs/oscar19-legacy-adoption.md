@@ -172,7 +172,8 @@ the same rows* — is an assumption:
   otherwise the run stops without stamping. This also protects a later import of a different
   legacy dump that reuses the same primary keys.
 
-A regression test (`carlos_ctl/tests/test_dbadopt.py`) fails the build if a
+A regression test (`tests/test_dbadopt.py` in the carlos-ctl repository, run
+by this repository's Debian Python regressions with `CARLOS_SRC` set) fails the build if a
 *new* forward migration seeds a non-temporary table without `INSERT IGNORE`.
 `V1.0.5` is carried there as a named, documented exception.
 
@@ -316,6 +317,6 @@ the database in front of you needs anyway.
 
 ## See also
 
-* `docs/carlos-ctl.md` — the full verb reference
+* [docs/carlos-ctl.md](https://github.com/carlos-emr/carlos-ctl/blob/main/docs/carlos-ctl.md) in the carlos-ctl repository — the full verb reference
 * `docs/database-schema-management.md` — how the Flyway migration set is built
 * `carlos-ctl(8)` — the man page

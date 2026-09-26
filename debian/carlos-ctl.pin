@@ -1,0 +1,14 @@
+# The carlos-emr/carlos-ctl release whose .deb every carlos release
+# re-attaches (deb-packages.yml, via debian/fetch-carlos-ctl.sh) so one
+# release page carries the whole install, and which the install tests
+# (scripts/deb-upgrade-verify.sh) exercise. The tag IS the Debian version
+# (carlos-ctl is a native package): the asset is carlos-ctl_<tag>_all.deb,
+# with '-' read as '.' in a pre-release asset name and '~' in dpkg.
+#
+# This pin and debian/control's `carlos-ctl (>= ...)` floor are different
+# things: the floor is the OLDEST CLI this package's maintainer scripts can
+# run with, the pin is the CLI a release SHIPS. Keep the pin at or above the
+# floor. Raise the floor when the postinst starts using a new verb or flag;
+# raise the pin when a CLI release should reach operators with the next
+# carlos release.
+tag=1.0.0

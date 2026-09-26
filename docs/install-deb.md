@@ -1,6 +1,6 @@
 # Installing CARLOS on a single server (Debian packages)
 
-This is the supported way to run CARLOS EMR on one Ubuntu machine: two
+This is the supported way to run CARLOS EMR on one Ubuntu machine: three
 Debian packages (plus one empty transitional package for upgrades) that install the application, its database, an nginx +
 ModSecurity web application firewall, HTTPS, scheduled encrypted backups, and
 an administration tool — a working, secured EMR from `apt install`.
@@ -12,7 +12,8 @@ an administration tool — a working, secured EMR from `apt install`.
 
 | Package | What it provides |
 |---|---|
-| `carlos-emr` | CARLOS on a dedicated Tomcat 11 instance, MariaDB with least-privilege accounts, an nginx front door running ModSecurity 3 + OWASP CRS in blocking mode, HTTPS (self-signed by default, Let's Encrypt on request), nightly restic backups with a weekly restore drill, and the `carlos-ctl` admin CLI |
+| `carlos-emr` | CARLOS on a dedicated Tomcat 11 instance, MariaDB with least-privilege accounts, an nginx front door running ModSecurity 3 + OWASP CRS in blocking mode, HTTPS (self-signed by default, Let's Encrypt on request), and nightly restic backups with a weekly restore drill |
+| `carlos-ctl` | The `carlos-ctl` administration command (`check`, logs, restarts, schema migrations, certificates, the WAF, backups, the OSCAR 19 import). Its own package, built and released from [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl); `carlos-emr` depends on it, and every CARLOS release re-attaches the pinned `carlos-ctl` release so one download page carries the whole install |
 | `carlos-emr-drugref` | DrugRef2, the drug and drug-interaction reference CARLOS queries when prescribing — co-deployed, loopback-only, with the Health Canada Drug Product Database seed loaded on install |
 | `carlos-emr-eform-renderer` | Empty transitional package. The sandboxed browser that renders saved eForms to PDF now ships inside `carlos-emr`; this package only lets a 2026.08.0-alpha13 or earlier install upgrade cleanly (see [Upgrades](#upgrades)) |
 
@@ -76,21 +77,39 @@ Each of these is much easier to fix now than mid-install:
 Every CARLOS [GitHub release](https://github.com/carlos-emr/carlos/releases)
 carries the `.deb` files, their `.sha256` checksums, and build-provenance
 attestations (the `carlos-emr` package ships that release's published WAR,
-byte for byte). Download all three, verify, install:
+byte for byte; the `carlos-ctl` package is the release of
+[carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) the CARLOS
+release pins, re-attached as is). Download all four, verify, install:
 
 ```bash
 sudo apt update
 sha256sum -c carlos-emr_<version>_amd64.deb.sha256
+sha256sum -c carlos-ctl_<ctl-version>_all.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
 sha256sum -c carlos-emr-eform-renderer_<version>_all.deb.sha256
 sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
+                 ./carlos-ctl_<ctl-version>_all.deb \
                  ./carlos-emr-drugref_<version>_all.deb \
                  ./carlos-emr-eform-renderer_<version>_all.deb
 ```
 
 `<version>` is the release's Debian version as it appears in the asset name,
 with dots throughout — for example `2026.08.0.alpha14`, giving
-`carlos-emr_2026.08.0.alpha14_amd64.deb`.
+`carlos-emr_2026.08.0.alpha14_amd64.deb`. `<ctl-version>` is the `carlos-ctl`
+release's own version (for example `1.0.0`): the two packages version
+independently, and the CARLOS release page carries the `carlos-ctl` file it
+was tested with. To verify provenance, `gh attestation verify` each file
+against the repository that built it:
+
+```bash
+gh attestation verify carlos-emr_<version>_amd64.deb --repo carlos-emr/carlos
+gh attestation verify carlos-ctl_<ctl-version>_all.deb --repo carlos-emr/carlos-ctl
+```
+
+> **Releases up to and including 2026.09.0~snapshot24** shipped `carlos-ctl`
+> inside `carlos-emr`; there is no separate file to download for them, and
+> upgrading from one of them needs the `carlos-ctl` file in the same command
+> (see [Upgrades](#upgrades)).
 
 > **Releases up to and including 2026.08.0-alpha13** name the packages
 > differently: `carlos-emr_<version>_all.deb`, and the renderer as a real
@@ -119,6 +138,7 @@ What each package is for:
 | Package | What it does | Leave it out? |
 |---|---|---|
 | `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups, and the browser that turns saved eForms into PDFs (eForm print, fax and archive have no other path). | No. |
+| `carlos-ctl` | The administration command; `carlos-emr` depends on it (its installer runs `carlos-ctl` verbs). | No — apt refuses to install `carlos-emr` without it. |
 | `carlos-emr-drugref` | Drug and interaction lookups when prescribing. | Only if you never prescribe — searches return nothing without it. |
 | `carlos-emr-eform-renderer` | Nothing (transitional). | On a fresh install, yes. When upgrading from 2026.08.0-alpha13 or earlier, **no** — see [Upgrades](#upgrades). |
 
@@ -324,8 +344,9 @@ The loop is: edit the file, run the verb beside it.
 | `/etc/carlos-emr/modsecurity/` (WAF policy, site exclusions) | `sudo carlos-ctl waf reload` |
 
 `carlos-ctl --help` lists every verb; `man carlos-ctl` documents them, and
-**[docs/carlos-ctl.md](carlos-ctl.md)** is the same reference readable here
-on GitHub, with a walkthrough of the post-install configuration files. The
+**[docs/carlos-ctl.md](https://github.com/carlos-emr/carlos-ctl/blob/main/docs/carlos-ctl.md)**
+in the carlos-ctl repository is the same reference readable on GitHub, with
+a walkthrough of the post-install configuration files. The
 tool shares its name, language, and overlapping verb set (`check`, `db`,
 `db-migrate`, `db-users`, `backup full|verify|status`, `cert-renew`,
 `rotate`) with the carlos-podman deployment's `carlos-ctl`, so operators can
@@ -336,12 +357,30 @@ move between the two without relearning.
 An upgrade is `apt install` of the newer packages — same command as the
 install. Supply the main package and each companion that is already installed,
 all from the same release: DrugRef depends on the matching main-package
-version. For the standard installation this means all three files.
+version. For the standard installation this means all four files (the
+`carlos-ctl` file too: if the release pins the `carlos-ctl` version you
+already have, apt reports it as already the newest and moves on).
 If you intentionally omitted DrugRef, supply only the packages you use and
 add `--no-install-recommends` to keep it absent.
 Offering only a newer main package
 can cause apt to propose removing a companion. Keep `--no-remove` so that
 proposal fails instead of removing prescription lookup.
+
+**Upgrading from 2026.09.0~snapshot24 or earlier** (when `carlos-ctl` was
+part of `carlos-emr`): the `carlos-ctl_<ctl-version>_all.deb` file must be in
+the same command. The new `carlos-emr` depends on it, so without the file apt
+refuses the whole transaction up front and the old install keeps running —
+nothing is half-upgraded. With it, apt unpacks `carlos-ctl` (which takes over
+`/usr/sbin/carlos-ctl`, `carlosctl` and the man page from the old
+`carlos-emr`), then the new `carlos-emr`, and configures them in that order,
+so the installer's own `carlos-ctl` calls find the new command. `carlos-emr`
+and `carlos-ctl` can be upgraded separately afterwards: a CLI fix ships as a
+`carlos-ctl` release alone (its install touches no database and restarts
+nothing), and a newer `carlos-emr` alone works whenever the installed
+`carlos-ctl` satisfies its `Depends` floor. A `carlos-ctl` install is
+refused while an OSCAR 19 import is in progress on the host; finish or
+clean up the import first. `apt remove carlos-emr` leaves `carlos-ctl`
+installed; it then answers every verb with "carlos-emr is not installed".
 
 **Upgrading from 2026.08.0-alpha13 or earlier** (when the renderer was its own
 `_amd64` package and `carlos-emr` was `_all`): include
