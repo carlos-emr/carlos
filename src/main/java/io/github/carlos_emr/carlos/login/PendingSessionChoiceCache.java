@@ -29,7 +29,9 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Short-lived, server-side store for a login that has passed every credential check (password,
@@ -62,6 +64,12 @@ final class PendingSessionChoiceCache {
     }
 
     private final Cache<String, Entry> cache;
+    /**
+     * Owners of consumed tokens whose submit is still completing. Not bounded and not expiring, so
+     * a burst of new pending logins cannot evict an in-flight owner; the submit removes its own
+     * entry with {@link #release} when it finishes.
+     */
+    private final Map<String, Integer> inFlight = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
 
     private PendingSessionChoiceCache() {
@@ -109,8 +117,22 @@ final class PendingSessionChoiceCache {
         if (token == null || token.isEmpty()) {
             return null;
         }
+        Integer completing = inFlight.get(token);
+        if (completing != null) {
+            return completing;
+        }
         Entry entry = cache.getIfPresent(token);
         return entry == null ? null : entry.owner();
+    }
+
+    /**
+     * Ends the in-flight period of a consumed token. The submit calls it once its login has
+     * finished or failed, while it still holds the admission lock.
+     */
+    void release(String token) {
+        if (token != null) {
+            inFlight.remove(token);
+        }
     }
 
     PendingSessionChoice consume(String token) {
@@ -125,6 +147,7 @@ final class PendingSessionChoiceCache {
                 return entry;
             }
             taken[0] = entry.choice();
+            inFlight.put(key, entry.owner());
             return new Entry(null, entry.owner());
         });
         return taken[0];
@@ -135,6 +158,7 @@ final class PendingSessionChoiceCache {
             return;
         }
         cache.invalidate(token);
+        inFlight.remove(token);
     }
 
     long size() {

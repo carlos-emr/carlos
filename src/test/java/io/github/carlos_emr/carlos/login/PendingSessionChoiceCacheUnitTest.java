@@ -116,6 +116,24 @@ class PendingSessionChoiceCacheUnitTest {
     }
 
     @Test
+    @DisplayName("should keep an in-flight owner even after the cache entry is evicted")
+    void shouldKeepInFlightOwner_whenCacheEntryIsGone() {
+        // Simulates eviction under a burst of new pending logins: the consumed entry disappears
+        // from the bounded cache, but the owner of a submit that is still completing must not.
+        AtomicLong nanos = new AtomicLong();
+        PendingSessionChoiceCache cache = new PendingSessionChoiceCache(nanos::get);
+        String token = cache.store(pending());
+        assertThat(cache.consume(token)).isNotNull();
+
+        nanos.addAndGet(TimeUnit.MINUTES.toNanos(6));
+        assertThat(cache.peek(token)).isNull();
+        assertThat(cache.ownerOf(token)).as("in flight").isEqualTo(12345);
+
+        cache.release(token);
+        assertThat(cache.ownerOf(token)).as("released").isNull();
+    }
+
+    @Test
     @DisplayName("should ignore a session a completing login already invalidated")
     void shouldIgnoreInvalidatedSession_whenClearing() {
         MockHttpSession session = new MockHttpSession();

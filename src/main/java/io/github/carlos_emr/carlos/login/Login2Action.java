@@ -1331,9 +1331,9 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         if (!Objects.equals(pending.credentialFingerprint(), credentialFingerprint(security))) {
-            // The password, PIN or PIN-lock settings changed after this sign-in checked them. The
-            // pending login keeps no credentials to re-check, so end it; the next sign-in is
-            // checked against the current values.
+            // The password, PIN, PIN-lock settings or MFA mode changed after this sign-in checked
+            // them. The pending login keeps no credentials to re-check, so end it; the next sign-in
+            // is checked against the current values and mode.
             logger.warn("Session choice refused because the account's credentials changed: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
             LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "credentials_changed_during_session_choice", ip);
@@ -1374,11 +1374,17 @@ public final class Login2Action extends ActionSupport {
         // session before the new one exists.
         // The role list was captured at sign-in; a role granted or revoked while the chooser was
         // open must be reflected in the session's userrole, as a fresh sign-in would.
-        String[] authResult = terminal.authResult();
-        authResult[4] = activeRoleNames(terminal.providerNo());
-        return completeAuthenticatedLogin(security, authResult, ip, terminal.mobileOptimized(),
-                terminal.submitType(), false, terminal.oauthToken(),
-                signOutOthers ? OtherSessionSettlement.Mode.SIGN_OUT_BY_USER : OtherSessionSettlement.Mode.KEEP_BY_USER);
+        try {
+            String[] authResult = terminal.authResult();
+            authResult[4] = activeRoleNames(terminal.providerNo());
+            return completeAuthenticatedLogin(security, authResult, ip, terminal.mobileOptimized(),
+                    terminal.submitType(), false, terminal.oauthToken(),
+                    signOutOthers ? OtherSessionSettlement.Mode.SIGN_OUT_BY_USER : OtherSessionSettlement.Mode.KEEP_BY_USER);
+        } finally {
+            // Still under the admission lock: once the login has finished (or failed) the owner no
+            // longer needs to outlive cache eviction.
+            PendingSessionChoiceCache.getInstance().release(token);
+        }
     }
 
     /**
@@ -1400,9 +1406,10 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Digest of the credential fields {@link LoginCheckLoginBean} checks at sign-in: the password
-     * hash, the PIN and the local/remote PIN-lock flags. Binding a pending login to it lets the
-     * chooser submit notice a credential change without keeping any credential itself.
+     * Digest of the fields that decide how {@link LoginCheckLoginBean} authenticates the account:
+     * the password hash, the PIN, the local/remote PIN-lock flags and whether the account uses MFA
+     * (which switches the PIN check off). Binding a pending login to it lets the chooser submit
+     * notice a credential or authentication-mode change without keeping any credential itself.
      *
      * @param security security row as read now or at sign-in
      * @return Base64 SHA-256 digest; never {@code null}
@@ -1410,7 +1417,8 @@ public final class Login2Action extends ActionSupport {
     static String credentialFingerprint(Security security) {
         String material = String.join("\u0000",
                 String.valueOf(security.getPassword()), String.valueOf(security.getPin()),
-                String.valueOf(security.getBLocallockset()), String.valueOf(security.getBRemotelockset()));
+                String.valueOf(security.getBLocallockset()), String.valueOf(security.getBRemotelockset()),
+                String.valueOf(security.isUsingMfa()));
         try {
             return Base64.getEncoder().encodeToString(
                     MessageDigest.getInstance("SHA-256").digest(material.getBytes(StandardCharsets.UTF_8)));

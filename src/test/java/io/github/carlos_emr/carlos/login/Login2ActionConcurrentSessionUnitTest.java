@@ -575,13 +575,13 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         @DisplayName("should finish login when MFA was already completed before the chooser")
         void shouldFinishLogin_whenMfaCompletedBeforeChooser() throws Exception {
             restoreProperty(MfaManager.MFA_ENABLE_PROPERTY, "true");
-            String token = PendingSessionChoiceCache.getInstance().store(
-                    new PendingSessionChoiceCache.PendingSessionChoice(SECURITY_NO, PROVIDER_NO, STR_AUTH, false,
-                            null, null, true, Login2Action.credentialFingerprint(security())));
-            stagedTokens.add(token);
-            PendingSessionChoices.stage(request.getSession(true), token);
             Security withMfa = security();
             withMfa.setUsingMfa(true);
+            String token = PendingSessionChoiceCache.getInstance().store(
+                    new PendingSessionChoiceCache.PendingSessionChoice(SECURITY_NO, PROVIDER_NO, STR_AUTH, false,
+                            null, null, true, Login2Action.credentialFingerprint(withMfa)));
+            stagedTokens.add(token);
+            PendingSessionChoices.stage(request.getSession(true), token);
             when(securityDao.find(SECURITY_NO)).thenReturn(withMfa);
 
             newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
@@ -611,7 +611,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"pin", "password", "remotePinLock"})
+        @ValueSource(strings = {"pin", "password", "remotePinLock", "mfaMode"})
         @DisplayName("should not finish login when a credential changed while the chooser was open")
         void shouldNotFinishLogin_whenCredentialChangedMeanwhile(String changed) throws Exception {
             String token = stagePendingChoice();
@@ -619,6 +619,8 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             switch (changed) {
                 case "pin" -> current.setPin("9999");
                 case "password" -> current.setPassword("re-encoded");
+                // MFA switched off: the PIN check that MFA suppresses applies again.
+                case "mfaMode" -> current.setUsingMfa(!current.isUsingMfa());
                 default -> current.setBRemotelockset(1);
             }
             when(securityDao.find(SECURITY_NO)).thenReturn(current);
@@ -642,7 +644,6 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             // The old session was invalidated by rotation with the token still on it, so a racing
             // cancel always finds it and waits on the admission lock (see PendingSessionChoices).
             assertThat(request.getSession(false)).isNotSameAs(preLogin);
-            assertThat(PendingSessionChoiceCache.getInstance().ownerOf(token)).isEqualTo(SECURITY_NO);
             assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
         }
 
