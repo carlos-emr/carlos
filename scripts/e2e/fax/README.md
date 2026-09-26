@@ -93,8 +93,8 @@ Run them in this order against a freshly provisioned deployment with
 2. **`inbox-lifecycle.js`** — picks up an imported inbound fax left UNCLAIMED by
    the backbone test and drives the provider workflow through the real server
    actions, asserting each DB transition: redirected-to-inbox → attached to a
-   patient (`documentUpdate`, `demog`) → attached to a provider
-   (`documentUpdate`, `flagproviders`) → provider files it (`fileLabAjax`,
+   patient (`documentUpdateAjax`, `demog`) → attached to a provider
+   (`documentUpdateAjax`, `flagproviders`, unclaimed routing removed) → provider files it (`fileLabAjax`,
    status → `F`). *No SRFax credentials needed.*
 
 3. **`dedup-no-reimport.js`** — the live counterpart to
