@@ -52,6 +52,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -113,6 +114,15 @@ class MessengerGroupManagerMembershipUnitTest {
         return member;
     }
 
+    /** The real DAO assigns the generated key on persist; addMember returns it. */
+    private void assignIdsOnPersist() {
+        int[] next = {100};
+        doAnswer(invocation -> {
+            invocation.<GroupMembers>getArgument(0).setId(next[0]++);
+            return null;
+        }).when(groupMembersDao).persist(any(GroupMembers.class));
+    }
+
     private void stubMembership(int groupId, GroupMembers result) {
         when(groupMembersDao.findByIdentity(argThat(ci -> ci != null
                 && PROVIDER_NO.equals(ci.getContactId())
@@ -149,6 +159,7 @@ class MessengerGroupManagerMembershipUnitTest {
         @Test
         @DisplayName("should write only the group row when the contact is registered but not in the group")
         void shouldPersistGroupRowOnly_whenRegisteredButNotInGroup() {
+            assignIdsOnPersist();
             stubMembership(GROUP_ID, null);
             stubMembership(0, row(5, 0));
 
@@ -163,6 +174,7 @@ class MessengerGroupManagerMembershipUnitTest {
         @Test
         @DisplayName("should write the registry row and the group row for a brand-new member")
         void shouldPersistRegistryAndGroupRows_forNewMember() {
+            assignIdsOnPersist();
             stubMembership(GROUP_ID, null);
             stubMembership(0, null);
 
@@ -176,6 +188,7 @@ class MessengerGroupManagerMembershipUnitTest {
         @Test
         @DisplayName("should leave the caller's contact identifier group id unchanged")
         void shouldNotMutateCallerIdentifier_duringLookup() {
+            assignIdsOnPersist();
             stubMembership(GROUP_ID, null);
             stubMembership(0, null);
             ContactIdentifier contact = contact();
