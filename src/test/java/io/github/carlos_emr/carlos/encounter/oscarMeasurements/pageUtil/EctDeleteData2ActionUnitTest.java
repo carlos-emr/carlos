@@ -54,6 +54,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -83,12 +84,17 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
     private MeasurementsDeletedDao measurementsDeletedDao;
 
     private EctDeleteData2Action action;
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
         servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(new MockHttpServletRequest());
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(MeasurementDao.class, measurementDao);
@@ -101,6 +107,21 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    @DisplayName("should reject GET with 405 before any measurement is looked up or deleted")
+    void shouldReject_whenMethodIsGet() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("deleteCheckbox", "42");
+        action.setDeleteCheckbox(new String[] {"42"});
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(EctDeleteData2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(measurementDao, measurementsDeletedDao, securityInfoManager);
     }
 
     @Test

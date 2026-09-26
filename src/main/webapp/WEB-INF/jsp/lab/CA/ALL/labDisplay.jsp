@@ -309,8 +309,8 @@
         }
 
         // The demographic lookup and the READ audit below key on segmentID, so they run only
-        // after showLatest has had its say: with showLatest=true the Inboxhub asks for the
-        // segment on its row but this page renders the newest version of that accession
+        // after showLatest has had its say: a caller requesting showLatest=true names one
+        // segment but this page renders the newest version of that accession
         // (segmentIDs[last] above). Resolving the patient and writing the audit row from the
         // REQUESTED id recorded a lab the clinician never opened and, should an accession ever
         // be shared across patients, would have bound the page to the wrong chart.
