@@ -50,3 +50,103 @@ test('Tomcat startup invalidates only generated JSP code without following cache
     assert.match(source,/run\)\s+clear_jsp_cache\s+cd/);
   } finally {fs.rmSync(root,{recursive:true,force:true});}
 });
+
+// One deploy per transaction: carlos-emr and carlos-emr-drugref must both
+// activate the SAME trigger carlos-emr declares interest in, and the carlos-emr
+// postinst must accept the `triggered` action instead of rejecting it as an
+// unknown argument. A name mismatch silently brings back the double deploy (or
+// no restart at all), and nothing else would notice.
+test('every EMR restart point activates the carlos-emr-restart trigger carlos-emr declares', () => {
+  const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
+  const triggers = read('debian', 'carlos-emr.triggers')
+    .split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+  assert.deepEqual(triggers, ['interest-noawait carlos-emr-restart']);
+  const postinst = read('debian', 'carlos-emr.postinst');
+  const drugref = read('debian', 'carlos-emr-drugref.postinst');
+  // DrugRef's removal restart too: an inline restart there would deploy the
+  // application a second time when the same transaction upgrades carlos-emr.
+  const drugrefPostrm = read('debian', 'carlos-emr-drugref.postrm');
+  for (const script of [postinst, drugref, drugrefPostrm]) {
+    assert.match(script, /dpkg-trigger --no-await carlos-emr-restart/);
+    // Only under dpkg: dpkg-reconfigure sets no DPKG_RUNNING_VERSION and would
+    // leave a trigger nobody processes.
+    assert.match(script, /DPKG_RUNNING_VERSION/);
+  }
+  assert.match(postinst, /^    triggered\)$/m);
+  // A configure that must not start the EMR (schema not ready, seed sentinel)
+  // records a veto the trigger honours while the unit is down, so DrugRef's
+  // activation of the same trigger cannot restart a `failed` unit into a
+  // schema the application's boot gate will refuse again.
+  assert.match(postinst, /elif \[ "\$\{MIGRATION_OK:-1\}" = 0 \]; then\n(.*\n){1,6}?.*: > "\$\{START_VETO\}"/);
+  assert.match(postinst, /elif \[ -e "\$\{START_VETO\}" \] && ! systemctl is-active --quiet carlos-emr\.service; then/);
+  const veto = postinst.indexOf('elif [ -e "${START_VETO}" ] && ! systemctl is-active');
+  const anyState = postinst.indexOf('|| systemctl is-failed --quiet carlos-emr.service; then');
+  assert.ok(veto > 0 && anyState > veto, 'the veto must be checked before the active/failed restart');
+  assert.match(postinst, /if \[ "\$1" = triggered \] && \[ -d \/run\/systemd\/system \]; then/);
+});
+
+// Renderer provisioning (the one-time move, the url-base token, the browser
+// restart) must wait for the provisioning lock like init-config does: another
+// run's init-config reads renderer.env to render the service URL, and changing
+// it underneath would leave carlos.properties naming a URL the browser no
+// longer serves.
+test('renderer provisioning and restart are gated on the provisioning lock', () => {
+  const postinst = fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8');
+  assert.match(postinst, /^        RENDER_PROVISION="\$\{PROVISION_LOCK_HELD\}"$/m);
+  const move = postinst.indexOf('One-time move off the pre-2026.08.0~alpha14 names');
+  const token = postinst.indexOf("printf 'CARLOS_RENDER_URL_BASE=%s\\n'");
+  for (const at of [move, token]) {
+    assert.ok(at > 0);
+    const before = postinst.slice(0, at);
+    const gate = before.lastIndexOf('if [ "${RENDER_PROVISION}" = 1 ]; then');
+    assert.ok(gate > before.lastIndexOf('RENDER_PROVISION="${PROVISION_LOCK_HELD}"'));
+    // ... and the guarded line is INSIDE that if: no `fi` at the gate's own
+    // indentation closes it before the line is reached.
+    const gateIndent = /^ */.exec(postinst.slice(postinst.lastIndexOf('\n', gate) + 1))[0];
+    assert.doesNotMatch(postinst.slice(gate, at), new RegExp(`^${gateIndent}fi$`, 'm'));
+  }
+  // The restart is also held back while a legacy carlos-emr-chromedriver that would not
+  // stop still owns the port (OLD_RENDERER_LIVE, set by the move off the old names).
+  assert.match(postinst, /if \[ "\$\{RENDER_PAYLOAD:-0\}" = 1 \] && \[ "\$\{RENDER_PROVISION:-1\}" = 1 \] \\\n        && \[ "\$\{OLD_RENDERER_LIVE:-0\}" = 0 \]; then\n        sd_invoke restart carlos-emr-render-browser\.service/);
+});
+
+// A legacy renderer that refuses to stop keeps its home and blocks the new browser's start,
+// rather than having its working directory deleted from under it.
+test('a legacy renderer that would not stop keeps its home and holds the new browser', () => {
+  const postinst = fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8');
+  const unit = fs.readFileSync(path.join(__dirname, '..', 'debian/assets/systemd/carlos-emr-render-browser.service'), 'utf8');
+  assert.match(unit, /^ConditionPathExists=!\/var\/lib\/carlos-emr\/\.legacy-renderer-live$/m);
+  assert.match(postinst, /if \[ "\$\{OLD_RENDERER_LIVE\}" = 1 \]; then\n +: > "\$\{STATE\}\/\.legacy-renderer-live"/);
+  assert.match(postinst, /else\n +rm -f "\$\{STATE\}\/\.legacy-renderer-live"/);
+  assert.match(postinst, /deb-systemd-invoke stop carlos-emr-chromedriver\.service >\/dev\/null 2>&1 \|\| true\n +if systemctl is-active --quiet carlos-emr-chromedriver\.service; then\n +OLD_RENDERER_LIVE=1/);
+  assert.match(postinst, /if \[ "\$\{OLD_RENDERER_LIVE\}" = 0 \] \\\n +&& \[ -d "\$\{STATE\}\/render" \] && \[ ! -L "\$\{STATE\}\/render" \]; then\n +rm -rf "\$\{STATE\}\/render"/);
+});
+
+// A SKIP_EFORM_RENDERER build over a full one removes the render browser's unit
+// with the payload; the postinst must purge the enablement the full build
+// recorded (dangling wants symlink, deb-systemd-helper state), guarded on the
+// unit file being absent so a partial payload keeps its unit enabled.
+test('postinst purges a stale render-browser enablement when the unit is no longer shipped', () => {
+  const postinst = fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8');
+  const guard = postinst.indexOf('if [ "${RENDER_PAYLOAD}" = 0 ] \\\n            && [ ! -e /usr/lib/systemd/system/carlos-emr-render-browser.service ]');
+  assert.ok(guard > 0, 'guard on RENDER_PAYLOAD=0 and the unit file being absent');
+  const block = postinst.slice(guard, postinst.indexOf('\n        fi\n', guard));
+  assert.match(block, /deb-systemd-helper purge carlos-emr-render-browser\.service/);
+  assert.match(block, /rm -f \/etc\/systemd\/system\/multi-user\.target\.wants\/carlos-emr-render-browser\.service/);
+});
+
+// The render browser must not reuse any name the pre-2026.08.0~alpha14
+// carlos-emr-eform-renderer postrm deletes or disables on purge.
+test('render browser names avoid everything the old renderer purge touches', () => {
+  const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
+  const shipped = [
+    read('debian', 'rules'),
+    read('debian', 'carlos-emr.tmpfiles'),
+    read('debian', 'carlos-emr.sysusers'),
+    read('debian', 'assets', 'systemd', 'carlos-emr.service.d', '10-eform-renderer.conf'),
+    read('debian', 'assets', 'systemd', 'carlos-emr-render-browser.service'),
+    read('debian', 'assets', 'carlos_ctl', 'util.py'),
+  ].join('\n');
+  assert.doesNotMatch(shipped, /carlos-emr-chromedriver|render-browser\.env|\/var\/lib\/carlos-emr\/render(?![a-z])/);
+  assert.match(shipped, /carlos-emr-render-browser/);
+});

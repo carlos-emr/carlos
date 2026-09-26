@@ -1495,7 +1495,7 @@ public class EFormBrowserPdfService {
                     RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
             if (isServiceUnreachable(e)) {
                 logger.error("The eForm render browser service is not reachable. Start it "
-                        + "(systemctl status carlos-emr-chromedriver) or correct {} in carlos.properties.",
+                        + "(systemctl status carlos-emr-render-browser) or correct {} in carlos.properties.",
                         SERVICE_URL_PROPERTY);
                 throw browserServiceUnavailable();
             }
@@ -1596,7 +1596,7 @@ public class EFormBrowserPdfService {
                 // reaper may keep the late session's browser alive for up to LATE_SESSION_REAP_TIMEOUT.
                 // Under repeated start-timeouts (a memory-starved host — the same condition that causes
                 // them) live browser TREES can therefore briefly exceed MAX_CONCURRENT_RENDERS. Total
-                // browser-tree MEMORY stays bounded regardless: the carlos-emr-chromedriver unit's
+                // browser-tree MEMORY stays bounded regardless: the carlos-emr-render-browser unit's
                 // MemoryHigh/MemoryMax cgroup ceiling covers every tree the driver spawned, so the
                 // overshoot cannot compound the pressure that caused it. Holding the slot until the
                 // reaper resolves would close the gap but moves slot ownership across threads —
@@ -1649,7 +1649,7 @@ public class EFormBrowserPdfService {
      *
      * <p>The residual hole is honest and documented: if the interrupt or a connection failure means
      * the id never arrives, no targeted teardown is possible and
-     * {@code systemctl restart carlos-emr-chromedriver} is the backstop. A timed-out session has not
+     * {@code systemctl restart carlos-emr-render-browser} is the backstop. A timed-out session has not
      * navigated yet, so it is an {@code about:blank} browser holding no clinical data.
      */
     private static void reapLateSession(Future<RendererBrowser> pending,
@@ -1774,7 +1774,7 @@ public class EFormBrowserPdfService {
             } else {
                 logger.warn("Force-delete of browser eForm renderer session {} was refused (HTTP {}). "
                         + "A browser holding a rendered page may still be running; "
-                        + "systemctl restart carlos-emr-chromedriver clears it.",
+                        + "systemctl restart carlos-emr-render-browser clears it.",
                         sessionId, response.statusCode());
             }
         } catch (InterruptedException interrupted) {
@@ -1783,7 +1783,7 @@ public class EFormBrowserPdfService {
         } catch (RuntimeException | java.io.IOException e) {
             logger.warn("Unable to force-delete browser eForm renderer session {}: type={} error={}. "
                     + "A browser holding a rendered page may still be running; "
-                    + "systemctl restart carlos-emr-chromedriver clears it.",
+                    + "systemctl restart carlos-emr-render-browser clears it.",
                     sessionId, e.getClass().getName(),
                     RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }
@@ -3107,7 +3107,8 @@ public class EFormBrowserPdfService {
         if (!retiredPath.isBlank()) {
             logger.warn("eform_pdf_browser_chromedriver_path is RETIRED and ignored: CARLOS no "
                     + "longer spawns chromedriver. Run chromedriver as a service and set {} "
-                    + "instead (the .deb's carlos-emr-eform-renderer package does both).",
+                    + "instead (the carlos-emr .deb does both: it bundles the browser and runs "
+                    + "the carlos-emr-render-browser service).",
                     SERVICE_URL_PROPERTY);
         }
         try {

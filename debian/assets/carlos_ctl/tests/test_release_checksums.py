@@ -21,9 +21,9 @@ class TestPublishedChecksums(unittest.TestCase):
     def test_published_names_verify_and_corruption_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            names = ["carlos-emr_2026.08.0~alpha12_all.deb",
+            names = ["carlos-emr_2026.08.0~alpha14_amd64.deb",
                      "carlos-emr-drugref_2026.08.0~rc1_all.deb",
-                     "carlos-emr-eform-renderer_2026.08.0_amd64.deb"]
+                     "carlos-emr-eform-renderer_2026.08.0_all.deb"]
             for name in names:
                 (root / name).write_bytes((name + " fixture bytes").encode())
             subprocess.run(["bash", "-c", generator()], cwd=root, check=True, capture_output=True)
@@ -40,7 +40,7 @@ class TestPublishedChecksums(unittest.TestCase):
     def test_failed_hash_aborts_without_writing_a_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "carlos-emr_1_all.deb").write_bytes(b"fixture")
+            (root / "carlos-emr_1_amd64.deb").write_bytes(b"fixture")
             stub = root / "sha256sum"
             stub.write_text("#!/bin/sh\nexit 42\n")
             stub.chmod(0o755)

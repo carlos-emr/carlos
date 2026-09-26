@@ -420,3 +420,31 @@ for (const helper of [clickOpensPopup, clickOpensPopupOrNavigates]) {
     assert.equal(closed, true);
   });
 }
+
+for (const outcome of ['expected-close', 'no-popup', 'other-error', 'opener-still-open', 'not-opted-in']) {
+  test(`intentional opener closure requires a real usable popup (${outcome})`, async () => {
+    const context = new EventEmitter();
+    const page = eventPage();
+    page.isClosed = () => outcome !== 'opener-still-open';
+    const popup = eventPage();
+    let popupClosed = false;
+    popup.close = async () => { popupClosed = true; };
+    const click = control(async () => {
+      if (outcome !== 'no-popup') context.emit('page', popup);
+      throw new Error(outcome === 'other-error' ? 'Unrelated click failure'
+        : 'locator.click: Target page, context or browser has been closed');
+    });
+    const result = clickOpensPopup(page, click, {
+      context, closesOpener: outcome !== 'not-opted-in', timeout: 10,
+    });
+    if (outcome === 'expected-close') {
+      assert.equal(await result, popup);
+      assert.equal(popupClosed, false);
+    } else {
+      await assert.rejects(result, outcome === 'no-popup' ? /opened no popup/
+        : outcome === 'other-error' ? /Unrelated click failure/ : /Target page/);
+      assert.equal(popupClosed, outcome !== 'no-popup');
+    }
+    noOutcomeListeners(page, context);
+  });
+}

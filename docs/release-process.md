@@ -208,6 +208,14 @@ Each GitHub release contains:
 - `carlos-VERSION.war.sha256`
 - `carlos-VERSION-cyclonedx.json`
 - `carlos-VERSION-cyclonedx.json.sha256`
+- the Debian packages, each with a `.sha256` and a provenance attestation, added
+  by the `Debian Packages` workflow before the release is published:
+  `carlos-emr_DEBVERSION_amd64.deb` (carries the eForm renderer's x86-64
+  Chromium), `carlos-emr-drugref_DEBVERSION_all.deb`, and the empty transitional
+  `carlos-emr-eform-renderer_DEBVERSION_all.deb`. DEBVERSION is the tag with
+  every `-` written as `.` (for example `2026.08.0.alpha14`). Through
+  2026.08.0-alpha13 the main package was `_all` and the renderer a real `_amd64`
+  package; see `docs/install-deb.md`.
 
 GitHub source archives supplement but do not replace the compiled WAR. Verify a
 download before deployment:

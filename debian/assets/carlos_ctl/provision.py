@@ -38,15 +38,29 @@ nonzero when any requested step fails.
 import os
 import time
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 from . import config, dbops, util
-from .util import PROPERTIES, STATE, die, log, need_root, run, warn
+from .util import PROPERTIES, REINSTALL_HINT, STATE, die, log, need_root, run, warn
 
 # Written by carlos-emr.postinst when a provisioning step did not run or
 # failed; removed by a successful configure and by finish-install. Plain
 # KEY=value so both the shell that writes it and util.env_get can read it.
 MARKER = os.path.join(STATE, ".install-incomplete")
+
+START_VETO = Path("/run/carlos-emr/.start-vetoed")
+
+
+def _clear_start_veto() -> None:
+    """Remove the package configure's stale start veto after a successful hand start."""
+    try:
+        START_VETO.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        warn(f"could not remove {START_VETO}: {exc}")
+
 
 # The postinst's own fail-closed sentinel: while it exists the seeded
 # 'carlosdoc' credential published in the source repository is still live and
@@ -260,12 +274,12 @@ def _o19_import_running() -> Optional[str]:
     # replace an actionable refusal with a stack dump.
     if not os.access(O19_GUARD, os.X_OK):
         return (f"{O19_GUARD} is missing or not executable, so whether an OSCAR 19 "
-                "import is running cannot be established (reinstall carlos-emr)")
+                f"import is running cannot be established (reinstall carlos-emr: {REINSTALL_HINT})")
     try:
         verdict = run([O19_GUARD], capture_output=True)
     except OSError as exc:
         return (f"{O19_GUARD} could not be run ({exc}), so whether an OSCAR 19 "
-                "import is running cannot be established (reinstall carlos-emr)")
+                f"import is running cannot be established (reinstall carlos-emr: {REINSTALL_HINT})")
     if verdict.returncode == 0:
         return None
     return (verdict.stderr or "").strip() or "an OSCAR 19 import is in progress"
@@ -397,7 +411,7 @@ def cmd_finish_install(argv) -> int:
 
     # init-config requires this file too; only the package installs its skeleton.
     if not os.path.isfile(PROPERTIES):
-        fail(f"{PROPERTIES} is missing; reinstall carlos-emr to restore the configuration, "
+        fail(f"{PROPERTIES} is missing; reinstall carlos-emr ({REINSTALL_HINT}) to restore the configuration, "
              "then re-run 'carlos-ctl finish-install'.")
 
     _required("init-config", config.cmd_init_config, [], note=note)
@@ -511,6 +525,9 @@ def cmd_finish_install(argv) -> int:
         if reenabled and run(["systemctl", "start", "--no-block", "carlos-emr.service"]).returncode != 0:
             _record(reset_admin, demo_data, "the application server start could not be queued")
             die("could not queue the recovered EMR start; retry finish-install")
+        # The repair succeeded and the EMR start is queued (or follows by unit
+        # ordering), so a configure-time veto no longer describes this host.
+        _clear_start_veto()
         log("database provisioning is complete")
         # carlos-emr.service is ordered after this unit, so systemd starts the
         # EMR itself as soon as this returns.
@@ -523,6 +540,13 @@ def cmd_finish_install(argv) -> int:
             warn(f"could not restore {MARKER}: {exc}; retry finish-install manually")
         warn("the application server did not start — journalctl -u carlos-emr -n 200")
         return 1
+    # The package's configure writes /run/carlos-emr/.start-vetoed when it held the
+    # EMR back (schema not ready, seeded credential live) so the carlos-emr-restart
+    # trigger leaves a stopped unit alone. This hand repair has just started it, so
+    # the veto is stale: left behind, a later DrugRef-only transaction would decline
+    # to restart an EMR that merely happened to be down, citing a hold-back that no
+    # longer exists.
+    _clear_start_veto()
     log("database provisioning is complete; the EMR is deploying. "
         "It answers in about two minutes. Then run "
         "'carlos-ctl check'.")

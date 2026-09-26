@@ -650,8 +650,9 @@ public class ProviderData {
         String firstname = null;
         String lastname = null;
         if (searchStr.indexOf(",") != -1) {
-            String[] array = new String[2];
-            array = searchStr.split(",");
+            // Limit -1 keeps the trailing empty segment, so "Smith," yields a last-name-only
+            // search instead of an ArrayIndexOutOfBoundsException from the autocomplete.
+            String[] array = searchStr.split(",", -1);
             lastname = array[0].trim();
             firstname = array[1].trim();
         } else {

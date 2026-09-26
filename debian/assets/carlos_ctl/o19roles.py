@@ -45,6 +45,7 @@ import re
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from . import o19map_schema
+from .util import REINSTALL_HINT
 from . import o19etl
 from .o19etl import _sql_str, appended_row_count_sql
 
@@ -2303,9 +2304,9 @@ def roles_rich_text_letter(run: 'RolesRun', ctx) -> None:
             # a broken package install, not a clinic condition: fail
             # closed, resumable once the scripts are back
             die("roles: Rich Text Letter fixup script(s) missing from {0}: "
-                "{1} — reinstall carlos-emr (they ship under "
+                "{1} — reinstall carlos-emr ({2}; they ship under "
                 "schema/o19-fixups/) and --resume".format(
-                    fixups_dir, ", ".join(missing)))
+                    fixups_dir, ", ".join(missing), REINSTALL_HINT))
         for fid in disable:
             query(rtl_disable_statement(dst, fid))
         if scripts:

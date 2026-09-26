@@ -121,6 +121,9 @@
         <action name="admin/BillingSettings" class="io.github.carlos_emr.carlos.admin.web.BillingSettings2Action">
             <result name="success">/WEB-INF/jsp/admin/billingSettings.jsp</result>
         </action>
+        <action name="admin/EchartDisplaySettings" class="io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action">
+            <result name="success">/WEB-INF/jsp/admin/echartDisplaySettings.jsp</result>
+        </action>
         <action name="admin/ResourceBaseUrl" class="io.github.carlos_emr.carlos.admin.web.ResourceBaseUrl2Action">
             <result name="success">/WEB-INF/jsp/admin/resourcebaseurl.jsp</result>
         </action>
