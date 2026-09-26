@@ -1032,29 +1032,44 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             boolean extChanged = false;
             List<CaseManagementNoteExt> cmeList = caseManagementNoteExtDao.getExtByNote(Long.valueOf(noteId));
 
+            // EVERY ROW A KEY HOLDS, NOT JUST THE FIRST. getExtByNote() orders id desc, so the
+            // first match is the NEWEST row, and this loop used to stop there. A note that already
+            // carries several rows for one key can hold different values in them, and
+            // NotesService.getNote() reads to the end of that list, so it reports the OLDEST.
+            // Submitting the value the newest row already held therefore looked like "nothing
+            // changed": the save returned early below, the reconciliation further down never ran,
+            // and the chart went on showing the older value. Walking every row makes disagreement
+            // between them a change in its own right.
             extNames:
             for (int i = 0; i < extNames.length; i++) {
                 boolean extKeyMatched = false;
 
-                String val = request.getParameter(extNames[i]);
+                String submitted = request.getParameter(extNames[i]);
+                // Resolved once per key: the date fields are normalised for comparison, and
+                // re-normalising an already-normalised value on a second row would compare the
+                // wrong thing.
+                String comparableDate = i <= 2 ? partialFullDate(submitted, partialDateFormat(submitted)) : null;
+                String comparableValue = i <= 2 ? partialDateFormat(submitted) : submitted;
                 for (CaseManagementNoteExt cme : cmeList) {
                     if (!cme.getKeyVal().equals(extKeys[i])) continue;
 
-                    if (i <= 2) {
-                        if (!nullEmptyEqual(cme.getDateValueStr(), partialFullDate(val, partialDateFormat(val)))) {
-                            extChanged = true;
-                            break extNames;
-                        }
-                        val = partialDateFormat(val);
+                    if (i <= 2 && !nullEmptyEqual(cme.getDateValueStr(), comparableDate)) {
+                        extChanged = true;
+                        break extNames;
                     }
-                    if (!nullEmptyEqual(cme.getValue(), val)) {
+                    if (!nullEmptyEqual(cme.getValue(), comparableValue)) {
                         extChanged = true;
                         break extNames;
                     }
                     extKeyMatched = true;
-                    break;
                 }
-                if (filled(val) && !extKeyMatched) { // new ext value(s) added
+                // THE SUBMITTED VALUE, NOT THE COMPARISON FORM. partialDateFormat() returns the
+                // EMPTY STRING for a full YYYY-MM-DD date -- that is its marker for "full
+                // precision" -- so comparableValue is "" exactly when the clinician typed a
+                // complete date. Testing it here would read a newly added full date as nothing
+                // added, and the early return below would then discard it. comparableValue exists
+                // only to compare against a stored row's precision marker.
+                if (filled(submitted) && !extKeyMatched) { // new ext value(s) added
                     extChanged = true;
                     break extNames;
                 }
@@ -1305,19 +1320,63 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         /* save extra fields */
-        CaseManagementNoteExt cme = new CaseManagementNoteExt();
-        cme.setNoteId(note.getId());
+        // Exactly one casemgmt_note_ext row per extension key of this note, updated in place.
+        //
+        // saveNoteExt() is a JPA persist(), and it commits its own transaction, so reusing one
+        // entity across the keys leaves it DETACHED with an id assigned by the time the second
+        // key is written: Hibernate raises PersistentObjectException, surfaced as
+        // EntityExistsException, and the whole save answers HTTP 500 with the second key never
+        // stored. That is issue #3739 -- a CPP item given both a start date and a resolution
+        // date could not be saved or archived at all, and the box repainted as "Error: 500".
+        // (Inside a single persistence context the same reuse is absorbed instead, collapsing
+        // the keys into the first row; CaseManagementCppExtPersistenceIntegrationTest pins that
+        // half, and scripts/cpp-note-extension-archive-playwright-checks.js pins the 500.)
+        // Allocating per key is not enough on its own either: saveNote()
+        // merges an existing note rather than revising it under a fresh id, so a note keeps its
+        // id across edits and a plain persist() per save piles a second row onto every key.
+        //
+        // Notes saved before that was fixed can already carry several rows for one key, and the
+        // readers disagree about which of them counts: getExtByNote() orders id desc, so the first
+        // match is the NEWEST, while NotesService.getNote() assigns from every row it walks and
+        // ends on the OLDEST. (The change-detection loop above used to stop at that first match,
+        // which is why a note whose duplicates disagreed could decline to save at all; it now
+        // walks every row.)
+        // Updating just one of a duplicate set would leave the other readers on a stale value,
+        // so every row for the key is written. That is deliberately not a delete: pruning the
+        // extras is a data migration, and a note save is no place to drop clinical history.
+        Map<String, List<CaseManagementNoteExt>> extByKey = new HashMap<>();
+        for (CaseManagementNoteExt existing : caseManagementNoteExtDao.getExtByNote(note.getId())) {
+            extByKey.computeIfAbsent(existing.getKeyVal(), k -> new ArrayList<>()).add(existing);
+        }
         for (int i = 0; i < extNames.length; i++) {
             String val = request.getParameter(extNames[i]);
             if (filled(val)) {
-                cme.setKeyVal(extKeys[i]);
-                cme.setDateValue((Date) null);
-                cme.setValue(null);
+                // Resolve the new state on a detached carrier first. A malformed date has to
+                // leave the stored rows exactly as they were, and mutating a managed entity
+                // before knowing that would blank it through dirty checking even though nothing
+                // is saved.
+                CaseManagementNoteExt resolved = new CaseManagementNoteExt();
                 if (i <= 2) {
-                    if (writePartialDate(val, cme)) caseManagementMgr.saveNoteExt(cme);
+                    if (!writePartialDate(val, resolved)) continue;
                 } else {
-                    cme.setValue(val);
+                    resolved.setValue(val);
+                }
+
+                List<CaseManagementNoteExt> rows = extByKey.get(extKeys[i]);
+                if (rows == null || rows.isEmpty()) {
+                    CaseManagementNoteExt cme = new CaseManagementNoteExt();
+                    cme.setNoteId(note.getId());
+                    cme.setKeyVal(extKeys[i]);
+                    cme.setValue(resolved.getValue());
+                    cme.setDateValue(resolved.getDateValue());
                     caseManagementMgr.saveNoteExt(cme);
+                    extByKey.put(extKeys[i], new ArrayList<>(List.of(cme)));
+                } else {
+                    for (CaseManagementNoteExt cme : rows) {
+                        cme.setValue(resolved.getValue());
+                        cme.setDateValue(resolved.getDateValue());
+                        caseManagementMgr.updateNoteExt(cme);
+                    }
                 }
             }
         }

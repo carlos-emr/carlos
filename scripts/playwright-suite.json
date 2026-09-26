@@ -2562,6 +2562,24 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "cpp-note-extension-archive",
+      "script": "scripts/cpp-note-extension-archive-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "CPP_EXT_SEARCH",
+        "CPP_EXT_DEMOGRAPHIC_NO",
+        "CPP_EXT_TIMEOUT_MS"
+      ]
     }
   ]
 }
