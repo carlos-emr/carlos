@@ -154,7 +154,7 @@ make; neither is a shortcut around the rule.
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |
 | `demographic-edit-update` | §2.4 (also §2.4 `demographic-audit`) | Editing a patient from the Master Record, asserted against the database, restored — and asserted to have been **recorded** in the audit trail with an actor |
 | `patient-search-modes` | §2.4 | Every patient-search mode (date of birth as a full date, a year-month, and a `%` month wildcard — issue #3956), the active/inactive/all scope, and the browser-side refusal of a malformed date of birth |
-| `patient-search-rest-dob` | §2.4 | Authenticated `ws/rs/demographics/search`: full, partial, wildcard and padded dates; count/result parity; malformed input; pagination and active/inactive status. Owns and cleans a synthetic patient in an unused birth year. |
+| `patient-search-rest-dob` | §2.4 | Authenticated `ws/rs/demographics/search`: full, partial, wildcard and padded dates; count/result parity; malformed input; pagination and active/inactive status. Owns and cleans a synthetic patient in an unused birth year plus its program/admission relationship, including Caisi program-domain deployments. `EXPECT_PROGRAM_DOMAIN_RESTRICTION=true/false` also verifies visibility after removing the fixture admission. |
 | `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |
 | `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |

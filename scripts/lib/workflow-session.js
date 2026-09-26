@@ -6,6 +6,7 @@ const { openMasterRecord } = require('../master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('../echart-navbar-modules-playwright-checks');
 
 // Each scenario owns its patient and child rows. No reset of a shared demo chart.
+// REST workflows may retain the patient fixture without opening its master record.
 async function runWorkflow(name, workflow, { openPatient = true, openMaster = true } = {}) {
   let browser;
   let sql;
