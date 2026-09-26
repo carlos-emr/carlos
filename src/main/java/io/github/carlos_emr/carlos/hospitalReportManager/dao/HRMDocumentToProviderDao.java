@@ -170,6 +170,27 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         return documentToProviders;
     }
 
+    /**
+     * Deletes a report's routing rows for one provider number with a bulk statement.
+     *
+     * <p>Use this, not {@code remove(entity)}, while the report is locked with
+     * {@code HRMDocumentDao.findForUpdate}: that loads {@code HRMDocument.matchedProviders}, an eager
+     * unidirectional collection, and an {@code EntityManager.remove()} of one of its rows leaves the
+     * document referencing a removed instance, so the next flush throws
+     * {@code TransientPropertyValueException}. A bulk delete bypasses the persistence context.</p>
+     *
+     * @param hrmDocumentId the report
+     * @param providerNo the provider number whose rows are deleted (for example {@code -1}, unclaimed)
+     * @return the number of rows deleted
+     */
+    public int deleteByHrmDocumentIdAndProviderNo(Integer hrmDocumentId, String providerNo) {
+        Query query = entityManager.createQuery("delete from " + this.modelClass.getName()
+                + " x where x.hrmDocumentId=?1 and x.providerNo=?2");
+        query.setParameter(1, hrmDocumentId);
+        query.setParameter(2, providerNo);
+        return query.executeUpdate();
+    }
+
     public List<HRMDocumentToProvider> findSignedByHrmDocumentId(Integer hrmDocumentId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.signedOff=1";
         Query query = entityManager.createQuery(sql);

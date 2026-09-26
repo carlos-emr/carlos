@@ -605,7 +605,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReportFailure_whenClearingExistingDemographicLinkThrows() throws Exception {
         // Writing the new link after a failed cleanup leaves the report on the old chart AND the
         // new one while the reply says "Success" — an HRM report on two patients at once.
-        when(hrmDocumentToDemographicDao.findByHrmDocumentId(7))
+        when(hrmDocumentToDemographicDao.deleteByHrmDocumentId(7))
                 .thenThrow(new RuntimeException("database down"));
         request.addParameter("method", "assignDemographic");
         request.addParameter("reportId", "7");
@@ -806,11 +806,6 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should apply forwarding rules and clear unclaimed rows when a provider is assigned")
     void shouldApplyForwardingAndClearUnclaimed_whenProviderIsAssigned() throws Exception {
         stubReportExists(7);
-        HRMDocumentToProvider unclaimed = new HRMDocumentToProvider();
-        unclaimed.setHrmDocumentId(7);
-        unclaimed.setProviderNo("-1");
-        when(hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(eq(7), eq("-1")))
-                .thenReturn(java.util.List.of(unclaimed));
         IncomingLabRules rule = new IncomingLabRules();
         rule.setFrwdProviderNo("456");
         io.github.carlos_emr.carlos.commn.model.IncomingLabRulesType hrmType =
@@ -829,6 +824,6 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
                 row -> "123".equals(row.getProviderNo())));
         verify(hrmDocumentToProviderDao).persist(org.mockito.ArgumentMatchers.<HRMDocumentToProvider>argThat(
                 row -> "456".equals(row.getProviderNo())));
-        verify(hrmDocumentToProviderDao).remove(same(unclaimed));
+        verify(hrmDocumentToProviderDao).deleteByHrmDocumentIdAndProviderNo(7, "-1");
     }
 }

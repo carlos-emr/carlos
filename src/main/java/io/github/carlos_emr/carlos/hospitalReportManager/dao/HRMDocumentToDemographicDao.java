@@ -69,6 +69,26 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
     }
 
     /**
+     * Deletes every patient link of a report with a bulk statement.
+     *
+     * <p>Use this, not {@code remove(entity)}, while the report is locked with
+     * {@code HRMDocumentDao.findForUpdate}: that loads {@code HRMDocument.matchedDemographics}, an
+     * eager unidirectional collection, and an {@code EntityManager.remove()} of one of its rows
+     * leaves the document referencing a removed instance, so the next flush throws
+     * {@code TransientPropertyValueException} and the unlink or re-link rolls back. A bulk delete
+     * bypasses the persistence context and still rolls back with the caller's transaction.</p>
+     *
+     * @param hrmDocumentId the report
+     * @return the number of links deleted
+     */
+    public int deleteByHrmDocumentId(Integer hrmDocumentId) {
+        Query query = entityManager.createQuery("delete from " + this.modelClass.getName()
+                + " x where x.hrmDocumentId=?1");
+        query.setParameter(1, hrmDocumentId);
+        return query.executeUpdate();
+    }
+
+    /**
      * Gets all HRMDocumentToDemographics where the hrmDocumentId matches the documentNo in ConsultDocs, the requestId equals the given consultationId, and the docType is 'H' for HRM
      *
      * @param consultationId

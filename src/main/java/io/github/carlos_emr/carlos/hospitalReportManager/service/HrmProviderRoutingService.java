@@ -44,7 +44,8 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProv
  *   <li>add an unsigned {@code HRMDocumentToProvider} row for the provider, unless one exists;</li>
  *   <li>apply that provider's current HRM forwarding rules ({@code IncomingLabRules} whose forward
  *       types include {@code HRM}), again only for providers not already routed;</li>
- *   <li>drop the report's unclaimed ({@code -1}) rows, now that a real provider holds it.</li>
+ *   <li>drop the report's unclaimed ({@code -1}) rows, now that a real provider holds it. This is
+ *       a bulk delete: see {@code HRMDocumentToProviderDao#deleteByHrmDocumentIdAndProviderNo}.</li>
  * </ol>
  *
  * <p>{@code HRMDocumentToProvider} has no unique key on (report, provider), so every step checks
@@ -118,15 +119,10 @@ public class HrmProviderRoutingService {
     }
 
     private void removeUnclaimedRouting(int hrmDocumentId) {
-        // Every unclaimed row, not the last one only: findByHrmDocumentIdAndProviderNo returns a
-        // single row of what can be several, and a survivor keeps the report on the "all" view.
-        List<HRMDocumentToProvider> unclaimed =
-                hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(hrmDocumentId, UNCLAIMED_PROVIDER_NO);
-        if (unclaimed == null) {
-            return;
-        }
-        for (HRMDocumentToProvider row : unclaimed) {
-            hrmDocumentToProviderDao.remove(row);
-        }
+        // Every unclaimed row, not the last one only: a survivor keeps the report on the "all"
+        // view. A bulk delete, because the caller's findForUpdate lock has loaded these rows into
+        // HRMDocument.matchedProviders; EntityManager.remove() on one of them made the next flush
+        // throw TransientPropertyValueException and roll the whole assignment back.
+        hrmDocumentToProviderDao.deleteByHrmDocumentIdAndProviderNo(hrmDocumentId, UNCLAIMED_PROVIDER_NO);
     }
 }

@@ -218,4 +218,132 @@ class HRMModifyTransactionIntegrationTest extends CarlosTestBase {
         tx.executeWithoutResult(status -> assertThat(demographics.findByHrmDocumentId(reportId))
                 .extracting(HRMDocumentToDemographic::getDemographicNo).containsExactly(1));
     }
+
+    // --- Provider Linking Rules (issue #3971) ---------------------------------------------------
+    //
+    // mutateReport() locks the report with findForUpdate, which loads HRMDocument together with its
+    // EAGER, unidirectional matchedProviders collection. Removing the unclaimed (-1) row through
+    // EntityManager.remove() left that collection referencing a removed instance, and the next
+    // flush threw TransientPropertyValueException: assigning a provider to an unclaimed report
+    // failed, and so did routing a newly matched report to its MRP. Only a real persistence
+    // context reproduces it, which is why these two live here and not in the mocked unit test.
+
+    private void addUnclaimedRow() {
+        tx.executeWithoutResult(status -> {
+            HRMDocumentToProvider unclaimed = new HRMDocumentToProvider();
+            unclaimed.setHrmDocumentId(reportId);
+            unclaimed.setProviderNo("-1");
+            unclaimed.setSignedOff(0);
+            routes.persist(unclaimed);
+        });
+    }
+
+    private java.util.List<String> routedProviders() {
+        return tx.execute(status -> routes.findByHrmDocumentId(reportId).stream()
+                .map(HRMDocumentToProvider::getProviderNo).sorted().toList());
+    }
+
+    @Test
+    void shouldClaimUnclaimedReport_whenProviderIsAssigned() throws Exception {
+        addUnclaimedRow();
+        request.addParameter("method", "assignProvider");
+        request.addParameter("providerNo", "999998");
+
+        action.execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        assertThat(routedProviders()).containsExactly("999998");
+    }
+
+    @Test
+    void shouldRouteMatchedReportToMrp_whenLinkingRulesAreOn() throws Exception {
+        String mrp = "PLR01";
+        Integer[] demographicNo = new Integer[1];
+        tx.executeWithoutResult(status -> {
+            em.createNativeQuery("INSERT INTO property (name, value, provider_no) VALUES ('provider_linking_rules', 'true', NULL)")
+                    .executeUpdate();
+            io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+            provider.setProviderNo(mrp);
+            provider.setFirstName("Linking");
+            provider.setLastName("Rules");
+            provider.setStatus("1");
+            provider.setProviderType("doctor");
+            provider.setSex("F");
+            provider.setSpecialty("");
+            hibernateTemplate.save(provider);
+            io.github.carlos_emr.carlos.commn.model.Demographic patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
+            patient.setFirstName("Linking");
+            patient.setLastName("Fixture");
+            patient.setYearOfBirth("1980");
+            patient.setMonthOfBirth("01");
+            patient.setDateOfBirth("15");
+            patient.setSex("F");
+            patient.setProviderNo(mrp);
+            patient.setPatientStatus("AC");
+            patient.setDateJoined(new java.util.Date());
+            patient.setLastUpdateUser("test");
+            patient.setLastUpdateDate(new java.util.Date());
+            hibernateTemplate.save(patient);
+            hibernateTemplate.flush();
+            demographicNo[0] = patient.getDemographicNo();
+        });
+        try {
+            addUnclaimedRow();
+            request.addParameter("method", "assignDemographic");
+            request.addParameter("demographicNo", demographicNo[0].toString());
+
+            action.execute();
+
+            assertThat(response.getContentAsString()).contains("\"success\":true", "\"mrpRouted\":true");
+            assertThat(routedProviders()).containsExactly(mrp);
+            java.util.List<HRMDocumentToDemographic> links = tx.execute(status -> demographics.findByHrmDocumentId(reportId));
+            assertThat(links)
+                    .singleElement()
+                    .satisfies(link -> assertThat(link.getDemographicNo()).isEqualTo(demographicNo[0]));
+        } finally {
+            tx.executeWithoutResult(status -> {
+                em.createNativeQuery("DELETE FROM property WHERE name = 'provider_linking_rules'").executeUpdate();
+                em.createNativeQuery("DELETE FROM demographic WHERE demographic_no = " + demographicNo[0]).executeUpdate();
+                em.createNativeQuery("DELETE FROM provider WHERE provider_no = '" + mrp + "'").executeUpdate();
+            });
+        }
+    }
+
+    private void linkPatient(int demographicNo) {
+        tx.executeWithoutResult(status -> {
+            HRMDocumentToDemographic link = new HRMDocumentToDemographic();
+            link.setHrmDocumentId(reportId);
+            link.setDemographicNo(demographicNo);
+            link.setTimeAssigned(new java.util.Date());
+            demographics.persist(link);
+        });
+    }
+
+    // The same eager-collection trap as the unclaimed provider row, on the patient side:
+    // HRMDocument.matchedDemographics is loaded by the report lock, so the patient links must
+    // leave with a bulk delete too, or unlinking and re-linking a report fail at flush.
+    @Test
+    void shouldUnlinkPatient_whenReportIsLocked() throws Exception {
+        linkPatient(4242);
+        request.addParameter("method", "removeDemographic");
+
+        action.execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        java.util.List<HRMDocumentToDemographic> links = tx.execute(status -> demographics.findByHrmDocumentId(reportId));
+        assertThat(links).isEmpty();
+    }
+
+    @Test
+    void shouldReplacePatientLink_whenReportIsReassigned() throws Exception {
+        linkPatient(4242);
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("demographicNo", "4343");
+
+        action.execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        java.util.List<HRMDocumentToDemographic> links = tx.execute(status -> demographics.findByHrmDocumentId(reportId));
+        assertThat(links).singleElement().satisfies(link -> assertThat(link.getDemographicNo()).isEqualTo(4343));
+    }
 }

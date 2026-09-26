@@ -27,10 +27,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -126,21 +124,15 @@ class HrmProviderRoutingServiceUnitTest {
         verify(rulesDao, never()).findCurrentByProviderNo("202");
     }
 
-    // AbstractModel.equals compares ids and these unsaved rows have none, so rows are matched by
-    // identity with same().
     @Test
-    @DisplayName("should remove every unclaimed (-1) row once a provider holds the report")
-    void shouldRemoveEveryUnclaimedRow_whenProviderIsAssigned() {
-        HRMDocumentToProvider unclaimed = routing("-1");
-        HRMDocumentToProvider unclaimedDuplicate = routing("-1");
-        when(routingDao.findByHrmDocumentIdAndProviderNoList(REPORT, "-1"))
-                .thenReturn(List.of(unclaimed, unclaimedDuplicate));
-
+    @DisplayName("should delete every unclaimed (-1) row in bulk once a provider holds the report")
+    void shouldBulkDeleteUnclaimedRows_whenProviderIsAssigned() {
+        // Bulk, not EntityManager.remove(): the caller's report lock has these rows loaded in
+        // HRMDocument.matchedProviders, and removing one of them fails the next flush.
         service.assignProvider(REPORT, "101");
 
-        verify(routingDao).remove(same(unclaimed));
-        verify(routingDao).remove(same(unclaimedDuplicate));
-        verify(routingDao, times(2)).remove(any(HRMDocumentToProvider.class));
+        verify(routingDao).deleteByHrmDocumentIdAndProviderNo(REPORT, "-1");
+        verify(routingDao, never()).remove(any(HRMDocumentToProvider.class));
     }
 
     @Test
@@ -152,7 +144,6 @@ class HrmProviderRoutingServiceUnitTest {
         assertThat(service.assignProvider(REPORT, "101")).isTrue();
 
         verify(routingDao).persist(any(HRMDocumentToProvider.class));
-        verify(routingDao, never()).remove(any(HRMDocumentToProvider.class));
         verify(routingDao, never()).findByHrmDocumentIdAndProviderNo(eq(REPORT), anyString());
     }
 }

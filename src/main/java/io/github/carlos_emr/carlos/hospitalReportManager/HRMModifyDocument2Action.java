@@ -531,14 +531,9 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         try {
             success = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
-                List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
-
-                if (currentMappingList != null) {
-                    for (HRMDocumentToDemographic currentMapping : currentMappingList) {
-                        hrmDocumentToDemographicDao.remove(currentMapping.getId());
-                    }
-                }
-
+                // Bulk: the report lock loaded these links into HRMDocument.matchedDemographics, and
+                // removing them one by one through the EntityManager failed the commit flush.
+                hrmDocumentToDemographicDao.deleteByHrmDocumentId(Integer.parseInt(hrmDocumentId));
                 return true;
             });
         } catch (Exception e) {
@@ -583,13 +578,11 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 // patients' charts is a worse outcome than a failed match the clinician can retry,
                 // and the viewer only re-enables the patient buttons on success. Same class as the
                 // swallowed catch removed from updateCategory.
-                List<HRMDocumentToDemographic> currentMappingList = hrmDocumentToDemographicDao.findByHrmDocumentId(Integer.parseInt(hrmDocumentId));
-
-                if (currentMappingList != null) {
-                    for (HRMDocumentToDemographic currentMapping : currentMappingList) {
-                        hrmDocumentToDemographicDao.remove(currentMapping);
-                    }
-                }
+                //
+                // Bulk, not EntityManager.remove(): the report lock loaded these links into
+                // HRMDocument.matchedDemographics, and removing them one by one made the flush
+                // throw, so re-linking a report always failed.
+                hrmDocumentToDemographicDao.deleteByHrmDocumentId(Integer.parseInt(hrmDocumentId));
 
                 HRMDocumentToDemographic demographicMapping = new HRMDocumentToDemographic();
 
