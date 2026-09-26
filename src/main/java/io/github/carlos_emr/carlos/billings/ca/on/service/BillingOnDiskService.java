@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -233,6 +232,22 @@ public class BillingOnDiskService {
         }
     }
 
+    /**
+     * Builds the claim batches for every provider of one billing group on a new
+     * group disk and writes each member's HTML preview.
+     *
+     * <p>A member is included when its generated batch contains at least one
+     * claim item, regardless of the batch total, so {@code $0}-value claims are
+     * submitted rather than silently dropped. A member with no claim items is
+     * skipped: its batch text (header and trailer) is not appended to the OHIP
+     * file and its writer is not finalized. The member's
+     * {@code billing_on_header} row is still created up front because the
+     * writer resolves the batch header by id, and disk regeneration later
+     * resolves one header per provider filename row on the disk.</p>
+     *
+     * @return the concatenated claim body and included writers, or {@code null}
+     *         when no member of the group has any claim item
+     */
     private GroupDiskGeneration writeGroupMembers(BillingDiskCreationService prep,
                                                    List<BillingProviderDto> grpProviders,
                                                    String groupNo, int diskId,
@@ -256,7 +271,12 @@ public class BillingOnDiskService {
                     currentUser, "" + (i + 1));
             objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                     mohOffice, false, "on".equals(useProviderMOH));
-            if (objFile.getBigTotal().compareTo(BigDecimal.ZERO) == 0) continue;
+            // Membership in the group disk is decided by claim items, not by the
+            // dollar total: $0 tracking codes and items that net to $0 are still
+            // claims OHIP must receive, and skipping them left those claims
+            // unsubmitted and unbilled. Members with no items contribute no batch
+            // (header + trailer) to the OHIP file and are not finalized.
+            if (!hasClaimRecords(objFile)) continue;
             value.append(objFile.getValue());
             objFile.writeHtml(objFile.getHtmlCode());
             writers.add(objFile);
@@ -447,6 +467,15 @@ public class BillingOnDiskService {
         throw new BillingValidationException(
                 "Billing disk generation could not resolve provider ["
                         + LogSafe.sanitizeForDisplay(providerNo) + "]");
+    }
+
+    /**
+     * Whether a generated claim batch contains at least one claim item.
+     * Originally reported and fixed for {@code ongenreport.jsp} by Sebastian
+     * Ibanez in openo-beta/Open-O PR #2510.
+     */
+    static boolean hasClaimRecords(OhipClaimFileService objFile) {
+        return objFile.getRecordCount() > 0;
     }
 
     private static boolean isSoloGroupNo(String groupNo) {
