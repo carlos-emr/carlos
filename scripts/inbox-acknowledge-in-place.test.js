@@ -641,6 +641,22 @@ test('a boundary re-sync that fails falls back to the full re-fetch rather than 
   assert.equal(inbox.state.fetches, 1);
 });
 
+test('a failed boundary re-sync carries a waiting Rapid Review advance into the full re-fetch', () => {
+  // The last loaded card was acknowledged, so the advance is waiting on the boundary page. The
+  // fallback re-fetch is a reset; the advance must be re-armed for the result set it creates
+  // or the reset drops it and the clinician is left without the next result.
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.context.pendingRapidReviewOpen, true);
+  inbox.failBoundary();
+  assert.equal(inbox.state.fetches, 1);
+  assert.equal(inbox.context.pendingRapidReviewOpen, true, 'the reset the fallback made kept the advance');
+  inbox.render([['170', 'HL7'], ['172', 'HL7']]);
+  inbox.context.settlePendingPreviewAdvance();
+  assert.deepEqual(inbox.state.scrolls, ['172']);
+});
+
 test('a boundary answer that arrives after the clinician changed the search is ignored', () => {
   const inbox = setup('preview', twoLabs, false, true, 2);
   inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });

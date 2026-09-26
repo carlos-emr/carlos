@@ -123,10 +123,34 @@ async function acknowledgeControl(popup) {
   return null;
 }
 
-/** The segmentID a result popup was opened for, off its own URL. */
-function segmentOf(url) {
-  const match = /[?&]segmentID=([^&#]*)/.exec(url);
-  return match ? decodeURIComponent(match[1]) : null;
+/**
+ * What a result URL says about which result it opens: the route (which differs by report type
+ * -- an HL7 lab, a document and an HRM report each have their own viewer) and the segmentID.
+ *
+ * Both are needed. Segment ids repeat across report types (the inbox itself qualifies every
+ * row by type for that reason), so a segmentID alone could accept a document being opened
+ * where the lab with the same number was expected. Everything else on the URL (provider,
+ * status, patient name) is context, not identity.
+ */
+function resultIdentityOf(url) {
+  let parsed;
+  try { parsed = new URL(url, 'https://inbox.invalid/'); } catch (error) { return null; }
+  const segment = parsed.searchParams.get('segmentID');
+  return segment ? `${parsed.pathname}#${segment}` : null;
+}
+
+/**
+ * The URL a list row opens, read off its own link. Each row's link calls
+ * reportWindow('<url>', ...) with the URL JavaScript-encoded by the page, so the literal is
+ * unescaped the way the browser would before it reaches window.open.
+ */
+async function rowLinkTarget(page, identity) {
+  const onclick = await rowLink(page, identity).getAttribute('onclick');
+  const match = /reportWindow\('((?:[^'\\]|\\.)*)'/.exec(onclick || '');
+  assert(match, `the result link for ${identity} does not call reportWindow with a URL`);
+  return match[1].replace(/\\x([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\u([0-9A-Fa-f]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\(.)/g, '$1');
 }
 
 /**
@@ -201,6 +225,12 @@ async function main() {
     const expectedNext = before[target.index + 1];
     assert(expectedNext && expectedNext !== before[0],
       `the row below ${target.identity} is ${expectedNext}, which is also the first row, so this check could not tell the fix from the bug`);
+    // Read BEFORE the acknowledgement: the row is still on screen and its link still says which
+    // result, by route and segmentID, opening it would show.
+    const expectedTarget = resultIdentityOf(await rowLinkTarget(inbox, expectedNext));
+    const firstTarget = resultIdentityOf(await rowLinkTarget(inbox, before[0]));
+    assert(expectedTarget && firstTarget && expectedTarget !== firstTarget,
+      `the links for ${expectedNext} and ${before[0]} resolve to ${expectedTarget} and ${firstTarget}; they must name different results`);
 
     // Rapid Review is the toolbar toggle; its onchange sets rapidReviewState.
     await inbox.locator('#rapidReviewToggle').check({ timeout });
@@ -235,7 +265,7 @@ async function main() {
 
     const nextPopup = await advanced;
     await nextPopup.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
-    const openedSegment = segmentOf(nextPopup.url());
+    const opened = resultIdentityOf(nextPopup.url());
     // Give a re-fetch that WOULD have happened time to show itself.
     await inbox.waitForTimeout(3000);
     inbox.off('request', onRequest);
@@ -245,12 +275,13 @@ async function main() {
     // 1. The acknowledgement took effect.
     assert(!after.includes(target.identity),
       `The acknowledged result ${target.identity} is still on screen; the clinician would see a result they have already dealt with`);
-    // 2. THE REGRESSION ITSELF: Rapid Review opened the row below the acknowledged one.
-    assert(openedSegment !== null,
+    // 2. THE REGRESSION ITSELF: Rapid Review opened the row below the acknowledged one, by
+    //    route AND segmentID, since segment ids repeat across report types.
+    assert(opened !== null,
       `Rapid Review opened ${nextPopup.url()}, which names no segmentID, so this check cannot tell which result it is`);
-    assert(openedSegment === expectedNext.split(':')[1],
-      `Rapid Review opened segmentID ${openedSegment} after acknowledging ${target.identity}; the row below it was ${expectedNext}`
-      + (openedSegment === before[0].split(':')[1]
+    assert(opened === expectedTarget,
+      `Rapid Review opened ${opened} after acknowledging ${target.identity}; the row below it was ${expectedNext} (${expectedTarget})`
+      + (opened === firstTarget
         ? ' -- that is the FIRST row of the table, so the clinician who started part-way down was sent back to the top'
         : ''));
     // 3. Nothing was re-fetched: the list was fully loaded.
@@ -278,4 +309,4 @@ if (require.main === module) {
   runCheck({ name: 'inbox-rapid-review-advance', run: main });
 }
 
-module.exports = { enterListMode, main, openAcknowledgeableTarget, rowsInDisplayOrder, segmentOf };
+module.exports = { enterListMode, main, openAcknowledgeableTarget, resultIdentityOf, rowLinkTarget, rowsInDisplayOrder };

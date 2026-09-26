@@ -1191,8 +1191,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             },
             error: function(xhr, status) {
                 // The full re-fetch is the safe answer when the boundary page cannot be read:
-                // slower, but it never leaves a result unfetched.
+                // slower, but it never leaves a result unfetched. A Rapid Review advance still
+                // waiting on this page is carried over to the result set that re-fetch creates;
+                // armed for the current generation, the reset would otherwise drop it.
                 if (status !== 'abort' && generation === inboxhubResultSetGeneration) {
+                    if (pendingRapidReviewOpen) { armPendingRapidReview(inboxhubResultSetGeneration + 1); }
                     fetchInboxhubData();
                 }
             }
