@@ -2548,6 +2548,20 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "echart-lock-lifecycle",
+      "script": "scripts/echart-lock-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
     }
   ]
 }

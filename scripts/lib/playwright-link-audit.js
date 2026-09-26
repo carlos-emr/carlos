@@ -301,9 +301,20 @@ async function revealAuditLink(page, link, timeout) {
       const index = all.indexOf(control);
       if (index >= 0) result.unshift({ index, hover, markup: control.outerHTML });
     }
+    // Chart hover menus stop click propagation when opening their popup. They
+    // remain over later sidebar links after that popup closes. Dismiss an
+    // unrelated menu as an operator would before trying the next destination.
+    const otherChartMenu = [...document.querySelectorAll('#leftNavBar .menu, #rightNavBar .menu')]
+      .some(menu => !menu.contains(anchor) && getComputedStyle(menu).visibility !== 'hidden'
+        && menu.getClientRects().length > 0);
+    if (otherChartMenu) result.unshift({ outsideClick: true });
     return result;
   });
-  for (const { index, hover, markup } of controls) {
+  for (const { index, hover, markup, outsideClick } of controls) {
+    if (outsideClick) {
+      await page.locator('body').click({ position: { x: 2, y: 2 }, timeout });
+      continue;
+    }
     const control = page.locator('a, button').nth(index);
     assert(await control.evaluate(element => element.outerHTML) === markup,
       'The menu changed while revealing an audit item; refusing to click a different control');

@@ -4,6 +4,8 @@ Review baseline: `release/2026.08` at `ba7b1822e1` (the head the promotion PR #3
 from) compared with tag `2026.08.0-alpha13`, on 2026-09-25, plus the review-fixes branch
 `claude/release-2026.08-alpha14-review-fixes` (PR #3929) that carries the repairs below.
 The promotion PR is refreshed from `release/2026.08` once #3929 lands.
+The additional 2026-09-26 review below follows the release through `6ab26ca8b1`,
+compares the promotion with `main`, and rechecks the existing #3929 repairs.
 
 ## Confirmed findings and repairs
 
@@ -50,8 +52,12 @@ No published Flyway migration differs from alpha13. `V1.0.23.1` is numbered belo
 and `V1.0.30` (against the migration README's own rule) but sits above alpha13's high-water
 mark (`on/V1.0.23`, `common/V1.0.22`), so a tagged alpha13 -> alpha14 upgrade applies all
 three in order; only a development database migrated in the two-hour window between #3782
-and #3816 on `release/2026.08` can be out of order, and that state is repaired with
-`flyway repair` and a re-migrate. Do not repeat the pattern.
+and #3816 on `release/2026.08` can have the lower-numbered migration missing.
+`flyway repair` repairs schema-history metadata; it does not execute that missing SQL,
+and the packaged runner does not enable out-of-order migration. Recreate a disposable
+development database from the alpha13 baseline and migrate in order. A database whose
+data must be retained needs a separately reviewed migration recovery, not a blanket
+`repair`. Do not repeat the numbering pattern.
 
 Items reviewed and left unchanged, to be verified against a live system rather than in code:
 the MCEDT `EncryptedKey` bound of 20 per response (MCEDT limits a download request to a
@@ -143,7 +149,7 @@ Every failure was re-run on its own and classified:
 - **Pre-existing, recorded, not changed:**
   - `episode-lifecycle`: the seeded `doctor` role holds `o` on `_newCasemgmt.episode`, the same
     as in alpha13, so the Episode module is hidden.
-  - `inboxhub-filters`: earlier checks acknowledged the newest version of two lab chains
+  - `inboxhub-filters` (subsequently repaired in the additional review below): earlier checks acknowledged the newest version of two lab chains
     (170, 172) while older versions (169, 44) stayed filed. The labs query collapses each
     chain to its newest version within the result set it is building. "All" therefore shows
     170 and 172, and "Filed" shows 169 and 44, so the filters no longer partition "All". The
@@ -209,3 +215,84 @@ Unit … not loaded." It comes from debhelper's stop-on-upgrade snippet for a un
 did not have under its new name; the snippet ends in `|| true`. The Ubuntu `nginx` package also
 fails its own first start on a host without IPv6, because its default site listens on `[::]`.
 The alpha13 and alpha14 installs both continue past it, and the CARLOS front door comes up.
+
+## Additional promotion review, 2026-09-26
+
+This pass reviewed the full pending release promotion and the existing #3929 changes,
+including the later PDF-writer, disabled-recycle-directory and fax-preview-containment
+repairs. The review looked for wrong-patient results, lost or silently omitted data,
+partial-success reporting, authorization boundaries, migration ordering, compatibility
+entry points, and package upgrade/recovery failures. The four Copilot summary-only
+observations were checked separately: stale test instructions, the blood-pressure message
+key, absent versus SQL NULL Ocean preferences, and preservation of exact PDF permissions.
+
+Additional confirmed repairs:
+
+| Finding | Repair and evidence |
+| --- | --- |
+| Crashed incoming-PDF rewrites leave hidden files containing document data | Reap only recognized numeric scratch names older than 24 hours, with bounded cleanup and file locks protecting live work. Browser coverage distinguishes an aged file from fresh and unrelated files; Java tests cover ownership and locking. |
+| Preparing a PDF replacement could alter the original permissions before success | Prepare privately, preserve the original throughout the operation, and apply its exact mode to the completed replacement before publishing. Rechecked alongside the later writer-close and disabled-recycle-directory fixes. |
+| Inbox post-query filtering discarded lab versions and conflated accession numbers | Remove the second accession-only filtering pass after pagination. `inbox-lab-versions` tests real versioned lab rows across All/New/Filed/Acknowledged partitions. |
+| Selecting an older lab row could open and acknowledge the newest report instead | Inbox links explicitly retain the selected version with `showLatest=false`; browser checks compare the selected report and acknowledgment identity, while preserving explicit latest-version requests. |
+| Malformed SMTP/SendGrid settings escaped the checked failure contract or exposed parser detail | Validate JSON shape, required text fields and port range through a shared helper; return credential-free `EmailSendingException` messages. Transport unit tests and the live MariaDB TEXT/NULL/long-JSON schema check pass. |
+| Health Tracker could report success when measurement rows persisted but the progress note failed | Display a localized warning after note persistence failure. A browser test injects a database failure and verifies the measurements remain, no note is reported as saved, and the warning is visible. |
+| A service dependency could start the new renderer after stopping the old renderer failed | A persistent marker also gates the new systemd unit. The disposable-VM fault test uses a legacy service with `RefuseManualStop=yes`, verifies the new renderer stays down, and verifies reconfiguration recovers. |
+| Java 25's shared delay scheduler retained the stopped CARLOS webapp class loader | Packaged Tomcat shutdown exposed `ForkJoinPool.commonPool-delayScheduler` retaining the CARLOS loader. Shutdown now detaches only this exact bootstrap-loaded JDK thread's context loader when it belongs to the stopping webapp. It never stops the shared scheduler. Tests use the real scheduler, verify subsequent scheduling still works, and preserve other applications' loaders and ordinary similarly named threads. |
+
+The validation itself exposed gaps that are now covered in `scripts/`:
+
+- Chart tests await their authenticated, non-forced note-lock release before browser teardown.
+  `echart-lock-lifecycle` separately proves normal page closure releases the lock, so test
+  cleanup cannot conceal a broken application unload handler.
+- The navigation audit dismisses a previous chart hover menu before clicking unrelated links.
+  The full audit then opened 34 module links successfully using normal browser clicks.
+- `ocean-display-settings` explicitly tests a stored SQL NULL value in both the admin switch
+  and the rendered chart, in addition to on/off saves and GET rejection.
+- The legacy fax inbox harness now calls the `documentUpdateAjax` route used by the current
+  inbox. It asserts the JSON patient identity, actual patient/document link, generated note,
+  provider routing, retirement of the unclaimed routing to status X, and final filed status F.
+
+### Package and browser evidence for this pass
+
+The clean `2026.08.0~alpha14+pr3929.4` DEBs were built at `388e721926`, installed into
+`carlos-val`, and verified against the compiled LabDataController, IncomingDocUtil and
+Fax2Action bytes. Package identity was checked inside the WAR and through the application.
+The later `1ca4180f98` and `410e94bb3d` commits change unused imports and a unit assertion,
+respectively. `carlos-ctl check` passed, including all 29 applied migrations, DrugRef,
+renderer and front-door checks. The earlier build that reused debhelper stamps was rejected
+when byte/identity checks detected a stale WAR; subsequent builds used a clean packaging run.
+
+The 157-entry browser manifest was exercised sequentially through the packaged HTTPS front
+door, with targeted reruns after fixing test defects and supplying missing demo fixtures.
+Latest results by check: **155 pass, one prerequisite failure, one province-specific skip**.
+The prerequisite failure is `o19-migrated-smoke`, because this VM has no imported OSCAR19
+target or break-glass migration credentials. `billing-bc-associations` requires a BC schema;
+this VM is an Ontario installation. These are unverified paths, not passing results.
+
+Outside the manifest, the native RTL browser check, full document-annotation harness,
+MariaDB email schema check, prescription DrugRef harness and local fax inbox lifecycle all
+passed. The local fax run used an owned synthetic inbound document and removed its patient,
+document, note and routing fixtures afterward. It does not establish live SRFax send/receive
+or scheduler de-duplication: no live development account was supplied.
+
+The script regression suite passed **1,019 tests** with one worker. Final full Maven `verify`
+reported **13,321 tests, zero failures, zero errors, 51 skips**, with Checkstyle and WAR
+packaging also passing. This includes the real Java 25 scheduler regression tests and
+supersedes the earlier localized-property encoding failure, which was corrected with ASCII
+escaping. Mockito's JVM attachment requires running this suite outside the agent sandbox;
+Checkstyle needed a 2 GiB Maven heap. Debian Python checks passed 1,689 tests; package
+completion and Debian Node checks also passed.
+
+Resource and fixture controls mattered to interpreting the results. The VM was stopped for
+compilation and packaging, and only one local validation task ran at a time. Browser testing
+used two guest CPUs and 6 GiB RAM, with temporary application limits of 150% CPU, 3 GiB memory
+high and 3,500 MiB maximum. The inherited 25% CPU and 1.75 GiB memory-high limits had caused
+heavy throttling and misleading timeouts. Host/guest memory and disk headroom were monitored,
+and the existing resource watchdog remained enabled.
+
+Chart searches were narrowed to the intended synthetic patient: a broad `FAKE-` search can
+fall back to another patient on the first results page. Patient 1 also has over 2,000 active
+eForms, so exhausting that chart's pagination within a short smoke-test limit was not a
+valid small-fixture assumption. Optional module flags, episode privileges, three marked
+export appointments and the temporarily absent provider stamp were supplied explicitly for
+their checks, with original values retained for restoration.

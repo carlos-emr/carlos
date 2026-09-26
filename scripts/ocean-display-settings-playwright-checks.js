@@ -107,6 +107,17 @@ async function workflow(s) {
     h.assert(await frame.locator('#echart_show_ocean').isChecked() === expected,
       `The Ocean switch shows ${!expected} but the database says ${expected}`);
   });
+  await s.step('an existing SQL NULL preference is OFF, unlike an absent row', async () => {
+    s.sql.execute(`UPDATE SystemPreferences SET \`value\`=NULL WHERE name='${PREF}'`);
+    if (s.sql.value(PREF_COUNT) === '0') {
+      s.sql.execute(`INSERT INTO SystemPreferences (name, \`value\`) VALUES ('${PREF}', NULL)`);
+    }
+    await h.gotoApp(frame, s.config.baseUrl, '/admin/EchartDisplaySettings');
+    h.assert(!await frame.locator('#echart_show_ocean').isChecked(),
+      'A stored SQL NULL preference incorrectly enabled the Ocean switch');
+    h.assert((await placeholderCount(s)).count === 0,
+      'A stored SQL NULL preference incorrectly rendered the Ocean placeholder');
+  });
   await s.step('turning Ocean off persists and removes the encounter placeholder', async () => {
     await save(s, frame, false, expectedRows);
     h.assert((await placeholderCount(s)).count === 0, 'The encounter still renders #ocean_placeholder with Ocean turned off');

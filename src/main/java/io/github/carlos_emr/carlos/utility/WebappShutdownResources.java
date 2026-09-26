@@ -48,7 +48,8 @@ public final class WebappShutdownResources {
     /**
      * Releases shutdown-sensitive resources for the supplied web application class loader.
      * The call order is significant: servlet-thread DB state and datasource tracking are released before
-     * async log workers, Drools executors, cache timers, MySQL cleanup, and finally webapp-owned
+     * async log workers, Drools executors, cache timers, the JDK scheduler's context loader,
+     * MySQL cleanup, and finally webapp-owned
      * JDBC driver deregistration.
      *
      * @param webappClassLoader class loader associated with the stopping CARLOS webapp
@@ -73,6 +74,8 @@ public final class WebappShutdownResources {
             QueueCache.shutdownSharedTimer();
             return 0;
         });
+        runStep(results, ShutdownStep.JDK_DELAY_SCHEDULER,
+                () -> releaseJdkDelaySchedulerClassLoader(webappClassLoader));
         runStep(results, ShutdownStep.MYSQL_CLEANUP_THREAD, () -> {
             shutdownMySqlAbandonedConnectionCleanupThread();
             return 0;
@@ -111,6 +114,8 @@ public final class WebappShutdownResources {
         DROOLS_EXECUTORS,
         /** Cancel the QueueCache shared timer. */
         QUEUE_CACHE_TIMER,
+        /** Release the stopped webapp's reference held by Java 25's shared delay scheduler. */
+        JDK_DELAY_SCHEDULER,
         /** Stop MySQL Connector/J's abandoned cleanup thread. */
         MYSQL_CLEANUP_THREAD,
         /** Deregister JDBC drivers owned by the webapp class loader. */
@@ -198,6 +203,29 @@ public final class WebappShutdownResources {
                     .mapToInt(ShutdownStepResult::count)
                     .sum();
         }
+    }
+
+    /**
+     * Java 25's common-pool delay scheduler inherits the initiating thread's context
+     * class loader. It outlives every webapp, so its context must not retain a stopped
+     * CARLOS deployment. Only detach our loader from that exact bootstrap-loaded JDK
+     * thread; never interrupt the shared scheduler or change another application's loader.
+     *
+     * @param webappClassLoader class loader of the stopping webapp
+     * @return number of scheduler context-loader references released
+     */
+    static int releaseJdkDelaySchedulerClassLoader(ClassLoader webappClassLoader) {
+        int released = 0;
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+            if (thread.getClass().getClassLoader() == null
+                    && "java.util.concurrent.DelayScheduler".equals(thread.getClass().getName())
+                    && "ForkJoinPool.commonPool-delayScheduler".equals(thread.getName())
+                    && isSameOrChildClassLoader(thread.getContextClassLoader(), webappClassLoader)) {
+                thread.setContextClassLoader(ClassLoader.getPlatformClassLoader());
+                released++;
+            }
+        }
+        return released;
     }
 
     /**

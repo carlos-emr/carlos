@@ -57,6 +57,7 @@
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -170,7 +171,7 @@ async function main() {
     assertAuditClean(result, { surface: 'eChart navigation', minimumOpened: limit ? 1 : 5 });
     return { opened: result.opened.length, skipped: result.skipped };
   } finally {
-    await browser.close().catch(() => {});
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
 }
 
