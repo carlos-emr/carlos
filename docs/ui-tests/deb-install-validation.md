@@ -1393,3 +1393,41 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### Alpha15 report: chart header English on first open (2026-09-26)
+
+Attempted reproduction of finding 44 in [app-findings-log.md](app-findings-log.md)
+against a package built from the alpha15 promotion commit, on an Ubuntu 26.04
+container. Deviations from the runbook: no LXD on the host, so the target was a
+Docker container running systemd (`--privileged`, host networking, a cgroup2
+hierarchy mounted at `/sys/fs/cgroup`; Ubuntu 26.04's systemd refuses a cgroup
+v1 hierarchy); `carlos-emr` built with `CARLOS_WAR=` (a JDK 25 Maven build of the
+same tree) plus `SKIP_DRUGREF=1 SKIP_EFORM_RENDERER=1`, so `carlos-ctl check`
+notes DrugRef and the renderer as absent; `policy-rc.d` kept `apt` from starting
+MariaDB and nginx, so the postinst ended with the `install-incomplete` marker and
+`carlos-ctl finish-install` completed the install (schema, reset seed credential,
+demo dataset), exactly as documented for the earlier container run.
+
+| variant | first open | after F5 | after second F5 | new popup, warm session |
+|---|---|---|---|---|
+| Chromium 141, Master Record, `fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7` | Sexe, DDN, Âge, Prochain rendez-vous; calculatrices | identical | identical | identical |
+| Chromium 141, schedule `E` link (appointment 11) | identical to above | identical | identical | identical |
+| Chromium 141, `Accept-Language: fr-CA` and `fr` | French | French | French | French |
+| Chromium 141, `encounter_open_in_tab=yes`, both entry points | French | French | French | French |
+| Firefox 150, `fr-CA`, both entry points | French | French | French | French |
+
+`encounter-header-i18n` PASS on the same install (`EXPECT_FRONT_DOOR=true`).
+The report is not reproduced; the check now pins first open == reload and reads
+the negotiated language the page states, so a reproduction on the reporter's
+setup will name the language the server chose.
+
+**Container-only trap when re-installing a package over a running instance.**
+`policy-rc.d` in a container also suppresses the `carlos-emr-restart` trigger's
+`restart`, so the rebuilt package's JSPs landed on disk under a JVM that kept
+running. Reproducible-build timestamps clamp every packaged file to the
+changelog date, so the replaced JSP had exactly the mtime Jasper had recorded
+for its compiled class, and Jasper (which compares for equality) kept serving
+the old class: the extended check failed with empty `lang` attributes until
+`systemctl restart carlos-emr` ran the launcher's `clear_jsp_cache`. On a VM
+the preinst stop and the trigger restart make this moot; in a container,
+restart explicitly after any re-install before reading results.

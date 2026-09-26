@@ -177,6 +177,30 @@ class EncounterChartHeaderI18nUnitTest {
     }
 
     @Test
+    @DisplayName("should state the negotiated language on the chart page and its header")
+    void shouldStateNegotiatedLanguage_onChartPageAndHeader() throws IOException {
+        // A field report of a chart "in English on first open" could not be diagnosed from a
+        // screenshot: nothing on the page said which language the server had negotiated. The
+        // chart page and the header container now carry it as their lang attribute, from the
+        // same resolver every other chart fragment uses, so page and header can never disagree.
+        String layout = stripComments(read(MODULE_ROOT.resolve(
+                "src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp")));
+        assertThat(layout)
+                .contains("<html lang=\"<%= SafeEncode.forHtmlAttribute("
+                        + "LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>\">")
+                .doesNotContain("<html>");
+        int locale = layout.indexOf("<fmt:setLocale value=\"<%= LocaleUtils.resolveBundleLocale(request) %>\"/>");
+        int bundle = layout.indexOf("<fmt:setBundle");
+        assertThat(locale).as("the chart page negotiates its own JSTL locale").isGreaterThanOrEqualTo(0);
+        assertThat(bundle).as("bundle must load after the locale in the chart page").isGreaterThan(locale);
+
+        String header = stripComments(read(HEADER_JSP));
+        assertThat(header)
+                .contains("pageContext.setAttribute(\"negotiatedLanguageTag\", browserLocale.toLanguageTag());")
+                .contains("<div id=\"header-top-row\" lang=\"${carlos:forHtmlAttribute(negotiatedLanguageTag)}\">");
+    }
+
+    @Test
     @DisplayName("should set the negotiated JSTL locale before loading each translated fragment's bundle")
     void shouldShareLocale_betweenJavaAndJstl() throws IOException {
         for (Path jsp : List.of(HEADER_JSP, CHART_NOTES_JSP, LAYOUT_JS_JSP,
