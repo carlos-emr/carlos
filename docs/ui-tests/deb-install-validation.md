@@ -670,9 +670,9 @@ suite_failed=0
 #                                through the Administration page when it is not already one, because a
 #                                hand-inserted groupMembers_tbl row does not make a recipient appear)
 #   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID must be the
-#                                NEWEST lab of its accession -- the Inboxhub opens labs with
-#                                showLatest=true, which renders the newest version of the chain, so an
-#                                older segment would put the acknowledge on a row it never routed. Left
+#                                NEWEST lab of its accession -- this fixture reviews the latest
+#                                report and separately verifies that an older Inbox row opens its own
+#                                version, while an explicit showLatest request opens the latest. Left
 #                                unset the check picks a qualifying lab itself.)
 #                                (prevention-recall-report takes no knob: the screening type is fixed
 #                                to Flu because the check seeds a saved demographic query naming one
