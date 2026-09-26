@@ -250,7 +250,9 @@ class InboxAcknowledgeNotificationRegressionTest {
         // edit here is silently undone by the refresh that follows an acknowledgement.
         String listMode = read(INBOXHUB_LIST_MODE_JSP);
 
-        assertThat(listMode).contains("countAcknowledgedInboxhubItem(reportId, resolvedType);");
+        assertThat(listMode)
+                .as("removeReport reaches the stored totals through the shared contract, which counts")
+                .contains("dropAcknowledgedInboxhubItem(reportId, resolvedType);");
         assertThat(listMode)
                 .as("removeReport must not hand-edit the rendered badge")
                 .doesNotContain("totalLabsCountStat');");

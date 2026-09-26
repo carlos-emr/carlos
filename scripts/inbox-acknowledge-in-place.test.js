@@ -28,7 +28,7 @@ function slice(from, to) {
 // slices and is left out because it carries a JSP encoder tag, which is not JavaScript.
 const acknowledgePath = slice('    function refreshInboxhubAfterHrmRevoke()',
                               '    /**\n     * Resets all inbox filters');
-const rapidReview = slice('    // Flag set by BroadcastChannel listener',
+const rapidReview = slice('    /**\n     * Whether Rapid Review still owes the clinician the next result',
                           '    // State variables preserved');
 // The legacy window.opener entry point ships in InboxhubListMode.jsp and runs in the same
 // window as the functions above, so it is evaluated into the same context.
@@ -52,7 +52,7 @@ const legacyRemoveReport = listModeJsp.slice(removeReportStart, removeReportEnd)
  */
 function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1) {
   const state = { fetches: 0, viewFetches: 0, submits: 0, draws: [], opened: null, opens: [], scrolledTo: null,
-    boundaryRequests: [], inserted: [] };
+    scrolls: [], boundaryRequests: [], inserted: [], aborted: 0 };
   const totals = { totalDocsCount: 5, totalLabsCount: 5, totalHRMCount: 5, totalResultsCount: 15 };
   let rendered = [];
   // One rendered row or card. after()/before() are what mergeInboxhubPreviewCards uses to
@@ -60,7 +60,7 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
   function element(segmentId, labType) {
     const el = {
       segmentId, labType,
-      scrollIntoView(options) { state.scrolledTo = segmentId; assert.equal(options.block, 'start'); },
+      scrollIntoView(options) { state.scrolledTo = segmentId; state.scrolls.push(segmentId); assert.equal(options.block, 'start'); },
       getAttribute(name) { return name === 'data-lab-type' ? labType : segmentId; },
       link: { click() { state.opened = segmentId; state.opens.push(segmentId); } },
       after(node) { rendered.splice(rendered.indexOf(el) + 1, 0, node); state.inserted.push(node.segmentId); },
@@ -100,6 +100,11 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
           'the following element is asked for by the kind the mode renders');
         const at = rendered.indexOf(matched[0]);
         return set(at >= 0 && rendered[at + 1] ? [rendered[at + 1]] : []);
+      },
+      prev(selector) {
+        assert.equal(selector, mode === 'list' ? 'tr' : '.document-card');
+        const at = rendered.indexOf(matched[0]);
+        return set(at > 0 ? [rendered[at - 1]] : []);
       },
       remove() { drop(matched); return set(matched); },
     };
@@ -188,13 +193,28 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
     jQuery, BroadcastChannel, document, URLSearchParams, DOMParser,
     HTMLFormElement: {prototype: {submit() { assert.equal(this, form); state.submits++; }}},
     filter: '', activeTypeFilter: null, ackToggleState: false,
-    hasMoreData, isFetchingData: false, rapidReviewState: false,
+    hasMoreData, isFetchingData: false, currentFetchRequest: null, rapidReviewState: false,
     page, pageSize: 20, inboxSearchFormData: 'query.status=N', inboxContextPath: '/carlos',
     showInboxhubStats() {},
-    fetchInboxhubData() { state.fetches++; },
+    // The real one empties the screen through resetDataPageCount(); the bookkeeping half of
+    // that reset is run here so a fetch has the same effect on the pending-advance state.
+    fetchInboxhubData() {
+      state.fetches++;
+      if (typeof context.resetPendingRapidReviewForNewResultSet === 'function') {
+        context.resetPendingRapidReviewForNewResultSet();
+      }
+    },
     fetchInboxhubViewData() { state.viewFetches++; },
   });
   vm.runInContext(acknowledgePath + rapidReview + legacyRemoveReport, context);
+  // resetDataPageCount() sits outside the evaluated slices (it drives the spinner and aborts
+  // requests); the bookkeeping statements it runs are lifted verbatim so the tests exercise
+  // the same lines the page does.
+  const resetSource = formJsp.slice(formJsp.indexOf('    function resetDataPageCount()'));
+  const resetBody = resetSource.slice(resetSource.indexOf('        forgetHandledInboxhubItems();'),
+    resetSource.indexOf('        page = 1;'));
+  assert.ok(resetBody.includes('inboxhubResultSetGeneration++;'), 'resetDataPageCount bookkeeping not found');
+  vm.runInContext('function resetPendingRapidReviewForNewResultSet() {\n' + resetBody + '\n}', context);
 
   return {
     state, totals, context, form,
@@ -202,6 +222,10 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
     shown: () => rendered.map(item => item.labType + ':' + item.segmentId),
     // Replaces what is on screen, the way a re-fetched page 1 (then each later page) does.
     render: items => { rendered = items.map(([segmentId, labType]) => element(segmentId, labType)); },
+    // What resetDataPageCount() does to the acknowledgement bookkeeping.
+    reset: () => { context.forgetHandledInboxhubItems(); context.resetPendingRapidReviewForNewResultSet(); },
+    // Puts a next-page preview fetch in flight, the way a scroll to the bottom does.
+    startPageFetch: () => { context.isFetchingData = true; context.currentFetchRequest = { abort() { state.aborted++; } }; },
     // Answers the most recent boundary re-sync request with a page of cards.
     answerBoundary: html => { state.boundaryRequests[state.boundaryRequests.length - 1].success(html); },
     failBoundary: () => { state.boundaryRequests[state.boundaryRequests.length - 1].error({}, 'error'); },
@@ -363,6 +387,92 @@ test('the direct route arms the post-redraw advance when list mode is still load
   inbox.render([['170', 'HL7'], ['172', 'HL7']]);
   inbox.context.advancePendingRapidReview();
   assert.deepEqual(inbox.state.opens, ['172']);
+});
+
+test('acknowledging the LAST loaded row waits for its successor instead of falling back to the top', () => {
+  // Nothing followed the row on screen, but pages remain: the successor is the first row of
+  // the next page. The row above is remembered, and the successor is "the row after it" once
+  // the re-fetched list has drawn that far.
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '172', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.fetches, 1);
+  inbox.render([['170', 'HL7'], ['171', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.deepEqual(inbox.state.opens, [], 'page one ends at the row above; the successor has not arrived');
+  inbox.render([['170', 'HL7'], ['171', 'HL7'], ['173', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.deepEqual(inbox.state.opens, ['173']);
+});
+
+test('preview mode acknowledging the LAST loaded card advances once the boundary merge brings its successor', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 2);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '172', labType: 'HL7', clearedCount: 1 });
+  assert.deepEqual(inbox.state.scrolls, [], 'the successor is not on screen yet');
+  assert.equal(inbox.context.pendingRapidReviewOpen, true);
+  inbox.answerBoundary('HL7:170 HL7:171 HL7:173');
+  assert.deepEqual(inbox.shown(), ['HL7:170', 'HL7:171', 'HL7:173']);
+  assert.deepEqual(inbox.state.scrolls, ['173'], 'the card that took the acknowledged one\'s place is brought into view');
+  assert.equal(inbox.context.pendingRapidReviewOpen, false);
+});
+
+test('a waiting preview advance gives up quietly when the list turns out to be finished', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  inbox.answerBoundary('HL7:170 <script>hasMoreData = false;</script>');
+  assert.deepEqual(inbox.state.scrolls, []);
+  assert.equal(inbox.context.pendingRapidReviewOpen, false, 'nothing more will arrive, so nothing is owed');
+});
+
+test('a search the clinician makes while an advance is pending drops it and the remembered neighbours', () => {
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
+  inbox.context.rapidReviewState = true;
+  inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
+  // The acknowledgement's own re-fetch (a reset) kept the advance armed...
+  assert.equal(inbox.state.fetches, 1);
+  assert.equal(inbox.context.pendingRapidReviewOpen, true, 'the re-fetch the acknowledgement asked for carries the advance');
+  // ...a further reset is the clinician changing the search, and must not.
+  inbox.reset();
+  assert.equal(inbox.context.pendingRapidReviewOpen, false);
+  inbox.render([['500', 'DOC'], ['172', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.deepEqual(inbox.state.opens, [], 'a row of the new list is not opened on the strength of the old one');
+});
+
+test('the direct route arms the advance for the re-fetch that follows it, not for a later search', () => {
+  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
+  inbox.context.rapidReviewState = true;
+  inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1);
+  inbox.reset();   // the popup's fetchInboxhubData()
+  inbox.render([['170', 'HL7'], ['172', 'HL7']]);
+  inbox.context.advancePendingRapidReview();
+  assert.deepEqual(inbox.state.opens, ['172']);
+});
+
+test('a next-page fetch in flight is withdrawn before the boundary re-sync and asked for again after it', () => {
+  // The in-flight page may have been computed before the acknowledgement committed. Appended
+  // as it is, it carries the pre-shift window while every later page is post-shift, and the
+  // result on ITS boundary is never fetched by anyone.
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.startPageFetch();
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  assert.equal(inbox.state.aborted, 1, 'the in-flight page is withdrawn');
+  assert.equal(inbox.context.isFetchingData, false);
+  assert.equal(inbox.state.boundaryRequests.length, 1);
+  assert.equal(inbox.state.viewFetches, 0, 'the page is not asked for again before the boundary has been merged');
+  inbox.answerBoundary('HL7:171 HL7:172');
+  assert.deepEqual(inbox.shown(), ['HL7:171', 'HL7:172']);
+  assert.equal(inbox.state.viewFetches, 1, 'and then it is, post-shift');
+});
+
+test('no fetch in flight means nothing to withdraw and nothing to resume', () => {
+  const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7']], false, true, 2);
+  inbox.acknowledge({ action: 'refresh', segmentID: '170', labType: 'HL7', clearedCount: 1 });
+  inbox.answerBoundary('HL7:171 HL7:172');
+  assert.equal(inbox.state.aborted, 0);
+  assert.equal(inbox.state.viewFetches, 0);
 });
 
 test('the legacy removeReport opener entry point goes through the shared contract', () => {

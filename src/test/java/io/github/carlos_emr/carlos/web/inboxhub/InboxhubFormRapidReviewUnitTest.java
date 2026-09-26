@@ -65,9 +65,9 @@ class InboxhubFormRapidReviewUnitTest {
         assertThat(extractFunction(jsp, "removeInboxhubRow"))
                 .as("the successor is remembered BEFORE the row goes, in both modes")
                 .containsSubsequence(
-                        "rememberNextInboxhubItem(rowEl.first().next('tr'));",
+                        "rememberNextInboxhubItem(row.next('tr'), row.prev('tr'));",
                         "jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);",
-                        "rememberNextInboxhubItem(card.next('.document-card'));",
+                        "rememberNextInboxhubItem(card.next('.document-card'), card.prev('.document-card'));",
                         "card.remove();");
     }
 
@@ -86,7 +86,7 @@ class InboxhubFormRapidReviewUnitTest {
                 .contains("if (!pendingRapidReviewOpen) { return; }")
                 .contains("const nextLink = nextInboxhubListRowLink();")
                 .as("while pages remain the remembered row may still arrive, so nothing is opened yet")
-                .contains("if (nextInboxhubItem !== null && hasMoreData) { return; }")
+                .contains("if (hasRememberedNextInboxhubItem() && hasMoreData) { return; }")
                 .contains("document.querySelector('#inbox_table tbody tr a')")
                 .doesNotContain("setTimeout");
 
@@ -126,8 +126,20 @@ class InboxhubFormRapidReviewUnitTest {
                 .containsSubsequence(
                         "if (rapidReviewState) {",
                         "advanceRapidReviewOnce(segmentId, resolvedType);",
-                        "pendingRapidReviewOpen = true;",
+                        "armPendingRapidReview(inboxhubResultSetGeneration + 1);",
                         "return settled;");
+        assertThat(extractFunction(jsp, "resyncInboxhubPreviewBoundary"))
+                .as("a next-page fetch in flight may carry the pre-shift window; it is withdrawn and asked for again after the merge")
+                .containsSubsequence(
+                        "if (isFetchingData && currentFetchRequest) {",
+                        "currentFetchRequest.abort();",
+                        "isFetchingData = false;",
+                        "resumePaging = true;",
+                        "mergeInboxhubPreviewCards(data);",
+                        "if (resumePaging) { fetchInboxhubViewData(); }");
+        assertThat(extractFunction(jsp, "resetDataPageCount"))
+                .as("a search the clinician makes drops a pending advance armed for another result set")
+                .contains("if (!pendingRapidReviewOpen || pendingRapidReviewGeneration !== inboxhubResultSetGeneration) {");
         assertThat(extractFunction(jsp, "advanceRapidReviewOnce"))
                 .as("the opener call and its broadcast both reach the helper; the second must not open a second result")
                 .contains("if (advancedInboxhubItems[key]) { return; }")
