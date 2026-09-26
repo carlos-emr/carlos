@@ -157,6 +157,12 @@
                     $('#membership-error').removeClass('d-none');
                 }
 
+                function refreshGroupMembers(groupId) {
+                    $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId + ' > *', function (_body, status) {
+                        if (status === 'error') showMembershipError();
+                    });
+                }
+
                 function addMember(memberId, groupId, checkbox) {
                     $('#membership-error').addClass('d-none');
                     if (checkbox) $(checkbox).prop('disabled', true);
@@ -165,9 +171,7 @@
                         // Reload the group member list to show the new member. Load the list's
                         // children, not the list itself, so the reload does not nest a second
                         // element with the same id inside the first.
-                        $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId + ' > *', function (_body, status) {
-                            if (status === 'error') showMembershipError();
-                        });
+                        refreshGroupMembers(groupId);
                         // Check the appropriate checkbox in the member list display
                         $("div#addContacts input[type='checkbox']").filter(function () {
                             return this.value === memberId;
@@ -177,7 +181,10 @@
                         // For the general registry (group 0) the checkbox already shows the
                         // right state; for a named group, tell the administrator.
                         if (xhr.status === 409) {
-                            if (String(groupId) !== "0") showDuplicateMember(groupId, true);
+                            if (String(groupId) !== "0") {
+                                showDuplicateMember(groupId, true);
+                                refreshGroupMembers(groupId);
+                            }
                             if (checkbox) $(checkbox).prop('checked', true);
                         } else {
                             if (checkbox) $(checkbox).prop('checked', false);
@@ -343,7 +350,7 @@
                             // Disable before posting so a double-click cannot send two adds.
                             resetMemberPick(groupId);
                             addMember(memberId, groupId);
-                            $(".search-provider").val('');
+                            document.getElementById(groupId).value = '';
                         }
                     });
 

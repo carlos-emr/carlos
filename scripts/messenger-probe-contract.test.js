@@ -40,3 +40,9 @@ for (const [label, change] of [
     assert.throws(() => assertExpectedProbeResponses(recorder, expected));
   });
 }
+
+test('an explicitly expected GET failure and its diagnostic pass', () => {
+  const recorder = fixture();
+  recorder.badResponses[0].method = 'GET';
+  assert.doesNotThrow(() => assertExpectedProbeResponses(recorder, [{ ...expected[0], method: 'GET' }]));
+});

@@ -69,6 +69,7 @@ const fixtureLastName = `PWMSGADM${stamp}`;
 const deactivatedLastName = `PWMSGNEG${stamp}`;
 const groupName = `PW group ${stamp}`;
 const childGroupName = `PW child ${stamp}`;
+const pickGroupName = `PW pick ${stamp}`;
 
 const state = {
   sql: null,
@@ -76,6 +77,7 @@ const state = {
   deactivatedProviderNo: null,
   groupId: null,
   childGroupId: null,
+  pickGroupId: null,
 };
 
 function pickUnusedProviderNo(sql, prefix) {
@@ -106,7 +108,7 @@ function cleanup() {
     return;
   }
   try {
-    const childIds = new Set(sql.rows(`SELECT groupID FROM groups_tbl WHERE groupDesc=${sqlString(childGroupName)}`)
+    const childIds = new Set(sql.rows(`SELECT groupID FROM groups_tbl WHERE groupDesc IN (${sqlString(childGroupName)}, ${sqlString(pickGroupName)})`)
       .map(row => Number(row[0])));
     if (state.childGroupId) childIds.add(state.childGroupId);
     for (const childId of childIds) {
@@ -189,17 +191,17 @@ function assertExpectedProbeResponses(recorder, expectedResponses) {
     const id = key(entry.method, entry.url, entry.status);
     if (entry.label !== 'duplicate-probe' || !(remaining.get(id) > 0)) return true;
     remaining.set(id, remaining.get(id) - 1);
-    const consoleId = key('POST', entry.url, entry.status);
+    const consoleId = key('CONSOLE', entry.url, entry.status);
     networkConsole.set(consoleId, (networkConsole.get(consoleId) || 0) + 1);
     return false;
   });
   assert([...remaining.values()].every(count => count === 0), 'A deliberate probe response was not observed');
   // Chromium also reports these exact failed HTTP requests as console errors.
-  // Match that built-in message and location against a consumed POST response;
+  // Match that built-in message and location against a consumed expected response;
   // application console messages and extra occurrences still fail the check.
   const consoleIssues = recorder.consoleIssues.filter(entry => {
     const match = /^Failed to load resource: the server responded with a status of (\d{3}) \([^\n]*\)$/.exec(entry.text);
-    const id = key('POST', entry.location?.url, match ? Number(match[1]) : 0);
+    const id = key('CONSOLE', entry.location?.url, match ? Number(match[1]) : 0);
     if (entry.label !== 'duplicate-probe' || entry.type !== 'error' || !match
         || !(networkConsole.get(id) > 0)) return true;
     networkConsole.set(id, networkConsole.get(id) - 1);
@@ -217,6 +219,8 @@ async function main() {
   state.deactivatedProviderNo = pickUnusedProviderNo(sql, '-9');
   insertProvider(sql, state.activeProviderNo, fixtureLastName);
   insertProvider(sql, state.deactivatedProviderNo, deactivatedLastName);
+  sql.execute(`INSERT INTO groups_tbl (parentID,groupDesc) VALUES (0,${sqlString(pickGroupName)})`);
+  state.pickGroupId = Number(sql.value(`SELECT groupID FROM groups_tbl WHERE groupDesc=${sqlString(pickGroupName)}`));
 
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
@@ -272,6 +276,16 @@ async function main() {
     const duplicateAlert = adminPage.locator(`#duplicate-member-${state.groupId}`);
     assert(await addButton.isDisabled(), 'Add Contact was enabled before any contact had been picked');
 
+    // Stage an independent pick in another group before adding in the main group.
+    await adminPage.locator(`a.nav-link[href="#group-${state.pickGroupId}"]`).click();
+    const otherSearch = adminPage.locator(`input.search-provider[id="${state.pickGroupId}"]`);
+    await typeAutocomplete(adminPage, otherSearch, fixtureLastName.slice(0, 10), {
+      option: fixtureLastName, hidden: `#add-member-id-${state.pickGroupId}`, timeout: TIMEOUT,
+    });
+    const otherPickedText = await otherSearch.inputValue();
+    const otherPickedId = await adminPage.locator(`#add-member-id-${state.pickGroupId}`).inputValue();
+    await groupTab.click();
+
     // c. Typeahead offers the fixture once; adding writes one group row + one registry row.
     await search.click();
     await search.type(fixtureLastName.slice(0, 10), { delay: 40 });
@@ -303,6 +317,14 @@ async function main() {
       updatedContactStates.find(after => after.value === before.value)?.checked === before.checked),
     'successful group add changed an unrelated contact checkbox');
     assert(await addButton.isDisabled(), 'Add Contact stayed enabled after the add, inviting a double submit');
+    assert(await otherSearch.inputValue() === otherPickedText && otherPickedText.length > 0,
+      'adding in one group cleared another group\'s visible selection');
+    assert(await adminPage.locator(`#add-member-id-${state.pickGroupId}`).inputValue() === otherPickedId,
+      'adding in one group changed another group\'s pending identifier');
+    assert(await adminPage.locator(`#add-${state.pickGroupId}`).isEnabled(),
+      'the other group\'s visible pending selection became unusable');
+    console.log('PASS independent pending picks in two groups');
+
 
     // d. Picking the same provider again is stopped in the page; nothing is posted.
     let duplicatePosts = 0;
@@ -342,6 +364,23 @@ async function main() {
     const registryDuplicate = await postAdd(probe, memberId, 0);
     assert(registryDuplicate.status === 409,
       `a duplicate registry (group 0) add answered HTTP ${registryDuplicate.status}, expected 409`);
+    // A different administrator may have committed the member while this page was stale.
+    await probe.locator('a.nav-link[href="#manageGroups"]').click();
+    await probe.locator(`a.nav-link[href="#group-${state.groupId}"]`).click();
+    await probe.locator(`#group-member-list-${state.groupId}`).evaluate(node => { node.replaceChildren(); });
+    expectAddFailure(memberId, state.groupId, 409);
+    await probe.evaluate(({ member, group }) => window.addMember(member, group), { member: memberId, group: state.groupId });
+    await probe.locator(`#group-member-list-${state.groupId} [data-member-key^="${state.activeProviderNo}-"]`)
+      .first().waitFor({ state: 'visible', timeout: TIMEOUT });
+    await probe.locator(`#duplicate-member-${state.groupId}`).waitFor({ state: 'visible', timeout: TIMEOUT });
+    const refreshUrl = appUrl(config.baseUrl, '/messenger?method=fetch');
+    expectedResponses.push({ method: 'GET', url: refreshUrl, status: 503, count: 1 });
+    expectAddFailure(memberId, state.groupId, 409);
+    await probe.route(refreshUrl, route => route.fulfill({ status: 503, body: 'Unavailable' }));
+    await probe.evaluate(({ member, group }) => window.addMember(member, group), { member: memberId, group: state.groupId });
+    await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
+    await probe.unroute(refreshUrl);
+    console.log('PASS concurrent duplicate refresh and refresh failure feedback');
     const invalidGroup = await postAdd(probe, memberId, 'abc');
     assert(invalidGroup.status === 400, `an add with a non-numeric group answered HTTP ${invalidGroup.status}, expected 400`);
     for (const malformed of ['abc-def', '-9-0-145', '123--1', '123-0-2147483648', '123-0-1-2-3']) {
@@ -412,23 +451,32 @@ async function main() {
     await probe.unroute(createUrl);
     console.log('PASS membership removal and group mutation failure feedback');
 
+    // Use a non-signature overflow value so the request reaches application validation
+    // through the WAF; its built-in integer-overflow signatures reject 2147483648 first.
     for (const query of [
       'method=remove&group=abc',
       `method=remove&member=123-2147483648&group=${state.groupId}`,
-      `method=create&groupName=${encodeURIComponent(childGroupName)}&parentId=2147483648`,
+      `method=create&groupName=${encodeURIComponent(childGroupName)}&parentId=2147483649`,
       'method=create&groupName=',
       'method=delete&grpNo=abc',
       `method=update&grpNo=${state.groupId}`,
       `method=update&grpNo=${state.groupId}&update=${encodeURIComponent('Update group members')}&delete=${encodeURIComponent('Delete this group')}`,
     ]) {
       expectFailure(query, 400);
-      assert((await postMutation(probe, query)).status === 400, 'malformed group mutation did not return 400');
+      const result = await postMutation(probe, query);
+      assert(result.status === 400, `malformed group mutation returned ${result.status}: ${query}`);
     }
     const childCreated = await postMutation(probe,
       `method=create&groupName=${encodeURIComponent(childGroupName)}&parentId=${state.groupId}`);
     assert(childCreated.status === 200, 'could not create the owned child-group fixture');
     state.childGroupId = Number(sql.value(`SELECT groupID FROM groups_tbl WHERE groupDesc=${sqlString(childGroupName)}`));
     assert(Number.isSafeInteger(state.childGroupId) && state.childGroupId > 0, 'missing child-group fixture');
+    assert((await postAdd(probe, `${state.activeProviderNo}-0-149`, state.childGroupId)).status === 200,
+      'could not add the child membership with clinic metadata');
+    const replaceSelected = `method=update&grpNo=${state.childGroupId}&update=${encodeURIComponent('Update group members')}&providers=${state.activeProviderNo}`;
+    assert((await postMutation(probe, replaceSelected)).status === 200, 'legacy replacement of a live group failed');
+    assert(sql.value(`SELECT clinicLocationNo FROM groupMembers_tbl WHERE groupID=${state.childGroupId} AND provider_no=${sqlString(state.activeProviderNo)}`) === '149',
+      'legacy replacement discarded the selected contact clinic metadata');
     const removeParent = `method=remove&group=${state.groupId}`;
     expectFailure(removeParent, 409);
     assert((await postMutation(probe, removeParent)).status === 409, 'parent with children was deleted');

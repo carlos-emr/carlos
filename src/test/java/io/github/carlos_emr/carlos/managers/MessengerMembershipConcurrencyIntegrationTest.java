@@ -146,6 +146,27 @@ class MessengerMembershipConcurrencyIntegrationTest {
     }
 
     @Test
+    void shouldPreserveFacilityAndLocation_whenReplacingLegacySelections() throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.manager.addMember(fixture.info, new ContactIdentifier("101-9-145"), 7);
+            fixture.manager.addMember(fixture.info, new ContactIdentifier("101-4-27"), 7);
+            fixture.manager.addMember(fixture.info, new ContactIdentifier("102-0-8"), 7);
+            fixture.manager.replaceGroupMembers(fixture.info, 7, new String[]{"101", "101", "103"});
+            try (var connection = DriverManager.getConnection(fixture.url);
+                 var query = connection.createStatement();
+                 var rows = query.executeQuery("SELECT provider_no,facilityId,clinicLocationNo FROM groupMembers_tbl WHERE groupID=7 ORDER BY provider_no,facilityId")) {
+                var identities = new java.util.ArrayList<String>();
+                while (rows.next()) identities.add(rows.getString(1) + "-" + rows.getInt(2) + "-" + rows.getInt(3));
+                assertThat(identities).containsExactly("101-4-27", "101-9-145", "103-0-0");
+            }
+            assertThat(fixture.count(0)).isEqualTo(4);
+            fixture.manager.replaceGroupMembers(fixture.info, 7, new String[0]);
+            assertThat(fixture.count(7)).isZero();
+            assertThat(fixture.count(0)).isEqualTo(4);
+        }
+    }
+
+    @Test
     void shouldRollbackRegistry_whenGroupInsertFails() throws Exception {
         try (var fixture = new Fixture()) {
             try (var connection = DriverManager.getConnection(fixture.url); var query = connection.createStatement()) {

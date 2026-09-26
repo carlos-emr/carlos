@@ -441,14 +441,22 @@ public class MessengerGroupManager {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void replaceGroupMembers(LoggedInInfo info, int groupId, String[] providers) {
         lockGroupChange(info, groupId);
+        Map<String, List<ContactIdentifier>> previousContacts = new HashMap<>();
         for (GroupMembers member : groupMembersDao.findMembershipsForUpdate(groupId, null)) {
+            ContactIdentifier contact = new ContactIdentifier();
+            contact.setContactId(member.getProviderNo());
+            contact.setFacilityId(member.getFacilityId());
+            contact.setClinicLocationNo(member.getClinicLocationNo());
+            previousContacts.computeIfAbsent(member.getProviderNo(), _ -> new ArrayList<>()).add(contact);
             groupMembersDao.remove(member.getId());
         }
         if (providers != null) {
             for (String provider : new LinkedHashSet<>(Arrays.asList(providers))) {
-                ContactIdentifier contact = new ContactIdentifier();
-                contact.setContactId(provider);
-                insertMemberUnderLock(contact, groupId);
+                // The legacy form selects provider numbers only. Retain every existing
+                // facility identity and location; newly selected providers are local.
+                List<ContactIdentifier> contacts = previousContacts.get(provider);
+                if (contacts == null) contacts = List.of(new ContactIdentifier(provider));
+                for (ContactIdentifier contact : contacts) insertMemberUnderLock(contact, groupId);
             }
         }
     }
