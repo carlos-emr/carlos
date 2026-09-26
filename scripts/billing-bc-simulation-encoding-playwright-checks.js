@@ -160,7 +160,6 @@ async function workflow(s) {
       h.assert(await headings.count() === 1, 'Simulation included an unselected billing provider');
       h.assert((await headings.innerText()).trim().endsWith(ohipNo), 'Simulation rendered the wrong provider');
 
-
       // The invoice cell is exactly the billing number, so an exact accessible-name match finds the row.
       const invoiceLink = page.getByRole('link', { name: billingNo, exact: true });
       h.assert(await invoiceLink.count() >= 1, 'The owned claim row was not in the simulation report');
@@ -175,6 +174,24 @@ async function workflow(s) {
       const onClick = await invoiceLink.first().getAttribute('onclick');
       h.assert(/adjustBill\.jsp\?billingmaster_no=\d{7}'/.test(onClick || ''),
         'Adjustment link lost its shape');
+    });
+
+    await s.step('all-provider simulation includes both owned providers', async () => {
+      await page.locator('select[name="providers"]').selectOption('%');
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }),
+        page.locator('input[type="submit"][value="Create Report"]').click(),
+      ]);
+      await h.assertNotErrorPage(page, 'BC all-provider simulation report');
+      h.assert(await page.locator('select[name="providers"]').inputValue() === '%',
+        'Simulation lost the all-provider selection');
+      const headings = await page.locator('td').filter({ hasText: /^Billing Invoice for Billing No\./ }).allInnerTexts();
+      for (const [billingNumber] of s.sql.rows(`SELECT ohip_no FROM provider WHERE ${ownedProvider}`)) {
+        h.assert(headings.some(text => text.trim().endsWith(billingNumber)),
+          'All-provider simulation omitted an owned provider');
+      }
+      h.assert(await page.locator('img[src="x"]').count() === 0, 'All-provider simulation parsed claim markup');
+      h.assert(await page.evaluate(() => window.__carlos3950) === undefined, 'All-provider simulation executed claim markup');
     });
 
     await s.step('simulation stayed a dry run', async () => {

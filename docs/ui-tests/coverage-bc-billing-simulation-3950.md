@@ -30,7 +30,7 @@ Reference: openo-beta/Open-O#2438 (LiamStanziani) made the same server-side enco
 
 The browser check also found a pre-existing page bug. `billingSim.jsp` `checkData()` read `document.forms[0].provider`, but the select is named `providers`, so every "Create Report" submit threw a `TypeError`.
 
-The simulation also ignored its provider selection on the server and forwarded the provider/start date under the wrong parameter names. It now filters to the selected billing number (or explicitly all providers) and retains both form values.
+The simulation also ignored its provider selection (#4008) on the server and forwarded the provider/start date under the wrong parameter names. It now filters to the selected billing number (or explicitly all providers) and retains both form values.
 
 ## Coverage
 
@@ -58,12 +58,12 @@ The simulation also ignored its provider selection on the server and forwarded t
    - no element was parsed from them and no injected handler ran;
    - the adjustment link keeps its `billingmaster_no=NNNNNNN` shape;
    - the form submit raised no page error.
-4. Verifies the simulation stayed a dry run: claim statuses stay `O` and no `log_teleplantx` rows are written.
+4. Runs the all-provider option and asserts that both owned providers are included. Verifies both simulations stayed dry runs: claim statuses stay `O` and no `log_teleplantx` rows are written.
 5. Deactivates both providers through the app, then removes every owned row. Setup, cache-eviction and page-close failures fail the check and remain visible together. Failure-injection Node tests cover these teardown paths.
 
 On an Ontario install the check reports SKIP.
 
-## Verification (2026-09-26)
+## Initial contributor verification (2026-09-26)
 
 **Packages.** Built from this branch with `dpkg-buildpackage` in `ubuntu:26.04`, with `CARLOS_WAR` prebuilt and `SKIP_DRUGREF=1 SKIP_EFORM_RENDERER=1`. Lintian reported no errors.
 
@@ -78,3 +78,17 @@ On an Ontario install the check reports SKIP.
 **Negative control.** With the pre-fix `bc/MSP/ExtractBean.class` swapped into the installed webapp, the browser check fails: the payload is parsed into an `<img>` and the name cell renders empty. The owned fixtures were still removed after the failure.
 
 No migration or schema change is involved.
+
+## Current release-base review validation (2026-09-26)
+
+Rebased by merging release/2026.08 at `25a867f07b9bda663aaa70aab8e5de225605f999` (alpha16).
+
+- Clean full Maven test run: 13,355 tests, no failures or errors, 51 explicitly skipped.
+- Script suite: 1,034 passed; four teardown failure-injection tests passed.
+- All 982 JSPs compiled; WAR packaging passed.
+- Built and installed all three Debian packages (`carlos-emr`, DrugRef, eForm renderer), version `2026.08.0~alpha16~pr3988.1`, in the Ubuntu 26.04 VM. All 6,666 checked compiled classes, changed web files and migrations matched both package and installed payload.
+- Package health checks passed on the original Ontario configuration and an isolated BC configuration. The new BC schema applied 25 packaged Flyway migrations; the existing Ontario database was preserved.
+- BC simulation encoding passed all five steps, including individual-provider selection, the all-provider option, retained form values, markup rendered literally and unchanged claim/log state.
+- Existing BC billing-association browser check passed all three steps, including invalid-input rejection and create/reopen/update/delete. Both workflows verified removal of their owned fixtures.
+
+The VM was stopped during compilation, and builds and browser checks ran serially.
