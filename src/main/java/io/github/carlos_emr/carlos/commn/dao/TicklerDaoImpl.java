@@ -98,6 +98,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @Override
+    public Tickler lockForAttachmentSync(Integer ticklerNo) {
+        // SELECT ... FOR UPDATE on the parent row: a second attachment sync for the same
+        // tickler blocks here until the first commits, then reads its rows.
+        return entityManager.find(Tickler.class, ticklerNo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Override
     public Tickler find(Integer id) {
         TypedQuery<Tickler> query = entityManager.createQuery(
                 "select distinct t from Tickler t "

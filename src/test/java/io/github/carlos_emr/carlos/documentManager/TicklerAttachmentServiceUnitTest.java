@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.documentManager;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
@@ -91,6 +92,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
     private static final String PROVIDER_NO = "999998";
 
     @Mock private TicklerDocsDao ticklerDocsDao;
+    @Mock private TicklerDao ticklerDao;
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private DocumentDao documentDao;
     @Mock private PatientLabRoutingDao patientLabRoutingDao;
@@ -107,7 +109,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
     void setUp() {
         service = new TicklerAttachmentService(ticklerDocsDao, securityInfoManager, documentDao,
                 patientLabRoutingDao, eFormDataDao, hrmDocumentToDemographicDao, formsManager,
-                documentAttachmentManager);
+                documentAttachmentManager, ticklerDao);
         tickler = new Tickler();
         tickler.setId(TICKLER_ID);
         tickler.setDemographicNo(DEMOGRAPHIC_NO);
@@ -155,7 +157,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should attach a patient's document with the session provider and audit it")
         void shouldAttachDocument_whenItBelongsToPatient() {
             documentOwnedBy(11, DEMOGRAPHIC_NO);
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "D")).thenReturn(List.of());
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
 
@@ -197,7 +199,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should check a lab against its own source's routing and record that source")
         void shouldKeepLabType_whenAttachingLab() {
             labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77"));
 
@@ -212,7 +214,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should read a bare lab id as an HL7 lab")
         void shouldDefaultToHl7_whenLabValueHasNoSource() {
             labOwnedBy(77, DEMOGRAPHIC_NO, "HL7");
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "77"));
 
@@ -252,7 +254,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
             TicklerDocs storedHl7 = stored(77, "L");
             storedHl7.setLabType("HL7");
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of(storedHl7));
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(storedHl7));
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "HL7:77", "MDS:77"));
 
@@ -298,7 +300,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             HRMDocumentToDemographic link = new HRMDocumentToDemographic();
             link.setDemographicNo(DEMOGRAPHIC_NO);
             when(hrmDocumentToDemographicDao.findByHrmDocumentId(9)).thenReturn(List.of(link));
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "H")).thenReturn(List.of());
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.HRM, "9"));
 
@@ -323,7 +325,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             // not re-verified, so no ctl_document lookup is stubbed here.
             TicklerDocs kept = stored(11, "D");
             TicklerDocs removed = stored(12, "D");
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "D")).thenReturn(List.of(kept, removed));
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(kept, removed));
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
 
@@ -339,14 +341,51 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should leave types that were not submitted untouched")
         void shouldLeaveOtherTypesAlone_whenOnlyOneTypeSubmitted() {
             documentOwnedBy(11, DEMOGRAPHIC_NO);
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "D")).thenReturn(List.of());
+            TicklerDocs storedLab = stored(77, "L");
+            storedLab.setLabType("HL7");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(storedLab));
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
 
-            verify(ticklerDocsDao, never()).findByTicklerIdDocType(TICKLER_ID, "L");
-            verify(ticklerDocsDao, never()).findByTicklerIdDocType(TICKLER_ID, "E");
-            verify(ticklerDocsDao, never()).findByTicklerIdDocType(TICKLER_ID, "H");
-            verify(ticklerDocsDao, never()).findByTicklerIdDocType(TICKLER_ID, "F");
+            assertThat(storedLab.getDeleted()).isNull();
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, times(1)).persist(any(TicklerDocs.class));
+        }
+
+        @Test
+        @DisplayName("should lock the tickler before reading its rows, so concurrent syncs run one after the other")
+        void shouldLockTickler_beforeReadingStoredRows() {
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
+
+            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(ticklerDao, ticklerDocsDao);
+            inOrder.verify(ticklerDao).lockForAttachmentSync(TICKLER_ID);
+            inOrder.verify(ticklerDocsDao).findAllByTicklerIdForUpdate(TICKLER_ID);
+            inOrder.verify(ticklerDocsDao).persist(any(TicklerDocs.class));
+            verify(ticklerDocsDao, times(1)).findAllByTicklerIdForUpdate(TICKLER_ID);
+        }
+
+        @Test
+        @DisplayName("should revive the detached row when an item is attached again")
+        void shouldReviveDetachedRow_whenItemReattached() {
+            // Ownership is re-proven for the re-attachment, as for any item not currently live.
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            TicklerDocs detached = stored(11, "D");
+            detached.setDeleted(TicklerDocs.DELETED_FLAG);
+            detached.setProviderNo("000001");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(detached));
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
+
+            assertThat(detached.getDeleted()).isNull();
+            assertThat(detached.getProviderNo()).isEqualTo(PROVIDER_NO);
+            assertThat(detached.getAttachDate()).isNotNull();
+            verify(ticklerDocsDao).merge(detached);
+            verify(ticklerDocsDao, never()).persist(any());
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("TicklerAttachmentService.add"), eq("ticklerId=42,type=D,documentNo=11")));
         }
 
         @Test
@@ -355,7 +394,8 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             service.syncAttachments(loggedInInfo, tickler, new EnumMap<>(DocumentType.class));
             service.syncAttachments(loggedInInfo, tickler, null);
 
-            verify(ticklerDocsDao, never()).findByTicklerIdDocType(any(), any());
+            verify(ticklerDao, never()).lockForAttachmentSync(any());
+            verify(ticklerDocsDao, never()).findAllByTicklerIdForUpdate(any());
             verify(ticklerDocsDao, never()).persist(any());
         }
 
@@ -374,7 +414,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse adding a type the caller cannot read")
         void shouldThrowSecurityException_whenTypeReadDeniedAndIdsSubmitted() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
 
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "77")))
                     .isInstanceOf(SecurityException.class)
@@ -386,7 +426,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should not detach items of a type the caller cannot read")
         void shouldLeaveTypeUntouched_whenTypeReadDeniedAndNothingSubmitted() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of());
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB));
 
@@ -403,7 +443,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             TicklerDocs mds = stored(77, "L");
             mds.setLabType("MDS");
             TicklerDocs legacyHl7 = stored(78, "L");
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of(mds, legacyHl7));
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds, legacyHl7));
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77", "HL7:78"));
 
@@ -418,7 +458,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
             TicklerDocs mds = stored(77, "L");
             mds.setLabType("MDS");
-            when(ticklerDocsDao.findByTicklerIdDocType(TICKLER_ID, "L")).thenReturn(List.of(mds));
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds));
 
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77", "MDS:79")))
                     .isInstanceOf(SecurityException.class)
@@ -450,7 +490,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO, submission(DocumentType.LAB, "HL7:77"));
 
             verify(ticklerDocsDao, never()).persist(any());
-            verify(ticklerDocsDao, never()).findByTicklerIdDocType(any(), any());
+            verify(ticklerDocsDao, never()).findAllByTicklerIdForUpdate(any());
         }
 
         @Test

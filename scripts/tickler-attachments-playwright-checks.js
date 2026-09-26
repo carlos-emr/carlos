@@ -29,7 +29,9 @@
  *      ticklerdocs rows: one live row per checked item, the lab row carrying its source, the
  *      provider column holding the LOGGED-IN provider.
  *   2. Edit Tickler: the stored attachments are listed by name and pre-checked in the
- *      picker; unchecking the document and saving soft-deletes exactly that row.
+ *      picker; unchecking the document and saving soft-deletes exactly that row;
+ *      re-checking it revives that row (one row per item, no duplicate) and it is
+ *      detached again.
  *   3. Edit Tickler without opening the picker: a plain field update leaves the stored
  *      set untouched (the parallel fork detached everything on every save).
  *   4. Tickler list and patient tickler view render one attachment link per live row, and
@@ -247,6 +249,27 @@ async function postEditForm(page, fields) {
       `document was not detached: ${JSON.stringify(attachmentRows(ticklerNo))}`);
     assert(attachmentRows(ticklerNo).some((row) => row.doctype === 'D' && row.deleted === 'Y'), 'detached document row was not soft-deleted');
 
+    // 2a. Re-attaching revives the detached row instead of adding a second one ------------
+    editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-reattach');
+    await openPicker(editPage);
+    await editPage.locator(`#attachDocumentsForm #docNo${picked.D}`).check();
+    await saveAndClosePicker(editPage);
+    await submitEditForm(editPage);
+    await editPage.close();
+    const documentRows = attachmentRows(ticklerNo).filter((row) => row.doctype === 'D');
+    assert(documentRows.length === 1 && documentRows[0].deleted === '' && documentRows[0].providerNo === providerNo,
+      `re-attaching the document did not revive its row: ${JSON.stringify(documentRows)}`);
+    // Detach it again so the remaining steps see the same stored set as before.
+    editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-redetach');
+    await openPicker(editPage);
+    await editPage.locator(`#attachDocumentsForm #docNo${picked.D}`).uncheck();
+    await saveAndClosePicker(editPage);
+    await submitEditForm(editPage);
+    await editPage.close();
+    live = liveRows(ticklerNo);
+    assert(live.length === expectedCount - 1 && attachmentRows(ticklerNo).filter((row) => row.doctype === 'D').length === 1,
+      `second detach left more than one document row: ${JSON.stringify(attachmentRows(ticklerNo))}`);
+
     // 2b. An attachment the picker does not offer survives Save and Close -----------------
     // The picker lists only current forms and eForms, so an older stored item has no
     // checkbox; the dialog must carry its delegate through instead of treating it as
@@ -377,7 +400,7 @@ async function postEditForm(page, fields) {
     assert(pageErrors.length === 0, `pages reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await context.close();
-    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, DOC lab source, GET, bad picker id) refused`);
+    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, re-attached (row revived) and detached again, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, DOC lab source, GET, bad picker id) refused`);
   } catch (error) {
     if (error instanceof SkipCheck) {
       console.log(`SKIP ${error.message}`);

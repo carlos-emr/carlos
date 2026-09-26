@@ -122,6 +122,23 @@ class TicklerDocsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
+        @DisplayName("should return detached rows as well when loading a tickler's rows for update")
+        void shouldReturnDetachedRowsToo_whenFindingAllForUpdate() {
+            persistAttachment(TICKLER_ID, 11, TicklerDocs.DOCTYPE_DOC, null);
+            TicklerDocs detached = persistAttachment(TICKLER_ID, 12, TicklerDocs.DOCTYPE_DOC, null);
+            detached.setDeleted(TicklerDocs.DELETED_FLAG);
+            ticklerDocsDao.merge(detached);
+            entityManager.flush();
+            persistAttachment(TICKLER_ID + 1, 33, TicklerDocs.DOCTYPE_DOC, null);
+
+            List<TicklerDocs> results = ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID);
+
+            assertThat(results).extracting(TicklerDocs::getDocumentNo).containsExactly(11, 12);
+            assertThat(ticklerDocsDao.findByTicklerId(TICKLER_ID)).extracting(TicklerDocs::getDocumentNo).containsExactly(11);
+        }
+
+        @Test
+        @Tag("read")
         @Tag("filter")
         @DisplayName("should filter attachments by type")
         void shouldFilterByDocType_whenFindingByTicklerIdDocType() {

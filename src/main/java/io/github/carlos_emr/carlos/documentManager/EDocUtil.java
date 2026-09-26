@@ -79,6 +79,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -232,6 +233,7 @@ public final class EDocUtil {
     private static CaseManagementNoteDAO caseManagementNoteDao() { return SpringUtils.getBean(CaseManagementNoteDAO.class); }
     private static TicklerDocsDao ticklerDocsDao() { return SpringUtils.getBean(TicklerDocsDao.class); }
     private static TicklerManager ticklerManager() { return SpringUtils.getBean(TicklerManager.class); }
+    private static SecurityInfoManager securityInfoManager() { return SpringUtils.getBean(SecurityInfoManager.class); }
     private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
     private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
     private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
@@ -1190,7 +1192,11 @@ public final class EDocUtil {
         if (attachments != null) {
             for (TicklerDocs attachment : attachments) {
                 Tickler t = ticklerManager().getTickler(loggedInInfo, attachment.getTicklerId());
-                if (t != null) {
+                // getTickler proves the global _tickler right only; this is reached from an
+                // _edoc-gated page, and a patient-specific denial takes precedence, so the
+                // message is only rendered when the caller may read ticklers for that patient.
+                if (t != null && securityInfoManager().hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ,
+                        t.getDemographicNo() == null ? null : String.valueOf(t.getDemographicNo()))) {
                     HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
                 }
             }

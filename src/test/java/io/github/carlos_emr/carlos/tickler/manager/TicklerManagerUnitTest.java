@@ -296,6 +296,22 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             verify(mockTicklerDao, never()).findByTicklerNoDemo(anyInt(), anyInt());
         }
 
+        @Test
+        @DisplayName("should leave out a lab's ticklers when tickler read is denied for their patient")
+        void shouldOmitLabTicklers_whenTicklerReadDeniedForPatient() {
+            // The entry check proves the global right only; the patient-specific denial wins.
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+            Tickler tickler = createTestTicklerWithId(10);
+            tickler.setDemographicNo(TEST_DEMO_NO);
+            when(mockTicklerDocsDao.findByLab(321, "HL7")).thenReturn(List.of(createLink(10)));
+            when(mockTicklerDao.findByTicklerNosAssignedTo(List.of(10), TEST_PROVIDER, TEST_DEMO_NO)).thenReturn(List.of(tickler));
+            when(mockTicklerDao.findByTicklerNosDemo(List.of(10), TEST_DEMO_NO)).thenReturn(List.of(tickler));
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", "r", String.valueOf(TEST_DEMO_NO))).thenReturn(false);
+
+            assertThat(ticklerManager.getTicklerByLabId(mockLoggedInInfo, 321, TEST_DEMO_NO)).isEmpty();
+            assertThat(ticklerManager.getTicklerByLabIdAnyProvider(mockLoggedInInfo, 321, TEST_DEMO_NO)).isEmpty();
+        }
+
         /**
          * Creates a minimal ticklerdocs lab attachment for linked-lab lookup tests.
          *

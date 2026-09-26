@@ -239,7 +239,8 @@ public class TicklerManagerImpl implements TicklerManager {
 
         ArrayList<Integer> ticklerNos = ticklerNosForHl7Lab(labId);
 
-        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosAssignedTo(ticklerNos, providerNo, demoNo));
+        ArrayList<Tickler> results = readableForPatient(loggedInInfo,
+                ticklerDao.findByTicklerNosAssignedTo(ticklerNos, providerNo, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
     }
@@ -249,9 +250,33 @@ public class TicklerManagerImpl implements TicklerManager {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
         ArrayList<Integer> ticklerNos = ticklerNosForHl7Lab(labId);
 
-        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosDemo(ticklerNos, demoNo));
+        ArrayList<Tickler> results = readableForPatient(loggedInInfo, ticklerDao.findByTicklerNosDemo(ticklerNos, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
+    }
+
+    /**
+     * Keeps the ticklers whose patient the caller may read ticklers for. The entry check only
+     * proves the global {@code _tickler} right, and a patient-specific denial takes precedence
+     * over it; the lab pages reach these lookups from an {@code _lab}-gated path, so the
+     * patient-scoped right is enforced here before a tickler message leaves the manager.
+     */
+    private ArrayList<Tickler> readableForPatient(LoggedInInfo loggedInInfo, List<Tickler> ticklers) {
+        ArrayList<Tickler> readable = new ArrayList<Tickler>(ticklers.size());
+        java.util.Map<Integer, Boolean> readableByPatient = new java.util.HashMap<Integer, Boolean>();
+        for (Tickler tickler : ticklers) {
+            Integer demographicNo = tickler.getDemographicNo();
+            Boolean allowed = readableByPatient.get(demographicNo);
+            if (allowed == null) {
+                allowed = securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", PRIVILEGE_READ,
+                        demographicNo == null ? null : String.valueOf(demographicNo));
+                readableByPatient.put(demographicNo, allowed);
+            }
+            if (allowed) {
+                readable.add(tickler);
+            }
+        }
+        return readable;
     }
 
     /**

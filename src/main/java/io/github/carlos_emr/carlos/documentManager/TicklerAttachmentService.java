@@ -27,6 +27,7 @@ package io.github.carlos_emr.carlos.documentManager;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -108,6 +110,7 @@ public class TicklerAttachmentService {
     }
 
     private final TicklerDocsDao ticklerDocsDao;
+    private final TicklerDao ticklerDao;
     private final SecurityInfoManager securityInfoManager;
     private final DocumentDao documentDao;
     private final PatientLabRoutingDao patientLabRoutingDao;
@@ -123,7 +126,8 @@ public class TicklerAttachmentService {
                                     EFormDataDao eFormDataDao,
                                     HRMDocumentToDemographicDao hrmDocumentToDemographicDao,
                                     FormsManager formsManager,
-                                    DocumentAttachmentManager documentAttachmentManager) {
+                                    DocumentAttachmentManager documentAttachmentManager,
+                                    TicklerDao ticklerDao) {
         this.ticklerDocsDao = ticklerDocsDao;
         this.securityInfoManager = securityInfoManager;
         this.documentDao = documentDao;
@@ -132,6 +136,7 @@ public class TicklerAttachmentService {
         this.hrmDocumentToDemographicDao = hrmDocumentToDemographicDao;
         this.formsManager = formsManager;
         this.documentAttachmentManager = documentAttachmentManager;
+        this.ticklerDao = ticklerDao;
     }
 
     /**
@@ -154,6 +159,10 @@ public class TicklerAttachmentService {
      * @param submitted Map&lt;DocumentType, ? extends Collection&lt;String&gt;&gt; the desired ids per type;
      *        lab ids carry their source ({@code HL7:123}, see
      *        {@link TicklerAttachmentParameters#labValue}), a bare lab id means HL7
+     * <p>Runs inside its own transaction with the tickler row locked, so concurrent syncs of one
+     * tickler are serialised and never insert the same attachment twice; a re-attached item
+     * revives its detached row rather than adding another.</p>
+     *
      * @throws SecurityException when the caller lacks {@code _tickler} write on the patient,
      *         changes a type the caller cannot read, or submits an id that is not the patient's
      * @throws IllegalArgumentException when an id is not numeric or a lab value is malformed
@@ -168,13 +177,29 @@ public class TicklerAttachmentService {
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+        // Two edits of the same tickler must not both see "not attached yet" and both insert:
+        // the parent row is locked first, so a concurrent sync queues behind this transaction,
+        // and the attachment rows are then read with a locking read, which returns what the
+        // earlier sync committed rather than this transaction's snapshot. Detached rows are
+        // loaded too, so re-attaching an item revives its row instead of adding a second one.
+        ticklerDao.lockForAttachmentSync(tickler.getId());
+        List<TicklerDocs> allRows = ticklerDocsDao.findAllByTicklerIdForUpdate(tickler.getId());
         for (Map.Entry<DocumentType, ? extends Collection<String>> entry : submitted.entrySet()) {
             DocumentType documentType = entry.getKey();
             Set<AttachmentRef> wanted = parseRefs(documentType, entry.getValue());
-            List<TicklerDocs> stored = ticklerDocsDao.findByTicklerIdDocType(tickler.getId(), documentType.getType());
             Map<AttachmentRef, TicklerDocs> existing = new HashMap<>();
-            for (TicklerDocs storedDoc : stored) {
-                existing.put(AttachmentRef.of(documentType, storedDoc), storedDoc);
+            Map<AttachmentRef, TicklerDocs> detached = new HashMap<>();
+            for (TicklerDocs storedDoc : allRows) {
+                if (!documentType.getType().equals(storedDoc.getDocType())) {
+                    continue;
+                }
+                AttachmentRef ref = AttachmentRef.of(documentType, storedDoc);
+                if (storedDoc.getDeleted() == null) {
+                    existing.put(ref, storedDoc);
+                } else {
+                    // Rows are ordered by id, so the newest detached row wins.
+                    detached.put(ref, storedDoc);
+                }
             }
             // A caller who cannot read a type never sees its items in the picker: the form
             // carries the stored rows through as restricted delegates, so a submission that
@@ -206,9 +231,19 @@ public class TicklerAttachmentService {
                 if (existing.containsKey(ref)) {
                     continue;
                 }
-                TicklerDocs ticklerDocs = new TicklerDocs(tickler.getId(), ref.documentNo(), documentType.getType(), providerNo);
-                ticklerDocs.setLabType(ref.labType());
-                ticklerDocsDao.persist(ticklerDocs);
+                TicklerDocs revived = detached.get(ref);
+                if (revived != null) {
+                    // One row per (tickler, item, source): a re-attached item takes its old row
+                    // back, stamped with the provider and date of this attachment.
+                    revived.setDeleted(null);
+                    revived.setProviderNo(providerNo);
+                    revived.setAttachDate(new Date());
+                    ticklerDocsDao.merge(revived);
+                } else {
+                    TicklerDocs ticklerDocs = new TicklerDocs(tickler.getId(), ref.documentNo(), documentType.getType(), providerNo);
+                    ticklerDocs.setLabType(ref.labType());
+                    ticklerDocsDao.persist(ticklerDocs);
+                }
                 audit(loggedInInfo, LogConst.ADD, tickler, documentType, ref.documentNo());
             }
         }

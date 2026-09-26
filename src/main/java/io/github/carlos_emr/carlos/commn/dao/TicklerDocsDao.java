@@ -50,6 +50,17 @@ public interface TicklerDocsDao extends AbstractDao<TicklerDocs> {
     List<TicklerDocs> findByTicklerIdDocNoDocType(Integer ticklerId, Integer documentNo, String docType);
 
     /**
+     * Loads every attachment row of one tickler, detached rows included, under a pessimistic
+     * write lock. A locking read returns the latest committed rows rather than the
+     * transaction's snapshot, which is what an attachment sync needs after it has queued
+     * behind another sync of the same tickler. Callers must hold an active transaction.
+     *
+     * @param ticklerId Integer tickler identifier
+     * @return List&lt;TicklerDocs&gt; all rows, oldest first, empty when none
+     */
+    List<TicklerDocs> findAllByTicklerIdForUpdate(Integer ticklerId);
+
+    /**
      * Finds one tickler's live attachments of a given type.
      *
      * @param ticklerId Integer tickler identifier

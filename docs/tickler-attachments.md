@@ -34,7 +34,12 @@ data-migration gaps in that PR closed rather than copied.
     every id belongs to the tickler's patient (`ctl_document`, `patientLabRouting`, `eform_data`,
     `HRMDocumentToDemographic`, the patient's encounter forms). Only submitted types are
     synchronised; a type the caller cannot read is never touched. The attaching provider is
-    always the session provider. Every attach and detach is audited through `LogAction`.
+    always the session provider. Every attach and detach is audited through `LogAction`. The
+    sync runs in its own transaction with the tickler row locked (`TicklerDao.lockForAttachmentSync`)
+    and reads the attachment rows with a locking read (`findAllByTicklerIdForUpdate`), so two
+    edits of one tickler run one after the other and never insert the same attachment twice; a
+    re-attached item revives its detached row (one row per tickler, item and source) instead of
+    adding another.
   - `listAttachments` requires `_tickler` read; items of a type the caller may not open are
     returned unnamed so the view renders a generic "restricted" label. The page overload
     (`listAttachments(loggedInInfo, ticklers)`) fetches the rows of a whole page in one query and
@@ -88,6 +93,11 @@ data-migration gaps in that PR closed rather than copied.
   `syncAttachments`), so the request's `segmentID`/`labType`/`demographicNo` are checked
   against the patient's routing and the caller's `_tickler` write right before anything is
   written or acknowledged.
+- Readers reached from other modules' pages apply the patient-scoped `_tickler` read too:
+  `EDocUtil.getHtmlTicklers` (document browser, `_edoc` path) and the
+  `TicklerManagerImpl.getTicklerByLabId*` lookups (lab pages, `_lab` path) drop a tickler whose
+  patient the caller may not read ticklers for, since their entry checks prove the global right
+  only.
 - Readers: `TicklerDaoImpl.loadLinksForTicklerDTOs` (tickler list JSON), `TicklerManagerImpl`
   (ticklers for an HL7 lab), `EDocUtil.getHtmlTicklers` (ticklers for a document), the REST
   `TicklerConverter` (`ticklerLinks` keeps its shape: `tableName` carries `DOC`, `HRM`, the lab

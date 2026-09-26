@@ -22,6 +22,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -35,7 +36,11 @@ import org.mockito.MockitoAnnotations;
 import org.owasp.encoder.Encode;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +60,7 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
 
     @Mock private TicklerDocsDao mockTicklerDocsDao;
     @Mock private TicklerManager mockTicklerManager;
+    @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
     private AutoCloseable mockitoCloseable;
 
@@ -64,6 +70,26 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
         // The lazy accessors resolve these via SpringUtils.getBean on first use.
         registerMock(TicklerDocsDao.class, mockTicklerDocsDao);
         registerMock(TicklerManager.class, mockTicklerManager);
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        // The patient-scoped _tickler read passes unless a test denies it.
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_tickler"), eq("r"), any()))
+                .thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("should leave out a tickler when tickler read is denied for its patient")
+    void shouldOmitTickler_whenTicklerReadDeniedForPatient() {
+        TicklerDocs link = mock(TicklerDocs.class);
+        when(link.getTicklerId()).thenReturn(7);
+        when(mockTicklerDocsDao.findByDocument(42, TicklerDocs.DOCTYPE_DOC)).thenReturn(List.of(link));
+        Tickler tickler = mock(Tickler.class);
+        when(tickler.getDemographicNo()).thenReturn(1001);
+        when(mockTicklerManager.getTickler(mockLoggedInInfo, 7)).thenReturn(tickler);
+        // getTickler proved the global right only; the patient-specific denial wins.
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", "r", "1001")).thenReturn(false);
+
+        assertThat(EDocUtil.getHtmlTicklers(mockLoggedInInfo, "42")).isEmpty();
+        verify(tickler, never()).getMessage();
     }
 
     @AfterEach

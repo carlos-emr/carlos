@@ -58,6 +58,15 @@ public class TicklerDocsDaoImpl extends AbstractDaoImpl<TicklerDocs> implements 
     }
 
     @Override
+    public List<TicklerDocs> findAllByTicklerIdForUpdate(Integer ticklerId) {
+        Query query = entityManager.createQuery(
+                "select x from TicklerDocs x where x.ticklerId = :ticklerId order by x.id");
+        query.setParameter("ticklerId", ticklerId);
+        query.setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return query.getResultList();
+    }
+
+    @Override
     public List<TicklerDocs> findByTicklerIdDocType(Integer ticklerId, String docType) {
         Query query = entityManager.createQuery(
                 "select x from TicklerDocs x where x.ticklerId = :ticklerId and x.docType = :docType"
