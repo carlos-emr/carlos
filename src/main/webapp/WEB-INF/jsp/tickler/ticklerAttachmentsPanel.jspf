@@ -96,16 +96,17 @@
     </div>
     <%-- Hidden delegates mirror the picker's checkbox names so the dialog can pre-check them and
          the action can read the same parameters whether or not the dialog was opened. The value
-         is what the action reads (labs carry their source: "HL7:123"); data-item-id is the bare
-         id the picker's checkbox ids are built from. --%>
+         is what the action reads (labs carry their source: "HL7:123"); data-picker-id is the
+         picker checkbox id the dialog pre-checks (labNoHL7123: lab ids are only unique per
+         source, so the source is part of the DOM key). --%>
     <%
         for (io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData ticklerAttachment : ticklerAttachments) {
             String ticklerAttachmentParam = ticklerAttachment.getParameterName();
     %>
     <input type="hidden" class="delegateAttachment" name="<%= ticklerAttachmentParam %>"
            value="<carlos:encode value='<%= ticklerAttachment.getSubmissionValue() %>' context="htmlAttribute"/>"
-           data-item-id="<carlos:encode value='<%= ticklerAttachment.getDocumentId() %>' context="htmlAttribute"/>"
-           id="delegate_<carlos:encode value='<%= ticklerAttachmentParam + ticklerAttachment.getDocumentId() %>' context="htmlAttribute"/>"<%= ticklerAttachment.isViewable() ? "" : " data-restricted=\"1\"" %>>
+           data-picker-id="<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"
+           id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"<%= ticklerAttachment.isViewable() ? "" : " data-restricted=\"1\"" %>>
     <% } %>
     <%-- Set to 1 by the dialog's Save and Close; without it the action leaves the stored set alone. --%>
     <input type="hidden" name="<%= io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.SUBMITTED_MARKER %>" id="attachmentsSubmitted" value="">

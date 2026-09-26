@@ -57,15 +57,20 @@
                 return;
             }
             var poload = ctx + '/previewDocs?method=fetchTicklerDocuments&demographicNo=' + encodeURIComponent(demographicNo);
+            // Only a picker that actually rendered may replace the form's selection: closing a
+            // dialog whose load failed (or is still in flight) must not detach anything.
+            var pickerLoaded = false;
 
             jQuery('#attachDocumentDisplay').load(poload, function (response, status) {
-                if (status !== 'success') {
+                if (status !== 'success' || jQuery('#attachDocumentsForm').length === 0) {
                     return;
                 }
-                // Pre-check the picker for everything already on the form.
+                pickerLoaded = true;
+                // Pre-check the picker for everything already on the form. The delegate names
+                // the checkbox id it mirrors (labs include their source: labNoHL7123).
                 $form.find('.delegateAttachment').each(function () {
-                    var itemId = jQuery(this).attr('data-item-id') || this.value;
-                    var element = jQuery('#attachDocumentsForm').find('#' + jQuery.escapeSelector(this.name + itemId));
+                    var pickerId = jQuery(this).attr('data-picker-id') || (this.name + this.value);
+                    var element = jQuery('#attachDocumentsForm').find('#' + jQuery.escapeSelector(pickerId));
                     if (element.length === 0) {
                         return;
                     }
@@ -90,6 +95,11 @@
                     closeBtn.text(saveAndCloseText);
                 },
                 beforeClose: function () {
+                    if (!pickerLoaded) {
+                        // Nothing was shown, so nothing was chosen: leave the stored selection
+                        // and the attachmentsSubmitted marker exactly as they were.
+                        return;
+                    }
                     // Rebuild the form's selection from the picker. The action synchronises each
                     // type against the stored set, so submitting the full current selection is
                     // sufficient for both adds and removals. Restricted delegates are types this
@@ -111,8 +121,8 @@
                                 type: 'hidden',
                                 name: element.attr('name'),
                                 value: value,
-                                'data-item-id': element.val(),
-                                id: 'delegate_' + element.attr('name') + element.val(),
+                                'data-picker-id': element.attr('id'),
+                                id: 'delegate_' + element.attr('id'),
                                 'class': 'delegateAttachment'
                             }).appendTo($form.find('.tickler-attachments'));
                             jQuery('<li>').text(element.attr('title')).appendTo('#attachmentNames_' + element.attr('name'));

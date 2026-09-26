@@ -2545,8 +2545,11 @@ if (userAgent != null) {
                                                             <c:if test="${empty labName}"><c:set var="labName"
                                                                                                  value="${unlabelledLabel}"/></c:if>
                                                             ${carlos:forHtml(attachedLab.description)} ${carlos:forHtml(labName)}
+                                                            <%-- The picker's lab checkbox id carries the lab source
+                                                                 (labNoHL7123), and the pre-check looks the box up by
+                                                                 this delegate id minus its delegate_ prefix. --%>
                                                             <input name="labNo" value="${ attachedLab.segmentID }"
-                                                                   id="delegate_labNo${ attachedLab.segmentID }"
+                                                                   id="delegate_labNo${ attachedLab.labType }${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
                                                         </td>
                                                     </tr>

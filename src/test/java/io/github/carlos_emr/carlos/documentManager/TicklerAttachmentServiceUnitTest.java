@@ -429,6 +429,47 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("requireAttachable")
+    class RequireAttachable {
+
+        @Test
+        @DisplayName("should accept the patient's lab under its source without writing")
+        void shouldAccept_whenLabIsThePatients() {
+            labOwnedBy(77, DEMOGRAPHIC_NO, "HL7");
+
+            service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO, submission(DocumentType.LAB, "HL7:77"));
+
+            verify(ticklerDocsDao, never()).persist(any());
+            verify(ticklerDocsDao, never()).findByTicklerIdDocType(any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse a lab routed to another patient before any tickler exists")
+        void shouldThrowSecurityException_whenLabIsAnotherPatients() {
+            labOwnedBy(77, DEMOGRAPHIC_NO + 5, "HL7");
+
+            assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO, submission(DocumentType.LAB, "HL7:77")))
+                    .isInstanceOf(SecurityException.class);
+        }
+
+        @Test
+        @DisplayName("should require tickler write on the patient and read on the type")
+        void shouldThrowSecurityException_whenRightsMissing() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.WRITE, "1001")).thenReturn(false);
+            assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO, submission(DocumentType.LAB, "HL7:77")))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_tickler)");
+
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.WRITE, "1001")).thenReturn(true);
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+            assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO, submission(DocumentType.LAB, "HL7:77")))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_lab)");
+            verify(patientLabRoutingDao, never()).findDemographics(any(), any());
+        }
+    }
+
+    @Nested
     @DisplayName("listAttachments")
     class ListAttachments {
 

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,6 +40,9 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Tickler.STATUS;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerLinkTo1;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
@@ -126,8 +130,17 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         if (includeLinks) {
             // The REST ticklerLinks shape stays as it was: tableName carries the legacy
             // tickler_link code (DOC, HRM, the lab source, plus EFORM/FORM for the new types)
-            // while the rows themselves now come from ticklerdocs.
+            // while the rows themselves now come from ticklerdocs. The endpoint only proves
+            // _tickler read, so each row is gated on the patient-scoped read right of its own
+            // type (the same gate as the picker and the list JSON); a row the caller may not
+            // read is left out rather than redacted, since the shape has no restricted flag.
+            Map<DocumentType, Boolean> readable = new EnumMap<>(DocumentType.class);
             for (TicklerDocs attachment : ticklerDocsDao.findByTicklerId(d.getId())) {
+                DocumentType documentType = DocumentType.fromType(attachment.getDocType());
+                if (documentType != null && !readable.computeIfAbsent(documentType,
+                        type -> isTypeReadable(loggedInInfo, type, t.getDemographicNo()))) {
+                    continue;
+                }
                 TicklerLinkTo1 link = new TicklerLinkTo1();
                 link.setId(attachment.getId());
                 link.setTicklerNo(attachment.getTicklerId());
@@ -176,6 +189,12 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
      * without forcing conversion code to dereference lazy provider associations on each expanded
      * row.</p>
      */
+    private static boolean isTypeReadable(LoggedInInfo loggedInInfo, DocumentType documentType, Integer demographicNo) {
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        return securityInfoManager.hasPrivilege(loggedInInfo, TicklerAttachmentService.readSecurityObject(documentType),
+                SecurityInfoManager.READ, demographicNo == null ? null : String.valueOf(demographicNo));
+    }
+
     private Map<String, String> getExpandedProviderNames(ProviderDao providerDao, Tickler tickler) {
         Set<String> providerNos = new HashSet<>();
         if (includeComments) {

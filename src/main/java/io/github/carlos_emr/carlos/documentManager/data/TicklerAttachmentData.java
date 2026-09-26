@@ -89,4 +89,18 @@ public class TicklerAttachmentData {
         }
         return documentId;
     }
+
+    /**
+     * The id of the picker checkbox this attachment pre-checks: the parameter name plus the id,
+     * with the lab source in between for labs ({@code labNoHL7123}), matching
+     * {@code attachDocument.jsp}. Lab ids are only unique within their source, so the source
+     * is part of the DOM key as well as of the submitted value.
+     */
+    public String getPickerElementId() {
+        if (documentType == DocumentType.LAB) {
+            String[] parts = TicklerAttachmentParameters.parseLabValue(getSubmissionValue());
+            return getParameterName() + parts[0] + documentId;
+        }
+        return getParameterName() + documentId;
+    }
 }

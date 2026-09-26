@@ -161,10 +161,7 @@ public class TicklerAttachmentService {
     public void syncAttachments(LoggedInInfo loggedInInfo, Tickler tickler,
                                 Map<DocumentType, ? extends Collection<String>> submitted) {
         Integer demographicNo = tickler.getDemographicNo();
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.WRITE,
-                String.valueOf(demographicNo))) {
-            throw new SecurityException(MISSING_TICKLER_SECURITY_OBJECT);
-        }
+        requireTicklerWrite(loggedInInfo, demographicNo);
         if (submitted == null || submitted.isEmpty()) {
             return;
         }
@@ -213,6 +210,46 @@ public class TicklerAttachmentService {
                 ticklerDocsDao.persist(ticklerDocs);
                 audit(loggedInInfo, LogConst.ADD, tickler, documentType, ref.documentNo());
             }
+        }
+    }
+
+    /**
+     * Verifies, without writing anything, that the caller may attach the submitted items to a
+     * tickler for the patient: {@code _tickler} write on the patient, read on every submitted
+     * type, and every id the patient's own. A flow that creates the tickler and attaches in one
+     * step (the lab macro) checks this first, so a refused attachment never leaves an empty
+     * tickler behind.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session
+     * @param demographicNo Integer the patient the tickler is for
+     * @param submitted Map&lt;DocumentType, ? extends Collection&lt;String&gt;&gt; the ids per type, as for
+     *        {@link #syncAttachments}
+     * @throws SecurityException when the caller lacks a right or an id is not the patient's
+     * @throws IllegalArgumentException when an id is not numeric or a lab value is malformed
+     */
+    public void requireAttachable(LoggedInInfo loggedInInfo, Integer demographicNo,
+                                  Map<DocumentType, ? extends Collection<String>> submitted) {
+        requireTicklerWrite(loggedInInfo, demographicNo);
+        if (submitted == null) {
+            return;
+        }
+        for (Map.Entry<DocumentType, ? extends Collection<String>> entry : submitted.entrySet()) {
+            DocumentType documentType = entry.getKey();
+            Set<AttachmentRef> wanted = parseRefs(documentType, entry.getValue());
+            if (wanted.isEmpty()) {
+                continue;
+            }
+            requireTypeReadable(loggedInInfo, documentType, demographicNo);
+            for (AttachmentRef ref : wanted) {
+                requireBelongsToPatient(loggedInInfo, documentType, ref, demographicNo);
+            }
+        }
+    }
+
+    private void requireTicklerWrite(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.WRITE,
+                String.valueOf(demographicNo))) {
+            throw new SecurityException(MISSING_TICKLER_SECURITY_OBJECT);
         }
     }
 

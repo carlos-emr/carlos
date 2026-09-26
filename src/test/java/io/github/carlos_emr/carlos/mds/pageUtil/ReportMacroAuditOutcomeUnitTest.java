@@ -6,10 +6,10 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -27,8 +27,11 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -47,7 +50,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         request.setParameter("labType", "HL7");
         createAndRegisterMock(SecurityInfoManager.class);
         var ticklers = createAndRegisterMock(TicklerDao.class);
-        var links = createAndRegisterMock(TicklerDocsDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
         var info = mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
         var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
@@ -85,7 +88,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(ProviderLabRoutingDao.class);
         createAndRegisterMock(QueueDocumentLinkDao.class);
         var ticklers = createAndRegisterMock(TicklerDao.class);
-        var links = createAndRegisterMock(TicklerDocsDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
         var preferences = createAndRegisterMock(UserPropertyDAO.class);
         var info = mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
@@ -136,15 +139,49 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             assertThat(json.path("acknowledged").asBoolean()).isEqualTo(acknowledge);
             assertThat(json.path("clearedCount").asInt()).isEqualTo(acknowledge ? 3 : 0);
             if (tickler) {
+                // Ownership and rights are proven through the attachment service before the
+                // tickler is persisted, and the lab is attached under its named source.
+                verify(links).requireAttachable(eq(info), eq(1), argThat(map -> map.get(DocumentType.LAB).contains("HL7:123")));
                 verify(ticklers).persist(any(Tickler.class));
-                verify(links).persist(any(TicklerDocs.class));
+                verify(links).syncAttachments(eq(info), any(Tickler.class), argThat(map -> map.get(DocumentType.LAB).contains("HL7:123")));
             } else {
-                verify(links, never()).persist(any());
+                verify(links, never()).syncAttachments(any(), any(), any());
             }
             assertThat(logs.messages()).anyMatch(message -> message.contains("audit logging failed"));
             if (commentShape.startsWith("invalid")) assertThat(logs.messages()).anyMatch(message -> message.contains("NumberFormatException"));
             assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
             assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should not create the macro tickler when the lab may not be attached to that patient")
+    void shouldSkipTickler_whenAttachmentRefused() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("segmentID", "123");
+        request.setParameter("labType", "HL7");
+        request.setParameter("demographicNo", "1");
+        createAndRegisterMock(SecurityInfoManager.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        doThrow(new SecurityException("lab attachment does not belong to the patient PRIVATE_DETAIL"))
+                .when(links).requireAttachable(eq(info), eq(1), any());
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class);
+             var logs = LogCapture.forLogger(ReportMacro2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isTrue();
+            assertThat(outcome.acknowledged()).isFalse();
+            verify(ticklers, never()).persist(any(Tickler.class));
+            verify(links, never()).syncAttachments(any(), any(), any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("lab attachment refused"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
         }
     }
 }

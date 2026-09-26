@@ -227,12 +227,14 @@ async function postEditForm(page, fields) {
     assert(await editPage.locator('#attachmentNames li').count() === expectedCount, 'edit form did not list every attachment by name');
     assert(await editPage.locator(`#delegate_docNo${picked.D}`).count() === 1, 'document delegate input missing on edit form');
     const storedLabType = live.find((row) => row.doctype === 'L').labType;
-    assert(await editPage.locator(`#delegate_labNo${picked.L}`).inputValue() === `${storedLabType}:${picked.L}`,
+    // Lab ids are only unique per source, so the delegate id and the picker checkbox id carry
+    // the source (delegate_labNoHL7123 / labNoHL7123) and the value carries it as "HL7:123".
+    assert(await editPage.locator(`#delegate_labNo${storedLabType}${picked.L}`).inputValue() === `${storedLabType}:${picked.L}`,
       'lab delegate input does not carry the lab source');
     await openPicker(editPage);
     const docBox = editPage.locator(`#attachDocumentsForm #docNo${picked.D}`);
     assert(await docBox.isChecked(), 'stored document was not pre-checked in the picker');
-    assert(await editPage.locator(`#attachDocumentsForm #labNo${picked.L}`).isChecked(), 'stored lab was not pre-checked in the picker');
+    assert(await editPage.locator(`#attachDocumentsForm #labNo${storedLabType}${picked.L}`).isChecked(), 'stored lab was not pre-checked in the picker');
     await docBox.uncheck();
     await saveAndClosePicker(editPage);
     assert((await editPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount - 1), 'badge did not drop after detaching');
@@ -246,6 +248,18 @@ async function postEditForm(page, fields) {
 
     // 3. Edit without the picker leaves attachments alone ---------------------------------
     editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-plain');
+    // A picker whose load fails must not replace the selection: open it with the endpoint
+    // blocked, close the empty dialog, and check that nothing was dropped or marked submitted.
+    const pickerRoute = '**/previewDocs?method=fetchTicklerDocuments*';
+    await editPage.route(pickerRoute, (route) => route.abort());
+    const delegatesBefore = await editPage.locator('.delegateAttachment').count();
+    await editPage.locator('#manageAttachmentsBtn').click();
+    await editPage.locator('.ui-dialog .save-and-close-button').waitFor({ state: 'visible', timeout: 30000 });
+    await editPage.locator('.ui-dialog .save-and-close-button').click();
+    await editPage.locator('.ui-dialog').waitFor({ state: 'hidden', timeout: 30000 });
+    await editPage.unroute(pickerRoute);
+    assert(await editPage.locator('.delegateAttachment').count() === delegatesBefore, 'closing a picker that failed to load dropped delegates');
+    assert(await editPage.locator('#attachmentsSubmitted').inputValue() === '', 'closing a picker that failed to load set the submitted marker');
     await editPage.locator('#priority').selectOption('High');
     await submitEditForm(editPage);
     await editPage.close();
@@ -261,6 +275,7 @@ async function postEditForm(page, fields) {
     const listRow = (await listJson.json()).data.find((row) => row.id === Number(ticklerNo));
     assert(listRow, 'created tickler missing from ListTicklers JSON');
     assert(listRow.links.length === expectedCount - 1, `ListTicklers carried ${listRow.links.length} links, expected ${expectedCount - 1}`);
+    assert(listRow.links.every((link) => !link.restricted && typeof link.id === 'number'), `a readable link was serialised without its id or as restricted: ${JSON.stringify(listRow.links)}`);
     const labLink = listRow.links.find((link) => link.tableId === Number(picked.L));
     assert(labLink && labLink.tableName === live.find((row) => row.doctype === 'L').labType,
       `lab link did not carry its viewer code: ${JSON.stringify(listRow.links)}`);
@@ -319,7 +334,7 @@ async function postEditForm(page, fields) {
     assert(pageErrors.length === 0, `pages reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await context.close();
-    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, GET, bad picker id) refused`);
+    console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, GET, bad picker id) refused`);
   } catch (error) {
     if (error instanceof SkipCheck) {
       console.log(`SKIP ${error.message}`);

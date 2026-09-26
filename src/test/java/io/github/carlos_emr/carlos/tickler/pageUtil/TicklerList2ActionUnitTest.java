@@ -65,8 +65,8 @@ class TicklerList2ActionUnitTest {
         List<Map<String, Object>> links = (List<Map<String, Object>>) row.get("links");
         assertThat(links).hasSize(2);
         assertThat(links.get(0)).containsEntry("tableName", "DOC").containsEntry("restricted", Boolean.TRUE)
-                .doesNotContainKey("tableId").doesNotContainKey("formName");
+                .doesNotContainKey("id").doesNotContainKey("tableId").doesNotContainKey("formName");
         assertThat(links.get(1)).containsEntry("tableName", "MDS").containsEntry("tableId", 77L)
-                .doesNotContainKey("restricted");
+                .containsKey("id").doesNotContainKey("restricted");
     }
 }

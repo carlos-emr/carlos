@@ -296,16 +296,17 @@ public class TicklerList2Action extends ActionSupport {
         if (dto.getLinks() != null) {
             for (TicklerLinkDTO link : dto.getLinks()) {
                 Map<String, Object> linkMap = new HashMap<>();
-                linkMap.put("id", link.getId());
                 linkMap.put("tableName", link.getTableName());
                 if (!linkReadable.test(link)) {
                     // The reader holds _tickler but not the item's type: the row still shows
-                    // that something is attached, but neither the record id nor a viewer URL
-                    // leaves the server (the id is PHI-correlating and the viewer would refuse).
+                    // that something is attached, but no identifier (neither the item id nor
+                    // the attachment row id, both PHI-correlating) and no viewer URL leaves
+                    // the server.
                     linkMap.put("restricted", Boolean.TRUE);
                     links.add(linkMap);
                     continue;
                 }
+                linkMap.put("id", link.getId());
                 linkMap.put("tableId", link.getTableId());
                 if (TicklerLinkDTO.TABLE_NAME_FORM.equals(link.getTableName())) {
                     // Left absent when the form no longer resolves (or the id is ambiguous); the

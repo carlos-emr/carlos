@@ -550,13 +550,15 @@
                                     <c:set var="labPreviewParameters">method=renderLabPDF&segmentId=${carlos:forUriComponent(lab.segmentID)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
                                     <c:set var="labPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.segmentID)}', '${carlos:forJavaScript(labPreviewParameters)}')</c:set>
                                     <li class="lab ${loop.index > 19 ? 'd-none' : ''}">
+                                        <%-- Lab ids are only unique within their source, so the DOM id carries the
+                                             source too (labNoHL7123); the submitted value stays the bare segment id. --%>
                                         <input class="lab_check" type="checkbox" name="labNo"
-                                               id="labNo${ lab.segmentID }" value="${lab.segmentID}"
+                                               id="labNo${ lab.labType }${ lab.segmentID }" value="${lab.segmentID}"
                                                data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
                                                title="${carlos:forHtmlAttribute(labName)}"
                                                <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
-                                        <label for="labNo${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
-                                        <label for="labNo${lab.segmentID}"
+                                        <label for="labNo${lab.labType}${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
+                                        <label for="labNo${lab.labType}${lab.segmentID}"
                                                class="lab-date">${lab.labDateFormated}</label>
                                         <c:if test="${not empty lab.labVersionIds}">
                                             &nbsp;<i class="collapse-arrow" onclick="toggleLabVersionList(this)"></i>&nbsp;
@@ -574,19 +576,19 @@
                                                     <input class="lab_check"
                                                            data-version="${totalVersions - versionLoop.index}"
                                                            data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
-                                                           type="checkbox" name="labNo" id="labNo${ version.key }"
+                                                           type="checkbox" name="labNo" id="labNo${ lab.labType }${ version.key }"
                                                            value="${version.key}"
                                                            title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}"
                                                            <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
                                                     <em>
-                                                        <label for="labNo${version.key}"
+                                                        <label for="labNo${lab.labType}${version.key}"
                                                                title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}">
                                                              <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf">
                                                                  <fmt:param value="${totalVersions - versionLoop.index}"/>
                                                                  <fmt:param value="${totalVersions + 1}"/>
                                                              </fmt:message>&nbsp;
                                                          </label>
-                                                        <label for="labNo${version.key}"
+                                                        <label for="labNo${lab.labType}${version.key}"
                                                                class="lab-date">(${version.value})</label>
                                                     </em>
                                                      <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"

@@ -29,6 +29,9 @@
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
 import java.io.IOException;
+import java.util.Set;
+import java.util.Map;
+import java.util.EnumMap;
 import java.util.Calendar;
 
 import jakarta.servlet.ServletException;
@@ -38,10 +41,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -71,7 +75,7 @@ public class ReportMacro2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerDao ticklerDao = SpringUtils.getBean(TicklerDao.class);
-    private TicklerDocsDao ticklerDocsDao = SpringUtils.getBean(TicklerDocsDao.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -303,6 +307,20 @@ public class ReportMacro2Action extends ActionSupport {
                         logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
                     }
                 }
+                // The lab is attached through the attachment service (#3984), which requires
+                // _tickler write on the patient, _lab read, and proves the lab is routed to that
+                // patient under its own source; segmentID, labType and demographicNo are all
+                // request values. The checks run before the tickler is persisted so a refused
+                // attachment never leaves an empty tickler behind.
+                Map<DocumentType, Set<String>> attachment = new EnumMap<>(DocumentType.class);
+                attachment.put(DocumentType.LAB, Set.of(TicklerAttachmentParameters.labValue(labType, segmentID)));
+                try {
+                    ticklerAttachmentService.requireAttachable(loggedInInfo, t.getDemographicNo(), attachment);
+                } catch (SecurityException | IllegalArgumentException refused) {
+                    logger.warn("Lab macro tickler not created: lab attachment refused ({})",
+                            refused.getClass().getSimpleName());
+                    return MacroOutcome.ran(acknowledged, clearedCount);
+                }
                 ticklerDao.persist(t);
 
                 // The tickler exists already; audit availability must not prevent its
@@ -316,12 +334,7 @@ public class ReportMacro2Action extends ActionSupport {
                             auditFailure.getClass().getSimpleName());
                 }
 
-                // Attach the lab through the ticklerdocs store (#3984). The attaching provider is
-                // the authenticated session provider, never a request value, and the lab source
-                // is kept so the tickler list opens the right viewer.
-                TicklerDocs attachment = new TicklerDocs(t.getId(), Integer.parseInt(segmentID), TicklerDocs.DOCTYPE_LAB, providerNo);
-                attachment.setLabType(labType);
-                ticklerDocsDao.persist(attachment);
+                ticklerAttachmentService.syncAttachments(loggedInInfo, t, attachment);
             } else {
                 logger.info("Cannot sent tickler. Not enough information in macro definition. providers taskAssignedTo and message");
             }

@@ -39,16 +39,26 @@ data-migration gaps in that PR closed rather than copied.
   tickler forms set when the picker's selection is authoritative. Without the marker an edit
   leaves the stored set untouched. Lab ids are only unique within their source (HL7, MDS, CML
   and BCP each number their own tables), so a tickler `labNo` value is source-qualified:
-  `HL7:123`. The picker's lab checkboxes carry `data-lab-type`, the dialog builds the value from
-  it, and the service checks ownership against that source's `patientLabRouting` row; a bare id
-  is read as HL7, which keeps the legacy `docType=HL7&docId=` forward links working.
+  `HL7:123`. The picker's lab checkboxes carry `data-lab-type` and source-qualified DOM ids
+  (`labNoHL7123`, so two sources sharing a segment id never collide; the consultation page's
+  stored lab delegates use the same key), the dialog builds the value from the source, and the
+  service checks ownership against that source's `patientLabRouting` row; a bare id is read as
+  HL7, which keeps the legacy `docType=HL7&docId=` forward links working. The dialog only
+  replaces the form's selection when the picker actually rendered: closing a dialog whose load
+  failed leaves the delegates and the marker untouched.
+- `requireAttachable(loggedInInfo, demographicNo, ids)` runs the same rights and ownership
+  checks without writing, for flows that create the tickler and attach in one step: the lab
+  macro (`ReportMacro2Action`) checks first and creates no tickler when the lab may not be
+  attached to that patient, then attaches through `syncAttachments`.
 - Restricted types on edit: a reader who lacks read on an attachment's type still sees that
   something is attached. The Edit form carries those rows through as `data-restricted` hidden
   delegates, so a save after opening the picker resubmits them unchanged; `syncAttachments`
   leaves a type the caller cannot read alone when the submitted set equals the stored set and
   refuses any difference. The tickler list JSON (`ListTicklers`) applies the same per-type gate:
-  such links are returned as `{tableName, restricted: true}` with no record id, and
-  `ticklerMain.jsp` renders an unlinked, titled paperclip.
+  such links are returned as `{tableName, restricted: true}` with no identifier at all (neither
+  the item id nor the `ticklerdocs` row id), and `ticklerMain.jsp` renders an unlinked, titled
+  paperclip. The REST `TicklerConverter` applies the gate too and leaves denied rows out, since
+  the `ticklerLinks` shape has no restricted flag.
 - Picker endpoint: `previewDocs?method=fetchTicklerDocuments&demographicNo=N`
   (`DocumentPreview2Action`), gated by `_tickler` read on the patient, per-type read gates for
   each section, selection enabled by `_tickler` write; a non-positive or non-numeric
@@ -56,8 +66,10 @@ data-migration gaps in that PR closed rather than copied.
 - Actions: `DbTicklerAdd2Action` folds the legacy forward-from-document `docType`/`docId` pair
   into the picker selection and records the session provider as creator; `EditTickler2Action`
   is POST-only (405 otherwise, registered in `MutatorActionGetRejectionContractUnitTest`) and
-  syncs attachments only with the marker; `ReportMacro2Action` attaches the lab through
-  `ticklerdocs` with the session provider.
+  syncs attachments only with the marker; `ReportMacro2Action` attaches the lab through the
+  service (`requireAttachable` before the tickler is created, then `syncAttachments`), so the
+  request's `segmentID`/`labType`/`demographicNo` are checked against the patient's routing
+  and the caller's `_tickler` write right before anything is written.
 - Readers: `TicklerDaoImpl.loadLinksForTicklerDTOs` (tickler list JSON), `TicklerManagerImpl`
   (ticklers for an HL7 lab), `EDocUtil.getHtmlTicklers` (ticklers for a document), the REST
   `TicklerConverter` (`ticklerLinks` keeps its shape: `tableName` carries `DOC`, `HRM`, the lab
