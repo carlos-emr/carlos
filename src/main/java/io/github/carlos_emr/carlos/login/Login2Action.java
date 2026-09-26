@@ -1265,8 +1265,11 @@ public final class Login2Action extends ActionSupport {
 
         Security security = this.securityDao.find(pending.securityNo());
         Provider provider = this.providerDao.getProvider(pending.providerNo());
-        if (security == null || provider == null || "0".equals(provider.getStatus())) {
-            // Deactivated or removed while the chooser was open: do not finish the login.
+        if (security == null || provider == null || "0".equals(provider.getStatus())
+                || !pending.providerNo().equals(security.getProviderNo())) {
+            // Deactivated, removed or re-pointed to another provider while the chooser was open:
+            // the staged authentication result no longer describes this account, so do not
+            // finish the login.
             logger.warn("Session choice refused because the account is no longer active: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(pending.providerNo()), LogSafe.sanitize(ip));
             LogAction.addLog(pending.providerNo(), LogConst.LOGIN, "failed", "inactive_during_session_choice", ip);

@@ -457,6 +457,22 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should not finish login when the security row was re-pointed to another provider")
+        void shouldNotFinishLogin_whenSecurityRowNowNamesAnotherProvider() throws Exception {
+            String token = stagePendingChoice();
+            Security repointed = security();
+            repointed.setProviderNo("111111");
+            when(securityDao.find(SECURITY_NO)).thenReturn(repointed);
+
+            String result = newAction(Login2Action.SESSION_CHOICE_KEEP).submitSessionChoice();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(decodedRedirect()).contains("/loginfailed");
+            assertThat(PendingSessionChoiceCache.getInstance().peek(token)).isNull();
+            verify(userSessionManager, never()).registerUserSession(any(), any(), any());
+        }
+
+        @Test
         @DisplayName("should not sign out other sessions when the chosen login fails setup")
         void shouldNotSignOutOthers_whenChosenLoginFailsSetup() throws Exception {
             stagePendingChoice();

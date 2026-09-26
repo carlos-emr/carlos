@@ -32,8 +32,8 @@ import java.util.Properties;
 /**
  * Site policy for a user who signs in while their other sessions are still active (issue #3980).
  *
- * <p>Read from {@code carlos.properties} on every login, so an administrator can change it without a
- * restart:</p>
+ * <p>Read from {@code carlos.properties}. {@code CarlosProperties} loads that file once at startup,
+ * so a change takes effect after CARLOS is restarted:</p>
  * <ul>
  *   <li>{@code login.concurrent_sessions.policy}: {@code allow} (default; today's behaviour),
  *       {@code prompt} (ask the user whether to keep or sign out their other sessions) or
