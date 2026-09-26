@@ -383,3 +383,31 @@ and patient-messenger. The expanded chart-lock test then passed all five scenari
 server-side logout cleanup with the client beacon suppressed. Its first attempt navigated
 away before the logout page auto-submitted; the assertion now waits for the completed POST
 and settled index redirect. No production rebuild was needed for that harness correction.
+
+### Installed migration and province validation
+
+The `.9` package applied all 29 Ontario and 25 BC Flyway migrations to separate disposable
+schemas. The Ontario rehearsal used the authentic OSCAR19 RC1 database scripts at upstream
+commit `a7900d569d3faf741993e5e1da8c14021bbefede` with synthetic records. Preflight refused an
+enabled LDAP setting; after selecting the fixture's local authentication, all 518 source
+table digests agreed. The importer refused missing document references and the installed
+service guard prevented application startup until those references were repaired in the
+owned document tree. Resume completed with 1,117 verification checks passing and 29 explicitly
+uncompared checks (tables lacking primary keys or deliberately transformed data), with no
+content-mismatch acknowledgment. Backup was explicitly skipped for this disposable target;
+this exercise does not establish backup/restore integration coverage.
+
+The migrated browser harness passed nine checks, including forced password resets, patient
+search, notes, appointments, prescriptions, labs and archived vendor data. The day-schedule
+check skipped because the source fixture's program differs from the day view's program.
+Six additional SQL checks confirmed accented text, charset repair and preservation of the
+imported password hashes after browser cleanup. BC browser validation passed rejection,
+creation/reopening, editing and deletion of owned service-code associations. Original
+configuration checksums, directory metadata, backup configuration and database counts were
+verified on restoration; only the recorded rehearsal schemas/accounts were removed.
+
+The rehearsal exposed a misleading resume message: a previously skipped or acknowledged
+failed backup was reported as an existing snapshot. Resume now repeats the warning that no
+pre-import snapshot was recorded, without attempting a late backup. Two regression tests
+failed against the old message; those cases and the successful-backup control now pass.
+The complete Debian Python suite passed 1,692 tests (19 skips).
