@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.eform.data;
 
 import org.jsoup.nodes.Document;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
+import io.github.carlos_emr.carlos.eform.util.EFormAssetReferences;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -94,7 +95,18 @@ public class EFormBase {
         setImagePath("/oscar");
     }
 
+    /**
+     * Substitutes the eForm asset marker with the live asset route.
+     *
+     * <p>Bare-filename references are folded onto the marker first, so a package authored as a
+     * self-contained folder ({@code src="jSignature.min.js"}) reaches the same route as one using
+     * the marker. Ordering is load-bearing and one-way: normalization must see the marker-free
+     * HTML, and once the marker is substituted the value carries its own {@code ?} and {@code =}
+     * and is no longer a bare name. See {@link EFormAssetReferences} for why the rewrite targets
+     * the marker rather than a finished URL.</p>
+     */
     public void setImagePath(String contextPath) {
+        formHtml = EFormAssetReferences.normalizeBareAssetReferences(formHtml);
         String output = contextPath + "/eform/displayImage?imagefile=";
         StringBuilder html = new StringBuilder(formHtml);
         int pointer = StringBuilderUtils.indexOfIgnoreCase(html, imageMarker, 0);

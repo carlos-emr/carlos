@@ -475,7 +475,7 @@
       "name": "incoming-pdf-extraction",
       "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
       "tiers": [
-        "core"
+        "extended"
       ],
       "assertsDatabase": true,
       "provinces": [
@@ -706,6 +706,19 @@
       ]
     },
     {
+      "name": "eform-image-delete",
+      "script": "scripts/eform-image-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "eform-consultation-acceptance",
       "script": "scripts/eform-consultation-acceptance-playwright-checks.js",
       "tiers": [
@@ -752,6 +765,22 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "eform-print-save",
+      "script": "scripts/eform-print-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_PRINT_SAVE_DEMOGRAPHIC_NO",
+        "EFORM_PRINT_SAVE_FID"
+      ]
     },
     {
       "name": "eform-render",
@@ -1047,6 +1076,34 @@
       ]
     },
     {
+      "name": "inbox-lab-versions",
+      "script": "scripts/inbox-lab-versions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": []
+    },
+    {
+      "name": "inbox-preview-acknowledge",
+      "script": "scripts/inbox-preview-acknowledge-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "lab-pdf-footer",
       "script": "scripts/lab-pdf-footer-playwright-checks.js",
       "tiers": [
@@ -1108,6 +1165,71 @@
         "MACRO_LAB_NO",
         "MACRO_PROVIDER_NO"
       ]
+    },
+    {
+      "name": "omd-flowsheet-conformance",
+      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "cdm-measurement-report",
+      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "echart-consult-specialist",
+      "script": "scripts/echart-consult-specialist-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "upstream-small-fixes",
+      "script": "scripts/upstream-small-fixes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "rest-roster-enrolled-to",
+      "script": "scripts/rest-roster-enrolled-to-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
     },
     {
       "name": "login",
@@ -1988,6 +2110,24 @@
       ]
     },
     {
+      "name": "health-tracker",
+      "script": "scripts/health-tracker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only."
+    },
+    {
       "name": "measurement-history",
       "script": "scripts/measurement-history-playwright-checks.js",
       "tiers": [
@@ -2020,6 +2160,24 @@
         "CONSULT_FALLBACK_DEMOGRAPHIC_NO",
         "CONSULT_FALLBACK_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "encounter-header-i18n",
+      "script": "scripts/encounter-header-i18n-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "HEADER_I18N_SEARCH",
+        "HEADER_I18N_DEMOGRAPHIC_NO",
+        "HEADER_I18N_TIMEOUT_MS"
+      ],
+      "notes": "Walks the chart four times sequentially on one server: English, French, unsupported-only German (English fallback), and German followed by French. Checks all rendered identity labels, calculator uniqueness, and configured template-search bundle values."
     },
     {
       "name": "echart-note-editor",
@@ -2069,6 +2227,24 @@
       "env": [
         "APPOINTMENT_NO",
         "APPOINTMENT_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "appointment-patient-typeahead",
+      "script": "scripts/appointment-patient-typeahead-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_NO",
+        "APPOINTMENT_PROVIDER_NO",
+        "APPOINTMENT_DAYS_AHEAD",
+        "TYPEAHEAD_SEARCH_TERM"
       ]
     },
     {
@@ -2226,6 +2402,48 @@
       "env": []
     },
     {
+      "name": "ocean-display-settings",
+      "script": "scripts/ocean-display-settings-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Records and restores the echart_show_ocean SystemPreferences row and the OceanSetting singleton; opens an owned FAKE-PW patient; local disposable database only."
+    },
+    {
+      "name": "hrm-retired-statement",
+      "script": "scripts/hrm-retired-statement-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations and that the Administration panel no longer links the removed page."
+    },
+    {
+      "name": "clinic-demo-name",
+      "script": "scripts/clinic-demo-name-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Read-only. Proves Flyway V1.0.29 applied and Administration > Clinic shows the stored (non-placeholder) clinic name."
+    },
+    {
       "name": "scratchpad-workflow",
       "script": "scripts/scratchpad-workflow-playwright-checks.js",
       "tiers": [
@@ -2263,6 +2481,87 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "facility-selection",
+      "script": "scripts/facility-selection-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "health-care-team",
+      "script": "scripts/health-care-team-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
+      "name": "hrm-window",
+      "script": "scripts/hrm-window-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "CHROME_BIN"
+      ]
+    },
+    {
+      "name": "demographic-label-content",
+      "script": "scripts/demographic-label-content-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "demographic-gates",
+      "script": "scripts/demographic-gates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "echart-lock-lifecycle",
+      "script": "scripts/echart-lock-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
     }
   ]
 }

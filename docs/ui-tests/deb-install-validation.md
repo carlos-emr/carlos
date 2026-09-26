@@ -225,7 +225,7 @@ and answers a different question**. Every check below goes through `:443`.
   give the VM 8 GiB. Do not run heavy Maven builds while VMs are up on a
   memory-constrained host — the build below is done **before** the VM exists.
 - Build dependencies satisfied on the host: `dpkg-checkbuilddeps` must be clean
-  (OpenJDK 21, Maven, debhelper, tomcat11 packages).
+  (OpenJDK 25, Maven, debhelper, tomcat11 packages).
 
 ## 1. Build the packages
 
@@ -258,7 +258,7 @@ release artifact and cannot satisfy the exact About-page assertion below.
 Then, from that packaging worktree:
 
 ```bash
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
 export MAVEN_OPTS="-Xmx3g"
 env -u DRUGREF_WAR -u DRUGREF_SRC -u DRUGREF_REF dpkg-buildpackage -us -uc -b
 ```
@@ -340,16 +340,19 @@ carlos-emr carlos-emr/reset-seed-admin boolean true
 carlos-emr carlos-emr/install-demo-data boolean true
 EOF
 lxc file push /tmp/carlos-preseed.txt carlos-test/root/
-lxc file push ../carlos-emr_*_all.deb ../carlos-emr-drugref_*_all.deb \
-              ../carlos-emr-eform-renderer_*_amd64.deb carlos-test/root/
+# From 2026.08.0-alpha14 carlos-emr is _amd64 (it carries the eForm renderer)
+# and carlos-emr-eform-renderer is an empty _all transitional package; earlier
+# builds were carlos-emr_*_all.deb + carlos-emr-eform-renderer_*_amd64.deb.
+lxc file push ../carlos-emr_*_amd64.deb ../carlos-emr-drugref_*_all.deb \
+              ../carlos-emr-eform-renderer_*_all.deb carlos-test/root/
 
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
   debconf-set-selections /root/carlos-preseed.txt
-  apt-get install -y /root/carlos-emr_*_all.deb \
+  apt-get install -y --no-remove /root/carlos-emr_*_amd64.deb \
                      /root/carlos-emr-drugref_*_all.deb \
-                     /root/carlos-emr-eform-renderer_*_amd64.deb'
+                     /root/carlos-emr-eform-renderer_*_all.deb'
 ```
 
 Then verify the deployment before anything else:
@@ -452,8 +455,9 @@ lxc exec carlos-test -- bash -c '
 
 Do not run `playwright install` on Ubuntu 26.04 with Playwright 1.60.0: that
 Playwright release does not recognise the `ubuntu26.04-x64` host platform. The
-`carlos-emr-eform-renderer` package already supplies the release-pinned Chromium
-and its runtime dependencies. Using it also makes the suite exercise the exact
+`carlos-emr` package already supplies the release-pinned Chromium and its
+runtime dependencies (before 2026.08.0-alpha14 the separate
+`carlos-emr-eform-renderer` package did). Using it also makes the suite exercise the exact
 browser shipped to operators instead of a second downloaded browser.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
@@ -657,9 +661,9 @@ suite_failed=0
 #                                through the Administration page when it is not already one, because a
 #                                hand-inserted groupMembers_tbl row does not make a recipient appear)
 #   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID must be the
-#                                NEWEST lab of its accession -- the Inboxhub opens labs with
-#                                showLatest=true, which renders the newest version of the chain, so an
-#                                older segment would put the acknowledge on a row it never routed. Left
+#                                NEWEST lab of its accession -- this fixture reviews the latest
+#                                report and separately verifies that an older Inbox row opens its own
+#                                version, while an explicit showLatest request opens the latest. Left
 #                                unset the check picks a qualifying lab itself.)
 #                                (prevention-recall-report takes no knob: the screening type is fixed
 #                                to Flu because the check seeds a saved demographic query naming one
@@ -1016,9 +1020,9 @@ upgrade path — schema migrates before the service restarts:
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y --reinstall /root/carlos-emr_*_all.deb \
+  apt-get install -y --reinstall --no-remove /root/carlos-emr_*_amd64.deb \
       /root/carlos-emr-drugref_*_all.deb \
-      /root/carlos-emr-eform-renderer_*_amd64.deb'
+      /root/carlos-emr-eform-renderer_*_all.deb'
 lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
                                            # new migrations counted in flyway_schema_history
 ```
@@ -1076,7 +1080,7 @@ dropped in, followed by `carlos-ctl restart`:
 
 ```bash
 W=target/carlos-*-SNAPSHOT/WEB-INF
-javac -nowarn -cp "$W/classes:$W/lib/*:/usr/share/java/tomcat11-servlet-api.jar:/usr/share/java/tomcat11-el-api.jar:/usr/share/java/tomcat11-jsp-api.jar:$HOME/.m2/repository/com/github/spotbugs/spotbugs-annotations/4.9.3/spotbugs-annotations-4.9.3.jar" \
+javac -nowarn -cp "$W/classes:$W/lib/*:/usr/share/java/tomcat11-servlet-api.jar:/usr/share/java/tomcat11-el-api.jar:/usr/share/java/tomcat11-jsp-api.jar:$HOME/.m2/repository/com/github/spotbugs/spotbugs-annotations/4.10.2/spotbugs-annotations-4.10.2.jar" \
       -d /tmp/classout path/to/The2Action.java
 lxc file push /tmp/classout/.../The2Action.class \
   carlos-test/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/.../The2Action.class
@@ -1328,3 +1332,64 @@ which virtualization layer exhausted memory. The application acceptance tests
 completed before this interruption, but the overall host/VM environment cannot
 be declared stable from this run. Compilation and VM operation must remain
 separate, and nested-VM checks are paused pending the outer memory budget.
+
+### Encounter chart header i18n validation (2026-09-20)
+
+Validation of the phc007 report on the chart header (findings 41-43 in
+[app-findings-log.md](app-findings-log.md)), run against a packaged install
+rather than the devcontainer, because the report was made against a package.
+
+**Environment deviations from the runbook above.** The host had no LXD, so the
+target was an Ubuntu 26.04 **container** running systemd (`--privileged`, the
+host's cgroup2 hierarchy bind-mounted at `/sys/fs/cgroup`; Ubuntu 26.04's
+systemd refuses to boot on a cgroup v1 hierarchy). `carlos-emr` was built with
+`SKIP_DRUGREF=1 SKIP_EFORM_RENDERER=1` and installed alone, so `carlos-ctl
+check` reports `NOTE carlos-emr-drugref is not installed` — prescribing lookups
+were not exercised and are not claimed. Everything else in that check passed,
+including the WAF blocking a probe SQLi and the 23 Flyway migrations. nginx and
+MariaDB are not started by `apt` inside a container, so the postinst ended with
+the package's own `install-incomplete` marker (`reason=nginx did not bind the
+configured front-door listeners`); `carlos-ctl finish-install` completed the
+install exactly as the marker instructs. That is a container artefact, not a
+packaging defect: the same postinst starts them on a VM.
+
+The browser walked the front door on `https://127.0.0.1/carlos` — the **default
+port**, forwarded to the container, not a published high port. On a high port
+the application's own absolute URLs (`https://127.0.0.1/carlos/...`) point back
+at 443 and every subresource fails with `ERR_CONNECTION_REFUSED`, which looks
+like a broken page and is only the test setup.
+
+**Historical container results (original revision, superseded by the review follow-up below).**
+Before and after were measured on the same install. The pre-fix WAR (the commit
+before the change) and the fixed WAR were each exploded over
+`/usr/share/carlos-emr/webapp/carlos` and the service restarted, and the chart
+header was read with an `en-CA` browser and an `fr-CA` browser:
+
+| | pre-fix `en-CA` | pre-fix `fr-CA` | fixed `en-CA` | fixed `fr-CA` |
+|---|---|---|---|---|
+| identity labels | Sex, DOB, Age, Next Appt., MRP | **identical to English** | Sex, DOB, Age, Next Appt., MRP | Sexe, DDN, Âge, Prochain rendez-vous, MRP |
+| calculators controls | **2** | **2** | 1 | 1 |
+| calculators label | calculators | calculatrices | calculators | calculatrices |
+| template search legend | Template Search | **Template Search** | Template Search | Recherche de modèles |
+| template name placeholder | template name | **template name** | template name | nom du modèle |
+
+The pre-fix French column is the report: the JSP half of the header translated
+and the Java half did not.
+
+**Historical checks run against the original fixed package** (`EXPECT_FRONT_DOOR=true`):
+`encounter-header-i18n` PASS, `clinical-calculators` PASS, `echart` PASS,
+`master-record-tabs` PASS (17 items opened, 1 skipped by policy).
+`encounter-header-i18n` was also run against the pre-fix package as a negative
+control and FAILED on the duplicate calculators control, so the check detects
+the defect rather than merely agreeing with the fix.
+`demographic-edit-update` was not run: it needs `MYSQL_PASSWORD` and a search
+term that lands on its configured demographic, neither of which this
+container's demo dataset provided, and it does not touch the changed code.
+
+
+**2026-09-22 review follow-up:** The table above records the original container run.
+The revised release PR follows `I18N-CONVERSION-CHECKLIST.md`: its four new
+non-English keys now carry English values and immediate `# TODO: translate`
+markers pending verified translations. Existing localized identity and roster
+labels are retained. The browser check verifies the configured placeholders
+alongside the localized identity labels, including unsupported-language fallback.

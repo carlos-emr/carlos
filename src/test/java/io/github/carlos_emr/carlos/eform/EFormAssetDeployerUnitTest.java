@@ -64,6 +64,16 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
     private static final String RESOURCE_EDITCONTROL = "/WEB-INF/eform-assets/editControl2.js";
     private static final String RESOURCE_BLANK = "/WEB-INF/eform-assets/blank.rtl";
     private static final String RESOURCE_HELP = "/WEB-INF/eform-assets/editor_help.html";
+    /**
+     * The Rich Text Letter's starter templates. The editor's template dropdown is built by
+     * scanning the eForm images directory for *.rtl, so a template that never deploys does not
+     * exist as far as a clinician is concerned.
+     */
+    private static final String[] RESOURCE_LETTER_TEMPLATES = {
+        "/WEB-INF/eform-assets/clinic_letter.rtl",
+        "/WEB-INF/eform-assets/consultation_letter.rtl",
+        "/WEB-INF/eform-assets/patient_letter.rtl"
+    };
     private static final String RESOURCE_SIGNATURE_PAD = "/share/javascript/signature_pad.min.js";
     private static final String RESOURCE_JQUERY = "/library/jquery/jquery-3.7.1.min.js";
     private static final String RESOURCE_JQUERY_COMPAT = "/library/jquery/jquery-compat.js";
@@ -110,6 +120,10 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
         when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help content"));
+        for (String template : RESOURCE_LETTER_TEMPLATES) {
+            when(mockServletContext.getResourceAsStream(template))
+                    .thenAnswer(invocation -> toStream("<html><body>template</body></html>"));
+        }
         when(mockServletContext.getResourceAsStream(RESOURCE_SIGNATURE_PAD)).thenReturn(toStream("signature pad"));
         // thenAnswer (not thenReturn): the deployer now reads this resource path twice, once per
         // legacy jQuery alias (3.1.0 and 1.12.0). A real ServletContext hands back an independent
@@ -140,6 +154,9 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "editControl2.js")).exists();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+            assertThat(new File(tempDir.toFile(), "clinic_letter.rtl")).exists();
+            assertThat(new File(tempDir.toFile(), "consultation_letter.rtl")).exists();
+            assertThat(new File(tempDir.toFile(), "patient_letter.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "signature_pad.min.js")).exists();
             assertThat(new File(tempDir.toFile(), "BNK.png")).exists();
             assertThat(new File(tempDir.toFile(), "jquery-3.1.0.min.js")).exists();

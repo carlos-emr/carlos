@@ -15,17 +15,18 @@ package at the repository root:
 
 Release builds are published automatically: the `Debian Packages` workflow
 (`.github/workflows/deb-packages.yml`) runs when a release is published,
-builds both packages inside an `ubuntu:26.04` container from that release's
+builds the packages (`carlos-emr` for amd64, `carlos-emr-drugref`, and the
+empty transitional `carlos-emr-eform-renderer`) inside an `ubuntu:26.04` container from that release's
 own attested WAR, and attaches the `.deb`s, checksums and provenance
 attestations to the release.
 
 Build it locally the normal way:
 
-    sudo apt build-dep .          # or: apt install debhelper maven openjdk-21-jdk-headless tomcat11
+    sudo apt build-dep .          # or: apt install debhelper maven openjdk-25-jdk-headless tomcat11
     dpkg-buildpackage -us -uc -b
 
 That produces `carlos-emr` and `carlos-emr-drugref` targeting Ubuntu 26.04 LTS
-(the release whose Tomcat 11 and OpenJDK 21 packages satisfy the build
+(the release whose Tomcat 11 and OpenJDK 25 packages satisfy the build
 dependencies). See `debian/carlos-emr.README.Debian` for what the packages
 install and how to
 operate the result, and `debian/rules` for the build inputs (including how to
@@ -40,7 +41,7 @@ that predate systemd timers, and a build that had to run as root. It also
 produced a package that ran the EMR under the distribution's shared `tomcat`
 user.
 
-The `debian/` packaging targets the current stack (Tomcat 11, Java 21, MariaDB
+The `debian/` packaging targets the current stack (Tomcat 11, Java 25, MariaDB
 11.8, the Flyway migration set) and runs the application under its own
 unprivileged account behind an nginx/ModSecurity front door.
 

@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponseWrapper;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -63,8 +64,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * 	<li>The statement is outputted for HTML requests that result in generation of HTML content. This is done by checking the response type being created.</li>
  * 	<li>The statement is outputted only once per requests. This is ensure through setting a temporary session attribute
  * if session is available, or request attribute otherwise.</li>
- * 	<li>The statement is not outputted for AJAX-based requests, which is detected by checking {@link PrivacyStatementAppendingFilter#HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH}
- * request header.</li>
+ * 	<li>The statement is not outputted for AJAX-based requests, detected with
+ * {@link io.github.carlos_emr.carlos.utility.RequestNegotiation#isAjax}. That reads
+ * {@code X-Requested-With} as a list, because CSRFGuard's client script appends its own marker
+ * to whatever jQuery already set.</li>
  *
  * </ul>
  *
@@ -75,7 +78,17 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class PrivacyStatementAppendingFilter implements Filter {
 
+    /**
+     * @deprecated the AJAX decision moved to
+     *     {@link io.github.carlos_emr.carlos.utility.RequestNegotiation#isAjax}, which matches
+     *     this value as one entry in a list rather than as the whole header. Kept because both
+     *     constants are public API; comparing a raw header against them is what this filter
+     *     stopped doing.
+     */
+    @Deprecated
     public static final String HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH = "XMLHttpRequest";
+    /** @deprecated see {@link #HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH}. */
+    @Deprecated
     public static final String HTTP_HEADER_NAME_AJAX_REQUESTED_WITH = "X-Requested-With";
     public static final String ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED = "CONFIDENTIALITY_NOTE_PRINTED";
 
@@ -161,10 +174,13 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
 
-            // don't append for AJAX queries as well
-            String requestedWithHeader = httpRequest.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
-            boolean isAjaxRequest = requestedWithHeader != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWithHeader);
-            if (isAjaxRequest) {
+            // don't append for AJAX queries as well.
+            // RequestNegotiation.isAjax, not an exact header match: CSRFGuard's client script
+            // appends its own marker to X-Requested-With, so a jQuery $.ajax call reaches this
+            // filter as "XMLHttpRequest, OWASP CSRFGuard Project". An equals check classified
+            // that as a page request and appended the statement to the AJAX body, which callers
+            // that render the reply verbatim then show as stray markup.
+            if (RequestNegotiation.isAjax(httpRequest)) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }

@@ -309,8 +309,8 @@
         }
 
         // The demographic lookup and the READ audit below key on segmentID, so they run only
-        // after showLatest has had its say: with showLatest=true the Inboxhub asks for the
-        // segment on its row but this page renders the newest version of that accession
+        // after showLatest has had its say: a caller requesting showLatest=true names one
+        // segment but this page renders the newest version of that accession
         // (segmentIDs[last] above). Resolving the patient and writing the audit row from the
         // REQUESTED id recorded a lab the clinician never opened and, should an accession ever
         // be shared across patients, would have bound the page to the wrong chart.
@@ -1324,16 +1324,28 @@ input[id^='acklabel_']{
                 legacyInbox = true;
             }
             if (!inbox) { return false; }
+            var handledInPlace = false;
             if (legacyInbox) {
                 inbox.removeReport(segmentId, labType);
             } else {
-                inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+                // Returns whether the inbox dealt with the item AND needs no re-sync. That
+                // second half matters here: the inbox pages by offset, so while pages remain
+                // unloaded an acknowledgement shifts every later result up a place and the
+                // next page would skip one. The condition lives in that function's contract
+                // rather than being repeated here, so this route and the BroadcastChannel
+                // listener cannot drift apart. An inbox from before that return value
+                // existed answers undefined, which falls through to the re-fetch below
+                // exactly as it always did.
+                handledInPlace = inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) === true;
             }
-            // The same re-fetch the broadcast listener does. dropAcknowledgedInboxhubItem
-            // moves the counters and drops a LIST row, but preview mode draws cards and no
-            // table, so without this the acknowledged card stays on screen — and a macro with
-            // closeOnSuccess:false never closes the window that would have hidden it either.
-            if (typeof inbox.fetchInboxhubData === 'function') {
+            // Only when the inbox could not deal with the item itself. It drops the row or
+            // the preview card and moves the counters in place; re-fetching on top of that
+            // re-runs the whole search, costs the clinician their place in the list and, in
+            // preview mode, reloads every remaining card's iframe. A legacy inbox has no
+            // preview-card removal at all, so it still needs the re-fetch to clear the card
+            // — and a macro with closeOnSuccess:false never closes the window that would
+            // otherwise have hidden it.
+            if (!handledInPlace && typeof inbox.fetchInboxhubData === 'function') {
                 inbox.fetchInboxhubData();
             }
             return true;

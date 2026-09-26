@@ -7,7 +7,7 @@ SHA-1 APIs or claim coverage from deleted/disabled source examples.
 
 ## Running the tests
 
-Use Java 21 and the repository Maven configuration. Run the complete suite with:
+Use Java 25 and the repository Maven configuration. Run the complete suite with:
 
 ```bash
 mvn -B -ntp test -Dtest.forkCount=1

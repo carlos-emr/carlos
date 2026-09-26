@@ -79,7 +79,8 @@
     <h3><fmt:message key="encounter.Measurements.msgEditMeasurementGroup"/> - Add Decision Support to <em
             class="text-info"><%=groupName%>
     </em> Group </h3>
-    <p><em>The following listed decision support files are available for the flowsheets. Make a
+    <p><em>The following listed decision support files are available for both the flowsheets and the Health
+        Tracker. Make a
         selection and press "add" to make that decision support available on the <strong><%=groupName%>
         </strong> measurement group.</em></p>
 

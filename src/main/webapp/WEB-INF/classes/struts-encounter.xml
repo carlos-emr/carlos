@@ -492,6 +492,14 @@
             <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
             <result name="success2">/WEB-INF/jsp/encounter/InsertTemplate2.jsp</result>
         </action>
+        <!-- Legacy URL compatibility: the Ocean Toolbar's client script (loaded from
+             ocean.cognisantmd.com) is hardcoded to the OSCAR19 route shape
+             "/oscarEncounter/InsertTemplate.do?templateName=__Ocean&version=2" and cannot be
+             updated from CARLOS. Same action/results as encounter/InsertTemplate above. -->
+        <action name="oscarEncounter/InsertTemplate.do" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action">
+            <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
+            <result name="success2">/WEB-INF/jsp/encounter/InsertTemplate2.jsp</result>
+        </action>
         <action name="encounter/immunization/deleteSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmDeleteImmSchedule2Action">
             <result name="success">/WEB-INF/jsp/encounter/immunization/Schedule.jsp</result>
         </action>
@@ -569,6 +577,14 @@
         </action>
         <action name="encounter/oscarMeasurements/DeleteData2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/close.jsp</result>
+        </action>
+        <!--
+            Health Tracker save endpoint. POST-only (see HealthTrackerUpdate2Action);
+            the clean path redirects from inside the action so a refresh cannot
+            re-post, and only the validation-error path resolves a result here.
+        -->
+        <action name="encounter/oscarMeasurements/HealthTrackerUpdate" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action">
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/HealthTracker.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>

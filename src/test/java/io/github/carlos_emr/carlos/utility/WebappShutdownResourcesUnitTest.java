@@ -32,6 +32,8 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.junit.jupiter.api.DisplayName;
@@ -202,7 +204,7 @@ public class WebappShutdownResourcesUnitTest {
 
             WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
 
-            assertThat(report.results()).hasSize(7);
+            assertThat(report.results()).hasSize(8);
             assertThat(report.results().get(0).successful()).isFalse();
             assertThat(report.failureCount()).isEqualTo(1);
             tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
@@ -210,6 +212,57 @@ public class WebappShutdownResourcesUnitTest {
             droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
             queueCache.verify(QueueCache::shutdownSharedTimer);
         }
+    }
+
+    @Test
+    void shouldReleaseOwnedSchedulerLoader_withoutStoppingSharedScheduler() throws Exception {
+        Thread scheduler = commonDelayScheduler();
+        ClassLoader original = scheduler.getContextClassLoader();
+        ClassLoader webapp = new ClassLoader(original) { };
+        ClassLoader child = new ClassLoader(webapp) { };
+        try {
+            scheduler.setContextClassLoader(child);
+            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp)).isEqualTo(1);
+            assertThat(scheduler.getContextClassLoader()).isSameAs(ClassLoader.getPlatformClassLoader());
+            assertThat(scheduler.isAlive()).isTrue();
+            assertThat(ForkJoinPool.commonPool().schedule(() -> "still running", 1, TimeUnit.MILLISECONDS)
+                    .get(5, TimeUnit.SECONDS)).isEqualTo("still running");
+            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp)).isZero();
+        } finally {
+            scheduler.setContextClassLoader(original);
+        }
+    }
+
+    @Test
+    void shouldPreserveOtherApplicationsAndOrdinaryThreads_whenReleasingSchedulerLoader() throws Exception {
+        Thread scheduler = commonDelayScheduler();
+        Thread ordinary = Thread.currentThread();
+        ClassLoader originalSchedulerLoader = scheduler.getContextClassLoader();
+        ClassLoader originalThreadLoader = ordinary.getContextClassLoader();
+        String originalName = ordinary.getName();
+        ClassLoader webapp = new ClassLoader(null) { };
+        ClassLoader otherWebapp = new ClassLoader(null) { };
+        try {
+            scheduler.setContextClassLoader(otherWebapp);
+            ordinary.setName("ForkJoinPool.commonPool-delayScheduler");
+            ordinary.setContextClassLoader(webapp);
+            assertThat(WebappShutdownResources.releaseJdkDelaySchedulerClassLoader(webapp)).isZero();
+            assertThat(scheduler.getContextClassLoader()).isSameAs(otherWebapp);
+            assertThat(ordinary.getContextClassLoader()).isSameAs(webapp);
+        } finally {
+            scheduler.setContextClassLoader(originalSchedulerLoader);
+            ordinary.setContextClassLoader(originalThreadLoader);
+            ordinary.setName(originalName);
+        }
+    }
+
+    private static Thread commonDelayScheduler() throws Exception {
+        ForkJoinPool.commonPool().schedule(() -> { }, 1, TimeUnit.MILLISECONDS).get(5, TimeUnit.SECONDS);
+        Class<?> schedulerClass = Class.forName("java.util.concurrent.DelayScheduler", false, null);
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(thread -> thread.getClass() == schedulerClass
+                        && "ForkJoinPool.commonPool-delayScheduler".equals(thread.getName()))
+                .findFirst().orElseThrow();
     }
 
     /**

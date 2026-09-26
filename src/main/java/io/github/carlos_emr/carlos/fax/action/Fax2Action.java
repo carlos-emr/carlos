@@ -561,7 +561,10 @@ public class Fax2Action extends ActionSupport {
      */
     // Direct reads require an active session/eForm/patient/provider claim plus temp containment;
     // stored documents require an authorized job binding.
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
+    // PT_RELATIVE_PATH_TRAVERSAL fires on the new File(requestedFaxFilePath) that is itself the argument to the
+    // validateApplicationTempPath() guard rejecting non-temp paths, and is reached only after
+    // authorizedPreviewPath() has matched the path against this session's own staged previews.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PT_RELATIVE_PATH_TRAVERSAL"}, justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding. PT_RELATIVE_PATH_TRAVERSAL flags the File passed into the temp-containment guard itself, after the session claim check")
     @SuppressWarnings("unused")
     public void getPreview() {
 
@@ -635,11 +638,15 @@ public class Fax2Action extends ActionSupport {
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return;
                 }
-            }
-            if (pathFromRequestParam && !PathValidationUtils.isInApplicationTempDirectory(new File(requestedFaxFilePath))) {
-                logger.warn("Rejected fax preview for a non-temp path supplied directly as faxFilePath");
-                sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
-                return;
+                // Direct paths must lie in a CARLOS-owned temp subtree. FaxManager canonicalizes and
+                // re-validates the path again before it is read.
+                try {
+                    PathValidationUtils.validateApplicationTempPath(new File(requestedFaxFilePath));
+                } catch (SecurityException e) {
+                    logger.warn("Rejected fax preview for a non-temp path supplied directly as faxFilePath");
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return;
+                }
             }
             if (showAs != null && showAs.equals("image")) {
                 // The faxManager.getFaxPreviewImage method already handles path validation.
@@ -690,6 +697,11 @@ public class Fax2Action extends ActionSupport {
         }
 
         if (outfile != null) {
+            // outfile is never the request value itself: it is either the preview image
+            // NioFileManager rendered into its own cache, or the path FaxManager.resolveAndValidateFilePath
+            // confined to the document root or a CARLOS-owned temp subtree. Semgrep cannot follow that
+            // containment through the FaxManager interface.
+            // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- outfile is FaxManager-validated (document root or CARLOS-owned temp) or the NioFileManager preview cache file
             try (InputStream inputStream = Files.newInputStream(outfile);
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {
@@ -1017,7 +1029,9 @@ public class Fax2Action extends ActionSupport {
         // No jobId: same direct-path exposure as getPreview. A stored document (DOCUMENT_DIR) may
         // only be paged through its job binding; direct paths are scoped to the CARLOS-owned temp
         // workspace before any use.
-        if (!PathValidationUtils.isInApplicationTempDirectory(new File(requestedFaxFilePath))) {
+        try {
+            PathValidationUtils.validateApplicationTempPath(new File(requestedFaxFilePath));
+        } catch (SecurityException e) {
             logger.warn("Rejected fax page count for a non-temp path supplied directly as faxFilePath");
             sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             return 0;

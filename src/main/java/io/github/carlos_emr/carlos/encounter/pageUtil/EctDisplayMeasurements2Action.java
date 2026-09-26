@@ -118,6 +118,31 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                 }
             }
 
+            // Health Tracker: a single nav entry for the "tracker" flowsheet, which is
+            // deliberately not registered as universal or dx-triggered so it never shows
+            // up in either loop above. Off unless the health_tracker property is enabled.
+            // getBooleanProperty's second argument is the value to MATCH, not a default:
+            // "true" means "the property is set to an active value", so an absent property
+            // leaves the tracker off. Passing "false" would invert the switch.
+            if (CarlosProperties.getInstance().getBooleanProperty("health_tracker", "true")
+                    && securityMgr.hasReadAccess("_flowsheet.tracker", roleName$)) {
+                NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
+                String dispname = getText("encounter.LeftNavBar.Tracker");
+
+                winName = "viewTracker" + bean.demographicNo;
+                // Mask the sign bit rather than Math.abs: hashCode() can return
+                // Integer.MIN_VALUE, which survives Math.abs as a negative number.
+                hash = winName.hashCode() & Integer.MAX_VALUE;
+                url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath()
+                        + "/encounter/oscarMeasurements/ViewHealthTracker?demographic_no="
+                        + Encode.forUriComponent(bean.demographicNo) + "&template=tracker');return false;";
+                item.setLinkTitle(dispname);
+                dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
+                item.setTitle(dispname);
+                item.setURL(url);
+                Dao.addItem(item);
+            }
+
             //next we add dx triggered flowsheets to the module items
             dxResearchBeanHandler dxRes = new dxResearchBeanHandler(bean.demographicNo);
             Vector dxCodes = dxRes.getActiveCodeListWithCodingSystem();

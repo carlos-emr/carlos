@@ -23,7 +23,18 @@ function fixturePdf(marker) {
   pdf += offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
   return Buffer.from(`${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
 }
+function assertClassicPdfFinalized(pdf) {
+  // pdfinfo may repair a truncated cross-reference table and still exit zero.
+  // These synthetic inputs and OpenPDF outputs use the classic xref format.
+  const footer = pdf.toString('latin1').match(/startxref\s+(\d+)\s+%%EOF\s*$/);
+  h.assert(footer, 'The generated PDF has no complete final trailer');
+  const offset = Number(footer[1]);
+  h.assert(Number.isSafeInteger(offset) && offset > 0 && offset < pdf.length
+    && pdf.subarray(offset, offset + 4).toString('ascii') === 'xref',
+  'The generated PDF final trailer does not point to its cross-reference table');
+}
 function inspect(file) {
+  assertClassicPdfFinalized(fs.readFileSync(file));
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' });
   const pages = Number(info.match(/^Pages:\s+(\d+)/m)?.[1]);
   h.assert(pages > 0, 'The generated PDF has no readable pages');
@@ -63,6 +74,18 @@ async function workflow(s) {
       fs.chownSync(file, queueOwner.uid, queueOwner.gid);
     }
   }
+  const scratchId = `${Date.now()}${process.pid}`;
+  const staleScratch = path.join(directory, `.carlos-${scratchId}1.tmp`);
+  const recentScratch = path.join(directory, `.carlos-${scratchId}2.tmp`);
+  const unrelatedHidden = path.join(directory, `.carlos-operator-${scratchId}.tmp`);
+  for (const file of [staleScratch, recentScratch, unrelatedHidden]) {
+    fs.writeFileSync(file, original, { flag: 'wx', mode: 0o600 }); owned.push(file);
+    const owner = fs.statSync(directory);
+    fs.chownSync(file, owner.uid, owner.gid);
+  }
+  const staleTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  fs.utimesSync(staleScratch, staleTime, staleTime);
+  fs.utimesSync(unrelatedHidden, staleTime, staleTime);
   h.assert(inspect(source).pages === 3, 'The synthetic input PDF is not three pages');
   const { page: inbox } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
     { context: s.context, recorder: s.recorder, label: 'incoming-pdf-inbox' });
@@ -78,6 +101,12 @@ async function workflow(s) {
   await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
   h.assert((await page.locator('fieldset legend').allTextContents()).some(text => text.includes(name)), 'Incoming queue did not open the owned PDF');
   const extract = () => page.locator('button[onclick^="extractPagePdf("]');
+  await s.step('reap abandoned scratch files while preserving fresh work and unrelated hidden files', async () => {
+    h.assert(!fs.existsSync(staleScratch), 'Queue access left an abandoned CARLOS scratch file');
+    h.assert(fs.readFileSync(recentScratch).equals(original), 'Queue cleanup removed recent scratch work');
+    h.assert(fs.readFileSync(unrelatedHidden).equals(original), 'Queue cleanup changed an unrelated hidden file');
+    h.assert(fs.readFileSync(source).equals(original), 'Scratch cleanup changed the queued PDF');
+  });
   await s.step('reject GET mutations and POST without CSRF without changing the source', async () => {
     const form = await page.locator('form[name="PdfInfoForm"]').evaluate(form => ({
       action: form.action,
@@ -96,6 +125,36 @@ async function workflow(s) {
     const response = await s.context.request.post(form.action, { form: { ...form.fields, pdfAction: 'Rotate90' } });
     h.assert(response.status() === 403, `POST without CSRF returned ${response.status()} instead of 403`);
     h.assert(fs.readFileSync(source).equals(original), 'A CSRF-rejected POST changed the synthetic PDF');
+  });
+  await s.step('refuse a CSRF-valid page action from a user without _edoc write', async () => {
+    // The page is gated on _edoc read, so the page actions carry their own _edoc write check.
+    // Lower every _edoc grant the test login holds to read for one POST, then restore the rows
+    // exactly; the later extraction steps prove write access works again.
+    const roles = s.sql.rows(`SELECT role_name FROM secUserRole WHERE provider_no=${provider}`).map(row => row[0]);
+    roles.push(s.provider);
+    const inRoles = roles.map(h.sqlString).join(',');
+    const grants = s.sql.rows(`SELECT roleUserGroup,privilege FROM secObjPrivilege WHERE objectName='_edoc' AND roleUserGroup IN(${inRoles}) ORDER BY roleUserGroup`);
+    h.assert(grants.some(([, privilege]) => /[wx]/.test(privilege)), 'The test login holds no _edoc write grant to lower');
+    const restore = () => {
+      for (const [role, privilege] of grants) {
+        s.sql.execute(`UPDATE secObjPrivilege SET privilege=${h.sqlString(privilege)} WHERE objectName='_edoc' AND roleUserGroup=${h.sqlString(role)}`);
+      }
+      h.assert(JSON.stringify(s.sql.rows(`SELECT roleUserGroup,privilege FROM secObjPrivilege WHERE objectName='_edoc' AND roleUserGroup IN(${inRoles}) ORDER BY roleUserGroup`)) === JSON.stringify(grants), '_edoc grants were not restored');
+    };
+    s.cleanup(restore);
+    const form = await page.locator('form[name="PdfInfoForm"]').evaluate(form => ({
+      action: form.action, fields: Object.fromEntries([...new FormData(form)].map(([k, v]) => [k, String(v)])),
+    }));
+    h.assert(form.fields['CSRF-TOKEN'], 'The PdfInfoForm carries no CSRF token');
+    try {
+      s.sql.execute(`UPDATE secObjPrivilege SET privilege='r' WHERE objectName='_edoc' AND roleUserGroup IN(${inRoles})`);
+      const response = await s.context.request.post(form.action, {
+        form: { ...form.fields, pdfPageNumber: '1', pdfAction: 'Rotate90' },
+        headers: { Referer: page.url() }, maxRedirects: 0, failOnStatusCode: false,
+      });
+      h.assert(response.status() === 403, `A read-only CSRF-valid POST returned ${response.status()} instead of 403`);
+      h.assert(fs.readFileSync(source).equals(original), 'A read-only POST changed the synthetic PDF');
+    } finally { restore(); }
   });
   await s.step('refuse extraction of the whole PDF without changing files', async () => {
     const dialogs = await h.withExpectedDialogs(page, () => extract().click(), { promptText: '1-3' });
@@ -130,6 +189,8 @@ async function workflow(s) {
     h.assert(fs.readFileSync(source).equals(original), 'Invalid page changed the source PDF');
   });
   fs.unlinkSync(destination);
+  // A restrictive source must not become more readable when split into two PDFs.
+  fs.chmodSync(source, 0o400);
   await s.step('extract one page and retain the exact remaining pages', async () => {
     await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
     await h.withExpectedDialogs(page, async () => {
@@ -139,6 +200,8 @@ async function workflow(s) {
     }, { promptText: '2' });
     const left = inspect(source); const right = inspect(destination);
     h.assert(left.pages === 2 && right.pages === 1, 'Extraction produced incorrect page counts');
+    h.assert((fs.statSync(source).mode & 0o777) === 0o400, 'Extraction changed the source access mode');
+    h.assert((fs.statSync(destination).mode & 0o777) === 0o400, 'Extracted PDF widened the source access mode');
     h.assert(left.text.includes(`${s.marker} page 1`) && left.text.includes(`${s.marker} page 3`) && !left.text.includes(`${s.marker} page 2`), 'Remaining PDF contains the wrong pages');
     h.assert(right.text.includes(`${s.marker} page 2`) && !right.text.includes(`${s.marker} page 1`) && !right.text.includes(`${s.marker} page 3`), 'Extracted PDF contains the wrong page');
     h.assert(fs.readFileSync(unrelated).equals(original), 'An unrelated queue PDF changed');
@@ -148,6 +211,38 @@ async function workflow(s) {
     h.assert(await page.locator('#SelectPageList option').count() === 2, 'Extracted document did not reopen with one page');
     h.assert((await page.locator('fieldset legend').allTextContents()).some(text => text.includes(path.basename(destination))), 'Extracted PDF cannot be reopened from the queue');
   });
+  await s.step('rotate a page and all pages without losing content', async () => {
+    await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
+    await page.locator('#SelectPageList').selectOption('1');
+    await page.waitForLoadState('networkidle');
+    const rotation = number => {
+      const info = execFileSync('pdfinfo', ['-f', String(number), '-l', String(number), source], { encoding: 'utf8' });
+      return Number(info.match(/(?:Page\s+\d+\s+rot|Page rot):\s+(\d+)/)?.[1]);
+    };
+    await reloadAfter(() => page.locator('button[onclick^="rotatePdf("]').filter({ hasText: '+90' }).click());
+    h.assert(rotation(1) === 90 && rotation(2) === 0, 'Single-page rotation changed the wrong pages');
+    await reloadAfter(() => page.locator('button[onclick^="rotateAllPagePdf("]').filter({ hasText: '180' }).click());
+    h.assert(rotation(1) === 270 && rotation(2) === 180, 'Whole-document rotation did not preserve relative page rotations');
+    const result = inspect(source);
+    h.assert(result.pages === 2 && result.text.includes(`${s.marker} page 1`) && result.text.includes(`${s.marker} page 3`),
+      'Rotation discarded page content');
+    h.assert(fs.readFileSync(unrelated).equals(original), 'Rotation changed an unrelated document');
+  });
+  await s.step('delete a selected page and preserve the other page and extracted document', async () => {
+    await page.locator('#SelectPageList').selectOption('1');
+    await page.waitForLoadState('networkidle');
+    const extracted = fs.readFileSync(destination);
+    const dialogs = await h.withExpectedDialogs(page,
+      () => reloadAfter(() => page.locator('button[onclick^="deletePagePdf("]').click()));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Page deletion omitted its confirmation');
+    const result = inspect(source);
+    h.assert(result.pages === 1 && result.text.includes(`${s.marker} page 3`) && !result.text.includes(`${s.marker} page 1`),
+      'Page deletion retained the wrong page');
+    h.assert(fs.readFileSync(destination).equals(extracted), 'Page deletion changed the extracted document');
+    h.assert(fs.readFileSync(unrelated).equals(original), 'Page deletion changed an unrelated document');
+    await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
+    h.assert(await page.locator('#SelectPageList option').count() === 2, 'Single remaining page did not reopen');
+  });
 }
 if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: false });
-module.exports = { fixturePdf, inspect, workflow };
+module.exports = { assertClassicPdfFinalized, fixturePdf, inspect, workflow };

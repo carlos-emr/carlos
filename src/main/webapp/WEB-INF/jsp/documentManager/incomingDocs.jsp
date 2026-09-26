@@ -241,6 +241,26 @@
     }
     String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
 
+    // pdfAction rotates, deletes or extracts pages of the queued PDF: a mutation. The page
+    // is reached through the read gate (ViewDocumentRead2Action) and CSRFGuard protects only
+    // POST/PUT/DELETE/PATCH, so a GET carrying pdfAction from a link, an image tag or a
+    // prefetch would otherwise change the file with no token. Refuse it before touching
+    // anything; the PdfInfoForm posts, so real operators never see this.
+    if (!pdfAction.isEmpty() && !"POST".equals(request.getMethod())) {
+        response.setHeader("Allow", "POST");
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return;
+    }
+    // The page itself only needs _edoc read (the gate above and ViewDocumentRead2Action), but
+    // a page action rewrites or deletes the queued file. Hold it to the same _edoc write that
+    // ManageDocument's addIncomingDocument requires, so a read-only user cannot change the
+    // queue with a CSRF-valid POST.
+    if (!pdfAction.isEmpty() && !ctx.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+
     try {
         IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale);
     } catch (Exception e) {
@@ -445,63 +465,35 @@
         }
 
         function extractPagePdf(pdfNo, pdfDir, pdfName) {
-            var validPages = true;
             if (totalPage <= 1) {
                 alert("<fmt:message key="dms.incomingDocs.nothingToExtract"/>");
             } else {
                 var range = prompt("<fmt:message key="dms.incomingDocs.enterPagesToExtract"/> ", "1-" + curPage);
-                var rangestr = "";
-                if (range == null || range == "") {
-                    validPages = false;
-                }
-                range = trim(range);
-
-                var numbers = [];
+                if (range === null) return;
+                range = range.trim();
+                var validPages = range.length > 0;
+                var selectedPages = new Set();
                 var ranges = range.split(',');
-
-                for (var i = 0; i < ranges.length; i++) {
-                    if (ranges[i].length == 0) {
+                for (var i = 0; validPages && i < ranges.length; i++) {
+                    var match = /^([0-9]+)(?:-([0-9]+))?$/.exec(ranges[i].trim());
+                    if (!match) {
                         validPages = false;
+                        break;
                     }
-                    if (ranges[i]) {
-                        var ranges1 = ranges[i].split('-');
-                        if (ranges1.length > 2) {
-                            validPages = false;
-                        }
-                        for (var j = 0; j < ranges1.length; j++) {
-                            var re = /^[0-9]+$/;
-                            if (!re.test(ranges1[j])) {
-                                validPages = false;
-                            }
-                        }
-                        if (validPages) {
-                            var range3 = ranges[i].concat('-' + ranges[i]).split('-');
-                            for (var k = parseInt(range3[0], 10); k <= parseInt(range3[1], 10); k++) {
-                                if (k ><%=numOfPage%>) {
-                                    validPages = false;
-                                }
-                                if (k == 0) {
-                                    validPages = false;
-                                }
-                                numbers[k] = k;
-                            }
-                        }
+                    var first = Number(match[1]);
+                    var last = match[2] === undefined ? first : Number(match[2]);
+                    // Check bounds before expanding: user input must never determine
+                    // an unbounded loop or allocate a sparse array with a huge index.
+                    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last)
+                            || first < 1 || last < first || last > totalPage) {
+                        validPages = false;
+                        break;
+                    }
+                    for (var pageNumber = first; pageNumber <= last; pageNumber++) {
+                        selectedPages.add(pageNumber);
                     }
                 }
-
-                if (validPages) {
-                    var notwholedoc = false;
-                    for (var m = 1; m < numbers.length; m++) {
-                        if (numbers[m] == null) {
-                            notwholedoc = true;
-                        }
-                    }
-                    if (!notwholedoc) {
-                        if ((numbers.length - 1) ==<%=numOfPage%>) {
-                            validPages = false;
-                        }
-                    }
-                }
+                validPages = validPages && selectedPages.size > 0 && selectedPages.size < totalPage;
 
                 if (validPages) {
                     document.PdfInfoForm.pdfNo.value = pdfNo;

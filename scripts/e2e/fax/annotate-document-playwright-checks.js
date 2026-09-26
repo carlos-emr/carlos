@@ -387,15 +387,20 @@ async function main() {
     }
 
     // Run against the deployed viewer, injecting only the named failure at its network boundary.
-    async function openViewer() {
+    // waitUntil 'domcontentloaded' opens the viewer while a held subresource (the annotation
+    // font) is still outstanding; the default waits for the load event.
+    async function openViewer(waitUntil = 'load') {
       const dismiss = dialog => dialog.accept();
       page.on('dialog', dismiss);
-      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
+      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated baseUrl; docId is a positive integer
       page.off('dialog', dismiss);
       await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
     }
     async function mark(tool = 'highlight') {
-      await page.evaluate(() => window.scrollTo(0, 0));
+      // The viewer's CSS sets scroll-behavior: smooth. A default scrollTo would animate, and the
+      // overlay's bounding box read below could still be the pre-scroll one, putting the whole
+      // stroke off the page. 'instant' makes the scroll complete before the box is measured.
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       if (tool === 'draw') { await page.locator('.swatch[data-color="black"]').click(); }
       await page.locator(`.tool[data-tool="${tool}"]`).click();
       const bounds = await page.locator('svg.overlay').first().boundingBox();
@@ -433,7 +438,7 @@ async function main() {
       await waitForSave();
       check('a mark on the last page saves successfully in a multipage document',
         await page.locator('#status').getAttribute('class') === 'status ok');
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     }
 
     // A successful save must not suppress warnings for subsequent unsaved edits.
@@ -474,6 +479,662 @@ async function main() {
     check('unsupported glyph rejection stays visible and editable',
       (await page.locator('#status').textContent()).includes('cannot display') && await page.locator('#btnSave').isEnabled());
 
+    // Placed marks can be dragged and re-edited without leaving the current tool, and the
+    // moved/edited model must still pass the server's bounds and text validation.
+    await openViewer();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic movable note'));
+    await page.locator('svg.overlay').first().click({ position: { x: 120, y: 140 } });
+    const noteBefore = await page.locator('text.mark').first().boundingBox();
+    await page.mouse.move(noteBefore.x + 4, noteBefore.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(noteBefore.x + 84, noteBefore.y + 124, { steps: 8 });
+    await page.mouse.up();
+    const noteAfter = await page.locator('text.mark').first().boundingBox();
+    check('a text note can be dragged while the text tool is active',
+      Math.abs(noteAfter.y - noteBefore.y - 120) < 3 && await page.locator('#markCount').textContent() === '1',
+      JSON.stringify([noteBefore, noteAfter]));
+    page.once('dialog', dialog => dialog.accept('Synthetic edited note'));
+    await page.mouse.click(noteAfter.x + 4, noteAfter.y + 4);
+    check('clicking a text note edits it in place',
+      await page.locator('text.mark').first().textContent() === 'Synthetic edited note'
+      && await page.locator('#markCount').textContent() === '1');
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('a moved and edited note saves successfully',
+      await page.locator('#status').getAttribute('class') === 'status ok');
+
+    // SVG text hit-tests on glyph outlines, so the gaps between letters need the note's hit box.
+    const noteMisses = await page.evaluate(() => {
+      const note = document.querySelector('svg.overlay text.mark');
+      const id = note.getAttribute('data-id');
+      const r = note.getBoundingClientRect();
+      const misses = [];
+      for (let i = 1; i < 10; i += 1) {
+        for (let j = 1; j < 4; j += 1) {
+          const x = r.left + (r.width * i) / 10;
+          const y = r.top + (r.height * j) / 4;
+          const owner = document.elementFromPoint(x, y)?.closest('[data-id]');
+          if (!owner || owner.getAttribute('data-id') !== id) { misses.push([Math.round(x), Math.round(y)]); }
+        }
+      }
+      return misses;
+    });
+    check('every point of a note text box grabs the note', noteMisses.length === 0, JSON.stringify(noteMisses));
+
+    // Changing an already-saved mark is an unsaved edit, exactly like adding one.
+    const savedNote = await page.locator('text.mark').first().boundingBox();
+    await page.mouse.move(savedNote.x + 4, savedNote.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(savedNote.x + 44, savedNote.y + 44, { steps: 6 });
+    await page.mouse.up();
+    check('moving a saved note enables saving again', await page.locator('#btnSave').isEnabled());
+    let warnedOnLeave = false;
+    const noteLeaveWarning = dialog => { if (dialog.type() === 'beforeunload') { warnedOnLeave = true; } };
+    page.on('dialog', noteLeaveWarning);
+
+    // The grab rules differ by mark kind, so each branch is pinned separately: highlights and
+    // ink are drawn across in the drawing tools and move only in select; placed marks move from
+    // any tool; a cancelled or non-primary press changes nothing; a move stops at the page edge.
+    await openViewer();
+    page.off('dialog', noteLeaveWarning);
+    check('leaving after moving a saved note warns about unsaved changes', warnedOnLeave);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const ov = await page.locator('svg.overlay').first().boundingBox();
+    const markCount = async () => Number(await page.locator('#markCount').textContent());
+    const boxOf = selector => page.locator('svg.overlay').first().locator(selector).first().boundingBox();
+    // Every press below lands above y ~ 570 of the overlay: with the overlay starting ~140 px
+    // down, anything lower falls outside the default 720 px viewport and never reaches the page.
+    async function drag(x0, y0, x1, y1) {
+      await page.mouse.move(ov.x + x0, ov.y + y0);
+      await page.mouse.down();
+      await page.mouse.move(ov.x + x1, ov.y + y1, { steps: 8 });
+      await page.mouse.up();
+    }
+
+    await page.locator('.tool[data-tool="highlight"]').click();
+    await drag(60, 300, 260, 330);
+    await drag(100, 315, 300, 345);
+    check('a highlight drag that starts on a highlight draws a new one', await markCount() === 2, String(await markCount()));
+
+    await page.locator('.tool[data-tool="select"]').click();
+    const hlBefore = await boxOf('rect.mark');
+    await drag(70, 305, 70, 405);
+    const hlAfter = await boxOf('rect.mark');
+    check('select moves a highlight', Math.abs(hlAfter.y - hlBefore.y - 100) < 3 && await markCount() === 2,
+      JSON.stringify([hlBefore, hlAfter]));
+
+    await page.mouse.move(ov.x + 70, ov.y + 405);
+    await page.mouse.down();
+    await page.mouse.move(ov.x + 70, ov.y + 505, { steps: 8 });
+    await page.locator('svg.overlay').first().evaluate(svg => svg.dispatchEvent(
+      new PointerEvent('pointercancel', { bubbles: true, pointerId: 1, isPrimary: true })));
+    await page.mouse.up();
+    const hlCancelled = await boxOf('rect.mark');
+    check('a cancelled drag leaves the mark where it was', Math.abs(hlCancelled.y - hlAfter.y) < 1.5,
+      JSON.stringify([hlAfter, hlCancelled]));
+
+    await page.mouse.click(ov.x + 70, ov.y + 405, { button: 'right' });
+    check('a right-click on a mark in select does not delete it', await markCount() === 2, String(await markCount()));
+
+    // A second touch lifting mid-drag must not commit (or cut short) the first pointer's move.
+    const hlTouchBefore = await boxOf('rect.mark');
+    await page.mouse.move(ov.x + 70, ov.y + 405);
+    await page.mouse.down();
+    await page.mouse.move(ov.x + 70, ov.y + 445, { steps: 5 });
+    await page.locator('svg.overlay').first().evaluate(svg => svg.dispatchEvent(new PointerEvent('pointerup',
+      { bubbles: true, pointerId: 99, isPrimary: false, pointerType: 'touch' })));
+    await page.mouse.move(ov.x + 70, ov.y + 505, { steps: 5 });
+    await page.mouse.up();
+    const hlTouchAfter = await boxOf('rect.mark');
+    check('another pointer lifting does not end a move in progress',
+      Math.abs(hlTouchAfter.y - hlTouchBefore.y - 100) < 3, JSON.stringify([hlTouchBefore, hlTouchAfter]));
+
+    // A stale drag is released by a same-kind primary press anywhere in the viewer, not only on
+    // a page: here the press lands on the toolbar.
+    const toolbarStaleBefore = await boxOf('rect.mark');
+    await page.mouse.move(toolbarStaleBefore.x + 6, toolbarStaleBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(toolbarStaleBefore.x + 6, toolbarStaleBefore.y + 46, { steps: 5 });
+    const heldBeforeToolbarPress = await page.locator('#btnSave').isDisabled();
+    await page.locator('.tool[data-tool="select"]').evaluate(button => button.dispatchEvent(new PointerEvent('pointerdown',
+      { bubbles: true, pointerId: 1, isPrimary: true, button: 0, pointerType: 'mouse' })));
+    const releasedByToolbarPress = await page.locator('#btnSave').isEnabled();
+    const previewAfterToolbarPress = await page.locator('svg.overlay').first().locator('.moving').count();
+    await page.mouse.move(toolbarStaleBefore.x + 6, toolbarStaleBefore.y + 6, { steps: 5 });
+    await page.mouse.up();
+    const toolbarStaleAfter = await boxOf('rect.mark');
+    check('a same-kind press on the toolbar drops a stale drag and releases Save',
+      heldBeforeToolbarPress && releasedByToolbarPress && previewAfterToolbarPress === 0
+      && Math.abs(toolbarStaleAfter.y - toolbarStaleBefore.y) < 1.5 && await markCount() === 2,
+      JSON.stringify([heldBeforeToolbarPress, releasedByToolbarPress, previewAfterToolbarPress, toolbarStaleBefore, toolbarStaleAfter]));
+
+    // A press by another kind of pointer on the same page must not end a live drag: a pen press
+    // while the mouse drags leaves the mouse gesture alone (and takes no gesture of its own).
+    // Dragged upward: the later drags below move the mark down, and it must stay in the viewport.
+    const penBefore = await boxOf('rect.mark');
+    await page.mouse.move(penBefore.x + 6, penBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(penBefore.x + 6, penBefore.y - 24, { steps: 4 });
+    await page.locator('svg.overlay').first().evaluate(svg => svg.dispatchEvent(new PointerEvent('pointerdown',
+      { bubbles: true, pointerId: 5, isPrimary: true, button: 0, pointerType: 'pen', clientX: -50, clientY: -50 })));
+    const heldThroughPen = await page.locator('#btnSave').isDisabled();
+    const previewThroughPen = await page.locator('svg.overlay').first().locator('.moving').count();
+    await page.mouse.move(penBefore.x + 6, penBefore.y - 54, { steps: 4 });
+    await page.mouse.up();
+    const penAfter = await boxOf('rect.mark');
+    check('a pen press on the same page does not end a mouse drag in progress',
+      heldThroughPen && previewThroughPen === 1 && Math.abs(penAfter.y - penBefore.y + 60) < 3 && await markCount() === 2,
+      JSON.stringify([heldThroughPen, previewThroughPen, penBefore, penAfter]));
+
+    // A gesture whose pointerup never arrives must not hold Save for the rest of the session. A
+    // new primary press of the same pointer kind on ANOTHER page proves the old gesture is over:
+    // the stale drag is dropped (its mark snaps back) and Save is released.
+    const staleBefore = await boxOf('rect.mark');
+    await page.mouse.move(staleBefore.x + 6, staleBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(staleBefore.x + 6, staleBefore.y + 46, { steps: 5 });
+    const saveHeldByStale = await page.locator('#btnSave').isDisabled();
+    await page.locator('svg.overlay').nth(1).evaluate(svg => svg.dispatchEvent(new PointerEvent('pointerdown',
+      { bubbles: true, pointerId: 1, isPrimary: true, button: 0, pointerType: 'mouse', clientX: -50, clientY: -50 })));
+    const saveAfterOtherPagePress = await page.locator('#btnSave').isEnabled();
+    const previewsAfterOtherPagePress = await page.locator('svg.overlay').first().locator('.moving').count();
+    // Back to the press point before lifting, so a build that still owns the drag commits no move
+    // and the rest of the run is unaffected either way.
+    await page.mouse.move(staleBefore.x + 6, staleBefore.y + 6, { steps: 5 });
+    await page.mouse.up();
+    const staleAfter = await boxOf('rect.mark');
+    check('a press on another page drops a stale drag and releases Save',
+      saveHeldByStale && saveAfterOtherPagePress && previewsAfterOtherPagePress === 0
+      && Math.abs(staleAfter.y - staleBefore.y) < 1.5 && await markCount() === 2,
+      JSON.stringify([saveHeldByStale, saveAfterOtherPagePress, previewsAfterOtherPagePress, staleBefore, staleAfter]));
+
+    // A redraw in the middle of a drag (here a resize; the annotation font arriving does the
+    // same) must not drop the preview: the mark stays where the pointer has taken it.
+    const viewport = page.viewportSize();
+    const hlRedrawBefore = await boxOf('rect.mark');
+    await page.mouse.move(hlRedrawBefore.x + 6, hlRedrawBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(hlRedrawBefore.x + 6, hlRedrawBefore.y + 66, { steps: 6 });
+    // The redraw replaces the mark's elements, so a measurement can land on one just detached;
+    // retry until a box comes back.
+    const settledBox = async selector => {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const box = await boxOf(selector);
+        if (box) { return box; }
+        await page.waitForTimeout(50);
+      }
+      return boxOf(selector);
+    };
+    await page.setViewportSize({ width: viewport.width, height: viewport.height + 40 });
+    await page.waitForTimeout(150);
+    const hlDuringRedraw = await settledBox('rect.mark');
+    await page.mouse.up();
+    await page.setViewportSize(viewport);
+    const hlRedrawAfter = await settledBox('rect.mark');
+    check('a redraw during a drag keeps the dragged mark under the pointer',
+      Math.abs(hlDuringRedraw.y - hlRedrawBefore.y - 60) < 3 && Math.abs(hlRedrawAfter.y - hlRedrawBefore.y - 60) < 3,
+      JSON.stringify([hlRedrawBefore, hlDuringRedraw, hlRedrawAfter]));
+
+    // Save is held while a mark is being dragged: a save taken mid-drag would post the mark
+    // where it was and the drag would then be lost under the in-flight save.
+    let saveDuringDrag = false;
+    const watchDragSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { saveDuringDrag = true; } };
+    page.on('request', watchDragSave);
+    // The resize restored above redraws the page, so read the mark once it has settled.
+    const hlSaveBefore = await settledBox('rect.mark');
+    await page.mouse.move(hlSaveBefore.x + 6, hlSaveBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(hlSaveBefore.x + 6, hlSaveBefore.y - 34, { steps: 6 });
+    const saveHeldDuringDrag = await page.locator('#btnSave').isDisabled();
+    await page.locator('#btnSave').evaluate(button => button.click());
+    await page.mouse.up();
+    page.off('request', watchDragSave);
+    const hlSaveAfter = await settledBox('rect.mark');
+    check('Save is held during a drag and the drag still lands',
+      saveHeldDuringDrag && !saveDuringDrag && await page.locator('#btnSave').isEnabled()
+      && Math.abs(hlSaveAfter.y - hlSaveBefore.y + 40) < 3,
+      JSON.stringify([saveHeldDuringDrag, saveDuringDrag, hlSaveBefore, hlSaveAfter]));
+
+    // The page moving under the pointer mid-drag (a scroll here; a resize that re-centres the
+    // page is the same) must not leave the mark behind: it follows the pointer on the page.
+    const scrollOverlayBefore = await page.locator('svg.overlay').first().boundingBox();
+    const hlScrollBefore = await settledBox('rect.mark');
+    await page.mouse.move(hlScrollBefore.x + 6, hlScrollBefore.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(hlScrollBefore.x + 6, hlScrollBefore.y + 46, { steps: 6 });
+    await page.evaluate(() => window.scrollBy({ top: 30, behavior: 'instant' }));
+    await page.mouse.move(hlScrollBefore.x + 6, hlScrollBefore.y + 47, { steps: 2 });
+    await page.mouse.up();
+    const scrollOverlayAfter = await page.locator('svg.overlay').first().boundingBox();
+    const hlScrollAfter = await settledBox('rect.mark');
+    // The press was 6 px into the mark and the last move 47 px, so the pointer travelled 41 px
+    // on screen, plus however far the page scrolled up under it.
+    const pointerOnPage = 41 + (scrollOverlayBefore.y - scrollOverlayAfter.y);
+    const markOnPage = (hlScrollAfter.y - scrollOverlayAfter.y) - (hlScrollBefore.y - scrollOverlayBefore.y);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    check('a drag keeps the mark under the pointer when the page scrolls mid-drag',
+      Math.abs(markOnPage - pointerOnPage) < 3, JSON.stringify({ pointerOnPage, markOnPage }));
+
+    await page.locator('.swatch[data-color="black"]').click();
+    await page.locator('.tool[data-tool="draw"]').click();
+    await drag(400, 250, 600, 250);
+    await page.locator('.tool[data-tool="select"]').click();
+    const inkBefore = await boxOf('g.mark[data-kind="stroke"]');
+    await drag(500, 250, 500, 350);
+    const inkAfter = await boxOf('g.mark[data-kind="stroke"]');
+    check('select moves an ink stroke by its hit area', Math.abs(inkAfter.y - inkBefore.y - 100) < 3 && await markCount() === 3,
+      JSON.stringify([inkBefore, inkAfter]));
+
+    await page.locator('.tool[data-tool="signature"]').click();
+    await page.mouse.click(ov.x + 400, ov.y + 150);
+    await page.locator('.tool[data-tool="date"]').click();
+    const sigBefore = await boxOf('g.mark[data-kind="placed"]');
+    await drag(sigBefore.x - ov.x + 10, sigBefore.y - ov.y + 10, sigBefore.x - ov.x + 10, sigBefore.y - ov.y + 160);
+    const sigAfter = await boxOf('g.mark[data-kind="placed"]');
+    check('a signature can be dragged while the date tool is active',
+      Math.abs(sigAfter.y - sigBefore.y - 150) < 3 && await markCount() === 4, JSON.stringify([sigBefore, sigAfter]));
+
+    await page.locator('.tool[data-tool="text"]').click();
+    // Longer than a note's default box, so the edge clamp must use the text's drawn width or
+    // the save below is refused with "The annotation text extends beyond the page".
+    page.once('dialog', dialog => dialog.accept('Synthetic edge note, deliberately longer than the default note box'));
+    await page.mouse.click(ov.x + 200, ov.y + 200);
+    const edgeBefore = await boxOf('text.mark');
+    await drag(edgeBefore.x - ov.x + 4, edgeBefore.y - ov.y + 4, 5000, 5000);
+    const edgeAfter = await boxOf('text.mark');
+    check('a move stops at the page edge',
+      edgeAfter.x > edgeBefore.x && edgeAfter.x + edgeAfter.width <= ov.x + ov.width + 1
+      && edgeAfter.y + edgeAfter.height <= ov.y + ov.height + 1, JSON.stringify([edgeAfter, ov]));
+
+    page.once('dialog', dialog => dialog.accept('Synthetic note to clear'));
+    await page.mouse.click(ov.x + 200, ov.y + 250);
+    const clearBox = await page.locator('svg.overlay').first().locator('text.mark').nth(1).boundingBox();
+    page.once('dialog', dialog => dialog.accept(''));
+    await page.mouse.click(clearBox.x + 4, clearBox.y + 4);
+    check('clearing a note removes it', await markCount() === 5
+      && await page.locator('svg.overlay').first().locator('text.mark').count() === 1, String(await markCount()));
+
+    // Signature save needs a provider stamp this deployment may not have, so the mark is removed
+    // (which also pins that a select click still deletes a signature) before the save below.
+    await page.locator('.tool[data-tool="select"]').click();
+    await page.mouse.click(sigAfter.x + 10, sigAfter.y + 10);
+    check('a select click still deletes a signature', await markCount() === 4, String(await markCount()));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('marks moved to the page edge pass server validation',
+      await page.locator('#status').getAttribute('class') === 'status ok',
+      await page.locator('#status').textContent());
+
+    // Drawing tools never grab; an ink stroke's invisible halo does not hide the note beneath it;
+    // a date-tool click inside a signature still stamps a date; a short note reaches the right
+    // margin; an edit that lengthens a note keeps it on the page.
+    await openViewer();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const pageBox = await page.locator('svg.overlay').first().boundingBox();
+    const overlayMark = selector => page.locator('svg.overlay').first().locator(selector).first();
+    async function dragOn(x0, y0, x1, y1) {
+      await page.mouse.move(pageBox.x + x0, pageBox.y + y0);
+      await page.mouse.down();
+      await page.mouse.move(pageBox.x + x1, pageBox.y + y1, { steps: 8 });
+      await page.mouse.up();
+    }
+
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic crossed note'));
+    await page.mouse.click(pageBox.x + 100, pageBox.y + 300);
+    const crossed = await overlayMark('text.mark').boundingBox();
+    const cx = crossed.x - pageBox.x;
+    const cy = crossed.y - pageBox.y;
+    // The cursor must not advertise a drag the tool will not do: over a note a placing tool
+    // shows the move cursor, while the drawing tools keep the crosshair.
+    const cursorOverNote = () => page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x, y)).cursor,
+      [crossed.x + 20, crossed.y + crossed.height / 2]);
+    const textCursor = await cursorOverNote();
+    await page.locator('.tool[data-tool="highlight"]').click();
+    const highlightCursor = await cursorOverNote();
+    check('a note shows the move cursor only in tools that can grab it',
+      textCursor === 'move' && highlightCursor === 'crosshair', JSON.stringify([textCursor, highlightCursor]));
+    await page.locator('.tool[data-tool="highlight"]').click();
+    await dragOn(cx + 5, cy + 5, cx + 200, cy + 25);
+    const crossedAfterHighlight = await overlayMark('text.mark').boundingBox();
+    check('a highlight drag that starts on a note draws a highlight and leaves the note',
+      await markCount() === 2 && Math.abs(crossedAfterHighlight.x - crossed.x) < 1 && Math.abs(crossedAfterHighlight.y - crossed.y) < 1,
+      JSON.stringify([await markCount(), crossed, crossedAfterHighlight]));
+    // The highlight now lies over the note. In the text tool a press there grabs the note (the
+    // hit test looks through the highlight), so the cursor over the highlight must say so.
+    await page.locator('.tool[data-tool="text"]').click();
+    await page.mouse.move(crossed.x + 20, crossed.y + 8, { steps: 3 });
+    const throughCursor = await page.evaluate(([x, y]) => [document.elementFromPoint(x, y).tagName,
+      getComputedStyle(document.elementFromPoint(x, y)).cursor], [crossed.x + 20, crossed.y + 8]);
+    await page.mouse.move(pageBox.x + 400, pageBox.y + 500);
+    check('the cursor over a highlight covering a note shows the grab the text tool will make',
+      throughCursor[0] === 'rect' && throughCursor[1] === 'move', JSON.stringify(throughCursor));
+
+    // Drawn after the note, so the ink's hit halo sits above it in the overlay.
+    await page.locator('.swatch[data-color="black"]').click();
+    await page.locator('.tool[data-tool="draw"]').click();
+    await dragOn(cx - 10, cy + 8, cx + 150, cy + 8);
+    await page.locator('.tool[data-tool="text"]').click();
+    let promptedWith = null;
+    page.once('dialog', dialog => { promptedWith = dialog.defaultValue(); dialog.dismiss(); });
+    await page.mouse.click(crossed.x + 30, crossed.y + 8);
+    check('an ink halo over a note does not hide the note from the text tool',
+      promptedWith === 'Synthetic crossed note' && await markCount() === 3, JSON.stringify([promptedWith, await markCount()]));
+
+    await page.locator('.tool[data-tool="signature"]').click();
+    await page.mouse.click(pageBox.x + 450, pageBox.y + 150);
+    await page.locator('.tool[data-tool="date"]').click();
+    const signatureBox = await overlayMark('g.mark[data-kind="placed"]').boundingBox();
+    await page.mouse.click(signatureBox.x + 20, signatureBox.y + 20);
+    check('a date-tool click inside a signature stamps a date', await markCount() === 5, String(await markCount()));
+
+    const dateStamp = page.locator('svg.overlay').first().locator('text.mark').filter({ hasText: /^\d{4}-\d{2}-\d{2}$/ });
+    const dateBefore = await dateStamp.boundingBox();
+    await dragOn(dateBefore.x - pageBox.x + 4, dateBefore.y - pageBox.y + 4, 5000, dateBefore.y - pageBox.y + 4);
+    const dateAfter = await dateStamp.boundingBox();
+    check('a short note can be dragged to the right margin',
+      dateAfter.x + dateAfter.width <= pageBox.x + pageBox.width + 1
+      && dateAfter.x + dateAfter.width >= pageBox.x + pageBox.width - 24, JSON.stringify([dateAfter, pageBox]));
+
+    await dragOn(cx + 30, cy + 8, 5000, cy + 8);
+    page.once('dialog', dialog => dialog.accept('Synthetic crossed note, now edited to be much longer than it was'));
+    const crossedAtEdge = await overlayMark('text.mark').boundingBox();
+    await page.mouse.click(crossedAtEdge.x + 10, crossedAtEdge.y + 8);
+    const crossedEdited = await overlayMark('text.mark').boundingBox();
+    check('editing a note to longer text keeps it on the page',
+      crossedEdited.width > crossedAtEdge.width && crossedEdited.x + crossedEdited.width <= pageBox.x + pageBox.width + 1,
+      JSON.stringify([crossedAtEdge, crossedEdited, pageBox]));
+
+    // No provider stamp is guaranteed here, so the signature goes before the save.
+    await page.locator('.tool[data-tool="select"]').click();
+    await page.mouse.click(signatureBox.x + signatureBox.width - 10, signatureBox.y + signatureBox.height - 10);
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('marks moved and edited under the grab rules save', await markCount() === 4
+      && await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+
+    // Deleting an already-saved mark is an unsaved change too: Save comes back and leaving warns.
+    // The click lands on the highlight's far end, clear of the ink stroke drawn across its start.
+    const savedHighlight = await overlayMark('rect.mark').boundingBox();
+    await page.mouse.click(savedHighlight.x + savedHighlight.width - 6, savedHighlight.y + savedHighlight.height - 4);
+    check('deleting a saved mark enables saving again', await markCount() === 3
+      && await page.locator('svg.overlay').first().locator('rect.mark').count() === 0
+      && await page.locator('#btnSave').isEnabled(), String(await markCount()));
+    let warnedAfterDelete = false;
+    const deleteLeaveWarning = dialog => { if (dialog.type() === 'beforeunload') { warnedAfterDelete = true; } };
+    page.on('dialog', deleteLeaveWarning);
+
+    await openViewer();
+    page.off('dialog', deleteLeaveWarning);
+    check('leaving after deleting a saved mark warns about unsaved changes', warnedAfterDelete);
+
+    // A note placed before the annotation font arrives is fitted to its width in the fallback
+    // face. When the real, wider face lands the note must be refitted, or it runs off the page
+    // and the composer refuses the save. The font is held back and a narrower fallback forced
+    // (through the viewer's own stylesheet, since the page CSP admits no injected style) so the
+    // two widths genuinely differ.
+    // Those scenarios need "Liberation Sans" installed where the browser runs (Debian/Ubuntu
+    // package fonts-liberation). Without it the fallback resolves to DejaVu Sans, the same
+    // face as the annotation font, the widths never differ, and the refusal the scenarios
+    // provoke never happens. Say so plainly instead of timing out on a disabled button.
+    const liberationInstalled = await page.evaluate(() => {
+      const context = document.createElement('canvas').getContext('2d');
+      const sample = 'Synthetic note saved before a very late annotation font arrived';
+      context.font = '11px "Liberation Sans", monospace';
+      const liberation = context.measureText(sample).width;
+      context.font = '11px monospace';
+      return Math.abs(liberation - context.measureText(sample).width) > 1;
+    });
+    if (!liberationInstalled) {
+      throw new Error('The late-font scenarios need the "Liberation Sans" font where the browser runs '
+        + '(install fonts-liberation); it resolves to a fallback face here');
+    }
+    let releaseFont;
+    const fontHeld = new Promise(resolve => { releaseFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await fontHeld;
+      await route.continue();
+    });
+    await openViewer('domcontentloaded');
+    const narrowFallback = await page.evaluate(() => {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      if (!sheet) { return false; }
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      return !document.fonts.check('11px CarlosAnnotation');
+    });
+    check('the annotation font is still loading while the note is placed', narrowFallback);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const fontBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note placed before the annotation font had loaded here'));
+    await page.mouse.click(fontBox.x + fontBox.width - 10, fontBox.y + 200);
+    const fallbackNote = await page.locator('svg.overlay').first().locator('text.mark').first().boundingBox();
+    // Save is pressed while the font is still out: it must wait for the font and post the
+    // refitted note, not a snapshot taken at the fallback width.
+    let fontSavePosted = false;
+    const watchFontSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { fontSavePosted = true; } };
+    page.on('request', watchFontSave);
+    await page.locator('#btnSave').click();
+    await page.waitForTimeout(500);
+    check('a save pressed before the annotation font loads waits for it', !fontSavePosted
+      && await page.locator('#status').getAttribute('class') === 'status busy',
+      JSON.stringify([fontSavePosted, await page.locator('#status').getAttribute('class')]));
+    releaseFont();
+    await waitForSave();
+    page.off('request', watchFontSave);
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
+    const fontNote = await page.locator('svg.overlay').first().locator('text.mark').first().boundingBox();
+    check('a note placed before the font loaded is refitted onto the page once it arrives',
+      fontNote.width > fallbackNote.width && fontNote.x + fontNote.width <= fontBox.x + fontBox.width + 1,
+      JSON.stringify([fallbackNote, fontNote, fontBox]));
+    check('a note refitted after the font loaded saves',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
+
+    // A page with no notes has nothing to measure in the annotation font, so its save must not
+    // wait for the font: with the font held, a highlight-only save posts at once.
+    let releaseNoNoteFont;
+    const noNoteFontHeld = new Promise(resolve => { releaseNoNoteFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await noNoteFontHeld;
+      await route.continue();
+    });
+    await openViewer('domcontentloaded');
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const noNoteBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="highlight"]').click();
+    await page.mouse.move(noNoteBox.x + 60, noNoteBox.y + 120);
+    await page.mouse.down();
+    await page.mouse.move(noNoteBox.x + 220, noNoteBox.y + 150, { steps: 6 });
+    await page.mouse.up();
+    let noNoteSavePosted = false;
+    const watchNoNoteSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { noNoteSavePosted = true; } };
+    page.on('request', watchNoNoteSave);
+    await page.locator('#btnSave').click();
+    await page.waitForTimeout(700);
+    const postedWithoutFont = noNoteSavePosted;
+    releaseNoNoteFont();
+    await waitForSave();
+    page.off('request', watchNoNoteSave);
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
+    check('a save with no notes does not wait for the annotation font',
+      postedWithoutFont && await page.locator('#status').getAttribute('class') === 'status ok',
+      JSON.stringify([postedWithoutFont, await page.locator('#status').getAttribute('class')]));
+
+    // If the font is later than the save's wait, the save posts fallback widths. A refit arriving
+    // while that request is out must not change the model under it (the page would then report
+    // as saved marks the filed copy lacks); it runs once the save ends. Here the fallback-width
+    // note overruns the page in the real face, so the save is refused, the deferred refit pulls
+    // the note back, and the retry files.
+    let releaseLateFont;
+    const lateFontHeld = new Promise(resolve => { releaseLateFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await lateFontHeld;
+      await route.continue();
+    });
+    await openViewer('domcontentloaded');
+    await page.evaluate(() => {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+    const lateBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note saved before a very late annotation font arrived'));
+    await page.mouse.click(lateBox.x + lateBox.width - 10, lateBox.y + 200);
+    const lateNote = page.locator('svg.overlay').first().locator('text.mark').first();
+    const lateBefore = await lateNote.boundingBox();
+    let releaseLateSave;
+    const lateSaveHeld = new Promise(resolve => { releaseLateSave = resolve; });
+    let lateSaveSeen;
+    const lateSaveArrived = new Promise(resolve => { lateSaveSeen = resolve; });
+    await page.route('**/SaveAnnotatedDocument?*', async route => {
+      lateSaveSeen();
+      await lateSaveHeld;
+      await route.continue();
+    });
+    await page.locator('#btnSave').click();
+    await Promise.race([lateSaveArrived,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Save did not post after the font wait')), 15000))]);
+    releaseLateFont();
+    await page.waitForFunction(() => document.fonts.check('11px CarlosAnnotation'));
+    await page.waitForTimeout(300);
+    const lateInFlight = await lateNote.boundingBox();
+    check('a font arriving during a save does not move a note under the in-flight request',
+      Math.abs(lateInFlight.x - lateBefore.x) < 1, JSON.stringify([lateBefore, lateInFlight]));
+    releaseLateSave();
+    await waitForSave();
+    await page.unroute('**/SaveAnnotatedDocument?*');
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
+    await page.waitForTimeout(300);
+    const lateAfter = await lateNote.boundingBox();
+    check('the refit deferred by a save runs once it ends',
+      lateAfter.x + lateAfter.width <= lateBox.x + lateBox.width + 1 && await page.locator('#btnSave').isEnabled(),
+      JSON.stringify([await page.locator('#status').textContent(), lateAfter, lateBox]));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('a note refitted after its save ended saves on retry',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
+
+    // A save that fails before fetch() starts has sent nothing, so Save must stay usable. Building
+    // the request body is the last step before the request leaves: fail it once, for the save
+    // payload only, and prove no request went out, the error is shown and a retry files.
+    await page.evaluate(() => {
+      const original = JSON.stringify;
+      JSON.stringify = function (value, ...rest) {
+        if (value && typeof value === 'object' && 'sourceDigest' in value) {
+          JSON.stringify = original;
+          throw new Error('synthetic save-body failure');
+        }
+        return original.call(this, value, ...rest);
+      };
+    });
+    let preSendPosts = 0;
+    const countPreSend = request => { if (request.url().includes('/SaveAnnotatedDocument')) { preSendPosts += 1; } };
+    page.on('request', countPreSend);
+    await mark();
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    page.off('request', countPreSend);
+    check('a save that fails before its request leaves keeps Save enabled',
+      preSendPosts === 0 && await page.locator('#status').getAttribute('class') === 'status error'
+        && await page.locator('#btnSave').isEnabled(),
+      JSON.stringify([preSendPosts, await page.locator('#status').textContent()]));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('the retry after a pre-send failure files the copy',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
+
+    // Once fetch() has started the server may already have filed the copy, even if the
+    // connection drops before any reply. Save must then be held so the operator checks first.
+    await page.route('**/SaveAnnotatedDocument?*', route => route.abort('connectionreset'));
+    await mark();
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    await page.unroute('**/SaveAnnotatedDocument?*');
+    check('a save whose connection drops after sending holds Save until the operator checks',
+      await page.locator('#status').getAttribute('class') === 'status error'
+        && !await page.locator('#btnSave').isEnabled() && !await page.locator('#btnSaveFax').isEnabled(),
+      await page.locator('#status').textContent());
+    await openViewer();
+
+    // The composer measures a note's full string, spaces included. A note ending in spaces,
+    // placed hard against the right edge, must be fitted by that width or the save is refused.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const spaceBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note with trailing spaces' + ' '.repeat(24)));
+    await page.mouse.click(spaceBox.x + spaceBox.width - 10, spaceBox.y + 260);
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('a note ending in spaces fits the page by its full width and saves',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    // A note that begins with spaces paints its first glyph after them, but the hit box must
+    // start at the text origin, so a press on the leading spaces grabs the note rather than
+    // placing a new one.
+    page.once('dialog', dialog => dialog.accept(' '.repeat(12) + 'Synthetic note with leading spaces'));
+    // Placed hard against the left edge, so the note's origin is 0: a valid origin the hit box
+    // must keep, not a missing one to fall back from.
+    await page.mouse.click(spaceBox.x, spaceBox.y + 300);
+    const leadingNote = page.locator('svg.overlay').first().locator('text.mark').last();
+    const leadingOrigin = await leadingNote.evaluate(text => ({ x: Number(text.getAttribute('x')), y: text.getBBox().y + text.getBBox().height / 2 }));
+    const leadingHitX = await page.locator('svg.overlay').first().locator('rect.mark-hit').last().getAttribute('x');
+    check('a note at the left edge keeps its hit box at the zero origin',
+      leadingOrigin.x < 1 && Number(leadingHitX) === leadingOrigin.x, JSON.stringify([leadingOrigin, leadingHitX]));
+    const leadingBefore = await leadingNote.boundingBox();
+    const marksBeforeLeading = await markCount();
+    let promptedOnLeading = false;
+    const leadingPrompt = dialog => { promptedOnLeading = true; dialog.dismiss(); };
+    page.on('dialog', leadingPrompt);
+    await page.mouse.move(spaceBox.x + leadingOrigin.x + 3, spaceBox.y + leadingOrigin.y);
+    await page.mouse.down();
+    await page.mouse.move(spaceBox.x + leadingOrigin.x + 63, spaceBox.y + leadingOrigin.y + 40, { steps: 6 });
+    await page.mouse.up();
+    page.off('dialog', leadingPrompt);
+    const leadingAfter = await leadingNote.boundingBox();
+    check('a press on a note\'s leading spaces grabs the note',
+      !promptedOnLeading && await markCount() === marksBeforeLeading
+      && Math.abs(leadingAfter.x - leadingBefore.x - 60) < 3 && Math.abs(leadingAfter.y - leadingBefore.y - 40) < 3,
+      JSON.stringify([promptedOnLeading, marksBeforeLeading, await markCount(), leadingBefore, leadingAfter]));
+    await openViewer();
+
+    // The annotation font arriving redraws a page with notes once (the refit), not once for a
+    // whole-viewer redraw and again for the refit. Counted by the note elements a redraw removes.
+    let releaseCountedFont;
+    const countedFontHeld = new Promise(resolve => { releaseCountedFont = resolve; });
+    await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
+      await countedFontHeld;
+      await route.continue();
+    });
+    await openViewer('domcontentloaded');
+    await page.evaluate(() => {
+      const sheet = [...document.styleSheets].find(s => (s.href || '').includes('documentAnnotate.css'));
+      sheet.insertRule('.page svg text { font-family: CarlosAnnotation, "Liberation Sans" !important; }', sheet.cssRules.length);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+    const countedBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note counted through the font arrival'));
+    await page.mouse.click(countedBox.x + countedBox.width - 10, countedBox.y + 200);
+    await page.evaluate(() => {
+      window.__removedNotes = 0;
+      new MutationObserver(records => {
+        for (const record of records) {
+          for (const node of record.removedNodes) {
+            if (node.matches && node.matches('text.mark')) { window.__removedNotes += 1; }
+          }
+        }
+      }).observe(document.querySelector('svg.overlay'), { childList: true });
+    });
+    releaseCountedFont();
+    await page.waitForFunction(() => document.fonts.check('11px CarlosAnnotation'));
+    await page.waitForTimeout(500);
+    const removedNotes = await page.evaluate(() => window.__removedNotes);
+    check('the annotation font arriving redraws a page with notes once', removedNotes === 1, String(removedNotes));
+    await page.unroute('**/dejavufonts/ttf/DejaVuSans.ttf');
     await openViewer();
     let wordAttempts = 0;
     await page.route('**/DocumentTextBoxes?*', route => {
@@ -485,6 +1146,119 @@ async function main() {
     await mark();
     check('text-layer HTTP failure retries on the next drag', wordAttempts >= 2);
     await page.unroute('**/DocumentTextBoxes?*');
+
+    // A stroke being drawn holds Save too: it is committed on release, and a save taken mid-stroke
+    // would refuse it then and lose it.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await page.locator('.tool[data-tool="draw"]').click();
+    const strokeBox = await page.locator('svg.overlay').first().boundingBox();
+    const marksBeforeStroke = await markCount();
+    let saveDuringStroke = false;
+    const watchStrokeSave = request => { if (request.url().includes('/SaveAnnotatedDocument')) { saveDuringStroke = true; } };
+    page.on('request', watchStrokeSave);
+    await page.mouse.move(strokeBox.x + 60, strokeBox.y + 420);
+    await page.mouse.down();
+    await page.mouse.move(strokeBox.x + 260, strokeBox.y + 440, { steps: 8 });
+    const saveHeldDuringStroke = await page.locator('#btnSave').isDisabled();
+    await page.locator('#btnSave').evaluate(button => button.click());
+    await page.mouse.up();
+    page.off('request', watchStrokeSave);
+    check('Save is held while a stroke is drawn and the stroke still lands',
+      saveHeldDuringStroke && !saveDuringStroke && await markCount() === marksBeforeStroke + 1
+      && await page.locator('#btnSave').isEnabled(),
+      JSON.stringify([saveHeldDuringStroke, saveDuringStroke, marksBeforeStroke, await markCount()]));
+
+    // A redraw mid-stroke (a resize here; the annotation font arriving does the same) must not
+    // blank the stroke preview: the provider keeps seeing the line they are drawing.
+    const strokeViewport = page.viewportSize();
+    const previewCount = () => page.locator('svg.overlay').first().locator('.preview').count();
+    const marksBeforeRedraw = await markCount();
+    await page.mouse.move(strokeBox.x + 60, strokeBox.y + 470);
+    await page.mouse.down();
+    await page.mouse.move(strokeBox.x + 220, strokeBox.y + 490, { steps: 6 });
+    const previewBeforeResize = await previewCount();
+    await page.setViewportSize({ width: strokeViewport.width, height: strokeViewport.height + 40 });
+    await page.waitForTimeout(150);
+    const previewAfterResize = await previewCount();
+    await page.mouse.up();
+    await page.setViewportSize(strokeViewport);
+    check('a redraw during a stroke keeps the stroke preview visible',
+      previewBeforeResize === 1 && previewAfterResize === 1 && await markCount() === marksBeforeRedraw + 1,
+      JSON.stringify([previewBeforeResize, previewAfterResize, marksBeforeRedraw, await markCount()]));
+
+    // A whitespace-only note is no note: the parser refuses blank text, and an invisible mark
+    // would fail the whole save.
+    await page.locator('.tool[data-tool="text"]').click();
+    const marksBeforeBlank = await markCount();
+    page.once('dialog', dialog => dialog.accept('   '));
+    await page.mouse.click(strokeBox.x + 300, strokeBox.y + 200);
+    check('a whitespace-only note is not placed', await markCount() === marksBeforeBlank,
+      JSON.stringify([marksBeforeBlank, await markCount()]));
+
+    // A stroke finishes as the mark it started as. A second pointer (here a programmatic click)
+    // switching the tool and swatch mid-stroke must not change what the first pointer commits.
+    await page.locator('.swatch[data-color="black"]').click();
+    await page.locator('.tool[data-tool="draw"]').click();
+    const inkStroke = () => page.locator('svg.overlay').first().locator('g.mark[data-kind="stroke"] polyline:not(.ink-hit)');
+    const highlightRects = () => page.locator('svg.overlay').first().locator('rect.mark').count();
+    const inksBeforeSwitch = await inkStroke().count();
+    const highlightsBeforeSwitch = await highlightRects();
+    // The viewer's black (COLORS.black in documentAnnotate.js); the earlier inks on this page
+    // were drawn in whatever swatch was active, so none of them is a safe reference.
+    const blackStroke = '#1A1A1A';
+    await page.mouse.move(strokeBox.x + 60, strokeBox.y + 520);
+    await page.mouse.down();
+    await page.mouse.move(strokeBox.x + 160, strokeBox.y + 530, { steps: 4 });
+    await page.locator('.tool[data-tool="highlight"]').evaluate(button => button.click());
+    await page.locator('.swatch[data-color="yellow"]').evaluate(button => button.click());
+    await page.mouse.move(strokeBox.x + 260, strokeBox.y + 540, { steps: 4 });
+    await page.mouse.up();
+    const switchedStroke = await inkStroke().last().getAttribute('stroke');
+    check('a tool or colour change mid-stroke does not change what the stroke commits as',
+      await inkStroke().count() === inksBeforeSwitch + 1 && await highlightRects() === highlightsBeforeSwitch
+      && switchedStroke === blackStroke,
+      JSON.stringify([inksBeforeSwitch, await inkStroke().count(), highlightsBeforeSwitch, await highlightRects(), blackStroke, switchedStroke]));
+    await page.locator('.swatch[data-color="yellow"]').click();
+
+    // A click on a mark is dispatched by the tool the press started in, not the toolbar at
+    // release. A second pointer (a programmatic click) switching Select to Text mid-press must
+    // still delete the pressed signature, not stamp a text note; and switching Text to Signature
+    // mid-press on a note must still open the note, not stamp a signature over it.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const switchBox = await page.locator('svg.overlay').first().boundingBox();
+    await page.locator('.tool[data-tool="signature"]').click();
+    // Kept inside the viewport: a synthetic click below it lands nowhere.
+    await page.mouse.click(switchBox.x + switchBox.width * 0.55, switchBox.y + 300);
+    const switchSig = await page.locator('svg.overlay').first().locator('g.mark[data-kind="placed"]').last().boundingBox();
+    const marksBeforeSwitchClick = await markCount();
+    let promptedOnSwitch = false;
+    const noteSwitchPrompt = dialog => { promptedOnSwitch = true; dialog.dismiss(); };
+    page.on('dialog', noteSwitchPrompt);
+    await page.locator('.tool[data-tool="select"]').click();
+    await page.mouse.move(switchSig.x + 12, switchSig.y + 12);
+    await page.mouse.down();
+    await page.locator('.tool[data-tool="text"]').evaluate(button => button.click());
+    await page.mouse.up();
+    const marksAfterSwitchClick = await markCount();
+    check('a tool change mid-press still deletes the pressed signature in select',
+      marksAfterSwitchClick === marksBeforeSwitchClick - 1 && !promptedOnSwitch,
+      JSON.stringify([marksBeforeSwitchClick, marksAfterSwitchClick, promptedOnSwitch]));
+    page.off('dialog', noteSwitchPrompt);
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note pressed under a tool switch'));
+    await page.mouse.click(switchBox.x + switchBox.width * 0.55, switchBox.y + 340);
+    const switchNote = await page.locator('svg.overlay').first().locator('text.mark').last().boundingBox();
+    const marksBeforeNoteSwitch = await markCount();
+    promptedOnSwitch = false;
+    page.on('dialog', noteSwitchPrompt);
+    await page.mouse.move(switchNote.x + 4, switchNote.y + 4);
+    await page.mouse.down();
+    await page.locator('.tool[data-tool="signature"]').evaluate(button => button.click());
+    await page.mouse.up();
+    page.off('dialog', noteSwitchPrompt);
+    check('a tool change mid-press still opens the pressed note in the text tool',
+      promptedOnSwitch && await markCount() === marksBeforeNoteSwitch,
+      JSON.stringify([promptedOnSwitch, marksBeforeNoteSwitch, await markCount()]));
 
     // Hold an actual server save response; attempted edits must not re-enable duplicate submission.
     let releaseSave;
@@ -503,6 +1277,23 @@ async function main() {
     await mark('draw');
     check('edits cannot re-enable saving during an in-flight save',
       (await page.locator('#markCount').textContent()) === beforeMarks && await page.locator('#btnSave').isDisabled());
+    // Existing marks are frozen too: a move or a select-click delete made while the request is
+    // out would be missing from the copy being filed, yet marked saved when the response lands.
+    await page.locator('.tool[data-tool="select"]').click();
+    const inFlightBox = await page.locator('svg.overlay').first().locator('rect.mark').first().boundingBox();
+    await page.mouse.move(inFlightBox.x + 6, inFlightBox.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(inFlightBox.x + 6, inFlightBox.y + 106, { steps: 8 });
+    await page.mouse.up();
+    await page.mouse.click(inFlightBox.x + 6, inFlightBox.y + 6);
+    const inFlightAfter = await page.locator('svg.overlay').first().locator('rect.mark').first().boundingBox();
+    check('existing marks cannot be moved or deleted during an in-flight save',
+      (await page.locator('#markCount').textContent()) === beforeMarks
+      && Math.abs(inFlightAfter.y - inFlightBox.y) < 1 && await page.locator('#btnSave').isDisabled(),
+      JSON.stringify([await page.locator('#markCount').textContent(), beforeMarks, inFlightBox, inFlightAfter]));
+    const inFlightCursor = await page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x, y)).cursor,
+      [inFlightAfter.x + 6, inFlightAfter.y + 6]);
+    check('marks frozen by an in-flight save do not show the move cursor', inFlightCursor !== 'move', inFlightCursor);
     releaseSave();
     await waitForSave();
     await page.unroute('**/SaveAnnotatedDocument?*');
