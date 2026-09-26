@@ -6,7 +6,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { noteText, assertSoftWrap, assertStoredAsTyped } = require('./echart-note-soft-wrap-playwright-checks');
+const { noteText, assertSoftWrap, assertStoredAsTyped, submittedBreaks } = require('./echart-note-soft-wrap-playwright-checks');
 
 const TYPED = 'one long paragraph\nsecond paragraph';
 
@@ -24,8 +24,10 @@ function probe(overrides = {}) {
 }
 
 function stored(overrides = {}) {
-  return { matches: true, carriageReturns: 0, lineFeeds: 1, ...overrides };
+  return { prefixMatches: true, rest: '', signed: false, carriageReturns: 0, lineFeeds: 1, ...overrides };
 }
+
+const STAMP = '\n[Signed on 26-Sep-2026 1:38 by FAKE-Provider]\n';
 
 test('noteText types one long paragraph and exactly one line break', () => {
   const text = noteText('TAG', 'label');
@@ -67,5 +69,23 @@ test('assertStoredAsTyped accepts only the typed text with its typed line breaks
   assert.doesNotThrow(() => assertStoredAsTyped(stored(), TYPED, 'note'));
   assert.throws(() => assertStoredAsTyped(stored({ carriageReturns: 3 }), TYPED, 'note'), /carriage return/);
   assert.throws(() => assertStoredAsTyped(stored({ lineFeeds: 4 }), TYPED, 'note'), /4 line break\(s\); 1 were typed/);
-  assert.throws(() => assertStoredAsTyped(stored({ matches: false }), TYPED, 'note'), /not stored exactly as typed/);
+  assert.throws(() => assertStoredAsTyped(stored({ prefixMatches: false }), TYPED, 'note'), /not stored exactly as typed/);
+  assert.throws(() => assertStoredAsTyped(stored({ rest: ' trailing' }), TYPED, 'note'), /not the signature stamp/);
+});
+
+test('assertStoredAsTyped allows the server signature stamp after a signed note, and nothing else', () => {
+  assert.doesNotThrow(() => assertStoredAsTyped(stored({ signed: true, rest: STAMP, lineFeeds: 3 }), TYPED, 'note'));
+  // The stamp is only legitimate on a signed note.
+  assert.throws(() => assertStoredAsTyped(stored({ rest: STAMP, lineFeeds: 3 }), TYPED, 'note'), /not the signature stamp/);
+  // A wrap break inside the typed text still counts against the note, stamp or not.
+  assert.throws(() => assertStoredAsTyped(stored({ signed: true, rest: STAMP, lineFeeds: 5 }), TYPED, 'note'),
+    /3 line break\(s\); 1 were typed/);
+  assert.throws(() => assertStoredAsTyped(stored({ signed: true, rest: `${STAMP}extra`, lineFeeds: 3 }), TYPED, 'note'),
+    /not the signature stamp/);
+});
+
+test('submittedBreaks counts a CRLF from the form encoding once', () => {
+  assert.equal(submittedBreaks('a\r\nb'), 1);
+  assert.equal(submittedBreaks('a\nb\rc'), 2);
+  assert.equal(submittedBreaks('no breaks'), 0);
 });
