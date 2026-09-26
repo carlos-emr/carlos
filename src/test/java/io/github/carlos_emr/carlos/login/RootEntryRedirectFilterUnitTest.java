@@ -258,6 +258,24 @@ class RootEntryRedirectFilterUnitTest {
         verify(dispatcher).forward(request, response);
     }
 
+    @Test
+    @DisplayName("should keep the signed-out-elsewhere notice for the page when a background request reaches the login entry first")
+    void shouldKeepSignedOutElsewhereNotice_whenBackgroundRequestArrivesFirst() throws Exception {
+        String revokedSessionId = "revoked-" + UUID.randomUUID();
+        RevokedUserSessions.mark(revokedSessionId);
+        stubLoginEntry();
+        when(request.getRequestedSessionId()).thenReturn(revokedSessionId);
+        when(request.isRequestedSessionIdValid()).thenReturn(false);
+        when(request.getHeader("Sec-Fetch-Mode")).thenReturn("no-cors", "cors", "navigate");
+
+        filter.doFilter(request, response, chain);
+        filter.doFilter(request, response, chain);
+        verify(request, never()).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+
+        filter.doFilter(request, response, chain);
+        verify(request, times(1)).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+    }
+
     private void stubLoginEntry() {
         when(request.getContextPath()).thenReturn("/carlos");
         when(request.getRequestURI()).thenReturn("/carlos/index");

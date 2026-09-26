@@ -44,6 +44,8 @@ import java.util.HexFormat;
  * three hours, which is longer than the authenticated session lifetime set at login (two hours),
  * so a browser that returns after its session would have expired anyway is not misinformed for
  * long. The store is per JVM, like the session registry itself.</p>
+ *
+ * @since 2026-09-26
  */
 public final class RevokedUserSessions {
 

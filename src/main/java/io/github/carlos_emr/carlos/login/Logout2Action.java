@@ -214,12 +214,15 @@ public class Logout2Action extends ActionSupport {
 
         // Invalidate session and log logout event if session exists
         if (session != null) {
-            String user = (String) session.getAttribute("user");
-            PendingMfaChallenges.clearFromSession(session);
-            PendingSessionChoices.clearFromSession(session);
-            // Invalidate session to prevent session fixation attacks. A chooser login that
-            // completed while this logout waited has already rotated the session away.
+            String user = null;
+            // A chooser login that completed while this logout waited has already rotated this
+            // session away, so any of these calls can find it invalidated. That is not an error:
+            // carry on to the cookie deletion below either way.
             try {
+                user = (String) session.getAttribute("user");
+                PendingMfaChallenges.clearFromSession(session);
+                PendingSessionChoices.clearFromSession(session);
+                // Invalidate session to prevent session fixation attacks.
                 session.invalidate();
             } catch (IllegalStateException alreadyInvalidated) {
                 logger.debug("Session was already invalidated before logout completed");

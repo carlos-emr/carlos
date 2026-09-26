@@ -162,7 +162,7 @@ class UserSessionManagerImplUnitTest {
 
     @Test
     @DisplayName("should sign out other sessions and keep the current one")
-    void shouldInvalidateOtherSessions_andKeepCurrentSession() {
+    void shouldInvalidateOtherSessions_whileKeepingCurrentSession() {
         UserSessionManagerImpl manager = new UserSessionManagerImpl();
         Integer securityCode = 3982;
         MockHttpSession keep = new MockHttpSession();

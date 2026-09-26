@@ -54,6 +54,8 @@ public class RootEntryRedirectFilter extends HttpFilter {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String FORCE_PASSWORD_RESET_PATH = "/forcepasswordreset";
     private static final String LOGIN_JSP = "/WEB-INF/jsp/login/index.jsp";
+    private static final String FETCH_MODE_HEADER = "Sec-Fetch-Mode";
+    private static final String FETCH_MODE_NAVIGATE = "navigate";
 
     @Override
     protected void doFilter(
@@ -95,9 +97,21 @@ public class RootEntryRedirectFilter extends HttpFilter {
     static void markSignedOutElsewhere(HttpServletRequest request) {
         String requestedSessionId = request.getRequestedSessionId(); // NOSONAR java:S2254 - only hashed for a revocation-marker lookup; never logged, echoed or trusted as identity
         if (requestedSessionId != null && !request.isRequestedSessionIdValid()
+                && isDocumentNavigation(request)
                 && RevokedUserSessions.consume(requestedSessionId)) {
             request.setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
         }
+    }
+
+    /**
+     * Whether this request is a page navigation that will show the login page to the user. A
+     * background fetch, image or script request that followed a redirect here must not consume
+     * the one-time notice before the user sees it. Browsers that do not send
+     * {@code Sec-Fetch-Mode} are treated as navigating, which keeps the notice working there.
+     */
+    private static boolean isDocumentNavigation(HttpServletRequest request) {
+        String fetchMode = request.getHeader(FETCH_MODE_HEADER);
+        return fetchMode == null || FETCH_MODE_NAVIGATE.equals(fetchMode);
     }
 
     static boolean isLoginEntryRequest(String requestUri, String contextPath) {

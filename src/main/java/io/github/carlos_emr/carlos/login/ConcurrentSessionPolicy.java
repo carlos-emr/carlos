@@ -53,7 +53,9 @@ import java.util.Properties;
  */
 public record ConcurrentSessionPolicy(Mode mode, int maxSessions) {
 
+    /** Property naming the policy mode: {@code allow}, {@code prompt} or {@code single}. */
     public static final String POLICY_PROPERTY = "login.concurrent_sessions.policy";
+    /** Property holding the per-user session limit; {@code 0} means no limit. */
     public static final String MAX_PROPERTY = "login.concurrent_sessions.max";
 
     /** The default: any number of sessions, no prompt. */
@@ -83,6 +85,12 @@ public record ConcurrentSessionPolicy(Mode mode, int maxSessions) {
         SIGN_OUT_OTHERS
     }
 
+    /**
+     * Validates a policy built in code; {@link #fromProperties} never passes invalid values.
+     *
+     * @throws IllegalArgumentException if {@code mode} is {@code null} or {@code maxSessions} is
+     *         negative
+     */
     public ConcurrentSessionPolicy {
         if (mode == null) {
             throw new IllegalArgumentException("mode must not be null");

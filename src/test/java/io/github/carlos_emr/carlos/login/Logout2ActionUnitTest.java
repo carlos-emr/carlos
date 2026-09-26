@@ -18,8 +18,15 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpSession;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit coverage for logout cleanup that is security-sensitive but independent of Struts views.
@@ -66,6 +73,24 @@ class Logout2ActionUnitTest extends CarlosUnitTestBase {
         } finally {
             PendingMfaChallengeCache.getInstance().invalidate(token);
         }
+    }
+
+    @Test
+    @DisplayName("should still delete cookies when a chooser login already invalidated the session")
+    void shouldDeleteCookies_whenSessionAlreadyInvalidated() {
+        HttpSession invalidated = mock(HttpSession.class);
+        when(invalidated.getAttribute(anyString())).thenThrow(new IllegalStateException("invalidated"));
+        doThrow(new IllegalStateException("invalidated")).when(invalidated).invalidate();
+        request.setSession(invalidated);
+        request.setCookies(new Cookie("JSESSIONID", "stale"));
+
+        String result = new Logout2Action().logout();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        Cookie deletion = response.getCookie("JSESSIONID");
+        assertThat(deletion).isNotNull();
+        assertThat(deletion.getMaxAge()).isZero();
+        assertThat(deletion.getValue()).isEmpty();
     }
 
     private static PendingMfaChallengeCache.PendingMfaChallenge challenge() {

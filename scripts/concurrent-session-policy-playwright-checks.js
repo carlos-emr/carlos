@@ -91,6 +91,7 @@ async function waitForPageAssets(page) {
 }
 
 const SCHEDULE_URL = /provider\/(providercontrol|ViewAppointmentAdminDay)/;
+const AFTER_FACILITY_OR_SCHEDULE = /provider\/(providercontrol|ViewAppointmentAdminDay)|select_facility/i;
 const AFTER_LOGIN_SUBMIT = /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility|\/login[?#]|\/login$/i;
 
 function readPolicy(env = process.env) {
@@ -127,10 +128,26 @@ async function signIn(context, config, label) {
   }
   const atChooser = await page.locator('#sessionChoiceForm').count() > 0;
   if (!atChooser) {
-    await page.waitForURL(SCHEDULE_URL, { timeout: 30000 });
+    await passFacilitySelection(page);
   }
   await waitForPageAssets(page);
   return { page, atChooser };
+}
+
+/**
+ * Finishes a login that landed on (or is heading to) the schedule. A provider linked to several
+ * facilities is sent to /select_facility first; pick the first facility the way the shared
+ * harness login() does, then require the schedule.
+ */
+async function passFacilitySelection(page) {
+  await page.waitForURL(AFTER_FACILITY_OR_SCHEDULE, { timeout: 30000 });
+  if (/select_facility/i.test(page.url())) {
+    await Promise.all([
+      page.waitForURL(SCHEDULE_URL, { timeout: 30000 }),
+      page.locator('input[type="submit"], button[type="submit"], a').first().click(),
+    ]);
+  }
+  await page.waitForURL(SCHEDULE_URL, { timeout: 30000 });
 }
 
 async function assertAuthenticated(page, config, label) {
@@ -198,9 +215,10 @@ async function chooserFacts(page) {
 
 async function clickAndReachSchedule(page, selector) {
   await Promise.all([
-    page.waitForURL(SCHEDULE_URL, { timeout: 30000 }),
+    page.waitForURL(AFTER_FACILITY_OR_SCHEDULE, { timeout: 30000 }),
     page.locator(selector).click(),
   ]);
+  await passFacilitySelection(page);
   await waitForPageAssets(page);
 }
 
