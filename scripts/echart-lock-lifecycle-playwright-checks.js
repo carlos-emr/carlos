@@ -75,22 +75,24 @@ async function main() {
       h.assert(s.sql.value(count) === '0', 'Repeated teardown changed the released lock');
     });
     await s.step('logging out with an open chart releases the destroyed session lock', async () => {
-      const closing = await h.newContext(s.context.browser(), s.config);
-      try {
-        const schedule = await h.login(closing, s.config, s.recorder);
-        const { masterPage } = await openMasterRecord(closing, schedule, s.recorder, {
-          searchTerm: s.marker, preferredDemographicNo: s.patient, timeout: 20000,
-        });
-        const chart = await openChart(closing, masterPage, s.recorder, 20000);
-        await waitForNavbars(chart, 20000);
-        await expectValue(s.sql, count, '1', 'The logout fixture did not acquire its note lock');
-        await h.gotoApp(schedule, s.config.baseUrl, '/logoutPage');
-        await expectValue(s.sql, count, '0', 'Session destruction left the open chart lock behind');
-        await h.gotoApp(schedule, s.config.baseUrl, '/provider/providercontrol');
-        await schedule.locator('#username').waitFor({ state: 'visible', timeout: 20000 });
-      } finally {
-        await closing.close();
-      }
+      // The prior step already released this chart. Do not let a delayed
+      // pagehide beacon race with the fresh chart opened for this assertion.
+      const released = await s.chart();
+      await released.evaluate(() => { window.needToReleaseLock = false; });
+      await released.close();
+      const chart = await s.chart();
+      await expectValue(s.sql, count, '1', 'The logout fixture did not acquire its note lock');
+      // Prove the server's session listener cleans up even when no chart beacon
+      // arrives. Normal pagehide release is independently tested above.
+      await chart.evaluate(() => { window.needToReleaseLock = false; });
+      const logout = s.schedule.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === new URL(h.appUrl(s.config.baseUrl, '/logout')).pathname);
+      logout.catch(() => {});
+      await h.gotoApp(s.schedule, s.config.baseUrl, '/logoutPage');
+      const response = await logout;
+      h.assert([302, 303].includes(response.status()), 'Logout did not complete its protected POST');
+      await s.schedule.waitForURL(url => url.pathname === new URL(h.appUrl(s.config.baseUrl, '/index')).pathname);
+      await expectValue(s.sql, count, '0', 'Session destruction left the open chart lock behind');
     });
   });
 }

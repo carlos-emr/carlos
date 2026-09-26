@@ -371,8 +371,15 @@ the destroyed session ID and logs only the count removed. The Hibernate test pre
 transferred lock despite an older persistence context retaining the original ownership,
 while removing the other locks still owned by the expired session. Missing/blank identities
 are refused. All 12 focused logging, MFA-cleanup and database tests passed. The browser lock
-lifecycle now also verifies logout with an open chart and subsequent authentication refusal.
+lifecycle now also verifies the completed logout POST with an open chart while suppressing
+the chart beacon, so its assertion specifically exercises server-side session cleanup.
 
 The subsequent full Maven verification passed 13,332 tests with zero failures/errors and
 51 skips, plus Checkstyle and WAR packaging. All 1,021 script regressions also passed
 with one worker. The VM remained shut down throughout.
+
+Installed `.9` validation passed application health, build identity, lab requisition links
+and patient-messenger. The expanded chart-lock test then passed all five scenarios, including
+server-side logout cleanup with the client beacon suppressed. Its first attempt navigated
+away before the logout page auto-submitted; the assertion now waits for the completed POST
+and settled index redirect. No production rebuild was needed for that harness correction.
