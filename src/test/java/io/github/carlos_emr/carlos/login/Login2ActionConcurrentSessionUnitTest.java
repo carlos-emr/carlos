@@ -270,6 +270,20 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should not sign out older sessions under single when the new login fails setup")
+        void shouldNotSignOutOthers_whenSingleLoginFailsSetup() throws Exception {
+            setPolicy("single", null);
+            when(userSessionManager.countOtherActiveSessions(eq(SECURITY_NO), any())).thenReturn(1);
+            when(providerManager.getProvider(PROVIDER_NO)).thenReturn(null);
+
+            signIn();
+
+            verify(userSessionManager, never()).invalidateOtherSessions(any(), any());
+            logActionMock.verify(() -> LogAction.addLog(eq(PROVIDER_NO), eq(LogConst.LOGIN),
+                    eq("concurrent_sessions_revoked_auto"), anyString(), anyString()), never());
+        }
+
+        @Test
         @DisplayName("should keep sessions for an AJAX client that cannot be asked")
         void shouldKeepSessions_forAjaxClientUnderPromptPolicy() throws Exception {
             setPolicy("prompt", null);
@@ -440,6 +454,21 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
             verify(serviceRequestTokenDao, never()).findByTokenId(anyString());
             logActionMock.verify(() -> LogAction.addLog(PROVIDER_NO, LogConst.LOGIN, LogConst.CON_LOGIN,
                     "invalid_oauth_token", "10.1.2.3"));
+        }
+
+        @Test
+        @DisplayName("should not sign out other sessions when the chosen login fails setup")
+        void shouldNotSignOutOthers_whenChosenLoginFailsSetup() throws Exception {
+            stagePendingChoice();
+            // The pre-check (ProviderDao) still sees an active provider; the login's own provider
+            // load then fails, which invalidates the new session and returns an error.
+            when(providerManager.getProvider(PROVIDER_NO)).thenReturn(null);
+
+            newAction(Login2Action.SESSION_CHOICE_SIGN_OUT).submitSessionChoice();
+
+            verify(userSessionManager, never()).invalidateOtherSessions(any(), any());
+            logActionMock.verify(() -> LogAction.addLog(eq(PROVIDER_NO), eq(LogConst.LOGIN),
+                    eq("concurrent_sessions_revoked"), anyString(), anyString()), never());
         }
 
         @Test

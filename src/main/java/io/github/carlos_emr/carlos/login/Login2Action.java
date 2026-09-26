@@ -1112,6 +1112,19 @@ public final class Login2Action extends ActionSupport {
                     ajaxResponse, oauthToken, OtherSessions.LEAVE);
         }
 
+        // Count, decide, register and settle under one per-user lock, so two logins for the same
+        // account cannot both count the same sessions (see ConcurrentSessionAdmission).
+        return ConcurrentSessionAdmission.serialize(security.getSecurityNo(), () -> admitUnderPolicy(
+                security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse, oauthToken, policy));
+    }
+
+    /**
+     * Counts the user's other sessions and acts on the policy's decision. Runs under the per-user
+     * admission lock taken by {@link #applyConcurrentSessionPolicy}.
+     */
+    private String admitUnderPolicy(Security security, String[] strAuth, String ip, boolean isMobileOptimized,
+                                    String submitType, boolean ajaxResponse, String oauthToken,
+                                    ConcurrentSessionPolicy policy) throws IOException {
         // The browser's current session (if it is an older signed-in session) is replaced by the
         // login anyway, so it is not one of the "other" sessions the user must decide about.
         int otherSessions = this.userSessionManager.countOtherActiveSessions(
@@ -1262,6 +1275,21 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
 
+        // The re-check, token consumption and completion run under the same per-user lock as a
+        // direct login, so a login racing this submit is counted before either registers.
+        return ConcurrentSessionAdmission.serialize(pending.securityNo(),
+                () -> completeSessionChoice(session, token, pending, security, signOutOthers, ip));
+    }
+
+    /**
+     * Re-checks the limit, consumes the pending login and completes it. Runs under the per-user
+     * admission lock taken by {@link #submitSessionChoice()}.
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path, not an attacker-controlled external URL")
+    private String completeSessionChoice(HttpSession session, String token,
+                                         PendingSessionChoiceCache.PendingSessionChoice pending,
+                                         Security security, boolean signOutOthers, String ip) throws IOException {
         ConcurrentSessionPolicy policy = ConcurrentSessionPolicy.fromProperties(CarlosProperties.getInstance());
         if (!signOutOthers && policy.isLimitReached(
                 this.userSessionManager.countOtherActiveSessions(pending.securityNo(), session))) {
@@ -1339,13 +1367,43 @@ public final class Login2Action extends ActionSupport {
      * @return Struts result name, {@link #NONE} after redirect, {@code error}, or null for AJAX
      * @throws IOException if redirecting or writing the response fails
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
                                               boolean isMobileOptimized, String submitType,
                                               boolean ajaxResponse, String oauthToken,
                                               OtherSessions otherSessions) throws IOException {
+        String result = establishAuthenticatedSession(security, strAuth, ip, isMobileOptimized, submitType,
+                ajaxResponse, oauthToken);
+        // Settle other sessions only once the new one has survived every failure-prone setup step
+        // (provider load, facility, logged-in info, OAuth binding). If setup failed, the new
+        // session was invalidated or an exception is propagating, and the user's existing sessions
+        // -- which may hold unsaved clinical work -- must not be signed out for nothing.
+        HttpSession established = request.getSession(false);
+        if (security != null && isSignedIn(established)) {
+            settleOtherSessions(security, established, strAuth[0], ip, otherSessions);
+        }
+        return result;
+    }
+
+    private static boolean isSignedIn(HttpSession session) {
+        if (session == null) {
+            return false;
+        }
+        try {
+            return session.getAttribute("user") != null;
+        } catch (IllegalStateException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Creates and populates the authenticated session; see {@link #completeAuthenticatedLogin}.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    private String establishAuthenticatedSession(Security security, String[] strAuth, String ip,
+                                                 boolean isMobileOptimized, String submitType,
+                                                 boolean ajaxResponse, String oauthToken) throws IOException {
         HttpSession session = request.getSession(false);
         Map<String, String> oauthAuthorizationNonces =
                 OAuthAuthorizationSessionState.snapshotNonces(session);
@@ -1358,9 +1416,6 @@ public final class Login2Action extends ActionSupport {
 
         if (security != null) {
             this.userSessionManager.registerUserSession(security.getSecurityNo(), session, ip);
-            // Only after the new session is registered, so a failure above never leaves the user
-            // with no session at all.
-            settleOtherSessions(security, session, strAuth[0], ip, otherSessions);
         }
 
         logger.debug("Assigned new session for: {} : {} : {}", LogSafe.sanitize(strAuth[0]), LogSafe.sanitize(strAuth[3]), LogSafe.sanitize(strAuth[4])); // NOSONAR javasecurity:S5145 - sanitized with LogSafe

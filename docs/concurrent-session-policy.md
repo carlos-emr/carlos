@@ -70,8 +70,14 @@ error rather than signing out sessions the user was never asked about.
 - **Only the signing-in user's own sessions.** The pending login is found only through this
   browser's token. The submit re-reads the security row and the provider, and refuses to finish a
   login for an account that was deactivated while the chooser was open.
-- **The new session is registered before the others are signed out.** A failure part-way through
-  cannot leave the user with no session at all.
+- **Other sessions are signed out only after the new login fully succeeds.** The new session is
+  registered first. The older sessions are settled only once it has passed every failure-prone
+  setup step: provider load, facility, logged-in info and OAuth binding. A login that fails
+  part-way leaves the user's existing sessions, and any unsaved work in them, untouched.
+- **One admission at a time per user.** Counting, deciding, registering and settling run under a
+  per-user lock (`ConcurrentSessionAdmission`; 64 lock stripes, per JVM). Two simultaneous logins
+  for the same account therefore cannot both count the same sessions. Without the lock, both could
+  pass a limit, or both could stay signed in under `single`.
 - **Re-checked on submit.** If other sessions signed in while the chooser was open and the limit is
   now reached, "keep" is refused. The chooser is shown again with only "sign out", and the token
   stays valid.
@@ -119,6 +125,7 @@ a session by its shortened reference only.
 | Piece | File |
 |---|---|
 | Policy value and decision table | `login/ConcurrentSessionPolicy.java` |
+| Per-user admission lock | `login/ConcurrentSessionAdmission.java` |
 | Login integration and chooser submit | `login/Login2Action.java` (`applyConcurrentSessionPolicy`, `beginSessionChoice`, `submitSessionChoice`, `settleOtherSessions`) |
 | Pending login store and session contract | `login/PendingSessionChoiceCache.java`, `login/PendingSessionChoices.java` |
 | Chooser view model and page | `login/ConcurrentSessionChoiceViewModel.java`, `WEB-INF/jsp/login/sessionChoice.jsp` |
@@ -128,7 +135,7 @@ a session by its shortened reference only.
 
 ## Tests
 
-- Unit: `ConcurrentSessionPolicyUnitTest`, `PendingSessionChoiceCacheUnitTest`,
+- Unit: `ConcurrentSessionPolicyUnitTest`, `ConcurrentSessionAdmissionUnitTest`, `PendingSessionChoiceCacheUnitTest`,
   `Login2ActionConcurrentSessionUnitTest`, `UserSessionManagerImplUnitTest`,
   `RevokedUserSessionsUnitTest`, `RootEntryRedirectFilterUnitTest` and
   `UnauthenticatedRejectionResolverUnitTest`. `MutatorActionGetRejectionContractUnitTest` registers
