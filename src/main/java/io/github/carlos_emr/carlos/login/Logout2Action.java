@@ -61,7 +61,7 @@ import org.apache.struts2.ServletActionContext;
  * <ol>
  *   <li>Invalidate HTTP session to clear all session attributes</li>
  *   <li>Log logout event with user ID and IP address for audit trail</li>
- *   <li>Clear all browser cookies by setting maxAge to 0</li>
+ *   <li>Expire request cookies at the root and application paths</li>
  *   <li>Return SUCCESS to redirect user to login page</li>
  * </ol>
  *
@@ -178,7 +178,7 @@ public class Logout2Action extends ActionSupport {
      *   <li>Extract user ID from session for audit logging</li>
      *   <li>Invalidate session to clear all attributes and prevent reuse</li>
      *   <li>Log logout event with user ID and client IP address</li>
-     *   <li>Clear all browser cookies by setting maxAge to 0</li>
+     *   <li>Expire request cookies at the root and application paths</li>
      * </ol>
      *
      * <p>Cookie cleanup creates fresh deletion cookies (empty value, maxAge=0) for each
@@ -186,7 +186,7 @@ public class Logout2Action extends ActionSupport {
      * values into Set-Cookie response headers:
      * <ul>
      *   <li>Creates a new Cookie per name with an empty value</li>
-     *   <li>Copies only identity attributes (path, domain) from the original cookie</li>
+     *   <li>Uses the root and application paths because request cookies do not carry their original paths</li>
      *   <li>Sets maxAge to 0 for immediate browser deletion</li>
      *   <li>Sets Secure (conditional on HTTPS), HttpOnly, and SameSite=Strict</li>
      *   <li>Adds the fresh deletion cookie to the response</li>
@@ -204,9 +204,6 @@ public class Logout2Action extends ActionSupport {
      * @see Cookie#setMaxAge(int) for cookie expiration
      * @see LogAction#addLog for audit logging
      */
-    // FindSecBugs INSECURE_COOKIE/COOKIE_USAGE: logout writes empty maxAge(0) deletion cookies only.
-    // Do not add persistent or sensitive cookie writes under this suppression.
-    @SuppressFBWarnings(value = {"INSECURE_COOKIE", "COOKIE_USAGE"}, justification = "logout only creates empty maxAge(0) deletion cookies with HttpOnly and SameSite=Strict, and Secure when the request is over HTTPS; it does not store sensitive cookie data")
     public String logout() {
 
         // Retrieve existing session without creating new one
@@ -233,24 +230,35 @@ public class Logout2Action extends ActionSupport {
             }
         }
 
-        // Clear all browser cookies to ensure complete logout
+        // Request cookies omit Path; expire both historical root cookies and context cookies
+        // such as the packaged Tomcat JSESSIONID at /carlos.
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
+            String contextPath = request.getContextPath();
             for (Cookie cookie : cookies) {
-                // Create a fresh deletion cookie to avoid reflecting attacker-controlled values
-                Cookie deletion = new Cookie(cookie.getName(), "");
-                deletion.setMaxAge(0);
-                deletion.setPath("/");
-                // Preserve domain if it was set on the original cookie
-                if (cookie.getDomain() != null) {
-                    deletion.setDomain(cookie.getDomain());
+                deleteCookie(cookie, "/");
+                if (contextPath != null && !contextPath.isEmpty() && !"/".equals(contextPath)) {
+                    deleteCookie(cookie, contextPath);
                 }
-                deletion.setSecure(request.isSecure());
-                deletion.setHttpOnly(true);
-                deletion.setAttribute("SameSite", "Strict");
-                response.addCookie(deletion);
             }
         }
         return SUCCESS;
     }
+    /** Writes an empty expiry cookie without reflecting the request cookie's value. */
+    // FindSecBugs INSECURE_COOKIE/COOKIE_USAGE: logout writes empty maxAge(0) deletion cookies only.
+    // Do not add persistent or sensitive cookie writes under this suppression.
+    @SuppressFBWarnings(value = {"INSECURE_COOKIE", "COOKIE_USAGE"}, justification = "logout only creates empty maxAge(0) deletion cookies with HttpOnly and SameSite=Strict, and Secure when the request is over HTTPS; it does not store sensitive cookie data")
+    private void deleteCookie(Cookie cookie, String path) {
+        Cookie deletion = new Cookie(cookie.getName(), "");
+        deletion.setMaxAge(0);
+        deletion.setPath(path);
+        if (cookie.getDomain() != null) {
+            deletion.setDomain(cookie.getDomain());
+        }
+        deletion.setSecure(request.isSecure());
+        deletion.setHttpOnly(true);
+        deletion.setAttribute("SameSite", "Strict");
+        response.addCookie(deletion);
+    }
+
 }

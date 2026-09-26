@@ -121,6 +121,8 @@ async function assertLoggedOutPage(page, label) {
   try {
     const primary = await context.newPage();
     await login(primary);
+    const authenticatedCookies = (await context.cookies(baseUrl.href)).filter((cookie) => cookie.name === 'JSESSIONID');
+    assert(authenticatedCookies.length > 0, 'Authenticated browser had no session cookie');
 
     await safeGoto(primary, '/logoutPage', { waitUntil: 'domcontentloaded' });
     // logout.jsp auto-POSTs to /logout ~500ms after load, and Logout2Action
@@ -133,6 +135,10 @@ async function assertLoggedOutPage(page, label) {
       return p === baseUrl.pathname + '/index' || p === baseUrl.pathname + '/logout';
     }, { timeout: 15000 });
     await assertLoggedOutPage(primary, 'logout action destination');
+    const remainingCookies = await context.cookies(baseUrl.href);
+    assert(!remainingCookies.some((cookie) => authenticatedCookies.some((authenticated) =>
+      cookie.name === authenticated.name && cookie.path === authenticated.path && cookie.value === authenticated.value)),
+    'Logout left the authenticated session cookie in the browser');
 
     const postLogoutPage = await context.newPage();
     await safeGoto(postLogoutPage, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });

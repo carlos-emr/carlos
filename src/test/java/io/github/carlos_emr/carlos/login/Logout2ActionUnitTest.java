@@ -13,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -91,6 +93,55 @@ class Logout2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(deletion).isNotNull();
         assertThat(deletion.getMaxAge()).isZero();
         assertThat(deletion.getValue()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "/carlos"})
+    @DisplayName("should expire request cookies at both root and application paths")
+    void shouldExpireCookies_atApplicationAndRootPaths(String contextPath) {
+        request.setContextPath(contextPath);
+        request.setSecure(true);
+        request.setCookies(new Cookie("JSESSIONID", "authenticated-token"));
+
+        assertThat(new Logout2Action().logout()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(response.getCookies()).extracting(Cookie::getPath)
+                .containsExactlyElementsOf(contextPath.isEmpty()
+                        ? java.util.List.of("/") : java.util.List.of("/", contextPath));
+        assertThat(response.getCookies()).allSatisfy(cookie -> {
+            assertThat(cookie.getName()).isEqualTo("JSESSIONID");
+            assertThat(cookie.getValue()).isEmpty();
+            assertThat(cookie.getMaxAge()).isZero();
+            assertThat(cookie.getSecure()).isTrue();
+            assertThat(cookie.isHttpOnly()).isTrue();
+            assertThat(cookie.getAttribute("SameSite")).isEqualTo("Strict");
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"mfaRead", "mfaRemove", "choiceRead", "choiceRemove", "invalidate"})
+    @DisplayName("should finish cookie cleanup when session invalidation races any cleanup step")
+    void shouldDeleteCookies_whenSessionInvalidatesDuringCleanup(String racePoint) {
+        HttpSession session = mock(HttpSession.class);
+        IllegalStateException invalidated = new IllegalStateException("invalidated");
+        switch (racePoint) {
+            case "mfaRead" -> when(session.getAttribute(PendingMfaChallenges.TOKEN_ATTR)).thenThrow(invalidated);
+            case "mfaRemove" -> doThrow(invalidated).when(session).removeAttribute(PendingMfaChallenges.AUTH_ATTR);
+            case "choiceRead" -> when(session.getAttribute(PendingSessionChoices.TOKEN_ATTR)).thenThrow(invalidated);
+            case "choiceRemove" -> doThrow(invalidated).when(session).removeAttribute(PendingSessionChoices.TOKEN_ATTR);
+            case "invalidate" -> doThrow(invalidated).when(session).invalidate();
+            default -> throw new IllegalArgumentException(racePoint);
+        }
+        request.setSession(session);
+        request.setContextPath("/carlos");
+        request.setCookies(new Cookie("JSESSIONID", "stale"));
+
+        assertThat(new Logout2Action().logout()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getCookies()).extracting(Cookie::getPath).containsExactly("/", "/carlos");
+        assertThat(response.getCookies()).allSatisfy(cookie -> {
+            assertThat(cookie.getValue()).isEmpty();
+            assertThat(cookie.getMaxAge()).isZero();
+        });
     }
 
     private static PendingMfaChallengeCache.PendingMfaChallenge challenge() {

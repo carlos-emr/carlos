@@ -142,9 +142,11 @@ async function signIn(context, config, label) {
 async function passFacilitySelection(page) {
   await page.waitForURL(AFTER_FACILITY_OR_SCHEDULE, { timeout: 30000 });
   if (/select_facility/i.test(page.url())) {
+    step('complete facility selection before checking the schedule');
+    await waitForPageAssets(page);
     await Promise.all([
       page.waitForURL(SCHEDULE_URL, { timeout: 30000 }),
-      page.locator('input[type="submit"], button[type="submit"], a').first().click(),
+      page.locator('form button[type="submit"], form input[type="submit"]').first().click(),
     ]);
   }
   await page.waitForURL(SCHEDULE_URL, { timeout: 30000 });
@@ -172,6 +174,18 @@ async function heartbeat(page, config) {
  * there), and the notice must not come back on a reload.
  */
 async function assertSignedOutElsewhere(page, config, label) {
+  // A fetch that follows an unauthenticated redirect must not consume the one-time notice.
+  const background = await page.evaluate(async (url) => {
+    const response = await fetch(url, { credentials: 'same-origin' });
+    return { status: response.status, body: await response.text() };
+  }, appUrl(config.baseUrl, '/provider/providercontrol'));
+  assert(background.status === 200, `${label} background redirect did not reach the login page`);
+  assert(!background.body.includes('id="signedOutElsewhereNotice"'), `${label} background fetch consumed the notice`);
+  const legacy = await page.request.get(appUrl(config.baseUrl, '/index'), {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+  });
+  assert(legacy.ok(), `${label} legacy AJAX request failed`);
+  assert(!(await legacy.text()).includes('id="signedOutElsewhereNotice"'), `${label} legacy AJAX consumed the notice`);
   const paths = [];
   const onNavigate = (frame) => {
     if (frame === page.mainFrame()) paths.push(new URL(frame.url()).pathname);

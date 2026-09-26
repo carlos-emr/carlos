@@ -276,6 +276,22 @@ class RootEntryRedirectFilterUnitTest {
         verify(request, times(1)).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
     }
 
+    @Test
+    @DisplayName("should preserve the notice for legacy AJAX requests without fetch metadata")
+    void shouldKeepSignedOutElsewhereNotice_whenLegacyAjaxArrivesFirst() throws Exception {
+        String revokedSessionId = "revoked-" + UUID.randomUUID();
+        RevokedUserSessions.mark(revokedSessionId);
+        stubLoginEntry();
+        when(request.getRequestedSessionId()).thenReturn(revokedSessionId);
+        when(request.isRequestedSessionIdValid()).thenReturn(false);
+        when(request.getHeader("X-Requested-With")).thenReturn("XMLHttpRequest", null);
+
+        filter.doFilter(request, response, chain);
+        verify(request, never()).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+        filter.doFilter(request, response, chain);
+        verify(request).setAttribute(RevokedUserSessions.NOTICE_REQUEST_ATTR, Boolean.TRUE);
+    }
+
     private void stubLoginEntry() {
         when(request.getContextPath()).thenReturn("/carlos");
         when(request.getRequestURI()).thenReturn("/carlos/index");

@@ -26,6 +26,7 @@ import java.io.IOException;
 import io.github.carlos_emr.carlos.managers.RevokedUserSessions;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpFilter;
@@ -107,13 +108,14 @@ public class RootEntryRedirectFilter extends HttpFilter {
      * Whether this request is a page navigation that will show the login page to the user. A
      * background fetch, image or script request that followed a redirect here must not consume
      * the one-time notice before the user sees it. Browsers that do not send
-     * {@code Sec-Fetch-Mode} are treated as navigating, which keeps the notice working there.
+     * {@code Sec-Fetch-Mode} are treated as navigating unless they carry an AJAX marker,
+     * which keeps the notice working for older browsers without consuming it in their XHRs.
      */
     // FindSecBugs SERVLET_HEADER: Sec-Fetch-Mode only decides whether the one-time sign-out notice is shown; it grants no access and is never logged or echoed.
     @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Sec-Fetch-Mode only decides whether the one-time sign-out notice is shown; a forged value can at most show or defer that notice, never grant access; the value is never logged or echoed")
     private static boolean isDocumentNavigation(HttpServletRequest request) {
         String fetchMode = request.getHeader(FETCH_MODE_HEADER);
-        return fetchMode == null || FETCH_MODE_NAVIGATE.equals(fetchMode);
+        return fetchMode == null ? !RequestNegotiation.isAjax(request) : FETCH_MODE_NAVIGATE.equals(fetchMode);
     }
 
     static boolean isLoginEntryRequest(String requestUri, String contextPath) {
