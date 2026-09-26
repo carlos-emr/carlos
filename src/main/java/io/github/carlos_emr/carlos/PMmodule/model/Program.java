@@ -276,6 +276,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if user defined, false otherwise
      */
     @jakarta.persistence.Column(name = "userDefined")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyProgramUserDefinedConverter.class)
     public boolean isUserDefined() {
         return userDefined;
     }
@@ -631,6 +632,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if this is a holding tank program, false otherwise
      */
     @jakarta.persistence.Column(name = "holdingTank")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyProgramFlagConverter.class)
     public boolean isHoldingTank() {
         return holdingTank;
     }
@@ -650,6 +652,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if batch admission is allowed, false otherwise
      */
     @jakarta.persistence.Column(name = "allowBatchAdmission")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyProgramFlagConverter.class)
     public boolean isAllowBatchAdmission() {
         return allowBatchAdmission;
     }
@@ -669,6 +672,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if batch discharge is allowed, false otherwise
      */
     @jakarta.persistence.Column(name = "allowBatchDischarge")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyProgramFlagConverter.class)
     public boolean isAllowBatchDischarge() {
         return allowBatchDischarge;
     }
@@ -688,6 +692,7 @@ public class Program extends AbstractModel<Integer> {
      * @return true if a HIC is required, false otherwise
      */
     @jakarta.persistence.Column(name = "hic")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyProgramFlagConverter.class)
     public boolean isHic() {
         return hic;
     }

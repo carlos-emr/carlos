@@ -297,7 +297,7 @@ async function reopenChart(session) {
   return session.chart();
 }
 
-async function workflow(session) {
+async function workflow(session, { legacyOnly = false } = {}) {
   const { sql, patient, marker } = session;
   const tag = marker.slice(-10);
   const programName = `${marker}-notes`;
@@ -333,6 +333,11 @@ async function workflow(session) {
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0',
       'the fixture notes were not removed');
   });
+
+  if (legacyOnly) {
+    await legacyNoteWorkflow(session);
+    return;
+  }
 
   let chart = await session.chart();
   const firstText = noteText(tag, 'new-note icon');
@@ -457,6 +462,12 @@ async function workflow(session) {
     }
   });
 
+
+}
+
+async function legacyNoteWorkflow(session) {
+  const { sql, patient, marker } = session;
+  const tag = marker.slice(-10);
   await session.step('Legacy encounter editors preserve typed breaks and recovery renders literal note text', async () => {
     const text = `${noteText(tag, 'legacy')} </textarea><span id="pw-recovery-injection">literal</span>& "quoted"`;
     sql.execute(`INSERT INTO eChart (demographicNo,providerNo,subject,socialHistory,familyHistory,
