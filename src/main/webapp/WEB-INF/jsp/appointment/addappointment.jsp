@@ -220,6 +220,7 @@ Ontario, Canada
 
 <html>
     <head>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
@@ -923,7 +924,6 @@ Ontario, Canada
 
                 var keyObj = document.forms['ADDAPPT'].keyword;
                 var keyVal = keyObj.value;
-                console.log(keyVal);
 
                 // start with the loosest pattern
                 // address pattern 293 Meridian
@@ -953,19 +953,16 @@ Ontario, Canada
                     document.getElementById("search_mode").value = "search_phone";
                 }
 
-                // DOB yyyy-mm-dd with varying delimiters
-                const reDOB = /^(19|20)\d\d([\/.-\s])(0[1-9]|1[012])[\/.-\s](0[1-9]|[12]\d|3[01])$/;
-                if (reDOB.exec(keyVal)) {
-                    const yyyy = keyVal.substring(0, 4);
-                    const mm = keyVal.substring(5, 7);
-                    const dd = keyVal.substring(8);
-                    const dob = yyyy + "-" + mm + "-" + dd;
+                // Use the shared grammar for full, partial and wildcard DOBs.
+                const dob = /^[0-9]{8}$/.test(keyVal)
+                    ? CarlosDobSearch.format(keyVal) : keyVal.replace(/[/. ]/g, '-');
+                if (CarlosDobSearch.isValid(dob)) {
                     keyObj.value = dob;
                     document.getElementById("search_mode").value = "search_dob";
                 }
 
                 //swipe pattern
-                if (keyVal.indexOf('%b610054') == 0 && keyVal.length > 18) {
+                if (/^%b610054[0-9]{10}/.test(keyVal)) {
                     keyObj.value = keyVal.substring(8, 18);
                     document.getElementById("search_mode").value = "search_hin";
                 }

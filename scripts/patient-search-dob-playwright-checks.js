@@ -479,6 +479,64 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
       expectValue('appointment-malformed-retained', await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue(), invalid);
     }
 
+    // Card swipes must survive DOB-mode formatting until submit selects HIN.
+    await page.locator('select[name="search_mode"]').selectOption('search_dob');
+    const appointmentKeyword = page.locator('form[name="titlesearch"] input[name="keyword"]');
+    await appointmentKeyword.fill('');
+    await appointmentKeyword.pressSequentially('%b6100541234567890', { delay: 25 });
+    expectValue('appointment-barcode-preserved', await appointmentKeyword.inputValue(), '%b6100541234567890');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
+    ]);
+    expectValue('appointment-barcode-mode', await page.locator('select[name="search_mode"]').inputValue(), 'search_hin');
+    expectValue('appointment-barcode-hin', await appointmentKeyword.inputValue(), '1234567890');
+
+    // The standalone popup also has an automatic scanner listener. Exercise
+    // the same form on its results page, where manual submission owns the flow.
+    await safeGoto(page, '/demographic/DemographicSearch',
+      { waitUntil: 'domcontentloaded', timeout: 30000 },
+      { displaymode: 'Search', search_mode: 'search_dob', keyword: '1980', ptstatus: 'active' });
+    await selectDobMode(page);
+    await clearKeyword(page);
+    await typeDob(page, '%b6100541234567890');
+    expectValue('main-barcode-preserved', await page.locator('#keyword').inputValue(), '%b6100541234567890');
+    await Promise.all([
+      waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
+      page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
+    ]);
+    expectValue('main-barcode-mode', new URL(page.url()).searchParams.get('search_mode'), 'search_hin');
+    expectValue('main-barcode-hin', new URL(page.url()).searchParams.get('keyword'), '1234567890');
+
+    // Search only: never select a patient or invoke a merge/unmerge operation.
+    await safeGoto(page, '/admin/DemographicMergeRecord', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.locator('input[name="search_mode"][value="search_dob"]').check();
+    const mergeKeyword = page.locator('form[name="titlesearch"] input[name="keyword"]');
+    await mergeKeyword.fill('1980-%-01');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('form[name="titlesearch"] input[name="button"]').click(),
+    ]);
+    expectValue('merge-search-partial-keyword', await mergeKeyword.inputValue(), '1980-%-01');
+    await mergeKeyword.fill('1980-13');
+    await expectValidationWithoutNavigation(page,
+      'form[name="titlesearch"] input[name="button"]', 'merge-search-malformed');
+    await mergeKeyword.fill('1980');
+    const submitted = page.waitForRequest(request => request.isNavigationRequest()
+      && request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/admin/DemographicMergeRecord'));
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('form[name="titlesearch"] button[name="dboperation"]').click(),
+    ]);
+    expectValue('merged-search-operation', new URLSearchParams((await submitted).postData()).get('dboperation'), 'demographic_search_merged');
+    await assertNoErrorPage(page, 'merged-search');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('a[href*="orderby=last_name"]').first().click(),
+    ]);
+    expectValue('merged-search-sort-keeps-scope', new URL(page.url()).searchParams.get('dboperation'), 'demographic_search_merged');
+    await assertNoErrorPage(page, 'merged-search-sorted');
+
     // The report picker is a name-only result page: it has no titlesearch form.
     // Opening it must not run stale DOB/focus code against a nonexistent form.
     await safeGoto(page, '/demographic/ViewDemographicSearch2ReportResults',

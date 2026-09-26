@@ -292,6 +292,32 @@ async function submitWithoutBlur(context, recorder, spec, baseUrl) {
   console.log(`PASS ${spec.label}: the inline ${spec.inlineHandler}() sees the reconciled link on a submit without blur`);
 }
 
+async function searchHandoffs(context, recorder, spec, baseUrl) {
+  for (const [typed, mode, expected] of [
+    ['1980', 'search_dob', '1980'], ['1980/01', 'search_dob', '1980-01'],
+    ['1980-%-01', 'search_dob', '1980-%-01'], ['19800101', 'search_dob', '1980-01-01'],
+    ['%b6100541234567890', 'search_hin', '1234567890'],
+  ]) {
+    const { page, posts } = await openPage(context, recorder, spec, baseUrl);
+    let termLogged = false;
+    page.on('console', message => { if (message.text() === typed) termLogged = true; });
+    await page.locator('#keyword').fill(typed);
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('#searchBtn').click(),
+    ]);
+    await assertNotErrorPage(page, spec.label);
+    assert(posts.length === 0, `${spec.label}: searching unexpectedly saved an appointment`);
+    assert(await page.locator('form[name="titlesearch"] select[name="search_mode"]').inputValue() === mode,
+      `${spec.label}: the picker received the wrong search mode`);
+    assert(await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue() === expected,
+      `${spec.label}: the picker received the wrong search keyword`);
+    assert(!termLogged, `${spec.label}: a search term reached the browser console`);
+    await page.close();
+  }
+  console.log(`PASS ${spec.label}: partial/wildcard DOB and card swipes reach the picker without leaking terms`);
+}
+
 async function main() {
   assert(/^\d+$/.test(appointmentNo), 'APPOINTMENT_NO must be numeric');
   assert(/^\d+$/.test(providerNo), 'APPOINTMENT_PROVIDER_NO must be numeric');
@@ -311,6 +337,7 @@ async function main() {
       await handEditSubmit(context, recorder, spec, config.baseUrl);
       await blankSubmit(context, recorder, spec, config.baseUrl);
       await submitWithoutBlur(context, recorder, spec, config.baseUrl);
+      await searchHandoffs(context, recorder, spec, config.baseUrl);
     }
     assertNoPageErrors(recorder, [PAGES.add.label, PAGES.edit.label]);
   } finally {

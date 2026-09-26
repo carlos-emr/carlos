@@ -41,7 +41,7 @@
     - Multi-mode patient search (name, phone, DOB, address, HIN, chart, demographic #)
     - Ontario health card barcode scanner support (%b610054 format)
     - Global keyboard listener for hands-free barcode scanning
-    - Real-time DOB formatting and validation (YYYY, YYYY-MM or YYYY-MM-DD; % wildcards a
+    - Real-time DOB formatting and validation (YYYY, YYYY-MM or YYYY-MM-DD; % wildcards as a
       whole segment) via share/javascript/dobSearchKeyword.js
     - Inactive/All patient search options
     - Most Recent Patients quick access

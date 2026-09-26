@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -139,34 +140,37 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.admin.mergeRec"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
+    <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <script language="JavaScript">
+        var DOB_FORMAT_MESSAGE = '${carlos:forJavaScript(dobFormatMessage)}';
         function setfocus() {
             document.titlesearch.keyword.focus();
             document.titlesearch.keyword.select();
         }
 
         function checkTypeIn() {
-            var dob = document.titlesearch.keyword;
-            typeInOK = true;
-            if (dob.value.indexOf('%b610054') == 0 && dob.value.length > 18) {
-                document.titlesearch.keyword.value = dob.value.substring(8, 18);
-                document.titlesearch.search_mode[4].checked = true;
-            }
-
-            if (document.titlesearch.search_mode[2].checked) {
-                if (dob.value.length == 8) {
-                    dob.value = dob.value.substring(0, 4) + "-"
-                        + dob.value.substring(4, 6) + "-"
-                        + dob.value.substring(6, 8);
-                }
-                if (dob.value.length != 10 || dob.value.indexOf(' ') > 0) {
-                    alert("<fmt:message key='admin.demographicmergerecord.msgDateFormat'/>");
-                    typeInOK = false;
-                }
-                return typeInOK;
-            } else {
+            var form = document.titlesearch;
+            var keyword = form.keyword;
+            // Preserve Ontario card-swiping support when selecting a patient.
+            if (/^%b610054[0-9]{10}/.test(keyword.value)) {
+                keyword.value = keyword.value.substring(8, 18);
+                form.search_mode.value = 'search_hin';
                 return true;
             }
+            if (form.search_mode.value === 'search_dob') {
+                var value = keyword.value.trim();
+                // Server-populated/restored values need not fire an input event.
+                if (/^[0-9]{8}$/.test(value)) {
+                    keyword.value = CarlosDobSearch.format(value);
+                    value = keyword.value;
+                }
+                if (value.length > 0 && !CarlosDobSearch.isValid(value)) {
+                    alert(DOB_FORMAT_MESSAGE);
+                    return false;
+                }
+            }
+            return true;
         }
 
         function confirmMerge() {
@@ -180,10 +184,6 @@
 
         function UnMerge() {
             document.mergeform.mergeAction.value = "unmerge";
-        }
-
-        function searchMerged() {
-            document.titlesearch.dboperation.value = "demographic_search_merged";
         }
 
         function popupWindow(page) {
@@ -221,13 +221,14 @@
                value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.address"/>
         <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.hin"/>
 
-        <input type="text" NAME="keyword" class="form-control" MAXLENGTH="100" value="<%=(keyword != null)?SafeEncode.forHtmlAttribute(keyword):""%>">
+        <input type="text" NAME="keyword" class="form-control"
+               oninput="if(document.titlesearch.search_mode.value === 'search_dob') CarlosDobSearch.formatInput(this);" MAXLENGTH="100" value="<%=(keyword != null)?SafeEncode.forHtmlAttribute(keyword):""%>">
         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">
         <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
 
         <INPUT class="btn btn-secondary" TYPE="SUBMIT" NAME="button" VALUE="<fmt:message key='Search'/>">
-        <input class="btn btn-secondary" type="submit" name="mergebutton" value="<fmt:message key='admin.demographicmergerecord.searchMergedRecords'/>" onclick="searchMerged()">
+        <button class="btn btn-secondary" type="submit" name="dboperation" value="demographic_search_merged"><fmt:message key="admin.demographicmergerecord.searchMergedRecords"/></button>
     </form>
 </div><!--well-->
 
@@ -247,22 +248,22 @@
                 <th align="center" width="5%"><fmt:message key="admin.demographicmergerecord.mainRecord"/></th>
                 <%}%>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=demographic_no&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.demographic"/></a></b></font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=demographic_no&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.demographic"/></a></b></font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 </TH>
                 <TH align="center" width="20%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=last_name&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.lastName"/></a> </b></font></TH><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=last_name&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.lastName"/></a> </b></font></TH><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 <TH align="center" width="20%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=first_name&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.firstName"/></a> </b></font></TH><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=first_name&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.firstName"/></a> </b></font></TH><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=age&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.age"/></a></b></font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=age&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.age"/></a></b></font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=roster_status&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.rosterStatus"/></a></b></font></TH><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=roster_status&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.rosterStatus"/></a></b></font></TH><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=sex&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.sex"/></a></B></font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=sex&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.sex"/></a></B></font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=date_of_birth&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.dobFormat"/></a></B></Font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=date_of_birth&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.dobFormat"/></a></B></Font><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 </TH>
             </tr>
             <%
@@ -397,11 +398,11 @@
         nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
         if (nLastPage >= 0) {
     %> <a
-        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=<carlos:encode value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.lastPage"/></a> | <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%><%
+        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=<carlos:encode value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.lastPage"/></a> | <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%><%
     }
     if (nItems == Integer.parseInt(strLimit)) {
 %> <a
-        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=<carlos:encode value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?dboperation=<carlos:encode value='<%= mergedSearch ? "demographic_search_merged" : "" %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&orderby=<carlos:encode value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
     <fmt:message key="admin.demographicmergerecord.nextPage"/></a> <%
     }
 

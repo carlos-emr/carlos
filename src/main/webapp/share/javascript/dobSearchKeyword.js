@@ -146,6 +146,11 @@
      */
     function formatInput(input) {
         var raw = input.value;
+        // Preserve an Ontario card swipe from its second keystroke onward so
+        // the search form can extract the HIN and select HIN mode on submit.
+        if (raw.indexOf('%b') === 0) {
+            return;
+        }
         var formatted = format(raw);
         if (formatted === raw) {
             return;

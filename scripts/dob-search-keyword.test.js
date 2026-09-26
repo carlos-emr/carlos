@@ -159,16 +159,16 @@ test('the DAO binds the parsed segments, not a raw split of the keyword', () => 
 
 // Execute the appointment form's real submit handler with a dropdown contract.
 // A legacy radio-button index check silently accepts malformed dates here.
-function appointmentSubmit(keyword, mode = 'search_dob') {
+function appointmentSubmit(keyword, mode = 'search_dob', jsp = 'demographic/demographicsearch2apptresults.jsp') {
   const source = fs.readFileSync(path.join(ROOT,
-    'src/main/webapp/WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp'), 'utf8');
+    'src/main/webapp/WEB-INF/jsp', jsp), 'utf8');
   const start = source.indexOf('function checkTypeIn() {');
-  const end = source.indexOf('function searchInactive()', start);
+  const end = source.indexOf(jsp.startsWith('admin/') ? 'function confirmMerge()' : 'function searchInactive()', start);
   assert.ok(start >= 0 && end > start);
   const alerts = [];
   const form = { keyword: { value: keyword }, search_mode: { value: mode } };
   // Dropdown options expose selected, never the checked property of a radio.
-  for (let i = 0; i < 7; i++) form.search_mode[i] = { selected: false };
+  for (let i = 0; i < 7; i++) form.search_mode[i] = { selected: false, checked: jsp.startsWith('admin/') && i === 2 && mode === 'search_dob' };
   const context = {
     document: { titlesearch: form }, CarlosDobSearch: dob,
     DOB_FORMAT_MESSAGE: 'localized DOB guidance', alert: message => alerts.push(message),
@@ -217,3 +217,51 @@ test('appointment submit does not repair arbitrary malformed prefilled input', (
     assert.equal(appointmentSubmit(keyword).accepted, false);
   }
 });
+
+test('DOB formatting preserves a card swipe while it is being typed', () => {
+  const input = { value: '', selectionStart: 0, setSelectionRange() {} };
+  const barcode = '%b6100541234567890';
+  for (const character of barcode) {
+    input.value += character;
+    input.selectionStart = input.value.length;
+    dob.formatInput(input);
+  }
+  assert.equal(input.value, barcode);
+});
+
+test('merge-record search uses the shared DOB grammar and rejects malformed input', () => {
+  const jsp = 'admin/demographicmergerecord.jsp';
+  for (const keyword of ['1980', '1980-01', '1980-%-01', '19800101']) {
+    assert.equal(appointmentSubmit(keyword, 'search_dob', jsp).accepted, true);
+  }
+  for (const keyword of ['198', '1980-13', '%']) {
+    assert.equal(appointmentSubmit(keyword, 'search_dob', jsp).accepted, false);
+  }
+});
+
+for (const [jsp, formName] of [['addappointment.jsp', 'ADDAPPT'], ['editappointment.jsp', 'EDITAPPT']]) {
+  test(`${jsp} hands DOB searches to the picker without logging terms`, () => {
+    const source = fs.readFileSync(path.join(ROOT, 'src/main/webapp/WEB-INF/jsp/appointment', jsp), 'utf8');
+    const start = source.indexOf('function parseSearch() {');
+    const end = source.indexOf('\n            }', start) + '\n            }'.length;
+    assert.ok(start >= 0 && end > start);
+    for (const [typed, mode, expected] of [
+      ['1980', 'search_dob', '1980'], ['1980/01', 'search_dob', '1980-01'],
+      ['1980-%-01', 'search_dob', '1980-%-01'], ['19800101', 'search_dob', '1980-01-01'],
+      ['%b6100541234567890', 'search_hin', '1234567890'],
+      ['Example Patient', 'search_name', 'Example Patient'],
+      ['555-555-1212', 'search_phone', '555-555-1212'], ['1234567890', 'search_hin', '1234567890'],
+    ]) {
+      const form = { keyword: { value: typed }, displaymode: { value: '' } };
+      const searchMode = { value: '' };
+      const logs = [];
+      const context = { CarlosDobSearch: dob, console: { log: (...args) => logs.push(args) },
+        document: { forms: { [formName]: form }, getElementById: () => searchMode } };
+      require('node:vm').runInNewContext(source.slice(start, end), context);
+      context.parseSearch();
+      assert.equal(searchMode.value, mode);
+      assert.equal(form.keyword.value, expected);
+      assert.equal(logs.length, 0, 'search terms must not reach the console');
+    }
+  });
+}
