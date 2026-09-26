@@ -49,6 +49,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <link rel="stylesheet" type="text/css"
@@ -89,8 +90,8 @@
                             <td><fmt:message key="oscarReport.CDMReport.msgSelectCDMGroup"/>
                                 <select name="value(CDMgroup)">
                                     <c:forEach var="CDMGroup" items="${CDMGroups}">
-                                        <option value="${CDMGroup.groupName}">
-                                                ${CDMGroup.groupName}
+                                        <option value="${carlos:forHtmlAttribute(CDMGroup.groupName)}">
+                                                ${carlos:forHtml(CDMGroup.groupName)}
                                         </option>
                                     </c:forEach>
                             </select></td>

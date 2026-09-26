@@ -148,6 +148,7 @@ import cds.FamilyHistoryDocument.FamilyHistory;
 import cds.ImmunizationsDocument.Immunizations;
 import cds.LaboratoryResultsDocument.LaboratoryResults;
 import cds.MedicationsAndTreatmentsDocument.MedicationsAndTreatments;
+import cds.NewCategoryDocument.NewCategory;
 import cds.OmdCdsDocument;
 import cds.PastHealthDocument.PastHealth;
 import cds.PatientRecordDocument.PatientRecord;
@@ -254,6 +255,8 @@ public class DemographicExportAction42Action extends ActionSupport {
         return SpringUtils.getBean(DemographicExtDao.class);
     }
 
+    // Note prefix that marks CMS4 (2011-06) dump-site imports; shared by export and header lookups.
+    private static final String IMPORTED_CMS4_PREFIX = "imported.cms4.2011.06";
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -333,7 +336,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             "msp", DiagnosticCodeDao.class
     );
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
@@ -471,7 +474,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         Demographic demographic = null;
                         try {
                             demographic = d.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
-                        } catch (PatientDirectiveException e) {
+                        } catch (PatientDirectiveException _) {
                             exportError.add("Unable to export patient " + demoNo + " due to Patient Directive");
                             continue;
                         }
@@ -599,12 +602,12 @@ public class DemographicExportAction42Action extends ActionSupport {
                         }
 
 
-                        List<DemographicArchive> DAs = demoArchiveDao().findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
-                        Collections.reverse(DAs);
+                        List<DemographicArchive> archives = demoArchiveDao().findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
+                        Collections.reverse(archives);
 
                         List<Enrolment> enList = new ArrayList<Enrolment>();
                         Enrolment en = null;
-                        for (DemographicArchive da : DAs) {
+                        for (DemographicArchive da : archives) {
 
                             if (!"".equals(da.getRosterStatus())) {
                                 //no previous record
@@ -900,7 +903,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         //find all "header"; cms4 only
                         List<CaseManagementNote> headers = new ArrayList<CaseManagementNote>();
                         for (CaseManagementNote cmn : lcmn) {
-                            if (cmn.getNote() != null && cmn.getNote().startsWith("imported.cms4.2011.06") && cmm().getLinkByNote(cmn.getId()).isEmpty())
+                            if (cmn.getNote() != null && cmn.getNote().startsWith(IMPORTED_CMS4_PREFIX) && cmm().getLinkByNote(cmn.getId()).isEmpty())
                                 headers.add(cmn);
                         }
 
@@ -938,7 +941,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             }
                             if (!systemIssue && cmm().getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
                                 encounter = cmn.getNote();
-                                if (encounter.startsWith("imported.cms4.2011.06"))
+                                if (encounter.startsWith(IMPORTED_CMS4_PREFIX))
                                     continue; //this is a "header", cms4 only
                             }
 
@@ -1303,7 +1306,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     Date createDate = cmn.getCreate_date();
                                     String uuid;
                                     for (CaseManagementNote header : headers) {
-                                        uuid = header.getNote().substring("imported.cms4.2011.06".length());
+                                        uuid = header.getNote().substring(IMPORTED_CMS4_PREFIX.length());
                                         if (uuid.equals(cmn.getUuid())) {
                                             createDate = header.getCreate_date();
                                         }
@@ -1319,8 +1322,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         cNote.addNewEventDateTime().setFullDateTime(Util.calDateTZD(cmn.getObservation_date()));
                                     }
 
-                                    List<CaseManagementNote> cmn_same = cmm().getNotesByUUID(cmn.getUuid());
-                                    for (CaseManagementNote cm_note : cmn_same) {
+                                    List<CaseManagementNote> sameUuidNotes = cmm().getNotesByUUID(cmn.getUuid());
+                                    for (CaseManagementNote cm_note : sameUuidNotes) {
 
                                         //participating providers
                                         if (StringUtils.filled(cm_note.getProviderNo()) && !Util.isVerified(cm_note)) {
@@ -2153,7 +2156,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 File f;
                                 try {
                                     f = validateExportDocument(edoc);
-                                } catch (SecurityException e) {
+                                } catch (SecurityException _) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
                                     logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
                                     continue;
@@ -2249,7 +2252,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     File hrmFile;
                                     try {
                                         hrmFile = resolveHrmReportFile(reportFile);
-                                    } catch (SecurityException e) {
+                                    } catch (SecurityException _) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
                                         logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
                                         continue;
@@ -2457,6 +2460,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                             List<Measurements> measList = ImportExportMeasurements.getMeasurements(demoNo);
                             CareElements careElm = null;
                             if (measList.size() > 0) careElm = patientRec.addNewCareElements();
+                            // Created on the first NRTF reading; see CdsNeurologicalExam for why NRTF
+                            // needs a patient-level marker next to its 67536-3 screening.
+                            NewCategory nrtfMarkerCategory = null;
                             for (Measurements meas : measList) {
                                 if (meas.getType().equals("HT")) { //Height in cm
                                     cdsDt.Height height = careElm.addNewHeight();
@@ -2504,7 +2510,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
                                     try {
                                         smokp.setPerDay(new BigDecimal(meas.getDataField()));
-                                    } catch (Exception e) {
+                                    } catch (Exception _) {
                                         exportError.add("Error! Smoking Packs data null/invalid (id=" + meas.getId() + ") for Patient " + demoNo);
                                     }
                                     addOneEntry(CAREELEMENTS);
@@ -2617,6 +2623,20 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (Util.yn(meas.getDataField()) == cdsDt.YnIndicatorsimple.N) {
                                         exportError.add("Patient " + demoNo + " didn't do Diabetes Complications Screening (Neurological Exam) on " + UtilDateUtilities.DateToString(meas.getDateObserved(), "yyyy-MM-dd"));
                                     }
+                                    addOneEntry(CAREELEMENTS);
+                                } else if (meas.getType().equals(CdsNeurologicalExam.NRTF)) { // 128 Hz Tuning Fork (Neurological Exam)
+                                    // CDS has one neurological exam code (67536-3) shared with FTLS; the
+                                    // NewCategory marker lets the CARLOS importer restore it as NRTF.
+                                    cdsDt.DiabetesComplicationScreening dcs = careElm.addNewDiabetesComplicationsScreening();
+                                    dcs.setDate(Util.calDate(meas.getDateObserved()));
+                                    if (meas.getDateObserved() == null) {
+                                        exportError.add("Error! No Date for Diabetes Complication Screening on Neurological Exam (Tuning Fork) (id=" + meas.getId() + ") for Patient " + demoNo);
+                                    }
+                                    dcs.setExamCode(cdsDt.DiabetesComplicationScreening.ExamCode.X_67536_3);
+                                    if (Util.yn(StringUtils.noNull(meas.getDataField())) == cdsDt.YnIndicatorsimple.N) {
+                                        exportError.add("Patient " + demoNo + " didn't do Diabetes Complications Screening (Neurological Exam, Tuning Fork) on " + UtilDateUtilities.DateToString(meas.getDateObserved(), "yyyy-MM-dd"));
+                                    }
+                                    nrtfMarkerCategory = CdsNeurologicalExam.addNrtfMarker(patientRec, nrtfMarkerCategory, dcs, meas.getDataField());
                                     addOneEntry(CAREELEMENTS);
                                 } else if (meas.getType().equals("CGSD")) { //Collaborative Goal Setting
                                     cdsDt.DiabetesSelfManagementCollaborative dsco = careElm.addNewDiabetesSelfManagementCollaborative();
@@ -2747,7 +2767,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
                     try {
                         zipName = validateExportZipName(zipName, exportDirectory);
-                    } catch (FileValidationException e) {
+                    } catch (FileValidationException _) {
                         logger.warn("Rejected invalid demographic export zip filename");
                         exportError.add("Error! Invalid export zip filename.");
                         setExportStatusHeader(response, "error");
@@ -3181,7 +3201,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         for (CaseManagementNoteLink cml : cmll) {
             CaseManagementNote n = cmm().getNote(cml.getNoteId().toString());
-            if (n.getNote() != null && !n.getNote().startsWith("imported.cms4.2011.06")) {//not from dumpsite
+            if (n.getNote() != null && !n.getNote().startsWith(IMPORTED_CMS4_PREFIX)) {//not from dumpsite
                 note = n.getNote();
                 break;
             }
@@ -4052,7 +4072,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     private int parseTemplate(String templateOption) {
         try {
             return Integer.parseInt(templateOption != null ? templateOption.trim() : "");
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Rejected demographic export: template parameter is not an integer");
             return UNPARSEABLE_TEMPLATE;
         }

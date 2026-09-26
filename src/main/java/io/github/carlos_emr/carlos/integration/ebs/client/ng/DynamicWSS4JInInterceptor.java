@@ -28,11 +28,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 /**
  * CXF interceptor that configures the inbound WSS4J action list from the content of the
@@ -45,12 +47,20 @@ import java.util.regex.Pattern;
  * previous implementation only ever configured one or two, which broke multi-file EDT, RA and
  * report downloads (issue #3868).</p>
  *
+ * <p>The count is a prediction of the {@code Encrypt} results WSS4J will produce, not a raw
+ * element count: WSS4J's engine dispatches only the <em>direct</em> children of
+ * {@code wsse:Security}, and {@code WSHandler.checkReceiverResultsAnyOrder} skips an
+ * {@code Encrypt} result that decrypted nothing. {@link #scanEnvelope} documents the exact
+ * rule; for the MCEDT shape (one {@code EncryptedKey} per resource, each with a
+ * {@code ReferenceList}, and the attachments' {@code EncryptedData} in the header referenced by
+ * those keys) it reduces to one action per {@code EncryptedKey}.</p>
+ *
  * <p>The resulting action list is:</p>
  * <ul>
  *   <li>0 {@code EncryptedKey} and no {@code EncryptedData}: {@code Timestamp Signature}</li>
  *   <li>0 {@code EncryptedKey} but {@code EncryptedData} present: one {@code Encrypt}
  *       (legacy fallback, logged as a warning)</li>
- *   <li>N {@code EncryptedKey} (1 &lt;= N &lt;= {@link #MAX_ENCRYPTED_KEYS}):
+ *   <li>N predicted {@code Encrypt} results (1 &lt;= N &lt;= {@link #MAX_ENCRYPTED_KEYS}):
  *       N {@code Encrypt} actions</li>
  *   <li>more than {@link #MAX_ENCRYPTED_KEYS}, or a malformed envelope or root part: the
  *       message is rejected with a {@link Fault} before WSS4J is configured (attachment parts
@@ -112,10 +122,14 @@ import java.util.regex.Pattern;
 public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message> {
 
     /**
-     * Upper bound on the number of {@code EncryptedKey} elements accepted in one response.
+     * Upper bound, applied separately, on the direct {@code EncryptedKey}, {@code EncryptedData}
+     * and {@code ReferenceList} children of the Security header, and on the predicted
+     * {@code Encrypt} results (see {@link #scanEnvelope}) in one response.
      *
-     * <p>Each key becomes one WSS4J {@code Encrypt} action, and so one RSA key-unwrap during
-     * security processing. MCEDT limits a download request to a handful of resources (one key
+     * <p>Each direct key costs WSS4J one RSA key-unwrap whether or not it decrypts anything
+     * (so a key-transport-only key that predicts no result still counts against the bound),
+     * while the other bounds limit token metadata and receiver actions. MCEDT limits a download
+     * request to a handful of resources (one key
      * for the body plus one per attachment), so 20 leaves ample headroom while preventing a
      * hostile or corrupted response from forcing unbounded action-list construction and
      * decryption work. Exceeding it rejects the message rather than silently capping, because a
@@ -161,6 +175,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
 
     private static final String WSSE_NS = WSS4JConstants.WSSE_NS;
     private static final String XENC_NS = WSS4JConstants.ENC_NS;
+    private static final String WSU_NS = WSS4JConstants.WSU_NS;
     private static final String SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/";
     private static final String SOAP12_NS = "http://www.w3.org/2003/05/soap-envelope";
 
@@ -172,9 +187,6 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     private static final int MAX_BOUNDARY_LINE_LENGTH = 100;
     /** RFC 2046 section 5.1.1: a boundary is 1 to 70 characters. */
     private static final int MAX_BOUNDARY_LENGTH = 70;
-    /** An (unfolded) {@code Content-ID} header line; the header name is case-insensitive. */
-    private static final Pattern CONTENT_ID_HEADER = Pattern.compile(
-            "content-id[ \\t]*:(.*)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     private final EdtClientBuilder clientBuilder;
     private final int maxScanBytes;
@@ -265,7 +277,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                 .append(ConfigurationConstants.TIMESTAMP).append(' ')
                 .append(ConfigurationConstants.SIGNATURE);
 
-        int encryptionCount = detection.encryptedKeyCount;
+        int encryptionCount = detection.encryptCount;
         if (encryptionCount == 0 && detection.hasEncryptedData) {
             // Preserves the pre-#3868 behaviour of one Encrypt action whenever EncryptedData was
             // present. Not expected from MCEDT, so surface it for diagnosis.
@@ -283,8 +295,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     static final class EncryptionDetectionResult {
         /** Whether any {@code xenc:EncryptedData} element appears in the envelope. */
         boolean hasEncryptedData;
-        /** Number of {@code xenc:EncryptedKey} elements inside {@code wsse:Security} headers. */
-        int encryptedKeyCount;
+        /**
+         * Predicted number of WSS4J {@code Encrypt} results from the {@code wsse:Security}
+         * headers; see {@link #scanEnvelope} for the rule.
+         */
+        int encryptCount;
     }
 
     /**
@@ -420,10 +435,6 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Scans the cached prefix: an empty (whitespace-only) entity means "no encryption",
-     * otherwise the envelope is located and its Security header counted.
-     */
-    /**
      * Validates the configured {@code attachment-directory}. The value is operator configuration
      * (CXF bus, endpoint or message properties set in code or Spring config), never derived from
      * the response, but it decides where cached MCEDT responses (claims and report payloads) are
@@ -455,6 +466,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         return dir.toFile();
     }
 
+    /**
+     * Scans the cached prefix: an empty (whitespace-only) entity means "no encryption",
+     * otherwise the envelope is located and its Security header counted.
+     */
     private static EncryptionDetectionResult detectInPrefix(byte[] prefix, boolean truncated,
                                                             String contentType)
             throws IOException, XMLStreamException {
@@ -468,8 +483,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
 
         EncryptionDetectionResult result = scanEnvelope(
                 locateEnvelope(prefix, start, contentType, truncated));
-        logger.debug("Encryption detection result: hasEncryptedData={}, encryptedKeyCount={}",
-                result.hasEncryptedData, result.encryptedKeyCount);
+        logger.debug("Encryption detection result: hasEncryptedData={}, encryptCount={}",
+                result.hasEncryptedData, result.encryptCount);
         return result;
     }
 
@@ -504,11 +519,12 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      *
      * <p>Plain-vs-MIME is decided from the Content-Type when one is present, not by sniffing the
      * first byte, so a MIME preamble beginning with {@code <} or {@code -} cannot flip the
-     * decision. For multipart content the boundary and optional {@code start} parameter come
-     * from the Content-Type. The root is always the first body part, because that is the part
-     * CXF's {@code AttachmentDeserializer} processes as the envelope; if {@code start} is present
-     * it must match that part's {@code Content-ID}. Only when no Content-Type is available is the
-     * boundary sniffed from a leading delimiter line.</p>
+     * decision. For multipart content the boundary comes from the Content-Type. The root is
+     * always the first body part, because that is the part CXF's {@code AttachmentDeserializer}
+     * processes as the envelope; CXF 4.1.x ignores the {@code start} parameter, so it is ignored
+     * here too rather than validated against the first part's {@code Content-ID} (a gateway that
+     * labels its root part differently must not fail here when CXF would accept it). Only when no
+     * Content-Type is available is the boundary sniffed from a leading delimiter line.</p>
      *
      * <p>Only the preamble, the root part's headers and the delimiter that ends the root part
      * are validated. Later (attachment) parts are not walked: their framing is validated by CXF
@@ -531,8 +547,8 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
      * @param contentType the message Content-Type, may be {@code null}
      * @param truncated whether the entity continues beyond {@code content}
      * @throws IOException if the content is neither XML nor a MIME package whose first part is a
-     *                     delimited root part (matching {@code start}, when given), or the
-     *                     envelope does not fit within a truncated prefix
+     *                     delimited root part, or the envelope does not fit within a truncated
+     *                     prefix
      */
     static ByteArrayInputStream locateEnvelope(byte[] content, int start, String contentType,
                                                boolean truncated) throws IOException {
@@ -551,7 +567,6 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         }
 
         byte[] dashBoundary;
-        String rootContentId = null;
         if (hasContentType) {
             Map<String, String> params = parseContentTypeParameters(contentType);
             String boundary = params.get("boundary");
@@ -559,10 +574,6 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                 throw new IOException("MCEDT response multipart Content-Type has no valid boundary");
             }
             dashBoundary = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
-            String startParam = params.get("start");
-            if (startParam != null) {
-                rootContentId = normalizeContentId(startParam);
-            }
         } else {
             dashBoundary = sniffDashBoundary(content, start);
         }
@@ -585,13 +596,11 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
 
         // The root is always the FIRST body part: CXF's AttachmentDeserializer (4.1.x) ignores
         // the start parameter and hands the first part to the SOAP/WSS4J chain, so counting keys
-        // in any other part would build an action list for an envelope WSS4J never sees.
-        // A start parameter that names a later part is therefore rejected rather than followed.
-        PartHeaders headers = readPartHeaders(content, delimiter.next, truncated);
-        if (rootContentId != null && !rootContentId.equals(headers.contentId)) {
-            throw new IOException("MCEDT response root MIME part is not the first part");
-        }
-        Delimiter end = findDelimiter(content, dashBoundary, headers.bodyStart);
+        // in any other part would build an action list for an envelope WSS4J never sees. The
+        // start parameter is not validated either: CXF does not, and this interceptor must not
+        // reject what CXF accepts.
+        int bodyStart = readPartHeaders(content, delimiter.next, truncated);
+        Delimiter end = findDelimiter(content, dashBoundary, bodyStart);
         if (end == null) {
             throw new IOException(truncated ? SCAN_LIMIT_MESSAGE
                     : "MCEDT response MIME part is not terminated by a delimiter");
@@ -601,18 +610,15 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         // AttachmentDeserializer and the attachment bytes by WSS4J decryption/signature checks.
         // The line break before a delimiter belongs to the delimiter (RFC 2046 5.1.1).
         int bodyEnd = end.lineStart - 1;
-        if (bodyEnd > headers.bodyStart && content[bodyEnd - 1] == '\r') {
+        if (bodyEnd > bodyStart && content[bodyEnd - 1] == '\r') {
             bodyEnd--;
         }
-        bodyEnd = Math.max(bodyEnd, headers.bodyStart);
-        return new ByteArrayInputStream(content, headers.bodyStart, bodyEnd - headers.bodyStart);
+        bodyEnd = Math.max(bodyEnd, bodyStart);
+        return new ByteArrayInputStream(content, bodyStart, bodyEnd - bodyStart);
     }
 
     /** A matched delimiter line: where it starts, where the next line starts, and whether it closes. */
     private record Delimiter(int lineStart, int next, boolean close) { }
-
-    /** Headers of one body part that this class needs, plus where the part body begins. */
-    private record PartHeaders(int bodyStart, String contentId) { }
 
     /**
      * Finds the first complete RFC 2046 delimiter line at or after {@code from}: at the start of
@@ -658,13 +664,12 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Reads a body part's header block (up to the first empty line), unfolding continuation
-     * lines, and returns the body start and the normalized {@code Content-ID}, if any.
+     * Skips a body part's header block (up to and including the first empty line) and returns
+     * the index at which the part body begins. Header values are not interpreted: nothing this
+     * class decides depends on them.
      */
-    private static PartHeaders readPartHeaders(byte[] content, int from, boolean truncated)
+    private static int readPartHeaders(byte[] content, int from, boolean truncated)
             throws IOException {
-        String contentId = null;
-        StringBuilder current = null;
         int lineStart = from;
         while (true) {
             int lf = indexOf(content, LF, lineStart, content.length);
@@ -674,36 +679,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             }
             int lineEnd = lf > lineStart && content[lf - 1] == '\r' ? lf - 1 : lf;
             if (lineEnd == lineStart) {
-                if (current != null) {
-                    contentId = contentIdOrDefault(current, contentId);
-                }
-                return new PartHeaders(lf + 1, contentId);
-            }
-            String line = new String(content, lineStart, lineEnd - lineStart, StandardCharsets.ISO_8859_1);
-            if (current != null && (line.charAt(0) == ' ' || line.charAt(0) == '\t')) {
-                current.append(line);
-            } else {
-                if (current != null) {
-                    contentId = contentIdOrDefault(current, contentId);
-                }
-                current = new StringBuilder(line);
+                return lf + 1;
             }
             lineStart = lf + 1;
         }
-    }
-
-    private static String contentIdOrDefault(CharSequence header, String existing) {
-        Matcher m = CONTENT_ID_HEADER.matcher(header);
-        return m.matches() ? normalizeContentId(m.group(1)) : existing;
-    }
-
-    /** Strips whitespace and one pair of surrounding angle brackets from a Content-ID value. */
-    static String normalizeContentId(String id) {
-        String trimmed = id.trim();
-        if (trimmed.length() >= 2 && trimmed.charAt(0) == '<' && trimmed.charAt(trimmed.length() - 1) == '>') {
-            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
-        }
-        return trimmed;
     }
 
     /** Derives {@code --boundary} from a leading delimiter line when no Content-Type is known. */
@@ -812,14 +791,18 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
     }
 
     /**
-     * Streams the envelope and counts {@code xenc:EncryptedKey} elements at any depth inside a
-     * {@code wsse:Security} header block ({@code Envelope/Header/Security}), and notes whether
-     * any {@code xenc:EncryptedData} is present. After the envelope only the XML epilog
-     * (whitespace, comments, processing instructions) is accepted.
+     * Streams the envelope and predicts the nonempty {@code Encrypt} results produced by
+     * WSS4J's direct Security children. Their document order matters: keys and reference lists
+     * can remove a later EncryptedData, while a directly processed EncryptedData records its Id
+     * so later reference lists skip it. Empty results do not require an Encrypt action.
+     *
+     * <p>Only direct DataReference children of the relevant ReferenceList participate, just as
+     * in WSS4J. The envelope is scanned without decrypting or changing the replayed response;
+     * WSS4J still validates every token and reference.</p>
      *
      * @throws XMLStreamException if the XML is not well-formed or contains a DTD
      * @throws IOException if the document is not a SOAP envelope, has trailing content, or
-     *                     exceeds {@link #MAX_ENCRYPTED_KEYS}
+     *                     exceeds an encryption-token or prediction bound
      */
     static EncryptionDetectionResult scanEnvelope(InputStream xml)
             throws XMLStreamException, IOException {
@@ -829,6 +812,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             int depth = 0;
             int securityDepth = -1;
             boolean inHeader = false;
+            EncryptionHeader header = new EncryptionHeader();
+            EncryptionToken current = null;
+            int referenceListDepth = -1;
+            boolean keyReferenceListSeen = false;
             while (reader.hasNext()) {
                 int event = reader.next();
                 if (event == XMLStreamConstants.DTD) {
@@ -847,18 +834,39 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                     } else if (depth == 3 && inHeader && "Security".equals(local) && WSSE_NS.equals(ns)) {
                         securityDepth = depth;
                     }
-
-                    if (XENC_NS.equals(ns)) {
-                        if ("EncryptedData".equals(local)) {
-                            result.hasEncryptedData = true;
-                        } else if ("EncryptedKey".equals(local) && securityDepth > 0
-                                && ++result.encryptedKeyCount > MAX_ENCRYPTED_KEYS) {
-                            throw new IOException("MCEDT response exceeds the maximum of "
-                                    + MAX_ENCRYPTED_KEYS + " EncryptedKey elements");
+                    if (!XENC_NS.equals(ns)) {
+                        continue;
+                    }
+                    if ("EncryptedData".equals(local)) {
+                        result.hasEncryptedData = true;
+                    }
+                    boolean direct = securityDepth > 0 && depth == securityDepth + 1;
+                    if (direct) {
+                        current = header.add(local, elementId(reader));
+                        keyReferenceListSeen = false;
+                        referenceListDepth = "ReferenceList".equals(local) ? depth : -1;
+                    } else if (current != null) {
+                        if ("EncryptedKey".equals(current.kind()) && !keyReferenceListSeen
+                                && depth == securityDepth + 2 && "ReferenceList".equals(local)) {
+                            // EncryptedKeyProcessor selects the first direct ReferenceList only.
+                            keyReferenceListSeen = true;
+                            referenceListDepth = depth;
+                        } else if (referenceListDepth > 0 && depth == referenceListDepth + 1
+                                && "DataReference".equals(local)) {
+                            String uri = reader.getAttributeValue(null, "URI");
+                            current.references().add(uri != null && uri.startsWith("#") ? uri.substring(1) : uri);
                         }
                     }
                 } else if (event == XMLStreamConstants.END_ELEMENT) {
-                    if (depth == securityDepth) {
+                    if (depth == referenceListDepth) {
+                        referenceListDepth = -1;
+                    }
+                    if (securityDepth > 0 && depth == securityDepth + 1) {
+                        current = null;
+                    } else if (depth == securityDepth) {
+                        result.encryptCount += header.encryptionCount();
+                        requireWithinBound(result.encryptCount);
+                        header = new EncryptionHeader();
                         securityDepth = -1;
                     }
                     depth--;
@@ -871,6 +879,76 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             throw new XMLStreamException("MCEDT response SOAP Envelope is not closed");
         } finally {
             StaxUtils.close(reader);
+        }
+    }
+
+    /** One direct encryption token, in WSSecurityEngine's dispatch order. */
+    private record EncryptionToken(String kind, String id, List<String> references) { }
+
+    /** Bounded token metadata for one Security header; no ciphertext or decrypted data is kept. */
+    private static final class EncryptionHeader {
+        private final List<EncryptionToken> tokens = new ArrayList<>();
+        private final Map<String, Integer> counts = new HashMap<>();
+
+        private EncryptionToken add(String kind, String id) throws IOException {
+            if (!"EncryptedKey".equals(kind) && !"EncryptedData".equals(kind) && !"ReferenceList".equals(kind)) {
+                return null;
+            }
+            // Keep the work bound even when a key or list will produce an empty result.
+            requireWithinBound(counts.merge(kind, 1, Integer::sum));
+            EncryptionToken token = new EncryptionToken(kind, id, new ArrayList<>());
+            tokens.add(token);
+            return token;
+        }
+
+        private int encryptionCount() {
+            Set<String> removedDataIds = new HashSet<>();
+            Set<String> resultIds = new HashSet<>();
+            int count = 0;
+            for (EncryptionToken token : tokens) {
+                if ("EncryptedData".equals(token.kind())) {
+                    if (token.id() != null && removedDataIds.contains(token.id())) {
+                        continue;
+                    }
+                    count++;
+                } else {
+                    boolean decrypted = false;
+                    for (String reference : token.references()) {
+                        // ReferenceListProcessor skips a target with an existing ENCR result.
+                        // EncryptedKeyProcessor does not perform that result-Id check.
+                        if ("EncryptedKey".equals(token.kind()) || !resultIds.contains(reference)) {
+                            decrypted = true;
+                            removedDataIds.add(reference);
+                        }
+                    }
+                    if (decrypted) {
+                        count++;
+                    }
+                }
+                // WSS4J records a token's own Id, not each target Id, even for an empty result.
+                if (token.id() != null && !token.id().isEmpty()) {
+                    resultIds.add(token.id());
+                }
+            }
+            return count;
+        }
+    }
+
+    /** The {@code Id} (or {@code wsu:Id}) of the element the reader is on, or {@code null}. */
+    private static String elementId(XMLStreamReader reader) {
+        String id = reader.getAttributeValue(null, "Id");
+        return id != null ? id : reader.getAttributeValue(WSU_NS, "Id");
+    }
+
+    /**
+     * Aborts the scan as soon as a bounded quantity (each direct encryption-token type,
+     * or the prediction) exceeds {@link #MAX_ENCRYPTED_KEYS}.
+     */
+    private static void requireWithinBound(int predicted) throws IOException {
+        if (predicted > MAX_ENCRYPTED_KEYS) {
+            throw new IOException("MCEDT response exceeds the maximum of " + MAX_ENCRYPTED_KEYS
+                    + " encryption results (EncryptedKey, ReferenceList and EncryptedData elements)"
+                    + " in the Security header");
         }
     }
 

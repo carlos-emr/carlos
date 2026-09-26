@@ -287,9 +287,9 @@ NOTICE
         decrypted, so deleting it destroys data even though it is a config file)
   kept: /etc/carlos-emr/backup.env           (holds RESTIC_PASSWORD — without it
         every backup this host ever wrote is permanently unreadable)
-  kept: the `carlos` and `carlos-backup` system accounts, because files on this
-        host are still owned by them and a reused uid would silently inherit
-        patient documents
+  kept: the `carlos`, `carlos-backup` and `carlos-render` system accounts,
+        because files on this host are still owned by them and a reused uid
+        would silently inherit patient documents
 NOTICE
         # Only where an import actually left a workspace. This line used to
         # sit in the unconditional heredoc above, so a host that never ran

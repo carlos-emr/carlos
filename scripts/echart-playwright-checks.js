@@ -28,6 +28,7 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
@@ -613,7 +614,7 @@ function isExpectedNoteLockDialog(issue) {
       console.log(`Non-blocking browser diagnostics: ${JSON.stringify(consoleIssues, null, 2)}`);
     }
   } finally {
-    await browser.close();
+    await closeBrowserWithChartCleanup(browser, baseUrl);
   }
 })().catch((error) => {
   console.error('FAIL eChart Playwright check');

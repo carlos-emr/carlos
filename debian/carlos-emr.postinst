@@ -1002,10 +1002,39 @@ except ValueError:
             # so it is removed rather than kept; the old unit is stopped (its driver
             # still holds the port) and forgotten.
             # Stop the old unit first -- its driver holds the port and runs out of
-            # the old home -- but only once no package ships the old unit any more
-            # (always true here: the old renderer's exact dependency on the
-            # carlos-emr it came with means it has been upgraded to the transitional
-            # package or removed by now).
+            # the old home. Under apt every unpack precedes every configure, so the
+            # transitional package (or the removal) has already deleted the old unit
+            # file by now and the enablement is purged below. A bare
+            # `dpkg -i --auto-deconfigure` of this package alone only DECONFIGURES
+            # the old renderer: its unit file is still present and its driver still
+            # running, so the stop is keyed on the unit being active as well --
+            # otherwise the rm -rf of the old home below pulls the working
+            # directory from under a live browser, the old driver keeps the port,
+            # and the new carlos-emr-render-browser fails to bind.
+            # If the stop fails the old driver is still running out of that home, so
+            # the home is kept and the operator is told how to finish; this block runs
+            # on every configure, so a later dpkg-reconfigure completes the move.
+            OLD_RENDERER_LIVE=0
+            if [ -d /run/systemd/system ] \
+                && systemctl is-active --quiet carlos-emr-chromedriver.service; then
+                deb-systemd-invoke stop carlos-emr-chromedriver.service >/dev/null 2>&1 || true
+                if systemctl is-active --quiet carlos-emr-chromedriver.service; then
+                    OLD_RENDERER_LIVE=1
+                    echo "carlos-emr: WARNING: the old carlos-emr-chromedriver.service did not stop;" >&2
+                    echo "carlos-emr: keeping ${STATE}/render until it does. Stop it, then run:" >&2
+                    echo "carlos-emr:   sudo systemctl stop carlos-emr-chromedriver.service" >&2
+                    echo "carlos-emr:   sudo dpkg-reconfigure carlos-emr" >&2
+                fi
+            fi
+            # The EMR's Wants dependency can start the new browser even when this
+            # postinst skips its explicit restart. Its unit condition consumes this
+            # durable marker, including after reboot, until a successful repair.
+            if [ "${OLD_RENDERER_LIVE}" = 1 ]; then
+                : > "${STATE}/.legacy-renderer-live"
+                deb-systemd-invoke stop carlos-emr-render-browser.service >/dev/null 2>&1 || true
+            else
+                rm -f "${STATE}/.legacy-renderer-live"
+            fi
             if [ ! -e /usr/lib/systemd/system/carlos-emr-chromedriver.service ] \
                 && [ ! -e /lib/systemd/system/carlos-emr-chromedriver.service ]; then
                 if [ -d /run/systemd/system ]; then
@@ -1023,7 +1052,8 @@ except ValueError:
                     rm -f "${OLD_RENDER_ENV}"
                 fi
             fi
-            if [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
+            if [ "${OLD_RENDERER_LIVE}" = 0 ] \
+                && [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
                 rm -rf "${STATE}/render"
             fi
             if getent passwd carlos-render >/dev/null \
@@ -1680,7 +1710,17 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # the unit (deb-systemd-invoke skips a unit that is neither enabled nor
     # active). Independent of the credential and schema gates below: the browser
     # holds no credential and serves nothing until the EMR connects to it.
-    if [ "${RENDER_PAYLOAD:-0}" = 1 ] && [ "${RENDER_PROVISION:-1}" = 1 ]; then
+    # A legacy carlos-emr-chromedriver that would not stop (OLD_RENDERER_LIVE, set by the
+    # move off the pre-alpha14 names above) still holds the port, so starting the new
+    # browser would only contend for it. Leave it down; the warning printed there says to
+    # stop the old unit and run dpkg-reconfigure, which completes the move and starts it.
+    if [ "${RENDER_PAYLOAD:-0}" = 1 ] && [ "${RENDER_PROVISION:-1}" = 1 ] \
+        && [ "${OLD_RENDERER_LIVE:-0}" = 1 ]; then
+        echo "carlos-emr: WARNING: NOT starting the eForm render browser while the old" >&2
+        echo "carlos-emr: WARNING: carlos-emr-chromedriver.service still holds its port." >&2
+    fi
+    if [ "${RENDER_PAYLOAD:-0}" = 1 ] && [ "${RENDER_PROVISION:-1}" = 1 ] \
+        && [ "${OLD_RENDERER_LIVE:-0}" = 0 ]; then
         sd_invoke restart carlos-emr-render-browser.service || {
             echo "carlos-emr: WARNING: the eForm render browser service did not start;" >&2
             echo "carlos-emr: WARNING: eForm print/fax/archive will fail until it does" >&2
