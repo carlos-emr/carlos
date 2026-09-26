@@ -145,6 +145,7 @@ CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappe
 | CSS string | `<carlos:encode value="${v}" context="cssString"/>` | `${carlos:forCssString(v)}` | `SafeEncode.forCssString(v)` |
 | URL path | `<carlos:encode value="${v}" context="uri"/>` | `${carlos:forUri(v)}` | `SafeEncode.forUri(v)` |
 | URL parameter | `<carlos:encode value="${v}" context="uriComponent"/>` | `${carlos:forUriComponent(v)}` | `SafeEncode.forUriComponent(v)` |
+| HL7 lab text (`<br />` markers) | `<carlos:encode value="${v}" context="htmlWithBreakMarkers"/>` | `${carlos:forHtmlContentWithBreakMarkers(v)}` | `SafeEncode.forHtmlContentWithBreakMarkers(v)` |
 
 `<carlos:encode>` supports the full OWASP context set. Default `context="html"` (forHtmlContent). See `src/main/webapp/WEB-INF/carlos-tag.tld` for the complete list.
 

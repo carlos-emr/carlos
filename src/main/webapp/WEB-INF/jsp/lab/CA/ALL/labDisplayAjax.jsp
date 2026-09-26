@@ -1073,13 +1073,13 @@
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                             href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
-                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
 
                     <td align="center">
                         <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
+                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <td align="left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                     </td>
@@ -1091,7 +1091,7 @@
                 <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
                     </td>
                 </tr>
                 <% }
@@ -1101,13 +1101,13 @@
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                             href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
-                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
 
                     <td align="center">
                         <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
+                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <td align="left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                     </td>
@@ -1120,7 +1120,7 @@
                 <%} else { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1136,7 +1136,7 @@
                     for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="html"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="htmlWithBreakMarkers"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1172,7 +1172,7 @@
                     </td>
                     <%} %><%
                         else{%>
-                    <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <%} %>
                     <%
@@ -1201,7 +1201,7 @@
                     <%
                         //for pathl7, if it is an SG/CDC result greater than 100 characters, left justify it
                         if ((handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>
-                    <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <%
                     } else {%>
@@ -1218,14 +1218,14 @@
                                                    <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                                                     <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="html"/></em>
                                                     <% } else { %>
-                                                    <carlos:encode value='<%= handler.getOBXResult( j, k) %>' context="html"/>
+                                                    <carlos:encode value='<%= handler.getOBXResult( j, k) %>' context="htmlWithBreakMarkers"/>
                                                     <% } %>
                                                 </td><%}%>
                     <% } %>
                     <td align="center">
                         <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
+                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <td align="left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                     </td>
@@ -1240,7 +1240,7 @@
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="html"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="htmlWithBreakMarkers"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1250,7 +1250,7 @@
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="html"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="htmlWithBreakMarkers"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1281,14 +1281,14 @@
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBRComment(j, k) %>' context="html"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBRComment(j, k) %>' context="htmlWithBreakMarkers"/></pre>
                     </td>
                 </tr>
                 <% if (!handler.getMsgType().equals("HHSEMR")) {
                     if (handler.getOBXName(j, k).equals("")) {
                         String result = handler.getOBXResult(j, k);%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                    <td colspan="7" valign="top" align="left"><carlos:encode value='<%= result %>' context="html"/>
+                    <td colspan="7" valign="top" align="left"><carlos:encode value='<%= result %>' context="htmlWithBreakMarkers"/>
                     </td>
                 </tr>
                 <%

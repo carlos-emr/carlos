@@ -1138,6 +1138,22 @@
       ]
     },
     {
+      "name": "lab-line-break-rendering",
+      "script": "scripts/lab-line-break-rendering-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_BREAK_DEMOGRAPHIC_NO",
+        "LAB_BREAK_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "lab-macro-tickler",
       "script": "scripts/lab-macro-tickler-playwright-checks.js",
       "tiers": [

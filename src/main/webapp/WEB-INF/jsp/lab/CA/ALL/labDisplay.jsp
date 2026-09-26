@@ -49,7 +49,10 @@
         - Case management note linking and comment attachment
         - Results history and comparative views
         - Print-friendly output with RTF support
-        - OWASP XSS encoding for all user inputs and data outputs
+        - OWASP XSS encoding for all user inputs and data outputs. Result, reference
+          range and NTE comment text uses context="htmlWithBreakMarkers": handlers turn the
+          HL7 \.br\ escape into a literal <br /> marker, which must render as a line
+          break, not as visible text (issue #3953)
         - OWASP CSRF protection via security tokens
 
     Architecture:
@@ -2338,14 +2341,14 @@ input[id^='acklabel_']{
                     <%} %>
                 </td>
                 <td style="text-align:right">
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
                 <td style="text-align:center">
                     <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                 </td>
-                <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
+                <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="htmlWithBreakMarkers"/>
                 </td>
                 <td style="text-align:left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                 </td>
@@ -2357,7 +2360,7 @@ input[id^='acklabel_']{
             <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
             </tr>
@@ -2375,14 +2378,14 @@ input[id^='acklabel_']{
                         info</a>
                     <%} %></td>
                 <td style="text-align:right">
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
                 <td style="text-align:center">
                     <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                 </td>
-                <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
+                <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="htmlWithBreakMarkers"/>
                 </td>
                 <td style="text-align:left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                 </td>
@@ -2395,7 +2398,7 @@ input[id^='acklabel_']{
             <%} else { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
             </tr>
@@ -2412,7 +2415,7 @@ input[id^='acklabel_']{
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l).replaceAll("<br />", " ") %>' context="html"/></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="htmlWithBreakMarkers"/></pre>
                 </td>
             </tr>
             <%
@@ -2432,7 +2435,7 @@ input[id^='acklabel_']{
                 %>
 
                 <td style="text-align:left" colspan="4">
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
@@ -2444,7 +2447,7 @@ input[id^='acklabel_']{
                 </td>
                 <% } %>
 
-                <% String refRange =SafeEncode.forHtml(handler.getOBXReferenceRange(j, k));
+                <% String refRange = SafeEncode.forHtmlContentWithBreakMarkers(handler.getOBXReferenceRange(j, k));
                     if (refRange != null && refRange.length() > 0) {
                 %>
                 <td style="text-align:left"><%=refRange%>
@@ -2461,12 +2464,12 @@ input[id^='acklabel_']{
                 } else {
                 %>
                 <td style="text-align:right" colspan="1">
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
                 <td style="text-align:center"><carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                 </td>
-                <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
+                <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="htmlWithBreakMarkers"/>
                 </td>
                 <td style="text-align:left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                 </td>
@@ -2484,7 +2487,7 @@ input[id^='acklabel_']{
             <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l).replaceAll("<br />", " ") %>' context="html"/></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="htmlWithBreakMarkers"/></pre>
                 </td>
             </tr>
             <%
@@ -2521,7 +2524,7 @@ input[id^='acklabel_']{
                 </td>
                     <%}else{%>
                 <td style="text-align:left">
-                    <span><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
+                    <span><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
                 </td>
                     <%} %>
 
@@ -2564,7 +2567,7 @@ input[id^='acklabel_']{
 
                     <% if(handler instanceof AlphaHandler && "FT".equals(handler.getOBXValueType(j, k))) { %>
                 <td colspan="4">
-                    <pre style="font-family:Courier New, monospace;">       <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="font-family:Courier New, monospace;">       <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
                     <%
                                        			lastObxSetId = ((AlphaHandler)handler).getObxSetId(j,k);
@@ -2572,7 +2575,7 @@ input[id^='acklabel_']{
                                            } else if(handler instanceof PATHL7Handler && "FT".equals(handler.getOBXValueType(j, k)) && (handler.getOBXReferenceRange(j,k).isEmpty() && handler.getOBXUnits(j,k).isEmpty())){
                                         	  %>
                 <td colspan="4">
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
                     <%
@@ -2593,7 +2596,7 @@ input[id^='acklabel_']{
                                            		if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
                                            	%>
                 <td style="text-align:left" colspan="4">
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
@@ -2603,13 +2606,13 @@ input[id^='acklabel_']{
                                            		else if(handler.getMsgType().equals("MEDITECH")  && isUnstructuredDoc ) {
                                            	%>
 
-                <pre> <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <pre> <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
 					                             		</pre>
 
                     <% } else if(handler.getMsgType().equals("MEDITECH")  && ((MEDITECHHandler) handler).isReportData() ) { %>
             <tr>
                 <td>
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
             </tr>
@@ -2633,7 +2636,7 @@ input[id^='acklabel_']{
                 <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                 <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue(j, k) %>' context="html"/></em>
                 <% } else { %>
-                <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
+                <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                 <% } %>
                 <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
             </td>
@@ -2642,7 +2645,7 @@ input[id^='acklabel_']{
             <td style="text-align:center">
                 <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
             </td>
-            <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
+            <td style="text-align:left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="htmlWithBreakMarkers"/>
             </td>
             <td style="text-align:left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
             </td>
@@ -2685,7 +2688,7 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l).replaceAll("<br />", " ") %>' context="html"/></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="htmlWithBreakMarkers"/></pre>
                 </td>
             </tr>
             <%
@@ -2700,7 +2703,7 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l).replaceAll("<br />", " ") %>' context="html"/></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="htmlWithBreakMarkers"/></pre>
                 </td>
             </tr>
             <%
@@ -2736,14 +2739,14 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="1"></td>
                 <td style="vertical-align:top;  text-align:left;" colspan="7">
-                    <pre style="margin:0px 0px 0px 0px;"><carlos:encode value='<%= handler.getOBRComment(j, k).replaceAll("<br />", " ") %>' context="html"/></pre>
+                    <pre style="margin:0px 0px 0px 0px;"><carlos:encode value='<%= handler.getOBRComment(j, k) %>' context="htmlWithBreakMarkers"/></pre>
                 </td>
             </tr>
             <% if (!handler.getMsgType().equals("HHSEMR") || !handler.getMsgType().equals("TRUENORTH")) {
                 if (handler.getOBXName(j, k).equals("")) {
                     String result = handler.getOBXResult(j, k);%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
-                <td colspan="7" style="vertical-align:top; text-align:left;"><carlos:encode value='<%= result %>' context="html"/>
+                <td colspan="7" style="vertical-align:top; text-align:left;"><carlos:encode value='<%= result %>' context="htmlWithBreakMarkers"/>
                 </td>
             </tr>
             <%
