@@ -39,7 +39,8 @@ including notes being edited, and releases its note locks. The user has three bu
 
 - **Keep other sessions signed in.** This button is not shown when the limit is reached.
 - **Sign out other sessions.**
-- **Cancel sign-in.** This ends the pending login, signs nobody out and returns to the login page.
+- **Cancel sign-in.** This ends the pending login, leaves the other sessions signed in and returns
+  to the login page.
 
 A browser whose session was signed out lands on the login page on its next request. The page shows
 "You were signed out because your account signed in from another browser or device". Pages that
@@ -53,8 +54,10 @@ error rather than signing out sessions the user was never asked about.
 ## Design and security invariants
 
 - **No authenticated session until the choice is made.** The chooser is shown from a new
-  pre-login session. The old pre-login session is invalidated first, so a session id fixed before
-  login cannot be used to finish the login. The new session holds only an opaque, single-use token
+  pre-login session. The browser's current session is invalidated first, so a session id fixed
+  before login cannot be used to finish the login. As on the direct and MFA login paths, a login
+  submitted from a browser that is already signed in replaces that browser's session. That session
+  is not counted as one of the user's other sessions, and Cancel does not bring it back. The new session holds only an opaque, single-use token
   (`PendingSessionChoices.TOKEN_ATTR`) and no `user` attribute, so `LoginFilter` and the session
   heartbeat still treat it as signed out.
 - **Credentials and authentication results stay out of the HTTP session.** The pending login
