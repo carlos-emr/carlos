@@ -1099,7 +1099,8 @@ public final class Login2Action extends ActionSupport {
      * are kept (and audited); when the limit requires signing others out the login is refused with a
      * JSON error rather than silently ending sessions the user was not asked about.</p>
      *
-     * @return Struts result name, {@link #NONE} after redirect, or null for AJAX
+     * @return Struts result name, {@link #NONE} after a redirect or a direct JSON response, or the
+     *         existing AJAX completion result
      */
     private String applyConcurrentSessionPolicy(Security security, String[] strAuth, String ip,
                                                 boolean isMobileOptimized, String submitType,
@@ -1109,7 +1110,7 @@ public final class Login2Action extends ActionSupport {
         if (policy.equals(ConcurrentSessionPolicy.DEFAULT)) {
             // The default never asks or signs anyone out; skip the registry walk entirely.
             return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
-                    ajaxResponse, oauthToken, OtherSessions.LEAVE);
+                    ajaxResponse, oauthToken, OtherSessionSettlement.Mode.LEAVE);
         }
 
         // Count, decide, register and settle under one per-user lock, so two logins for the same
@@ -1135,11 +1136,11 @@ public final class Login2Action extends ActionSupport {
         switch (decision) {
             case SIGN_OUT_OTHERS:
                 return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
-                        ajaxResponse, oauthToken, OtherSessions.SIGN_OUT_BY_POLICY);
+                        ajaxResponse, oauthToken, OtherSessionSettlement.Mode.SIGN_OUT_BY_POLICY);
             case ASK:
                 if (ajaxResponse) {
                     return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
-                            true, oauthToken, OtherSessions.KEEP_BY_USER);
+                            true, oauthToken, OtherSessionSettlement.Mode.KEEP_BY_USER);
                 }
                 return beginSessionChoice(security, strAuth, ip, isMobileOptimized, submitType, oauthToken,
                         policy, otherSessions);
@@ -1152,14 +1153,15 @@ public final class Login2Action extends ActionSupport {
                     json.put("error", message("login.concurrentSessions.limitReachedAjax"));
                     response.setContentType("application/json");
                     response.getWriter().write(json.toString());
-                    return null;
+                    // Direct response: NONE stops Struts resolving a view over the JSON.
+                    return NONE;
                 }
                 return beginSessionChoice(security, strAuth, ip, isMobileOptimized, submitType, oauthToken,
                         policy, otherSessions);
             case PROCEED:
             default:
                 return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType,
-                        ajaxResponse, oauthToken, OtherSessions.LEAVE);
+                        ajaxResponse, oauthToken, OtherSessionSettlement.Mode.LEAVE);
         }
     }
 
@@ -1318,42 +1320,9 @@ public final class Login2Action extends ActionSupport {
         PendingSessionChoices.clearFromSession(session);
         return completeAuthenticatedLogin(security, terminal.authResult(), ip, terminal.mobileOptimized(),
                 terminal.submitType(), false, terminal.oauthToken(),
-                signOutOthers ? OtherSessions.SIGN_OUT_BY_USER : OtherSessions.KEEP_BY_USER);
+                signOutOthers ? OtherSessionSettlement.Mode.SIGN_OUT_BY_USER : OtherSessionSettlement.Mode.KEEP_BY_USER);
     }
 
-    /**
-     * Signs out or audits the user's other sessions right after the new session is registered.
-     */
-    private void settleOtherSessions(Security security, HttpSession keep, String providerNo, String ip,
-                                     OtherSessions otherSessions) {
-        switch (otherSessions) {
-            case SIGN_OUT_BY_USER, SIGN_OUT_BY_POLICY -> {
-                int revoked = this.userSessionManager.invalidateOtherSessions(security.getSecurityNo(), keep);
-                LogAction.addLog(providerNo, LogConst.LOGIN,
-                        otherSessions == OtherSessions.SIGN_OUT_BY_POLICY
-                                ? "concurrent_sessions_revoked_auto" : "concurrent_sessions_revoked",
-                        String.valueOf(revoked), ip);
-            }
-            case KEEP_BY_USER -> LogAction.addLog(providerNo, LogConst.LOGIN, "concurrent_sessions_kept",
-                    String.valueOf(this.userSessionManager.countOtherActiveSessions(security.getSecurityNo(), keep)),
-                    ip);
-            default -> {
-                // LEAVE: no policy decision was taken; nothing to audit beyond the login itself.
-            }
-        }
-    }
-
-    /** What a completed login does with the same user's other sessions. */
-    private enum OtherSessions {
-        /** No decision was needed; other sessions are left alone and nothing extra is audited. */
-        LEAVE,
-        /** The user chose to keep them (or an AJAX client could not be asked); audited. */
-        KEEP_BY_USER,
-        /** The user chose to sign them out; audited with the count. */
-        SIGN_OUT_BY_USER,
-        /** The {@code single} policy signed them out; audited with the count. */
-        SIGN_OUT_BY_POLICY
-    }
 
     /**
      * Completes session setup after password/PIN authentication and any required MFA have succeeded.
@@ -1379,7 +1348,7 @@ public final class Login2Action extends ActionSupport {
     private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
                                               boolean isMobileOptimized, String submitType,
                                               boolean ajaxResponse, String oauthToken,
-                                              OtherSessions otherSessions) throws IOException {
+                                              OtherSessionSettlement.Mode otherSessions) throws IOException {
         String result;
         try {
             result = establishAuthenticatedSession(security, strAuth, ip, isMobileOptimized, submitType,
@@ -1397,7 +1366,13 @@ public final class Login2Action extends ActionSupport {
         // -- which may hold unsaved clinical work -- must not be signed out for nothing.
         HttpSession established = request.getSession(false);
         if (security != null && isSignedIn(established)) {
-            settleOtherSessions(security, established, strAuth[0], ip, otherSessions);
+            if (Boolean.TRUE.equals(established.getAttribute(SessionConstants.PENDING_FACILITY_SELECTION))) {
+                // Not finished yet: /select_facility can still end this session, so settle there.
+                OtherSessionSettlement.defer(established, otherSessions);
+            } else {
+                OtherSessionSettlement.settle(this.userSessionManager, security.getSecurityNo(), established,
+                        strAuth[0], ip, otherSessions);
+            }
         }
         return result;
     }

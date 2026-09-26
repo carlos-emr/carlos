@@ -82,6 +82,26 @@ final class ConcurrentSessionAdmission {
         }
     }
 
+    /**
+     * {@link #serialize} for a step that does no I/O.
+     *
+     * @param securityNo security row of the user; {@code null} runs unlocked
+     * @param step the work to run under the user's lock
+     */
+    static void serializeUnchecked(Integer securityNo, Runnable step) {
+        if (securityNo == null) {
+            step.run();
+            return;
+        }
+        ReentrantLock lock = lockFor(securityNo);
+        lock.lock();
+        try {
+            step.run();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     static ReentrantLock lockFor(Integer securityNo) {
         return LOCKS[Math.floorMod(securityNo.hashCode(), STRIPES)];
     }

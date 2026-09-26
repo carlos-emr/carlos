@@ -301,6 +301,31 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should defer signing others out until a multi-facility provider picks a facility")
+        void shouldDeferSignOut_whenFacilitySelectionIsPending() throws Exception {
+            setPolicy("single", null);
+            when(userSessionManager.countOtherActiveSessions(eq(SECURITY_NO), any())).thenReturn(1);
+            when(providerDao.getFacilityIds(PROVIDER_NO)).thenReturn(java.util.Arrays.asList(10, 11));
+
+            signIn();
+
+            assertThat(response.getRedirectedUrl()).contains("/select_facility");
+            verify(userSessionManager, never()).invalidateOtherSessions(any(), any());
+            assertThat(request.getSession(false).getAttribute(OtherSessionSettlement.DEFERRED_ATTR))
+                    .isEqualTo(OtherSessionSettlement.Mode.SIGN_OUT_BY_POLICY.name());
+        }
+
+        @Test
+        @DisplayName("should answer an AJAX refusal with NONE so no view is rendered over the JSON")
+        void shouldReturnNone_forAjaxRefusal() throws Exception {
+            setPolicy("prompt", "1");
+            request.setParameter("ajaxResponse", "true");
+            when(userSessionManager.countOtherActiveSessions(eq(SECURITY_NO), any())).thenReturn(1);
+
+            assertThat(signIn()).isEqualTo(ActionSupport.NONE);
+        }
+
+        @Test
         @DisplayName("should keep sessions for an AJAX client that cannot be asked")
         void shouldKeepSessions_forAjaxClientUnderPromptPolicy() throws Exception {
             setPolicy("prompt", null);
@@ -327,7 +352,7 @@ class Login2ActionConcurrentSessionUnitTest extends CarlosUnitTestBase {
 
             String result = signIn();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getContentAsString()).contains("\"success\":false");
             assertThat(request.getSession(false) == null
                     || request.getSession(false).getAttribute("user") == null).isTrue();

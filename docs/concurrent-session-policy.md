@@ -73,7 +73,10 @@ error rather than signing out sessions the user was never asked about.
 - **Other sessions are signed out only after the new login fully succeeds.** The new session is
   registered first. The older sessions are settled only once it has passed every failure-prone
   setup step: provider load, facility, logged-in info and OAuth binding. A login that fails
-  part-way leaves the user's existing sessions, and any unsaved work in them, untouched. A new
+  part-way leaves the user's existing sessions, and any unsaved work in them, untouched. A
+  provider in several facilities finishes signing in on `/select_facility`, which can still end
+  the new session. For them the decision is deferred on the session (`OtherSessionSettlement`)
+  and settled only after the facility is applied. A new
   session whose setup throws is invalidated, so it never lingers in the registry and counts toward
   the limit.
 - **One admission at a time per user.** Counting, deciding, registering and settling run under a
@@ -130,6 +133,7 @@ a session by its shortened reference only.
 |---|---|
 | Policy value and decision table | `login/ConcurrentSessionPolicy.java` |
 | Per-user admission lock | `login/ConcurrentSessionAdmission.java` |
+| Settling (or deferring) the decision | `login/OtherSessionSettlement.java`, `login/gate/SelectFacility2Action.java` |
 | Login integration and chooser submit | `login/Login2Action.java` (`applyConcurrentSessionPolicy`, `beginSessionChoice`, `submitSessionChoice`, `settleOtherSessions`) |
 | Pending login store and session contract | `login/PendingSessionChoiceCache.java`, `login/PendingSessionChoices.java` |
 | Chooser view model and page | `login/ConcurrentSessionChoiceViewModel.java`, `WEB-INF/jsp/login/sessionChoice.jsp` |
