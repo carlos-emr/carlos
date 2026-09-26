@@ -32,7 +32,8 @@
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (to stage and restore the pharmacy links)
- * Optional: PRESCRIPTION_SCRIPT_ID (default 45; must have drugs rows),
+ * Optional: PRESCRIPTION_SCRIPT_ID (defaults to the newest script for the demographic that
+ *   has drugs rows; a supplied id without them is rejected up front),
  *   PRESCRIPTION_DEMOGRAPHIC_NO (default 1), CHROME_PATH,
  *   RX_PREVIEW_SCREENSHOT_DIR (default /tmp).
  */
@@ -63,10 +64,14 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.RX_PREVIEW_SCREENSHOT_DIR || '/tmp',
 };
-const scriptId = process.env.PRESCRIPTION_SCRIPT_ID || '45';
+const requestedScriptId = String(process.env.PRESCRIPTION_SCRIPT_ID || '').trim();
 const demographicNo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
-assert(/^\d+$/.test(scriptId), `PRESCRIPTION_SCRIPT_ID must be numeric, got ${scriptId}`);
+if (requestedScriptId) {
+  assert(/^\d+$/.test(requestedScriptId), `PRESCRIPTION_SCRIPT_ID must be numeric, got ${requestedScriptId}`);
+}
 assert(/^\d+$/.test(demographicNo), `PRESCRIPTION_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
+// Resolved against the database in main() once the MySQL defaults file exists.
+let scriptId = requestedScriptId || null;
 
 const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
 const mysqlUser = process.env.MYSQL_USER || 'root';
@@ -86,6 +91,60 @@ function cleanupMysqlDefaults() {
     mysqlDefaults = null;
   }
 }
+/**
+ * Pick the prescription this run should drive, and refuse to start on one that cannot work.
+ *
+ * `prescription` rows outnumber `drugs` rows in the demo dataset — more than half the seeded
+ * prescriptions for the demo patient carry no drug rows at all, including the highest
+ * script_no. The Rx page's Reprint panel lists only the prescriptions that have drugs (scripts
+ * 17-45 of the 63 seeded, measured on a deployed alpha12), so the obvious operator choice
+ * (`SELECT MAX(script_no) ... WHERE demographic_no=1`) used to fail deep in the run as a
+ * locator timeout on a reprint row that was never going to appear — which reads like an
+ * application defect rather than a bad fixture (#3734).
+ *
+ * With no PRESCRIPTION_SCRIPT_ID this now picks the newest script that actually has drugs;
+ * with one supplied it fails immediately, naming the problem and a script that would work.
+ */
+function resolvePrescriptionScriptId() {
+  if (requestedScriptId) {
+    const drugCount = Number(sql(
+      `SELECT COUNT(*) FROM drugs WHERE script_no=${requestedScriptId} AND demographic_no=${demographicNo}`,
+    ));
+    if (!drugCount) {
+      const suggestion = sql(
+        `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+        + `WHERE p.demographic_no=${demographicNo}`,
+      );
+      // WHAT ACTUALLY GOES WRONG, MEASURED. Driven against a deployed alpha12 with this guard
+      // disabled, the run does not reach /rx/viewScript at all: the Rx page's Reprint panel
+      // lists only the prescriptions that have drugs (scripts 17-45 of the 63 seeded for the
+      // demo patient), so the reprint row for an empty script never appears and the journey
+      // dies waiting for it. The signature suite, which navigates to /rx/viewScript directly,
+      // is the one that meets the missing preview frame; naming the wrong one here would send
+      // the next operator to the wrong page.
+      throw new Error(
+        `PRESCRIPTION_SCRIPT_ID=${requestedScriptId} has no drugs rows for demographic ${demographicNo}. `
+        + `The Rx page's Reprint panel only offers prescriptions that have drugs, so this script is `
+        + `never listed there and the suite would time out waiting for its reprint row. `
+        + (suggestion && suggestion !== 'NULL'
+          ? `Use PRESCRIPTION_SCRIPT_ID=${suggestion}, or leave it unset to resolve one automatically.`
+          : `No prescription for this demographic has drugs rows; seed one first.`),
+      );
+    }
+    return requestedScriptId;
+  }
+
+  const resolved = sql(
+    `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+    + `WHERE p.demographic_no=${demographicNo}`,
+  );
+  assert(
+    resolved && resolved !== 'NULL',
+    `No prescription with drugs rows exists for demographic ${demographicNo}; seed one or set PRESCRIPTION_SCRIPT_ID`,
+  );
+  return resolved;
+}
+
 function sql(query) {
   assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
   return execFileSync('mysql', [
@@ -120,18 +179,27 @@ async function assertPreviewRenders(hostFrame, label) {
   try {
     await frame.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
   } catch (error) {
-    const bodyText = await frame.locator('body').innerText().catch(() => '');
-    throw new Error(`${label}: preview did not render (#signature missing) at ${frame.url()}: ${bodyText.replace(/\s+/g, ' ').slice(0, 400)}`);
+    // No page text in the message. This frame is the rendered prescription — patient name,
+    // address and medication details — and the top-level catch prints errors to CI logs.
+    throw new Error(`${label}: preview did not render (#signature missing) at ${frame.url()}`);
   }
   return frame.url();
 }
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   initMysqlDefaults();
   let stagedLinkIds = null;
+  let browser = null;
   try {
+    // Before touching the browser, and it has to be before the launch to mean anything: a
+    // script with no drugs cannot render a preview frame, and failing here names the cause
+    // instead of timing out on a locator later (#3734). Launching first would also let a
+    // missing or unstartable Chromium mask that diagnostic behind its own error.
+    scriptId = resolvePrescriptionScriptId();
+
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+
     stagedLinkIds = stageNoPharmacy();
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
@@ -202,6 +270,8 @@ async function assertPreviewRenders(hostFrame, label) {
       console.error(`WARN failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
     }
     cleanupMysqlDefaults();
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 })();
