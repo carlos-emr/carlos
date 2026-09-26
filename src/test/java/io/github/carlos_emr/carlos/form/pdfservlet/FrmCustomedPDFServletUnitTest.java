@@ -390,7 +390,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.commn.model.PharmacyInfo pharmacy =
                 new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
         pharmacy.setName("Main St Pharmacy");
-        pharmacy.setAddress("1 Main St");
+        // The no-phone case also drops the street line, so the skip of an absent field is exercised.
+        pharmacy.setAddress(expectedTelLine == null ? null : "1 Main St");
         pharmacy.setCity("Toronto");
         pharmacy.setProvince("ON");
         pharmacy.setPostalCode("M1M 1M1");
@@ -439,7 +440,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             if (expectedTelLine == null) {
                 assertThat(pdfText).doesNotContain("416-555-01");
             } else {
-                assertThat(pdfText).contains(expectedTelLine);
+                // Not preceded by a word character or a dot, so an unresolved message key such as
+                // "RxPreview.msgTel: ..." cannot pass for the "Tel: ..." label.
+                assertThat(pdfText).containsPattern(
+                        "(?<![\\w.])" + java.util.regex.Pattern.quote(expectedTelLine));
             }
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
