@@ -124,6 +124,8 @@
     "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js",
     "test:inbox-lab-versions-playwright": "node scripts/inbox-lab-versions-playwright-checks.js",
     "test:inbox-preview-acknowledge-playwright": "node scripts/inbox-preview-acknowledge-playwright-checks.js",
+    "test:inbox-rapid-review-advance-playwright": "node scripts/inbox-rapid-review-advance-playwright-checks.js",
+    "test:inbox-preview-boundary-resync-playwright": "node scripts/inbox-preview-boundary-resync-playwright-checks.js",
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",

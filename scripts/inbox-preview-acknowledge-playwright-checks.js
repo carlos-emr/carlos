@@ -453,4 +453,4 @@ if (require.main === module) {
   runCheck({ name: 'inbox-preview-acknowledge', run: main });
 }
 
-module.exports = { cardFrame, enterPreviewMode, loadEveryPreviewPage, main, readStamps, settleList, shownCards, stampSurvivors, widenToAnyProvider };
+module.exports = { acknowledgeControl, cardFrame, enterPreviewMode, findAcknowledgeable, loadEveryPreviewPage, main, readStamps, settleList, shownCards, stampSurvivors, widenToAnyProvider };
