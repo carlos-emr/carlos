@@ -40,6 +40,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -102,6 +103,19 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         cal.setTime(today);
         cal.add(Calendar.DAY_OF_MONTH, 7);
         nextWeek = cal.getTime();
+    }
+
+    @Test
+    void shouldCompareNumericBounds_whenReadingHasTwoDigitsAndAfternoonTimestamp() {
+        Date entered = java.sql.Timestamp.valueOf("2026-03-04 14:30:12");
+        createAndPersistWithCreateDate(DEMO_NO, "A1C", "10", today, entered);
+
+        assertThat(measurementDao.findByDemoNoDateTypeMeasuringInstrAndDataField(
+                DEMO_NO, entered, "A1C", "", "11", "9")).hasSize(1);
+        assertThat(measurementDao.findByDemoNoDateTypeAndDataField(
+                DEMO_NO, entered, "A1C", "11", "9")).hasSize(1);
+        assertThat(measurementDao.findByDemoNoDateTypeAndDataField(
+                DEMO_NO, entered, "A1C", "9", "1")).isEmpty();
     }
 
     private Measurement createMeasurement(int demoNo, String type, String dataField, Date dateObserved) {
@@ -981,6 +995,51 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).containsKeys("BP", "WT");
+        }
+    }
+
+    // ========================================================================
+    // findDistinctMeasuringInstructionsByTypes
+    // ========================================================================
+
+    @Nested
+    @DisplayName("findDistinctMeasuringInstructionsByTypes")
+    @Tag("read")
+    class FindDistinctMeasuringInstructionsByTypes {
+
+        @Test
+        @DisplayName("should return each stored instruction of the type once, including legacy ones")
+        void shouldReturnDistinctInstructions_forType() {
+            // Given: AACP readings saved before and after its instruction changed, plus another type
+            Measurement legacy = createMeasurement(DEMO_NO, "AACP", "Yes", lastWeek);
+            legacy.setMeasuringInstruction("Yes/No");
+            entityManager.persist(legacy);
+            Measurement legacyAgain = createMeasurement(DEMO_NO_2, "AACP", "No", lastWeek);
+            legacyAgain.setMeasuringInstruction("Yes/No");
+            entityManager.persist(legacyAgain);
+            Measurement current = createMeasurement(DEMO_NO, "AACP", "Provided", today);
+            current.setMeasuringInstruction("Provided/Revised/Reviewed");
+            entityManager.persist(current);
+            Measurement other = createMeasurement(DEMO_NO, "SKST", "Yes", today);
+            other.setMeasuringInstruction("Smoking status");
+            entityManager.persist(other);
+            entityManager.flush();
+
+            // When
+            Map<String, List<String>> result = measurementDao.findDistinctMeasuringInstructionsByTypes(
+                    List.of("AACP", "SKST", "NOPE"));
+
+            // Then: one query answers every type; a type without readings has no entry
+            assertThat(result).containsOnlyKeys("AACP", "SKST");
+            assertThat(result.get("AACP")).containsExactlyInAnyOrder("Yes/No", "Provided/Revised/Reviewed");
+            assertThat(result.get("SKST")).containsExactly("Smoking status");
+        }
+
+        @Test
+        @DisplayName("should return an empty map for no types or types without readings")
+        void shouldReturnEmpty_whenTypesHaveNoReadings() {
+            assertThat(measurementDao.findDistinctMeasuringInstructionsByTypes(List.of())).isEmpty();
+            assertThat(measurementDao.findDistinctMeasuringInstructionsByTypes(List.of("NOPE"))).isEmpty();
         }
     }
 }

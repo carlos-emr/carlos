@@ -65,7 +65,7 @@ class UtilitiesUploadUnitTest {
     }
 
     @Test
-    void shouldWriteLabContentAndCloseStream_whenSaveFileSucceeds() throws Exception {
+    void shouldWriteLabContentAndCloseStream_whenSaveFileSucceeds() {
         TrackedStream input = new TrackedStream("MSH|fixture".getBytes(StandardCharsets.UTF_8));
 
         String saved = Utilities.saveFile(input, "lab.hl7.enc");
@@ -104,7 +104,7 @@ class UtilitiesUploadUnitTest {
     }
 
     @Test
-    void shouldWritePdfAndCloseStream_whenSavePdfSucceeds() throws Exception {
+    void shouldWritePdfAndCloseStream_whenSavePdfSucceeds() {
         TrackedStream input = new TrackedStream("%PDF-1.4".getBytes(StandardCharsets.UTF_8));
 
         String saved = Utilities.savePdfFile(input, "report.pdf");
@@ -128,7 +128,7 @@ class UtilitiesUploadUnitTest {
     }
 
     @Test
-    void shouldWriteHrmAndCloseStream_whenSaveHrmSucceeds() throws Exception {
+    void shouldWriteHrmAndCloseStream_whenSaveHrmSucceeds() {
         TrackedStream input = new TrackedStream("MSH|HRM".getBytes(StandardCharsets.UTF_8));
 
         String saved = Utilities.saveHRMFile(input, "hrm.hl7");
