@@ -87,9 +87,10 @@ Depends:
 # import guard (carlos-emr-o19-guard, consulted by the service unit on every
 # start) reads the import ledger with it.
  python3,
-# The administration command: its own package since 2026.09.0~snapshot25
-# (carlos-emr/carlos-ctl; through snapshot24 the same code shipped inside this
-# package). The postinst calls db-rename-schema, init-config,
+# The administration command: its own package from 2026.08.0~alpha16 (and
+# the 2026.09.0~snapshot25 developer build; carlos-emr/carlos-ctl). Through
+# 2026.08.0~alpha15 / snapshot24 the same code shipped inside this package.
+# The postinst calls db-rename-schema, init-config,
 # db-apply-settings, db-users, db-migrate, bootstrap-admin and demo-data, and
 # carlos-emr-provision.service calls finish-install --boot, so the floor is
 # the first carlos-ctl release that carries every one of those with the
@@ -98,7 +99,7 @@ Depends:
 # package's postinst runs (Policy 7.2). Raise the floor whenever this
 # package starts using a new verb or flag. carlos-ctl carries the
 # python3-bcrypt, iproute2, procps and jq the CLI itself needs.
- carlos-ctl (>= 1.0.0),
+ carlos-ctl (>= 1.1.0),
  debconf (>= 0.5) | debconf-2.0,
 # --- eForm renderer (vendored Chromium under /usr/lib/carlos-emr/chromium) ---
 # Chromium's direct DT_NEEDED set, minus what the Essential/base system already

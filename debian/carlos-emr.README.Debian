@@ -117,7 +117,7 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
                                          separate carlos-ctl package, which
                                          carlos-emr depends on (its code is
                                          under /usr/lib/carlos-ctl; through
-                                         2026.09.0~snapshot24 it was part of
+                                         2026.08.0~alpha15 it was part of
                                          carlos-emr)
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit

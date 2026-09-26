@@ -1,12 +1,13 @@
 carlos-emr (2026.09.0~snapshot25) resolute; urgency=medium
 
   * The carlos-ctl administration command is its own package now, built from
-    carlos-emr/carlos-ctl, and carlos-emr depends on it (carlos-ctl >= 1.0.0).
+    carlos-emr/carlos-ctl, and carlos-emr depends on it (carlos-ctl >= 1.1.0).
     This package no longer ships /usr/sbin/carlos-ctl, the carlosctl alias,
     /usr/lib/carlos-emr/carlos_ctl or the carlos-ctl(8) man page; the new
-    package takes those paths over on upgrade (Breaks/Replaces carlos-emr
-    << 2026.09.0~snapshot25), and this postinst removes the bytecode cache
-    the old copy left behind. The operator's install and upgrade command is
+    package takes those paths over on upgrade from a 2026.08.0~alpha15 or
+    earlier release (carlos-ctl Breaks/Replaces carlos-emr << 2026.08.0~alpha16~;
+    a pre-split developer snapshot must be removed first), and this postinst
+    removes the bytecode cache the old copy left behind. The operator's install and upgrade command is
     unchanged apart from one more file: carlos-ctl_<version>_all.deb, which
     every carlos release re-attaches from the pinned carlos-ctl release
     (debian/carlos-ctl.pin, debian/fetch-carlos-ctl.sh).

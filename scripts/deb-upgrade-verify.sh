@@ -27,7 +27,7 @@
 # the province being verified. EXPECT_NEW may be empty when the two packages ship
 # the same migration set (a packaging-only upgrade).
 #
-# From 2026.09.0~snapshot25 the carlos-ctl command is its own package that
+# From 2026.08.0~alpha16 (developer builds: 2026.09.0~snapshot25) the carlos-ctl command is its own package that
 # carlos-emr depends on (carlos-emr/carlos#4001). EXPECT_SPLIT=1 (the default
 # once the post-upgrade dpkg knows carlos-ctl) adds the split contract: the
 # command, its alias and its man page belong to carlos-ctl and nothing of the

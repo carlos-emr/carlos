@@ -11,4 +11,4 @@
 # floor. Raise the floor when the postinst starts using a new verb or flag;
 # raise the pin when a CLI release should reach operators with the next
 # carlos release.
-tag=1.0.0
+tag=1.1.0

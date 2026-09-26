@@ -27,7 +27,7 @@ RemainAfterExit=no
 # is a decision an operator takes after a verified backup, never one a boot
 # takes unattended.
 # /usr/sbin/carlos-ctl: the command is the separate carlos-ctl package
-# (carlos-emr depends on it); through 2026.09.0~snapshot24 the shim lived at
+# (carlos-emr depends on it); through 2026.08.0~alpha15 the shim lived at
 # /usr/lib/carlos-emr/carlos-ctl inside this package.
 ExecStart=/usr/sbin/carlos-ctl finish-install --boot
 # Creating the schema on a small VM takes minutes, and it runs before the EMR;

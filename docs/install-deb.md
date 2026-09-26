@@ -96,7 +96,7 @@ sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
 `<version>` is the release's Debian version as it appears in the asset name,
 with dots throughout — for example `2026.08.0.alpha14`, giving
 `carlos-emr_2026.08.0.alpha14_amd64.deb`. `<ctl-version>` is the `carlos-ctl`
-release's own version (for example `1.0.0`): the two packages version
+release's own version (for example `1.1.0`): the two packages version
 independently, and the CARLOS release page carries the `carlos-ctl` file it
 was tested with. To verify provenance, `gh attestation verify` each file
 against the repository that built it:
@@ -106,7 +106,7 @@ gh attestation verify carlos-emr_<version>_amd64.deb --repo carlos-emr/carlos
 gh attestation verify carlos-ctl_<ctl-version>_all.deb --repo carlos-emr/carlos-ctl
 ```
 
-> **Releases up to and including 2026.09.0~snapshot24** shipped `carlos-ctl`
+> **Releases up to and including 2026.08.0-alpha15** shipped `carlos-ctl`
 > inside `carlos-emr`; there is no separate file to download for them, and
 > upgrading from one of them needs the `carlos-ctl` file in the same command
 > (see [Upgrades](#upgrades)).
@@ -366,7 +366,7 @@ Offering only a newer main package
 can cause apt to propose removing a companion. Keep `--no-remove` so that
 proposal fails instead of removing prescription lookup.
 
-**Upgrading from 2026.09.0~snapshot24 or earlier** (when `carlos-ctl` was
+**Upgrading from 2026.08.0-alpha15 or earlier** (when `carlos-ctl` was
 part of `carlos-emr`): the `carlos-ctl_<ctl-version>_all.deb` file must be in
 the same command. The new `carlos-emr` depends on it, so without the file apt
 refuses the whole transaction up front and the old install keeps running —

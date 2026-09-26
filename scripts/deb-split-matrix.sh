@@ -32,8 +32,14 @@
 # Run order is 2 before 1 (both need the pre-split state) and 5 before 4
 # (both consume the newer carlos-ctl). Inputs, all .deb paths:
 #
-#   PRESPLIT_EMR   carlos-emr <= 2026.09.0~snapshot24 (ships the CLI itself)
-#   SPLIT_EMR      carlos-emr >= 2026.09.0~snapshot25 (Depends: carlos-ctl)
+#   PRESPLIT_EMR   carlos-emr <= 2026.08.0~alpha15 (ships the CLI itself)
+#   SPLIT_EMR      carlos-emr >= 2026.08.0~alpha16 (Depends: carlos-ctl).
+#                  Use RELEASE-shaped versions (stamp debian/changelog from
+#                  the tag as the release workflow does): carlos-ctl's
+#                  Breaks/Replaces boundary is the first split RELEASE, and
+#                  a pre-split developer snapshot (2026.09.0~snapshotN sorts
+#                  above every 2026.08 version) is not a supported upgrade
+#                  source -- remove carlos-emr first on such a host
 #   CTL_A          the carlos-ctl release SPLIT_EMR's pin names
 #   CTL_B          a newer carlos-ctl (case 4/5); built from the same tree
 #                  with a higher version is enough

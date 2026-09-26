@@ -289,7 +289,7 @@ override_dh_auto_install:
 	# direct workhorses and what `carlos-ctl backup|cert|...` execs. The
 	# carlos-ctl command itself is the separate carlos-ctl package
 	# (/usr/lib/carlos-ctl, /usr/sbin/carlos-ctl and the carlosctl alias);
-	# through 2026.09.0~snapshot24 it was installed here.
+	# through 2026.08.0~alpha15 (snapshot24) it was installed here.
 	install -d $(STAGE)/$(LIBDIR)
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
