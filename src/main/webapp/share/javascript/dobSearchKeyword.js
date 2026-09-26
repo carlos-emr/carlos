@@ -60,7 +60,7 @@
      */
     function format(raw) {
         raw = String(raw == null ? '' : raw);
-        var cleaned = raw.trim().replace(/[/. ]/g, '-');
+        var cleaned = raw.replace(/[/. ]/g, '-');
         if (/[^0-9%-]/.test(cleaned)) return raw;
         var segments = [];
         var current = '';

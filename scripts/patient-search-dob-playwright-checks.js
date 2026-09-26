@@ -387,6 +387,8 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
 
     await clearKeyword(page);
     expectValue('dob-space-separators', await typeDob(page, '1980 01 01'), '1980-01-01');
+    await clearKeyword(page);
+    expectValue('dob-short-space-segments', await typeDob(page, '1980 1 1'), '1980-1-1');
 
     // Single-event entry covers paste/programmatic input, while the remaining
     // cases pin the edit paths the formatter promises to preserve.
@@ -399,13 +401,13 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
     expectValue('dob-backspace-separator', await page.locator('#keyword').inputValue(), '1980');
 
     await clearKeyword(page);
-    expectValue('dob-eight-digit-cap', await typeDob(page, '1980010199'), '1980-01-01');
+    expectValue('dob-extra-digits-retained', await typeDob(page, '1980010199'), '1980-01-0199');
 
     await clearKeyword(page);
-    expectValue('dob-non-digits-ignored', await typeDob(page, '1980a01b01'), '1980-01-01');
+    expectValue('dob-non-digits-retained', await typeDob(page, '1980a01b01'), '1980a01b01');
 
     await clearKeyword(page);
-    expectValue('dob-double-separators', await typeDob(page, '1980--01--01'), '1980-01-01');
+    expectValue('dob-double-separators-retained', await typeDob(page, '1980--01--01'), '1980--01--01');
 
     // Issue #3956: % survives typing as a whole-segment wildcard, and the
     // partial shapes are no longer truncated or rejected while typing.

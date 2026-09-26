@@ -274,3 +274,13 @@ for (const [jsp, formName] of [['addappointment.jsp', 'ADDAPPT'], ['editappointm
     assert.match(source, /onclick="if \(!parseSearch\(\)\) return false;/);
   });
 }
+
+test('keystroke formatting keeps short separated segments and excess digits without losing input', () => {
+  for (const [typed, expected] of [['1980 1 1', '1980-1-1'], ['1980/1/1', '1980-1-1'],
+    ['1980.1.1', '1980-1-1'], ['1980010199', '1980-01-0199']]) {
+    let value = '';
+    for (const character of typed) value = dob.format(value + character);
+    assert.equal(value, expected);
+  }
+  assert.equal(dob.isValid('1980-01-0199'), false);
+});
