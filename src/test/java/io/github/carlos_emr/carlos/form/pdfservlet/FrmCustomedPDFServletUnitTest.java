@@ -374,6 +374,80 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(nullValues = "NULL", value = {
+            "416-555-0101, 416-555-0102, Tel: 416-555-0101 416-555-0102",
+            "NULL,         416-555-0102, Tel: 416-555-0102",
+            "'  ',         NULL,         NULL"})
+    @DisplayName("should print the pharmacy phone numbers labelled in the Rx PDF, and never null")
+    void shouldPrintLabelledPharmacyPhones_inRxPdfPharmacyBlock(String phone1, String phone2, String expectedTelLine,
+                                                               @TempDir Path tempDir) throws Exception {
+        // Issue #3974: the pharmacy block printed getPhone1() bare, never printed phone2, and wrote
+        // a null item when phone1 was absent. It now prints "Tel: <phone1 phone2>" or no line.
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        io.github.carlos_emr.carlos.commn.model.PharmacyInfo pharmacy =
+                new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
+        pharmacy.setName("Main St Pharmacy");
+        pharmacy.setAddress("1 Main St");
+        pharmacy.setCity("Toronto");
+        pharmacy.setProvince("ON");
+        pharmacy.setPostalCode("M1M 1M1");
+        pharmacy.setPhone1(phone1);
+        pharmacy.setPhone2(phone2);
+        pharmacy.setFax("4165551212");
+        io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao pharmacyInfoDao =
+                mock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class);
+        when(pharmacyInfoDao.getPharmacy(7)).thenReturn(pharmacy);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class, pharmacyInfoDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class));
+        MockHttpServletRequest request = createFaxRequest();
+        request.addParameter("pharmacyInfo", "7");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<PrescriptionQrCodeUIBean> qrCodeMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            qrCodeMock.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(false);
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+            servlet.service(request, response);
+
+            assertThat(response.getContentAsString()).contains("fax-success");
+            String pdfText;
+            try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(
+                    documentDir.resolve("prescription_rx-123.pdf").toFile())) {
+                pdfText = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+            }
+            assertThat(pdfText).contains("ATTENTION:").contains("Main St Pharmacy").contains("4165551212");
+            assertThat(pdfText).doesNotContainIgnoringCase("null");
+            // The prescriber heading carries its own "Tel: <clinic phone>" line, so the pharmacy
+            // assertions are on the pharmacy's numbers and on a dangling label, not on "Tel:" itself.
+            assertThat(pdfText.lines().map(String::strip)).noneMatch("Tel:"::equals);
+            if (expectedTelLine == null) {
+                assertThat(pdfText).doesNotContain("416-555-01");
+            } else {
+                assertThat(pdfText).contains(expectedTelLine);
+            }
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"document", "missing-file", "io", "runtime"})
     @DisplayName("should report a definite fax failure when PDF generation fails before persistence")
     void shouldReportDefiniteFaxFailure_whenPdfGenerationFails(String failureType) throws Exception {
