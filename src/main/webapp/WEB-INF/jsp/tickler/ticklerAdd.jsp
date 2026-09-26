@@ -438,9 +438,34 @@
             btns.forEach(function(b) { b.disabled = false; });
         }
 
+        // Validation messages live in the #error alert. Every submit starts from an
+        // empty alert and renders only the failures of THIS attempt, one per line:
+        // appending (the old insertAdjacentText) piled the same message up on each
+        // retry and kept stale messages visible after the operator fixed the field.
+        // textContent on a per-message element keeps the bundle text inert markup.
+        function resetValidationMessages() {
+            var errorDiv = document.getElementById("error");
+            errorDiv.textContent = "";
+            errorDiv.style.display = "none";
+        }
+
+        function showValidationMessage(message) {
+            var errorDiv = document.getElementById("error");
+            var line = document.createElement("div");
+            line.className = "tickler-validation-message";
+            line.textContent = message;
+            errorDiv.appendChild(line);
+            errorDiv.style.display = "block";
+        }
+
         function validate(form, writeToEncounter) {
             writeToEncounter = writeToEncounter || false;
-            if (validateDemoNo()<%= caisiEnabled ? " && validateSelectedProgram()" : "" %>) {
+            resetValidationMessages();
+            // Evaluate every validator (no short-circuit) so one submit reports
+            // every problem instead of revealing them one retry at a time.
+            var demographicValid = validateDemoNo();
+            var programValid = <%= caisiEnabled ? "validateSelectedProgram()" : "true" %>;
+            if (demographicValid && programValid) {
                 // Disable submit buttons to prevent double-submit
                 var btns = document.querySelectorAll('.action-bar-bottom .btn-primary, .action-bar-bottom .btn-secondary');
                 btns.forEach(function(b) { b.disabled = true; });
@@ -560,8 +585,7 @@
 
         function validateSelectedProgram() {
             if (document.serviceform.program_assigned_to.value === "none") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                document.getElementById("error").style.display = 'block';
+                showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
                 return false;
             }
             return true;
@@ -574,21 +598,18 @@
 
         function validateDemoNo() {
             if (document.serviceform.demographic_no.value == "") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' context="javaScriptBlock"/>');
-                document.getElementById("error").style.display = 'block';
+                showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' context="javaScriptBlock"/>');
                 return false;
             } else {
                 if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
+                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                     return false;
                 }
                 <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
                 else if (!document.serviceform.task_assigned_to ||
                          document.serviceform.task_assigned_to.options.length === 0 ||
                          document.serviceform.task_assigned_to.value === "") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
+                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
                     return false;
                 }
                 <% } %>

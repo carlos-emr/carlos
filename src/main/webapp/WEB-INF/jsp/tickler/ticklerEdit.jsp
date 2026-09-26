@@ -352,15 +352,39 @@
 
             function validateSelectedProgram() {
                 if (document.serviceform.program_assigned_to && document.serviceform.program_assigned_to.value === "none") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
+                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
                     return false;
                 }
                 return true;
             }
 
+            // Validation messages live in the #error alert. Every submit starts from an
+            // empty alert and renders only the failures of THIS attempt, one per line:
+            // appending (the old insertAdjacentText) piled the same message up on each
+            // retry and kept stale messages visible after the operator fixed the field.
+            // textContent on a per-message element keeps the bundle text inert markup.
+            function resetValidationMessages() {
+                var errorDiv = document.getElementById("error");
+                errorDiv.textContent = "";
+                errorDiv.style.display = "none";
+            }
+
+            function showValidationMessage(message) {
+                var errorDiv = document.getElementById("error");
+                var line = document.createElement("div");
+                line.className = "tickler-validation-message";
+                line.textContent = message;
+                errorDiv.appendChild(line);
+                errorDiv.style.display = "block";
+            }
+
             function validate(form) {
-                if (validateDate(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
+                resetValidationMessages();
+                // Evaluate every validator (no short-circuit) so one submit reports
+                // every problem instead of revealing them one retry at a time.
+                var dateValid = validateDate(form);
+                var programValid = <%=caisiEnabled ? "validateSelectedProgram()" : "true"%>;
+                if (dateValid && programValid) {
                     // Disable update button to prevent double-submit
                     var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
                     if (btn) { btn.disabled = true; }
@@ -450,8 +474,7 @@
 
             function validateDate(form) {
                 if (form.xml_appointment_date.value === "" || !IsDate(form.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
+                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                     return false;
                 } else {
                     return true;
