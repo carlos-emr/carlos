@@ -2,7 +2,10 @@
 """Intersect a Git Java diff with JaCoCo source-line hits for an audit.
 
 Usage:
-  changed_line_audit.py JACOCO_XML BASE HEAD [--path PREFIX ...] [--per-file] [--fail-under PCT]
+  changed_line_audit.py JACOCO_XML BASE [HEAD] [--path PREFIX ...] [--per-file] [--fail-under PCT]
+
+With HEAD omitted the working tree is compared with BASE, so a branch can be audited before it is
+committed (new files need ``git add -N`` to appear in the diff).
 
 ``--path`` narrows the diff to production paths under the given prefixes (default: all of
 src/main/java), so a feature PR can audit only the code it touched. ``--per-file`` lists every
@@ -61,8 +64,8 @@ def read_jacoco_lines(filename):
     return source_lines
 
 
-def parse_diff(diff):
-    """Map each changed file to the set of line numbers the diff adds or modifies."""
+def changed_lines(diff):
+    """Map each file in a unified -U0 diff to the new-side line numbers it adds or changes."""
     changed = defaultdict(set)
     path = None
     for line in diff.splitlines():
@@ -74,6 +77,7 @@ def parse_diff(diff):
                 quoted = re.match(r'^"((?:[^"\\]|\\.)*)"', destination)
                 if quoted is None:
                     raise ValueError("Malformed quoted Git destination path")
+                # Git quotes UTF-8 bytes with C/octal escapes, not Unicode code points.
                 destination = codecs.escape_decode(quoted.group(1).encode("utf-8"))[0].decode(
                     "utf-8", errors="surrogateescape")
             else:
@@ -86,6 +90,10 @@ def parse_diff(diff):
                 length = int(match.group(2)) if match.group(2) is not None else 1
                 changed[path].update(range(start, start + length))
     return changed
+
+
+# Older name kept for callers written against the provider-linking audit.
+parse_diff = changed_lines
 
 
 def audit(source_lines, changed):
@@ -110,10 +118,14 @@ def audit(source_lines, changed):
 
 
 def parse_args(argv):
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("jacoco_xml")
-    parser.add_argument("base")
-    parser.add_argument("head")
+    parser = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0],
+        epilog="With HEAD omitted the working tree is compared with BASE, so a branch can be "
+               "audited before it is committed (new files need `git add -N` to appear in the diff).",
+    )
+    parser.add_argument("jacoco_xml", help="JaCoCo XML report, e.g. target/site/jacoco/jacoco.xml")
+    parser.add_argument("base", help="base revision, e.g. origin/release/2026.08")
+    parser.add_argument("head", nargs="?", help="head revision; omit to audit the working tree")
     parser.add_argument("--path", action="append", default=[],
                         help="restrict the diff to this src/main/java prefix (repeatable)")
     parser.add_argument("--per-file", action="store_true",
@@ -134,11 +146,13 @@ def main(argv=None):
         if (prefix != "src/main/java" and not prefix.startswith("src/main/java/")) or ".." in prefix.split("/"):
             raise SystemExit(f"--path must be under src/main/java: {prefix}")
 
+    # Explicit prefixes keep parsing stable under diff.noprefix / diff.mnemonicPrefix configs.
+    revisions = [args.base] + ([args.head] if args.head else [])
     diff = subprocess.check_output(
-        ["git", "diff", "--no-ext-diff", "-U0", args.base, args.head, "--", *paths],
+        ["git", "diff", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", "-U0", *revisions, "--", *paths],
         text=True,
     )
-    files, unmapped = audit(source_lines, parse_diff(diff))
+    files, unmapped = audit(source_lines, changed_lines(diff))
 
     covered_total = sum(covered for covered, _, _ in files.values())
     missed_total = sum(missed for _, missed, _ in files.values())

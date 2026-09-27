@@ -19,7 +19,7 @@ The installed checks used the nginx/ModSecurity HTTPS front door and packaged Ch
 | Check | Result |
 |---|---|
 | `provider-linking-rules` | Passed: admin switch off/on, audited uploads, unmatched patient assignment, correction to another patient, obsolete MRP revocation, independent ordering access retained, imported measurements moved without duplication, HRM assign/unlink and in-place provider-list update, GET 405 and tokenless POST 403 |
-| `inboxhub-filters` | Passed: type and New/Acknowledged/Filed partitions; finding 45 is fixed by the current release's source-row identity change |
+| `inboxhub-filters` | Passed: type and New/Acknowledged/Filed partitions; finding 52 is fixed by the current release's source-row identity change |
 | `lab-acknowledge` | Passed all 10 checks, including exact selected-report identity, older/latest received dates, cumulative values and document-queue isolation |
 | `hrm-window` | Passed popup, COOP, fallback, iframe, legacy, chart, cached-page and failure scenarios |
 | `anonymous-access-refused` | Passed |
