@@ -25,8 +25,16 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
-      - 'src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java'
+      # the manifest generator's inputs (generate_manifests.py --check runs
+      # here): the Flyway set and the legacy patches it reads, the entity
+      # classes its primitive-column scan walks, and the three resource
+      # files whose values it ships
+      - 'src/main/java/**'
       - 'database/mysql/migration/**'
+      - 'database/mysql/updates/**'
+      - 'src/main/resources/carlos.properties'
+      - 'src/main/resources/oscar/prevention/PreventionItems.xml'
+      - 'src/main/resources/oscarResources_en.properties'
       - 'docs/o19-import-deb.md'
       - '.github/workflows/deb-packages.yml'
       - '.github/workflows/debian-python-tests.yml'
@@ -35,8 +43,16 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
-      - 'src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java'
+      # the manifest generator's inputs (generate_manifests.py --check runs
+      # here): the Flyway set and the legacy patches it reads, the entity
+      # classes its primitive-column scan walks, and the three resource
+      # files whose values it ships
+      - 'src/main/java/**'
       - 'database/mysql/migration/**'
+      - 'database/mysql/updates/**'
+      - 'src/main/resources/carlos.properties'
+      - 'src/main/resources/oscar/prevention/PreventionItems.xml'
+      - 'src/main/resources/oscarResources_en.properties'
       - 'docs/o19-import-deb.md'
       - '.github/workflows/deb-packages.yml'
       - '.github/workflows/debian-python-tests.yml'

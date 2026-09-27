@@ -25,6 +25,10 @@
     "timeoutSec  wall clock the runner allows before it gives up on the check.",
     "runLast     the check is destructive to shared state (deliberate failed logins)",
     "            and must run after the positive suite.",
+    "manual      the check is never part of a tier run: it needs credentials",
+    "            the harness contract does not carry (the installer's",
+    "            initial-admin.txt) and changes the administrator password,",
+    "            so it runs only when named with --only.",
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
@@ -2567,9 +2571,9 @@
       "name": "deb-login",
       "script": "scripts/deb-login-playwright-checks.js",
       "tiers": [
-        "front-door",
-        "extended"
+        "front-door"
       ],
+      "manual": true,
       "assertsDatabase": false,
       "provinces": [
         "all"
