@@ -184,17 +184,18 @@ page around it looked translated.
 
 ## 7. Found while porting the eChart soft-wrap fix, #3955 (September 2026)
 
-Surfaced by `echart-note-soft-wrap-playwright-checks.js` on a 2026.09.0~snapshot24 package
-built from `release/2026.08` plus #3955, installed in an Ubuntu 26.04 container and driven
-through the nginx + ModSecurity front door. None is caused by the #3955 change, and the
-check does not tolerate any of them: it takes the path a clinician takes, which avoids them.
+Initially reproduced on the packaged release while porting #3955. The follow-up in
+#3990 fixes the save lifecycle and classic editor defects and validates the existing
+document-upload repair. See [installed validation](pr3990-validation.md).
 
 | # | Defect | Evidence | Status |
 |---|---|---|---|
-| 44 | After an eChart **Save**, leaving that note (the new-note icon, or another note's Edit link) always asks "Your current note has not been saved", although it has been; answering OK re-saves it and throws `Cannot read properties of null (reading 'insertAdjacentHTML')` in `completeChangeToView` and `Cannot set properties of null (setting 'value')` in `onIssueUpdate` | `changeToView()` in `js/newCaseManagementView.js.jsp` compares `origObservationDate` with `$("observationDate").value`. Probed live straight after Save: `origObservationDate` read `26-Sep-2026 1:32` and the re-rendered field `26-Sep-2026 01:32 ` (zero-padded hour, trailing space), so the comparison can never match. The soft-wrap check signs its notes and reopens the chart instead | `open` |
-| 45 | Saving a note before the issue refresh that opening the editor starts has finished throws `Cannot set properties of null (setting 'value')` from `onIssueUpdate`, or aborts `/encounter/displayIssues` | `newNote()` and `editNote()` post `method=edit`; its `onIssueUpdate()` writes `$("newIssueId")` unguarded and then reloads the issues panel. `saveNoteAjax()` replaces `#notCPP` (which holds `#newIssueId`) with "Loading..." in the meantime, and Sign & Save navigates away. Only a very fast save hits it; the check waits for both responses, as a clinician's typing does | `open` |
-| 46 | The classic case-management entry form (`CaseManagementEntry?method=edit&from=casemgmt&noteId=...`, opened by the case-management note search) renders an empty note editor for an existing note | Live: opened as the search opens it (a popup from the patient record), the editor's value was `""` for a saved FAKE- note; before #3955 it was the 28 spaces of markup padding instead. `CaseManagementEntry.jsp` renders `${caseNote.note}`, and `edit()` builds the note on the session form bean (`caseManagementEntryForm<demographicNo>`); why the action's `caseNote` is empty on that path was not traced | `open` |
-| 47 | `document-upload-playwright-checks.js` fails on the packaged install: the uploaded document's left-navbar entry cannot be clicked because a sibling `<span>` from the same row intercepts the pointer | Deterministic on this package, and unchanged with the pre-#3955 `newCaseManagementView.js.jsp` and `CaseManagementEntry.jsp` swapped back in, so it is not caused by that change. The rest of the smoke tier passed (11 of 12) | `open` |
+| 44 | Leaving a saved note incorrectly reports unsaved changes | #4010: observation input and calendar now use the same padded-hour format without trailing whitespace. The installed browser saves and opens another note with strict dialog recording. | `fixed` |
+| 45 | Fast Save or Sign & Save races the editor's issue refresh | #4010: both issue fragments complete before a queued save; failures prevent incomplete saves. Callback tests cover failures/recovery and editor changes; installed checks hold each request and prove zero early saves and one eventual save. | `fixed` |
+| 46 | Classic entry form opens an existing note with an empty editor | #4010: render the populated patient-scoped form bean and preserve form identity/patient/provider values. The browser compares exact loaded text with the stored synthetic note before modifying the editor. | `fixed` |
+| 47 | A sibling element intercepts document-upload's navbar click | The current release base includes the repair. The existing installed document-upload check passed upload, chart navigation, forwarding and empty-file refusal. | `fixed` |
+| 48 | Schema-valid NULL program/admission flags crash chart hydration | #4011: explicit converters preserve the primitive APIs and existing defaults for seven nullable flags. DAO regressions and the installed browser use nullable program/admission fixtures. | `fixed` |
+| 49 | Caisi scheduler includes fail compilation and pooled view state leaks across providers | #4012: compile both dynamic includes as JSPs, encode values, handle empty program state, render one selector, and keep view state local to each tag use. Discharge jobs use injection and one recurring schedule. Five focused Java tests and strict installed Caisi login/legacy workflow pass. | `fixed` |
 
 ## How this list is meant to be used
 
