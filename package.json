@@ -19,6 +19,7 @@
     "test:deb-login-playwright": "node scripts/deb-login-playwright-checks.js",
     "test:omd-flowsheet-conformance-playwright": "node scripts/omd-flowsheet-conformance-playwright-checks.js",
     "test:cdm-measurement-report-playwright": "node scripts/cdm-measurement-report-playwright-checks.js",
+    "test:billing-unbilled-report-playwright": "node scripts/billing-unbilled-report-playwright-checks.js",
     "test:echart-consult-specialist-playwright": "node scripts/echart-consult-specialist-playwright-checks.js",
     "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:cds-export-lab-documents-playwright": "node scripts/cds-export-lab-documents-playwright-checks.js",
