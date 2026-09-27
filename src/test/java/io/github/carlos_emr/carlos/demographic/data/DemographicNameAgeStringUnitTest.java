@@ -12,6 +12,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
+/**
+ * Verifies patient labels use the current caller, clinical data and locale without shared caching.
+ *
+ * @since 2026-09-27
+ */
 @Tag("unit")
 class DemographicNameAgeStringUnitTest {
     @Test

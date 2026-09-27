@@ -510,6 +510,9 @@ async function checkGenerateLetters(context, demographicNo) {
     });
     const invalidHtml = await invalid.text();
     expect(invalid.status() === 400 && /id="letterGenerationFailed"/.test(invalidHtml), 'letters: invalid selection visibly refused', {status:invalid.status()});
+    // The argument is an application response body, parsed into a detached document to read inputs.
+    // No code interpolation, navigation or request target is derived from it.
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection
     const selectedPatients = html => page.evaluate(markup => Array.from(
       new DOMParser().parseFromString(markup, 'text/html').querySelectorAll('input[name="demos"]'), input => input.value), html);
     expect(JSON.stringify(await selectedPatients(invalidHtml)) === JSON.stringify([String(demographicNo)]),

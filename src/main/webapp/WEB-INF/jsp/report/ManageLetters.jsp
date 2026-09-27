@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+    Lists letter templates with download and deletion controls and accepts JRXML template uploads.
+    Parameters: reportName (display name), reportFile (multipart template), and goto (return target).
+    Retains reportName/goto and shows the letterUploadFailed request attribute after a refused upload.
+    The page checks report/report-administration read access; upload and deletion use their protected
+    POST actions with CSRF tokens. Download and deletion controls pass the selected reportID.
+    @since 2026-07-07
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

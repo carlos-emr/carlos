@@ -160,6 +160,24 @@ class ManagePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
         verify(rejected, org.mockito.Mockito.never()).getOriginalName();
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 16_777_216})
+    @DisplayName("should reject empty or oversized uploads before compilation or persistence")
+    void shouldRejectInvalidUploadSize_beforeCompilingOrPersisting(int size) throws Exception {
+        try (var file = new java.io.RandomAccessFile(uploadTemp, "rw")) {
+            file.setLength(size);
+        }
+        var action = new ManagePatientLetters2Action();
+        action.withUploadedFiles(List.of(upload("reportFile", "letter.jrxml")));
+        try (var compiler = mockStatic(net.sf.jasperreports.engine.JasperCompileManager.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(request.getAttribute("letterUploadFailed")).isEqualTo(Boolean.TRUE);
+            compiler.verifyNoInteractions();
+            verifyNoInteractions(reportLettersDao);
+        }
+    }
+
     @Nested
     @DisplayName("upload")
     class Upload {
