@@ -480,6 +480,8 @@ async function legacyNoteWorkflow(session) {
       incoming.search = new URLSearchParams({ demographicNo: patient, providerNo: session.provider, casetoEncounter: 'true' }).toString();
       await page.goto(incoming.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 });
       await h.assertNotErrorPage(page, 'legacy encounter editor');
+      // Finish the chart's initial panels before navigating to recovery.
+      await page.waitForLoadState('networkidle', { timeout: 30000 });
       for (const name of ['shTextarea', 'fhTextarea', 'mhTextarea', 'ocTextarea', 'reTextarea', 'enTextarea']) {
         const editor = page.locator(`textarea[name="${name}"]`);
         await editor.waitFor({ state: 'visible', timeout: 30000 });
