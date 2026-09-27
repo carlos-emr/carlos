@@ -103,6 +103,7 @@
     "test:lab-requisition-links-playwright": "node scripts/lab-requisition-links-playwright-checks.js",
     "test:lab-pdf-footer-playwright": "node scripts/lab-pdf-footer-playwright-checks.js",
     "test:lab-acknowledge-playwright": "node scripts/lab-acknowledge-playwright-checks.js",
+    "test:lab-line-break-rendering-playwright": "node scripts/lab-line-break-rendering-playwright-checks.js",
     "test:prevention-recall-report-playwright": "node scripts/prevention-recall-report-playwright-checks.js",
     "test:measurement-validation-playwright": "node scripts/measurement-validation-playwright-checks.js",
     "test:application-health-playwright": "node scripts/application-health-playwright-checks.js",
