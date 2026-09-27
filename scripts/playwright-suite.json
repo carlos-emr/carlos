@@ -219,6 +219,25 @@
       ]
     },
     {
+      "name": "billing-on-group-disk-zero-total",
+      "script": "scripts/billing-on-group-disk-zero-total-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "GROUP_DISK_DEMOGRAPHIC_NO",
+        "GROUP_DISK_PAID_CODE",
+        "GROUP_DISK_SERVICE_DATE",
+        "GROUP_DISK_TEMPLATE_PROVIDER",
+        "OHIP_DISK_DIR"
+      ]
+    },
+    {
       "name": "billing-on-submit",
       "script": "scripts/billing-on-submit-playwright-checks.js",
       "tiers": [
@@ -626,6 +645,32 @@
         "NOTE_DEMOGRAPHIC_NO",
         "NOTE_PROVIDER_NO"
       ]
+    },
+    {
+      "name": "echart-note-soft-wrap",
+      "script": "scripts/echart-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "encounter-legacy-note-soft-wrap",
+      "script": "scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     },
     {
       "name": "echart-print",
