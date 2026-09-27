@@ -1173,3 +1173,28 @@ test('an invalid Unicode code point fails the audit instead of inventing a route
     href: '#', onclick: String.raw`popup('/carlos/\u{110000}')`,
   }, 'Open')]), RangeError);
 });
+
+test('popup teardown awaits its cleanup and still closes the popup if cleanup fails', async () => {
+  for (const failCleanup of [false, true]) {
+    const popup = fakePopup('a chart destination');
+    const pages = [{}];
+    const fake = fakeAuditPage({ textFor: () => 'Chart', onClick: () => { pages.push(popup.page); } });
+    let cleaned = false;
+    const audit = auditCatalogue({
+      context: { pages: () => pages }, hostPage: fake.page,
+      items: [{ text: 'Chart', index: 0, selector: 'a', href: '/x', opensPopup: false }],
+      recorder: createRecorder(), labelPrefix: 'master', timeout: 1000,
+      async beforePopupClose(page) {
+        assert.equal(page, popup.page);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(popup.closed, false, 'the chart must remain alive until its release finishes');
+        cleaned = true;
+        if (failCleanup) throw new Error('Release failed');
+      },
+    });
+    if (failCleanup) await assert.rejects(audit, /Release failed/);
+    else assert.deepEqual((await audit).failures, []);
+    assert.equal(cleaned, true);
+    assert.equal(popup.closed, true);
+  }
+});

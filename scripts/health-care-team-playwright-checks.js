@@ -48,6 +48,9 @@ async function workflow(s) {
   });
   await s.step('remove the team membership without deleting the provider', async () => {
     await page.locator('#listHealthCareTeam input[value="remove"]').click();
+    // The database commit can precede the AJAX response. Wait for its rendered
+    // result before navigating, so reopening cannot abort an in-flight removal.
+    await page.locator('#listHealthCareTeam input[value="remove"]').waitFor({ state: 'detached' });
     await expectValue(s.sql, `SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${s.patient} AND deleted=0`, '0', 'Removed team membership remained active');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(s.provider)}`) === '1', 'Team removal deleted the provider');
     await h.gotoApp(page, s.config.baseUrl, route);
