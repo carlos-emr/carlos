@@ -21,9 +21,18 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -59,20 +68,32 @@ class IncomingDocUtilUnitTest {
     Path incomingRoot;
 
     private String previousIncomingDocumentDir;
+    private String previousRecycleBin;
 
     @BeforeEach
     void setUp() {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        previousRecycleBin = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_RECYCLEBIN");
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
     }
 
     @AfterEach
     void tearDown() {
-        if (previousIncomingDocumentDir == null) {
-            CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+        restoreProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+        restoreProperty("INCOMINGDOCUMENT_RECYCLEBIN", previousRecycleBin);
+    }
+
+    private static void restoreProperty(String name, String previous) {
+        if (previous == null) {
+            CarlosProperties.getInstance().remove(name);
         } else {
-            CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+            CarlosProperties.getInstance().setProperty(name, previous);
         }
+    }
+
+    /** The recycle directory the delete operations would use; it must not appear when recycling is off. */
+    private Path recycleDirectory() {
+        return incomingRoot.resolve("1").resolve("Fax_deleted");
     }
 
     @Test
@@ -299,4 +320,321 @@ class IncomingDocUtilUnitTest {
 
         assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", pdf.getName())).isEqualTo(1);
     }
+
+    private File queuedPdf(String name, int pages) throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        if (!faxDir.isDirectory()) {
+            assertThat(faxDir.mkdirs()).isTrue();
+        }
+        File pdf = new File(faxDir, name);
+        try (PDDocument document = new PDDocument()) {
+            for (int page = 0; page < pages; page++) {
+                document.addPage(new PDPage());
+            }
+            document.save(pdf);
+        }
+        return pdf;
+    }
+
+    private File queuedBytes(String name, String content) throws Exception {
+        File file = incomingRoot.resolve("1").resolve("Fax").resolve(name).toFile();
+        Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
+        return file;
+    }
+
+    private long scratchFilesLeft() throws Exception {
+        try (Stream<Path> files = Files.list(incomingRoot.resolve("1").resolve("Fax"))) {
+            return files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count();
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse an extraction whose output name is already queued, leaving both files as they were")
+    void shouldRefuseExtraction_whenExtractedNameAlreadyQueued() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        byte[] before = Files.readAllBytes(source.toPath());
+        File existing = queuedBytes("faxE3.pdf", "an unfiled document");
+
+        assertThatThrownBy(() -> IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2"))
+                .hasMessageContaining("already in this queue");
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.readString(existing.toPath(), StandardCharsets.UTF_8)).isEqualTo("an unfiled document");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should leave the source writable and unchanged when the extraction range is invalid")
+    void shouldLeaveSourceWritable_whenExtractionRangeInvalid() throws Exception {
+        File source = queuedPdf("scan.pdf", 3);
+        byte[] before = Files.readAllBytes(source.toPath());
+
+        assertThatThrownBy(() -> IncomingDocUtil.extractPage("1", "Fax", "scan.pdf", "1-3"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(new File(source.getParentFile(), "scanE3.pdf")).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should extract pages without touching a queued document named like the old scratch file")
+    void shouldExtractPages_withoutTouchingDocumentNamedLikeOldScratchFile() throws Exception {
+        queuedPdf("fax.pdf", 3);
+        File lookalike = queuedBytes("Tfax.pdf", "a different patient's fax");
+
+        IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "faxE3.pdf")).isEqualTo(1);
+        assertThat(Files.readString(lookalike.toPath(), StandardCharsets.UTF_8)).isEqualTo("a different patient's fax");
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should rotate and delete pages without touching a queued document named like the old scratch file")
+    void shouldRotateAndDeletePages_withoutTouchingDocumentNamedLikeOldScratchFile() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        File lookalike = queuedBytes("Tfax.pdf", "a different patient's fax");
+
+        IncomingDocUtil.rotatePage("1", "Fax", "fax.pdf", "1", 90);
+        IncomingDocUtil.rotateAlPages("1", "Fax", "fax.pdf", 180);
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(source)) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+            assertThat(document.getPage(0).getRotation()).isEqualTo(270);
+        }
+        assertThat(Files.readString(lookalike.toPath(), StandardCharsets.UTF_8)).isEqualTo("a different patient's fax");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should leave the queue and an older recycle entry untouched when a page delete fails")
+    void shouldLeaveQueueAndRecycleEntryUntouched_whenPageDeleteFails() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path olderEntry = deleteDir.resolve("faxd5of2.pdf");
+        Files.writeString(olderEntry, "an earlier recycled page", StandardCharsets.UTF_8);
+
+        // Page 5 of a two-page document leaves the removed-page copy empty, which OpenPDF refuses.
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(Exception.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(Files.readString(olderEntry, StandardCharsets.UTF_8)).isEqualTo("an earlier recycled page");
+        assertThat(scratchFilesLeft()).isZero();
+        try (Stream<Path> files = Files.list(deleteDir)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("should put a read-only source's own permissions back, not writable ones, when a page delete fails")
+    void shouldRestoreReadOnlyPermissions_whenPageDeleteFails() throws Exception {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r-----");
+        Files.setPosixFilePermissions(source.toPath(), readOnly);
+
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(Exception.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should keep a read-only source read-only after its pages are rewritten")
+    void shouldKeepReadOnlyPermissions_whenPageOperationsSucceed() throws Exception {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+        File source = queuedPdf("fax.pdf", 3);
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r-----");
+        Files.setPosixFilePermissions(source.toPath(), readOnly);
+
+        IncomingDocUtil.rotatePage("1", "Fax", "fax.pdf", "1", 90);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.rotateAlPages("1", "Fax", "fax.pdf", 90);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "3");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+        IncomingDocUtil.extractPage("1", "Fax", "fax.pdf", "2");
+        assertThat(Files.getPosixFilePermissions(source.toPath())).isEqualTo(readOnly);
+
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(source)) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+            assertThat(document.getPage(0).getRotation()).isEqualTo(180);
+        }
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "faxE2.pdf")).isEqualTo(1);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    /** A scratch file left by a process killed mid-rewrite: named like one, and hours old. */
+    private Path staleScratchFile(Path dir, String name) throws Exception {
+        Path stale = dir.resolve(name);
+        Files.writeString(stale, "a partial copy of a queued document", StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(stale, FileTime.fromMillis(System.currentTimeMillis() - 48L * 60 * 60 * 1000));
+        return stale;
+    }
+
+    @Test
+    @DisplayName("should remove a stale scratch file, and only that, when the queue is listed")
+    void shouldRemoveStaleScratchFile_whenQueueListed() throws Exception {
+        File pdf = queuedPdf("fax.pdf", 1);
+        Path faxDir = pdf.getParentFile().toPath();
+        Path stale = staleScratchFile(faxDir, ".carlos-1234.tmp");
+        Path inFlight = faxDir.resolve(".carlos-5678.tmp");
+        Files.writeString(inFlight, "an operation still writing", StandardCharsets.UTF_8);
+        Path unrelated = staleScratchFile(faxDir, "notes.tmp");
+
+        List<String> docList = new IncomingDocUtil().getDocList(faxDir.toString());
+
+        assertThat(docList).containsExactly("fax.pdf");
+        assertThat(stale).doesNotExist();
+        assertThat(inFlight).exists();
+        assertThat(unrelated).exists();
+    }
+
+    @Test
+    @DisplayName("should remove a stale scratch file from the queue and recycle directories when a page operation runs")
+    void shouldRemoveStaleScratchFiles_whenPageOperationRuns() throws Exception {
+        File pdf = queuedPdf("fax.pdf", 2);
+        Path faxDir = pdf.getParentFile().toPath();
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path staleQueued = staleScratchFile(faxDir, ".carlos-1234.tmp");
+        Path staleRecycled = staleScratchFile(deleteDir, ".carlos-4321.tmp");
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(staleQueued).doesNotExist();
+        assertThat(staleRecycled).doesNotExist();
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(1);
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should delete a page without creating or needing the recycle directory when the recycle bin is off")
+    void shouldDeletePageWithoutRecycleDirectory_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        queuedPdf("fax.pdf", 3);
+        assertThat(recycleDirectory()).doesNotExist();
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        assertThat(recycleDirectory()).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should reject a page outside the document, leaving it untouched, when the recycle bin is off")
+    void shouldRejectPageOutsideDocument_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] before = Files.readAllBytes(source.toPath());
+
+        assertThatThrownBy(() -> IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "5"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(Files.readAllBytes(source.toPath())).isEqualTo(before);
+        assertThat(Files.getPosixFilePermissions(source.toPath())).contains(PosixFilePermission.OWNER_WRITE);
+        assertThat(recycleDirectory()).doesNotExist();
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should delete a queued document without creating the recycle directory when the recycle bin is off")
+    void shouldDeleteDocumentWithoutRecycleDirectory_whenRecycleBinOff() throws Exception {
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_RECYCLEBIN", "false");
+        File source = queuedPdf("fax.pdf", 1);
+
+        IncomingDocUtil.DeletePDF("1", "Fax", "fax.pdf");
+
+        assertThat(source).doesNotExist();
+        assertThat(recycleDirectory()).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("should file the removed page in the recycle directory after a successful delete")
+    void shouldFileRemovedPageInRecycleDirectory_whenDeleteSucceeds() throws Exception {
+        queuedPdf("fax.pdf", 3);
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        Path recycled = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax")).resolve("faxd2of3.pdf");
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(recycled.toFile())) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+        }
+        assertThat(scratchFilesLeft()).isZero();
+    }
+
+    @Test
+    @DisplayName("should keep an older recycle entry of the same name and file the new page beside it")
+    void shouldKeepOlderRecycleEntry_whenSameNameAlreadyRecycled() throws Exception {
+        queuedPdf("fax.pdf", 3);
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path olderEntry = deleteDir.resolve("faxd2of3.pdf");
+        Files.writeString(olderEntry, "an earlier recycled page", StandardCharsets.UTF_8);
+
+        IncomingDocUtil.deletePage("1", "Fax", "fax.pdf", "2");
+
+        assertThat(Files.readString(olderEntry, StandardCharsets.UTF_8)).isEqualTo("an earlier recycled page");
+        try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(deleteDir.resolve("faxd2of3-2.pdf").toFile())) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+        }
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", "fax.pdf")).isEqualTo(2);
+        try (Stream<Path> files = Files.list(deleteDir)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".tmp")).count()).isZero();
+        }
+    }
+    @Test
+    void shouldReapOnlyAbandonedScratch_whenQueueIsListed() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        Path directory = source.toPath().getParent();
+        FileTime old = FileTime.from(Instant.now().minus(2, ChronoUnit.DAYS));
+        Path stale = Files.writeString(directory.resolve(".carlos-123.tmp"), "abandoned PDF");
+        Files.setLastModifiedTime(stale, old);
+        Path recent = Files.writeString(directory.resolve(".carlos-124.tmp"), "recent work");
+        Path unrelated = Files.writeString(directory.resolve(".carlos-operator.tmp"), "operator file");
+        Files.setLastModifiedTime(unrelated, old);
+        Path link = Files.createSymbolicLink(directory.resolve(".carlos-125.tmp"), stale);
+        try (IncomingDocumentScratch active = IncomingDocumentScratch.create(directory.toFile())) {
+            Files.setLastModifiedTime(active.file().toPath(), old);
+            assertThat(new IncomingDocUtil().getDocList(directory.toString())).containsExactly("fax.pdf");
+            assertThat(stale).doesNotExist();
+            assertThat(recent).exists();
+            assertThat(unrelated).exists();
+            assertThat(Files.isSymbolicLink(link)).isTrue();
+            assertThat(active.file()).exists();
+        }
+        assertThat(Files.readAllBytes(source.toPath())).isNotEmpty();
+    }
+
+    @Test
+    void shouldBoundScratchCleanup_whenManyFilesAreAbandoned() throws Exception {
+        File source = queuedPdf("fax.pdf", 3);
+        Path directory = source.toPath().getParent();
+        FileTime old = FileTime.from(Instant.now().minus(2, ChronoUnit.DAYS));
+        for (int index = 0; index < 105; index++) {
+            Path stale = Files.writeString(directory.resolve(".carlos-" + index + ".tmp"), "abandoned PDF");
+            Files.setLastModifiedTime(stale, old);
+        }
+        new IncomingDocUtil().getDocList(directory.toString());
+        assertThat(scratchFilesLeft()).isEqualTo(5);
+        new IncomingDocUtil().getDocList(directory.toString());
+        assertThat(scratchFilesLeft()).isZero();
+        assertThat(source).exists();
+    }
+
 }

@@ -874,6 +874,22 @@ async function main() {
     // and the composer refuses the save. The font is held back and a narrower fallback forced
     // (through the viewer's own stylesheet, since the page CSP admits no injected style) so the
     // two widths genuinely differ.
+    // Those scenarios need "Liberation Sans" installed where the browser runs (Debian/Ubuntu
+    // package fonts-liberation). Without it the fallback resolves to DejaVu Sans, the same
+    // face as the annotation font, the widths never differ, and the refusal the scenarios
+    // provoke never happens. Say so plainly instead of timing out on a disabled button.
+    const liberationInstalled = await page.evaluate(() => {
+      const context = document.createElement('canvas').getContext('2d');
+      const sample = 'Synthetic note saved before a very late annotation font arrived';
+      context.font = '11px "Liberation Sans", monospace';
+      const liberation = context.measureText(sample).width;
+      context.font = '11px monospace';
+      return Math.abs(liberation - context.measureText(sample).width) > 1;
+    });
+    if (!liberationInstalled) {
+      throw new Error('The late-font scenarios need the "Liberation Sans" font where the browser runs '
+        + '(install fonts-liberation); it resolves to a fallback face here');
+    }
     let releaseFont;
     const fontHeld = new Promise(resolve => { releaseFont = resolve; });
     await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
@@ -1000,6 +1016,49 @@ async function main() {
     await waitForSave();
     check('a note refitted after its save ended saves on retry',
       await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
+
+    // A save that fails before fetch() starts has sent nothing, so Save must stay usable. Building
+    // the request body is the last step before the request leaves: fail it once, for the save
+    // payload only, and prove no request went out, the error is shown and a retry files.
+    await page.evaluate(() => {
+      const original = JSON.stringify;
+      JSON.stringify = function (value, ...rest) {
+        if (value && typeof value === 'object' && 'sourceDigest' in value) {
+          JSON.stringify = original;
+          throw new Error('synthetic save-body failure');
+        }
+        return original.call(this, value, ...rest);
+      };
+    });
+    let preSendPosts = 0;
+    const countPreSend = request => { if (request.url().includes('/SaveAnnotatedDocument')) { preSendPosts += 1; } };
+    page.on('request', countPreSend);
+    await mark();
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    page.off('request', countPreSend);
+    check('a save that fails before its request leaves keeps Save enabled',
+      preSendPosts === 0 && await page.locator('#status').getAttribute('class') === 'status error'
+        && await page.locator('#btnSave').isEnabled(),
+      JSON.stringify([preSendPosts, await page.locator('#status').textContent()]));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('the retry after a pre-send failure files the copy',
+      await page.locator('#status').getAttribute('class') === 'status ok', await page.locator('#status').textContent());
+    await openViewer();
+
+    // Once fetch() has started the server may already have filed the copy, even if the
+    // connection drops before any reply. Save must then be held so the operator checks first.
+    await page.route('**/SaveAnnotatedDocument?*', route => route.abort('connectionreset'));
+    await mark();
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    await page.unroute('**/SaveAnnotatedDocument?*');
+    check('a save whose connection drops after sending holds Save until the operator checks',
+      await page.locator('#status').getAttribute('class') === 'status error'
+        && !await page.locator('#btnSave').isEnabled() && !await page.locator('#btnSaveFax').isEnabled(),
+      await page.locator('#status').textContent());
     await openViewer();
 
     // The composer measures a note's full string, spaces included. A note ending in spaces,
