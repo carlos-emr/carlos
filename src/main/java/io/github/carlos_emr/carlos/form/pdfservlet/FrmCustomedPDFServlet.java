@@ -78,7 +78,6 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -1007,7 +1006,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
         }
         if (recordLines.isEmpty()) {
-            logger.warn("Refusing to fax prescription {}: its record has no drug lines", LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.warn("Refusing to fax prescription: its record has no drug lines");
             return null;
         }
 
@@ -1029,8 +1028,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         if (!remaining.isEmpty() || ordered.size() != requestBlocks.size()) {
             // Anything but an exact reordering of the record is discarded wholesale: the fax is the
             // record in the record's own order, never a partially request-shaped body.
-            logger.warn("Fax body for prescription {} did not match its record; faxing the record instead",
-                    LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.warn("Fax body did not match its prescription record; faxing the record instead");
             ordered = new ArrayList<>(recordLines);
         }
         StringBuilder body = new StringBuilder();
@@ -1153,15 +1151,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String offeredBlock = null;
         if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
             String tel = SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), TELEPHONE_LABEL));
-            String fax = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgFax"));
+            String fax = SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), "RxPreview.msgFax"));
             // A covering provider may legitimately refax this stored prescription. The callback
             // header still belongs to the persisted prescriber whose name and signature are on the
             // document, never to the covering provider who happened to open the fax dialog.
             offeredBlock = RxSatelliteClinicAddress.offeredBlock(
                     RxSatelliteClinicAddress.blocksFor(prescriber, tel, fax), req.getParameter("scAddress"));
             if (offeredBlock == null) {
-                logger.warn("Fax for prescription {} named a satellite clinic block its prescriber is not offered; using the main clinic header",
-                        LogSafe.sanitize(String.valueOf(prescription.getId())));
+                logger.warn("Fax named a satellite clinic block its prescriber is not offered; using the main clinic header");
             }
         }
         // Render the original encoded OFFERED block, not the request's copy: the parser
@@ -1238,8 +1235,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return false;
         }
         if (demographic == null) {
-            logger.warn("Refusing to fax prescription for demographic {}: its demographic row is missing",
-                    LogSafe.sanitize(String.valueOf(demographicId)));
+            logger.warn("Refusing to fax prescription: its demographic row is missing");
             return false;
         }
         String first = demographic.getFirstName() == null ? "" : demographic.getFirstName();
@@ -1546,8 +1542,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             authorized = false;
         }
         if (!authorized) {
-            logger.debug("Denied signature render for prescription {}: caller lacks _rx {} for its patient",
-                    LogSafe.sanitize(String.valueOf(scriptNo)), requiredRight);
+            logger.debug("Denied prescription signature render: caller lacks _rx {} for its patient", requiredRight);
             return null;
         }
         // The caller-supplied demographic_no is validation input only; the fax branch stamps the
@@ -1560,8 +1555,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 ? (requestDemographic <= 0 || demographicId.intValue() != requestDemographic)
                 : (requestDemographic > 0 && demographicId.intValue() != requestDemographic);
         if (badDemographic) {
-            logger.debug("Denied signature render for prescription {}: demographic_no missing or does not match its patient",
-                    LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.debug("Denied prescription signature render: demographic_no missing or does not match its patient");
             return null;
         }
 
@@ -1615,7 +1609,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 || !metadata.getDemographicId().equals(demographicId)
                 || prescribingProviderNo == null || prescribingProviderNo.isBlank()
                 || !prescribingProviderNo.equals(metadata.getProviderNo())) {
-            logger.debug("Stored signature does not belong to prescription {}; not rendering it", LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.debug("Stored signature does not belong to the prescription; not rendering it");
             return null;
         }
         DigitalSignature signature = digitalSignatureManager.getDigitalSignature(signatureId);
@@ -1626,8 +1620,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // "signed" gate here and then be dropped silently in EndPage, sending a fax reported as
         // signed with a blank signature line. Treat undecodable bytes as no signature at all.
         if (!isRenderableImage(signature.getSignatureImage())) {
-            logger.warn("Stored signature {} for prescription {} is not a readable image; treating the script as unsigned",
-                    LogSafe.sanitize(String.valueOf(signatureId)), LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.warn("Stored prescription signature is not a readable image; treating the script as unsigned");
             return null;
         }
         return signature.getSignatureImage();

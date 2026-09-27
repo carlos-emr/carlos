@@ -418,8 +418,8 @@ public String saveDigitalSignature() throws IOException {
         }
         try {
             // get original drug
-            RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
-            if (oldRx.getDemographicNo() != bean.getDemographicNo()) {
+            RxPrescriptionData.Prescription oldRx = rxData.getPrescriptionIfPresent(drugId);
+            if (oldRx == null || oldRx.getDemographicNo() != bean.getDemographicNo()) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return null;
             }

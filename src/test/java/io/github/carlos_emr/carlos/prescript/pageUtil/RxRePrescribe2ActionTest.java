@@ -476,11 +476,29 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
     void shouldReportFailure_whenLoadingHistoryPrescriptionFails() throws Exception {
         request.setParameter("drugId", "27");
         try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
-                (mock, context) -> when(mock.getPrescription(27)).thenThrow(new IllegalStateException("Synthetic database failure")))) {
+                (mock, context) -> when(mock.getPrescriptionIfPresent(27)).thenThrow(new IllegalStateException("Synthetic database failure")))) {
             action.saveReRxDrugIdToStash();
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getContentAsString()).doesNotContain("Synthetic database failure");
         }
+    }
+
+    @Test
+    @DisplayName("should return not found for a deleted history drug without changing staged prescriptions")
+    void shouldKeepStash_whenHistoryDrugNoLongerExists() throws Exception {
+        request.setParameter("drugId", "27");
+        var dao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, dao);
+        var bean = org.mockito.Mockito.mock(RxSessionBean.class);
+        request.getSession().setAttribute("RxSessionBean", bean);
+
+        action.saveReRxDrugIdToStash();
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        verify(dao).find(27);
+        org.mockito.Mockito.verifyNoMoreInteractions(dao);
+        org.mockito.Mockito.verifyNoInteractions(bean);
+        assertThat(request.getAttribute("BoxNoFillFirstLoad")).isNull();
     }
 
     @Test
@@ -490,7 +508,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         var old = org.mockito.Mockito.mock(Prescription.class);
         when(old.getDemographicNo()).thenReturn(2);
         try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
-                (mock, context) -> when(mock.getPrescription(27)).thenReturn(old))) {
+                (mock, context) -> when(mock.getPrescriptionIfPresent(27)).thenReturn(old))) {
             action.saveReRxDrugIdToStash();
             assertThat(response.getStatus()).isEqualTo(404);
             verify(data.constructed().getFirst(), never()).newPrescription(anyString(), any(Integer.class), any(Prescription.class));
@@ -504,7 +522,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         var old = org.mockito.Mockito.mock(Prescription.class);
         when(old.getDemographicNo()).thenReturn(1);
         try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
-                (mock, context) -> when(mock.getPrescription(27)).thenReturn(old))) {
+                (mock, context) -> when(mock.getPrescriptionIfPresent(27)).thenReturn(old))) {
             action.saveReRxDrugIdToStash();
             assertThat(response.getStatus()).isEqualTo(403);
             verify(data.constructed().getFirst(), never()).newPrescription(anyString(), any(Integer.class), any(Prescription.class));
@@ -527,7 +545,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", "1")).thenReturn(true);
         try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
                 (mock, context) -> {
-                    when(mock.getPrescription(27)).thenReturn(old);
+                    when(mock.getPrescriptionIfPresent(27)).thenReturn(old);
                     when(mock.newPrescription("999998", 1, old)).thenReturn(staged);
                 });
              var util = mockStatic(RxUtil.class)) {

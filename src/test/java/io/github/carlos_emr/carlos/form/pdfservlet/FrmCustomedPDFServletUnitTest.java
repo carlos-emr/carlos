@@ -123,6 +123,24 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    private static <T> T privateDiagnostics(java.util.concurrent.Callable<T> operation) throws Exception {
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FrmCustomedPDFServlet.class)) {
+            T result = operation.call();
+            assertThat(logs.events()).isNotEmpty().allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage())
+                        .doesNotContainPattern("\\b(?:1|77|999998)\\b")
+                        .doesNotContain(RECORD_DRUG_LINE, SECOND_DRUG_LINE);
+                assertThat(event.getThrown()).isNull();
+                Object[] parameters = event.getMessage().getParameters();
+                if (parameters != null) {
+                    assertThat(parameters).allSatisfy(parameter ->
+                            assertThat(String.valueOf(parameter)).isIn("r", "w"));
+                }
+            });
+            return result;
+        }
+    }
+
     private static final int SCRIPT_ID = 1;
     private static final int DEMOGRAPHIC_NO = 1;
     private static final int SIGNATURE_ID = 77;
@@ -1213,7 +1231,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // The label is whatever RxPreview.msgTel resolves to on this classpath (the key itself when the
         // bundle is absent); resolving it the way production does keeps the assertion exact either way.
         assertThat(bound.getParameter("patientPhone"))
-                .isEqualTo(LocaleUtils.getMessage(request.getLocale(), "RxPreview.msgTel") + ": 9055550101");
+                .isEqualTo(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(request), "RxPreview.msgTel") + ": 9055550101");
         // Never populated by the Rx preview, so the only thing it could carry is chosen text.
         assertThat(bound.getParameter("patientChartNo")).isEmpty();
     }
@@ -1610,7 +1628,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+        byte[] resolved = privateDiagnostics(() -> new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo));
 
         // The fax gate keys off this result, so an undecodable blob must refuse the fax rather
         // than let EndPage drop it silently and send a "signed" fax with a blank signature line.
@@ -1628,7 +1646,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         when(digitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID)).thenReturn(foreign);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
 
-        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+        byte[] resolved = privateDiagnostics(() -> new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo));
 
         assertThat(resolved).isNull();
         verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
@@ -1657,7 +1675,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+        byte[] resolved = privateDiagnostics(() -> new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo));
 
         assertThat(resolved).isNull();
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, String.valueOf(DEMOGRAPHIC_NO));
@@ -1819,7 +1837,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+        byte[] resolved = privateDiagnostics(() -> new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo));
 
         assertThat(resolved).isNull();
         verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
@@ -1952,11 +1970,18 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(bound.getParameter("clinicPhone")).isEqualTo("4161112222");
     }
 
-    @Test
-    @DisplayName("should keep a satellite clinic block the provider was offered")
-    void shouldKeepSatelliteClinic_whenBlockIsOffered() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"en", "de-DE,fr"})
+    @DisplayName("should keep an offered satellite clinic using the first supported browser language")
+    void shouldKeepSatelliteClinic_whenBlockIsOffered(String languages) throws Exception {
         String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
         MockHttpServletRequest request = createFaxRequest();
+        request.addHeader("Accept-Language", languages);
+        request.setPreferredLocales(languages.startsWith("de")
+                ? List.of(java.util.Locale.GERMANY, java.util.Locale.FRENCH)
+                : List.of(java.util.Locale.ENGLISH));
+        assertThat(LocaleUtils.resolveBundleLocale(request)).isEqualTo(languages.startsWith("de")
+                ? java.util.Locale.FRENCH : java.util.Locale.ENGLISH);
         stubStoredSignature();
         stubPrescriberClinic();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -2115,7 +2140,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDecodeSatelliteFieldsOnlyAfterSplittingStructure() {
+    void shouldDecodeSatelliteFields_afterSplittingStructure() {
         String block = RxSatelliteClinicAddress.html("Dr &lt;/b&gt; A", "North <br> &amp; </b> Clinic",
                 "2 <br> North Ave", "City </b>", "ON", "P1P 1P1", "123<br>456", "789</b>012",
                 "T&eacute;l", "Fax");
@@ -2127,7 +2152,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBindAndParseConfiguredSatelliteDelimiterTextWithoutInventingLines() throws Exception {
+    void shouldPreserveConfiguredSatelliteDelimiterText_whenBindingAndParsing() throws Exception {
         String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
@@ -2214,7 +2239,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("multisites", "true");
             when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(northSite()));
 
-            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+            HttpServletRequest bound = privateDiagnostics(() -> new FrmCustomedPDFServlet().bindFaxContentToRecord(request));
 
             assertThat(bound.getParameter("useSC")).isEqualTo("false");
             assertThat(bound.getParameter("scAddress")).isEmpty();
@@ -2293,11 +2318,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     private static String telLabel(HttpServletRequest request) {
-        return SafeEncode.forHtml(LocaleUtils.getMessage(request.getLocale(), "RxPreview.msgTel"));
+        return SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(request), "RxPreview.msgTel"));
     }
 
     private static String faxLabel(HttpServletRequest request) {
-        return SafeEncode.forHtml(LocaleUtils.getMessage(request.getLocale(), "RxPreview.msgFax"));
+        return SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(request), "RxPreview.msgFax"));
     }
 
     private MockHttpServletRequest createPreviewRequest() {

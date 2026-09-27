@@ -112,6 +112,43 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient}`) === '1',
       'Favorite staging/failure unexpectedly persisted another prescription');
   });
+  await s.step('a deleted history item returns not found and leaves existing staged drugs intact', async () => {
+    const stagedValues = () => page.locator('[id^="quantity_"]').evaluateAll(
+      controls => controls.map(control => ({ id: control.id, value: control.value })));
+    const before = await stagedValues();
+    h.assert(before.length > 0, 'Expected staged prescriptions before the stale history check');
+    await h.gotoApp(page, s.config.baseUrl, `/rx/ViewStaticScript2?cn=${encodeURIComponent(s.marker)}`);
+    const button = page.locator('input[value="Represcribe"]');
+    await button.waitFor({ state: 'visible' });
+    s.sql.execute(`DELETE FROM drugs WHERE drugid=${drug} AND demographic_no=${s.patient}`);
+    const responseStart = s.recorder.badResponses.length;
+    const consoleStart = s.recorder.consoleIssues.length;
+    let failedResponse;
+    const dialogs = await h.withExpectedDialogs(page, async () => {
+      const [response] = await Promise.all([
+        page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/rePrescribe2')
+          && r.request().method() === 'POST'),
+        page.waitForEvent('dialog'),
+        page.waitForEvent('console', { predicate: message => message.type() === 'error'
+          && /Failed to load resource.*404/.test(message.text()) }),
+        button.click(),
+      ]);
+      failedResponse = response;
+      h.assert(response.status() === 404, 'Deleted history item was not reported as unavailable');
+      await response.finished();
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'Stale history failure was not visible');
+    h.assert(new URL(page.url()).pathname.endsWith('/rx/ViewStaticScript2'),
+      'Failed history staging navigated away from the history page');
+    consumeExpectedFavoriteFailure(s.recorder, failedResponse.url(), responseStart, consoleStart);
+    await h.gotoApp(page, s.config.baseUrl, '/rx/prescribing');
+    await page.locator('[id^="quantity_"]').first().waitFor({ state: 'attached' });
+    h.assert(JSON.stringify(await stagedValues()) === JSON.stringify(before),
+      'Deleted history item changed the staged prescriptions');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient}`) === '1',
+      'Deleted history staging persisted another prescription');
+  });
+
 
 }
 if (require.main === module) runWorkflow('rx-legacy-null-fields', workflow);

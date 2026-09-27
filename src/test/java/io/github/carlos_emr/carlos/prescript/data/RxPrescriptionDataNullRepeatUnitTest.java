@@ -23,6 +23,48 @@ import static org.mockito.Mockito.when;
 @Tag("prescription")
 @DisplayName("Legacy prescription repeat defaults")
 class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.Test
+    @DisplayName("should keep invalid clinical duration values out of diagnostic exceptions")
+    void shouldKeepDurationPrivate_whenRenderingMalformedLegacyInstructions() {
+        var prescription = new RxPrescriptionData().newPrescription("999998", 817263);
+        prescription.setDuration("PRIVATE_CLINICAL_DURATION");
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(RxPrescriptionData.class)) {
+            prescription.getRxDisplay();
+            assertThat(logs.events()).isNotEmpty().allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).doesNotContain("PRIVATE_CLINICAL", "817263");
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getParameters()).containsExactly("NumberFormatException");
+            });
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should load an available history item once without logging its identifier")
+    void shouldLoadHistoryOnce_whenInstructionsAreMissing() {
+        Drug drug = new Drug();
+        drug.setId(918273);
+        drug.setDemographicId(817263);
+        drug.setProviderNo("999998");
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.find(918273)).thenReturn(drug);
+        registerMock(DrugDao.class, dao);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(RxPrescriptionData.class)) {
+            var result = new RxPrescriptionData().getPrescriptionIfPresent(918273);
+            assertThat(result.getDrugId()).isEqualTo(918273);
+            assertThat(result.getDemographicNo()).isEqualTo(817263);
+            verify(dao).find(918273);
+            org.mockito.Mockito.verifyNoMoreInteractions(dao);
+            assertThat(logs.messages()).isNotEmpty().allSatisfy(message ->
+                    assertThat(message).doesNotContain("918273", "817263", "999998"));
+            assertThat(logs.events()).allSatisfy(event -> {
+                assertThat(event.getThrown()).isNull();
+                Object[] parameters = event.getMessage().getParameters();
+                if (parameters != null) assertThat(parameters).allSatisfy(parameter ->
+                        assertThat(String.valueOf(parameter)).isEqualTo("0"));
+            });
+        }
+    }
+
     @ParameterizedTest
     @CsvSource(nullValues = "NULL", value = {"true,NULL,false", "false,NULL,false", "true,false,false", "false,false,false", "true,true,true", "false,true,true"})
     @DisplayName("should preserve internal dispensing flags and default missing legacy flags")

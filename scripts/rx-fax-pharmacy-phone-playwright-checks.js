@@ -235,6 +235,19 @@ async function runCase(context, testCase) {
   });
   try {
     await writeCustomRxThroughUi(page, testCase);
+    const pharmacyPreview = page.frameLocator('#carlosModalBody iframe').frameLocator('#preview').locator('#pharmInfo');
+    await pharmacyPreview.waitFor({ state: 'visible' });
+    const previewText = await pharmacyPreview.innerText();
+    assert(!previewText.includes('Email:') && !previewText.includes('Note:'),
+      `case ${testCase.key}: missing pharmacy contacts left empty preview labels`);
+    assert(!previewText.includes('null') && !previewText.includes('undefined'),
+      `case ${testCase.key}: nullable contacts leaked into the pharmacy preview`);
+    if (testCase.expectedPhones) {
+      assert(previewText.includes(`Tel:${testCase.expectedPhones}`),
+        `case ${testCase.key}: preview did not preserve trimmed available telephone numbers`);
+    } else {
+      assert(!previewText.includes('Tel:'), `case ${testCase.key}: absent telephone left an empty preview label`);
+    }
     let outcome;
     // The page alerts "could not paste to EMR" once when the server refuses the first write; that
     // is the expected path for the retry case and must not happen for the others.

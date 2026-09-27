@@ -62,12 +62,12 @@ test('the deliberate missing-favorite response excludes only its exact 404 signa
 test('unrelated console, HTTP and runtime errors remain failures during the negative control', () => {
   for (const kind of ['http', 'console', 'runtime']) {
     const recorder = expectedFailure();
+    consumeExpectedFavoriteFailure(recorder, failureUrl, 0, 0);
     if (kind === 'http') recorder.badResponses.push({ url: failureUrl, status: 500, method: 'POST' });
     if (kind === 'console') recorder.consoleIssues.push({ location: { url: failureUrl }, type: 'error', text: 'Unexpected failure' });
     if (kind === 'runtime') recorder.pageErrors.push({ label: 'favorite', text: 'Uncaught ReferenceError' });
-    assert.throws(() => {
-      consumeExpectedFavoriteFailure(recorder, failureUrl, 0, 0);
-      h.assertStrictPage(recorder);
-    });
+    const expected = { http: /HTTP 500/, console: /console error: Unexpected failure/,
+      runtime: /uncaught Uncaught ReferenceError/ };
+    assert.throws(() => h.assertStrictPage(recorder), expected[kind]);
   }
 });

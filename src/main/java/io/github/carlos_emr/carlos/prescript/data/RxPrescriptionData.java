@@ -86,13 +86,27 @@ public class RxPrescriptionData {
         return ret;
     }
 
+    public Prescription getPrescription(int drugId) {
+        DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+        return prescriptionFromDrug(drugDao.find(drugId));
+    }
+
+    /**
+     * Loads a history item once, allowing a stale selection to be reported as unavailable.
+     *
+     * @param drugId the selected drug row identifier
+     * @return the persisted prescription, or null if its row no longer exists
+     */
+    public Prescription getPrescriptionIfPresent(int drugId) {
+        DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+        Drug drug = drugDao.find(drugId);
+        return drug == null ? null : prescriptionFromDrug(drug);
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public Prescription getPrescription(int drugId) {
-
-        DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-        Drug drug = drugDao.find(drugId);
-
+    private Prescription prescriptionFromDrug(Drug drug) {
+        int drugId = drug.getId();
         Prescription prescription = new Prescription(drugId, drug.getProviderNo(), drug.getDemographicId());
         prescription.setRxCreatedDate(drug.getCreateDate());
         prescription.setRxDate(drug.getRxDate());
@@ -147,10 +161,8 @@ public class RxPrescriptionData {
         if (drug.getRefillQuantity() != null) prescription.setRefillQuantity(drug.getRefillQuantity());
 
         String prescriptionSpecial = prescription.getSpecial();
-        String drugSpecial = drug.getSpecial();
         if (prescriptionSpecial == null || prescriptionSpecial.length() <= 6) {
-            logger.warn("I strongly suspect something is wrong, either special is null or it appears to not contain anything useful. drugId={}, prescriptionSpecialLength={}, drugSpecialLength={}",
-                    drugId, safeLength(prescriptionSpecial), safeLength(drugSpecial));
+            logger.warn("Prescription instructions are absent or unusually short");
         }
         prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setPharmacyId(drug.getPharmacyId());
@@ -495,7 +507,6 @@ public class RxPrescriptionData {
             }
 
             if (isCustomName) {
-                logger.debug("ADDING PRESCRIPTION " + drug.getId());
                 Prescription p = toPrescription(drug, demographicNo);
 
 
@@ -557,7 +568,7 @@ public class RxPrescriptionData {
             patient = RxPatientData.getPatient(loggedInInfo, demographic_no);
             provider = new RxProviderData().getProvider(provider_no);
         } catch (Exception e) {
-            logger.error("unexpected error", e);
+            logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
         }
         ProSignatureData sig = new ProSignatureData();
         boolean hasSig = sig.hasSignature(bean.getProviderNo());
@@ -1568,7 +1579,7 @@ public class RxPrescriptionData {
                         ret += "s";
                     }
                 } catch (Exception durationCalcException) {
-                    logger.error("Error with duration:", durationCalcException);
+                    logger.error("Prescription duration could not be parsed ({})", durationCalcException.getClass().getSimpleName());
                 }
                 ret += "  ";
                 ret += this.getQuantity();
@@ -1581,7 +1592,7 @@ public class RxPrescriptionData {
 
                 return ret;
             } catch (Exception e) {
-                logger.error("unexpected error", e);
+                logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
                 return null;
             }
         }
@@ -1639,7 +1650,7 @@ public class RxPrescriptionData {
                     drugDao.merge(drug);
                 }
             } catch (Exception e) {
-                logger.error("unexpected error", e);
+                logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
             }
         }
 

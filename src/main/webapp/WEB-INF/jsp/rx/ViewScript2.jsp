@@ -202,7 +202,7 @@
                 vecAddressPhone = new Vector();
                 vecAddressFax = new Vector();
 
-                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
 
                 SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                 // A cross-provider reprint still shows and faxes the persisted prescriber's clinic
@@ -251,7 +251,7 @@
                 String[] temp4 = props.getProperty("clinicSatellitePostal", "").split("\\|");
                 String[] temp5 = props.getProperty("clinicSatellitePhone", "").split("\\|");
                 String[] temp6 = props.getProperty("clinicSatelliteFax", "").split("\\|");
-                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
 
                 String encodedDoctorName = SafeEncode.forHtml(doctorName);
                 String encodedTelLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgTel"));
@@ -1435,8 +1435,21 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                 function printPharmacy(id) {
                                     var json = initialPharmacy;
                                     if (!json || String(json.id) !== String(id)) return;
-                                    var text = pharmacyText(json.name) + "<br>" + pharmacyText(json.address) + "<br>" + pharmacyText(json.city) + ", " + pharmacyText(json.province) + ", "
-                                        + pharmacyText(json.postalCode) + "<br>Tel:" + pharmacyText(json.phone1) + " " + pharmacyText(json.phone2) + "<br>Fax:" + pharmacyText(json.fax) + "<br>Email:" + pharmacyText(json.email) + "<br>Note:" + pharmacyText(json.notes);
+                                    var lines = [];
+                                    function addLine(label, values, separator) {
+                                        var value = values.map(function (item) {
+                                            return item == null ? '' : String(item).trim();
+                                        }).filter(function (item) { return item !== ''; }).join(separator);
+                                        if (value) lines.push(label + pharmacyText(value));
+                                    }
+                                    addLine('', [json.name], '');
+                                    addLine('', [json.address], '');
+                                    addLine('', [json.city, json.province, json.postalCode], ', ');
+                                    addLine('Tel:', [json.phone1, json.phone2], ' ');
+                                    addLine('Fax:', [json.fax], '');
+                                    addLine('Email:', [json.email], '');
+                                    addLine('Note:', [json.notes], '');
+                                    var text = lines.join('<br>');
 
                                     text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
                                     text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";

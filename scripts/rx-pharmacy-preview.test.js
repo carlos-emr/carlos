@@ -91,3 +91,28 @@ test('the selected pharmacy is ready before the iframe loads without an asynchro
   fixture.load();
   assert.equal(target.innerHTML, '', 'an explicit remove must survive iframe reload');
 });
+
+for (const missing of [null, undefined, '', '   ']) {
+  test(`pharmacy preview omits empty lines, separators and labels (${String(missing)})`, () => {
+    const fixture = setup(true, true, { id: '71', name: ' Pharmacy ', address: missing,
+      city: missing, province: ' ON ', postalCode: missing, phone1: missing,
+      phone2: ' 555-0100 ', fax: missing, email: missing, notes: missing });
+    const target = { innerHTML: '' };
+    fixture.setTarget(target);
+    fixture.load();
+    assert.equal(target.innerHTML.split('<br><br>')[0], 'Pharmacy<br>ON<br>Tel:555-0100');
+    assert.ok(target.innerHTML.includes("name='pharmacyInfo' value='71'"));
+    assert.doesNotMatch(target.innerHTML, /Fax:|Email:|Note:|null|undefined|, /);
+  });
+}
+
+test('pharmacy preview keeps and encodes every populated contact field', () => {
+  const fixture = setup(true, true, { id: '71', name: 'A&B', address: '<Road>', city: 'City',
+    province: 'ON', postalCode: 'A1A 1A1', phone1: '111', phone2: '222', fax: '333',
+    email: 'a@example.test', notes: '<note>' });
+  const target = { innerHTML: '' };
+  fixture.setTarget(target);
+  fixture.load();
+  assert.equal(target.innerHTML.split('<br><br>')[0],
+    'A&amp;B<br>&lt;Road&gt;<br>City, ON, A1A 1A1<br>Tel:111 222<br>Fax:333<br>Email:a@example.test<br>Note:&lt;note&gt;');
+});
