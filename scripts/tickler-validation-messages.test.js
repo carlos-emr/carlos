@@ -10,10 +10,20 @@ const jspDir = path.join(root, 'src/main/webapp/WEB-INF/jsp/tickler');
 const pages = ['ticklerAdd.jsp', 'ticklerEdit.jsp'].map(name => ({ name, source: fs.readFileSync(path.join(jspDir, name), 'utf8') }));
 const shared = fs.readFileSync(path.join(root, 'src/main/webapp/share/javascript/tickler-validation.js'), 'utf8');
 const bundle = fs.readFileSync(path.join(root, 'src/main/resources/oscarResources_en.properties'), 'utf8');
+// Locate `function <name>(...) {` and cut at the first line that closes it at the same
+// indentation. A line scan is used instead of new RegExp(`function ${name}...`): the repo's
+// Semgrep rules flag runtime-built regexes (detect-non-literal-regexp) and nothing here needs one.
 function functionSource(source, name, multisite) {
-  const match = source.match(new RegExp(`(^[ \\t]*)function ${name}\\([^)]*\\) \\{[\\s\\S]*?^\\1\\}`, 'm'));
-  assert.ok(match, `Missing ${name}`);
-  return match[0]
+  const lines = source.split('\n');
+  const start = lines.findIndex(line => {
+    const trimmed = line.trimStart();
+    return trimmed.startsWith(`function ${name}(`) && /^function \w+\([^)]*\) \{/.test(trimmed);
+  });
+  assert.notEqual(start, -1, `Missing ${name}`);
+  const indent = lines[start].slice(0, lines[start].length - lines[start].trimStart().length);
+  const end = lines.findIndex((line, index) => index > start && line.startsWith(`${indent}}`));
+  assert.notEqual(end, -1, `Unterminated ${name}`);
+  return [...lines.slice(start, end), `${indent}}`].join('\n')
     .replace(/<%--[\s\S]*?--%>/g, '')
     .replace(/<% if \(io\.github\.carlos_emr\.carlos\.commn\.IsPropertiesOn\.isMultisitesEnable\(\)\) \{ %>([\s\S]*?)<% } %>/g, (_, body) => multisite ? body : '')
     .replace(/<carlos:encode value='<%= oscarBundle\.getString\("([^"]+)"\) %>' context="javaScriptBlock"\/>/g, (_, key) => key)
