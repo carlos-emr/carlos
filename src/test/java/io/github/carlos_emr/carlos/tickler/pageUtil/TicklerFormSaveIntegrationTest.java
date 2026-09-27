@@ -20,6 +20,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 
 import java.util.Date;
+import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -104,7 +107,7 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE", "post", "Post", "PO\u017fT"})
     void shouldRejectNonPostEdit_withoutReadingOrChangingTicklers(String method) {
         mockRequest.setMethod(method);
         assertThat(editAction().editTickler()).isEqualTo(ActionSupport.NONE);
@@ -115,7 +118,7 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE", "post", "Post", "PO\u017fT"})
     void shouldRejectNonPostSuggestedText_withoutChangingSuggestions(String method) {
         mockRequest.setMethod(method);
         EditTickler2Action action = editAction();
@@ -210,6 +213,36 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
         });
         assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(mockRequest.getAttribute("rowsAffected")).isEqualTo(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "post", "Post", "PO\u017fT"})
+    void shouldRejectNonPostAdd_withoutChangingTicklers(String method) throws Exception {
+        mockRequest.setMethod(method);
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(manager, linkDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldPersistNewSuggestionsPrivately_whenTextIsNotAnIdentifier(boolean active) {
+        String text = "private-fixture-clinical-suggestion";
+        EditTickler2Action action = editAction();
+        action.setActiveText(active ? new String[] {text} : new String[0]);
+        action.setInactiveText(active ? new String[0] : new String[] {text});
+        try (LogCapture logs = LogCapture.forLogger(EditTickler2Action.class)) {
+            org.apache.logging.log4j.LogManager.getLogger(EditTickler2Action.class).error("privacy capture control");
+            assertThat(action.updateTextSuggest()).isEqualTo("close");
+            ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
+            verify(suggestDao).persist(saved.capture());
+            assertThat(saved.getValue().getSuggestedText()).isEqualTo(text);
+            assertThat(saved.getValue().getActive()).isEqualTo(active);
+            assertThat(saved.getValue().getCreator()).isEqualTo("999998");
+            assertThat(logs.messages()).containsExactly("privacy capture control");
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
     }
 
     private EditTickler2Action editAction() {

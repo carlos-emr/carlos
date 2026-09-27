@@ -19,14 +19,17 @@ test('cleanup limits reads to the patient and marker and deletes only returned I
   assert.match(queries[1], /n.demographic_no=123 AND n.note IN/);
   const writes = queries.slice(2);
   assert.deepEqual(writes.map(query => query.match(/^DELETE FROM (\w+)/)[1]),
-    ['casemgmt_issue_notes', 'casemgmt_note_link', 'casemgmt_note', 'tickler_comments', 'tickler_update', 'tickler']);
-  assert.ok(writes.slice(0, 3).every(query => query.includes('note_id IN (789)')));
+    ['casemgmt_note_link', 'casemgmt_issue_notes', 'casemgmt_note', 'tickler_comments', 'tickler_update', 'tickler']);
+  assert.equal(writes[0], 'DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (456,457)');
+  assert.ok(writes.slice(1, 3).every(query => query.includes('note_id IN (789)')));
   assert.ok(writes.slice(3).every(query => query.includes('tickler_no IN (456,457)')));
   assert.ok(!queries.some(query => query.includes('NOT IN')));
 });
 test('cleanup preserves unrelated notes when an owned tickler has no matching marked notes', () => {
   const queries = run(['456', '']);
-  assert.ok(!queries.some(query => /^DELETE FROM casemgmt/.test(query)));
+  assert.ok(queries.includes('DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (456)'));
+  assert.ok(!queries.some(query => /^DELETE FROM casemgmt_(note|issue_notes) WHERE/.test(query)));
+  assert.ok(queries.some(query => /^DELETE FROM tickler WHERE/.test(query)));
 });
 test('cleanup does not write when its owned ticklers are absent', () => {
   assert.equal(run(['']).length, 1);
@@ -48,4 +51,11 @@ test('cleanup rejects malformed selected IDs before any delete', () => {
 test('cleanup propagates database failures instead of reporting successful cleanup', () => {
   assert.throws(() => cleanupTicklerFixture({ ...fixture, sql: () => { throw new Error('database unavailable'); } }),
     /database unavailable/);
+});
+
+test('cleanup removes owned tickler links while retaining notes when no note text is selected', () => {
+  const queries = run(['456'], { noteTexts: [] });
+  assert.equal(queries.filter(query => query.startsWith('SELECT')).length, 1);
+  assert.ok(queries.includes('DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (456)'));
+  assert.ok(!queries.some(query => /^DELETE FROM casemgmt_(note|issue_notes) WHERE/.test(query)));
 });

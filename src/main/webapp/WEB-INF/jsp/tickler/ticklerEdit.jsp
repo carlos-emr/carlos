@@ -132,10 +132,6 @@
     String stComplete = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.stComplete");
     String stDeleted = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.stDeleted");
 
-    String prHigh = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.high");
-    String prNormal = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.normal");
-    String prLow = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.low");
-
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
     int curMonth = (now.get(Calendar.MONTH) + 1);
@@ -558,12 +554,12 @@
 
                         <label for="priority"><fmt:message key="tickler.ticklerEdit.priority"/></label>
                         <select class="form-select" name="priority" id="priority">
-                            <% if (t.getPriorityWeb().equals(prHigh)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.high"/>"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <% if (t.getPriorityWeb().equals(prNormal)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.normal"/>"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <% if (t.getPriorityWeb().equals(prLow)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.low"/>"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.High) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="High"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.Normal) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="Normal"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.Low) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="Low"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
 
                         <label for="assignedToProviders"><fmt:message key="tickler.ticklerEdit.assignedTo"/></label>

@@ -298,6 +298,37 @@ async function workflow(s) {
       'the valid edit save did not reach the database');
     if (!editPopup.isClosed()) await editPopup.close();
   });
+
+  await s.step('French edits retain and submit stable priorities while displaying translated labels', async () => {
+    for (const priority of ['Low', 'Normal', 'High', 'High']) {
+      const stored = sql.value(`SELECT priority FROM tickler WHERE tickler_no=${ticklerNo}`);
+      const row = ticklerList.locator('#ticklerResults tbody tr').filter({ hasText: ticklerMessage }).first();
+      await row.waitFor({ state: 'visible' });
+      const popup = await s.popup(ticklerList, row.locator('a[onclick*="openTicklerEdit"]'), 'tickler-edit-french');
+      await popup.waitForLoadState('networkidle');
+      await popup.setExtraHTTPHeaders({ 'Accept-Language': 'fr' });
+      await popup.reload({ waitUntil: 'networkidle' });
+      const select = popup.locator('#priority');
+      const options = await select.locator('option').evaluateAll(items => items.map(item => ({
+        value: item.value, label: item.textContent.trim(),
+      })));
+      h.assert(JSON.stringify(options) === JSON.stringify([
+        { value: 'High', label: '\u00c9lev\u00e9e' }, { value: 'Normal', label: 'Normale' }, { value: 'Low', label: 'Faible' },
+      ]), 'Translated priorities lost their stable submitted values or translated labels');
+      h.assert(await select.inputValue() === stored, 'Opening a translated edit changed the selected priority');
+      await select.selectOption(priority);
+      const comment = `${marker} French priority ${priority}`;
+      await popup.locator('#newMessage').fill(comment);
+      await popup.locator(SELECTORS.editSave).click();
+      await waitForSaveSentinel(popup, SELECTORS.editSavedMarker, 'tickler-edit-ok');
+      await expectValue(sql, `SELECT priority FROM tickler WHERE tickler_no=${ticklerNo}`, priority,
+        'Translated edit did not persist the selected priority');
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${ticklerNo}
+        AND message=${h.sqlString(comment)}`) !== '0', 'Translated edit lost its comment');
+      if (!popup.isClosed()) await popup.close();
+    }
+  });
+
 }
 
 if (require.main === module) runWorkflow('tickler-validation-messages', workflow, {

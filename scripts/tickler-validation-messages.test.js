@@ -11,7 +11,14 @@ const pages = ['ticklerAdd.jsp', 'ticklerEdit.jsp'].map(name => ({ name, source:
 const shared = fs.readFileSync(path.join(root, 'src/main/webapp/share/javascript/tickler-validation.js'), 'utf8');
 const bundle = fs.readFileSync(path.join(root, 'src/main/resources/oscarResources_en.properties'), 'utf8');
 function functionSource(source, name, multisite) {
-  const match = source.match(new RegExp(`(^[ \\t]*)function ${name}\\([^)]*\\) \\{[\\s\\S]*?^\\1\\}`, 'm'));
+  // Function names are fixed test entry points, never regular-expression input.
+  const patterns = {
+    validate: /(^[ \t]*)function validate\([^)]*\) \{[\s\S]*?^\1\}/m,
+    validateDate: /(^[ \t]*)function validateDate\([^)]*\) \{[\s\S]*?^\1\}/m,
+    validateDemoNo: /(^[ \t]*)function validateDemoNo\([^)]*\) \{[\s\S]*?^\1\}/m,
+  };
+  assert.ok(Object.hasOwn(patterns, name), 'Unsupported test entry point');
+  const match = source.match(patterns[name]);
   assert.ok(match, `Missing ${name}`);
   return match[0]
     .replace(/<%--[\s\S]*?--%>/g, '')
