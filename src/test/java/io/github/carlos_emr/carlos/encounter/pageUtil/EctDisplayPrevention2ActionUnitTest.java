@@ -96,7 +96,7 @@ class EctDisplayPrevention2ActionUnitTest {
     }
 
     @Test
-    void shouldUseIdForUndatedRecords_andHandleEmptyHistories() {
+    void shouldResolveNewestPrevention_whenRecordsAreUndatedOrHistoryIsEmpty() {
         Map<String, Object> newestId = history("100", null);
         assertThat(EctDisplayPrevention2Action.newestPrevention(List.of(newestId, history("99", null))))
                 .isSameAs(newestId);
