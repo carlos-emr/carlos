@@ -325,12 +325,34 @@ async function checkEnvelopesWithoutSelection(context) {
   await page.close();
 }
 
+async function withPreservedCleanup(body, cleanups) {
+  let failed = false;
+  let primaryError;
+  let result;
+  try {
+    result = await body();
+  } catch (error) {
+    failed = true;
+    primaryError = error;
+  }
+  const cleanupErrors = [];
+  for (const cleanup of cleanups) {
+    try { await cleanup(); } catch (error) { cleanupErrors.push(error); }
+  }
+  if (failed) {
+    for (const error of cleanupErrors) console.error(`Additional cleanup failure: ${error.message}`);
+    throw primaryError;
+  }
+  if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Owned fixture cleanup failed');
+  return result;
+}
+
 async function checkUnicodeEnvelope(context) {
   const marker = `FAKE_LETTER_${stamp}`;
   const provider = sql(`SELECT provider_no FROM security WHERE user_name=${sqlString(testUser)}`);
   if (!provider) throw new Error('Test provider was not found');
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'letter-envelope-pdf-'));
-  try {
+  await withPreservedCleanup(async () => {
     const patient = sql(`INSERT INTO demographic
       (first_name,last_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
       VALUES ('Łukasz Жуков',${sqlString(marker)},'1980','01','02','F','AC',${sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
@@ -342,11 +364,13 @@ async function checkUnicodeEnvelope(context) {
     fs.writeFileSync(file, bytes);
     const text = execFileSync('pdftotext', [file, '-'], {encoding:'utf8'});
     expect(text.includes('Łukasz Жуков') && text.includes(marker), 'unicode-envelope: original patient name preserved in installed PDF', {});
-  } finally {
-    fs.rmSync(temporary, {recursive:true, force:true});
-    sql(`DELETE FROM demographic WHERE first_name='Łukasz Жуков' AND last_name=${sqlString(marker)}`);
-    if (sql(`SELECT COUNT(*) FROM demographic WHERE last_name=${sqlString(marker)}`) !== '0') throw new Error('Owned envelope patient remains');
-  }
+  }, [
+    () => fs.rmSync(temporary, {recursive:true, force:true}),
+    () => {
+      sql(`DELETE FROM demographic WHERE first_name='Łukasz Жуков' AND last_name=${sqlString(marker)}`);
+      if (sql(`SELECT COUNT(*) FROM demographic WHERE last_name=${sqlString(marker)}`) !== '0') throw new Error('Owned envelope patient remains');
+    },
+  ]);
 }
 
 async function checkEnvelopePdf(context, demographicNo) {
@@ -481,12 +505,22 @@ async function checkGenerateLetters(context, demographicNo) {
     expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND demographicNo=${Number(demographicNo)}`) === '1', 'letters: follow-up saved once', {});
     // A malformed ID reaches the application through the WAF; integer overflow is covered in Java tests.
     const invalid = await context.request.post(appUrl('/report/GenerateLetters'), {
-      form:{reportLetter:reportLetterId, demos:'abc', addFollowUp:'ON', followupType:'FLUF', followupValue:'L1', message:reportName, 'CSRF-TOKEN':csrfToken},
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      data: new URLSearchParams([['reportLetter', reportLetterId], ['demos', demographicNo], ['demos', 'abc'],
+        ['addFollowUp', 'ON'], ['followupType', 'FLUF'], ['followupValue', 'L1'], ['message', reportName], ['CSRF-TOKEN', csrfToken]]).toString(),
     });
-    expect(invalid.status() === 400 && /id="letterGenerationFailed"/.test(await invalid.text()), 'letters: invalid selection visibly refused', {status:invalid.status()});
+    const invalidHtml = await invalid.text();
+    expect(invalid.status() === 400 && /id="letterGenerationFailed"/.test(invalidHtml), 'letters: invalid selection visibly refused', {status:invalid.status()});
+    const selectedPatients = html => page.evaluate(markup => Array.from(
+      new DOMParser().parseFromString(markup, 'text/html').querySelectorAll('input[name="demos"]'), input => input.value), html);
+    expect(JSON.stringify(await selectedPatients(invalidHtml)) === JSON.stringify([String(demographicNo)]),
+      'letters: valid selected patient retained on error page; invalid ID omitted', {});
     expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}'`) === '1', 'letters: failed request did not record follow-up', {});
     const partial = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${demographicNo}&demos=abc`));
-    expect(partial.status() === 400 && /id="letterSelectionIncomplete"/.test(await partial.text()), 'envelopes: incomplete selection refused', {status:partial.status()});
+    const partialHtml = await partial.text();
+    expect(partial.status() === 400 && /id="letterSelectionIncomplete"/.test(partialHtml), 'envelopes: incomplete selection refused', {status:partial.status()});
+    expect(JSON.stringify(await selectedPatients(partialHtml)) === JSON.stringify([String(demographicNo)]),
+      'envelopes: valid selected patient retained on error page; invalid ID omitted', {});
   }
 }
 
@@ -529,7 +563,7 @@ async function cleanup() {
   const demographicNo = resolveDemographicNo();
   const browser = await chromium.launch(launchOptions);
   let context;
-  try {
+  await withPreservedCleanup(async () => {
     context = await browser.newContext({
       ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
       viewport: { width: 1280, height: 900 },
@@ -548,16 +582,17 @@ async function cleanup() {
       throw new Error(`patient letters/envelopes check found ${findings.length} issue(s)`);
     }
     console.log('PASS patient letters keep the uploaded name; envelopes and letters handle empty selections');
-  } finally {
-    try {
-      await cleanup();
-    } finally {
-      if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
-      await browser.close();
-    }
-  }
+  }, [
+    cleanup,
+    () => { if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true }); },
+    () => browser.close(),
+  ]);
 })().catch((error) => {
-  if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, {recursive:true, force:true});
+  try {
+    if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, {recursive:true, force:true});
+  } catch (cleanupError) {
+    console.error(`Additional cleanup failure: ${cleanupError.message}`);
+  }
   console.error('FAIL patient letters/envelopes Playwright check');
   console.error(error.stack || error.message);
   process.exit(1);

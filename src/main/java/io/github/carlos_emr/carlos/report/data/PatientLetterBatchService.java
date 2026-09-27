@@ -2,7 +2,6 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.dao.ReportLettersDao;
 import io.github.carlos_emr.carlos.commn.model.ReportLetters;
@@ -51,6 +49,15 @@ public class PatientLetterBatchService {
     private final ProgramManager2 programs;
     private final TransactionTemplate transaction;
 
+    /**
+     * Creates the renderer and transaction boundary for complete patient-letter batches.
+     *
+     * @param security caller and patient privilege checks
+     * @param demographics patient visibility checks
+     * @param reports stored letter templates
+     * @param programs current provider program metadata
+     * @param transactionManager manager coordinating document, log and follow-up writes
+     */
     public PatientLetterBatchService(SecurityInfoManager security, DemographicManager demographics,
                                     ReportLettersDao reports, ProgramManager2 programs,
                                     PlatformTransactionManager transactionManager) {
@@ -61,31 +68,31 @@ public class PatientLetterBatchService {
         this.transaction = new TransactionTemplate(transactionManager);
     }
 
+    /**
+     * Renders every authorized selected patient before committing the batch's clinical effects.
+     * Generated files are retained after success or an uncertain commit, and removed after a
+     * confirmed failure. Duplicate numeric patient IDs produce one letter and one follow-up.
+     *
+     * @param info authenticated caller context
+     * @param reportId positive ID of an active template
+     * @param selected patient IDs to resolve and authorize
+     * @param followUp whether to record follow-up measurements
+     * @param followUpType measurement type when follow-up is requested
+     * @param followUpValue measurement value when follow-up is requested
+     * @param comment optional follow-up comment
+     * @return merged PDF containing all selected patients
+     * @throws IllegalArgumentException if the selection, template or follow-up metadata is invalid
+     * @throws SecurityException if the caller lacks patient or operation access
+     * @throws IOException if an owned PDF cannot be created or written
+     * @throws JRException if template compilation or rendering fails
+     * @throws OutcomeUncertainException if commit is uncertain or completion fails after commit
+     */
     public byte[] generate(LoggedInInfo info, String reportId, String[] selected, boolean followUp,
                            String followUpType, String followUpValue, String comment) throws IOException, JRException {
         requirePrivilege(info, "_report", "r", null);
         int id = positiveId(reportId);
-        if (selected == null || selected.length == 0) {
-            throw new IllegalArgumentException("No patients selected");
-        }
-        if (followUp && (followUpType == null || followUpType.isBlank() || followUpType.length() > 50
-                || followUpValue == null || followUpValue.isBlank() || followUpValue.length() > 255
-                || (comment != null && comment.length() > 255))) {
-            throw new IllegalArgumentException("Invalid follow-up selection");
-        }
-        LinkedHashSet<String> patients = new LinkedHashSet<>();
-        for (String value : selected) {
-            patients.add(Integer.toString(positiveId(value)));
-        }
-        // Resolve every patient through the manager's patient-specific restrictions before any
-        // template parameter executes, file is written, or clinical record is persisted.
-        for (String patient : patients) {
-            if (demographics.getDemographic(info, patient) == null) {
-                throw new IllegalArgumentException("Patient selection is unavailable");
-            }
-            requirePrivilege(info, "_edoc", "w", patient);
-            if (followUp) requirePrivilege(info, "_measurement", "w", patient);
-        }
+        validateFollowUp(followUp, followUpType, followUpValue, comment);
+        LinkedHashSet<String> patients = authorizedPatients(info, selected, followUp);
         ReportLetters template = reports.find(id);
         if (template == null || !"0".equals(template.getArchive()) || template.getReportFile() == null) {
             throw new IllegalArgumentException("Letter template is unavailable");
@@ -99,13 +106,12 @@ public class PatientLetterBatchService {
         List<EDoc> documents = new ArrayList<>();
         boolean committed = false;
         AtomicBoolean retainFiles = new AtomicBoolean();
-        AtomicBoolean uncertain = new AtomicBoolean();
         try {
             for (String patient : patients) {
                 byte[] rendered = render(report, parameters, patient);
                 // Exclusive creation avoids overwriting earlier or concurrent letters. Neither the
                 // patient ID nor the user-supplied template name becomes a filesystem component.
-                Path file = Files.createTempFile(directory, "letter-" + id + "-", ".pdf");
+                Path file = createLetterFile(directory, id);
                 files.add(file);
                 Files.write(file, rendered);
                 EDoc document = new EDoc(documentDescription(id, template.getReportName()), "others", file.getFileName().toString(),
@@ -124,7 +130,6 @@ public class PatientLetterBatchService {
                         @Override public void afterCompletion(int completion) {
                             // A lost commit acknowledgement must not delete possibly committed PDFs.
                             retainFiles.set(completion != STATUS_ROLLED_BACK);
-                            uncertain.set(completion == STATUS_UNKNOWN);
                         }
                     });
                     for (EDoc document : documents) EDocUtil.addDocumentSQL(document);
@@ -136,36 +141,72 @@ public class PatientLetterBatchService {
                     }
                 });
             } catch (RuntimeException failure) {
-                if (uncertain.get()) throw new OutcomeUncertainException(failure);
+                if (retainFiles.get()) throw new OutcomeUncertainException(failure);
                 throw failure;
             }
             committed = true;
             return merged;
         } finally {
             if (!committed && !retainFiles.get()) {
-                for (Path file : files) {
-                    try {
-                        Files.deleteIfExists(file);
-                    } catch (IOException cleanupFailure) {
-                        MiscUtils.getLogger().error("Could not remove uncommitted patient-letter file ({})",
-                                cleanupFailure.getClass().getSimpleName());
-                    }
-                }
+                removeUncommittedFiles(files);
             }
         }
     }
 
-    /** The database could not confirm commit or rollback; retain files for reconciliation. */
+    private static void validateFollowUp(boolean followUp, String type, String value, String comment) {
+        if (followUp && (type == null || type.isBlank() || type.length() > 50
+                || value == null || value.isBlank() || value.length() > 255
+                || (comment != null && comment.length() > 255))) {
+            throw new IllegalArgumentException("Invalid follow-up selection");
+        }
+    }
+
+    private LinkedHashSet<String> authorizedPatients(LoggedInInfo info, String[] selected, boolean followUp) {
+        if (selected == null || selected.length == 0) throw new IllegalArgumentException("No patients selected");
+        LinkedHashSet<String> patients = new LinkedHashSet<>();
+        for (String value : selected) patients.add(Integer.toString(positiveId(value)));
+        for (String patient : patients) {
+            if (demographics.getDemographic(info, patient) == null) {
+                throw new IllegalArgumentException("Patient selection is unavailable");
+            }
+            requirePrivilege(info, "_edoc", "w", patient);
+            if (followUp) requirePrivilege(info, "_measurement", "w", patient);
+        }
+        return patients;
+    }
+
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "Private creation in canonical administrator-configured DOCUMENT_DIR; prefix is a validated integer and the remainder is generated exclusively by Files.createTempFile")
+    private static Path createLetterFile(Path directory, int id) throws IOException {
+        return Files.createTempFile(directory, "letter-" + id + "-", ".pdf");
+    }
+
+    private static void removeUncommittedFiles(List<Path> files) {
+        for (Path file : files) {
+            try {
+                Files.deleteIfExists(file);
+            } catch (IOException cleanupFailure) {
+                MiscUtils.getLogger().error("Could not remove uncommitted patient-letter file ({})",
+                        cleanupFailure.getClass().getSimpleName());
+            }
+        }
+    }
+
+    /** Completion failed after a committed or uncertain transaction; retain files for reconciliation. */
     public static class OutcomeUncertainException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Records a transaction failure whose outcome requires reconciliation before retrying.
+         * @param cause original commit or rollback failure
+         */
         public OutcomeUncertainException(Throwable cause) {
             super("Patient letter transaction outcome is unknown", cause);
         }
     }
 
-    Path documentDirectory() {
-        String configured = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (configured == null || configured.isBlank()) throw new IllegalStateException("Document directory is not configured");
-        return PathValidationUtils.resolveTrustedPath(new File(configured)).toPath();
+    Path documentDirectory() throws IOException {
+        return PathValidationUtils.getRequiredDocumentDirectory().toPath();
     }
 
     byte[] render(JasperReport report, String[] names, String patient) throws JRException {
@@ -193,11 +234,11 @@ public class PatientLetterBatchService {
     }
 
     static int positiveId(String value) {
-        if (value == null || !value.matches("[0-9]{1,10}")) throw new IllegalArgumentException("Invalid selection");
+        if (value == null || !value.matches("\\d{1,10}")) throw new IllegalArgumentException("Invalid selection");
         try {
             int id = Integer.parseInt(value);
             if (id > 0) return id;
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
             // An out-of-range numeric value is invalid, never a DAO argument.
         }
         throw new IllegalArgumentException("Invalid selection");

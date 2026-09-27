@@ -119,7 +119,7 @@ class GeneratePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(GenerateEnvelopes2Action.NO_PATIENTS_SELECTED_ATTRIBUTE))
                 .isEqualTo(Boolean.TRUE);
         assertThat(response.getContentAsByteArray()).isEmpty();
-        verifyNoInteractions(reportLettersDao, logLettersDao);
+        verifyNoInteractions(reportLettersDao, logLettersDao, batches);
     }
 
     @Test
@@ -133,7 +133,7 @@ class GeneratePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        verifyNoInteractions(reportLettersDao, logLettersDao);
+        verifyNoInteractions(reportLettersDao, logLettersDao, batches);
     }
 
     @Test
@@ -186,13 +186,46 @@ class GeneratePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldWarnWithoutRetryingBatch_whenDownloadFails(boolean committed) throws Exception {
+        response = new MockHttpServletResponse() {
+            @Override public jakarta.servlet.ServletOutputStream getOutputStream() {
+                return new jakarta.servlet.ServletOutputStream() {
+                    @Override public boolean isReady() { return true; }
+                    @Override public void setWriteListener(jakarta.servlet.WriteListener listener) { }
+                    @Override public void write(int value) throws java.io.IOException {
+                        setCommitted(committed);
+                        throw new java.io.IOException("injected download failure");
+                    }
+                };
+            }
+        };
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.addParameter("demos", "1");
+        request.addParameter("reportLetter", "7");
+        when(batches.generate(eq(loggedInInfo), eq("7"), any(), eq(false), isNull(), isNull(), isNull()))
+                .thenReturn("%PDF-fixture".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+
+        assertThat(new GeneratePatientLetters2Action().execute()).isEqualTo(committed ? ActionSupport.NONE : ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(committed ? 200 : 500);
+        assertThat(request.getAttribute("letterGenerationUncertain")).isEqualTo(committed ? null : Boolean.TRUE);
+        assertThat(request.getAttribute("letterGenerationFailed")).isNull();
+        if (!committed) {
+            assertThat(response.getContentType()).isNull();
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+        }
+        org.mockito.Mockito.verify(batches).generate(eq(loggedInInfo), eq("7"), any(), eq(false), isNull(), isNull(), isNull());
+    }
+
     @Test
     @DisplayName("should throw SecurityException without _report read")
     void shouldThrowSecurityException_whenReportPrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_report"), eq("r"), isNull()))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> new GeneratePatientLetters2Action().execute())
+        var action = new GeneratePatientLetters2Action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_report)");
     }

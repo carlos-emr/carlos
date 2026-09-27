@@ -52,6 +52,7 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     private boolean failMerge;
     private boolean failFile;
     private boolean unknownCommit;
+    private boolean afterCommitFailure;
 
     @BeforeEach
     void prepare() {
@@ -68,6 +69,10 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
         registerMock(LogLettersDao.class, logs);
         var dataSource = new DriverManagerDataSource("jdbc:h2:mem:letters-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
         transactions = new DataSourceTransactionManager(dataSource) {
+            @Override protected void doCleanupAfterCompletion(Object transaction) {
+                super.doCleanupAfterCompletion(transaction);
+                if (afterCommitFailure) throw new org.springframework.transaction.TransactionSystemException("cleanup failed after commit");
+            }
             @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
                 super.doCommit(status);
                 if (unknownCommit) throw new org.springframework.transaction.TransactionSystemException("commit acknowledgement lost");
@@ -126,8 +131,8 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void successfulBatchesContainEveryPatientAndNeverOverwritePriorFiles() throws Exception {
-        try (var writes = documentWrites(false)) {
+    void shouldKeepEveryPatientAndPriorFiles_whenBatchesSucceed() throws Exception {
+        try (var _ = documentWrites(false)) {
             byte[] first = generate(false);
             byte[] second = generate(false);
             try (var pdf = Loader.loadPDF(first); var other = Loader.loadPDF(second)) {
@@ -141,7 +146,7 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void secondPatientRenderFailureLeavesNoDocumentsOrLog() throws Exception {
+    void shouldLeaveNoEffects_whenSecondPatientRenderingFails() throws Exception {
         failSecondRender = true;
         try (var writes = documentWrites(false)) {
             assertThatThrownBy(() -> generate(false)).isInstanceOf(JRException.class);
@@ -151,7 +156,7 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void zeroPageLetterIsRejectedBeforeAnyClinicalEffects() throws Exception {
+    void shouldRejectBeforeClinicalWrites_whenLetterHasNoPages() throws Exception {
         try (var filler = mockStatic(net.sf.jasperreports.engine.JasperFillManager.class)) {
             filler.when(() -> net.sf.jasperreports.engine.JasperFillManager.fillReport(any(JasperReport.class), anyMap(), any(net.sf.jasperreports.engine.JREmptyDataSource.class)))
                     .thenReturn(new net.sf.jasperreports.engine.JasperPrint());
@@ -161,26 +166,26 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void mergeFailureLeavesNoDocumentsOrLog() throws Exception {
+    void shouldLeaveNoEffects_whenMergeFails() throws Exception {
         failMerge = true;
-        try (var writes = documentWrites(false)) {
+        try (var _ = documentWrites(false)) {
             assertThatThrownBy(() -> generate(false)).isInstanceOf(IllegalStateException.class);
             assertNoEffects();
         }
     }
 
     @Test
-    void secondDocumentDatabaseFailureRollsBackFirstAndRemovesOwnedFiles() throws Exception {
-        try (var writes = documentWrites(true)) {
+    void shouldRollBackAndRemoveFiles_whenSecondDocumentWriteFails() throws Exception {
+        try (var _ = documentWrites(true)) {
             assertThatThrownBy(() -> generate(false)).isInstanceOf(IllegalStateException.class);
             assertNoEffects();
         }
     }
 
     @Test
-    void followUpFailureRollsBackDocumentsAndLog() throws Exception {
-        try (var writes = documentWrites(false);
-             var followups = mockConstruction(FollowupManagement.class, (mock, context) ->
+    void shouldRollBackDocumentsAndLog_whenFollowUpFails() throws Exception {
+        try (var _ = documentWrites(false);
+             var _ = mockConstruction(FollowupManagement.class, (mock, context) ->
                  doAnswer(call -> {
                      jdbc.update("INSERT INTO clinical_effect VALUES ('followup', '1')");
                      throw new IllegalStateException("injected follow-up failure");
@@ -191,9 +196,9 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void successfulFollowUpsUseTheSameDeduplicatedPatientSetAsThePdf() throws Exception {
-        try (var writes = documentWrites(false);
-             var followups = mockConstruction(FollowupManagement.class, (mock, context) ->
+    void shouldUseDeduplicatedPatients_whenFollowUpsSucceed() throws Exception {
+        try (var _ = documentWrites(false);
+             var _ = mockConstruction(FollowupManagement.class, (mock, context) ->
                  doAnswer(call -> {
                      String[] ids = call.getArgument(2);
                      assertThat(ids).containsExactly("1", "2");
@@ -206,7 +211,7 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void unavailableOrRestrictedPatientStopsTheWholeBatchBeforeTemplateAccess() throws Exception {
+    void shouldStopBeforeTemplateAccess_whenPatientIsUnavailableOrRestricted() throws Exception {
         when(demographics.getDemographic(info, "2")).thenReturn(null);
         assertThatThrownBy(() -> generate(false)).isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(reports);
@@ -217,7 +222,7 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void missingWritePermissionPreventsDocumentAndFollowUpChanges() throws Exception {
+    void shouldPreventClinicalChanges_whenWritePermissionIsMissing() throws Exception {
         when(security.hasPrivilege(info, "_edoc", "w", "2")).thenReturn(false);
         assertThatThrownBy(() -> generate(false)).isInstanceOf(SecurityException.class);
         verifyNoInteractions(reports);
@@ -229,7 +234,7 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void archivedAndMalformedTemplatesLeaveNoEffects() throws Exception {
+    void shouldLeaveNoEffects_whenTemplateIsArchivedOrMalformed() throws Exception {
         template.setArchive("1");
         assertThatThrownBy(() -> generate(false)).isInstanceOf(IllegalArgumentException.class);
         template.setArchive("0");
@@ -239,9 +244,9 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void uncertainCommitRetainsPotentiallyCommittedDocumentsAndSignalsReconciliation() throws Exception {
+    void shouldRetainFilesAndSignalReconciliation_whenCommitIsUncertain() throws Exception {
         unknownCommit = true;
-        try (var writes = documentWrites(false)) {
+        try (var _ = documentWrites(false)) {
             assertThatThrownBy(() -> generate(false)).isInstanceOf(PatientLetterBatchService.OutcomeUncertainException.class);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM clinical_effect", Integer.class)).isEqualTo(3);
             try (var files = Files.list(directory)) { assertThat(files.toList()).hasSize(2); }
@@ -249,28 +254,40 @@ class PatientLetterBatchServiceIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void fileCreationFailureLeavesNoClinicalEffects() throws Exception {
-        failFile = true;
+    void shouldRetainFilesAndSignalReconciliation_whenCleanupFailsAfterCommit() throws Exception {
+        afterCommitFailure = true;
         try (var writes = documentWrites(false)) {
+            assertThatThrownBy(() -> generate(false)).isInstanceOf(PatientLetterBatchService.OutcomeUncertainException.class);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM clinical_effect", Integer.class)).isEqualTo(3);
+            writes.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), times(2));
+            try (var files = Files.list(directory)) { assertThat(files.toList()).hasSize(2); }
+        }
+    }
+
+    @Test
+    void shouldLeaveNoEffects_whenFileCreationFails() throws Exception {
+        failFile = true;
+        try (var _ = documentWrites(false)) {
             assertThatThrownBy(() -> generate(false)).isInstanceOf(java.io.IOException.class);
             assertNoEffects();
         }
     }
 
     @Test
-    void fullWidthTemplateNameIsPreservedWithoutOverflowingDocumentDescription() {
+    void shouldPreserveFullTemplateName_whenDocumentDescriptionWouldOverflow() {
         String title = "x".repeat(255);
         assertThat(PatientLetterBatchService.documentDescription(7, title)).isEqualTo(title);
         assertThat(PatientLetterBatchService.documentDescription(7, "Short")).isEqualTo("7-Short");
     }
 
     @Test
-    void invalidNumericSelectionsAndIncompleteFollowUpsAreRejectedBeforePatientAccess() throws Exception {
+    void shouldRejectBeforePatientAccess_whenSelectionOrFollowUpIsInvalid() throws Exception {
+        var batch = service();
         for (String id : new String[]{"0", "-1", "2147483648", "99999999999", "١", "../../etc"}) {
-            assertThatThrownBy(() -> service().generate(info, "7", new String[]{id}, false, null, null, null))
+            assertThatThrownBy(() -> batch.generate(info, "7", new String[]{id}, false, null, null, null))
                     .isInstanceOf(IllegalArgumentException.class);
         }
-        assertThatThrownBy(() -> service().generate(info, "7", new String[]{"1"}, true, "FLUF", null, ""))
+        assertThatThrownBy(() -> batch.generate(info, "7", new String[]{"1"}, true, "FLUF", null, ""))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(demographics, reports);
         assertNoEffects();

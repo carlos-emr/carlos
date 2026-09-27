@@ -57,6 +57,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -72,11 +73,12 @@ import static org.mockito.Mockito.when;
 class ManagePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
 
     /** Smallest JasperReports 7 template that compiles: one user parameter, no bands. */
-    private static final String MINIMAL_JRXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            + "<jasperReport name=\"FakeLetter\" pageWidth=\"595\" pageHeight=\"842\" columnWidth=\"555\""
-            + " leftMargin=\"20\" rightMargin=\"20\" topMargin=\"20\" bottomMargin=\"20\">\n"
-            + "  <parameter name=\"first_name\" class=\"java.lang.String\"/>\n"
-            + "</jasperReport>\n";
+    private static final String MINIMAL_JRXML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <jasperReport name="FakeLetter" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+              <parameter name="first_name" class="java.lang.String"/>
+            </jasperReport>
+            """;
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -137,6 +139,25 @@ class ManagePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
                 .withOriginalName(originalName)
                 .withContentType("text/xml")
                 .build();
+    }
+
+    @Test
+    void shouldShowLocalizedValidationFailure_whenUploadContentIsRejected() {
+        var action = new ManagePatientLetters2Action();
+        action.withUploadedFiles(List.of(upload("reportFile", "valid.jrxml")));
+        UploadedFile rejected = mock(UploadedFile.class);
+        when(rejected.getInputName()).thenReturn("reportFile");
+        when(rejected.getContent()).thenReturn("not a file");
+
+        action.withUploadedFiles(List.of(rejected));
+
+        assertThat(action.getReportFile()).isNull();
+        assertThat(action.getReportFileFileName()).isNull();
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("letterUploadFailed")).isEqualTo(Boolean.TRUE);
+        verifyNoInteractions(reportLettersDao);
+        verify(rejected, org.mockito.Mockito.never()).getOriginalName();
     }
 
     @Nested
@@ -222,7 +243,7 @@ class ManagePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldShowFailure_whenTemplatePersistenceFails() {
-        org.mockito.Mockito.doThrow(new IllegalStateException("injected failure")).when(reportLettersDao).persist(any());
+        doThrow(new IllegalStateException("injected failure")).when(reportLettersDao).persist(any());
         ManagePatientLetters2Action action = new ManagePatientLetters2Action();
         action.withUploadedFiles(List.of(upload("reportFile", "letter.jrxml")));
         assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);

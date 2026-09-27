@@ -66,7 +66,8 @@
 
     String demographic_no = request.getParameter("demographic_no");
 
-    String[] demos = request.getParameterValues("demo");
+    String[] demos = request.getParameterValues("demos");
+    if (demos == null) demos = request.getParameterValues("demo");
 
 %>
 
@@ -282,6 +283,7 @@
                     <% DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                         for (int i = 0; i < demos.length; i++) {
                             Map<String, String> h = deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), demos[i]);
+                            if (h.isEmpty()) continue;
                     %>
                     <tr>
                         <td><%=i + 1%>

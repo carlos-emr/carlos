@@ -49,3 +49,35 @@ test('letter cleanup refuses path traversal and files belonging to another templ
     assert.deepEqual(f.writes, []);
   }
 });
+
+function guardedCleanup() {
+  const messages = [];
+  const context = vm.createContext({ AggregateError, console: { error: message => messages.push(message) } });
+  const start = source.indexOf('async function withPreservedCleanup(');
+  vm.runInContext(source.slice(start, source.indexOf('async function checkUnicodeEnvelope(', start)), context);
+  return { run: context.withPreservedCleanup, messages };
+}
+test('cleanup attempts every task and preserves the original body failure', async () => {
+  const f = guardedCleanup();
+  const primary = new Error('PDF request failed');
+  const attempted = [];
+  await assert.rejects(f.run(async () => { throw primary; }, [
+    () => { attempted.push('files'); throw new Error('file removal failed'); },
+    () => { attempted.push('rows'); throw new Error('row removal failed'); },
+    () => attempted.push('browser'),
+  ]), error => error === primary);
+  assert.deepEqual(attempted, ['files', 'rows', 'browser']);
+  assert.equal(f.messages.length, 2);
+});
+test('cleanup failures fail an otherwise successful workflow after every cleanup is attempted', async () => {
+  const f = guardedCleanup();
+  const attempted = [];
+  await assert.rejects(f.run(async () => 'result', [
+    () => { attempted.push('files'); throw new Error('file removal failed'); },
+    () => attempted.push('browser'),
+  ]), error => error instanceof AggregateError && error.errors[0].message === 'file removal failed');
+  assert.deepEqual(attempted, ['files', 'browser']);
+});
+test('successful cleanup returns the workflow result', async () => {
+  assert.equal(await guardedCleanup().run(async () => 'result', [() => {}]), 'result');
+});

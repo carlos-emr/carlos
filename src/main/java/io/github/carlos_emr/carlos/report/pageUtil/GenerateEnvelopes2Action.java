@@ -140,17 +140,13 @@ public class GenerateEnvelopes2Action extends ActionSupport {
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
         String defaultPrinterNamePDFLabel = "";
-        Boolean silentPrintPDFLabel = false;
+        boolean silentPrintPDFLabel;
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_ENVELOPE);
         if (prop != null) {
             defaultPrinterNamePDFLabel = prop.getValue();
         }
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_ENVELOPE_SILENT_PRINT);
-        if (prop != null) {
-            if ("yes".equalsIgnoreCase(prop.getValue())) {
-                silentPrintPDFLabel = true;
-            }
-        }
+        silentPrintPDFLabel = prop != null && "yes".equalsIgnoreCase(prop.getValue());
 
         byte[] pdf;
         try {
@@ -164,14 +160,22 @@ public class GenerateEnvelopes2Action extends ActionSupport {
         }
 
         response.setContentType("application/pdf");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("Content-Disposition", "filename=\"envelopePDF-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".pdf\"");
         response.setContentLength(pdf.length);
         try {
             response.getOutputStream().write(pdf);
         } catch (IOException ioe) {
-            // Headers are already committed; the client most likely went away mid-download.
-            logger.warn("Unable to write envelope PDF to the response", ioe);
+            logger.warn("Unable to write envelope PDF to the response ({})", ioe.getClass().getSimpleName());
+            if (!response.isCommitted()) {
+                response.reset();
+                response.setHeader("Cache-Control", "no-store");
+                response.setHeader("X-Content-Type-Options", "nosniff");
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                request.setAttribute("envelopeGenerationFailed", Boolean.TRUE);
+                return INPUT;
+            }
         }
         return NONE;
     }
@@ -299,7 +303,7 @@ public class GenerateEnvelopes2Action extends ActionSupport {
     private Paragraph fitEnvelopeLabel(String text, BaseFont font, float width, float height) {
         for (int size = 18; size >= 8; size--) {
             Paragraph paragraph = new Paragraph(text, new Font(font, size));
-            paragraph.setLeading(size + 4);
+            paragraph.setLeading(size + 4.0f);
             ColumnText probe = new ColumnText(null);
             probe.setSimpleColumn(0, 0, width, height);
             probe.addElement(paragraph);

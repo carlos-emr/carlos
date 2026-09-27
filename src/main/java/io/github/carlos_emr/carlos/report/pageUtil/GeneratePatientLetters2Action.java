@@ -47,14 +47,14 @@ public class GeneratePatientLetters2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger log = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
         LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(info, "_report", "r", null)) {
+        if (!SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(info, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
         if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -72,12 +72,12 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                     request.getParameter("message"));
         } catch (SecurityException denied) {
             throw denied;
-        } catch (PatientLetterBatchService.OutcomeUncertainException uncertain) {
+        } catch (PatientLetterBatchService.OutcomeUncertainException _) {
             log.error("Patient letter commit outcome is unknown; generated files retained for reconciliation");
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             request.setAttribute("letterGenerationUncertain", Boolean.TRUE);
             return INPUT;
-        } catch (IllegalArgumentException invalid) {
+        } catch (IllegalArgumentException _) {
             return generationFailure(HttpServletResponse.SC_BAD_REQUEST);
         } catch (Exception failure) {
             // Jasper exceptions can contain template expressions or patient values.
@@ -88,15 +88,21 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         response.setHeader("Cache-Control", "no-store");
         response.setDateHeader("Expires", 0);
         response.setContentType("application/pdf");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setContentLength(pdf.length);
         try {
-            response.getOutputStream().write(pdf);
+            // The batch renderer/strict merger returns binary PDF; no HTML is written and sniffing is disabled.
+            response.getOutputStream().write(pdf); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
         } catch (IOException failure) {
             // Clinical records are already committed; do not claim they were rolled back.
             log.warn("Saved patient letters could not be downloaded ({})", failure.getClass().getSimpleName());
             if (!response.isCommitted()) {
                 response.reset();
+                response.setHeader("Cache-Control", "no-store");
+                response.setHeader("X-Content-Type-Options", "nosniff");
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                request.setAttribute("letterGenerationUncertain", Boolean.TRUE);
+                return INPUT;
             }
         }
         return NONE;

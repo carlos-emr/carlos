@@ -122,16 +122,13 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
 
     /** Reads the document-level open-action JavaScript back out of a generated PDF. */
     private static String openActionScript(byte[] pdf) throws Exception {
-        PdfReader reader = new PdfReader(pdf);
-        try {
+        try (PdfReader reader = new PdfReader(pdf)) {
             PdfDictionary openAction = reader.getCatalog().getAsDict(PdfName.OPENACTION);
             PdfObject js = PdfReader.getPdfObject(openAction.get(PdfName.JS));
             if (js.isStream()) {
                 return new String(PdfReader.getStreamBytes((PRStream) js), StandardCharsets.ISO_8859_1);
             }
             return ((PdfString) js).toUnicodeString();
-        } finally {
-            reader.close();
         }
     }
 
@@ -144,6 +141,34 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
         d.setProvince("ON");
         d.setPostal("M1M 1M1");
         return d;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRenderFailureOnlyBeforeCommit_whenEnvelopeDownloadFails(boolean committed) {
+        response = new MockHttpServletResponse() {
+            @Override public jakarta.servlet.ServletOutputStream getOutputStream() {
+                return new jakarta.servlet.ServletOutputStream() {
+                    @Override public boolean isReady() { return true; }
+                    @Override public void setWriteListener(jakarta.servlet.WriteListener listener) { }
+                    @Override public void write(int value) throws java.io.IOException {
+                        setCommitted(committed);
+                        throw new java.io.IOException("injected download failure");
+                    }
+                };
+            }
+        };
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.addParameter("demos", "1");
+        when(demographicManager.getDemographic(loggedInInfo, "1")).thenReturn(patient("FAKE-Ann", "FAKE-Smith"));
+
+        assertThat(new GenerateEnvelopes2Action().execute()).isEqualTo(committed ? ActionSupport.NONE : ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(committed ? 200 : 500);
+        assertThat(request.getAttribute("envelopeGenerationFailed")).isEqualTo(committed ? null : Boolean.TRUE);
+        if (!committed) {
+            assertThat(response.getContentType()).isNull();
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+        }
     }
 
     @Nested
@@ -253,7 +278,8 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
                     .thenReturn(false);
             request.addParameter("demos", "1");
 
-            assertThatThrownBy(() -> new GenerateEnvelopes2Action().execute())
+            var action = new GenerateEnvelopes2Action();
+        assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_report)");
             verifyNoInteractions(demographicManager, userPropertyDao);

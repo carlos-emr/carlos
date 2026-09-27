@@ -50,7 +50,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 
 /**
@@ -88,6 +87,7 @@ public class ManagePatientLetters2Action extends ActionSupport implements Upload
         // Saving a template is a mutation: refuse GET/HEAD before touching the upload or the DAO.
         if (!"POST".equals(request.getMethod())) {
             try {
+                response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             } catch (IOException e) {
                 log.warn("Unable to send 405 for non-POST letter template upload", e);
@@ -105,13 +105,12 @@ public class ManagePatientLetters2Action extends ActionSupport implements Upload
         if (reportName == null || reportName.isBlank() || reportName.length() > 255 || reportFile == null) {
             return uploadFailure(HttpServletResponse.SC_BAD_REQUEST);
         }
-        try {
-            File validatedReportFile = PathValidationUtils.validateUpload(reportFile);
-            long size = Files.size(validatedReportFile.toPath());
-            if (size == 0 || size > 16_777_215) {
+        try (var input = PathValidationUtils.openValidatedUploadInputStream(reportFile)) {
+            // Bound the actual read, not a separately checked size that can change before reading.
+            byte[] fileData = input.readNBytes(16_777_216);
+            if (fileData.length == 0 || fileData.length > 16_777_215) {
                 return uploadFailure(HttpServletResponse.SC_BAD_REQUEST);
             }
-            byte[] fileData = Files.readAllBytes(validatedReportFile.toPath());
             // Compile before persistence so invalid templates never appear in the list.
             JasperCompileManager.compileReport(new ByteArrayInputStream(fileData));
             new ManageLetters().saveReport(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
@@ -119,7 +118,14 @@ public class ManagePatientLetters2Action extends ActionSupport implements Upload
         } catch (FileValidationException | JRException ex) {
             log.warn("Letter template upload rejected ({})", ex.getClass().getSimpleName());
             return uploadFailure(HttpServletResponse.SC_BAD_REQUEST);
-        } catch (IOException | RuntimeException ex) {
+        } catch (IOException ex) {
+            if (ex.getCause() instanceof SecurityException) {
+                log.warn("Letter template upload content rejected");
+                return uploadFailure(HttpServletResponse.SC_BAD_REQUEST);
+            }
+            log.error("Letter template upload failed ({})", ex.getClass().getSimpleName());
+            return uploadFailure(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        } catch (RuntimeException ex) {
             log.error("Letter template upload failed ({})", ex.getClass().getSimpleName());
             return uploadFailure(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
@@ -152,8 +158,8 @@ public class ManagePatientLetters2Action extends ActionSupport implements Upload
      */
     static void configureJasperCompileClasspath(HttpServletRequest request) {
         Object classpath = request.getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
-        if (classpath instanceof String && !((String) classpath).isEmpty()) {
-            System.setProperty("jasper.reports.compile.class.path", (String) classpath);
+        if (classpath instanceof String value && !value.isEmpty()) {
+            System.setProperty("jasper.reports.compile.class.path", value);
         }
     }
 
@@ -224,7 +230,14 @@ public class ManagePatientLetters2Action extends ActionSupport implements Upload
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if (uploaded != null && "reportFile".equals(uploaded.getInputName())) {
-                this.reportFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                try {
+                    this.reportFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                } catch (SecurityException _) {
+                    log.warn("Letter template upload content rejected");
+                    this.reportFile = null;
+                    this.reportFileFileName = null;
+                    return;
+                }
                 this.reportFileFileName = uploaded.getOriginalName();
                 return;
             }
