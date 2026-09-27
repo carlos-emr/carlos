@@ -26,10 +26,14 @@ async function workflow(s) {
     await page.goto(`${s.config.baseUrl}/rx/ViewStaticScript2?cn=${encodeURIComponent(s.marker)}`);
     const button = page.locator(`[onclick*="addFavorite2(${drug},"]`);
     await button.waitFor({ state: 'visible' });
-    page.once('dialog', dialog => dialog.accept(s.marker));
-    const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/addFavorite2') && r.request().method() === 'POST');
-    await button.click();
-    h.assert((await response).ok(), 'Saving the legacy favorite failed');
+    const dialogs = await h.withExpectedDialogs(page, async () => {
+      const [response] = await Promise.all([
+        page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/addFavorite2') && r.request().method() === 'POST'),
+        button.click(),
+      ]);
+      h.assert(response.ok(), 'Saving the legacy favorite failed');
+    }, { promptText: s.marker });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'prompt', 'Favorite naming prompt was not shown');
     await expectValue(s.sql, `SELECT COUNT(*) FROM favorites WHERE provider_no=${h.sqlString(s.provider)} AND name=${h.sqlString(s.marker)} AND \`repeat\`=0 AND special='One tablet daily'`, '1', 'Legacy favorite did not preserve instructions and default repeats');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE drugid=${drug} AND demographic_no=${s.patient} AND \`repeat\` IS NULL AND quantity IS NULL`) === '1', 'Reading the legacy drug rewrote its nullable fields');
   });
