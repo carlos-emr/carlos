@@ -82,8 +82,8 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
      * @return the number of links deleted
      */
     public int deleteByHrmDocumentId(Integer hrmDocumentId) {
-        Query query = entityManager.createQuery("delete from " + this.modelClass.getName()
-                + " x where x.hrmDocumentId=?1");
+        Query query = entityManager.createQuery(
+                "delete from HRMDocumentToDemographic x where x.hrmDocumentId=?1");
         query.setParameter(1, hrmDocumentId);
         return query.executeUpdate();
     }

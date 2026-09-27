@@ -303,7 +303,7 @@ public class MrpRoutingService {
         CommittedAudit.write(() -> {
             LogAction.addLog(actorProviderNo, AUDIT_ACTION, AUDIT_CONTENT, type + ":" + reportId, null,
                     demographicNo == null ? null : demographicNo.toString(), "mrp=" + mrp);
-            logger.info("Provider linking rules routed {} report {} to its MRP",
+            logger.info("Provider linking rules routed {} report {} to its MRP", // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     LogSafe.sanitize(type), LogSafe.sanitize(reportId));
         });
     }

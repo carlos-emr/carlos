@@ -181,8 +181,8 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
      * @return the number of rows deleted
      */
     public int deleteByHrmDocumentIdAndProviderNo(Integer hrmDocumentId, String providerNo) {
-        Query query = entityManager.createQuery("delete from " + this.modelClass.getName()
-                + " x where x.hrmDocumentId=?1 and x.providerNo=?2");
+        Query query = entityManager.createQuery(
+                "delete from HRMDocumentToProvider x where x.hrmDocumentId=?1 and x.providerNo=?2");
         query.setParameter(1, hrmDocumentId);
         query.setParameter(2, providerNo);
         return query.executeUpdate();
