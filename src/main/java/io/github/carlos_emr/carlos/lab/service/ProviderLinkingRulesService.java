@@ -75,7 +75,8 @@ public class ProviderLinkingRulesService {
     @Transactional(readOnly = true)
     public boolean isEnabled() {
         List<Property> rows = findGlobalRows();
-        return !rows.isEmpty() && "true".equals(StringUtils.trimToEmpty(rows.get(0).getValue()));
+        return !rows.isEmpty() && rows.stream()
+                .allMatch(row -> "true".equals(StringUtils.trimToEmpty(row.getValue())));
     }
 
     /**

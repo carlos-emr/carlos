@@ -80,6 +80,20 @@ class ProviderLinkingRulesServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFailClosed_whenDuplicateGlobalRowsDisagree() {
+        Property on = row(null, "true");
+        Property off = row("", "false");
+        when(propertyDao.findByName(KEY)).thenReturn(List.of(on, off));
+        assertThat(service.isEnabled()).isFalse();
+        when(propertyDao.findByName(KEY)).thenReturn(List.of(off, on));
+        assertThat(service.isEnabled()).isFalse();
+        off.setValue(" true ");
+        assertThat(service.isEnabled()).isTrue();
+        off.setValue(null);
+        assertThat(service.isEnabled()).isFalse();
+    }
+
+    @Test
     @DisplayName("should be off when no row exists, so no seed data is needed")
     void shouldBeDisabled_whenNoRowExists() {
         when(propertyDao.findByName(KEY)).thenReturn(List.of());

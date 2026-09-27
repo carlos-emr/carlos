@@ -6,6 +6,9 @@ Run: python3 -m unittest scripts/coverage/test_changed_line_audit.py
 """
 
 import os
+import contextlib
+import io
+from unittest.mock import patch
 import sys
 import tempfile
 import unittest
@@ -43,6 +46,28 @@ class ChangedLineAuditTest(unittest.TestCase):
         handle.close()
         self.addCleanup(os.unlink, handle.name)
         return handle.name
+
+    def test_should_reject_non_finite_or_out_of_range_thresholds(self):
+        for value in ["nan", "inf", "-inf", "-1", "101"]:
+            with self.subTest(value=value), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    audit_script.parse_args(["coverage.xml", "BASE", "HEAD", "--fail-under=" + value])
+        for value in ["0", "100", "85.5"]:
+            self.assertEqual(audit_script.parse_args(["coverage.xml", "BASE", "HEAD", "--fail-under", value]).fail_under,
+                             float(value))
+
+    def test_should_fail_threshold_with_any_unmapped_changed_file(self):
+        for diff in [DIFF, DIFF[DIFF.index("diff --git a/src/main/java/io/github/carlos_emr/carlos/Unbuilt"):]]:
+            with self.subTest(diff=diff), patch.object(audit_script.subprocess, "check_output", return_value=diff):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(audit_script.main([self.write(JACOCO), "BASE", "HEAD", "--fail-under", "0"]), 1)
+                    self.assertEqual(audit_script.main([self.write(JACOCO), "BASE", "HEAD"]), 0)
+
+    def test_should_allow_mapped_changes_without_executable_lines(self):
+        diff = DIFF.split("diff --git a/src/main/java/io/github/carlos_emr/carlos/Unbuilt")[0].replace("+9,4", "+9,1")
+        with patch.object(audit_script.subprocess, "check_output", return_value=diff):
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(audit_script.main([self.write(JACOCO), "BASE", "HEAD", "--fail-under", "100"]), 0)
 
     def test_should_parse_added_line_ranges_for_each_file(self):
         changed = audit_script.parse_diff(DIFF)

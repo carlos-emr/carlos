@@ -11,6 +11,7 @@ non-zero when changed-line coverage is below PCT percent, for use as a gate.
 """
 
 import argparse
+import math
 import re
 import subprocess
 import sys
@@ -107,7 +108,10 @@ def parse_args(argv):
                         help="list every changed file with its missed line numbers")
     parser.add_argument("--fail-under", type=float, default=None, metavar="PCT",
                         help="exit 1 when changed-line coverage is below PCT percent")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.fail_under is not None and (not math.isfinite(args.fail_under) or not 0 <= args.fail_under <= 100):
+        parser.error("--fail-under must be a finite percentage from 0 to 100")
+    return args
 
 
 def main(argv=None):
@@ -146,6 +150,9 @@ def main(argv=None):
             listed = ",".join(str(n) for n in missed_lines) or "-"
             print(f"  {covered:3} / {covered + missed:3}  {filename}  missed: {listed}")
 
+    if args.fail_under is not None and unmapped:
+        print("FAIL changed Java files are missing from the JaCoCo report")
+        return 1
     if args.fail_under is not None and denominator and 100.0 * covered_total / denominator < args.fail_under:
         print(f"FAIL changed-line coverage {percentage} is below {args.fail_under:g}%")
         return 1

@@ -695,6 +695,36 @@ public class ProviderManager2 {
 
     }
 
+    /** @deprecated Legacy property API; the clinic-wide switch is managed by ProviderLinkingRulesService. */
+    @Deprecated
+    public boolean updateAutoLinkToMrpProperty(LoggedInInfo loggedInInfo, String value) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.WRITE, null) &&
+            !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.WRITE, null)) {
+			throw new RuntimeException("missing required security object (_admin.hrm or _admin.lab)");
+		}
+
+		List<Property> properties = propertyDao.findGlobalByName(Property.PROPERTY_KEY.auto_link_to_mrp);
+		if (properties.size() > 0) {
+			for (Property property: properties) {
+				property.setValue(value);
+				propertyDao.merge(property);
+			}
+		}
+
+		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
+	}
+
+    /** @deprecated Legacy property API, retained for callers of the previous release. */
+    @Deprecated
+	public boolean viewAutoLinkToMrpPropertyStatus(LoggedInInfo loggedInInfo) {
+		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.READ, null) &&
+            !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.READ, null)) {
+			throw new RuntimeException("missing required security object (_admin.hrm or _admin.lab)");
+		}
+
+		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
+	}
+
 	// If no property is found, it returns true by default.
 	public boolean isHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
