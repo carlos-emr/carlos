@@ -99,3 +99,14 @@ query separators, and navigation must reach their exact expected destinations.
   multiple query parameters and hostile HTML retry behavior passed.
 - Owned fixtures were removed. Final health and installed hashes passed,
   `NRestarts=0`, and the VM was stopped. No configuration or schema changes remain.
+
+## ASCII localhost follow-up
+
+The localhost shorthand check now uses fixed ASCII case matching, consistent with the scheme allowlist. It no longer applies Unicode case folding to the host. The existing URI parser already rejected non-ASCII hosts; this makes the earlier policy check explicit without changing accepted URL spelling or normalizing Unicode resource paths.
+
+- Clean URL/action regression run: 88 tests passed, including mixed-case ASCII localhost and Unicode long-s lookalikes.
+- Full script suite: 1,035 passed. BDD, encoder, security-exception and JSP-taglib checks passed.
+- All 982 JSPs, WAR, Javadocs and coverage report built successfully.
+- All three DEBs built and installed as `2026.08.0~alpha16~pr3992.4`; 6,667 tested/package/installed payload files matched.
+- The complete Add Link workflow passed through HTTPS and directly against Tomcat. All twelve invalid inputs were rejected by the application in the direct run, including Unicode hostname and shorthand cases. Exact Unicode navigation, metadata, appointment association and inert HTML retry behavior passed.
+- Both runs removed their owned documents and fixtures. Final health and hashes passed, with zero automatic restarts. No configuration or schema changes were made; the VM is stopped.
