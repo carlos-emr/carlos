@@ -175,7 +175,7 @@
                     var data = "drugId=" + encodeURIComponent(reRxDrugId);
                     var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
                     await postStaticScript(url, data);
-                    location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                    location.href = "${carlos:forJavaScript(ctx)}" + "/rx/prescribing";
                 } catch (error) {
                     alert('${carlos:forJavaScript(staticScriptRequestError)}');
                 }

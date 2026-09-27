@@ -41,7 +41,7 @@ async function workflow(s) {
   await s.step('stage re-prescribing only after both protected history requests succeed', async () => {
     await page.waitForLoadState('networkidle');
     await page.locator('input[value="Represcribe"]').click();
-    await page.waitForURL('**/rx/searchDrug?');
+    await page.waitForURL('**/rx/prescribing');
     await page.waitForLoadState('networkidle');
     await page.locator('[id^="quantity_"]').first().waitFor({ state: 'attached' });
     h.assert(s.sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient}`) === '1',

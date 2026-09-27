@@ -62,5 +62,6 @@ for (const failingStep of [0, 1, -1]) {
     assert.equal(s.requests.length, failingStep === 0 ? 1 : 2);
     assert.equal(s.alerts.length, failingStep === -1 ? 0 : 1);
     assert.equal(s.location.href === 'history', failingStep !== -1);
+    if (failingStep === -1) assert.match(s.location.href, /\/rx\/prescribing$/);
   });
 }

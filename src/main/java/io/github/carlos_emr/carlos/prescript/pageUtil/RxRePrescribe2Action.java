@@ -378,6 +378,23 @@ public String saveDigitalSignature() throws IOException {
     return NONE;
 }
 
+    /** Render the prescribing workspace without replacing its staged prescriptions. */
+    public String viewPrescribing() throws IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
+            return null;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_READ,
+                String.valueOf(bean.getDemographicNo()))) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
+        return SUCCESS;
+    }
+
     public String saveReRxDrugIdToStash() throws IOException {
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

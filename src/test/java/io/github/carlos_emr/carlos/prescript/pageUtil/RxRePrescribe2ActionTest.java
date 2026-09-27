@@ -539,4 +539,37 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should preserve the staged session when returning to the prescribing workspace")
+    void shouldPreserveSession_whenRenderingPrescribingWorkspace() throws Exception {
+        var bean = request.getSession().getAttribute("RxSessionBean");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", null)).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", "1")).thenReturn(true);
+        assertThat(action.viewPrescribing()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getSession().getAttribute("RxSessionBean")).isSameAs(bean);
+    }
+
+    @Test
+    @DisplayName("should reject a missing session when returning to the prescribing workspace")
+    void shouldRejectMissingSession_whenRenderingPrescribingWorkspace() throws Exception {
+        request.getSession().removeAttribute("RxSessionBean");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", null)).thenReturn(true);
+        assertThat(action.viewPrescribing()).isNull();
+        assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("should require global read access for the prescribing workspace")
+    void shouldRequireReadAccess_whenRenderingPrescribingWorkspace() {
+        assertThatThrownBy(() -> action.viewPrescribing()).isInstanceOf(RuntimeException.class).hasMessageContaining("_rx");
+    }
+
+    @Test
+    @DisplayName("should require patient-scoped read access for the prescribing workspace")
+    void shouldRequirePatientAccess_whenRenderingPrescribingWorkspace() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", null)).thenReturn(true);
+        assertThat(action.viewPrescribing()).isNull();
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
 }
