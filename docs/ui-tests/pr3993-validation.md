@@ -75,3 +75,22 @@ Validation:
 - Installed pharmacy-phone checks passed all three telephone cases, exact encounter-note/PDF readback and retry. The browser also verified omission of empty Email/Note labels and correct present/absent Tel labels. Reprint/re-prescribe passed.
 
 Six original clinical-table fingerprints matched before and after the browser runs. Owned fixtures and the synthetic stamp were removed. Final health and payload verification passed, automatic restarts remained zero, VM disk space was 4.4 GiB free, and the VM was stopped. Builds, installation and browser checks ran serially, with the VM stopped throughout compilation.
+
+
+## Third review follow-up: small-page PDF layout and current release
+
+CodeRabbit's summary-only finding under #4016 reproduced an overlap between a long patient heading and pharmacy heading on A6 and HALFLETTER pages. The servlet measures the patient table before placing the pharmacy table, and reserves the prescription body below the measured pharmacy bottom. Two independent Java regression sets cover patient, pharmacy and drug geometry, including the long address and populated HIN that reproduce the original overlap. The installed browser additionally uses `pdftotext -bbox` to assert ordered, non-overlapping blocks on the generated A6 PDF. Parser negative controls reject overlap, missing/non-finite coordinates and multiple pages.
+
+Concurrent work on this branch was preserved in merge `7b47e458580a6278b3ea4ebc6933ad6361e6b3be`, including its independently implemented layout fix and regression tests. Final production code matches that concurrent implementation; both regression sets remain. Conflicts with the current release were resolved, preserving both translation additions and the converter documentation.
+
+Final combined-source validation:
+
+- Full Java unit/integration suite: **13,804 tests, zero failures/errors, 51 existing skips**.
+- Full Node suite: **1,216 passed, zero skips**. BDD naming (282 files), encoder, security-message, JSP taglib and locale checks passed.
+- All **984 JSPs**, WAR and Javadocs built. Changed executable Java coverage: **173/186 lines (93.0%)**, with no unmapped or wholly uncovered files.
+- Built and installed all three DEBs `2026.08.0~alpha16~pr3993.12` on Ubuntu 26.04. **6,691** tested, packaged and installed files matched.
+- The release now obtains `carlos-ctl` from its separate repository. Its unpublished 1.1.0 tag required the documented source fallback at `ac49b53946cbfd960fa7a3bc9a5e0057652d80b2`; local package `1.1.0+prreview.20260927` passed its build checks (1,464 tests, 19 skips), and all **23** packaged CLI files matched that source. Main-repository packaging and migration checks passed 29 and 244 tests respectively. This validates a local source build, not a published release asset or attestation.
+- The package ownership transition preserved the four configuration files, existing document files and six clinical-table checksums. No package purge was used.
+- Installed legacy prescription/favorite/history checks passed all five steps. Pharmacy-phone checks passed all three number cases across A6, A4 and Letter, including retry, exact note/PDF content and the A6 geometry assertion. Reprint/re-prescribe also passed.
+
+Six original clinical-table checksums were identical after the final browser runs. Owned fixtures and the synthetic signature stamp were removed. Final application and CLI payload checks and health checks passed; automatic restarts remained zero. VM disk space finished at 4.4 GiB free, and the VM was stopped. Compilation, packaging, installation and browser testing ran serially, with the VM stopped during compilation.
