@@ -203,6 +203,34 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldPreserveStoredServiceTime_whenCalendarDayIsUnchanged() {
+        Date original = Date.from(java.time.LocalDateTime.of(2026, 3, 4, 14, 35)
+                .atZone(java.time.ZoneId.systemDefault()).toInstant());
+        tickler.setServiceDate(original);
+        assertThat(editAction().editTickler()).isEqualTo("close");
+        assertThat(tickler.getServiceDate()).isSameAs(original);
+        assertThat(tickler.getUpdates()).isEmpty();
+        assertThat(tickler.getUpdateDate()).isEqualTo(new Date(1000));
+        verify(manager, never()).updateTickler(any(), any());
+    }
+
+    @Test
+    void shouldRecordServiceDate_whenCalendarDayChanges() {
+        Date original = Date.from(java.time.LocalDateTime.of(2026, 3, 4, 14, 35)
+                .atZone(java.time.ZoneId.systemDefault()).toInstant());
+        tickler.setServiceDate(original);
+        mockRequest.setParameter("xml_appointment_date", "2026-03-05");
+        when(manager.updateTickler(any(), any())).thenReturn(true);
+        assertThat(editAction().editTickler()).isEqualTo("close");
+        assertThat(tickler.getServiceDate()).isEqualTo(TicklerFormDate.parse("2026-03-05"));
+        assertThat(tickler.getUpdates()).hasSize(2).anySatisfy(update ->
+                assertThat(update.getServiceDate()).isEqualTo(original));
+        assertThat(tickler.getUpdates()).anySatisfy(update ->
+                assertThat(update.getServiceDate()).isEqualTo(TicklerFormDate.parse("2026-03-05")));
+        verify(manager).updateTickler(mockLoggedInInfo, tickler);
+    }
+
+    @Test
     void shouldSaveLeapDay_andReturnSuccessSentinel() throws Exception {
         mockRequest.setParameter("xml_appointment_date", "2028-02-29");
         when(manager.addTickler(any(), any())).thenAnswer(call -> {
@@ -245,6 +273,30 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldKeepClinicalValuesOutOfDiagnostics_whenEditFails(boolean invalidIdentifier) {
+        String privateValue = "private-fixture-tickler-detail";
+        if (invalidIdentifier) {
+            mockRequest.setParameter("ticklerNo", privateValue);
+        } else {
+            mockRequest.setParameter("newMessage", privateValue);
+            when(manager.updateTickler(any(), any())).thenThrow(new IllegalStateException(privateValue));
+        }
+        try (LogCapture logs = LogCapture.forLogger(EditTickler2Action.class)) {
+            assertThat(editAction().editTickler()).isEqualTo(invalidIdentifier ? "failure" : "error");
+            assertThat(logs.messages()).containsExactly(invalidIdentifier
+                    ? "Tickler edit rejected: invalid identifier" : "Tickler update failed: IllegalStateException");
+            assertThat(logs.events()).allSatisfy(event -> {
+                assertThat(event.getThrown()).isNull();
+                Object[] parameters = event.getMessage().getParameters();
+                if (parameters != null) {
+                    assertThat(parameters).doesNotContain(privateValue, "456", 456, "999998");
+                }
+            });
+        }
+    }
+
     private EditTickler2Action editAction() {
         EditTickler2Action action = spy(new EditTickler2Action());
         // CarlosWebTestBase supplies servlet/Spring state; it does not inject Struts' text provider.
@@ -264,6 +316,7 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
         assertThat(tickler.getComments()).isEmpty();
         assertThat(tickler.getUpdates()).isEmpty();
         assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
+        assertThat(tickler.getPriority()).isEqualTo(Tickler.PRIORITY.Normal);
         assertThat(tickler.getServiceDate()).isEqualTo(TicklerFormDate.parse("2026-03-04"));
         assertThat(tickler.getUpdateDate()).isEqualTo(new Date(1000));
         verify(manager, never()).updateTickler(any(), any());

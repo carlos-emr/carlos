@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import java.util.Objects;
+import org.apache.commons.lang3.time.DateUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -86,7 +86,7 @@ public class EditTickler2Action extends ActionSupport {
         try {
             ticklerNo = Integer.parseInt(ticklerNoStr.trim());
         } catch (NumberFormatException e) {
-            logger.error("Invalid ticklerNo parameter: '{}'", ticklerNoStr);
+            logger.warn("Tickler edit rejected: invalid identifier");
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
@@ -192,7 +192,7 @@ public class EditTickler2Action extends ActionSupport {
             isUpdate = true;
         }
 
-        if (!Objects.equals(parsedServiceDate, t.getServiceDate())) {
+        if (t.getServiceDate() == null || !DateUtils.isSameDay(parsedServiceDate, t.getServiceDate())) {
             tu.setServiceDate(parsedServiceDate);
             t.setServiceDate(parsedServiceDate);
             isUpdate = true;
@@ -213,7 +213,7 @@ public class EditTickler2Action extends ActionSupport {
                     return "error";
                 }
             } catch (Exception e) {
-                logger.error("Failed to update tickler: ticklerNo={}, providerNo={}", ticklerNo, providerNo, e);
+                logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
                 return "error";
             }
