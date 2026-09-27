@@ -112,15 +112,20 @@ async function runReport(page, s, screen, date, scenario) {
     h.assert(await row.locator('img').count() === 0, `${screen.name}: reason rendered as HTML`);
     h.assert(!await page.evaluate(() => window.x), `${screen.name}: reason script executed`);
     const link = row.locator('a').filter({hasText:'Bill'});
-    // Capture popup arguments without navigating away or opening an unrelated billing schema.
-    const captured = await link.evaluate(element => {
-      let value;
-      const original = window.popupPage;
-      window.popupPage = (...args) => { value = args[2]; };
-      try { element.click(); } finally { window.popupPage = original; }
-      return value;
-    });
-    const billing = new URL(captured, s.config.baseUrl);
+    // Exercise the actual click and popup URL. A neutral response isolates the report's
+    // link contract from the separate province-specific billing editor workflow.
+    const routePattern = '**/billing?**';
+    await s.context.route(routePattern, route => route.fulfill({status:200, contentType:'text/html', body:'<!doctype html><title>Billing link check</title>'}));
+    let popup;
+    let billing;
+    try {
+      [popup] = await Promise.all([page.waitForEvent('popup'), link.click()]);
+      await popup.waitForLoadState('domcontentloaded');
+      billing = new URL(popup.url());
+    } finally {
+      if (popup) await popup.close();
+      await s.context.unroute(routePattern);
+    }
     h.assert(billing.searchParams.get('start_time') === expectedTime, `${screen.name}: billing link time changed`);
     h.assert(billing.searchParams.get('billRegion') === screen.name, `${screen.name}: billing link province changed`);
     h.assert(billing.searchParams.get('demographic_name') === `${s.marker} ${label}${NAME_SUFFIX}`, `${screen.name}: billing link patient name changed`);
