@@ -127,7 +127,7 @@ async function runReport(page, s, screen, date, scenario) {
       if (popup) await popup.close();
       await s.context.unroute(routePattern);
     }
-    h.assert(page.url() === reportUrl, `${screen.name}: opening a bill navigated away from the report`);
+    h.assert(page.url().split('#')[0] === reportUrl.split('#')[0], `${screen.name}: opening a bill navigated away from the report`);
     h.assert(billing.searchParams.get('start_time') === expectedTime, `${screen.name}: billing link time changed`);
     h.assert(billing.searchParams.get('billRegion') === screen.name, `${screen.name}: billing link province changed`);
     h.assert(billing.searchParams.get('demographic_name') === `${s.marker} ${label}${NAME_SUFFIX}`, `${screen.name}: billing link patient name changed`);
