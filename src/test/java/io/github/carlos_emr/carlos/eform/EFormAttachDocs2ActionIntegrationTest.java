@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("EFormAttachDocs2Action Tests")
 @Tag("integration")
 @Tag("eform")
-class EFormAttachDocs2ActionTest extends CarlosWebTestBase {
+class EFormAttachDocs2ActionIntegrationTest extends CarlosWebTestBase {
 
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
 
