@@ -109,7 +109,7 @@ public class RxPrescriptionData {
         prescription.setDuration(dur);
         prescription.setDurationUnit(drug.getDurUnit());
         prescription.setQuantity(drug.getQuantity());
-        prescription.setRepeat(drug.getRepeat());
+        prescription.setRepeat(drug.getRepeat() == null ? 0 : drug.getRepeat());
         prescription.setLastRefillDate(drug.getLastRefillDate());
         prescription.setNosubs(drug.isNoSubs());
         prescription.setPrn(drug.isPrn());
@@ -291,7 +291,7 @@ public class RxPrescriptionData {
         p.setDuration(drug.getDuration());
         p.setDurationUnit(drug.getDurUnit());
         p.setQuantity(drug.getQuantity());
-        p.setRepeat(drug.getRepeat());
+        p.setRepeat(drug.getRepeat() == null ? 0 : drug.getRepeat());
         p.setLastRefillDate(drug.getLastRefillDate());
         p.setNosubs(drug.isNoSubs());
         p.setPrn(drug.isPrn());

@@ -14,6 +14,7 @@ function fixture(options = {}) {
       if (query.startsWith('INSERT INTO pharmacyInfo')) return '71';
       if (query.startsWith('INSERT INTO fax_config')) return '81';
       if (query.startsWith('SELECT id FROM fax_config')) return '';
+      if (query.startsWith('SELECT COUNT(*) FROM fax_config')) return '0';
       if (query.includes('FROM demographic WHERE')) return options.ownershipChanged ? '0' : '1';
       if (query.includes('FROM pharmacyInfo WHERE')) return pharmacyRemoved ? '0' : '1';
       if (query.includes('FROM demographicPharmacy WHERE')) return '0';
@@ -85,4 +86,15 @@ test('browser still rejects a server failure, unrelated console error and missin
   const missing = browserEvents();
   missing.badResponses = [];
   assert.throws(() => assertFaxCaseBrowser(missing, 'A', true), /exactly once/);
+});
+
+const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
+test('sender fixture rejects collisions before writing and refuses changed ownership at cleanup', () => {
+  let mutations = 0;
+  const collision = { value: () => '9', execute: () => { mutations += 1; } };
+  assert.throws(() => stageRxFaxAccount(collision, '4165550100'), /collided/);
+  assert.equal(mutations, 0);
+  assert.throws(() => cleanupRxFaxAccount(collision, { id: '9', faxNumber: '4165550100' }), /ownership changed/);
+  assert.equal(mutations, 1, 'cleanup attempts only the ownership-constrained delete');
+  assert.throws(() => stageRxFaxAccount(collision, "1' OR 1=1"), /ten digits/);
 });

@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { assert, sqlString } = require('./lib/playwright-harness');
+const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
 
 /** Own all clinical fixtures for one pharmacy-phone journey, with independently testable teardown. */
 function createFaxPhoneFixtures({ db, config, marker, fromFaxNumber, drugNamePrefix, artifactDirectories, expectedProvider }) {
@@ -10,17 +11,6 @@ function createFaxPhoneFixtures({ db, config, marker, fromFaxNumber, drugNamePre
   let providerNo;
   let pharmacyId;
   let faxConfig;
-  function stageFaxConfig() {
-    const existing = db.value(`SELECT id FROM fax_config WHERE faxNumber=${sqlString(fromFaxNumber)} AND active=1 AND providerType='SRFAX' LIMIT 1;`);
-    assert(!existing, 'Random sender number collided with an existing account; rerun with a new fixture');
-    const id = db.value(
-      'INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) '
-      + `VALUES ('SRFAX', 1, ${sqlString(fromFaxNumber)}, ${sqlString(fromFaxNumber)}, 'Playwright Fax', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
-    );
-    assert(/^\d+$/.test(id), 'the fixture fax_config row was not created');
-    return { id, created: true };
-  }
-
   /** Create the patient and pharmacy only after resolving the authenticated provider. */
   function stagePatientAndPharmacy() {
     providerNo = db.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
@@ -95,7 +85,7 @@ function createFaxPhoneFixtures({ db, config, marker, fromFaxNumber, drugNamePre
       db.execute(`DELETE FROM faxes WHERE faxline=${sqlString(fromFaxNumber)} AND demographicNo=${demographicNo};`);
     });
     attempt('fax_config', () => {
-      if (faxConfig && faxConfig.created) db.execute(`DELETE FROM fax_config WHERE id=${faxConfig.id} AND faxNumber=${sqlString(fromFaxNumber)};`);
+      cleanupRxFaxAccount(db, faxConfig);
     });
     attempt('owned encounter notes', () => {
       const notes = db.rows(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${demographicNo}`);
@@ -131,7 +121,7 @@ function createFaxPhoneFixtures({ db, config, marker, fromFaxNumber, drugNamePre
   }
 
   return {
-    stage() { stagePatientAndPharmacy(); faxConfig = stageFaxConfig(); },
+    stage() { stagePatientAndPharmacy(); faxConfig = stageRxFaxAccount(db, fromFaxNumber); },
     stagePharmacyPhones,
     cleanup: cleanupFixtures,
     get patient() { return demographicNo; },
