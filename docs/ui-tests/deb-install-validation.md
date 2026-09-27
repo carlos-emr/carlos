@@ -19,6 +19,19 @@ The two checks added since, `echart-print-playwright-checks.js` and
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
 through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
 has not been re-run on a later snapshot.
+The current release-base validation for PR #3995 is recorded in
+[PR #3995 prevention validation](pr3995-validation.md). The following is the
+earlier port-validation record.
+
+`echart-prevention-row-links-playwright-checks.js` (issue #3975) was run on
+2026-09-26 against a 2026.09.0~snapshot24 package built from the
+`release/2026.08` port branch (DrugRef built from the pinned revision, pinned
+Chromium fetched) and installed into an Ubuntu 26.04 container with the demo
+dataset: **PASS** through `:443`, together with `prevention-lifecycle`,
+`prevention-add-data`, `prevention-brand-picker`, `echart-navbar-modules`,
+`echart-note-editor` and `echart-playwright`. Run with the pre-#3975
+`close.jsp` swapped back into the installed webapp, the new check **FAILS**
+("Closing the prevention form reloaded the eChart"), so it guards the fix.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -289,6 +302,17 @@ DrugRef WAR as evidence for a promotion. The commands above clear those
 overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 
 ## 2. Create the test VM
+
+> **Without LXD (Docker, systemd as PID 1).** The packages need systemd, and
+> the systemd in Ubuntu 26.04 no longer boots on a cgroup-v1 host. On such a
+> host run a `--privileged` container whose entrypoint unmounts
+> `/sys/fs/cgroup`, mounts `cgroup2` there and then execs `/sbin/init`. Remove
+> the image's `/usr/sbin/policy-rc.d` **before** `apt-get install`, or the
+> maintainer scripts cannot start MariaDB and nginx and the install stops
+> half-provisioned (recover with `carlos-ctl finish-install` and
+> `dpkg-reconfigure carlos-emr-drugref`). On a host without IPv6, nginx's stock
+> `default` site (`listen [::]:80`) fails `nginx -t` until the package replaces
+> it; the CARLOS site itself emits `[::]` listeners only when IPv6 exists.
 
 ```bash
 lxc launch ubuntu:26.04 carlos-test --vm \
@@ -1431,3 +1455,25 @@ the old class: the extended check failed with empty `lang` attributes until
 `systemctl restart carlos-emr` ran the launcher's `clear_jsp_cache`. On a VM
 the preinst stop and the trigger restart make this moot; in a container,
 restart explicitly after any re-install before reading results.
+### PR #3985 final review follow-up (2026-09-26)
+
+Built and installed all three `2026.08.0~alpha16~pr3985.11` DEBs on the local
+Ubuntu 26.04 VM after the Sonar and CodeRabbit follow-ups. All 6,675 tested
+class/resource/web-file hashes matched both the package and installed payload.
+The focused DAO, REST endpoint and merge-action suite passed 73 tests; all 1,062
+script tests passed, all 982 JSPs compiled, and WAR/Javadoc packaging passed.
+The prior full Java and broader appointment/receipt validation remains recorded
+in the PR review evidence; this follow-up changes only labels, a scoped query
+analysis suppression and rejection of zero-sized REST pages.
+
+The installed REST/search privacy browser check passed all 10 normal-mode steps
+and all 12 restricted-Caisi steps, including label associations and label-click
+activation, HTTP 400 for zero-sized pages, POST-only patient-term navigation,
+merged-result ordering/paging, unmerge return navigation, and program-domain
+filtering. A DAO regression verifies hostile-looking keywords across every
+merge search mode and hostile-looking provider IDs remain bound data; a stored
+literal containing SQL syntax still matches only its own patient.
+
+Original properties were restored byte-for-byte, owned fixtures removed, final
+package health passed, and the VM stopped. Compilation ran with the VM stopped;
+all local build and installed-test tasks ran serially.
