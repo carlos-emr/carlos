@@ -1562,11 +1562,12 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 1200,
+      "timeoutSec": 5100,
       "env": [
-        "RX_FAX_DEMOGRAPHIC_NO",
         "RX_FAX_PROVIDER_NO",
-        "RX_FAX_ROUND_TRIP_TIMEOUT_MS"
+        "RX_FAX_ROUND_TRIP_TIMEOUT_MS",
+        "RX_FAX_DOCUMENT_DIR",
+        "RX_FAX_SPOOL_DIR"
       ]
     },
     {

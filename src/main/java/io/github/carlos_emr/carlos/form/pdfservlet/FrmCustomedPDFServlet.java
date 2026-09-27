@@ -671,6 +671,45 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return LocaleUtils.getMessage(locale, tag);
         }
 
+        /** Build a wrapping pharmacy block, reserving its height above the drugs on narrow paper. */
+        private PdfPTable createPharmacyTable(Rectangle page) throws DocumentException, IOException {
+            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            List<String> pharmacy = new ArrayList<>();
+            pharmacy.add("ATTENTION:");
+            pharmacy.add(pharmacyInfo.getName());
+            pharmacy.add(pharmacyInfo.getAddress());
+            pharmacy.add(java.util.stream.Stream.of(pharmacyInfo.getCity(), pharmacyInfo.getProvince(), pharmacyInfo.getPostalCode())
+                    .filter(java.util.Objects::nonNull).map(String::trim).filter(value -> !value.isEmpty())
+                    .collect(java.util.stream.Collectors.joining(", ")));
+            // Both numbers, under the same localized label as the clinic's phone, and only
+            // when one is on file: the bare getPhone1() line dropped phone2 and wrote a null
+            // item for a pharmacy without phone1 (issue #3974).
+            String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacyInfo);
+            if (!pharmacyPhone.isEmpty()) {
+                pharmacy.add(geti18nTagValue(locale, "RxPreview.msgTel") + ": " + pharmacyPhone);
+            }
+            pharmacy.add(pharmacyInfo.getFax());
+            PdfPTable pharmacyTable = new PdfPTable(1);
+            pharmacyTable.setTotalWidth(page.getWidth() < 400f ? 272f : page.getWidth() - 313f);
+            for (String pharmacyItem : pharmacy) {
+                // An absent field is skipped rather than handed to showTextAligned as null;
+                // the block moves up a line, it never prints "null".
+                if (pharmacyItem != null && !pharmacyItem.isBlank()) {
+                    PdfPCell pharmacyCell = new PdfPCell(new Phrase(pharmacyItem, new Font(bf, 10)));
+                    pharmacyCell.setBorder(0);
+                    pharmacyCell.setPadding(0);
+                    pharmacyCell.setLeading(11f, 0);
+                    pharmacyTable.addCell(pharmacyCell);
+                }
+            }
+            return pharmacyTable;
+        }
+
+        /** Additional header space on A6 and half-letter keeps pharmacy details clear of drug text. */
+        private float pharmacyHeaderHeight(Rectangle page) throws DocumentException, IOException {
+            return pharmacyInfo != null && page.getWidth() < 400f ? createPharmacyTable(page).getTotalHeight() : 0;
+        }
+
         /**
          * Renders the prescription page frame: prescriber info, patient demographics,
          * border lines, signature block, and fax disclaimer. Draws all content using
@@ -701,27 +740,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                  * put the Pharmacy info at the top offset next to the prescribers name
                  */
                 if (this.pharmacyInfo != null) {
-                    List<String> pharmacy = new ArrayList<>();
-                    pharmacy.add("ATTENTION:");
-                    pharmacy.add(pharmacyInfo.getName());
-                    pharmacy.add(pharmacyInfo.getAddress());
-                    pharmacy.add(pharmacyInfo.getCity() + ", " + pharmacyInfo.getProvince() + ", " + pharmacyInfo.getPostalCode());
-                    // Both numbers, under the same localized label as the clinic's phone, and only
-                    // when one is on file: the bare getPhone1() line dropped phone2 and wrote a null
-                    // item for a pharmacy without phone1 (issue #3974).
-                    String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacyInfo);
-                    if (!pharmacyPhone.isEmpty()) {
-                        pharmacy.add(geti18nTagValue(locale, "RxPreview.msgTel") + ": " + pharmacyPhone);
-                    }
-                    pharmacy.add(pharmacyInfo.getFax());
-                    float position = height - 26f;
-                    for (String pharmacyItem : pharmacy) {
-                        // An absent field is skipped rather than handed to showTextAligned as null;
-                        // the block moves up a line, it never prints "null".
-                        if (pharmacyItem != null && !pharmacyItem.isBlank()) {
-                            writeDirectContent(cb, bf, 10, PdfContentByte.ALIGN_LEFT, pharmacyItem, 300, position, 0);
-                            position -= 11f;
-                        }
+                    PdfPTable pharmacyTable = createPharmacyTable(page);
+                    if (page.getWidth() < 400f) {
+                        pharmacyTable.writeSelectedRows(0, -1, 15, height - 170f, cb);
+                    } else {
+                        pharmacyTable.writeSelectedRows(0, -1, 300, height - 16f, cb);
                     }
                 }
 
@@ -1670,7 +1693,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String patientHIN = req.getParameter("patientHIN");
         String patientChartNo = req.getParameter("patientChartNo");
         String pracNo = req.getParameter("pracNo");
-        Locale locale = req.getLocale();
+        Locale locale = LocaleUtils.resolveBundleLocale(req);
         String billingNumber = req.getParameter("billingNumber");
         String pharmacyInfo = req.getParameter("pharmacyInfo");
         String title = req.getParameter("__title") != null ? req.getParameter("__title") : "Unknown";
@@ -1719,11 +1742,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         document.setPageSize(pageSize);
 
-        // 285=left margin+width of box, 5f is space for looking nice
-        // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
-        document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
-
-        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
+        EndPage pageHeader = new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal,
+                patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint,
+                signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo);
+        // The prescription body is 270 points wide; narrow paper places the pharmacy below
+        // the patient header instead of outside the page, and reserves that block's full height.
+        document.setMargins(15, pageSize.getWidth() - 285f + 5f,
+                185 + pageHeader.pharmacyHeaderHeight(pageSize), 60);
+        writer.setPageEvent(pageHeader);
         document.addTitle(title);
         document.addSubject("");
         document.addKeywords("pdf");

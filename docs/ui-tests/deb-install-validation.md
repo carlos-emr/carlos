@@ -600,11 +600,12 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 # "[Rx faxed to ...]" line sent to /rx/WriteToEncounter and stored in casemgmt_note reads
 # "Fax#: <fax> Tel: <phones> prescribed by" (no Tel:, no "null" and no double space when none is
 # on file), and that a paste retry after the server's explicit not-written answer resends the
-# identical text. Same prerequisites and seed-then-delete fixtures as the Rx fax checks above,
-# and it reuses RX_FAX_PROVIDER_NO / RX_FAX_DEMOGRAPHIC_NO / RX_FAX_ROUND_TRIP_TIMEOUT_MS; it also
-# substitutes, then restores exactly, phone1/phone2 on the patient's active pharmacies. It leaves
-# the three chart-note lines it wrote (chart notes are never deleted), one PDF per case under
-# DOCUMENT_DIR and their fax-spool pairs: run it on a throwaway VM only.
+# identical text. It creates its own patient, pharmacy, sender and clinical records, and removes
+# those owned records and artifacts in cleanup. RX_FAX_PROVIDER_NO, if supplied, must match
+# the test login. RX_FAX_DEMOGRAPHIC_NO is not used by this check.
+# Both directories must be the install's actual local artifact directories:
+# Default when fax_file_location is unset; use that property instead when configured.
+export RX_FAX_SPOOL_DIR=/var/lib/carlos-emr/catalina/temp
 # Administration > Update Drugref (drugref-update-playwright-checks.js). Read-only by default:
 # it opens the page from the Administration panel and asserts the status panel and the status
 # relay answer. DRUGREF_UPDATE_TRIGGER=true also clicks the button and follows the rebuild to
@@ -704,8 +705,8 @@ for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js
   # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
   t=300; case "$s" in
     *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;;
-    # three faxes plus a paste retry, each bounded by the same round-trip allowance
-    *rx-fax-pharmacy-phone*) t=$((4 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;;
+    # Three preview waits, three fax writes and one retry, plus bounded UI/login/cleanup waits.
+    *rx-fax-pharmacy-phone*) t=$((7 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 900)) ;;
   esac
   # Signal the Node runner so its cleanup can keep using the browser.
   if timeout --foreground "$t" node "$s"; then

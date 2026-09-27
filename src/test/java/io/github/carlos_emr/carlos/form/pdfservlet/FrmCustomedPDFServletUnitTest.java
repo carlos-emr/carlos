@@ -375,11 +375,16 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource(nullValues = "NULL", value = {
-            "416-555-0101, 416-555-0102, Tel: 416-555-0101 416-555-0102",
-            "NULL,         416-555-0102, Tel: 416-555-0102",
-            "'  ',         NULL,         NULL"})
+            "PageSize.LETTER, en, 416-555-0101, 416-555-0102, Tel: 416-555-0101 416-555-0102",
+            "PageSize.LETTER, en, NULL, 416-555-0102, Tel: 416-555-0102",
+            "PageSize.LETTER, en, '  ', NULL, NULL",
+            "PageSize.A4, fr, 416-555-0101, 416-555-0102, Téléphone: 416-555-0101 416-555-0102",
+            "PageSize.LETTER, en, WWWWWWWWWWWWWWWWWWWW, WWWWWWWWWWWWWWWWWWWW, Tel: WWWWWWWWWWWWWWWWWWWW WWWWWWWWWWWWWWWWWWWW",
+            "PageSize.A4, fr, WWWWWWWWWWWWWWWWWWWW, WWWWWWWWWWWWWWWWWWWW, Téléphone: WWWWWWWWWWWWWWWWWWWW WWWWWWWWWWWWWWWWWWWW",
+            "PageSize.A6, fr, 416-555-0101, 416-555-0102, Téléphone: 416-555-0101 416-555-0102",
+            "PageSize.HALFLETTER, en, 416-555-0101, 416-555-0102, Tel: 416-555-0101 416-555-0102"})
     @DisplayName("should print the pharmacy phone numbers labelled in the Rx PDF, and never null")
-    void shouldPrintLabelledPharmacyPhones_inRxPdfPharmacyBlock(String phone1, String phone2, String expectedTelLine,
+    void shouldPrintLabelledPharmacyPhones_inRxPdfPharmacyBlock(String paper, String language, String phone1, String phone2, String expectedTelLine,
                                                                @TempDir Path tempDir) throws Exception {
         // Issue #3974: the pharmacy block printed getPhone1() bare, never printed phone2, and wrote
         // a null item when phone1 was absent. It now prints "Tel: <phone1 phone2>" or no line.
@@ -392,9 +397,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         pharmacy.setName("Main St Pharmacy");
         // The no-phone case also drops the street line, so the skip of an absent field is exercised.
         pharmacy.setAddress(expectedTelLine == null ? null : "1 Main St");
-        pharmacy.setCity("Toronto");
-        pharmacy.setProvince("ON");
-        pharmacy.setPostalCode("M1M 1M1");
+        pharmacy.setCity(expectedTelLine == null ? null : "Toronto");
+        pharmacy.setProvince(null);
+        pharmacy.setPostalCode("  ");
         pharmacy.setPhone1(phone1);
         pharmacy.setPhone2(phone2);
         pharmacy.setFax("4165551212");
@@ -406,6 +411,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                 mock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class));
         MockHttpServletRequest request = createFaxRequest();
         request.addParameter("pharmacyInfo", "7");
+        request.addParameter("rxPageSize", paper);
+        request.setPreferredLocales("fr".equals(language)
+                ? List.of(java.util.Locale.GERMANY, java.util.Locale.FRENCH)
+                : List.of(java.util.Locale.ENGLISH));
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
         stubActiveFaxConfig();
@@ -430,8 +439,19 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             String pdfText;
             try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(
                     documentDir.resolve("prescription_rx-123.pdf").toFile())) {
-                pdfText = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+                pdfText = new org.apache.pdfbox.text.PDFTextStripper() {
+                    @Override
+                    protected void processTextPosition(org.apache.pdfbox.text.TextPosition text) {
+                        if (text.getDir() == 0) {
+                            assertThat(text.getXDirAdj() + text.getWidthDirAdj())
+                                    .as("pharmacy glyph stays inside the right page margin")
+                                    .isLessThanOrEqualTo(pdf.getPage(0).getMediaBox().getWidth() - 12f);
+                        }
+                        super.processTextPosition(text);
+                    }
+                }.getText(pdf);
             }
+            assertThat(pdfText).doesNotContain("Toronto,", ", ,");
             assertThat(pdfText).contains("ATTENTION:").contains("Main St Pharmacy").contains("4165551212");
             assertThat(pdfText).doesNotContainIgnoringCase("null");
             // The prescriber heading carries its own "Tel: <clinic phone>" line, so the pharmacy
@@ -442,8 +462,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             } else {
                 // Not preceded by a word character or a dot, so an unresolved message key such as
                 // "RxPreview.msgTel: ..." cannot pass for the "Tel: ..." label.
-                assertThat(pdfText).containsPattern(
-                        "(?<![\\w.])" + java.util.regex.Pattern.quote(expectedTelLine));
+                assertThat(pdfText.replaceAll("\\s+", ""))
+                        .contains(expectedTelLine.replaceAll("\\s+", ""));
+                assertThat(pdfText).doesNotContain("RxPreview.msgTel");
             }
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);

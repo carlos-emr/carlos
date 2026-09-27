@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
  *
  * @since 2026-09-26
  */
+@org.junit.jupiter.api.parallel.Isolated("Reads the process-wide locale bundle configuration")
 @Tag("unit")
 @Tag("i18n")
 @DisplayName("LocaleUtils default message bundle")

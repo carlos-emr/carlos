@@ -23,28 +23,18 @@
  *   C. no phone: the line is exactly as before the feature -- "Fax#: <fax>
  *      prescribed by", no "Tel:" label, no "null", no double space.
  *
- * Fixtures this run seeds and REMOVES: one custom-drug prescription per case (its
- * drugs row and stamp signature), a fax_config "from" account when no active
- * SRFAX row exists on that number, the fax job rows on that line with their
- * FaxClientLog audit rows, and the fax/phone1/phone2 of EVERY active pharmacy of
- * the patient -- replaced for the run so no fixture can leave for a real fax
- * machine, and each original restored exactly (NULL vs '' preserved). Left in
- * place on purpose: the three "[Rx faxed to ...]" lines the check appends to the
- * patient's chart (chart notes are an audit trail and are never deleted), one
- * prescription_<pdfId>.pdf per case under DOCUMENT_DIR, and the fax-spool pairs
- * the fax scheduler consumes. Run it against a disposable database only.
+ * Fixtures are owned by this run: a synthetic patient, pharmacy, sender account,
+ * prescriptions, signatures, encounter notes and fax jobs. Existing patient and
+ * pharmacy records are never modified. Database children are removed before the
+ * owned patient, and cleanup failures fail the check.
  *
- * Prerequisites on the install (docs/ui-tests/deb-install-validation.md section 6,
- * the same as rx-fax-record-binding-playwright-checks.js):
- *   - rx_fax_enabled=true and rx_signature_enabled=true in carlos.properties,
- *   - the session facility has digital signatures enabled (demo default),
- *   - a provider stamp PNG consult_sig_<provider>.png in the eForm image dir,
- *   - the patient has at least one active pharmacy (the demo dataset does).
- *
- * Env contract: BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
- *   MYSQL_HOST/USER/PASSWORD/DATABASE.
- * Optional: RX_FAX_DEMOGRAPHIC_NO (default 1), RX_FAX_PROVIDER_NO (default 999998),
- *   RX_FAX_ROUND_TRIP_TIMEOUT_MS (default 45000), CHROME_PATH.
+ * Requires rx_fax_enabled=true, rx_signature_enabled=true, an enabled facility
+ * and a provider stamp PNG consult_sig_<provider>.png in the eForm image dir.
+ * Env: BASE_URL, TEST_USER/PASSWORD/PIN, MYSQL_HOST/USER/PASSWORD/DATABASE.
+ * Optional RX_FAX_PROVIDER_NO verifies the provider attached to TEST_USER;
+ * RX_FAX_ROUND_TRIP_TIMEOUT_MS defaults to 45000 (maximum 600000).
+ * RX_FAX_DOCUMENT_DIR and RX_FAX_SPOOL_DIR must name the install's local artifact
+ * directories; only files associated with this run's owned fax jobs are removed.
  *
  * Nothing from the chart or the PDF is printed: the note is compared, and a
  * mismatch is reported by case and by what differed, never by its text.
@@ -55,9 +45,13 @@
 'use strict';
 
 const { randomInt } = require('node:crypto');
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const { createFaxPhoneFixtures } = require('./rx-fax-pharmacy-fixtures');
+const path = require('node:path');
+const { cleanupOwnedWorkflow } = require('./lib/workflow-session');
 const {
   assert,
-  assertNoPageErrors,
   createRecorder,
   createSqlRunner,
   gotoApp,
@@ -69,15 +63,14 @@ const {
   runCheck,
   sqlString,
   withExpectedDialogs,
-  wirePage,
+  wireStrictPage,
 } = require('./lib/playwright-harness');
+const { assertFaxCaseBrowser } = require('./rx-fax-pharmacy-browser');
 const { settleOperations } = require('./graceful-signal-cancellation');
 
-const demographicNo = String(process.env.RX_FAX_DEMOGRAPHIC_NO || '1').trim();
-const providerNo = String(process.env.RX_FAX_PROVIDER_NO || '999998').trim();
+let demographicNo;
+let fixtures;
 const faxRoundTripTimeoutMs = Number(process.env.RX_FAX_ROUND_TRIP_TIMEOUT_MS || '45000');
-assert(/^\d+$/.test(demographicNo), 'RX_FAX_DEMOGRAPHIC_NO must be numeric');
-assert(/^\d+$/.test(providerNo), 'RX_FAX_PROVIDER_NO must be numeric');
 // Playwright reads NaN and 0 as "no timeout", so a malformed value would make the waits unbounded.
 assert(Number.isInteger(faxRoundTripTimeoutMs) && faxRoundTripTimeoutMs >= 1000 && faxRoundTripTimeoutMs <= 600000,
   'RX_FAX_ROUND_TRIP_TIMEOUT_MS must be an integer between 1000 and 600000');
@@ -116,91 +109,16 @@ const CASES = [
 const recorder = createRecorder();
 const config = readConfig();
 let db = null;
-let faxConfig = null;
-const seededPharmacies = [];
+const marker = `FAKE-PW-RX-TEL-${runSuffix}`;
+let browser;
+const artifactDirectories = ['RX_FAX_DOCUMENT_DIR', 'RX_FAX_SPOOL_DIR'].map(key => {
+  assert(process.env[key], `${key} is required for owned fax artifact cleanup`);
+  const directory = fs.realpathSync(process.env[key]);
+  assert(directory !== path.parse(directory).root, 'Fax artifact directory must not be the filesystem root');
+  return directory;
+});
 
 // --- fixtures -----------------------------------------------------------------------
-
-function stageFaxConfig() {
-  const existing = db.value(`SELECT id FROM fax_config WHERE faxNumber=${sqlString(fromFaxNumber)} AND active=1 AND providerType='SRFAX' LIMIT 1;`);
-  if (/^\d+$/.test(existing)) return { id: existing, created: false };
-  const id = db.value(
-    'INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) '
-    + `VALUES ('SRFAX', 1, ${sqlString(fromFaxNumber)}, ${sqlString(fromFaxNumber)}, 'Playwright Fax', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
-  );
-  assert(/^\d+$/.test(id), 'the fixture fax_config row was not created');
-  return { id, created: true };
-}
-
-/** Remember every active pharmacy's fax/phone1/phone2 exactly, so cleanup can restore them. */
-function capturePharmacies() {
-  const rows = db.rows(`SELECT p.recordId,
-      p.fax IS NULL, IFNULL(p.fax, ''), p.phone1 IS NULL, IFNULL(p.phone1, ''), p.phone2 IS NULL, IFNULL(p.phone2, '')
-    FROM pharmacyInfo p JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
-    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1' AND (p.status IS NULL OR p.status <> '0');`);
-  for (const [recordId, faxNull, fax, phone1Null, phone1, phone2Null, phone2] of rows) {
-    assert(/^\d+$/.test(String(recordId)), 'unexpected pharmacy recordId shape');
-    seededPharmacies.push({
-      recordId: String(recordId),
-      fax: String(faxNull) === '1' ? null : String(fax ?? ''),
-      phone1: String(phone1Null) === '1' ? null : String(phone1 ?? ''),
-      phone2: String(phone2Null) === '1' ? null : String(phone2 ?? ''),
-    });
-  }
-  assert(seededPharmacies.length > 0,
-    'the RX_FAX_DEMOGRAPHIC_NO patient has no active pharmacy, so a prescription for them can never be faxed');
-}
-
-const sqlValue = (value) => (value === null ? 'NULL' : sqlString(value));
-
-function stagePharmacyPhones(testCase) {
-  for (const { recordId } of seededPharmacies) {
-    db.execute(`UPDATE pharmacyInfo SET fax = ${sqlString(testCase.pharmacyFax)}, phone1 = ${sqlValue(testCase.phone1)}, `
-      + `phone2 = ${sqlValue(testCase.phone2)} WHERE recordId = ${recordId};`);
-  }
-}
-
-function cleanupFixtures() {
-  const failures = [];
-  const attempt = (label, fn) => {
-    try { fn(); } catch (error) { failures.push(label); }
-  };
-  if (!db) return;
-  let scriptNos = [];
-  attempt('list fixture scripts', () => {
-    scriptNos = db.rows(`SELECT DISTINCT script_no FROM drugs WHERE customName LIKE ${sqlString(`${drugNamePrefix} %`)} AND demographic_no=${demographicNo};`)
-      .map(([n]) => String(n)).filter((n) => /^\d+$/.test(n));
-  });
-  for (const scriptNo of scriptNos) {
-    attempt(`prescription ${scriptNo}`, () => {
-      const sigId = db.value(`SELECT COALESCE(digital_signature_id,'') FROM prescription WHERE script_no=${scriptNo};`);
-      db.execute(`DELETE FROM drugs WHERE script_no=${scriptNo};`);
-      db.execute(`DELETE FROM prescription WHERE script_no=${scriptNo};`);
-      if (/^\d+$/.test(String(sigId))) db.execute(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
-    });
-  }
-  attempt('faxes', () => {
-    const faxIds = db.rows(`SELECT id FROM faxes WHERE faxline=${sqlString(fromFaxNumber)};`)
-      .map(([id]) => String(id)).filter((id) => /^\d+$/.test(id));
-    if (faxIds.length) {
-      db.execute(`DELETE FROM FaxClientLog WHERE transactionType='RX' AND faxId IN (${faxIds.map((id) => `'${id}'`).join(',')});`);
-    }
-    db.execute(`DELETE FROM faxes WHERE faxline=${sqlString(fromFaxNumber)};`);
-  });
-  attempt('fax_config', () => {
-    if (faxConfig && faxConfig.created) db.execute(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
-  });
-  while (seededPharmacies.length) {
-    const original = seededPharmacies.pop();
-    attempt(`pharmacy ${original.recordId}`, () => db.execute(
-      `UPDATE pharmacyInfo SET fax = ${sqlValue(original.fax)}, phone1 = ${sqlValue(original.phone1)}, `
-      + `phone2 = ${sqlValue(original.phone2)} WHERE recordId = ${original.recordId};`,
-    ));
-  }
-  if (failures.length) {
-    throw new Error(`fixture cleanup failed for: ${failures.join(', ')}`);
-  }
-}
 
 // --- the journey --------------------------------------------------------------------
 
@@ -218,6 +136,8 @@ async function writeCustomRxThroughUi(page, testCase) {
   // Fax & Paste reads #preview2Form from the nested preview synchronously; wait for it.
   await modalFrame.frameLocator('#preview').locator('#preview2Form')
     .waitFor({ state: 'attached', timeout: faxRoundTripTimeoutMs });
+  await modalFrame.locator('#faxNumber').selectOption(fromFaxNumber);
+  assert(await modalFrame.locator('#faxNumber').inputValue() === fromFaxNumber, 'Owned fax sender was not selected');
   const scriptNo = db.value(`SELECT MAX(script_no) FROM drugs WHERE customName=${sqlString(testCase.drugName)} AND demographic_no=${demographicNo};`);
   assert(/^\d+$/.test(String(scriptNo)), `case ${testCase.key}: no prescription row was created for the fixture drug`);
   return modalFrame;
@@ -257,7 +177,7 @@ async function faxAndPaste(page, testCase) {
     await route.continue();
   });
   try {
-    const firstWrite = page.waitForRequest(isEncounterWrite, { timeout: faxRoundTripTimeoutMs });
+    const firstWrite = page.waitForResponse(res => isEncounterWrite(res.request()), { timeout: faxRoundTripTimeoutMs });
     const faxPost = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: faxRoundTripTimeoutMs });
     const modalFrame = page.frameLocator('#carlosModalBody iframe');
     const roundTrip = settleOperations([faxPost, firstWrite]);
@@ -279,7 +199,7 @@ async function faxAndPaste(page, testCase) {
         `case ${testCase.key}: the retried encounter write was not acknowledged as written `
         + `(HTTP ${retryWrite.status()}, outcome ${retryWrite.headers()['x-carlos-encounter-write'] || 'absent'})`);
     } else {
-      const response = await (await firstWrite).response();
+      const response = await firstWrite;
       assert(response && response.headers()['x-carlos-encounter-write'] === 'written',
         `case ${testCase.key}: the encounter write was not acknowledged as written `
         + `(HTTP ${response ? response.status() : 'none'}, outcome ${(response && response.headers()['x-carlos-encounter-write']) || 'absent'})`);
@@ -299,10 +219,10 @@ function storedNoteLine(testCase) {
 }
 
 async function runCase(context, testCase) {
-  stagePharmacyPhones(testCase);
+  fixtures.stagePharmacyPhones(testCase);
   const page = await context.newPage();
   const label = `case-${testCase.key}`;
-  wirePage(page, label, recorder);
+  wireStrictPage(page, label, recorder);
   try {
     await writeCustomRxThroughUi(page, testCase);
     let outcome;
@@ -327,7 +247,24 @@ async function runCase(context, testCase) {
     problems.push(...lineProblems(testCase, stored.line).map((p) => `stored: ${p}`));
     if (stored.occurrences !== 1) problems.push(`stored: the chart note carries this fax line ${stored.occurrences} times`);
     if (stored.line !== null && sent !== null && stored.line !== sent) problems.push('stored: the chart line differs from the text the page sent');
-    assertNoPageErrors(recorder, [label]);
+    const filename = db.value(`SELECT filename FROM faxes WHERE faxline=${sqlString(fromFaxNumber)}
+      AND demographicNo=${demographicNo} AND destination=${sqlString(testCase.pharmacyFax)}`);
+    assert(/^prescription_[a-zA-Z0-9_-]{1,128}\.pdf$/.test(filename), `case ${testCase.key}: expected exactly one owned fax PDF`);
+    let pdfText;
+    try {
+      pdfText = execFileSync('pdftotext', ['-raw', path.join(artifactDirectories[0], filename), '-'],
+        { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (_) { throw new Error(`case ${testCase.key}: owned fax PDF extraction failed`); }
+    assert(pdfText.includes(marker) && pdfText.includes(testCase.pharmacyFax), `case ${testCase.key}: fax PDF lost its pharmacy`);
+    assert(!pdfText.includes('RxPreview.msgTel') && !/\bnull\b/i.test(pdfText), `case ${testCase.key}: fax PDF has unresolved or missing values`);
+    if (testCase.expectedPhones) {
+      assert(pdfText.replace(/\s+/g, '').includes(`Tel:${testCase.expectedPhones}`.replace(/\s+/g, '')),
+        `case ${testCase.key}: fax PDF lost or changed its phone values`);
+    } else {
+      const pharmacyBlock = pdfText.slice(pdfText.indexOf('ATTENTION:'), pdfText.indexOf(testCase.pharmacyFax));
+      assert(!pharmacyBlock.includes('Tel:'), `case ${testCase.key}: no-phone pharmacy has a dangling telephone label`);
+    }
+    assertFaxCaseBrowser(recorder, label, testCase.retry);
     assert(problems.length === 0, `case ${testCase.key} (${testCase.label}): ${problems.join('; ')}`);
     return `${testCase.key}${testCase.retry ? '+retry' : ''}`;
   } finally {
@@ -337,9 +274,11 @@ async function runCase(context, testCase) {
 
 async function main({ cancellation }) {
   db = createSqlRunner(config.mysql);
-  faxConfig = stageFaxConfig();
-  capturePharmacies();
-  const browser = await launchBrowser(config);
+  fixtures = createFaxPhoneFixtures({ db, config, marker, fromFaxNumber, drugNamePrefix, artifactDirectories,
+    expectedProvider: process.env.RX_FAX_PROVIDER_NO });
+  fixtures.stage();
+  demographicNo = fixtures.patient;
+  browser = await launchBrowser(config);
   try {
     const context = await newContext(browser, config);
     const home = await cancellation.run(() => login(context, config, recorder));
@@ -359,11 +298,6 @@ async function main({ cancellation }) {
 runCheck({
   name: 'rx-fax-pharmacy-phone: "[Rx faxed to ...]" carries " Tel: <phones>" (both, phone2 only, none; JS-encoded; retry not duplicated)',
   run: main,
-  cleanup: async () => {
-    try {
-      cleanupFixtures();
-    } finally {
-      if (db) db.dispose();
-    }
-  },
+  cleanup: async () => cleanupOwnedWorkflow({ browser, sql: db, patient: fixtures?.patient, marker,
+    cleanups: fixtures ? [fixtures.cleanup] : [] }),
 });
