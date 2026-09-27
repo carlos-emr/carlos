@@ -2864,6 +2864,19 @@
       "env": []
     },
     {
+      "name": "provider-linking-rules",
+      "script": "scripts/provider-linking-rules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": []
+    },
+    {
       "name": "echart-lock-lifecycle",
       "script": "scripts/echart-lock-lifecycle-playwright-checks.js",
       "tiers": [

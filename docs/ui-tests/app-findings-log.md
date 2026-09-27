@@ -215,6 +215,18 @@ document-upload repair. See [installed validation](pr3990-validation.md).
 | 49 | Schema-valid NULL program/admission flags crash chart hydration | #4011: explicit converters preserve the primitive APIs and existing defaults for seven nullable flags. DAO regressions and the installed browser use nullable program/admission fixtures. | `fixed` |
 | 50 | Caisi scheduler includes fail compilation and pooled view state leaks across providers | #4012: compile both dynamic includes as JSPs, encode values, handle empty program state, render one selector, and keep view state local to each tag use. Discharge jobs use injection and one recurring schedule. Five focused Java tests and strict installed Caisi login/legacy workflow pass. | `fixed` |
 
+## 9. Found while validating Provider Linking Rules (#3971, September 2026)
+
+Both findings come from the packaged Ubuntu 26.04 install described in
+[deb-install-validation.md](deb-install-validation.md#provider-linking-rules-validation-2026-09-26).
+Each was then reproduced against the unmodified `release/2026.08` code, so neither was
+introduced by the #3971 change.
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 51 | Assigning a provider to an unclaimed HRM report, unlinking an HRM report from its patient, and re-linking it all fail with "Error encountered" and roll back | `mutateReport()` locks the report with `HRMDocumentDao.findForUpdate`, which loads the eager, unidirectional `matchedProviders` / `matchedDemographics` collections. The handlers then `EntityManager.remove()` rows from those collections, so the flush throws `TransientPropertyValueException ... HRMDocument.matchedProviders` (or `matchedDemographics`). Reproduced on the package through the new check's HRM step, and on unmodified `release/2026.08` by `HRMModifyTransactionIntegrationTest.shouldClaimUnclaimedReport_whenProviderIsAssigned`. Fixed with bulk deletes (`HRMDocumentToProviderDao.deleteByHrmDocumentIdAndProviderNo`, `HRMDocumentToDemographicDao.deleteByHrmDocumentId`); four integration tests pin claim, MRP routing, unlink and re-link. Live: `provider-linking-rules-playwright-checks.js` unlinks through the viewer's (remove) link and assigns through its autocomplete | `fixed` |
+| 52 | Inbox review-status filter "Filed" returns a lab the unfiltered list does not | Live `inboxhub-filters` on the demo dataset, run after `lab-acknowledge` and `inbox-preview-acknowledge`: `Filed returned row HL7:44, which the unfiltered list does not contain`. Demo lab 44 is routed to provider 999998 with status `F`. The same failure reproduces with the unmodified `release/2026.08` WAR exploded over the same install, so it is not a Provider Linking Rules effect. It is the lab-side counterpart of finding 20 (an HRM row visible under All but under no status). Latest release fix `4d4f29b7d3d` preserves source row identity instead of collapsing accessions. Verified by the installed PR #4000 Ubuntu 26.04 `inboxhub-filters` run on 2026-09-27: type and New/Acknowledged/Filed partitions all pass. | `fixed` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is

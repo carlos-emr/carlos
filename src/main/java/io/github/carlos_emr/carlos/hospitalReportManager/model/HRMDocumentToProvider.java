@@ -36,6 +36,17 @@ public class HRMDocumentToProvider extends AbstractModel<Integer> {
     private Date signedOffTimestamp;
     private Integer viewed = 0;
 
+    /** Patient whose automatic MRP rule solely created this access; null means independent routing. */
+    private Integer mrpDemographicNo;
+
+    public Integer getMrpDemographicNo() {
+        return mrpDemographicNo;
+    }
+
+    public void setMrpDemographicNo(Integer mrpDemographicNo) {
+        this.mrpDemographicNo = mrpDemographicNo;
+    }
+
     @Override
     public Integer getId() {
         return id;
