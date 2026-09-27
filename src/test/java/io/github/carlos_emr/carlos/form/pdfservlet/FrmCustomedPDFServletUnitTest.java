@@ -562,7 +562,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             double hinBottom = bottomOf(runs, "1234567890");
             double attentionTop = topOf(runs, "ATTENTION:");
             double pharmacyFaxBottom = bottomOf(runs, "4165551212");
-            double drugTop = topOf(runs, "Test prescription");
+            double drugTop = topOf(runs, "Amoxicillin 500 mg capsule");
             assertThat(attentionTop).as("pharmacy block starts below the patient HIN line").isGreaterThan(hinBottom);
             assertThat(drugTop).as("prescription body starts below the pharmacy block").isGreaterThan(pharmacyFaxBottom);
         } finally {
