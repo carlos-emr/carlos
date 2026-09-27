@@ -33,4 +33,25 @@ invalid uploads and persistence errors, patient permissions, duplicate selection
 rendering/merge, real Spring/H2 transaction rollback, lost commit acknowledgement, failed file
 creation and long labels. Browser cleanup has ownership and failure regressions.
 
-The final Java, Node, JSP, DEB and installed browser results will be recorded after completion.
+- Full Java suite: 13,392 tests, zero failures/errors, 51 existing skips. Focused action,
+  upload-binding, authorization, transaction and real PDF checks also passed.
+- Node suite: 1,034 tests passed; final cleanup and suite-manifest checks passed after the
+  browser negative-input adjustment. Required BDD, security, encoder and i18n checks passed.
+- JSP compilation (982 JSPs), WAR and Javadoc passed. Changed Java coverage: 254/279 lines
+  (91.0%); failure/reconciliation branches include real transaction fault tests.
+- Built all three Debian packages as `2026.08.0~alpha16~pr3997.1`, installed on the local
+  Ubuntu 26.04 VM, and matched 6,670 packaged/installed classes and web files to tested output.
+- Installed service health and six browser checks passed: application health, patient letters
+  and envelopes, prevention recall, demographic report navigation, report-index surface audit
+  (16 pages, no skips), and admin report validation.
+- The letter check verifies original upload/download filenames, visible invalid-upload errors,
+  complete PDF generation, exactly one document and follow-up, no follow-up on rejected input,
+  partial-envelope refusal, empty-selection guards and CSRF-token handling. A synthetic patient
+  proves `Łukasz Жуков` survives PDF text extraction from the installed envelope endpoint.
+- The first browser run exposed front-door WAF rejection of the integer-overflow probe (403).
+  The final browser check uses a malformed ID to verify the application's visible 400 response;
+  integer-overflow handling remains covered by Java tests. All five neighboring checks passed
+  on the first run, and the corrected letter check passed without findings.
+- Ownership-scoped cleanup removed test templates, documents, logs, follow-ups, PDF files and
+  the synthetic patient. The VM was stopped after validation; no schema/configuration change
+  was needed. Compilation and VM execution were serialized with resource limits.

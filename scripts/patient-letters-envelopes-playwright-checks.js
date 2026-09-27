@@ -479,12 +479,13 @@ async function checkGenerateLetters(context, demographicNo) {
     expect(!pdfHasTrailingHtml(body), 'generate-letters-pdf: no HTML appended after the PDF', {});
     expect(sql(`SELECT COUNT(*) FROM document WHERE docdesc='${reportLetterId}-${reportName}'`) === '1', 'letters: document saved once', {});
     expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND demographicNo=${Number(demographicNo)}`) === '1', 'letters: follow-up saved once', {});
+    // A malformed ID reaches the application through the WAF; integer overflow is covered in Java tests.
     const invalid = await context.request.post(appUrl('/report/GenerateLetters'), {
-      form:{reportLetter:reportLetterId, demos:'2147483648', addFollowUp:'ON', followupType:'FLUF', followupValue:'L1', message:reportName, 'CSRF-TOKEN':csrfToken},
+      form:{reportLetter:reportLetterId, demos:'abc', addFollowUp:'ON', followupType:'FLUF', followupValue:'L1', message:reportName, 'CSRF-TOKEN':csrfToken},
     });
     expect(invalid.status() === 400 && /id="letterGenerationFailed"/.test(await invalid.text()), 'letters: invalid selection visibly refused', {status:invalid.status()});
     expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}'`) === '1', 'letters: failed request did not record follow-up', {});
-    const partial = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${demographicNo}&demos=2147483648`));
+    const partial = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${demographicNo}&demos=abc`));
     expect(partial.status() === 400 && /id="letterSelectionIncomplete"/.test(await partial.text()), 'envelopes: incomplete selection refused', {status:partial.status()});
   }
 }
