@@ -110,7 +110,7 @@ Save / Sign / Bill buttons through their handlers because the row sits below the
 ## 0. What has landed so far
 
 Phase 0 of §5 (the shared harness, the suite manifest and the runner) is in the
-repository, and **30 checks implementing this plan are present** — listed
+repository, and **33 checks implementing this plan are present** — listed
 in the second table below, which is the authoritative account of what exists.
 Items outside that implementation table remain planned.
 
@@ -173,6 +173,9 @@ complement the UI workflows.
 | `consultation-directory-crud` | §3.3 | Institution/department create, edit and cancelled/accepted deletion; unselected records survive |
 | `measurement-history` | §2.5 | Dated measurement values, plotted PNG bytes, selected-row deletion and preserved archive |
 | `tickler-validation-messages` | §3.4 | The add and edit tickler popups' validation alert, entered Search ▸ Master Record ▸ Tickler ▸ New Tickler: a failed Save shows exactly one message line, a second failed Save still shows one (issue #3957 — the old pages appended a copy per submit and never cleared it), and a valid save leaves no stale message and writes the restored date to `tickler`; also covers simultaneous failures, rejected invalid POSTs, GET mutation rejection and CAISI direct-list entry |
+| `provider-preferences` | §3.7 | Printer name and silent-print save (read-only when the printer feature is off), a NULL text signature edited without duplicate rows or GET writes, and document-description create/edit/reopen/delete with punctuation; every touched setting is snapshotted and restored. The other §3.7 preference sections remain planned |
+| `record-access` | §2.5, §4.4 | Cross-patient episode read and reassignment refused with 404 and no change; another provider's scratch-pad version neither readable nor deletable, while the owner's is |
+| `lot-number-search` | §3.4 | Administration ▸ Search lot number by prevention, inside its iframe: an exact owned lot returned with punctuation intact, then a repeated no-match search from the results page, with the row unchanged |
 
 The navigation audits share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
@@ -306,6 +309,7 @@ priority group where its module lives:
 | `fax-configure` | `admin/ViewConfigureFax` | Schedule ▸ Administration ▸ Faxes ▸ Configure Fax (shell; the panel lists Status ▸ Fax Status) |
 | `rx-*` (five scripts) | `rx/choosePatient?demographicNo=…` | Chart ▸ Rx (or Master Record ▸ Prescriptions) |
 | `messenger`, `messenger-inbox-actions` | `messenger/DisplayMessages` | Schedule ▸ Msg |
+| `messenger-group-admin` | `messenger?method=fetch` (injected) | Schedule ▸ Administration ▸ System Management ▸ Messenger Group Admin |
 | `tickler-crud`, `tickler-note-dialog` | `tickler/ViewAddTickler`, `ViewTicklerMain` | Schedule ▸ Tickler ▸ Add Tickler |
 | `tickler-validation-messages` | `tickler/ViewAddTickler`, `ViewTicklerEdit` | Search ▸ Master Record ▸ Tickler ▸ New Tickler; list row ▸ pencil (edit) |
 | `add-login-account`, `assign-role` | `admin/View…AddARecord`, `admin/ProviderRole` | Schedule ▸ Administration ▸ User Management ▸ … |
@@ -573,6 +577,7 @@ until the package can be installed with nginx + ModSecurity in CI.
 | Check | Path | Asserts | Routes |
 |---|---|---|---|
 | `messenger-attachments` | Schedule ▸ Msg ▸ Compose ▸ attach document / lab / eForm; recipient opens it ▸ PDF preview ▸ Transfer to chart; Administration ▸ System Management ▸ Messenger Group Admin ▸ group message; Chart ▸ Messenger ▸ patient-linked list | Attachments listed; preview bytes; note written; one `messagelisttbl` row per group member; markdown body renders (obs. 8) | `messenger/attachmentFrameset`, `AdjustAttachments`, `PreviewPDF`, `WriteToEncounter`, `AddGroup`, `DisplayDemographicMessages` |
+| `messenger-group-admin` (**implemented**, issue #3964) | Schedule ▸ Administration ▸ System Management ▸ Messenger Group Admin (shell): Manage Contacts; "+" new group; group ▸ Last, First typeahead ▸ Add Contact; the same pick again; direct duplicate POSTs | No negative (system/deactivated) provider number is offered as a contact; the typeahead offers a provider once; one group row + one registry row per add; a repeat pick shows "already in this group" and posts nothing; the server answers 409 to a duplicate for the group and for group 0 and 400 to a bad group id, with row counts unchanged | `messenger?method=fetch`, `method=create`, `method=add` |
 | `tickler-forward-filters` | Schedule ▸ Tickler: forward to another provider; priority/status/date filters; Tickler ▸ Add Tickler ▸ suggested text; Preferences ▸ Lab, Prevention & Messaging ▸ tickler settings; Dashboard ▸ Assign Tickler | Forwarded row appears for the other provider; filters match SQL; the patient-view date window (obs. 12) asserted fixed | `tickler/ForwardDemographicTickler`, `EditTicklerTextSuggest`, `setTicklerPreferences`, `web/dashboard/display/AssignTickler` |
 | `echart-prevention-row-links` (implemented) | Chart ▸ Preventions box row (no record) ▸ save; same row (now recorded) ▸ reopen | One `preventions` row with the typed date; eChart main frame not navigated and the typed note retained; refreshed row links `id=<new>`; reopened form shows that date | `prevention/ViewAddPreventionData`, `ViewAddPreventionDataDisambiguate`, `prevention/AddPrevention`, `encounter/displayPrevention` |
 | `prevention-edit-delete-refuse` | Chart ▸ Preventions: edit and delete an existing immunization; refused / ineligible; comments; next-date recall | `preventions` + `preventionsExt` rows; recall shows in the tickler | `prevention/AddPrevention` |

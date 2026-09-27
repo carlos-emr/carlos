@@ -162,6 +162,18 @@ application defects from test defects and missing fixtures, and records retests.
 | 37 | Crafted contact type changes can reclassify existing relationships | Existing rows now retain persisted types in reciprocal planning and persistence. Five regressions fail before the fix; all 30 contact cases pass afterward. Old installed package fails the owned-request tampering probe; the rebuilt DEB passes normal and twice-tampered saves, with cleanup verified; #3682. | `issue-filed` |
 | 38 | Existing contact category can be changed by submitting the row in the opposite list | `validateContactSaves` validates patient ownership but not the stored personal/professional category; `linkContactToDemographic` assigns the submitted list's category. Source-patient write permission is required; this is a classification-consistency candidate, not a demonstrated authorization bypass. No normal UI path or VM reproduction was established; #3682. | `needs-live-check` |
 
+## Issue 3682 follow-up
+
+The [focused PR and validation ledger](issue-3682-resolution-validation.md) records
+follow-up fixes, live results, negative controls and pending checks for the
+historical observations above. In particular, finding 23 was malformed audit URL
+generation, not an authentication-code defect: 122 correctly generated anonymous
+routes refuse access. The original PDF Envelope 404 did not reproduce; all six
+offered PDFs pass byte validation. The latest administration retest identified an
+OHIP fragment's extra GET handler and repeated AJAX headers as the causes of the
+remaining report failures. Final package validation remains explicitly pending
+in the ledger; source changes alone do not establish a live fix.
+
 ## 5. Found while resolving #3665 (September 2026)
 
 | # | Defect | Evidence | Status |
