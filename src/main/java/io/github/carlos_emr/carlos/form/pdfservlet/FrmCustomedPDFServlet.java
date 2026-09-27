@@ -116,6 +116,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
     private static final String TELEPHONE_LABEL = "RxPreview.msgTel";
+    /** Distance from the page top to the patient heading's top edge. */
+    private static final float PATIENT_HEADER_TOP_OFFSET = 110f;
+    /** Historical distance from the page top to the narrow-page pharmacy block. */
+    private static final float NARROW_PHARMACY_TOP_OFFSET = 170f;
+    /** Vertical clearance kept between the patient heading and a displaced pharmacy block. */
+    private static final float NARROW_PHARMACY_GAP = 5f;
+    /** Prescription body top margin when no narrow-page pharmacy block is reserved. */
+    private static final float DEFAULT_BODY_TOP_MARGIN = 185f;
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -705,9 +713,67 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return pharmacyTable;
         }
 
-        /** Additional header space on A6 and half-letter keeps pharmacy details clear of drug text. */
-        private float pharmacyHeaderHeight(Rectangle page) throws DocumentException, IOException {
-            return pharmacyInfo != null && page.getWidth() < 400f ? createPharmacyTable(page).getTotalHeight() : 0;
+        /**
+         * Builds the patient heading (Rx date, name, DOB, address, phone, HIN, chart number)
+         * at its rendered 272-point width, so its height can be measured before it is drawn.
+         */
+        private PdfPTable createPatientHeadingTable() throws DocumentException, IOException {
+            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            String newline = System.getProperty("line.separator");
+            boolean showPatientDOB = (this.patientDOB != null && this.patientDOB.length() > 0);
+
+            PdfPTable patientHeadingTable = new PdfPTable(1);
+
+            // Rx date at top right, over the patient heading.
+            PdfPCell dateCell = new PdfPCell(new Phrase(this.rxDate, new Font(bfBold, 10)));
+            dateCell.setBorder(0);
+            dateCell.setHorizontalAlignment(PdfContentByte.ALIGN_RIGHT);
+            patientHeadingTable.addCell(dateCell);
+
+            StringBuilder patientHeading = new StringBuilder(this.patientName);
+            if (showPatientDOB) {
+                patientHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgDOB")).append(": ").append(this.patientDOB);
+            }
+            patientHeading.append(newline).append(this.patientAddress).append(newline).append(this.patientCityPostal).append(newline).append(this.patientPhone);
+
+            if (patientHIN != null && patientHIN.trim().length() > 0) {
+                patientHeading.append(newline).append(geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.hin")).append(" ").append(patientHIN);
+            }
+
+            if (patientChartNo != null && !patientChartNo.isEmpty()) {
+                String chartNoTitle = geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.chartNo");
+                patientHeading.append(newline).append(chartNoTitle).append(patientChartNo);
+            }
+
+            patientHeadingTable.addCell(new Phrase(patientHeading.toString(), new Font(bf, 10)));
+            patientHeadingTable.setTotalWidth(272f);
+            return patientHeadingTable;
+        }
+
+        /**
+         * Distance from the page top to the narrow-page pharmacy block. The block keeps its
+         * historical 170-point position unless the measured patient heading (which starts at
+         * {@code PATIENT_HEADER_TOP_OFFSET}) reaches further down; then it moves below the
+         * heading so the two never overlap.
+         */
+        private float narrowPharmacyTopOffset() throws DocumentException, IOException {
+            float patientBottom = PATIENT_HEADER_TOP_OFFSET + createPatientHeadingTable().getTotalHeight();
+            return Math.max(NARROW_PHARMACY_TOP_OFFSET, patientBottom + NARROW_PHARMACY_GAP);
+        }
+
+        /**
+         * Top margin for the prescription body. Wide pages keep the fixed default; on A6 and
+         * half-letter the pharmacy sits below the patient heading, so the body starts beneath
+         * the pharmacy block's measured bottom.
+         */
+        private float bodyTopMargin(Rectangle page) throws DocumentException, IOException {
+            if (pharmacyInfo == null || page.getWidth() >= 400f) {
+                return DEFAULT_BODY_TOP_MARGIN;
+            }
+            // Same clearance below the pharmacy as the historical 185/170 pair left.
+            return narrowPharmacyTopOffset() + createPharmacyTable(page).getTotalHeight()
+                    + (DEFAULT_BODY_TOP_MARGIN - NARROW_PHARMACY_TOP_OFFSET);
         }
 
         /**
@@ -718,13 +784,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         public void renderPage(PdfWriter writer, Document document) {
             Rectangle page = document.getPageSize();
             float height = page.getHeight();
-            boolean showPatientDOB = (this.patientDOB != null && this.patientDOB.length() > 0);
             PdfContentByte cb = writer.getDirectContent();
             String newline = System.getProperty("line.separator");
 
             try {
                 BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-                BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
                 /*
                  *  Create the special CARLOS Rx logo at the top
@@ -742,7 +806,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 if (this.pharmacyInfo != null) {
                     PdfPTable pharmacyTable = createPharmacyTable(page);
                     if (page.getWidth() < 400f) {
-                        pharmacyTable.writeSelectedRows(0, -1, 15, height - 170f, cb);
+                        pharmacyTable.writeSelectedRows(0, -1, 15, height - narrowPharmacyTopOffset(), cb);
                     } else {
                         pharmacyTable.writeSelectedRows(0, -1, 300, height - 16f, cb);
                     }
@@ -798,40 +862,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 prescriberHeadingTable.addCell(cell);
                 prescriberHeadingTable.writeSelectedRows(0, -1, 80f, height - 13f, cb);
 
-                /*
-                 * Create the patient information heading
-                 * Patient name
-                 * Address
-                 * City, Province, Postal
-                 * Phone
-                 * PHN and or DOB
-                 */
-                PdfPTable patientHeadingTable = new PdfPTable(1);
-
-                // Rx date at top right, over the patient heading.
-                PdfPCell dateCell = new PdfPCell(new Phrase(this.rxDate, new Font(bfBold, 10)));
-                dateCell.setBorder(0);
-                dateCell.setHorizontalAlignment(PdfContentByte.ALIGN_RIGHT);
-                patientHeadingTable.addCell(dateCell);
-
-                StringBuilder patientHeading = new StringBuilder(this.patientName);
-                if (showPatientDOB) {
-                    patientHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgDOB")).append(": ").append(this.patientDOB);
-                }
-                patientHeading.append(newline).append(this.patientAddress).append(newline).append(this.patientCityPostal).append(newline).append(this.patientPhone);
-
-                if (patientHIN != null && patientHIN.trim().length() > 0) {
-                    patientHeading.append(newline).append(geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.hin")).append(" ").append(patientHIN);
-                }
-
-                if (patientChartNo != null && !patientChartNo.isEmpty()) {
-                    String chartNoTitle = geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.chartNo");
-                    patientHeading.append(newline).append(chartNoTitle).append(patientChartNo);
-                }
-
-                patientHeadingTable.addCell(new Phrase(patientHeading.toString(), new Font(bf, 10)));
-                patientHeadingTable.setTotalWidth(272f);
-                patientHeadingTable.writeSelectedRows(0, -1, 13f, height - 110f, cb);
+                PdfPTable patientHeadingTable = createPatientHeadingTable();
+                patientHeadingTable.writeSelectedRows(0, -1, 13f, height - PATIENT_HEADER_TOP_OFFSET, cb);
                 patientHeadingTable.setSpacingAfter(10f);
 
                 /*
@@ -1742,7 +1774,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // The prescription body is 270 points wide; narrow paper places the pharmacy below
         // the patient header instead of outside the page, and reserves that block's full height.
         document.setMargins(15, pageSize.getWidth() - 285f + 5f,
-                185 + pageHeader.pharmacyHeaderHeight(pageSize), 60);
+                pageHeader.bodyTopMargin(pageSize), 60);
         writer.setPageEvent(pageHeader);
         document.addTitle(title);
         document.addSubject("");
