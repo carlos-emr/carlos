@@ -96,7 +96,7 @@ class SafeEncodeUnitTest {
         }
 
         @Test
-        void shouldReturnEmpty_forHtmlContentWithBreakMarkers_whenValueIsNull() {
+        void shouldReturnEmpty_whenBreakMarkerValueIsNull() {
             assertThat(SafeEncode.forHtmlContentWithBreakMarkers(null)).isEmpty();
         }
 

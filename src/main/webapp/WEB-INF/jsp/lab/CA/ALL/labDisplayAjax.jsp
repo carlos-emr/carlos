@@ -1216,7 +1216,7 @@
                     %>
 	                                            <td align="right">
                                                    <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
-                                                    <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="html"/></em>
+                                                    <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="htmlWithBreakMarkers"/></em>
                                                     <% } else { %>
                                                     <carlos:encode value='<%= handler.getOBXResult( j, k) %>' context="htmlWithBreakMarkers"/>
                                                     <% } %>
@@ -1284,7 +1284,7 @@
                         <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBRComment(j, k) %>' context="htmlWithBreakMarkers"/></pre>
                     </td>
                 </tr>
-                <% if (!handler.getMsgType().equals("HHSEMR")) {
+                <% if (!handler.getMsgType().equals("HHSEMR") && !handler.getMsgType().equals("TRUENORTH")) {
                     if (handler.getOBXName(j, k).equals("")) {
                         String result = handler.getOBXResult(j, k);%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">

@@ -93,12 +93,19 @@ class LabTextLineBreakRenderingUnitTest {
                 Arguments.of(Named.of("DefaultGenericHandler",
                         (Supplier<MessageHandler>) () -> parse(new DefaultGenericHandler(), "ORU^Z01"))),
                 Arguments.of(Named.of("PATHL7Handler",
-                        (Supplier<MessageHandler>) () -> parse(new PATHL7Handler(), "ORU^R01"))));
+                        (Supplier<MessageHandler>) () -> parse(new PATHL7Handler(), "ORU^R01"))),
+                Arguments.of(Named.of("ExcellerisOntarioHandler",
+                        (Supplier<MessageHandler>) () -> parse(new ExcellerisOntarioHandler(), "ORU^R01"))));
     }
 
     private static MessageHandler parse(MessageHandler handler, String messageType) {
         try {
-            handler.init(hl7(messageType));
+            String message = hl7(messageType);
+            if (handler instanceof ExcellerisOntarioHandler) {
+                message = message.replace("|P|2.3|", "|P|2.3.1|")
+                        .replace("^Report Status||Final", "^Report Status|A|Final");
+            }
+            handler.init(message);
         } catch (Exception e) {
             throw new IllegalStateException("fixture HL7 did not parse", e);
         }
@@ -165,6 +172,15 @@ class LabTextLineBreakRenderingUnitTest {
         }
 
         @Test
+        void shouldRenderCompositeOntarioResult_whenSubIdIsPresent() {
+            ExcellerisOntarioHandler handler = (ExcellerisOntarioHandler) parse(
+                    new ExcellerisOntarioHandler(), "ORU^R01");
+            assertThat(handler.getOBXSubId(0, 0)).isEqualTo("A");
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers(handler.getOBXSubIdWithObservationValue(0, 0)))
+                    .isEqualTo("A) Final<br/>11Sep2026");
+        }
+
+        @Test
         void shouldShowLiteralMarker_whenPlainHtmlEncodingIsUsed() {
             // The defect itself: the pre-fix context renders the marker as visible text.
             assertThat(SafeEncode.forHtmlContent(parse(new PATHL7Handler(), "ORU^R01").getOBXResult(0, 0)))
@@ -191,6 +207,8 @@ class LabTextLineBreakRenderingUnitTest {
                     .as("%s must not flatten handler line breaks to spaces", jsp)
                     .doesNotContain("replaceAll(\"<br />\", \" \")");
 
+            assertThat(source.replaceAll("\\s+", ""))
+                    .contains("getOBXSubIdWithObservationValue(j,k)%>'context=\"htmlWithBreakMarkers\"");
             Matcher matcher = LINE_TEXT_ENCODE.matcher(source);
             int sites = 0;
             while (matcher.find()) {

@@ -1162,7 +1162,6 @@
       ],
       "timeoutSec": 300,
       "env": [
-        "LAB_BREAK_DEMOGRAPHIC_NO",
         "LAB_BREAK_SCREENSHOT_DIR"
       ]
     },

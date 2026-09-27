@@ -164,6 +164,13 @@ public final class SafeEncode {
         return forHtmlContentWithBreaks(BREAK_MARKER.matcher(value).replaceAll("\n"));
     }
 
+    /**
+     * Writes encoded text with recognized break markers rendered as {@code <br/>}.
+     *
+     * @param out destination writer
+     * @param value untrusted text; {@code null} renders as empty
+     * @throws IOException if writing to the destination fails
+     */
     public static void forHtmlContentWithBreakMarkers(Writer out, String value) throws IOException {
         out.write(forHtmlContentWithBreakMarkers(value));
     }
