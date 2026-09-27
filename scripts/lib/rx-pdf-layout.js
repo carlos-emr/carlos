@@ -7,14 +7,14 @@ function assertStackedRxPdf(xml, { patientLastWord, pharmacyFax, drugWord }) {
   const pages = Array.from(xml.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g));
   assert.equal(pages.length, 1, 'The single-drug narrow-paper fixture must fit one page');
   const words = Array.from(pages[0][1].matchAll(/<word\b([^>]*)>([^<]*)<\/word>/g), match => {
-    const coordinate = name => {
-      const value = match[1].match(new RegExp(`\\b${name}="([^"]+)"`));
+    const coordinate = pattern => {
+      const value = match[1].match(pattern);
       assert(value && value[1].trim(), 'PDF word is missing a coordinate');
       const number = Number(value[1]);
       assert(Number.isFinite(number), 'PDF word has an invalid coordinate');
       return number;
     };
-    return { text: match[2], top: coordinate('yMin'), bottom: coordinate('yMax') };
+    return { text: match[2], top: coordinate(/\byMin="([^"]+)"/), bottom: coordinate(/\byMax="([^"]+)"/) };
   });
   const uniqueWord = (text, label) => {
     const found = words.filter(word => word.text === text);
