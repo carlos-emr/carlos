@@ -68,6 +68,7 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 
 <c:if test="${infirmaryView_isOscar == 'false'}">
   &nbsp;
+  <label for="program_clientstatus"><b>Status:</b></label>
   <select id="program_clientstatus" name="program_clientstatus"
 		onchange="submitStatus(this)">
 		<c:choose>

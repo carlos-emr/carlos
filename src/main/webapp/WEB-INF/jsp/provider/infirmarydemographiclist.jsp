@@ -37,7 +37,9 @@
 		<%} %>
 	 <%}else{
 	%>
-	<table border="1" cellpadding="0"
+	<%-- Layout tables (a banner and a one-column client list), so they carry role="presentation"
+	     instead of header cells; the spacer cells no longer hold empty, HTML5-obsolete <font> tags. --%>
+	<table role="presentation" border="1" cellpadding="0"
 		bgcolor="<%=userAvail?"#486ebd":"silver"%>" cellspacing="0"
 		width="100%">
 		<tr>
@@ -50,17 +52,17 @@
 			</td>
 		</tr>
 		<tr>
-			<td width='1' title='null'><font color='white'></font></td>
+			<td width="1"></td>
 		</tr>
 	</table>
 
-	<table border="1" cellpadding="0"
+	<table role="presentation" border="1" cellpadding="0"
 		bgcolor="<%=userAvail?"#486ebd":"silver"%>" cellspacing="0"
 		width="100%">
 		<c:forEach var="de" varStatus="row" items="${infirmaryView_demographicBeans}">
             <c:set var="demographic_no" value="${de.value}"/>
 			<tr>
-				<td width="1" title="null"><font color="white"></font></td>
+				<td width="1"></td>
 
 				<%
 					int demographic_no = Integer.parseInt(String.valueOf(pageContext.getAttribute("demographic_no")));
@@ -88,7 +90,7 @@
 						<c:choose>
 							<c:when test="${not empty tickler_no}">
 									<a href="#" onClick="popupPage(700, 1000, '<%= request.getContextPath() %>/tickler/ViewTicklerDemoMain?demoview=0'); return false;" title="${carlos:forHtmlAttribute(tickler_note)}">
-										<font color="red">!</font>
+										<span style="color: red;">!</span>
 									</a>
 							</c:when>
 							<c:otherwise>
