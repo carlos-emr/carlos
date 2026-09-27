@@ -138,3 +138,46 @@ Final validation:
   fingerprint. The only new operational file is the empty persistent lock; original output
   files were preserved and owned exports/backups/fixtures removed. Final installed verification
   and health checks passed, NRestarts=0, VM disk had **4.5 GiB free**, and the VM was stopped.
+
+## Second follow-up: private handled errors and full-duration test locks
+
+Merged the current release branch and preserved both validation-document sections in
+its documentation conflict. CodeRabbit's two remaining findings are addressed:
+
+- The external POSIX test lock has no operation-lifetime timeout. A bounded shutdown
+  applies only after the callback finishes. A real second-process regression confirms
+  exclusion after 62 seconds and release after completion; failure cleanup still passes.
+- Fixed #4052: both Struts publication paths receive a safe exception copy, with fixed
+  public guidance and no original message, cause, suppressed exception, stack, filename
+  or diagnostic context. Direct JSP/container fallbacks also select fixed messages.
+  Explicit categories preserve busy-lock, uncertain-commit and failed-restore instructions.
+  The existing exception constructors, internal causes, transaction behavior and mapped
+  response statuses remain compatible. Error pages show an encoded incident reference.
+- Own review also removed clinical identifiers, diagnosis codes and raw exceptions from
+  diagnosis-save operational logs. Fixed failure categories and exception types remain.
+  Unit regressions inspect rendered messages, log parameters and attached throwables.
+  Documentation now correctly treats billing diagnostic context as potentially clinical.
+
+Validation at source commit `6aa3692107`:
+
+- Clean full Java suite: **13,625 tests**, **0 failures/errors**, **51 existing skips**.
+  The new public-details, interceptor, diagnosis-log and constructor regressions pass.
+- Full serial Node suite: **1,128 passed**, no failures/skips, including the real long-lock
+  regression. BDD naming passed across **278 files**; encoder, security-message, JSP taglib
+  and locale checks passed. **982 JSPs**, WAR and Javadocs built. Changed executable Java
+  coverage is **251/284 (88.4%)**, with no unmapped or zero-covered changed files.
+- All three DEBs **2026.08.0~alpha16~pr3999.5** built with the VM stopped and installed on
+  Ubuntu 26.04. **6,678** tested/packaged/installed files match. The documentation-only
+  data-load exception correction was separately verified to preserve tested bytecode.
+- Installed OHIP workflow passes without skips: a real invalid-input POST shows fixed
+  validation guidance and an incident reference, with neither the submitted private value
+  nor the internal cause in its HTML, and no diagnosis write. Busy export and regeneration
+  also show incident references and preserve claims, exact output and batch metadata.
+  Normal ZERO/PAID exports, ZERO regeneration, EMPTY omission and downloads pass.
+- Four neighboring workflows pass without skips: application health, Ontario submission,
+  flu billing and payment types. All seven original billing/diagnosis table checksums,
+  existing output files and configuration are unchanged after cleanup. Final health and
+  file-hash checks pass; NRestarts=0, VM disk **4.4 GiB free**, and VM **STOPPED**.
+
+This records local validation. Fresh bot reviews, final batch review and CI convergence
+remain separate checks; no GitHub merge was performed.
