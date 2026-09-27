@@ -40,3 +40,19 @@ All nine checks passed on that installation, with zero skips:
 The neighboring Rx checks used isolated synthetic patients and prescriptions, including nullable legacy fields. Owned database fixtures and the temporary synthetic signature stamp were removed. Original patient data and configuration were preserved. The older neighboring fax checks document retaining small generated PDF/spool files after deleting their database rows; the pharmacy-phone target removes its own artifacts.
 
 Builds and tests ran serially. The VM was stopped for compilation, and installation/browser runs used CPU/memory limits. Disk space was monitored and superseded DEBs removed while preserving hashes and logs. The VM was stopped after final health verification.
+
+## Review follow-up: favorites and diagnostic privacy
+
+Sonar's nullable-favorite finding led to issue #4041. Both favorite-selection routes and both editing routes now reject malformed IDs (400) and deleted favorites (404) before modifying the staged prescription. Selection also reports missing sessions, denied access and application failures explicitly. The browser inserts markup and renders the stage only after a successful response; a failed favorite request shows a localized message and preserves the existing controls. Re-prescribing uses `SecureRandom` within the established generated-ID bounds.
+
+Issue #4042 removes prescription instructions, medication details and history from `RxUtil` debug diagnostics. Legacy diagnostic entry points remain as documented compatibility no-ops. Three regression tests explicitly enable and verify debug capture while checking unchanged instruction trimming, dose parsing and staged content.
+
+Validation on the follow-up: **73 clean favorite/re-prescribe/legacy-value Java tests** passed before the privacy change; **139 focused parser/privacy/favorite/re-prescribe tests** passed on the final source. The complete Node suite passed **1,059 tests**, including nine favorite success/failure controls. All **982 JSPs**, WAR and Javadocs built successfully.
+
+All three DEBs `2026.08.0~alpha16~pr3993.9` were installed on Ubuntu 26.04. Package and installed verification matched **6,670 files**. Health checks passed before and after these installed HTTPS checks:
+
+- `rx-legacy-null-fields`: the previous three steps plus successful favorite staging, deletion of the owned favorite, a visible 404 alert with identical staged controls, and 404 responses from legacy selection and both editing routes. No extra prescription was persisted.
+- `rx-fax-pharmacy-phone`: both numbers, phone2 only, absent numbers, retry, stored encounter note and generated PDF.
+- `rx-fax-reprint-represcribe`: save, reprint and re-prescribe without duplicate persistence.
+
+Owned fixtures and the synthetic signature stamp were removed. Final health and installed hashes passed, automatic restarts remained zero, and the VM was stopped. Compilation and installed testing ran serially; the VM was stopped for every build. VM disk space finished at 4.5 GiB free.
