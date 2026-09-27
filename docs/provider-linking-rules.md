@@ -104,7 +104,7 @@ Rules shared by every path:
 | Route an HRM report to a provider (row, forwarding rules, unclaimed cleanup); shared with the manual assign-provider action | `hospitalReportManager.service.HrmProviderRoutingService` |
 | HL7 upload hook | `MessageUploader.routeToProviders` |
 | Lab Patient Match hook (now POST only) | `mds.pageUtil.PatientMatch2Action` |
-| HRM assign-patient hook, and the viewer reload | `HRMModifyDocument2Action.assignDemographic`, `hospitalReportManager/hrmActions.js` |
+| HRM assign-patient hook and provider-list update | `HRMModifyDocument2Action.assignDemographic`, `hospitalReportManager/hrmActions.js` |
 | Admin page | `admin.web.ProviderLinkingRules2Action`, `admin.web.SaveProviderLinkingRules2Action`, `WEB-INF/jsp/admin/providerLinkingRules.jsp` |
 
 **Related HRM fix.** HRM changes run under a report lock (`HRMDocumentDao.findForUpdate`). That

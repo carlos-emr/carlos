@@ -740,8 +740,7 @@ public class CommonLabResultData {
             for (var measurement : measurements.findByValue("lab_no", id)) {
                 existing = true;
                 if (!Integer.valueOf(patient).equals(measurement.getDemographicId())) {
-                    measurement.setDemographicId(patient);
-                    measurements.merge(measurement);
+                    measurements.reassignLabPatient(measurement, id, patient);
                 }
             }
         }

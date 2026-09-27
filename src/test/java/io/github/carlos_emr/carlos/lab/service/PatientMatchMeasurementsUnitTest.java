@@ -50,10 +50,10 @@ class PatientMatchMeasurementsUnitTest extends CarlosUnitTestBase {
         value.setComments("existing annotation");
         when(measurements.findByValue("lab_no", "556")).thenReturn(List.of(value));
         assertThat(CommonLabResultData.updatePatientLabRouting("555", "42", "HL7")).isTrue();
-        assertThat(value.getDemographicId()).isEqualTo(42);
         assertThat(value.getDataField()).isEqualTo("5.6");
         assertThat(value.getComments()).isEqualTo("existing annotation");
-        verify(measurements).merge(value);
+        verify(measurements).reassignLabPatient(value, "556", 42);
+        verify(measurements, never()).merge(any());
         common.verify(() -> CommonLabResultData.populateMeasurementsTable(anyString(), anyString(), anyString()), never());
     }
 
@@ -64,6 +64,7 @@ class PatientMatchMeasurementsUnitTest extends CarlosUnitTestBase {
         when(measurements.findByValue("lab_no", "556")).thenReturn(List.of(value));
         assertThat(CommonLabResultData.updatePatientLabRouting("555", "42", "HL7")).isTrue();
         verify(measurements, never()).merge(any());
+        verify(measurements, never()).reassignLabPatient(any(), anyString(), anyInt());
         common.verify(() -> CommonLabResultData.populateMeasurementsTable(anyString(), anyString(), anyString()), never());
     }
 
@@ -79,7 +80,7 @@ class PatientMatchMeasurementsUnitTest extends CarlosUnitTestBase {
         var value = new Measurement();
         value.setDemographicId(12);
         when(measurements.findByValue("lab_no", "556")).thenReturn(List.of(value));
-        doThrow(new IllegalStateException("database failure")).when(measurements).merge(value);
+        doThrow(new IllegalStateException("database failure")).when(measurements).reassignLabPatient(value, "556", 42);
         assertThat(CommonLabResultData.updatePatientLabRouting("555", "42", "HL7")).isFalse();
     }
 }

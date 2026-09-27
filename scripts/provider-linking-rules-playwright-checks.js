@@ -106,7 +106,9 @@ function buildCmlMessage({ controlId, accession, hin, lastName, firstName, dob, 
     `PID|1|||${hin}^^ON|${clean(lastName)}^${clean(firstName)}||${dob}|${sex}`,
     `ORC|NW|${accession}|||F|||||||${ohipNo}^DR. PLAYWRIGHT CHECK|||20260101`,
     `OBR|1|${accession}||ML70^PROVIDER LINKING CHECK||20260101|20260102|||||||||${ohipNo}^DR. PLAYWRIGHT CHECK|||||||||F`,
-    'OBX|1|ST|7010^PROVIDER LINKING CHECK|^^CHEMISTRY|SYNTHETIC|||N|||F',
+    // A numeric result passes the standard HL7_LAB_MEASUREMENT_FILTER, so the
+    // correction checks exercise imported measurements as well as inbox routing.
+    'OBX|1|NM|7010^PROVIDER LINKING CHECK|^^CHEMISTRY|5.4|mmol/L|3.6-6.0|N|||F',
     'FTS|1',
     '',
   ].join('\r');
