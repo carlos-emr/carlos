@@ -130,6 +130,43 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         return drug;
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "UPDATE drugs SET takemin=NULL WHERE drugid=:id",
+            "UPDATE drugs SET takemax=NULL WHERE drugid=:id",
+            "UPDATE drugs SET custom_instructions=NULL WHERE drugid=:id",
+            "UPDATE drugs SET hide_cpp=NULL WHERE drugid=:id",
+            "UPDATE drugs SET start_date_unknown=NULL WHERE drugid=:id"})
+    @DisplayName("should load schema-legal null prescription fields using existing primitive defaults")
+    void shouldLoadDefaultValues_whenLegacyDrugFieldIsNull(String query) {
+        Drug stored = createAndPersist(DEMO_NO, "Legacy synthetic drug", "TEST", false);
+        // Statements are fixed literals above; the fixture identifier remains bound.
+        entityManager.createNativeQuery(query)
+                .setParameter("id", stored.getId()).executeUpdate();
+        entityManager.clear();
+        Drug loaded = drugDao.find(stored.getId());
+        assertThat(loaded.getTakeMin()).isZero();
+        assertThat(loaded.getTakeMax()).isZero();
+        assertThat(loaded.isCustomInstructions()).isFalse();
+        assertThat(loaded.getHideFromCpp()).isFalse();
+        assertThat(loaded.getStartDateUnknown()).isFalse();
+        assertThat(loaded.getSpecial()).isEqualTo("1 tab PO daily");
+        loaded.setTakeMin(0.5f);
+        loaded.setTakeMax(2.5f);
+        loaded.setCustomInstructions(true);
+        loaded.setHideFromCpp(true);
+        loaded.setStartDateUnknown(true);
+        entityManager.flush();
+        entityManager.clear();
+        Drug reloaded = drugDao.find(stored.getId());
+        assertThat(reloaded.getTakeMin()).isEqualTo(0.5f);
+        assertThat(reloaded.getTakeMax()).isEqualTo(2.5f);
+        assertThat(reloaded.isCustomInstructions()).isTrue();
+        assertThat(reloaded.getHideFromCpp()).isTrue();
+        assertThat(reloaded.getStartDateUnknown()).isTrue();
+        assertThat(reloaded.getSpecial()).isEqualTo("1 tab PO daily");
+    }
+
     // ========================================================================
     // findByDemographicId
     // ========================================================================

@@ -77,6 +77,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { browserErrorClass } = require('./browser-error-class');
+const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
 
 // Node keeps the brackets on an IPv6 URL hostname ('http://[::1]/' -> '[::1]'), so a bare '::1'
 // entry in a host set would never match. Strip them before every comparison.
@@ -268,6 +269,8 @@ function prescriptionCount() {
 
 // Restored by cleanupFixtures(): [{ recordId, wasNull }].
 const seededPharmacyFaxes = [];
+let seededSender = null;
+const senderDb = { value: query => sql(query).trim(), execute: query => sql(query) };
 
 /**
  * Give the patient's active pharmacies a destination fax number.
@@ -333,6 +336,10 @@ function cleanupFixtures() {
     attempt('drugs', () => sql(`DELETE FROM drugs WHERE script_no IN (${list});`));
     attempt('prescription', () => sql(`DELETE FROM prescription WHERE script_no IN (${list});`));
   }
+  attempt('fax sender', () => {
+    cleanupRxFaxAccount(senderDb, seededSender);
+    seededSender = null;
+  });
   while (seededPharmacyFaxes.length) {
     const { recordId, wasNull } = seededPharmacyFaxes.pop();
     attempt(`pharmacy-fax ${recordId}`, () => sql(
@@ -697,6 +704,8 @@ async function runChecks(context) {
   try {
     await checkBuildStamp(context);
 
+    // A valid destination alone cannot enable Fax without an active sender account.
+    seededSender = stageRxFaxAccount(senderDb, `416${runSuffix}`);
     if (!seedPharmacyFax()) {
       findings.push({
         label: 'pharmacy-fax', type: 'no-active-pharmacy',
