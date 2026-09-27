@@ -194,6 +194,8 @@ async function workflow(s) {
       `/billing/CA/BC/ViewBillingReportControl?reportAction=unbilled&providerview=${encodeURIComponent(provider)}`);
     h.assert(response.status() === 200, 'BC report rejected omitted dates');
     await h.assertNotErrorPage(page, 'BC report omitted dates');
+    h.assert(JSON.stringify(await listedLabels(page, s.marker)) === JSON.stringify(['custom3', 'todo']),
+      'BC omitted-date defaults did not list exactly the ordinary unbilled appointment fixtures');
   });
   await s.step('BC provider management keeps the report open', async () => {
     const reportUrl = page.url();

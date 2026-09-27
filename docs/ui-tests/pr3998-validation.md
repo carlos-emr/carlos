@@ -83,3 +83,13 @@ the nonconventional new DAO method name were corrected rather than suppressed.
 - Exact fingerprints of every original appointment, report-provider and demographic row
   were unchanged after cleanup. Final installed payload/health checks passed, NRestarts=0,
   VM disk had 4.5 GiB free, and the VM was stopped. No schema/configuration changes were needed.
+
+## Second review: omitted-date row assertions
+
+Strengthened the BC omitted-date browser step to assert exactly the sorted fixture labels `custom3` and `todo`, rather than only HTTP 200 and absence of an error page. This protects both default dates and default-off no-show/cancelled controls.
+
+The change is confined to the browser assertion. The four existing unbilled-report Node tests passed. Reused all three previously built/tested `2026.08.0~alpha16~pr3998.5` DEBs after verifying each against its recorded SHA-256; all five PR web files still matched the retained package. No application source changed, so the prior Java/JSP/build validation remains applicable. Reinstalled those exact packages on Ubuntu 26.04 and verified 6,689 packaged class/web-file hashes, including the original tested payload.
+
+All four installed checks passed: health, third-party billing, unbilled reports and flu billing. All twelve target report steps passed, including the new exact-row assertion. The neighboring third-party workflow retains its documented optional new-report Bill-link skip for this dataset; the owned-fixture report matrix exercises the changed links.
+
+The three original appointment/report-provider/demographic table fingerprints were unchanged after fixture cleanup. Final health and package-file verification passed, automatic restarts remained zero, and the VM was stopped. Package setup reset the temporary CPU cap during installation; the intended validation limits were reapplied after setup, allowing startup to finish without a restart.
