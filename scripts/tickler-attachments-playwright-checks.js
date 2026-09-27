@@ -104,7 +104,7 @@ function restoreMovedLab() {
   if (!movedLabFixture) {
     return;
   }
-  db.execute(`UPDATE patientLabRouting SET demographic_no=${Number(demographicNo)} WHERE lab_no=${Number(movedLabFixture.labNo)} AND lab_type=${sqlString(movedLabFixture.labType)} AND demographic_no=${Number(movedLabFixture.otherPatient)}`);
+  db.execute(`UPDATE patientLabRouting SET demographic_no=${Number(demographicNo)} WHERE id IN (${movedLabFixture.routingIds.join(',')}) AND lab_no=${Number(movedLabFixture.labNo)} AND lab_type=${sqlString(movedLabFixture.labType)} AND demographic_no=${Number(movedLabFixture.otherPatient)}`);
   movedLabFixture = null;
 }
 
@@ -418,8 +418,10 @@ async function postEditForm(page, fields) {
     const otherPatient = db.value(`SELECT demographic_no FROM demographic WHERE demographic_no<>${Number(demographicNo)} AND demographic_no>0 ORDER BY demographic_no LIMIT 1`);
     if (otherPatient) {
       const movedLab = live.find((row) => row.doctype === 'L');
-      movedLabFixture = { labNo: movedLab.documentNo, labType: movedLab.labType, otherPatient };
-      db.execute(`UPDATE patientLabRouting SET demographic_no=${Number(otherPatient)} WHERE lab_no=${Number(movedLab.documentNo)} AND lab_type=${sqlString(movedLab.labType)} AND demographic_no=${Number(demographicNo)}`);
+      const routingIds = db.rows(`SELECT id FROM patientLabRouting WHERE lab_no=${Number(movedLab.documentNo)} AND lab_type=${sqlString(movedLab.labType)} AND demographic_no=${Number(demographicNo)}`).map(([id]) => Number(id));
+      assert(routingIds.length > 0 && routingIds.every(id => Number.isSafeInteger(id) && id > 0), 'missing owned lab routing rows');
+      movedLabFixture = { labNo: movedLab.documentNo, labType: movedLab.labType, otherPatient, routingIds };
+      db.execute(`UPDATE patientLabRouting SET demographic_no=${Number(otherPatient)} WHERE id IN (${routingIds.join(',')}) AND lab_no=${Number(movedLab.documentNo)} AND lab_type=${sqlString(movedLab.labType)} AND demographic_no=${Number(demographicNo)}`);
       const movedPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-moved');
       assert(await movedPage.locator(`#delegate_labNo${movedLab.labType}${movedLab.documentNo}`).count() === 0,
         'edit form still lists a lab re-filed to another patient');

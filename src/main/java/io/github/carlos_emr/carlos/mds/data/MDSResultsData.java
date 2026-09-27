@@ -89,6 +89,7 @@ public class MDSResultsData {
     public ArrayList<LabResultData> populateCMLResultsData(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] co : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"CML".equals(((PatientLabRouting) co[1]).getLabType())) continue;
             ConsultDocs cd = (ConsultDocs) co[0];
             LabResultData lbData = new LabResultData(LabResultData.CML);
             lbData.labType = LabResultData.CML;
@@ -101,6 +102,7 @@ public class MDSResultsData {
     public ArrayList<LabResultData> populateCMLResultsDataEForm(String demographicNo, String fdid, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] co : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
+            if (!"CML".equals(((PatientLabRouting) co[1]).getLabType())) continue;
             EFormDocs cd = (EFormDocs) co[0];
             LabResultData lbData = new LabResultData(LabResultData.CML);
             lbData.labType = LabResultData.CML;
@@ -114,6 +116,7 @@ public class MDSResultsData {
     public ArrayList<LabResultData> populateCMLResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] co : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"CML".equals(((PatientLabRouting) co[1]).getLabType())) continue;
             ConsultResponseDoc cd = (ConsultResponseDoc) co[0];
             LabResultData lbData = new LabResultData(LabResultData.CML);
             lbData.labType = LabResultData.CML;
@@ -360,6 +363,7 @@ public class MDSResultsData {
     public ArrayList<LabResultData> populateMDSResultsData(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"MDS".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultDocs cd = (ConsultDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
             lbData.labPatientId = "" + cd.getDocumentNo();
@@ -372,6 +376,7 @@ public class MDSResultsData {
     public ArrayList<LabResultData> populateMDSResultsDataEForm(String demographicNo, String fdid, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
+            if (!"MDS".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             EFormDocs cd = (EFormDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
             lbData.labPatientId = "" + cd.getDocumentNo();
@@ -386,7 +391,8 @@ public class MDSResultsData {
     public ArrayList<LabResultData> populateMDSResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs cd = (ConsultDocs) o[0];
+            if (!"MDS".equals(((PatientLabRouting) o[1]).getLabType())) continue;
+            ConsultResponseDoc cd = (ConsultResponseDoc) o[0];
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
             lbData.labPatientId = "" + cd.getDocumentNo();
             attachedLabs.add(lbData);

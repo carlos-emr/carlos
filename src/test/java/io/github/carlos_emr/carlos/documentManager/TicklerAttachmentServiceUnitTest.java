@@ -578,6 +578,8 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             assertThat(attachments).allMatch(TicklerAttachmentData::isViewable);
             assertThat(attachments.get(1).getLabType()).isEqualTo("HL7");
             assertThat(attachments.get(1).getSubmissionValue()).isEqualTo("HL7:77");
+            assertThat(attachments.get(3).getFormName()).isEqualTo("Rourke");
+            verify(formsManager, times(1)).getEncounterFormsbyDemographicNumber(loggedInInfo, DEMOGRAPHIC_NO, true, false);
             assertThat(attachments.get(0).getParameterName()).isEqualTo("docNo");
             assertThat(attachments.get(0).getSubmissionValue()).isEqualTo("11");
         }
@@ -638,6 +640,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             assertThat(attachments).hasSize(1);
             assertThat(attachments.get(0).isViewable()).isFalse();
             assertThat(attachments.get(0).getDisplayName()).isNull();
+            assertThat(attachments.get(0).getFormName()).isNull();
             verify(formsManager, never()).getEncounterFormsbyDemographicNumber(any(), any(), anyBoolean(), anyBoolean());
         }
 

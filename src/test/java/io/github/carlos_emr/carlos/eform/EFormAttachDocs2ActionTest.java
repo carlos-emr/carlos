@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,6 +70,7 @@ class EFormAttachDocs2ActionTest extends CarlosWebTestBase {
                 .thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
+        mockRequest.setMethod("POST");
         action = new EFormAttachDocs2Action();
         action.setRequestId("123");
         action.setDemoNo("456");
@@ -87,20 +87,10 @@ class EFormAttachDocs2ActionTest extends CarlosWebTestBase {
     void shouldPreserveHiddenLabAttachments_whenUserLacksLabRead() throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("r"), isNull()))
                 .thenReturn(false);
-        when(mockDocumentAttachmentManager.getEFormAttachments(mockLoggedInInfo, 123, DocumentType.LAB, 456))
-                .thenReturn(List.of("11", "12"));
 
-        String result = action.execute();
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        verify(mockDocumentAttachmentManager).getEFormAttachments(mockLoggedInInfo, 123, DocumentType.LAB, 456);
-        verify(mockDocumentAttachmentManager).attachToEForm(
-                eq(mockLoggedInInfo),
-                eq(DocumentType.LAB),
-                argThat(values -> values != null && values.length == 2 && values[0].equals("11") && values[1].equals("12")),
-                eq("999998"),
-                eq(123),
-                eq(456));
+        verify(mockDocumentAttachmentManager, never()).attachToEForm(any(), eq(DocumentType.LAB), any(), any(), any(), any());
         assertThat(mockResponse.getContentAsString()).isEqualTo("ok");
     }
 
@@ -123,20 +113,11 @@ class EFormAttachDocs2ActionTest extends CarlosWebTestBase {
     void shouldPreserveHiddenFormAttachments_whenUserLacksFormRead() throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("r"), isNull()))
                 .thenReturn(false);
-        when(mockDocumentAttachmentManager.getEFormAttachments(mockLoggedInInfo, 123, DocumentType.FORM, 456))
-                .thenReturn(List.of("77", "88"));
 
-        String result = action.execute();
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        verify(mockDocumentAttachmentManager).getEFormAttachments(mockLoggedInInfo, 123, DocumentType.FORM, 456);
-        verify(mockDocumentAttachmentManager).attachToEForm(
-                eq(mockLoggedInInfo),
-                eq(DocumentType.FORM),
-                argThat(values -> values != null && values.length == 2 && values[0].equals("77") && values[1].equals("88")),
-                eq("999998"),
-                eq(123),
-                eq(456));
+        verify(mockDocumentAttachmentManager, never()).attachToEForm(any(), eq(DocumentType.FORM), any(), any(), any(), any());
+        assertThat(mockResponse.getContentAsString()).isEqualTo("ok");
     }
 
     @Test
@@ -171,5 +152,32 @@ class EFormAttachDocs2ActionTest extends CarlosWebTestBase {
                 eq("999998"),
                 eq(123),
                 eq(456));
+    }
+    @Test
+    void shouldRejectMalformedLabBeforeSavingDocuments_whenSubmittedSelectionIsInvalid() throws Exception {
+        mockRequest.addParameter("docNo", "10");
+        mockRequest.addParameter("labNo", "HL7:0");
+        action.execute();
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        org.mockito.Mockito.verifyNoInteractions(mockDocumentAttachmentManager);
+    }
+
+    @Test
+    void shouldKeepBothSources_whenLabNumbersOverlap() throws Exception {
+        mockRequest.addParameter("labNo", "HL7:22", "MDS:22");
+        action.execute();
+        verify(mockDocumentAttachmentManager).attachToEForm(eq(mockLoggedInInfo), eq(DocumentType.LAB),
+                argThat(ids -> java.util.Arrays.equals(ids, new String[]{"HL7:22", "MDS:22"})),
+                eq("999998"), eq(123), eq(456));
+        assertThat(mockResponse.getContentAsString()).isEqualTo("ok");
+    }
+
+    @Test
+    void shouldRejectGetBeforeWrites_whenRouteIsInvokedWithoutPost() throws Exception {
+        mockRequest.setMethod("GET");
+        action.execute();
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        org.mockito.Mockito.verifyNoInteractions(mockDocumentAttachmentManager);
     }
 }

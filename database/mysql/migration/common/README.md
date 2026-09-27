@@ -41,9 +41,14 @@ shared attachment picker (#3984), with the standard `lastUpdateUser` / `lastUpda
 and backfills it idempotently from `tickler_link` (creator and creation date preserved, lab source
 kept in `lab_type`); `tickler_link` stays read-only for one release.
 
+`V1.0.37__consultation_eform_lab_sources.sql` preserves the lab source in consultation request,
+response and eForm attachments (#4024). It backfills only sources uniquely routed to the parent
+patient; ambiguous legacy rows remain unresolved and require confirmation before printing.
+`V1.0.36` is reserved by #3986 and must migrate before V1.0.37.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.35`
-(the highest Ontario-only one is `on/V1.0.34`), so the next free version for ANY location is `V1.0.36`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.37`
+(the highest Ontario-only one is `on/V1.0.34`), so the next free version for ANY location is `V1.0.38`
 (see `../README.md`).

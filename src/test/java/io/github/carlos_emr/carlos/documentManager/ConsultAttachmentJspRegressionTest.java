@@ -114,7 +114,7 @@ class ConsultAttachmentJspRegressionTest {
         String jsp = normalizeWhitespace(Files.readString(CONSULT_JSP, StandardCharsets.UTF_8));
 
         assertThat(jsp)
-                .contains("boolean hl7Lab = LabResultData.HL7TEXT.equals(attachedLab1.getLabType());")
+                .contains("boolean hl7Lab = !attachedLab1.isAttachmentUnavailable() && LabResultData.HL7TEXT.equals(attachedLab1.getLabType());")
                 .contains("? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\") : new String[]{attachedLab1.getSegmentID()};")
                 .contains("|| !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())")
                 .doesNotContain("String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(\",\");");

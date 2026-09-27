@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
+import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -91,6 +91,7 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
+        if (!requirePost()) return NONE;
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         String ticklerNoStr = request.getParameter("ticklerNo");
@@ -121,34 +122,33 @@ public class EditTickler2Action extends ActionSupport {
             return "failure";
         }
 
+        Date parsedServiceDate;
+        Tickler.STATUS parsedStatus;
+        Tickler.PRIORITY parsedPriority;
+        try {
+            parsedServiceDate = TicklerFormDate.parse(serviceDate);
+            parsedStatus = Tickler.STATUS.valueOf(status);
+            parsedPriority = Tickler.PRIORITY.valueOf(priority);
+            if (assignedTo.isBlank()) {
+                throw new IllegalArgumentException("Missing assignee");
+            }
+        } catch (IllegalArgumentException e) {
+            addActionError(getText("tickler.ticklerEdit.arg.error"));
+            return "failure";
+        }
+
         Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
 
-        if (t == null) {
+        if (t == null || t.getCreator() == null || t.getCreator().isBlank()
+                || t.getDemographicNo() == null || t.getDemographicNo() <= 0) {
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
 
         Date now = new Date();
 
-        boolean emailFailed = false;
         boolean isComment = false;
         String newMessage = request.getParameter("newMessage");
-
-        /*
-         * Create a new TicklerComment
-         */
-        if (newMessage != null && !newMessage.isEmpty()) {
-
-            TicklerComment tc = new TicklerComment();
-            tc.setMessage(newMessage);
-            tc.setTicklerNo(ticklerNo);
-            tc.setUpdateDate(now);
-            tc.setProviderNo(providerNo);
-
-            t.getComments().add(tc);
-            t.setUpdateDate(now); //set this explicitly to ensure this value is consistently updated if a comment is added (this might not otherwise happen if no other tickler fields are being updated when a comment is added)
-            isComment = true;
-        }
 
         /*
          * Create a new TicklerUpdate
@@ -166,7 +166,22 @@ public class EditTickler2Action extends ActionSupport {
             tuOriginal.setAssignedTo(t.getTaskAssignedTo());
             tuOriginal.setServiceDate(t.getServiceDate());
 
-            t.getUpdates().add(tuOriginal);
+        }
+
+        /*
+         * Create a new TicklerComment
+         */
+        if (newMessage != null && !newMessage.isEmpty()) {
+
+            TicklerComment tc = new TicklerComment();
+            tc.setMessage(newMessage);
+            tc.setTicklerNo(ticklerNo);
+            tc.setUpdateDate(now);
+            tc.setProviderNo(providerNo);
+
+            t.getComments().add(tc);
+            t.setUpdateDate(now); //set this explicitly to ensure this value is consistently updated if a comment is added (this might not otherwise happen if no other tickler fields are being updated when a comment is added)
+            isComment = true;
         }
 
         TicklerUpdate tu = new TicklerUpdate();
@@ -176,15 +191,15 @@ public class EditTickler2Action extends ActionSupport {
 
         boolean isUpdate = false;
 
-        if (!status.equals(String.valueOf(t.getStatus()))) {
-            tu.setStatusAsChar(status.charAt(0));
-            t.setStatusAsChar(status.charAt(0));
+        if (parsedStatus != t.getStatus()) {
+            tu.setStatusAsChar(parsedStatus.name().charAt(0));
+            t.setStatus(parsedStatus);
             isUpdate = true;
         }
 
-        if (!priority.equals(t.getPriority())) {
-            tu.setPriority(priority);
-            t.setPriorityAsString(priority);
+        if (parsedPriority != t.getPriority()) {
+            tu.setPriority(parsedPriority.name());
+            t.setPriority(parsedPriority);
             isUpdate = true;
         }
 
@@ -195,17 +210,14 @@ public class EditTickler2Action extends ActionSupport {
             isUpdate = true;
         }
 
-        if (!serviceDate.equals(t.getServiceDate())) {
-            try {
-                Date serviceDateAsDate = DateUtils.parseDate(serviceDate, request.getLocale());
-                tu.setServiceDate(serviceDateAsDate);
-                t.setServiceDate(serviceDateAsDate);
-                isUpdate = true;
-            } catch (java.text.ParseException e) {
-                logger.error("Service Date cannot be parsed:", e);
-                addActionError(getText("tickler.ticklerEdit.arg.error"));
-                return "error";
-            }
+        if (!Objects.equals(parsedServiceDate, t.getServiceDate())) {
+            tu.setServiceDate(parsedServiceDate);
+            t.setServiceDate(parsedServiceDate);
+            isUpdate = true;
+        }
+
+        if ((isComment || isUpdate) && t.getUpdates().isEmpty()) {
+            t.getUpdates().add(tuOriginal);
         }
 
         if (isUpdate) {
@@ -214,7 +226,10 @@ public class EditTickler2Action extends ActionSupport {
 
         if (isComment || isUpdate) {
             try {
-                ticklerManager.updateTickler(loggedInInfo, t);
+                if (!ticklerManager.updateTickler(loggedInInfo, t)) {
+                    addActionError(getText("tickler.ticklerEdit.arg.error"));
+                    return "error";
+                }
             } catch (Exception e) {
                 logger.error("Failed to update tickler: ticklerNo={}, providerNo={}", ticklerNo, providerNo, e);
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
@@ -240,11 +255,6 @@ public class EditTickler2Action extends ActionSupport {
             }
         }
 
-        if (emailFailed) {
-            addActionError(getText("tickler.ticklerEdit.emailFailed.error"));
-            return "failure";
-        }
-
         if (parentAjaxId != null) {
             request.setAttribute("parentAjaxId", parentAjaxId);
         }
@@ -261,6 +271,7 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
+        if (!requirePost()) return NONE;
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (activeText == null) {
@@ -332,6 +343,16 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         return "close";
+    }
+
+    /** Reject safe-method requests before changing ticklers or suggested text. */
+    private boolean requirePost() {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     private String[] activeText;

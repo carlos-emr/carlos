@@ -109,6 +109,7 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("ticklerMessage", "call about results");
         request.setParameter("task_assigned_to", "999998");
         request.setParameter("priority", "Normal");
+        request.setParameter("xml_appointment_date", "2026-09-27");
     }
 
     @AfterEach

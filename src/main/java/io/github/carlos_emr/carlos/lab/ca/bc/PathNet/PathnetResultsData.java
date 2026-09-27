@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet;
 
+import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
+
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.*;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.*;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -72,6 +74,7 @@ public class PathnetResultsData {
     public ArrayList<LabResultData> populatePathnetResultsData(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"BCP".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultDocs c = (ConsultDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
             lbData.labPatientId = "" + c.getDocumentNo();
@@ -84,6 +87,7 @@ public class PathnetResultsData {
     public ArrayList<LabResultData> populatePathnetResultsDataEForm(String demographicNo, String fdid, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
+            if (!"BCP".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             EFormDocs c = (EFormDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
             lbData.labPatientId = "" + c.getDocumentNo();
@@ -97,7 +101,8 @@ public class PathnetResultsData {
     public ArrayList<LabResultData> populatePathnetResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs c = (ConsultDocs) o[0];
+            if (!"BCP".equals(((PatientLabRouting) o[1]).getLabType())) continue;
+            ConsultResponseDoc c = (ConsultResponseDoc) o[0];
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
             lbData.labPatientId = "" + c.getDocumentNo();
             attachedLabs.add(lbData);

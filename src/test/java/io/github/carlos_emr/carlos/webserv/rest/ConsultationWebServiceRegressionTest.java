@@ -56,7 +56,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @Tag("unit")
 @Tag("rest")
 @Tag("regression")
-class ConsultationWebServiceRegressionTest {
+class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     private static final Integer DEMOGRAPHIC_NO = 123;
     private static final String PROVIDER_NO = "999998";
@@ -71,6 +71,9 @@ class ConsultationWebServiceRegressionTest {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao routing;
+
     private ConsultationWebService service;
 
     @BeforeEach
@@ -81,6 +84,7 @@ class ConsultationWebServiceRegressionTest {
                 return loggedInInfo;
             }
         };
+        ReflectionTestUtils.setField(service, "patientLabRoutingDao", routing);
         ReflectionTestUtils.setField(service, "documentManager", documentManager);
         ReflectionTestUtils.setField(service, "consultationManager", consultationManager);
     }
@@ -103,6 +107,87 @@ class ConsultationWebServiceRegressionTest {
         assertThat(request.getAttachments()).hasSize(1);
         assertThat(request.getAttachments().get(0).getValidationError()).isEqualTo("Invalid attachment filename");
         assertThat(request.getAttachments().get(0).getDocumentNo()).isZero();
+    }
+
+    @Test
+    void shouldKeepBothSources_whenRestLabNumbersOverlap() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(List.of(lab("HL7"), lab("MDS"), lab("HL7")));
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of());
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
+        route("HL7");
+        route("MDS");
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        var saved = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.ConsultDocs.class);
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.times(2)).saveConsultRequestDoc(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getAllValues()).extracting(io.github.carlos_emr.carlos.commn.model.ConsultDocs::getLabType)
+                .containsExactly("HL7", "MDS");
+    }
+
+    @Test
+    void shouldPreserveExistingLab_whenRestSelectionRemainsAttached() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(List.of(lab("MDS")));
+        var existing = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, "L", PROVIDER_NO);
+        existing.setId(900);
+        existing.setLabType("MDS");
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of(existing));
+        route("MDS");
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        assertThat(existing.getDeleted()).isNull();
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultRequestDoc(any(), any());
+    }
+
+    @Test
+    void shouldRejectAmbiguousRestSelectionBeforeDetach_whenLegacyClientOmitsSource() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(List.of(lab(null)));
+        var existing = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, "L", PROVIDER_NO);
+        existing.setId(900);
+        existing.setLabType("MDS");
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of(existing));
+        when(routing.findLabSourcesForPatient(77, DEMOGRAPHIC_NO)).thenReturn(List.of("HL7", "MDS"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(existing.getDeleted()).isNull();
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultRequestDoc(any(), any());
+    }
+
+    @Test
+    void shouldExposeNoViewerUrl_whenLegacyLabSourceIsUnresolved() {
+        var lab = new io.github.carlos_emr.carlos.lab.ca.on.LabResultData();
+        lab.labType = "UNRESOLVED";
+        lab.setSegmentID("77");
+        lab.setLabel("Source confirmation required");
+        lab.setAttachmentUnavailable(true);
+        var output = new java.util.ArrayList<ConsultationAttachmentTo1>();
+        ReflectionTestUtils.invokeMethod(service, "getLabs", List.of(lab), "123", true, output);
+        assertThat(output).hasSize(1);
+        assertThat(output.getFirst().getLabType()).isEqualTo("UNRESOLVED");
+        assertThat(output.getFirst().getUrl()).isNull();
+        assertThat(output.getFirst().getDisplayName()).isEqualTo("Source confirmation required");
+    }
+
+    private void route(String source) {
+        var row = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(77, source, DEMOGRAPHIC_NO);
+        when(routing.findByLabNoAndLabType(77, source)).thenReturn(List.of(row));
+    }
+
+    private ConsultationAttachmentTo1 lab(String source) {
+        var attachment = new ConsultationAttachmentTo1(77, "L", true, "Lab", null);
+        attachment.setLabType(source);
+        return attachment;
     }
 
     private static ConsultationAttachmentTo1 newDocumentAttachment() {

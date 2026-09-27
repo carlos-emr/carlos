@@ -52,7 +52,6 @@ import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParamet
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
-import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -154,6 +153,18 @@ public final class DbTicklerAdd2Action extends ActionSupport {
             return NONE;
         }
 
+        Date serviceDate;
+        try {
+            serviceDate = TicklerFormDate.parse(docDate);
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid service date");
+            return NONE;
+        }
+        if (tickler.getDemographicNo() <= 0 || docCreator.isBlank() || taskAssignedTo.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing tickler fields");
+            return NONE;
+        }
+
         tickler.setUpdateDate(new Date());
         if (priority != null && priority.equalsIgnoreCase("High")) {
             tickler.setPriority(Tickler.PRIORITY.High);
@@ -164,17 +175,19 @@ public final class DbTicklerAdd2Action extends ActionSupport {
         tickler.setCreator(docCreator);
         tickler.setMessage(ticklerMessage);
 
-        Date serviceDate = UtilDateUtilities.StringToDate(docDate);
-        if (serviceDate == null) {
-            serviceDate = new Date();
-        }
         tickler.setServiceDate(serviceDate);
         tickler.setCreateDate(new Date());
 
         boolean rowsAffected = false;
         try {
-            ticklerManager.addTickler(loggedInInfo, tickler);
-            rowsAffected = true;
+            rowsAffected = ticklerManager.addTickler(loggedInInfo, tickler);
+            if (!rowsAffected) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid tickler");
+                return NONE;
+            }
+            if (tickler.getId() == null || tickler.getId() <= 0) {
+                throw new IllegalStateException("Saved tickler has no identifier");
+            }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to add tickler", e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to save tickler");

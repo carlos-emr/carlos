@@ -1436,7 +1436,7 @@ public class EForm extends EFormBase {
         }
 
         for (String labId : attachedLabIds) {
-            addHiddenInputElement("delegate_labNo" + labId, "labNo", "delegateAttachment", labId, null);
+            addHiddenInputElement("delegate_labNo" + labId.replace(":", ""), "labNo", "delegateAttachment", labId, null);
         }
 
         for (EctFormData.PatientForm form : attachedForms) {

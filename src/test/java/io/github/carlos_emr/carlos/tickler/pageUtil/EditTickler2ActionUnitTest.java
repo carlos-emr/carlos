@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
@@ -75,7 +74,6 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
-    private MockedStatic<DateUtils> dateUtilsMock;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -98,12 +96,8 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
-        // The action's service-date comparison always re-parses the submitted date; the
-        // configured DATE_FORMAT is not what this test is about.
-        dateUtilsMock = mockStatic(DateUtils.class);
-        dateUtilsMock.when(() -> DateUtils.parseDate(anyString(), any())).thenReturn(new Date());
-
         ticklerManager = createAndRegisterMock(TicklerManager.class);
+        org.mockito.Mockito.lenient().when(ticklerManager.updateTickler(any(), any())).thenReturn(true);
         ticklerAttachmentService = createAndRegisterMock(TicklerAttachmentService.class);
         securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), (String) any()))
@@ -115,14 +109,13 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         tickler.setStatus(Tickler.STATUS.A);
         tickler.setPriority(Tickler.PRIORITY.Normal);
         tickler.setTaskAssignedTo("999998");
-        tickler.setServiceDate(new Date());
+        tickler.setServiceDate(TicklerFormDate.parse("2026-09-27"));
         tickler.setCreator("999998");
         when(ticklerManager.getTickler(loggedInInfo, 42)).thenReturn(tickler);
     }
 
     @AfterEach
     void tearDown() {
-        dateUtilsMock.close();
         loggedInInfoMock.close();
         servletActionContextMock.close();
     }

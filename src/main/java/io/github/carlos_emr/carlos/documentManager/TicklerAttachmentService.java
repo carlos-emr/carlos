@@ -385,6 +385,7 @@ public class TicklerAttachmentService {
         private Map<String, String> labNames;
         private Map<String, String> hrmNames;
         private Map<String, String> formNames;
+        private Set<String> ownedFormIds;
 
         private AttachmentNameResolver(LoggedInInfo loggedInInfo, Integer demographicNo) {
             this.loggedInInfo = loggedInInfo;
@@ -404,17 +405,33 @@ public class TicklerAttachmentService {
             // A row is only shown while its item is still the patient's: a document re-filed or
             // an HRM report re-assigned since it was attached is left out, whatever the caller's
             // rights, so a tickler never surfaces another patient's item.
-            if (!belongsToPatient(loggedInInfo, documentType, ticklerDoc.getDocumentNo(), ticklerDoc.getLabType(), demographicNo)) {
+            boolean viewable = readable.computeIfAbsent(documentType,
+                    type -> isTypeReadable(loggedInInfo, type, demographicNo));
+            boolean owned;
+            if (documentType == DocumentType.FORM) {
+                if (viewable && formNames == null) {
+                    List<EctFormData.PatientForm> forms = formsManager.getEncounterFormsbyDemographicNumber(
+                            loggedInInfo, demographicNo, true, false);
+                    formNames = uniqueFormNames(forms);
+                    ownedFormIds = new HashSet<>();
+                    if (forms != null) for (EctFormData.PatientForm form : forms) {
+                        if (form != null && form.getFormId() != null) ownedFormIds.add(form.getFormId());
+                    }
+                }
+                owned = !viewable || ownedFormIds.contains(documentId);
+            } else {
+                owned = belongsToPatient(loggedInInfo, documentType, ticklerDoc.getDocumentNo(), ticklerDoc.getLabType(), demographicNo);
+            }
+            if (!owned) {
                 logger.warn("Omitting tickler attachment: {} item is no longer the tickler's patient's", documentType.getName());
                 return null;
             }
-            boolean viewable = readable.computeIfAbsent(documentType,
-                    type -> isTypeReadable(loggedInInfo, type, demographicNo));
             if (!viewable) {
                 return new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), null, false);
             }
 
             String displayName = null;
+            String formName = null;
             switch (documentType) {
                 case DOC:
                     Document document = documentDao.getDocument(documentId);
@@ -437,10 +454,8 @@ public class TicklerAttachmentService {
                     displayName = hrmNames.get(documentId);
                     break;
                 case FORM:
-                    if (formNames == null) {
-                        formNames = formNamesByFormId(loggedInInfo, demographicNo);
-                    }
-                    displayName = formNames.get(documentId);
+                    formName = formNames.get(documentId);
+                    displayName = formName;
                     break;
                 default:
                     break;
@@ -448,7 +463,7 @@ public class TicklerAttachmentService {
             if (displayName == null || displayName.trim().isEmpty()) {
                 displayName = documentType.getName() + " #" + documentId;
             }
-            return new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), displayName, true);
+            return new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), displayName, true, formName);
         }
     }
 
@@ -473,6 +488,10 @@ public class TicklerAttachmentService {
         // its type as soon as another is created, and it still has to resolve.
         List<EctFormData.PatientForm> forms =
                 formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, false);
+        return uniqueFormNames(forms);
+    }
+
+    private static Map<String, String> uniqueFormNames(List<EctFormData.PatientForm> forms) {
         Map<String, String> formNames = new HashMap<>();
         Set<String> ambiguous = new HashSet<>();
         if (forms != null) {

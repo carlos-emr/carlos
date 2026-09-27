@@ -300,8 +300,10 @@ jQuery(document).on('click', '*[data-poload]', function () {
     trigger.data('poload', context + '/previewDocs?method=fetchEFormDocuments&demographicNo=' + demographicNo + '&fdid=' + fdid);
     trigger.off('click');
     let title = trigger.attr("title");
+    let pickerLoaded = false;
     jQuery("#attachDocumentDisplay").load(trigger.data('poload'), function (response, status, xhr) {
-        if (status === "success") {
+        if (status === "success" && jQuery('#attachDocumentsForm').length) {
+            pickerLoaded = true;
             // Disable the floating toolbar when the attachment window opens
             const eformFloatingToolbar = document.getElementById("eform_floating_toolbar");
             eformFloatingToolbar.classList.add("disabled-toolbar");
@@ -310,7 +312,19 @@ jQuery(document).on('click', '*[data-poload]', function () {
                 let delegate = "#" + this.id.split("_")[1];
                 let element = jQuery('#attachDocumentsForm').find(delegate);
                 if (element.length === 0) {
-                    element = addFormIfNotFound(data, demographicNo, delegate);
+                    if (this.name === 'formNo' && document.getElementById('entry_formNo' + this.value)) {
+                        element = addFormIfNotFound(data, demographicNo, delegate);
+                    } else {
+                        // Unlisted/restricted attachments cannot disappear merely because the
+                        // picker does not offer them. Show an explicit removal choice instead.
+                        element = jQuery('<input>', {
+                            type: 'checkbox', name: this.name, value: this.value,
+                            id: this.id.substring('delegate_'.length), class: 'unlisted_attachment_check'
+                        });
+                        const label = jQuery('<label>').append(element).append(
+                            document.createTextNode(' Existing attachment unavailable in this list; uncheck to remove.'));
+                        jQuery('#attachDocumentsForm').append(jQuery('<div>').append(label));
+                    }
                 }
                 element.attr("checked", true);
 
@@ -340,6 +354,7 @@ jQuery(document).on('click', '*[data-poload]', function () {
         },
 
         beforeClose: function (event, ui) {
+            if (!pickerLoaded) return;
             // before the dialog is closed:
 
             // check if list exists, if yes then empty it otherwise create new
@@ -350,13 +365,13 @@ jQuery(document).on('click', '*[data-poload]', function () {
             jQuery('#attachDocumentList').empty();
 
             // pass the checked documents to the eForm document list(attachDocumentList)
-            jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled'])"
+            jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled']), .unlisted_attachment_check:checked"
             ).each(function (index, data) {
                 let element = jQuery(this);
                 let input = jQuery("<input />", {
                     type: 'hidden',
                     name: element.attr('name'),
-                    value: element.val(),
+                    value: eformAttachmentSubmissionValue(element),
                     id: "delegate_" + element.attr('id'),
                     class: 'delegateAttachment'
                 });
@@ -372,6 +387,17 @@ jQuery(document).on('click', '*[data-poload]', function () {
         }
     });
 });
+
+/** Preserve the lab source when transferring a picker selection to the saved form. */
+function eformAttachmentSubmissionValue(element) {
+    const value = element.val();
+    if (element.attr('name') !== 'labNo' || element.hasClass('unlisted_attachment_check')) return value;
+    const source = element.attr('data-lab-type');
+    if (!/^(HL7|MDS|CML|BCP)$/.test(source || '') || !/^[1-9][0-9]*$/.test(value)) {
+        throw new Error('Invalid lab attachment selection');
+    }
+    return source + ':' + value;
+}
 
 /**
  * This function adds the old form to the attachment window only if that form is displayed in the consultForm/eForm attachments.

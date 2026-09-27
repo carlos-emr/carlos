@@ -12,6 +12,14 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
@@ -38,8 +46,25 @@ public class DocumentAttach {
     }
 
     public void attachToConsult(String[] attachments, DocumentType documentType, String providerNo, Integer requestId) {
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            var owner = SpringUtils.getBean(ConsultationRequestDao.class).lockForAttachmentSync(requestId);
+            if (owner == null || owner.getDemographicId() == null
+                    || (demographicNo != null && !demographicNo.equals(owner.getDemographicId()))) {
+                throw new IllegalArgumentException("Attachment parent does not belong to this patient");
+            }
+            int patient = owner.getDemographicId();
+
+            if (documentType == DocumentType.LAB) {
+                syncConsultLabs(attachments, providerNo, requestId, patient);
+            } else {
+                syncConsultDocuments(attachments, documentType, providerNo, requestId);
+            }
+        });
+    }
+
+    private void syncConsultDocuments(String[] attachments, DocumentType documentType, String providerNo, Integer requestId) {
         List<String> currentList = new ArrayList<>(Arrays.asList(attachments));
-        List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
+        List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, documentType.getType());
         List<String> oldList = new ArrayList<>();
         for (ConsultDocs consultDoc : consultDocsList) {
             oldList.add(Integer.toString(consultDoc.getDocumentNo()));
@@ -56,7 +81,7 @@ public class DocumentAttach {
             ConsultDocs consultDoc = new ConsultDocs(requestId, Integer.parseInt(docId), documentType.getType(), providerNo);
             consultDocsDao.persist(consultDoc);
 
-            if (editOnOcean) {
+            if (Boolean.TRUE.equals(editOnOcean)) {
                 OceanEReferralAttachmentUtil.attachOceanEReferralConsult(docId, demographicNo, documentType.getType());
             }
         }
@@ -73,15 +98,32 @@ public class DocumentAttach {
                 consultDocsDao.merge(consultDoc);
             }
 
-            if (editOnOcean) {
+            if (Boolean.TRUE.equals(editOnOcean)) {
                 OceanEReferralAttachmentUtil.detachOceanEReferralConsult(docId, documentType.getType());
             }
         }
     }
 
     public void attachToEForm(String[] attachments, DocumentType documentType, String providerNo, Integer fdid) {
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            var owner = SpringUtils.getBean(EFormDataDao.class).lockForAttachmentSync(fdid);
+            if (owner == null || owner.getDemographicId() == null
+                    || (demographicNo != null && !demographicNo.equals(owner.getDemographicId()))) {
+                throw new IllegalArgumentException("Attachment parent does not belong to this patient");
+            }
+            int patient = owner.getDemographicId();
+
+            if (documentType == DocumentType.LAB) {
+                syncEFormLabs(attachments, providerNo, fdid, patient);
+            } else {
+                syncEFormDocuments(attachments, documentType, providerNo, fdid);
+            }
+        });
+    }
+
+    private void syncEFormDocuments(String[] attachments, DocumentType documentType, String providerNo, Integer fdid) {
         List<String> currentList = new ArrayList<>(Arrays.asList(attachments));
-        List<EFormDocs> eFormDocsList = eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType());
+        List<EFormDocs> eFormDocsList = eFormDocsDao.findByFdidIdDocTypeForUpdate(fdid, documentType.getType());
         List<String> oldList = new ArrayList<>();
         for (EFormDocs eFormDoc : eFormDocsList) {
             oldList.add(Integer.toString(eFormDoc.getDocumentNo()));
@@ -112,4 +154,73 @@ public class DocumentAttach {
             }
         }
     }
+    private Set<LabAttachmentReference> selectedLabs(String[] values, int patient,
+                                                     Set<LabAttachmentReference> existing) {
+        PatientLabRoutingDao routing = SpringUtils.getBean(PatientLabRoutingDao.class);
+        Set<LabAttachmentReference> selected = new LinkedHashSet<>();
+        for (String value : values) {
+            if (value != null && value.startsWith(LabAttachmentReference.UNRESOLVED + ":")) {
+                LabAttachmentReference unresolved = LabAttachmentReference.parse(value);
+                if (!existing.contains(unresolved)) {
+                    throw new IllegalArgumentException("Unknown unresolved lab attachment");
+                }
+                selected.add(unresolved);
+            } else {
+                LabAttachmentReference reference = LabAttachmentReference.resolve(value, patient, routing);
+                if (Boolean.TRUE.equals(editOnOcean) && !"HL7".equals(reference.source())) {
+                    throw new IllegalArgumentException("Ocean lab export supports HL7 attachments only");
+                }
+                selected.add(reference);
+            }
+        }
+        return selected;
+    }
+
+    private void syncConsultLabs(String[] values, String providerNo, int requestId, int patient) {
+        List<ConsultDocs> rows = consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, DocumentType.LAB.getType());
+        Set<LabAttachmentReference> existing = new LinkedHashSet<>();
+        for (ConsultDocs row : rows) existing.add(LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo()));
+        Set<LabAttachmentReference> wanted = selectedLabs(values, patient, existing);
+        // Resolve and validate the complete selection before any detach, persist or Ocean write.
+        for (ConsultDocs row : rows) {
+            LabAttachmentReference ref = LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo());
+            if (!wanted.contains(ref)) {
+                row.setDeleted(ConsultDocs.DELETED);
+                consultDocsDao.merge(row);
+                if (Boolean.TRUE.equals(editOnOcean) && "HL7".equals(ref.source())) {
+                    OceanEReferralAttachmentUtil.detachOceanEReferralConsult("" + ref.id(), DocumentType.LAB.getType());
+                }
+            }
+        }
+        for (LabAttachmentReference ref : wanted) {
+            if (existing.contains(ref)) continue;
+            ConsultDocs row = new ConsultDocs(requestId, ref.id(), DocumentType.LAB.getType(), providerNo);
+            row.setLabType(ref.storageSource());
+            consultDocsDao.persist(row);
+            if (Boolean.TRUE.equals(editOnOcean)) {
+                OceanEReferralAttachmentUtil.attachOceanEReferralConsult("" + ref.id(), patient, DocumentType.LAB.getType());
+            }
+        }
+    }
+
+    private void syncEFormLabs(String[] values, String providerNo, int fdid, int patient) {
+        List<EFormDocs> rows = eFormDocsDao.findByFdidIdDocTypeForUpdate(fdid, DocumentType.LAB.getType());
+        Set<LabAttachmentReference> existing = new LinkedHashSet<>();
+        for (EFormDocs row : rows) existing.add(LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo()));
+        Set<LabAttachmentReference> wanted = selectedLabs(values, patient, existing);
+        for (EFormDocs row : rows) {
+            LabAttachmentReference ref = LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo());
+            if (!wanted.contains(ref)) {
+                row.setDeleted("Y");
+                eFormDocsDao.merge(row);
+            }
+        }
+        for (LabAttachmentReference ref : wanted) {
+            if (existing.contains(ref)) continue;
+            EFormDocs row = new EFormDocs(fdid, ref.id(), DocumentType.LAB.getType(), providerNo);
+            row.setLabType(ref.storageSource());
+            eFormDocsDao.persist(row);
+        }
+    }
+
 }

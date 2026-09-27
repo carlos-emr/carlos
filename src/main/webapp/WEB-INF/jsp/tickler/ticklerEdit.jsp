@@ -77,7 +77,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
@@ -109,7 +108,6 @@
     }
 %>
 <%
-    boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
     String ticklerNoStr = request.getParameter("tickler_no");
 
     Integer ticklerNo = null;
@@ -160,6 +158,7 @@
         <title><fmt:message key="tickler.ticklerEdit.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <%-- jQuery UI JS is page-specific (global-head ships only its CSS); the attachment picker is a UI dialog. --%>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <style>
             /* Links — CARLOS primary blue */
@@ -379,17 +378,11 @@
                 if (btn) { btn.disabled = false; }
             }
 
-            function validateSelectedProgram() {
-                if (document.serviceform.program_assigned_to && document.serviceform.program_assigned_to.value === "none") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
-                    return false;
-                }
-                return true;
-            }
+
 
             function validate(form) {
-                if (validateDate(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
+                CarlosTicklerValidation.reset();
+                if (validateDate(form)) {
                     // Disable update button to prevent double-submit
                     var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
                     if (btn) { btn.disabled = true; }
@@ -479,8 +472,7 @@
 
             function validateDate(form) {
                 if (form.xml_appointment_date.value === "" || !IsDate(form.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
+                    CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                     return false;
                 } else {
                     return true;
@@ -499,7 +491,7 @@
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
             </div>
-            <div id="error" class="alert alert-danger" style="display:none;"></div>
+            <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
 
             <%-- 1. Compact demographic card --%>
             <div class="demo-card">

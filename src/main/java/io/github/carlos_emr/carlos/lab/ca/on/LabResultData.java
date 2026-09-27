@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -70,6 +72,8 @@ public class LabResultData implements Comparable<LabResultData> {
 
     //HL7TEXT handles all messages types recieved as a hl7 formatted string
     public static String HL7TEXT = "HL7";
+
+    private boolean attachmentUnavailable;
 
     public String segmentID;
     public String labPatientId;
@@ -129,6 +133,19 @@ public class LabResultData implements Comparable<LabResultData> {
 
     public void setLabPatientId(String lpi) {
         this.labPatientId = lpi;
+    }
+
+    public boolean isAttachmentUnavailable() {
+        return attachmentUnavailable;
+    }
+
+    public void setAttachmentUnavailable(boolean attachmentUnavailable) {
+        this.attachmentUnavailable = attachmentUnavailable;
+    }
+
+    public String getAttachmentKey() {
+        return LabAttachmentReference
+                .stored(labType, Integer.parseInt(segmentID)).key();
     }
 
     public String getSegmentID() {
@@ -258,6 +275,7 @@ public class LabResultData implements Comparable<LabResultData> {
 
 
     public String getDiscipline() {
+        if (attachmentUnavailable) return null;
         if (CML.equals(this.labType)) {
             CMLLabTest cml = new CMLLabTest();
             this.discipline = cml.getDiscipline(this.segmentID);
@@ -352,6 +370,7 @@ public class LabResultData implements Comparable<LabResultData> {
     }
 
     public Date getDateObj() {
+        if (attachmentUnavailable) return null;
         if (EXCELLERIS.equals(this.labType)) {
 
             this.dateTimeObr = UtilDateUtilities.getDateFromString(this.getDateTime(), "yyyy-MM-dd HH:mm:ss");
@@ -398,32 +417,28 @@ public class LabResultData implements Comparable<LabResultData> {
         this.dateTimeObr = d;
     }
 
-    public int compareTo(LabResultData object) {
-        int ret = 0;
-        if (this.getDateObj() != null && object.getDateObj() != null && this.segmentID != null && object.segmentID != null) {
-            try {
-                if (this.dateTimeObr.after(object.getDateObj())) {
-                    ret = -1;
-                } else if (this.dateTimeObr.before(object.getDateObj())) {
-                    ret = 1;
-                } else if (this.finalResultsCount > object.finalResultsCount) {
-                    ret = -1;
-                } else if (this.finalResultsCount < object.finalResultsCount) {
-                    ret = 1;
-                } else if (Integer.parseInt(this.segmentID) > Integer.parseInt(object.segmentID)) {
-                    ret = -1;
-                } else {
-                    ret = 1;
-                }
-            } catch (NumberFormatException ex) {
-                if (this.segmentID.compareTo(object.segmentID) > 0) {
-                    ret = -1;
-                } else {
-                    ret = 1;
-                }
-            }
+    @Override
+    public int compareTo(LabResultData other) {
+        int result = Comparator.nullsLast(Comparator.<Date>reverseOrder()).compare(getDateObj(), other.getDateObj());
+        if (result != 0) return result;
+        result = Integer.compare(other.finalResultsCount, finalResultsCount);
+        if (result != 0) return result;
+        result = compareSegmentIds(segmentID, other.segmentID);
+        if (result != 0) return result;
+        return Comparator.nullsLast(Comparator.<String>naturalOrder()).compare(labType, other.labType);
+    }
+
+    private static int compareSegmentIds(String left, String right) {
+        if (left == null || right == null) {
+            return Comparator.nullsLast(Comparator.<String>reverseOrder()).compare(left, right);
         }
-        return ret;
+        boolean leftNumeric = left.matches("[0-9]+");
+        boolean rightNumeric = right.matches("[0-9]+");
+        if (leftNumeric && rightNumeric) {
+            return new java.math.BigInteger(right).compareTo(new java.math.BigInteger(left));
+        }
+        if (leftNumeric != rightNumeric) return leftNumeric ? -1 : 1;
+        return right.compareTo(left);
     }
 
     public CompareId getComparatorId() {

@@ -250,6 +250,7 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
                     "_demographic", "w"),
             // --- eform ---
+            Arguments.of("io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action", "_eform", "u"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
                     "_admin.eform", "w"),
             // Creates a document from an approved-but-incomplete render, so a GET must not reach

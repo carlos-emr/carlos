@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+
 import io.github.carlos_emr.carlos.managers.*;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.metrics.LongCounter;
@@ -118,6 +120,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param requestId Integer the unique identifier of the consultation request
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the consultation request
@@ -131,7 +136,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> consultAttachments = new ArrayList<>();
         List<ConsultDocs> consultDocs = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
         for (ConsultDocs consultDocs1 : consultDocs) {
-            consultAttachments.add(String.valueOf(consultDocs1.getDocumentNo()));
+            consultAttachments.add(documentType == DocumentType.LAB
+                    ? LabAttachmentReference
+                        .stored(consultDocs1.getLabType(), consultDocs1.getDocumentNo()).key()
+                    : String.valueOf(consultDocs1.getDocumentNo()));
         }
         return consultAttachments;
     }
@@ -145,6 +153,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param fdid Integer the unique form data identifier of the eForm
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the eForm
@@ -158,7 +169,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> eFormAttachments = new ArrayList<>();
         List<EFormDocs> eFormDocs = eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType());
         for (EFormDocs eFormDocs1 : eFormDocs) {
-            eFormAttachments.add(String.valueOf(eFormDocs1.getDocumentNo()));
+            eFormAttachments.add(documentType == DocumentType.LAB
+                    ? LabAttachmentReference
+                        .stored(eFormDocs1.getLabType(), eFormDocs1.getDocumentNo()).key()
+                    : String.valueOf(eFormDocs1.getDocumentNo()));
         }
         return eFormAttachments;
     }
@@ -172,6 +186,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param fdid Integer the unique form data identifier of the eForm
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (typically FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;EctFormData.PatientForm&gt; a list of PatientForm objects attached to the eForm
@@ -353,7 +370,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        DocumentAttach documentAttach = new DocumentAttach();
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, false);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
@@ -405,7 +422,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
-        DocumentAttach documentAttach = new DocumentAttach();
+        DocumentAttach documentAttach = new DocumentAttach(demographicNo, false);
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
     }
 
@@ -924,8 +941,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
     }
 
-    private void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
         for (LabResultData lab : attachedLabs) {
+            if (lab.isAttachmentUnavailable()) {
+                throw new PDFGenerationException("A lab attachment is unavailable or has an unresolved source. Select it again before printing.");
+            }
+            if (!LabResultData.HL7TEXT.equals(lab.getLabType())) {
+                throw new PDFGenerationException("This lab source cannot be included in a PDF packet. Print it from its source-specific lab viewer.");
+            }
             Path path = renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(lab.getSegmentID()));
             pdfDocumentList.add(path.toString());
         }

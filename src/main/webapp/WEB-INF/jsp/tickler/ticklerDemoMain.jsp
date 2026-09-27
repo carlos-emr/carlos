@@ -117,8 +117,6 @@
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 
     TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
-    // Encounter form names, resolved lazily per patient the first time a form attachment is seen.
-    java.util.Map<Integer, java.util.Map<String, String>> formNamesByDemographic = new java.util.HashMap<>();
 %>
 
 
@@ -997,11 +995,7 @@
                                                     break;
                                                 case FORM:
                                                     Integer formDemographicNo = t.getDemographicNo();
-                                                    if (!formNamesByDemographic.containsKey(formDemographicNo)) {
-                                                        formNamesByDemographic.put(formDemographicNo,
-                                                                ticklerAttachmentService.formNamesByFormId(loggedInInfo, formDemographicNo));
-                                                    }
-                                                    String formName = formNamesByDemographic.get(formDemographicNo).get(attachment.getDocumentId());
+                                                    String formName = attachment.getFormName();
                                                     if (formName != null) {
                                                         href = request.getContextPath() + "/form/forwardshortcutname?formname=" + SafeEncode.forUriComponent(formName)
                                                                 + "&demographic_no=" + SafeEncode.forUriComponent(String.valueOf(formDemographicNo))

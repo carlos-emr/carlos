@@ -65,9 +65,7 @@
 
     @since CARLOS EMR 2026
 --%>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
@@ -143,18 +141,6 @@
 
     Boolean writeToEncounter = false;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    Boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
-    Integer defaultProgramId = null;
-    List<ProgramProvider> programProviders = new ArrayList<ProgramProvider>();
-
-    if (caisiEnabled) {
-        ProgramProviderDAO programProviderDao = SpringUtils.getBean(ProgramProviderDAO.class);
-        programProviders = programProviderDao.getProgramProviderByProviderNo(loggedInInfo.getLoggedInProviderNo());
-        if (programProviders.size() == 1) {
-            defaultProgramId = programProviders.get(0).getProgram().getId();
-        }
-    }
-
     String parentAjaxId;
     if (request.getParameter("parentAjaxId") != null)
         parentAjaxId = request.getParameter("parentAjaxId");
@@ -216,6 +202,7 @@
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script>
         // i18n messages for JavaScript — encoded via SafeEncode.forJavaScript() to prevent XSS and broken JS strings
         const i18nQuickPickFrom = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' context="javaScriptBlock"/>';
@@ -444,7 +431,8 @@
 
         function validate(form, writeToEncounter) {
             writeToEncounter = writeToEncounter || false;
-            if (validateDemoNo()<%= caisiEnabled ? " && validateSelectedProgram()" : "" %>) {
+            CarlosTicklerValidation.reset();
+            if (validateDemoNo()) {
                 // Disable submit buttons to prevent double-submit
                 var btns = document.querySelectorAll('.action-bar-bottom .btn-primary, .action-bar-bottom .btn-secondary');
                 btns.forEach(function(b) { b.disabled = true; });
@@ -562,14 +550,7 @@
             }
         }
 
-        function validateSelectedProgram() {
-            if (document.serviceform.program_assigned_to.value === "none") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                document.getElementById("error").style.display = 'block';
-                return false;
-            }
-            return true;
-        }
+
 
         function IsDate(value) {
             let dateWrapper = new Date(value);
@@ -577,29 +558,24 @@
         }
 
         function validateDemoNo() {
-            if (document.serviceform.demographic_no.value == "") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' context="javaScriptBlock"/>');
-                document.getElementById("error").style.display = 'block';
-                return false;
-            } else {
-                if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
-                    return false;
-                }
-                <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
-                else if (!document.serviceform.task_assigned_to ||
-                         document.serviceform.task_assigned_to.options.length === 0 ||
-                         document.serviceform.task_assigned_to.value === "") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
-                    return false;
-                }
-                <% } %>
-                else {
-                    return true;
-                }
+            var valid = true;
+            if (document.serviceform.demographic_no.value === "") {
+                CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' context="javaScriptBlock"/>');
+                valid = false;
             }
+            if (document.serviceform.xml_appointment_date.value === "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
+                CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
+                valid = false;
+            }
+            <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
+            if (!document.serviceform.task_assigned_to ||
+                    document.serviceform.task_assigned_to.options.length === 0 ||
+                    document.serviceform.task_assigned_to.value === "") {
+                CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
+                valid = false;
+            }
+            <% } %>
+            return valid;
         }
 
         function refresh() {

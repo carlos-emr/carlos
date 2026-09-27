@@ -312,7 +312,7 @@
                 // Version chains exist for HL7 labs only, and segment ids are only unique within a
                 // source: the chain is walked for HL7 labs and matched on source and id, so an
                 // MDS/CML/BCP lab sharing an id with an HL7 version is never pulled into its place.
-                boolean hl7Lab = LabResultData.HL7TEXT.equals(attachedLab1.getLabType());
+                boolean hl7Lab = !attachedLab1.isAttachmentUnavailable() && LabResultData.HL7TEXT.equals(attachedLab1.getLabType());
                 String[] matchingLabIds = hl7Lab
                         ? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",")
                         : new String[]{attachedLab1.getSegmentID()};
@@ -2558,9 +2558,13 @@ if (userAgent != null) {
                                                             <%-- The picker's lab checkbox id carries the lab source
                                                                  (labNoHL7123), and the pre-check looks the box up by
                                                                  this delegate id minus its delegate_ prefix. --%>
-                                                            <input name="labNo" value="${ attachedLab.segmentID }"
+                                                            <input name="labNo" value="${carlos:forHtmlAttribute(attachedLab.attachmentKey)}"
                                                                    id="delegate_labNo${ attachedLab.labType }${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
+                                                            <c:if test="${attachedLab.attachmentUnavailable}">
+                                                                <button type="button" class="removeUnavailableLab"
+                                                                        onclick="this.closest('tr').remove()"><fmt:message key="admin.eformReportTool.remove"/></button>
+                                                            </c:if>
                                                         </td>
                                                     </tr>
                                                 </c:forEach>
@@ -3635,7 +3639,8 @@ if (userAgent != null) {
                             var input = jQuery("<input />", {
                                 type: 'hidden',
                                 name: element.attr('name'),
-                                value: element.val(),
+                                value: element.attr('name') === 'labNo'
+                                    ? element.attr('data-lab-type') + ':' + element.val() : element.val(),
                                 id: "delegate_" + element.attr('id'),
                                 class: 'delegateAttachment'
                             });

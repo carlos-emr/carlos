@@ -105,4 +105,6 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
 
     public Date getLatestFormDateAndTimeForEforms(Collection<Integer> fdidList);
 
+    EFormData lockForAttachmentSync(Integer id);
+
 }

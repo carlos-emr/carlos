@@ -43,9 +43,16 @@ public class TicklerAttachmentData {
     private final String labType;
     private final String displayName;
     private final boolean viewable;
+    private final String formName;
 
     public TicklerAttachmentData(DocumentType documentType, String documentId, String labType,
                                  String displayName, boolean viewable) {
+        this(documentType, documentId, labType, displayName, viewable, null);
+    }
+
+    public TicklerAttachmentData(DocumentType documentType, String documentId, String labType,
+                                 String displayName, boolean viewable, String formName) {
+        this.formName = formName;
         this.documentType = documentType;
         this.documentId = documentId;
         this.labType = labType;
@@ -67,6 +74,11 @@ public class TicklerAttachmentData {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    /** Resolved form route name, or null for restricted, missing or ambiguous form IDs. */
+    public String getFormName() {
+        return formName;
     }
 
     public boolean isViewable() {

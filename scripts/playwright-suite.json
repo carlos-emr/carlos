@@ -2592,6 +2592,21 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "tickler-validation-messages",
+      "script": "scripts/tickler-validation-messages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TICKLER_DIRECT_LIST"
+      ]
     }
   ]
 }
