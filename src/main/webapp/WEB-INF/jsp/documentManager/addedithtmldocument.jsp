@@ -59,7 +59,6 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
@@ -121,7 +120,7 @@
         formdata.setReviewerId(currentDoc.getReviewerId());
         formdata.setReviewDateTime(currentDoc.getReviewDateTime());
         formdata.setContentDateTime(UtilDateUtilities.DateToString(currentDoc.getContentDateTime(), EDocUtil.CONTENT_DATETIME_FORMAT));
-        formdata.setHtml(UtilMisc.htmlEscape(currentDoc.getHtml()));
+        formdata.setHtml(currentDoc.getHtml());
         lastUpdate = currentDoc.getDateTimeStamp();
         fileName = currentDoc.getFileName();
     } else {

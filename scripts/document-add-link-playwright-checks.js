@@ -262,6 +262,25 @@ async function main() {
   assert(await editor.evaluate(() => window.__carlos3992 === undefined), 'Stored HTML executed inside the editor');
   assert(await editor.locator('input[name="sourceFacility"]').inputValue() === originalFacility,
     'The HTML editor did not load the existing source facility');
+  if (!config.expectFrontDoor) {
+    // Bypass only client-side required-field validation to exercise the server's retry render.
+    // The front door correctly blocks this hostile HTML POST, so this case uses bare Tomcat.
+    await editor.locator('input[name="docDesc"]').fill('');
+    const [retryResponse] = await Promise.all([
+      editor.waitForResponse(r => new URL(r.url()).pathname.endsWith('/documentManager/addEditHtml')
+        && r.request().method() === 'POST'),
+      editor.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+      editor.evaluate(() => HTMLFormElement.prototype.submit.call(document.querySelector('form'))),
+    ]);
+    assert(retryResponse.status() < 400, 'HTML validation retry returned an error response');
+    assert(await editor.locator('textarea[name="html"]').inputValue() === hostileEditorText,
+      'Validation retry changed or executed the submitted HTML text');
+    assert(await editor.evaluate(() => window.__carlos3992 === undefined), 'Retry HTML escaped the textarea');
+    assert(sql.value(`SELECT sourcefacility FROM document WHERE document_no=${documentNo}`) === originalFacility,
+      'The rejected HTML edit changed stored metadata');
+    await editor.locator('input[name="docDesc"]').fill(`${httpsDesc} (link)`);
+    console.log('PASS application validation retry keeps hostile HTML inert and preserves stored metadata');
+  }
   await editor.locator('input[name="sourceFacility"]').fill('FAKE updated referral hospital');
   const editedText = 'Clinical reference & follow-up\nSecond line';
   await editor.locator('textarea[name="html"]').fill(editedText);
