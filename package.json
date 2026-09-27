@@ -148,6 +148,7 @@
     "test:health-tracker-playwright": "node scripts/health-tracker-playwright-checks.js",
     "test:consultation-signature-fallback-playwright": "node scripts/consultation-signature-fallback-playwright-checks.js",
     "test:echart-note-editor-playwright": "node scripts/echart-note-editor-playwright-checks.js",
+    "test:echart-note-soft-wrap-playwright": "node scripts/echart-note-soft-wrap-playwright-checks.js",
     "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js",
     "test:registry-ichppc-lifecycle-playwright": "node scripts/registry-ichppc-lifecycle-playwright-checks.js",
     "test:about-licence-playwright": "node scripts/about-licence-playwright-checks.js",
@@ -174,6 +175,7 @@
     "test:demographic-label-content-playwright": "node scripts/demographic-label-content-playwright-checks.js",
     "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js",
     "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js",
+    "test:encounter-legacy-note-soft-wrap-playwright": "node scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
     "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js"
   },
   "dependencies": {

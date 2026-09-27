@@ -628,6 +628,32 @@
       ]
     },
     {
+      "name": "echart-note-soft-wrap",
+      "script": "scripts/echart-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "encounter-legacy-note-soft-wrap",
+      "script": "scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "echart-print",
       "script": "scripts/echart-print-playwright-checks.js",
       "tiers": [
