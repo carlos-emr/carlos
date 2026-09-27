@@ -61,6 +61,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { sqlString } = require('./lib/playwright-harness');
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
 
@@ -324,6 +325,30 @@ async function checkEnvelopesWithoutSelection(context) {
   await page.close();
 }
 
+async function checkUnicodeEnvelope(context) {
+  const marker = `FAKE_LETTER_${stamp}`;
+  const provider = sql(`SELECT provider_no FROM security WHERE user_name=${sqlString(testUser)}`);
+  if (!provider) throw new Error('Test provider was not found');
+  const patient = sql(`INSERT INTO demographic
+    (first_name,last_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
+    VALUES ('Łukasz Жуков',${sqlString(marker)},'1980','01','02','F','AC',${sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+  if (!/^[1-9]\d*$/.test(patient)) throw new Error('Synthetic envelope patient was not created');
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'letter-envelope-pdf-'));
+  try {
+    const response = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${patient}`));
+    const bytes = await response.body();
+    expect(response.status() === 200 && isPdf(bytes), 'unicode-envelope: complete PDF returned', {status:response.status()});
+    const file = path.join(temporary, 'envelope.pdf');
+    fs.writeFileSync(file, bytes);
+    const text = execFileSync('pdftotext', [file, '-'], {encoding:'utf8'});
+    expect(text.includes('Łukasz Жуков') && text.includes(marker), 'unicode-envelope: original patient name preserved in installed PDF', {});
+  } finally {
+    fs.rmSync(temporary, {recursive:true, force:true});
+    sql(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${sqlString(marker)}`);
+    if (sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) !== '0') throw new Error('Owned envelope patient remains');
+  }
+}
+
 async function checkEnvelopePdf(context, demographicNo) {
   const response = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${demographicNo}`));
   const body = await response.body();
@@ -498,6 +523,7 @@ async function cleanup() {
   if (!documentDirectory || !path.isAbsolute(documentDirectory) || !fs.statSync(documentDirectory).isDirectory()) {
     throw new Error('LETTER_DOCUMENT_DIR must name the local application document directory for verified cleanup');
   }
+  execFileSync('pdftotext', ['-v'], {stdio:'ignore'});
   sql('SELECT 1');
   const demographicNo = resolveDemographicNo();
   const browser = await chromium.launch(launchOptions);
@@ -510,6 +536,7 @@ async function cleanup() {
     await login(context);
     await checkEnvelopesWithoutSelection(context);
     await checkEnvelopePdf(context, demographicNo);
+    await checkUnicodeEnvelope(context);
     await checkMutatorsRejectGet(context);
     await checkInvalidUpload(context);
     await uploadTemplate(context);
