@@ -26,7 +26,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Locale;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -52,11 +52,21 @@ public final class DocumentLink {
     /** Suffix appended to the document description so link documents are recognisable in lists. */
     public static final String DESCRIPTION_SUFFIX = " (link)";
 
+    /** ASCII scheme syntax; numeric opaque payloads are still explicit schemes. */
+    private static final Pattern EXPLICIT_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.\\-]*:");
+
+    /** ASCII-only case matching avoids Unicode case folding in the scheme allowlist. */
+    private static final Pattern WEB_SCHEME = Pattern.compile("https?", Pattern.CASE_INSENSITIVE);
+
     /**
-     * Leading {@code scheme:} per RFC 3986 section 3.1. The negative look-ahead for a digit keeps
-     * {@code host:8080/path} (a schemeless host with a port) from being read as scheme {@code host}.
+     * Address-bar shorthand for a dotted host or localhost plus a numeric port.
+     * Other single-label host:port inputs are ambiguous with opaque URI schemes;
+     * callers must supply http:// or https:// for those names. IPv4/IPv6 literals
+     * do not match EXPLICIT_SCHEME and are validated by URI's server parser.
      */
-    private static final Pattern EXPLICIT_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.\\-]*:(?!\\d)");
+    private static final Pattern HOST_WITH_PORT = Pattern.compile(
+            "(?:localhost|[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+\\.?):[0-9]+(?:[/?#].*)?",
+            Pattern.CASE_INSENSITIVE);
 
     private DocumentLink() {
     }
@@ -68,10 +78,11 @@ public final class DocumentLink {
      * <ul>
      *   <li>Surrounding whitespace is trimmed; a blank value is rejected.</li>
      *   <li>A value with no scheme gets {@code https://} prepended ({@code //host} gets
-     *       {@code https:}); an existing {@code http} or {@code https} scheme is kept as-is.</li>
+     *       {@code https:}); an existing {@code http} or {@code https} URL is preserved rather than prefixed.</li>
      *   <li>Any other scheme ({@code javascript:}, {@code data:}, {@code file:}, {@code mailto:}...)
-     *       is rejected.</li>
-     *   <li>The result must parse as a {@link URI} with a non-empty authority, so characters that
+     *       is rejected. Dotted hosts and localhost with numeric ports are accepted as
+     *       address shorthand; other single-label hosts with ports need an explicit web scheme.</li>
+     *   <li>The result must parse as a server {@link URI} with a host and a valid port, so characters that
      *       are illegal in a URI (spaces, double quotes, angle brackets, control characters) are
      *       rejected rather than silently rewritten.</li>
      * </ul>
@@ -84,40 +95,47 @@ public final class DocumentLink {
             return Optional.empty();
         }
         String candidate = rawUrl.strip();
-        if (candidate.isEmpty()) {
+        if (candidate.isEmpty() || !StandardCharsets.UTF_8.newEncoder().canEncode(candidate)) {
             return Optional.empty();
         }
         if (candidate.startsWith("//")) {
             candidate = "https:" + candidate;
-        } else if (!EXPLICIT_SCHEME.matcher(candidate).find()) {
+        } else if (!EXPLICIT_SCHEME.matcher(candidate).find() || HOST_WITH_PORT.matcher(candidate).matches()) {
             candidate = "https://" + candidate;
         }
 
         URI uri;
         try {
-            uri = new URI(candidate);
+            uri = new URI(candidate).parseServerAuthority();
         } catch (URISyntaxException e) {
             return Optional.empty();
         }
 
         String scheme = uri.getScheme();
-        if (scheme == null) {
-            return Optional.empty();
-        }
-        String lowerScheme = scheme.toLowerCase(Locale.ROOT);
-        if (!"http".equals(lowerScheme) && !"https".equals(lowerScheme)) {
-            return Optional.empty();
-        }
-        String authority = uri.getRawAuthority();
-        if (uri.isOpaque() || authority == null || authority.isBlank()) {
+        if (scheme == null || !WEB_SCHEME.matcher(scheme).matches()
+                || uri.isOpaque() || uri.getHost() == null || uri.getPort() > 65535) {
             return Optional.empty();
         }
 
-        // toASCIIString percent-encodes any non-ASCII characters the lenient URI parser accepted,
-        // so the stored value is a plain ASCII URL. Only the scheme is re-cased; the rest of the
-        // URL is kept exactly as the user entered it.
-        String ascii = uri.toASCIIString();
-        return Optional.of(lowerScheme + ascii.substring(scheme.length()));
+        // Use fixed ASCII schemes. Do not case-fold untrusted Unicode or normalize
+        // Unicode path/query text: canonically equivalent spellings can name distinct resources.
+        String normalizedScheme = scheme.length() == 5 ? "https" : "http";
+        return Optional.of(normalizedScheme + encodeNonAscii(candidate.substring(scheme.length())));
+    }
+
+    /** Percent-encodes UTF-8 bytes without Unicode normalization or double-encoding existing escapes. */
+    private static String encodeNonAscii(String value) {
+        StringBuilder encoded = new StringBuilder(value.length());
+        final String hex = "0123456789ABCDEF";
+        for (byte octet : value.getBytes(StandardCharsets.UTF_8)) {
+            int unsigned = octet & 0xff;
+            if (unsigned < 128) {
+                encoded.append((char) unsigned);
+            } else {
+                encoded.append('%').append(hex.charAt(unsigned >>> 4)).append(hex.charAt(unsigned & 15));
+            }
+        }
+        return encoded.toString();
     }
 
     /**

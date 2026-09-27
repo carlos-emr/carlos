@@ -13,6 +13,8 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -28,6 +30,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -123,6 +127,7 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
         action.setResponsibleId("202");
         action.setSource("Referring MD");
         action.setSourceFacility("General Hospital");
+        action.setAppointmentNo("321");
         action.setObservationDate("2026/08/30");
         action.setContentDateTime("2026/08/30 09:15:00");
         action.setDocPublic("checked");
@@ -146,6 +151,7 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(retry.getResponsibleId()).isEqualTo("202");
         assertThat(retry.getSource()).isEqualTo("Referring MD");
         assertThat(retry.getSourceFacility()).isEqualTo("General Hospital");
+        assertThat(retry.getAppointmentNo()).isEqualTo("321");
         assertThat(retry.getObservationDate()).isEqualTo("2026/08/30");
         assertThat(retry.getContentDateTime()).isEqualTo("2026/08/30 09:15:00");
         assertThat(retry.getDocPublic()).isEqualTo("checked");
@@ -210,6 +216,113 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reject a link containing a double quote and store nothing")
     void shouldRejectLink_whenUrlContainsDoubleQuote() {
         assertRejectedWithoutSaving("https://example.org/\"onmouseover=\"alert(1)");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"javascript:1", "data:1", "ftp:1", "custom:123", "https://:443",
+            "https://user@", "https://example.org:bad/path", "https://example.org:65536"})
+    void shouldRejectInvalidAuthorityOrScheme_withoutSaving(String url) {
+        assertRejectedWithoutSaving(url);
+    }
+
+    @Test
+    void shouldPersistSourceFacilityAndAppointment_whenAddingLink() {
+        AddEditHtml2Action action = newAddLinkAction("https://example.org/report");
+        action.setSourceFacility("FAKE referral hospital");
+        action.setAppointmentNo("123");
+        OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
+        Appointment appointment = new Appointment();
+        appointment.setDemographicNo(42);
+        when(appointments.find(123)).thenReturn(appointment);
+        registerMock(OscarAppointmentDao.class, appointments);
+        ArgumentCaptor<EDoc> saved = ArgumentCaptor.forClass(EDoc.class);
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo(AddEditHtml2Action.NONE);
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(saved.capture()));
+        }
+        assertThat(saved.getValue().getSourceFacility()).isEqualTo("FAKE referral hospital");
+        assertThat(saved.getValue().getAppointmentNo()).isEqualTo(123);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "other-patient", "provider-module"})
+    void shouldRejectUnrelatedAppointment_withoutSaving(String scenario) {
+        AddEditHtml2Action action = newAddLinkAction("https://example.org/report");
+        action.setAppointmentNo("123");
+        OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
+        if (!"missing".equals(scenario)) {
+            Appointment appointment = new Appointment();
+            appointment.setDemographicNo(43);
+            when(appointments.find(123)).thenReturn(appointment);
+        }
+        if ("provider-module".equals(scenario)) action.setFunction("provider");
+        registerMock(OscarAppointmentDao.class, appointments);
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo("failed");
+            eDocUtilMock.verify(() -> EDocUtil.addDocTypeSQL(any(), any()), never());
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), never());
+        }
+    }
+
+    @Test
+    void shouldKeepSourceFacility_whenEditingHtmlDocument() {
+        AddEditHtml2Action action = newAddLinkAction("<p>Updated report</p>");
+        action.setMode("777");
+        action.setSourceFacility("FAKE referral hospital");
+        ArgumentCaptor<EDoc> saved = ArgumentCaptor.forClass(EDoc.class);
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo(AddEditHtml2Action.NONE);
+            eDocUtilMock.verify(() -> EDocUtil.editDocumentSQL(saved.capture(), eq(false)));
+        }
+        assertThat(saved.getValue().getSourceFacility()).isEqualTo("FAKE referral hospital");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "not-an-id", "2147483648"})
+    void shouldRejectInvalidAppointment_withoutSaving(String appointment) {
+        AddEditHtml2Action action = newAddLinkAction("https://example.org/report");
+        action.setAppointmentNo(appointment);
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo("failed");
+            eDocUtilMock.verify(() -> EDocUtil.addDocTypeSQL(any(), any()), never());
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), never());
+        }
+        assertThat(((AddEditDocument2Form) request.getAttribute("completedForm")).getAppointmentNo())
+                .isEqualTo(appointment);
+    }
+
+    @Test
+    void shouldCreateNewDocumentType_whenSubmissionIsValid() {
+        AddEditHtml2Action action = newAddLinkAction("https://example.org/report");
+        action.setDocType("New valid type");
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo(AddEditHtml2Action.NONE);
+            eDocUtilMock.verify(() -> EDocUtil.addDocTypeSQL("New valid type", "demographic"));
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)));
+        }
+    }
+
+    @Test
+    void shouldAvoidCreatingDocumentType_whenUrlIsInvalid() {
+        AddEditHtml2Action action = newAddLinkAction("javascript:alert(1)");
+        action.setDocType("New rejected type");
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo("failed");
+            eDocUtilMock.verify(() -> EDocUtil.addDocTypeSQL(any(), any()), never());
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), never());
+        }
     }
 
     /**

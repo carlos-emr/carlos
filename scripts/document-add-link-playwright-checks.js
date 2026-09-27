@@ -35,14 +35,14 @@
  * Environment (deb-install contract, docs/ui-tests/deb-install-validation.md):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (row assertions and teardown)
- *   DOCUMENT_ADD_LINK_DEMOGRAPHIC_NO  optional; defaults to the lowest active
- *                                     demographic. SKIP when there is none.
+ *   The check creates and removes its own synthetic patient.
  *
  * FIXTURE SAFETY: every description carries a per-run carlos-link-probe-<uuid>
  * marker; only rows with that marker are asserted on, and they are hard-deleted
  * in cleanup whether the check passes or fails. Link documents own no file.
  */
 const { randomUUID } = require('node:crypto');
+const { cleanupOwnedWorkflow } = require('./lib/workflow-session');
 const {
   SkipCheck, appUrl, assert, assertStrictPage, createRecorder, createSqlRunner,
   gotoApp, launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
@@ -53,6 +53,10 @@ const PROBE_HOST = 'carlos-link-probe.example.invalid';
 const marker = `carlos-link-probe-${randomUUID()}`;
 
 let sql;
+let browser;
+let patient;
+let appointment;
+const patientMarker = `FAKE-LINK-${randomUUID().slice(0, 8)}`;
 
 function docRows(description) {
   return sql.rows(`SELECT document_no, docxml FROM document WHERE docdesc=${sqlString(description)}`);
@@ -60,7 +64,7 @@ function docRows(description) {
 
 async function openReport(page, config, demographicNo) {
   await gotoApp(page, config.baseUrl,
-    `/documentManager/ViewDocumentReport?function=demographic&functionid=${demographicNo}`);
+    `/documentManager/ViewDocumentReport?function=demographic&functionid=${demographicNo}&appointmentNo=${appointment}`);
   await page.locator('button[data-bs-target="#addLinkDiv"]').waitFor({ state: 'visible', timeout: 30000 });
 }
 
@@ -92,6 +96,8 @@ async function assertStored(page, config, description, expectedUrl) {
   assert(rows.length === 1, `expected exactly one stored link row for ${description}, found ${rows.length}`);
   const [documentNo, html] = rows[0];
   assert(/^\d+$/.test(documentNo), 'stored link document id is not numeric');
+  assert(sql.value(`SELECT appointment_no FROM document WHERE document_no=${documentNo}`) === appointment,
+    'The stored link lost its appointment association');
   assert(!html.includes('http://https://'), 'stored link still carries the http://https:// prefix');
   assert(!/<script/i.test(html), 'stored link page still contains inline script');
   assert(html.includes(`content="0; url=${expectedUrl}"`), `stored link does not meta-refresh to ${expectedUrl}`);
@@ -129,6 +135,8 @@ async function assertRejected(context, config, demographicNo, recorder, descript
       `${label}: the Add Link panel did not explain that only http/https links are allowed`);
     assert(await page.locator('#addLinkDiv #html').inputValue() === url,
       `${label}: the rejected URL was not kept in the field for correction`);
+    assert(await page.locator('#addLinkDiv input[name="appointmentNo"]').inputValue() === appointment,
+      `${label}: the validation retry lost the appointment association`);
     assert(await page.locator('#addLinkDiv #html.is-invalid').count() === 1,
       `${label}: the URL field is not marked invalid`);
     return { label, layer: 'application', pageLabel };
@@ -140,94 +148,189 @@ async function assertRejected(context, config, demographicNo, recorder, descript
 async function main() {
   const config = readConfig();
   sql = createSqlRunner(config.mysql);
-  let browser;
-  try {
-    const demographicNo = process.env.DOCUMENT_ADD_LINK_DEMOGRAPHIC_NO
-      || sql.value("SELECT MIN(demographic_no) FROM demographic WHERE patient_status='AC'");
-    if (!/^\d+$/.test(demographicNo || '')) throw new SkipCheck('no active demographic to attach the probe link to');
+  const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+  if (!provider) throw new SkipCheck('The configured login has no provider');
+  patient = sql.value(`INSERT INTO demographic
+    (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+     provider_no,hc_type,province,roster_status,lastUpdateDate)
+    VALUES (${sqlString(patientMarker)},'Link','1980','01','01','F','AC',
+      ${sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+  assert(/^[1-9]\d*$/.test(patient), 'Synthetic patient was not created');
+  const demographicNo = patient;
+  appointment = sql.value(`INSERT INTO appointment
+    (provider_no,appointment_date,start_time,end_time,name,demographic_no,program_id,notes,reason,
+     location,resources,type,style,billing,status,createdatetime,updatedatetime,creator,remarks,urgency)
+    VALUES (${sqlString(provider)},CURDATE(),'11:30:00','11:45:00',${sqlString(patientMarker)},${patient},0,
+      ${sqlString(marker)},${sqlString(marker)},'','','','','','t',NOW(),NOW(),${sqlString(provider)},'','');
+    SELECT LAST_INSERT_ID()`);
+  assert(/^[1-9]\d*$/.test(appointment), 'Synthetic appointment was not created');
 
-    const recorder = createRecorder();
-    browser = await launchBrowser(config);
-    const context = await newContext(browser, config);
-    // Keep every request to the probe host inside the browser.
-    const landed = [];
-    await context.route(`https://${PROBE_HOST}/**`, (route) => {
-      landed.push(route.request().url());
-      return route.fulfill({ status: 200, contentType: 'text/html', body: '<!DOCTYPE html><title>probe</title><p>landed</p>' });
-    });
-    await context.route(`http://${PROBE_HOST}/**`, (route) => route.abort());
+  const recorder = createRecorder();
+  browser = await launchBrowser(config);
+  const context = await newContext(browser, config);
+  // Keep every request to the probe host inside the browser.
+  const landed = [];
+  const referrers = [];
+  await context.route(`https://${PROBE_HOST}/**`, (route) => {
+    landed.push(route.request().url());
+    if (route.request().isNavigationRequest()) referrers.push(route.request().headers().referer || '');
+    return route.fulfill({ status: 200, contentType: 'text/html', body: '<!DOCTYPE html><title>probe</title><p>landed</p>' });
+  });
+  await context.route(`http://${PROBE_HOST}/**`, (route) => route.abort());
 
-    await login(context, config, recorder);
-    const page = await context.newPage();
-    wireStrictPage(page, 'edoc-report', recorder);
-    await openReport(page, config, demographicNo);
+  await login(context, config, recorder);
+  const page = await context.newPage();
+  wireStrictPage(page, 'edoc-report', recorder);
+  await openReport(page, config, demographicNo);
 
-    // 1. https is kept, stored safely, and actually opens.
-    const httpsDesc = `${marker}-https`;
-    const httpsUrl = `https://${PROBE_HOST}/report?id=1&amp;src=carlos`;
-    const httpsTyped = `https://${PROBE_HOST}/report?id=1&src=carlos`;
-    let response = await submitLink(page, httpsDesc, httpsTyped);
-    assert(response.status() < 400, `Add Link (https) POST returned HTTP ${response.status()}`);
-    const documentNo = await assertStored(page, config, httpsDesc, httpsUrl);
+  // 1. https is kept, stored safely, and actually opens.
+  const httpsDesc = `${marker}-https`;
+  const httpsUrl = `https://${PROBE_HOST}/report?id=1&amp;src=carlos`;
+  const httpsTyped = `https://${PROBE_HOST}/report?id=1&src=carlos`;
+  let response = await submitLink(page, httpsDesc, httpsTyped);
+  assert(response.status() < 400, `Add Link (https) POST returned HTTP ${response.status()}`);
+  const documentNo = await assertStored(page, config, httpsDesc, httpsUrl);
 
-    const viewer = await context.newPage();
-    wireStrictPage(viewer, 'link-viewer', recorder);
-    await Promise.all([
-      viewer.waitForURL((u) => u.hostname === PROBE_HOST, { timeout: 30000 }),
-      viewer.goto(appUrl(config.baseUrl, `/documentManager/ManageDocument?method=display&doc_no=${documentNo}`)), // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl validates the local base URL
-    ]);
-    assert(new URL(viewer.url()).protocol === 'https:', `opening the link landed on ${new URL(viewer.url()).protocol} instead of https:`);
-    assert(landed.some((u) => u === httpsTyped), 'opening the link did not request the stored https URL');
-    await viewer.close();
+  const viewer = await context.newPage();
+  wireStrictPage(viewer, 'link-viewer', recorder);
+  await Promise.all([
+    viewer.waitForURL((u) => u.hostname === PROBE_HOST, { timeout: 30000 }),
+    viewer.goto(appUrl(config.baseUrl, `/documentManager/ManageDocument?method=display&doc_no=${documentNo}`)), // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl validates the local base URL
+  ]);
+  assert(new URL(viewer.url()).protocol === 'https:', `opening the link landed on ${new URL(viewer.url()).protocol} instead of https:`);
+  assert(landed.some((u) => u === httpsTyped), 'opening the link did not request the stored https URL');
+  await viewer.close();
 
-    // 2. schemeless gets https://.
-    const bareDesc = `${marker}-schemeless`;
-    await openReport(page, config, demographicNo);
-    response = await submitLink(page, bareDesc, `${PROBE_HOST}/schemeless`);
-    assert(response.status() < 400, `Add Link (schemeless) POST returned HTTP ${response.status()}`);
-    await assertStored(page, config, bareDesc, `https://${PROBE_HOST}/schemeless`);
+  // 2. schemeless gets https://.
+  const bareDesc = `${marker}-schemeless`;
+  await openReport(page, config, demographicNo);
+  response = await submitLink(page, bareDesc, `${PROBE_HOST}/schemeless`);
+  assert(response.status() < 400, `Add Link (schemeless) POST returned HTTP ${response.status()}`);
+  await assertStored(page, config, bareDesc, `https://${PROBE_HOST}/schemeless`);
 
-    // 3. and 4. unsafe input is refused without storing anything or running script.
-    const refusals = [
-      await assertRejected(context, config, demographicNo, recorder,
-        `${marker}-javascript`, 'javascript:alert(document.domain)', 'javascript-scheme'),
-      await assertRejected(context, config, demographicNo, recorder,
-        `${marker}-quote`, `https://${PROBE_HOST}/x"onmouseover="alert(1)`, 'double-quote'),
-    ];
-    for (const refusal of refusals) console.log(`${refusal.label}: refused by the ${refusal.layer}`);
-    if (config.expectFrontDoor) {
-      assert(refusals.some((r) => r.layer === 'front-door'), 'EXPECT_FRONT_DOOR is set but no refusal came from nginx');
-    }
+  // Preserve exact Unicode path spelling and escapes when the stored link opens.
+  const unicodeTyped = `https://${PROBE_HOST}/cafe\u0301?q=e\u0301&ready=1`;
+  const unicodeUrl = `https://${PROBE_HOST}/cafe%CC%81?q=e%CC%81&ready=1`;
+  await openReport(page, config, demographicNo);
+  response = await submitLink(page, `${marker}-unicode`, unicodeTyped);
+  assert(response.status() < 400, 'Unicode Add Link failed');
+  const unicodeDocument = await assertStored(page, config, `${marker}-unicode`, unicodeUrl.replace('&', '&amp;'));
+  const unicodeViewer = await context.newPage();
+  wireStrictPage(unicodeViewer, 'unicode-link-viewer', recorder);
+  await Promise.all([
+    unicodeViewer.waitForURL(unicodeUrl, { timeout: 30000 }),
+    gotoApp(unicodeViewer, config.baseUrl, `/documentManager/ManageDocument?method=display&doc_no=${unicodeDocument}`),
+  ]);
+  assert(landed.includes(unicodeUrl), 'Unicode link changed the resource path or query');
+  assert(referrers.every(value => value === ''), 'An external link received a referrer');
+  await unicodeViewer.close();
 
-    assert(recorder.dialogs.length === 0, 'a dialog was raised; the link input reached a script context');
-    // A WAF refusal is a deliberate 403 on that probe page only; every other page stays strict.
-    const wafPages = new Set(refusals.filter((r) => r.layer === 'front-door').map((r) => r.pageLabel));
-    const strictLabels = [...new Set([...recorder.pageErrors, ...recorder.consoleIssues, ...recorder.requestFailures,
-      ...recorder.badResponses, ...recorder.unexpectedDialogs].map((e) => e.label))].filter((l) => !wafPages.has(l));
-    assertStrictPage(recorder, ['edoc-report', 'link-viewer', 'login', ...strictLabels]);
-    return { demographicNo, stored: 2, refusals: refusals.map((r) => `${r.label}:${r.layer}`).join(',') };
-  } finally {
-    if (browser) await browser.close();
+  // Unsafe input is refused without storing anything or running script.
+  const refusals = [
+    await assertRejected(context, config, demographicNo, recorder,
+      `${marker}-javascript`, 'javascript:alert(document.domain)', 'javascript-scheme'),
+    await assertRejected(context, config, demographicNo, recorder,
+      `${marker}-quote`, `https://${PROBE_HOST}/x"onmouseover="alert(1)`, 'double-quote'),
+  ];
+  for (const [label, url] of [
+    ['javascript-digit', 'javascript:1'], ['data-digit', 'data:1'], ['ftp-digit', 'ftp:1'],
+    ['opaque-digit', 'custom:123'], ['missing-host', 'https://:443/path'],
+    ['empty-user-host', 'https://user@:80/path'], ['bad-port', `https://${PROBE_HOST}:bad/path`],
+    ['large-port', `https://${PROBE_HOST}:65536/path`],
+  ]) {
+    refusals.push(await assertRejected(context, config, demographicNo, recorder,
+      `${marker}-${label}`, url, label));
   }
+  for (const refusal of refusals) console.log(`${refusal.label}: refused by the ${refusal.layer}`);
+  if (config.expectFrontDoor) {
+    assert(refusals.some((r) => r.layer === 'front-door'), 'EXPECT_FRONT_DOOR is set but no refusal came from nginx');
+  }
+
+  assert(recorder.dialogs.length === 0, 'a dialog was raised; the link input reached a script context');
+  // Read hostile stored HTML as editor text, then exercise an ordinary edit/save/reload.
+  const hostileEditorText = '<p>Owned editor fixture</p></textarea><script>window.__carlos3992=1</script><textarea>';
+  const originalFacility = 'FAKE referral hospital';
+  sql.execute(`UPDATE document SET docxml=${sqlString(hostileEditorText)},docfilename='html',
+    sourcefacility=${sqlString(originalFacility)} WHERE document_no=${documentNo}`);
+  const editor = await context.newPage();
+  wireStrictPage(editor, 'html-document-editor', recorder);
+  const editPath = `/documentManager/ViewAddEditHtml?editDocumentNo=${documentNo}`
+    + `&function=demographic&functionid=${demographicNo}`;
+  await gotoApp(editor, config.baseUrl, editPath);
+  assert(await editor.locator('textarea[name="html"]').inputValue() === hostileEditorText,
+    'Stored HTML broke out of the editor or changed its text');
+  assert(await editor.evaluate(() => window.__carlos3992 === undefined), 'Stored HTML executed inside the editor');
+  assert(await editor.locator('input[name="sourceFacility"]').inputValue() === originalFacility,
+    'The HTML editor did not load the existing source facility');
+  await editor.locator('input[name="sourceFacility"]').fill('FAKE updated referral hospital');
+  const editedText = 'Clinical reference & follow-up\nSecond line';
+  await editor.locator('textarea[name="html"]').fill(editedText);
+  const [editResponse] = await Promise.all([
+    editor.waitForResponse(r => new URL(r.url()).pathname.endsWith('/documentManager/addEditHtml')
+      && r.request().method() === 'POST'),
+    editor.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    editor.locator('input[type="submit"]').click(),
+  ]);
+  assert(editResponse.status() < 400, `HTML metadata edit returned HTTP ${editResponse.status()}`);
+  assert(sql.value(`SELECT sourcefacility FROM document WHERE document_no=${documentNo}`)
+    === 'FAKE updated referral hospital', 'The HTML edit discarded the submitted facility');
+  assert(sql.value(`SELECT appointment_no FROM document WHERE document_no=${documentNo}`) === appointment,
+    'The HTML edit changed the existing appointment association');
+  await gotoApp(editor, config.baseUrl, editPath);
+  assert(await editor.locator('textarea[name="html"]').inputValue() === editedText.replaceAll('\n', '\r\n')
+    || await editor.locator('textarea[name="html"]').inputValue() === editedText,
+  'The HTML editor did not reload the exact saved text');
+  assert(await editor.locator('input[name="sourceFacility"]').inputValue() === 'FAKE updated referral hospital',
+    'The HTML editor did not reload the saved facility');
+  await editor.close();
+  console.log('PASS source facility, appointment association and inert HTML editor text survive save/reload');
+
+  assertExpectedRefusals(recorder, refusals);
+  return { demographicNo, stored: 3, refusals: refusals.map((r) => `${r.label}:${r.layer}`).join(',') };
 }
 
-function cleanup() {
+/** Exempts only the deliberate nginx 403 POST and its matching browser console entry. */
+function assertExpectedRefusals(recorder, refusals) {
+  const wafPages = new Set(refusals.filter(r => r.layer === 'front-door').map(r => r.pageLabel));
+  const isSubmit = url => {
+    try { return new URL(url).pathname.endsWith('/documentManager/addLink'); }
+    catch { return false; }
+  };
+  assertStrictPage({ ...recorder,
+    badResponses: recorder.badResponses.filter(e => !(wafPages.has(e.label)
+      && e.status === 403 && e.method === 'POST' && isSubmit(e.url))),
+    consoleIssues: recorder.consoleIssues.filter(e => !(wafPages.has(e.label)
+      && isSubmit(e.location && e.location.url)
+      && /^Failed to load resource: the server responded with a status of 403\b/.test(e.text))),
+  });
+}
+
+async function cleanup() {
   if (!sql) return;
-  try {
+  await cleanupOwnedWorkflow({ browser, sql, patient, marker: patientMarker, cleanups: [() => {
     const ids = sql.rows(`SELECT document_no FROM document WHERE docdesc LIKE ${sqlString(`${marker}%`)}`)
-      .map((row) => row[0]);
-    assert(ids.every((id) => /^\d+$/.test(id)), 'probe cleanup returned a non-numeric document id');
+      .map(row => row[0]);
+    assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Probe cleanup returned a non-numeric document id');
     if (ids.length) {
       const list = ids.join(',');
-      sql.execute(`DELETE FROM document_storage WHERE documentNo IN (${list})`);
-      sql.execute(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
-      sql.execute(`DELETE FROM document WHERE document_no IN (${list})`);
-      console.log(`cleanup: removed probe link document(s) ${list}`);
+      sql.execute(`DELETE FROM document_storage WHERE documentNo IN (${list});
+        DELETE FROM ctl_document WHERE document_no IN (${list});
+        DELETE FROM document WHERE document_no IN (${list}) AND docdesc LIKE ${sqlString(`${marker}%`)}`);
+      assert(sql.value(`SELECT (SELECT COUNT(*) FROM document_storage WHERE documentNo IN (${list}))
+        +(SELECT COUNT(*) FROM ctl_document WHERE document_no IN (${list}))
+        +(SELECT COUNT(*) FROM document WHERE document_no IN (${list}))`) === '0',
+      'Owned link document rows remain');
+      console.log(`cleanup: removed ${ids.length} owned link documents`);
     }
-  } finally {
-    sql.dispose();
-  }
+    if (appointment) {
+      assert(/^[1-9]\d*$/.test(appointment), 'Invalid owned appointment identity');
+      sql.execute(`DELETE FROM appointment WHERE appointment_no=${appointment}
+        AND demographic_no=${patient} AND notes=${sqlString(marker)}`);
+      assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${appointment}`) === '0',
+        'Owned appointment was not removed');
+    }
+  }] });
 }
 
 if (require.main === module) runCheck({ name: 'document-add-link', run: main, cleanup });
-module.exports = { main };
+module.exports = { main, assertExpectedRefusals };

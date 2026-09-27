@@ -490,16 +490,15 @@
       "name": "document-add-link",
       "script": "scripts/document-add-link-playwright-checks.js",
       "tiers": [
-        "core"
+        "core",
+        "front-door"
       ],
       "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 180,
-      "env": [
-        "DOCUMENT_ADD_LINK_DEMOGRAPHIC_NO"
-      ]
+      "env": []
     },
     {
       "name": "document-upload",

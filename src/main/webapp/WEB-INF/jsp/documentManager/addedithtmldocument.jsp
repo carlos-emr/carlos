@@ -396,7 +396,7 @@
         </tr>
         <tr>
             <td><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
-            <td><%=formdata.getContentDateTime()%>
+            <td><carlos:encode value='<%= formdata.getContentDateTime() %>' context='html'/>
             </td>
         </tr>
         <tr>
@@ -410,7 +410,7 @@
         <tr>
             <td>Observation Date <font class="comment">(yyyy/mm/dd):</font></td>
             <td><input type="text" name="observationDate"
-                       id="observationDate" value="<%=formdata.getObservationDate()%>"><a
+                       id="observationDate" value="<carlos:encode value='<%= formdata.getObservationDate() %>' context='htmlAttribute'/>"><a
                     id="obsdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                       alt="Calendar" border="0"/></a></td>
         </tr>
@@ -439,8 +439,7 @@
         <tr>
             <td colspan="2">
 			    <textarea name="html" <% if (linkhtmlerrors.containsKey("uploaderror")) {%>
-                          class="warning" <%}%> wrap="off" style="width: 98%; height: 200px;"><%=formdata.getHtml()%>
-			    </textarea>
+                          class="warning" <%}%> wrap="off" style="width: 98%; height: 200px;"><carlos:encode value='<%= formdata.getHtml() %>' context='html'/></textarea>
             </td>
         </tr>
     </table>

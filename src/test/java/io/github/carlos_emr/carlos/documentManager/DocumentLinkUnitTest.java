@@ -84,6 +84,24 @@ class DocumentLinkUnitTest {
         }
 
         @Test
+        void shouldPreserveUnicodeSequence_inDecomposedPathAndQuery() {
+            assertThat(DocumentLink.normalizeUrl("https://example.org/cafe\u0301?q=e\u0301"))
+                    .hasValue("https://example.org/cafe%CC%81?q=e%CC%81");
+        }
+
+        @Test
+        void shouldKeepExistingEscapes_withoutDoubleEncoding() {
+            assertThat(DocumentLink.normalizeUrl("https://example.org/%2F?q=café#résumé"))
+                    .hasValue("https://example.org/%2F?q=caf%C3%A9#r%C3%A9sum%C3%A9");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"example.org:8443/path", "localhost:8080/carlos", "127.0.0.1:443/", "[::1]:443/"})
+        void shouldAcceptSchemelessPort_forUnambiguousHost(String url) {
+            assertThat(DocumentLink.normalizeUrl(url)).hasValue("https://" + url);
+        }
+
+        @Test
         void shouldAcceptSingleQuote_asLegalUriCharacter() {
             // A single quote is legal in a URI; it is kept here and HTML-encoded on output.
             assertThat(DocumentLink.normalizeUrl("https://example.org/it's")).hasValue("https://example.org/it's");
@@ -98,7 +116,7 @@ class DocumentLinkUnitTest {
                 "file:///etc/passwd",
                 "mailto:someone@example.org",
                 "ftp://example.org/file",
-                "vbscript:msgbox(1)"
+                "vbscript:msgbox(1)", "javascript:1", "data:1", "ftp:1", "custom:123", "HTTPS:443"
         })
         void shouldRejectUrl_forNonWebScheme(String url) {
             assertThat(DocumentLink.normalizeUrl(url)).isEmpty();
@@ -112,7 +130,9 @@ class DocumentLinkUnitTest {
                 "Enter Link URL",
                 "https://",
                 "http:example.org",
-                "https:///path-only"
+                "https:///path-only", "https://:443", "https://user@", "https://user@:80/path",
+                "https://example.org:bad/path", "https://example.org:65536/path",
+                "https://example.org:-1/path", "https://[::1]:99999/", "https://example.org/\uD800"
         })
         void shouldRejectUrl_forMalformedOrUnsafeCharacters(String url) {
             assertThat(DocumentLink.normalizeUrl(url)).isEmpty();

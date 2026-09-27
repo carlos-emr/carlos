@@ -42,6 +42,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.documentManager.DocumentLink;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -77,9 +79,6 @@ public class AddEditHtml2Action extends ActionSupport {
 
         Hashtable errors = new Hashtable();
         String fileName = "";
-        if (!EDocUtil.getDoctypes(this.getFunction()).contains(this.getDocType())) {
-            EDocUtil.addDocTypeSQL(this.getDocType(), this.getFunction());
-        }
         if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
             errors.put("descmissing", "dms.error.descriptionInvalid");
             request.setAttribute("linkhtmlerrors", errors);
@@ -107,6 +106,15 @@ public class AddEditHtml2Action extends ActionSupport {
 
             return "failed";
         }
+        Integer parsedAppointment = validatedAppointmentNo();
+        if (parsedAppointment == null) {
+            errors.put("appointmentinvalid", "dms.addDocument.errorInvalidEntry");
+            request.setAttribute("linkhtmlerrors", errors);
+            request.setAttribute("completedForm", submittedForm());
+            request.setAttribute("function", request.getParameter("function"));
+            request.setAttribute("functionid", request.getParameter("functionid"));
+            return "failed";
+        }
         if (this.getMode().equals("addLink")) {
             // The 'html' field carries the URL. Only http/https links are stored; a schemeless
             // entry gets https:// (never http:// in front of an existing https://, issue #3949).
@@ -126,6 +134,11 @@ public class AddEditHtml2Action extends ActionSupport {
             fileName = "html";
         }
 
+        // Validate the whole submission before creating shared document-type metadata.
+        if (!EDocUtil.getDoctypes(this.getFunction()).contains(this.getDocType())) {
+            EDocUtil.addDocTypeSQL(this.getDocType(), this.getFunction());
+        }
+
         String reviewerId = filled(this.getReviewerId()) ? this.getReviewerId() : "";
         String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
 
@@ -141,6 +154,7 @@ public class AddEditHtml2Action extends ActionSupport {
             currentDoc.setDocPublic(this.getDocPublic());
             currentDoc.setDocClass(this.getDocClass());
             currentDoc.setDocSubClass(this.getDocSubClass());
+            currentDoc.setSourceFacility(this.getSourceFacility());
 
             // if the document was added in the context of a program
             ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
@@ -150,7 +164,8 @@ public class AddEditHtml2Action extends ActionSupport {
                 currentDoc.setProgramId(pp.getProgramId().intValue());
             }
 
-            String docId = EDocUtil.addDocumentSQL(currentDoc);
+            currentDoc.setAppointmentNo(parsedAppointment);
+            EDocUtil.addDocumentSQL(currentDoc);
         } else {
             currentDoc = new EDoc(this.getDocDesc(), this.getDocType(), "", this.getHtml(), this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'H', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
             currentDoc.setDocId(this.getMode());
@@ -158,6 +173,7 @@ public class AddEditHtml2Action extends ActionSupport {
             currentDoc.setDocPublic(this.getDocPublic());
             currentDoc.setDocClass(this.getDocClass());
             currentDoc.setDocSubClass(this.getDocSubClass());
+            currentDoc.setSourceFacility(this.getSourceFacility());
             EDocUtil.editDocumentSQL(currentDoc, this.getReviewDoc());
         }
         String contextPath = request.getContextPath();
@@ -176,6 +192,32 @@ public class AddEditHtml2Action extends ActionSupport {
             throw new RuntimeException(e);
         }
         return NONE;
+    }
+
+    /** A new document can reference only an existing appointment for its patient; zero means no appointment. */
+    private Integer validatedAppointmentNo() {
+        if (!this.getMode().startsWith("add") || !filled(this.getAppointmentNo())) {
+            return 0;
+        }
+        try {
+            if (!this.getAppointmentNo().matches("[0-9]+")) {
+                return null;
+            }
+            int number = Integer.parseInt(this.getAppointmentNo());
+            if (number > 0) {
+                if (!"demographic".equals(this.getFunction())) {
+                    return null;
+                }
+                int patientNo = Integer.parseInt(this.getFunctionId());
+                Appointment appointment = SpringUtils.getBean(OscarAppointmentDao.class).find(number);
+                if (patientNo <= 0 || appointment == null || appointment.getDemographicNo() != patientNo) {
+                    return null;
+                }
+            }
+            return number;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private boolean filled(String s) {
@@ -253,8 +295,7 @@ public class AddEditHtml2Action extends ActionSupport {
      * silently discarded the rest; keep this in sync with the inputs the JSP renders.</p>
      *
      * <p>Package-private, not private, so {@code AddEditHtml2ActionUnitTest} can pin the
-     * preserved-field set directly: {@code execute()} reaches static {@code EDocUtil} database calls
-     * before its validation branches, which a focused unit test should not have to stand up.</p>
+     * preserved-field set directly without invoking persistence.</p>
      */
     AddEditDocument2Form submittedForm() {
         AddEditDocument2Form form = new AddEditDocument2Form();
@@ -268,6 +309,7 @@ public class AddEditHtml2Action extends ActionSupport {
         form.setResponsibleId(this.getResponsibleId());
         form.setSource(this.getSource());
         form.setSourceFacility(this.getSourceFacility());
+        form.setAppointmentNo(this.getAppointmentNo());
         form.setObservationDate(this.getObservationDate());
         form.setContentDateTime(this.getContentDateTime());
         form.setDocPublic(this.getDocPublic());
