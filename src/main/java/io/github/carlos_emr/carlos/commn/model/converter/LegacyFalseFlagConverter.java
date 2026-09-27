@@ -8,6 +8,8 @@ import jakarta.persistence.Converter;
  * Maps NULL legacy flags to the existing false default without changing
  * the model's primitive boolean API. The schema permits NULL for these flags.
  * Applied explicitly to those properties only; writes retain their Boolean value.
+ *
+ * @since 2026-09-27
  */
 @Converter(autoApply = false)
 public class LegacyFalseFlagConverter implements AttributeConverter<Boolean, Boolean> {

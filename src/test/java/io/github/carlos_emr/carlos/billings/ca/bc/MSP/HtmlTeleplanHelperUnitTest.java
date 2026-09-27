@@ -77,4 +77,65 @@ class HtmlTeleplanHelperUnitTest {
                 .contains(warningHtml)
                 .doesNotContain("<td colspan='11' class='bodytext'><tr");
     }
+
+    @Test
+    void shouldEncodeWcbRowAndLink_whenRenderingWcbClaim() {
+        String html = HtmlTeleplanHelper.wcbHtmlLine("1');alert(1);//", "INV", "<img src=x>", "<b>1</b>",
+                "20260612", "19950", "10.00", "250", "", "");
+
+        assertThat(html)
+                .contains("openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=")
+                .contains(SafeEncode.forHtmlContent("<img src=x>"))
+                .doesNotContain("');alert(1)")
+                .doesNotContain("<img")
+                .doesNotContain("<b>");
+    }
+
+    @Test
+    void shouldReturnEmpty_whenErrorRowHasNoMessage() {
+        assertThat(HtmlTeleplanHelper.adjustBillErrorRow("42", "")).isEmpty();
+        assertThat(HtmlTeleplanHelper.wcbCorrectionErrorRow("42", null)).isEmpty();
+    }
+
+    @Test
+    void shouldEncodeMessageAndId_whenRenderingCorrectionErrorRows() {
+        String adjust = HtmlTeleplanHelper.adjustBillErrorRow("1\"onmouseover=\"x", ": bad <b>");
+        String wcb = HtmlTeleplanHelper.wcbCorrectionErrorRow("7", ": bad <b>");
+
+        assertThat(adjust)
+                .contains("adjustBill.jsp?billingmaster_no=")
+                .contains(SafeEncode.forHtmlContent(": bad <b>"))
+                .doesNotContain("\"onmouseover")
+                .doesNotContain("<b>");
+        assertThat(wcb)
+                .contains("billingTeleplanCorrectionWCB.jsp?billing_no=0000007")
+                .doesNotContain("<b>");
+    }
+
+    @Test
+    void shouldEncodeProviderAndCount_whenRenderingFooter() {
+        String footer = HtmlTeleplanHelper.htmlFooter("<b>P</b>", "<i>3</i>", java.math.BigDecimal.TEN);
+
+        assertThat(footer)
+                .contains(SafeEncode.forHtmlContent("<b>P</b>"))
+                .contains(SafeEncode.forHtmlContent("<i>3</i>"))
+                .contains("TOTAL: 10")
+                .doesNotContain("<b>")
+                .doesNotContain("<i>");
+        assertThat(HtmlTeleplanHelper.htmlFooter("P", 3, java.math.BigDecimal.ONE)).contains("Billing No: P: 3 RECORDS");
+    }
+
+    @Test
+    void shouldBlankPatientColumnsAndEncodeValues_whenRenderingContinuationRow() {
+        String html = HtmlTeleplanHelper.continuationLine("42", "<u>01</u>", "<s>1</s>", "<a>", null, "");
+
+        assertThat(html)
+                .startsWith("<tr><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td>")
+                .contains(SafeEncode.forHtmlContent("<u>01</u>"))
+                .contains("<td class='bodytext'>0000042</td>")
+                .doesNotContain("<u>")
+                .doesNotContain("<s>")
+                .doesNotContain("<a>");
+        assertThat(html.split("<td", -1)).hasSize(12);
+    }
 }

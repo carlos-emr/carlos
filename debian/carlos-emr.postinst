@@ -282,6 +282,20 @@ install_once() {
 
 case "$1" in
     configure)
+        # The carlos-ctl command moved to its own package (from
+        # 2026.08.0~alpha16; developer builds from 2026.09.0~snapshot25). dpkg
+        # has removed the modules the pre-split carlos-emr shipped under
+        # /usr/lib/carlos-emr/carlos_ctl, but the bytecode cache no package
+        # ever owned (root ran the tool, so it existed on every host) keeps
+        # that directory alive; take it with us so the old copy is really
+        # gone. Judged by presence, not by the old version: this package
+        # never ships that directory, so anything there is the orphan.
+        # Nothing under /usr/lib/carlos-ctl is touched: that is the new
+        # package's.
+        if [ -d /usr/lib/carlos-emr/carlos_ctl ]; then
+            rm -rf /usr/lib/carlos-emr/carlos_ctl/__pycache__
+            rmdir /usr/lib/carlos-emr/carlos_ctl 2>/dev/null || true
+        fi
         # --- accounts -------------------------------------------------------
         # dh_installsysusers has already run systemd-sysusers by this point on
         # a systemd host. This is the fallback for a chroot or container image
