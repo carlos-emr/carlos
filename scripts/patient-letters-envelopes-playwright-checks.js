@@ -479,7 +479,6 @@ async function checkGenerateLetters(context, demographicNo) {
   expect(dialogs.length === dialogCountBefore + 1 && /No patients selected/i.test(dialogs[dialogs.length - 1].text),
     'generate-letters: empty selection blocked in the browser', { dialogs: dialogs.slice(dialogCountBefore) });
   expect(page.url() === urlBefore, 'generate-letters: no navigation on empty selection', { url: page.url() });
-  await page.close();
 
   // Server-side guard: a direct POST with no demos gets the page back with the notice.
   const empty = await context.request.post(appUrl('/report/GenerateLetters'), {
@@ -522,6 +521,7 @@ async function checkGenerateLetters(context, demographicNo) {
     expect(JSON.stringify(await selectedPatients(partialHtml)) === JSON.stringify([String(demographicNo)]),
       'envelopes: valid selected patient retained on error page; invalid ID omitted', {});
   }
+  await page.close();
 }
 
 async function cleanup() {

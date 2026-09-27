@@ -55,3 +55,52 @@ creation and long labels. Browser cleanup has ownership and failure regressions.
 - Ownership-scoped cleanup removed test templates, documents, logs, follow-ups, PDF files and
   the synthetic patient. The VM was stopped after validation; no schema/configuration change
   was needed. Compilation and VM execution were serialized with resource limits.
+
+
+## Follow-up review
+
+Returned letter/envelope error pages now prefer the submitted `demos` selection and retain
+valid rows while omitting malformed or missing IDs. Reviewing that path exposed a shared
+patient-label cache keyed only by patient ID. It could return a previous caller's patient
+label without repeating authorization. The helper now resolves current access, patient data
+and locale on every lookup (#4046); its public reset API remains as a compatibility no-op.
+
+PDF delivery failure before response commitment now returns the visible input page. Letters
+show the reconciliation warning because clinical records have already committed; envelopes
+show their generation error. Committed responses retain their existing handling. A real
+transaction regression also covers cleanup failure after commit: PDFs and committed rows
+are retained, and the action must not claim nothing was saved. Binary PDF delivery advertises
+application/pdf, no-store and nosniff; its narrowly documented Semgrep exception applies only
+to that binary write.
+
+Rejected upload content is caught at the upload callback, clears both bound fields, and reaches
+the localized 400 path. Reads use the shared validated stream helper and an actual byte limit.
+The document directory uses the existing canonical configured-directory helper. The exclusive
+temporary-file operation has a method-local FindSecBugs justification: only that trusted
+directory, a validated numeric template ID and a generated random suffix form the path.
+
+Constructor/method/exception contracts are documented, test names follow BDD, guarded actions
+verify no batch service interaction, and upload controls have associated labels. The batch
+method separates selection validation and failed-file cleanup while preserving transaction
+semantics. Browser cleanup attempts all operations, retains the primary failure and reports
+additional cleanup failures; a cleanup-only failure still fails the test.
+
+Validation:
+
+- **13,410 Java tests**, zero failures/errors, **51 existing skips**. This includes cross-user
+  label checks, invalid IDs, changed data/locale, real PDF/H2 transaction tests, post-commit
+  failure, upload rejection and committed/uncommitted response-write failures.
+- **1,037 Node tests** passed, including six cleanup ownership/error regressions. BDD naming
+  across 278 files, encoder and security-message checks passed.
+- **982 JSPs**, WAR and Javadocs built. Changed Java coverage: **297/317 lines (93.7%)**.
+- All three DEBs `2026.08.0~alpha16~pr3997.2` installed on Ubuntu 26.04 with **6,670** tested
+  payload and installed-file matches. The final browser harness change only delays closing
+  its inspection page; application payloads are unchanged and the installed rerun passed.
+- The letter/envelope workflow passed PDF/text and clinical-write assertions, upload failures,
+  empty selections, and both returned error pages retaining the valid patient while excluding
+  malformed IDs. Five neighboring checks passed: health, prevention recall, demographic report
+  navigation, all 16 report-index surfaces and admin report validation.
+- Every original row in **document, ctl_document, log_letters, report_letters, measurements
+  and demographic** retained its exact fingerprint. Owned PDFs, templates, follow-ups, logs
+  and synthetic patients were removed. Final health/file checks passed; zero automatic service
+  restarts; VM stopped. No schema or configuration changes were required.
