@@ -13,15 +13,39 @@ test('source Debian build clears stale versioned WARs before selecting its outpu
   assert.match(rules, /\$\(MVN\) -f "\$\$src\/pom\.xml" \$\(MVN_FLAGS\) -Dmaven\.test\.skip=true clean package; \\\n\s*cp -f "\$\$src"\/target\/drugref2\*\.war/);
 });
 
-for (const [code, diagnostic] of [[0, ''], [0, 'test groff warning'], [2, 'test groff error']]) {
-  test(`manpage validation preserves diagnostics and fails closed (${code}, ${diagnostic || 'clean'})`, () => {
+// The carlos-ctl(8) render gate moved to the carlos-ctl package with the man
+// page (#4001). What dh_auto_test checks here is the payload that package
+// reads: every shipped OSCAR 19 manifest parses and carries format 1 -- a
+// malformed one fails an import at a clinic, not a build, unless it is caught
+// here. The recipe is run against a tree of manifests, good and bad.
+for (const [label, body, expected] of [
+  ['the shipped manifests', null, 0],
+  ['a manifest of another format', '{"format": 2, "kind": "o19map-schema"}', 1],
+  ['a boolean format', '{"format": true, "kind": "o19map-schema"}', 1],
+  ['a manifest with no kind', '{"format": 1}', 1],
+  ['a file that is not JSON', '{not json', 1],
+]) {
+  test(`dh_auto_test validates every shipped OSCAR 19 manifest (${label})`, () => {
+    const os = require('node:os');
     const rules = fs.readFileSync(path.join(__dirname, '..', 'debian', 'rules'), 'utf8');
     const recipe = rules.split('override_dh_auto_test:\n')[1].split('\noverride_dh_auto_clean:')[0]
       .split('\n').filter(line => !line.trimStart().startsWith('#')).join('\n').replaceAll('$$', '$');
-    const result = spawnSync('sh', ['-c', `groff() { printf '%s' '${diagnostic}' >&2; return ${code}; }\n${recipe}`], { encoding: 'utf8' });
-    assert.ifError(result.error);
-    assert.equal(result.status, diagnostic ? 1 : 0);
-    assert.equal(result.stderr.trim(), diagnostic);
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-manifest-gate-'));
+    try {
+      const dir = path.join(root, 'debian', 'assets', 'o19-manifest');
+      fs.mkdirSync(dir, { recursive: true });
+      const shipped = path.join(__dirname, '..', 'debian', 'assets', 'o19-manifest');
+      for (const name of fs.readdirSync(shipped).filter((n) => n.endsWith('.json'))) {
+        fs.copyFileSync(path.join(shipped, name), path.join(dir, name));
+      }
+      if (body !== null) fs.writeFileSync(path.join(dir, 'zz_bad.json'), body);
+      const result = spawnSync('sh', ['-c', recipe], { cwd: root, encoding: 'utf8' });
+      assert.ifError(result.error);
+      assert.equal(result.status, expected, result.stderr);
+      if (expected !== 0) assert.match(result.stderr, /zz_bad\.json/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 }
 
@@ -145,7 +169,12 @@ test('render browser names avoid everything the old renderer purge touches', () 
     read('debian', 'carlos-emr.sysusers'),
     read('debian', 'assets', 'systemd', 'carlos-emr.service.d', '10-eform-renderer.conf'),
     read('debian', 'assets', 'systemd', 'carlos-emr-render-browser.service'),
-    read('debian', 'assets', 'carlos_ctl', 'util.py'),
+    // the CLI is its own repository since #4001: its util.py is read from
+    // the checkout CARLOS_CTL_SRC names, or the installed package, when present
+    ...[process.env.CARLOS_CTL_SRC, '/usr/lib/carlos-ctl']
+      .filter((dir) => dir && fs.existsSync(path.join(dir, 'carlos_ctl', 'util.py')))
+      .slice(0, 1)
+      .map((dir) => fs.readFileSync(path.join(dir, 'carlos_ctl', 'util.py'), 'utf8')),
   ].join('\n');
   assert.doesNotMatch(shipped, /carlos-emr-chromedriver|render-browser\.env|\/var\/lib\/carlos-emr\/render(?![a-z])/);
   assert.match(shipped, /carlos-emr-render-browser/);

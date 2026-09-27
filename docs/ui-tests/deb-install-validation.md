@@ -19,6 +19,19 @@ The two checks added since, `echart-print-playwright-checks.js` and
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
 through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
 has not been re-run on a later snapshot.
+The current release-base validation for PR #3995 is recorded in
+[PR #3995 prevention validation](pr3995-validation.md). The following is the
+earlier port-validation record.
+
+`echart-prevention-row-links-playwright-checks.js` (issue #3975) was run on
+2026-09-26 against a 2026.09.0~snapshot24 package built from the
+`release/2026.08` port branch (DrugRef built from the pinned revision, pinned
+Chromium fetched) and installed into an Ubuntu 26.04 container with the demo
+dataset: **PASS** through `:443`, together with `prevention-lifecycle`,
+`prevention-add-data`, `prevention-brand-picker`, `echart-navbar-modules`,
+`echart-note-editor` and `echart-playwright`. Run with the pre-#3975
+`close.jsp` swapped back into the installed webapp, the new check **FAILS**
+("Closing the prevention form reloaded the eChart"), so it guards the fix.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -290,6 +303,17 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 
 ## 2. Create the test VM
 
+> **Without LXD (Docker, systemd as PID 1).** The packages need systemd, and
+> the systemd in Ubuntu 26.04 no longer boots on a cgroup-v1 host. On such a
+> host run a `--privileged` container whose entrypoint unmounts
+> `/sys/fs/cgroup`, mounts `cgroup2` there and then execs `/sbin/init`. Remove
+> the image's `/usr/sbin/policy-rc.d` **before** `apt-get install`, or the
+> maintainer scripts cannot start MariaDB and nginx and the install stops
+> half-provisioned (recover with `carlos-ctl finish-install` and
+> `dpkg-reconfigure carlos-emr-drugref`). On a host without IPv6, nginx's stock
+> `default` site (`listen [::]:80`) fails `nginx -t` until the package replaces
+> it; the CARLOS site itself emits `[::]` listeners only when IPv6 exists.
+
 ```bash
 lxc launch ubuntu:26.04 carlos-test --vm \
     -c limits.cpu=2 -c limits.memory=8GiB -d root,size=16GiB
@@ -378,7 +402,7 @@ shipped). Being additive (`INSERT IGNORE` only), it never touches
 the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 (The devcontainer counterpart is `.devcontainer/db/scripts/populate_db.sh`;
 if the two ever disagree about the RTL chain, that script and
-`debian/assets/carlos_ctl/dbops.py` are the authorities.)
+`carlos_ctl/dbops.py` in carlos-emr/carlos-ctl are the authorities.)
 
 `carlos-ctl demo-data` also copies the demo document FILES (the PDFs the
 dump's document rows reference, plus the fictitious HRM report that
@@ -436,6 +460,40 @@ VALUES
  ('999998','2026-08-08','10:00:00','10:15:00','LOCAL_SEED_OBEC_REPORT_2',71,'','','','',NULL,'','','t',NOW(),'carlosdoc'),
  ('999998','2026-08-10','11:00:00','11:15:00','LOCAL_SEED_OBEC_REPORT_3',81,'','','','',NULL,'','','t',NOW(),'carlosdoc');"
 ```
+
+`cds-export-lab-documents-playwright-checks.js` (#3946) needs one more
+fixture, and it deliberately does **not** relax the package's
+`demographic.export.encryptedOnly=true` default: it gives the install a PGP
+recipient instead. A fresh install has no PGP (`PGP_BIN` names a nonexistent
+`/usr/bin/pgpgpg`), so without this the export page warns, the action refuses
+every export, and the check SKIPs naming this fixture. `PGPEncrypt` runs
+`PGP_BIN PGP_CMD FILE PGP_KEY` with only `PGP_ENV` in the environment and
+expects `FILE.pgp` (the PGP 2 convention); the wrapper below maps that onto
+GnuPG. The key is a throwaway validation key, never an operator's.
+
+```bash
+lxc exec carlos-test -- bash -c '
+  set -e
+  apt-get install -y gnupg libxml2-utils
+  G=/var/lib/carlos-emr/export-gnupg
+  install -d -o carlos -g carlos -m 0700 "$G"
+  runuser -u carlos -- gpg --homedir "$G" --batch --passphrase "" \
+      --quick-gen-key "CARLOS Export Validation <export-validation@carlos.invalid>" default default never
+  printf "%s\n" "#!/bin/sh" \
+    "# PGP 2-style front end for GnuPG: carlos-export-pgp -e FILE RECIPIENT -> FILE.pgp" \
+    "[ \"\$1\" = -e ] && [ -n \"\$2\" ] && [ -n \"\$3\" ] || exit 2" \
+    "exec /usr/bin/gpg --batch --yes --trust-model always --output \"\$2.pgp\" --recipient \"\$3\" --encrypt \"\$2\"" \
+    > /usr/local/bin/carlos-export-pgp
+  chmod 0755 /usr/local/bin/carlos-export-pgp
+  sed -i "s#^PGP_BIN: .*#PGP_BIN: /usr/local/bin/carlos-export-pgp#;
+          s#^PGP_KEY: .*#PGP_KEY: export-validation@carlos.invalid#;
+          s#^PGP_ENV: .*#PGP_ENV: GNUPGHOME=$G#" /etc/carlos-emr/carlos.properties'
+```
+
+The keyring sits under `/var/lib/carlos-emr`, the only tree the hardened
+`carlos-emr.service` may write (gpg writes its trust database and lock files
+there). Export `CDS_EXPORT_GNUPGHOME=/var/lib/carlos-emr/export-gnupg` for the
+suite; the check runs as root and decrypts the `.pgp` download with it.
 
 Restart once after loading so nothing serves from a pre-load cache:
 
@@ -1393,3 +1451,63 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### Alpha15 report: chart header English on first open (2026-09-26)
+
+Attempted reproduction of finding 44 in [app-findings-log.md](app-findings-log.md)
+against a package built from the alpha15 promotion commit, on an Ubuntu 26.04
+container. Deviations from the runbook: no LXD on the host, so the target was a
+Docker container running systemd (`--privileged`, host networking, a cgroup2
+hierarchy mounted at `/sys/fs/cgroup`; Ubuntu 26.04's systemd refuses a cgroup
+v1 hierarchy); `carlos-emr` built with `CARLOS_WAR=` (a JDK 25 Maven build of the
+same tree) plus `SKIP_DRUGREF=1 SKIP_EFORM_RENDERER=1`, so `carlos-ctl check`
+notes DrugRef and the renderer as absent; `policy-rc.d` kept `apt` from starting
+MariaDB and nginx, so the postinst ended with the `install-incomplete` marker and
+`carlos-ctl finish-install` completed the install (schema, reset seed credential,
+demo dataset), exactly as documented for the earlier container run.
+
+| variant | first open | after F5 | after second F5 | new popup, warm session |
+|---|---|---|---|---|
+| Chromium 141, Master Record, `fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7` | Sexe, DDN, Âge, Prochain rendez-vous; calculatrices | identical | identical | identical |
+| Chromium 141, schedule `E` link (appointment 11) | identical to above | identical | identical | identical |
+| Chromium 141, `Accept-Language: fr-CA` and `fr` | French | French | French | French |
+| Chromium 141, `encounter_open_in_tab=yes`, both entry points | French | French | French | French |
+| Firefox 150, `fr-CA`, both entry points | French | French | French | French |
+
+`encounter-header-i18n` PASS on the same install (`EXPECT_FRONT_DOOR=true`).
+The report is not reproduced; the check now pins first open == reload and reads
+the negotiated language the page states, so a reproduction on the reporter's
+setup will name the language the server chose.
+
+**Container-only trap when re-installing a package over a running instance.**
+`policy-rc.d` in a container also suppresses the `carlos-emr-restart` trigger's
+`restart`, so the rebuilt package's JSPs landed on disk under a JVM that kept
+running. Reproducible-build timestamps clamp every packaged file to the
+changelog date, so the replaced JSP had exactly the mtime Jasper had recorded
+for its compiled class, and Jasper (which compares for equality) kept serving
+the old class: the extended check failed with empty `lang` attributes until
+`systemctl restart carlos-emr` ran the launcher's `clear_jsp_cache`. On a VM
+the preinst stop and the trigger restart make this moot; in a container,
+restart explicitly after any re-install before reading results.
+### PR #3985 final review follow-up (2026-09-26)
+
+Built and installed all three `2026.08.0~alpha16~pr3985.11` DEBs on the local
+Ubuntu 26.04 VM after the Sonar and CodeRabbit follow-ups. All 6,675 tested
+class/resource/web-file hashes matched both the package and installed payload.
+The focused DAO, REST endpoint and merge-action suite passed 73 tests; all 1,062
+script tests passed, all 982 JSPs compiled, and WAR/Javadoc packaging passed.
+The prior full Java and broader appointment/receipt validation remains recorded
+in the PR review evidence; this follow-up changes only labels, a scoped query
+analysis suppression and rejection of zero-sized REST pages.
+
+The installed REST/search privacy browser check passed all 10 normal-mode steps
+and all 12 restricted-Caisi steps, including label associations and label-click
+activation, HTTP 400 for zero-sized pages, POST-only patient-term navigation,
+merged-result ordering/paging, unmerge return navigation, and program-domain
+filtering. A DAO regression verifies hostile-looking keywords across every
+merge search mode and hostile-looking provider IDs remain bound data; a stored
+literal containing SQL syntax still matches only its own patient.
+
+Original properties were restored byte-for-byte, owned fixtures removed, final
+package health passed, and the VM stopped. Compilation ran with the VM stopped;
+all local build and installed-test tasks ran serially.
