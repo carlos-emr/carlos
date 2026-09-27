@@ -122,3 +122,19 @@ Validation against the updated release:
 - All **six Playwright checks passed with zero skips**: patient letters/envelopes, application health, prevention recall, demographic report navigation, all report-index surfaces and admin report validation.
 
 Every original row in document, ctl_document, log_letters, report_letters, measurements and demographic retained its fingerprint. Owned fixtures were removed. Final health and payload checks passed; automatic restarts remained zero, the VM had 4.4 GiB free, and it was stopped. Work ran serially and the VM remained stopped during compilation.
+
+## Third review follow-up: event waits and measurement ownership
+
+The two fixed 500 ms browser delays now wait for the actual envelope response and empty-selection dialog, with each wait registered before its click. Waiting for the fulfilled response also avoids a race with the route callback that previously populated the URL. The checks still assert the selected patient, absence of the CSRF token from the download URL, the exact selection alert and unchanged navigation.
+
+Follow-up cleanup and all corresponding counts now require the exact report marker, `type='FLUF'` and the selected patient. Cleanup receives and validates that patient explicitly before any query or file removal. A SQL regression preserves another patient's follow-up, another measurement type with the same comment, and a different report's follow-up. The added regressions fail against the old cleanup (six tests pass, two fail) and all eight pass with the fix.
+
+Concurrent release merges `e8aa2f6de0` and `973e3d4f3d` were preserved and reviewed. The translation conflict resolutions retain both the letter messages and unbilled-report labels. The current release migration 1.0.36 was applied by the normal package upgrade and is retained as the release baseline; no temporary 1.0.37–39 migration is present. The old local browser preflight expecting 1.0.36 absent was corrected before the run. Final validation on the combined source:
+
+- Full Java unit/integration suite: **13,875 tests, zero failures/errors, 51 existing skips**.
+- Full Node suite: **1,208 passed, zero skips**. The scoped BDD check plus five letter test classes passed (286 files), as did encoder, security-message, JSP taglib and locale checks. Python packaging/manifest checks passed **29** and **244** tests.
+- All **984 JSPs**, WAR and Javadocs built. Changed executable Java coverage remains **298/317 (94.0%)**, with no unmapped files.
+- Built and installed all three DEBs `2026.08.0~alpha16~pr3997.4` on Ubuntu 26.04; **6,696** tested/packaged/installed files matched, as did the separate CLI's **23** files.
+- Installed checks passed with zero skips: patient letters/envelopes, application health, prevention recall report, demographic report navigation, report-index surface audit and administrative report validation.
+
+The letter workflow exercises template uploads and refusals, PDF content and Unicode envelopes, empty/invalid selections, follow-up persistence, the event waits and scoped cleanup. All original rows in the six letter-related tables retained their exact fingerprints. Owned fixtures were removed, final health/payload checks passed, restarts remained zero, and the VM was stopped with 4.4 GiB free. Compilation, packaging, installation and browsers ran serially, with the VM stopped throughout compilation.
