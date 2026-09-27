@@ -74,3 +74,28 @@ under `~/work/pr3985-4000-evidence/` on the development machine.
 - `carlos-emr-drugref_2026.08.0~alpha16~pr3992.2_all.deb`: `73cbbf9b6324ab6648376cf09b0a2dd1cdf64afb5bb099836518302374530fa5`
 - `carlos-emr-eform-renderer_2026.08.0~alpha16~pr3992.2_all.deb`: `20dc2a17889939fd3b79c1e3b8ee43899310c373e2480e45e6deffd8f0a37006`
 - `carlos-emr_2026.08.0~alpha16~pr3992.2_amd64.deb`: `f3dc9d450ebc59b1649e8bbb507f3c04484c848dfe99d888aeee8a0c564ac7d5`
+
+## Follow-up review validation
+
+The shorthand host/port check now uses a linear scan with constant stack usage,
+removing the nested regex identified by Sonar. URI server-authority validation
+still checks the host and port range, and ambiguous single-label schemes remain
+rejected. Regressions cover 20,000-label hosts, malformed ports, missing ports,
+non-ASCII digits and attempted user-info insertion.
+
+The browser check compares decoded meta-refresh and anchor attributes using the
+browser's HTML parser. It no longer recreates production HTML escaping with a
+single replacement. Both ordinary and decomposed-Unicode URLs contain multiple
+query separators, and navigation must reach their exact expected destinations.
+
+- Clean focused Java URL/action tests: 84 passed, zero failures/errors/skips.
+- Full Node suite: 1,035 passed; focused refusal/registration tests: five passed.
+- All 982 JSPs, WAR and Javadoc compile/package successfully.
+- All three DEBs built and installed as `2026.08.0~alpha16~pr3992.3`;
+  6,667 packaged and installed payload files match the tested output.
+- Health and the complete Add Link workflow passed through HTTPS/nginx; the
+  complete workflow also passed directly against Tomcat. All ten invalid inputs
+  were rejected by the application in the direct run. Metadata, Unicode URLs,
+  multiple query parameters and hostile HTML retry behavior passed.
+- Owned fixtures were removed. Final health and installed hashes passed,
+  `NRestarts=0`, and the VM was stopped. No configuration or schema changes remain.
