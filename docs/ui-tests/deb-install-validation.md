@@ -19,6 +19,19 @@ The two checks added since, `echart-print-playwright-checks.js` and
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
 through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
 has not been re-run on a later snapshot.
+The current release-base validation for PR #3995 is recorded in
+[PR #3995 prevention validation](pr3995-validation.md). The following is the
+earlier port-validation record.
+
+`echart-prevention-row-links-playwright-checks.js` (issue #3975) was run on
+2026-09-26 against a 2026.09.0~snapshot24 package built from the
+`release/2026.08` port branch (DrugRef built from the pinned revision, pinned
+Chromium fetched) and installed into an Ubuntu 26.04 container with the demo
+dataset: **PASS** through `:443`, together with `prevention-lifecycle`,
+`prevention-add-data`, `prevention-brand-picker`, `echart-navbar-modules`,
+`echart-note-editor` and `echart-playwright`. Run with the pre-#3975
+`close.jsp` swapped back into the installed webapp, the new check **FAILS**
+("Closing the prevention form reloaded the eChart"), so it guards the fix.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -290,6 +303,17 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 
 ## 2. Create the test VM
 
+> **Without LXD (Docker, systemd as PID 1).** The packages need systemd, and
+> the systemd in Ubuntu 26.04 no longer boots on a cgroup-v1 host. On such a
+> host run a `--privileged` container whose entrypoint unmounts
+> `/sys/fs/cgroup`, mounts `cgroup2` there and then execs `/sbin/init`. Remove
+> the image's `/usr/sbin/policy-rc.d` **before** `apt-get install`, or the
+> maintainer scripts cannot start MariaDB and nginx and the install stops
+> half-provisioned (recover with `carlos-ctl finish-install` and
+> `dpkg-reconfigure carlos-emr-drugref`). On a host without IPv6, nginx's stock
+> `default` site (`listen [::]:80`) fails `nginx -t` until the package replaces
+> it; the CARLOS site itself emits `[::]` listeners only when IPv6 exists.
+
 ```bash
 lxc launch ubuntu:26.04 carlos-test --vm \
     -c limits.cpu=2 -c limits.memory=8GiB -d root,size=16GiB
@@ -378,7 +402,7 @@ shipped). Being additive (`INSERT IGNORE` only), it never touches
 the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 (The devcontainer counterpart is `.devcontainer/db/scripts/populate_db.sh`;
 if the two ever disagree about the RTL chain, that script and
-`debian/assets/carlos_ctl/dbops.py` are the authorities.)
+`carlos_ctl/dbops.py` in carlos-emr/carlos-ctl are the authorities.)
 
 `carlos-ctl demo-data` also copies the demo document FILES (the PDFs the
 dump's document rows reference, plus the fictitious HRM report that
@@ -1428,79 +1452,62 @@ markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
 
-### CDS export lab documents validation (2026-09-26)
+### Alpha15 report: chart header English on first open (2026-09-26)
 
-Validation of issue #3946 (embedded HL7 lab documents exported as CDS
-`Reports`, XML 1.0-illegal characters stripped from lab values, the 120-character
-result limit applied to every result value) on packages built from the PR
-branch, `2026.09.0~snapshot24`, with DrugRef and the eForm renderer included.
+Attempted reproduction of finding 44 in [app-findings-log.md](app-findings-log.md)
+against a package built from the alpha15 promotion commit, on an Ubuntu 26.04
+container. Deviations from the runbook: no LXD on the host, so the target was a
+Docker container running systemd (`--privileged`, host networking, a cgroup2
+hierarchy mounted at `/sys/fs/cgroup`; Ubuntu 26.04's systemd refuses a cgroup
+v1 hierarchy); `carlos-emr` built with `CARLOS_WAR=` (a JDK 25 Maven build of the
+same tree) plus `SKIP_DRUGREF=1 SKIP_EFORM_RENDERER=1`, so `carlos-ctl check`
+notes DrugRef and the renderer as absent; `policy-rc.d` kept `apt` from starting
+MariaDB and nginx, so the postinst ended with the `install-incomplete` marker and
+`carlos-ctl finish-install` completed the install (schema, reset seed credential,
+demo dataset), exactly as documented for the earlier container run.
 
-**Environment deviations.** As in the chart header validation above, the target
-was an Ubuntu 26.04 **container** running systemd (`--privileged`, the host's
-cgroup2 hierarchy bind-mounted at `/sys/fs/cgroup`) on the host network, not an
-LXD VM. The image's `/usr/sbin/policy-rc.d` was removed before `apt-get install`
-so the maintainer scripts could start services; the only install warning was the
-stock Ubuntu nginx site failing to bind `[::]:80` on a host network without IPv6,
-which cleared once CARLOS rendered its own front door (no install-incomplete
-marker remained). `reset-seed-admin` was preseeded `false`; the first-login reset
-was still enforced and was completed once with `drugref-update-playwright-checks.js`.
-`carlos-ctl check` then reported **All checks passed** (WAF blocking, live DrugRef
-lookup, 29 Flyway migrations).
+| variant | first open | after F5 | after second F5 | new popup, warm session |
+|---|---|---|---|---|
+| Chromium 141, Master Record, `fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7` | Sexe, DDN, Âge, Prochain rendez-vous; calculatrices | identical | identical | identical |
+| Chromium 141, schedule `E` link (appointment 11) | identical to above | identical | identical | identical |
+| Chromium 141, `Accept-Language: fr-CA` and `fr` | French | French | French | French |
+| Chromium 141, `encounter_open_in_tab=yes`, both entry points | French | French | French | French |
+| Firefox 150, `fr-CA`, both entry points | French | French | French | French |
 
-**Encryption.** The package default `demographic.export.encryptedOnly=true` was
-kept. Before the PGP fixture in section 4 existed the check reported
-`SKIP ... has no PGP configured` (exit 2) and left no fixture rows behind; with
-the section 4 snippet applied verbatim it downloaded, decrypted and read the
-`.pgp` export.
+`encounter-header-i18n` PASS on the same install (`EXPECT_FRONT_DOOR=true`).
+The report is not reproduced; the check now pins first open == reload and reads
+the negotiated language the page states, so a reproduction on the reporter's
+setup will name the language the server chose.
 
-**Results** (`EXPECT_FRONT_DOOR=true`, through `https://127.0.0.1/carlos`,
-`node scripts/run-playwright-suite.js --province ON --only ...`):
+**Container-only trap when re-installing a package over a running instance.**
+`policy-rc.d` in a container also suppresses the `carlos-emr-restart` trigger's
+`restart`, so the rebuilt package's JSPs landed on disk under a JVM that kept
+running. Reproducible-build timestamps clamp every packaged file to the
+changelog date, so the replaced JSP had exactly the mtime Jasper had recorded
+for its compiled class, and Jasper (which compares for equality) kept serving
+the old class: the extended check failed with empty `lang` attributes until
+`systemctl restart carlos-emr` ran the launcher's `clear_jsp_cache`. On a VM
+the preinst stop and the trigger restart make this moot; in a container,
+restart explicitly after any re-install before reading results.
+### PR #3985 final review follow-up (2026-09-26)
 
-| Check | Result |
-|---|---|
-| `cds-export-lab-documents` | PASS |
-| `lab-acknowledge`, `lab-pdf-footer`, `lab-macro-tickler`, `lab-requisition-links` | PASS |
-| `master-record-tabs` (17 items opened, 1 skipped by policy) | PASS |
-| `demographic-gates`, `upstream-small-fixes` | PASS |
+Built and installed all three `2026.08.0~alpha16~pr3985.11` DEBs on the local
+Ubuntu 26.04 VM after the Sonar and CodeRabbit follow-ups. All 6,675 tested
+class/resource/web-file hashes matched both the package and installed payload.
+The focused DAO, REST endpoint and merge-action suite passed 73 tests; all 1,062
+script tests passed, all 982 JSPs compiled, and WAR/Javadoc packaging passed.
+The prior full Java and broader appointment/receipt validation remains recorded
+in the PR review evidence; this follow-up changes only labels, a scoped query
+analysis suppression and rejection of zero-sized REST pages.
 
-**Negative controls** on the same install, by replacing classes in the exploded
-webapp: the pre-fix `DemographicExportAction42Action` (with only the NULL-SIN
-guard applied, so the export could reach the labs) FAILED with
-`expected the lab's 3 discrete results as LaboratoryResults, found 4` (the PDF
-exported as a lab result value); the pre-fix `demographicExport.jsp` FAILED with
-the page error `TypeError: Cannot read properties of null (reading 'value') at
-checkValidOptions` and no success banner, because the single-patient form fell
-back to a plain POST. Without the NULL-SIN guard the export of the check's
-synthetic patient (no SIN) answered HTTP 500.
+The installed REST/search privacy browser check passed all 10 normal-mode steps
+and all 12 restricted-Caisi steps, including label associations and label-click
+activation, HTTP 400 for zero-sized pages, POST-only patient-term navigation,
+merged-result ordering/paging, unmerge return navigation, and program-domain
+filtering. A DAO regression verifies hostile-looking keywords across every
+merge search mode and hostile-looking provider IDs remain bound data; a stored
+literal containing SQL syntax still matches only its own patient.
 
-**Java coverage** of the changed lines, from a JaCoCo run of the focused tests
-(`CdsXmlTextUnitTest`, `CdsEmbeddedLabDocumentUnitTest`,
-`MessageHandlerEmbeddedDocumentUnitTest`, `DemographicExportAction42Action*Test`
-and the lab handler suites; 778 tests, 0 failures):
-
-```bash
-mvn -B test -Dtest='CdsXmlTextUnitTest,CdsEmbeddedLabDocumentUnitTest,MessageHandlerEmbeddedDocumentUnitTest,DemographicExportAction42Action*Test,*HandlerUnitTest' \
-    org.jacoco:jacoco-maven-plugin:0.8.14:report
-python3 scripts/coverage/changed_line_audit.py target/site/jacoco/jacoco.xml origin/release/2026.08 HEAD --per-file
-```
-
-reported 166 of 179 changed executable lines covered (92.7%): `CdsEmbeddedLabDocument`
-71/71, `CdsXmlText` 25/25, `MessageHandler` 2/2, `DemographicExportAction42Action`
-68/81 (the uncovered lines are the OBR-comment loop, the physician-annotation
-merge and the NULL-SIN guard in the single-patient demographics block; the
-browser check exercises the last of these). `changed_line_audit.py`
-now accepts the head revision as optional (working tree against the base) and
-`--per-file`; its unit tests run with
-`python3 -m unittest discover -s scripts/coverage`.
-
-### CDS export review follow-up (#3989, 2026-09-26)
-
-The mapping now preserves raw PATHL7 CELLPATHR RTF as `.rtf` binary media, retains empty ED reports with their comments/metadata and an export warning, and reports both lab-comment and merged physician-note truncation. Declared ED.4 encoding takes precedence over payload-shape guesses: `A` remains text, while `Base64` and `Hex` decode explicitly. Invalid declared encodings retain the payload as text with a warning; handlers without encoding metadata retain the signature fallback. ED.2 `TEXT` does not mean the payload is plain text (the PDF fixture uses `TEXT^PDF^Base64`). No unsupported universal ED.3 plain-text token is assumed; see [HL7 encoding table 0299](https://hl7.org/fhir/R4/v2/0299/index.html).
-
-The complete-record regression proves that XMLBeans inserts typed elements in schema order even when reports are created before appointments. The live browser fixture now includes an owned appointment and clinical note, and validates the entire downloaded patient file with `xmllint` against the repository CDS XSD; install `libxml2-utils` on the browser runner. All owned rows are removed after the check.
-
-Current alpha16 release-base validation: 44 focused Java tests, 13,371 full-suite tests (51 explicit skips), 1,037 Node tests and four coverage-tool tests passed. All 982 JSPs compiled; WAR and Javadoc generation succeeded. Changed executable Java-line coverage is 204/215 (94.9%), with no uncovered changed file.
-
-The complete live export also exposed #4009: a clinical note whose database `appointmentNo` is NULL failed Hibernate hydration and aborted export with HTTP 500. A converter scoped to that property maps legacy NULL to the existing zero/no-appointment sentinel without changing the public or serialized integer API. The DAO regression failed with the original mapping, then passed along with 83 focused note/export tests and the full suite. The live fixture deliberately retains NULL to exercise this case in the installed package.
-
-Installed all three `2026.08.0~alpha16~pr3989.2` DEBs into the Ubuntu 26.04 LXD VM. All 6,670 checked classes/web files/migrations matched both package and installed payload. Package health passed. With encryption still required and a throwaway recipient configured, the browser downloaded and decrypted the export; full CDS schema validation, embedded PDF bytes/reviewer, ordinary result limits, the appointment and clinical note all passed. The clinical note retained its NULL appointment number. Existing `lab-pdf-footer`, `lab-requisition-links`, `lab-acknowledge`, `lab-macro-tickler` and `demographic-gates` checks also passed (five passed, zero failed/skipped). Owned fixtures were cleaned, original properties restored byte-for-byte, and the throwaway PGP key, wrapper and agents removed.
+Original properties were restored byte-for-byte, owned fixtures removed, final
+package health passed, and the VM stopped. Compilation ran with the VM stopped;
+all local build and installed-test tasks ran serially.
