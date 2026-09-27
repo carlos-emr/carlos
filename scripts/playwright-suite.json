@@ -2065,7 +2065,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 240,
+      "timeoutSec": 480,
       "assertsDatabase": true,
       "env": [
         "TEST_PASSWORD",

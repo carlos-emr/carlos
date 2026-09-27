@@ -30,3 +30,41 @@ test('the record needle matches the encoded edit handler the action emits for an
   assert.ok(edit.includes(recordNeedle('917')));
   assert.ok(!edit.includes(recordNeedle('91')));
 });
+
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const closeSource = fs.readFileSync(path.join(__dirname,
+  '../src/main/webapp/WEB-INF/jsp/prevention/close.jsp'), 'utf8')
+  .match(/function closeWin\(\)[\s\S]*?(?=<\/script>)/)[0];
+
+function closePopup(opener, name = 'prevention42') {
+  const calls = [];
+  const self = { opener, name, close: () => calls.push('close'),
+    setTimeout: (fn, delay) => { calls.push(delay); fn(); } };
+  vm.runInNewContext(closeSource + '\ncloseWin();', { self });
+  return calls;
+}
+
+test('registered heading and row popups close without reloading an unsaved chart', () => {
+  for (const name of ['prevention42', 'addPreventionData42']) {
+    const opener = { reloadWindows: { [name]: '/panel' },
+      location: { reload: () => assert.fail('must preserve unsaved chart') } };
+    assert.deepEqual(closePopup(opener, name), ['close']);
+  }
+});
+
+test('an unregistered popup reloads its list even if another window is registered', () => {
+  let reloaded = 0;
+  assert.deepEqual(closePopup({ reloadWindows: { otherWindow: '/panel' },
+    location: { reload: () => reloaded++ } }), ['close']);
+  assert.equal(reloaded, 1);
+});
+
+test('standalone and closed parents are safe, while legacy refreshInfo remains supported', () => {
+  assert.deepEqual(closePopup(null), []);
+  assert.deepEqual(closePopup({ closed: true }), []);
+  let refreshed = 0;
+  assert.deepEqual(closePopup({ refreshInfo: () => refreshed++ }), [5000, 'close']);
+  assert.equal(refreshed, 1);
+});

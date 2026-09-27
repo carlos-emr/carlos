@@ -22,8 +22,7 @@
  *   3. That row then opens the newest record by id, with the date it shows.
  *
  * The read-only fallback (a provider without `_prevention w` keeps the list link
- * on every row) is pinned by EctDisplayPrevention2ActionUnitTest; exercising it
- * here would mean mutating a shared role's privileges.
+ * on every row) is covered by EctDisplayPrevention2ActionUnitTest.
  *
  * Owns its FAKE-PW patient and every prevention and draft it creates, so it
  * needs a disposable database: TEST_PASSWORD, TEST_PIN and MYSQL_PASSWORD.
@@ -87,7 +86,8 @@ async function waitForRow(chart, needle) {
 
 async function workflow(s) {
   const { sql, patient, marker, config } = s;
-  s.cleanup(() => sql.execute(`DELETE x FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id
+  s.cleanup(() => sql.execute(`DELETE d FROM partial_date d JOIN preventions p ON p.id=d.table_id
+    WHERE d.table_name=4 AND p.demographic_no=${patient}; DELETE x FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id
     WHERE p.demographic_no=${patient}; DELETE FROM preventions WHERE demographic_no=${patient}`));
   const chart = await s.chart();
   let target;
@@ -140,7 +140,7 @@ async function workflow(s) {
     const given = editor.locator('[name="given"][value="given"]');
     if (await given.count()) await given.first().check();
     await editor.locator('#prevDate').fill(SAVED_DATE);
-    await editor.locator('[name="comments"]').first().fill(marker).catch(() => {});
+    await editor.locator('[name="comments"]').first().fill(marker);
     const refresh = chart.waitForResponse(response => response.url().includes('/encounter/displayPrevention')
       && response.request().method() !== 'OPTIONS');
     await editor.locator('input[type="submit"][name="action"]').first().click();
@@ -172,6 +172,121 @@ async function workflow(s) {
       'The record opened with a different date from the one the row shows');
     await editor.close();
   });
+
+  for (const [label, selector] of [
+    ['heading', '#preventions .nav-menu-title h3[onclick*="ViewPreventionIndex"]'],
+    ['plus', '#preventions .nav-menu-add-button a[onclick*="ViewPreventionIndex"]'],
+  ]) {
+    await s.step(`${label} list edits refresh only the prevention panel and preserve the unsaved note`, async () => {
+      const index = await s.popup(chart, chart.locator(selector).first(), `prevention-${label}-list`);
+      const editor = await s.popup(index,
+        index.locator(`[onclick*="ViewAddPreventionData?id=${id}&"]`).first(), `prevention-${label}-edit`);
+      await editor.locator('[name="comments"]').first().fill(`${marker}-${label}`);
+      await editor.locator('input[type="submit"][name="action"]').first().click();
+      if (!editor.isClosed()) await editor.waitForEvent('close');
+      const previous = id;
+      await expectValue(sql, `SELECT deleted FROM preventions WHERE id=${previous}`, '1',
+        'List edit did not archive the previous prevention');
+      id = sql.value(`SELECT id FROM preventions WHERE demographic_no=${patient}
+        AND prevention_type=${sqlString(prevention)} AND deleted='0'`);
+      assert(id !== previous && /^[1-9]\d*$/.test(id), 'List edit did not create one replacement');
+      await index.locator(`[onclick*="ViewAddPreventionData?id=${id}&"]`).first().waitFor({ state: 'visible' });
+      const refresh = chart.waitForResponse(response => response.url().includes('/encounter/displayPrevention'));
+      await index.close();
+      assert((await refresh).ok(), 'Closing the full list did not refresh the panel');
+      await waitForRow(chart, recordNeedle(id));
+      assert(await chart.evaluate(() => window.pwPreventionMarker) === marker, 'Heading/list close replaced the chart');
+      assert((await chart.locator(NOTE_TEXTAREA).first().inputValue()).includes(`${marker} unsaved`),
+        'Heading/list close lost the unsaved encounter note');
+    });
+  }
+
+  const childMarker = `${marker}-merged`;
+  const child = sql.value(`INSERT INTO demographic
+    (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
+    VALUES (${sqlString(childMarker)},'Workflow','1980','01','02','F','AC',${sqlString(s.provider)},'ON','ON','NR',NOW());
+    SELECT LAST_INSERT_ID()`);
+  assert(/^[1-9]\d*$/.test(child), 'The owned second patient was not created');
+  s.cleanup(() => {
+    assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${child}
+      AND last_name=${sqlString(childMarker)}`) === '1', 'Merged fixture ownership changed');
+    sql.execute(`DELETE FROM demographic_merged WHERE demographic_no=${child} AND merged_to=${patient};
+      DELETE d FROM partial_date d JOIN preventions p ON p.id=d.table_id WHERE d.table_name=4 AND p.demographic_no=${child};
+      DELETE x FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id WHERE p.demographic_no=${child};
+      DELETE FROM preventions WHERE demographic_no=${child};
+      DELETE FROM demographic WHERE demographic_no=${child} AND last_name=${sqlString(childMarker)}`);
+  });
+
+  await s.step('malformed and unrelated-patient save requests fail without changing clinical records', async () => {
+    const editor = await s.popup(chart, await rowWith(chart, recordNeedle(id)), 'prevention-rejection');
+    const token = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const form = await editor.locator('form').filter({ has: editor.locator('#prevDate') }).evaluate(element => ({
+      action: element.action, entries: Array.from(new FormData(element).entries()),
+    }));
+    const before = JSON.stringify(sql.rows(`SELECT * FROM preventions WHERE demographic_no=${patient} ORDER BY id`));
+    for (const [field, value] of [['demographic_no', child], ['id', '-1'], ['prevDate', '2026-02-30']]) {
+      const body = new URLSearchParams(form.entries);
+      body.set(field, value);
+      const response = await s.context.request.post(form.action, {
+        headers: { 'CSRF-TOKEN': token, 'Content-Type': 'application/x-www-form-urlencoded' }, data: body.toString(),
+      });
+      assert(response.status() === 400, `Invalid prevention ${field} returned ${response.status()}`);
+      assert(JSON.stringify(sql.rows(`SELECT * FROM preventions WHERE demographic_no=${patient} ORDER BY id`)) === before,
+        'Rejected prevention request changed the patient history');
+    }
+    await editor.close();
+  });
+
+
+  await s.step('merged histories select the newest clinical date and break date ties by record id', async () => {
+    sql.execute(`INSERT INTO demographic_merged (demographic_no,merged_to,deleted,lastUpdateUser,lastUpdateDate)
+      VALUES (${child},${patient},0,${sqlString(s.provider)},NOW())`);
+    const childId = sql.value(`INSERT INTO preventions
+      (demographic_no,prevention_type,prevention_date,creator,provider_no,refused,deleted,never,snomedId)
+      SELECT ${child},prevention_type,'1999-01-01',creator,provider_no,refused,0,never,snomedId
+      FROM preventions WHERE id=${id}; SELECT LAST_INSERT_ID()`);
+    assert(/^[1-9]\d*$/.test(childId) && Number(childId) > Number(id), 'Merged older record was not created');
+    async function closeListToRefresh() {
+      const index = await s.popup(chart,
+        chart.locator('#preventions .nav-menu-title h3[onclick*="ViewPreventionIndex"]').first(), 'prevention-merged-list');
+      await index.locator(`[onclick*="ViewAddPreventionData?id=${childId}&"]`).first().waitFor({ state: 'visible' });
+      const refresh = chart.waitForResponse(response => response.url().includes('/encounter/displayPrevention'));
+      await index.close();
+      assert((await refresh).ok(), 'Merged prevention panel failed to refresh');
+    }
+    await closeListToRefresh();
+    await waitForRow(chart, recordNeedle(id));
+    assert(!(await readRows(chart, config.baseUrl)).some(row => row.url.searchParams.get('id') === childId),
+      'Older appended child history replaced the newest primary record');
+    sql.execute(`UPDATE preventions SET prevention_date='${SAVED_DATE}' WHERE id=${childId} AND demographic_no=${child}`);
+    await closeListToRefresh();
+    await waitForRow(chart, recordNeedle(childId));
+    const editor = await s.popup(chart, await rowWith(chart, recordNeedle(childId)), 'prevention-merged-edit');
+    const token = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const form = await editor.locator('form').filter({ has: editor.locator('#prevDate') }).evaluate(element => ({
+      action: element.action, entries: Array.from(new FormData(element).entries()),
+    }));
+    const body = new URLSearchParams(form.entries);
+    body.set('prevDate', '2026-09');
+    body.set('comments', `${marker}-merged-edit`);
+    const refresh = chart.waitForResponse(response => response.url().includes('/encounter/displayPrevention'));
+    const saved = await s.context.request.post(form.action, {
+      headers: { 'CSRF-TOKEN': token, 'Content-Type': 'application/x-www-form-urlencoded' }, data: body.toString(),
+    });
+    assert(saved.ok() && (await saved.text()).includes('closeWin'), 'Merged partial-date save did not succeed');
+    await editor.close();
+    assert((await refresh).ok(), 'Merged edit did not refresh the panel');
+    await expectValue(sql, `SELECT deleted FROM preventions WHERE id=${childId}`, '1', 'Merged edit did not archive its predecessor');
+    const replacement = sql.value(`SELECT p.id FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id
+      WHERE p.demographic_no=${patient} AND p.deleted=0 AND x.keyval='previousId' AND x.val=${sqlString(childId)}`);
+    assert(/^[1-9]\d*$/.test(replacement), 'Merged edit did not create an owned replacement');
+    assert(sql.value(`SELECT COUNT(*) FROM partial_date WHERE table_name=4 AND table_id=${replacement} AND format='YYYY-MM'`) === '1',
+      'Merged edit lost the partial clinical date');
+    await waitForRow(chart, recordNeedle(replacement));
+    assert((await chart.locator(NOTE_TEXTAREA).first().inputValue()).includes(`${marker} unsaved`),
+      'Merged edit lost the unsaved note');
+  });
+
 }
 
 if (require.main === module) runWorkflow('echart-prevention-row-links', workflow);

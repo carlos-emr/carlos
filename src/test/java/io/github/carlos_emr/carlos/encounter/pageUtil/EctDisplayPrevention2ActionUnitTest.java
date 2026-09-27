@@ -70,6 +70,46 @@ class EctDisplayPrevention2ActionUnitTest {
     private static final String LIST_HANDLER =
             "popupPage(700, 960,'prevention42','/carlos/prevention/ViewPreventionIndex?demographic_no=42');return false;";
 
+    @Test
+    void shouldSelectNewestClinicalDate_whenMergedHistoriesAreAppendedOutOfOrder() {
+        Map<String, Object> recent = history("10", new java.util.Date(2000));
+        Map<String, Object> older = history("99", new java.util.Date(1000));
+        assertThat(EctDisplayPrevention2Action.newestPrevention(List.of(recent, older))).isSameAs(recent);
+        assertThat(EctDisplayPrevention2Action.newestPrevention(List.of(older, recent))).isSameAs(recent);
+    }
+
+    @Test
+    void shouldBreakEqualDateTiesByNumericId_withLegacyCalendarDates() {
+        java.util.Calendar calendar = new java.util.GregorianCalendar();
+        calendar.setTimeInMillis(1000);
+        Map<String, Object> newerId = history("100", calendar);
+        assertThat(EctDisplayPrevention2Action.newestPrevention(
+                List.of(newerId, history("99", new java.util.Date(1000))))).isSameAs(newerId);
+    }
+
+    @Test
+    void shouldPreferKnownDates_whenOtherRecordsHaveNoDate() {
+        Map<String, Object> dated = history("1", new java.util.Date(1000));
+        assertThat(EctDisplayPrevention2Action.newestPrevention(List.of(dated, history("999", null))))
+                .isSameAs(dated);
+        assertThat(EctDisplayPrevention2Action.preventionDate(history("999", null))).isNull();
+    }
+
+    @Test
+    void shouldUseIdForUndatedRecords_andHandleEmptyHistories() {
+        Map<String, Object> newestId = history("100", null);
+        assertThat(EctDisplayPrevention2Action.newestPrevention(List.of(newestId, history("99", null))))
+                .isSameAs(newestId);
+        assertThat(EctDisplayPrevention2Action.newestPrevention(List.of())).isNull();
+    }
+
+    private static Map<String, Object> history(String id, Object date) {
+        Map<String, Object> record = new HashMap<>();
+        record.put("id", id);
+        record.put("prevention_date_asDate", date);
+        return record;
+    }
+
     @Nested
     @DisplayName("form URL")
     class FormUrl {
@@ -186,11 +226,42 @@ class EctDisplayPrevention2ActionUnitTest {
         void shouldKeepHeadingOnList_whenProviderCanWrite() throws Exception {
             NavBarDisplayDAO panel = render(true, mock(CVCMappingDao.class));
 
+            assertThat(panel.isTrackHeadingPopups()).isTrue();
             assertThat(panel.getLeftPopup().url()).isEqualTo("/carlos/prevention/ViewPreventionIndex?demographic_no=42");
             assertThat(panel.getRightPopup().url()).isEqualTo("/carlos/prevention/ViewPreventionIndex?demographic_no=42");
         }
 
+        @Test
+        void shouldRenderNewestMergedRecordStatusAndDate_withoutLeakingDateToUndatedRows() throws Exception {
+            Map<String, Object> newest = history("917", new java.util.Date(2000));
+            newest.put("refused", "1");
+            Map<String, Object> older = history("999", new java.util.Date(1000));
+            older.put("refused", "0");
+            NavBarDisplayDAO panel = render(true, mock(CVCMappingDao.class), List.of(newest, older), true);
+            NavBarDisplayDAO.Item flu = null;
+            NavBarDisplayDAO.Item pap = null;
+            for (int i = 0; i < panel.numItems(); i++) {
+                NavBarDisplayDAO.Item item = panel.getItem(i);
+                if (item.getTitle().endsWith("Flu")) flu = item;
+                if (item.getTitle().endsWith("PAP")) pap = item;
+            }
+            assertThat(flu).isNotNull();
+            assertThat(flu.getDate()).isEqualTo(new java.util.Date(2000));
+            assertThat(flu.getTitle()).startsWith("✗ ");
+            assertThat(flu.getURL()).contains("id=917");
+            assertThat(pap).isNotNull();
+            assertThat(pap.getDate()).isNull();
+            assertThat(pap.getURL()).contains("id=918");
+        }
+
         private NavBarDisplayDAO render(boolean canWrite, CVCMappingDao cvcMappingDao) throws Exception {
+            Map<String, Object> record = history("917", null);
+            record.put("refused", "0");
+            return render(canWrite, cvcMappingDao, List.of(record), false);
+        }
+
+        private NavBarDisplayDAO render(boolean canWrite, CVCMappingDao cvcMappingDao,
+                List<Map<String, Object>> fluHistory, boolean undatedPap) throws Exception {
             SecurityInfoManager security = mock(SecurityInfoManager.class);
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
             when(security.hasPrivilege(loggedInInfo, "_prevention", "r", null)).thenReturn(true);
@@ -213,9 +284,6 @@ class EctDisplayPrevention2ActionUnitTest {
                 when(config.getPreventions()).thenReturn(new ArrayList<>(List.of(
                         configured("Flu", "46233009"), configured("PAP", null), configured("HepAB", "SCT1"))));
                 when(config.display(any(), any(), eq("42"), anyInt())).thenReturn(true);
-                Map<String, Object> fluRecord = new HashMap<>();
-                fluRecord.put("id", "917");
-                fluRecord.put("refused", "0");
 
                 spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
                 spring.when(() -> SpringUtils.getBean(PreventionDS.class)).thenReturn(mock(PreventionDS.class));
@@ -225,7 +293,14 @@ class EctDisplayPrevention2ActionUnitTest {
                 data.when(() -> PreventionData.getPreventionData(eq(loggedInInfo), anyString(), eq(42)))
                         .thenReturn(new ArrayList<>());
                 data.when(() -> PreventionData.getPreventionData(loggedInInfo, "Flu", 42))
-                        .thenReturn(new ArrayList<>(List.of(fluRecord)));
+                        .thenReturn(new ArrayList<>(fluHistory));
+                if (undatedPap) {
+                    Map<String, Object> pap = history("918", null);
+                    pap.put("refused", "0");
+                    data.when(() -> PreventionData.getPreventionData(loggedInInfo, "PAP", 42))
+                            .thenReturn(new ArrayList<>(List.of(pap)));
+                    data.when(() -> PreventionData.getPreventionKeyValues("918")).thenReturn(new HashMap<>());
+                }
                 data.when(() -> PreventionData.getPreventionKeyValues("917")).thenReturn(new HashMap<>());
 
                 EctDisplayPrevention2Action action = spy(new EctDisplayPrevention2Action(cvcMappingDao));

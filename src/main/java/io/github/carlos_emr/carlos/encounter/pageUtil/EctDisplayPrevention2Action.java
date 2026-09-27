@@ -110,6 +110,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             String preventionPath = request.getContextPath() + "/prevention/ViewPreventionIndex?demographic_no=" + bean.demographicNo;
             Dao.setLeftHeading(getText("encounter.LeftNavBar.Prevent"));
             Dao.setLeftPopup(700, 960, winName, preventionPath);
+            Dao.setTrackHeadingPopups(true);
 
             //set righthand link to same as left so we have visual consistency with other modules
             Dao.setRightPopup(700, 960, winName, preventionPath);
@@ -129,8 +130,6 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
             ArrayList<HashMap<String, String>> prevList = pdc.getPreventions();
             Map warningTable = p.getWarningMsgs();
-
-            Date date = null;
 
             String url = "popupPage(700, 960,'" + winName + "','" + preventionPath + "');return false;";
             // The add/edit gate routes require _prevention w (checked with no demographic, like the
@@ -154,21 +153,13 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
                     if (alist.size() > 0) {
                         // Newest record: the same one whose date and status this row shows.
-                        Map<String, Object> hdata = alist.get(alist.size() - 1);
+                        Map<String, Object> hdata = newestPrevention(alist);
                         newestRecordId = (String) hdata.get("id");
                         Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
                         result = hExt.get("result");
                         String refused = (String) hdata.get("refused");
 
-                        Object dateObj = hdata.get("prevention_date_asDate");
-                        if (dateObj instanceof Date) {
-                            date = (Date) dateObj;
-                        } else if (dateObj instanceof java.util.GregorianCalendar) {
-                            Calendar cal = (Calendar) dateObj;
-                            date = cal.getTime();
-                        }
-
-                        item.setDate(date);
+                        item.setDate(preventionDate(hdata));
 
                         // Default for items with records: up-to-date
                         prefix = PREFIX_CHECK;
@@ -226,6 +217,32 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
             return true;
         }
+    }
+
+    /**
+     * Selects the newest clinical date across primary and merged histories, breaking ties by ID.
+     * Undated records sort before dated records; an undated row never borrows another row's date.
+     *
+     * @param records the combined prevention history
+     * @return the newest record, or null for an empty history
+     */
+    static Map<String, Object> newestPrevention(List<Map<String, Object>> records) {
+        Comparator<Map<String, Object>> order = Comparator.comparing(
+                EctDisplayPrevention2Action::preventionDate, Comparator.nullsFirst(Comparator.naturalOrder()));
+        return records.stream().max(order.thenComparingLong(record -> Long.parseLong(record.get("id").toString())))
+                .orElse(null);
+    }
+
+    /** Returns the clinical date from either legacy date representation, or null if it is absent. */
+    static Date preventionDate(Map<String, Object> record) {
+        Object value = record.get("prevention_date_asDate");
+        if (value instanceof Date date) {
+            return date;
+        }
+        if (value instanceof Calendar calendar) {
+            return calendar.getTime();
+        }
+        return null;
     }
 
     /**
