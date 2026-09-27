@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.tickler.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -32,12 +33,15 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     private TicklerManager manager;
     @Mock
     private TicklerLinkDao linkDao;
+    @Mock
+    private TicklerTextSuggestDao suggestDao;
     private Tickler tickler;
 
     @BeforeEach
     void setUpForm() {
         replaceSpringUtilsBean(TicklerManager.class, manager);
         replaceSpringUtilsBean(TicklerLinkDao.class, linkDao);
+        replaceSpringUtilsBean(TicklerTextSuggestDao.class, suggestDao);
         mockRequest.setMethod("POST");
         mockRequest.setParameter("demographic_no", "123");
         mockRequest.setParameter("user_no", "999998");
@@ -97,6 +101,30 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
         assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         verify(manager, never()).addTickler(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void shouldRejectNonPostEdit_withoutReadingOrChangingTicklers(String method) {
+        mockRequest.setMethod(method);
+        assertThat(editAction().editTickler()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(manager);
+        assertUnchanged();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void shouldRejectNonPostSuggestedText_withoutChangingSuggestions(String method) {
+        mockRequest.setMethod(method);
+        EditTickler2Action action = editAction();
+        action.setActiveText(new String[] { "new suggestion" });
+        action.setInactiveText(new String[0]);
+        assertThat(action.updateTextSuggest()).isEqualTo(ActionSupport.NONE);
+        verifyNoInteractions(suggestDao);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
     }
 
     @Test

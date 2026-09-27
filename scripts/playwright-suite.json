@@ -1995,7 +1995,9 @@
         "all"
       ],
       "timeoutSec": 240,
-      "env": []
+      "env": [
+        "TICKLER_DIRECT_LIST"
+      ]
     },
     {
       "name": "next-appointment-lookup",

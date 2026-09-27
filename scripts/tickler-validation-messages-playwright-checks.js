@@ -45,6 +45,8 @@
  * Environment (the common contract in lib/playwright-harness.js readConfig()):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, EXPECT_FRONT_DOOR.
+ *   TICKLER_DIRECT_LIST=true verifies the CAISI schedule then opens the owned
+ *   patient tickler list directly, for tickler users without PMM search access.
  */
 
 const fs = require('node:fs');
@@ -210,8 +212,15 @@ async function workflow(s) {
   });
 
   // Master Record > Tickler opens the patient's tickler list as a popup.
-  const ticklerList = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(),
-    'tickler-list');
+  let ticklerList;
+  if (process.env.TICKLER_DIRECT_LIST === 'true') {
+    await s.schedule.locator('#bedprogram_no').waitFor({ state: 'visible', timeout: 20000 });
+    ticklerList = await s.context.newPage();
+    await h.gotoApp(ticklerList, s.config.baseUrl, `/tickler/ViewTicklerMain?demoview=${patient}`);
+  } else {
+    ticklerList = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(),
+      'tickler-list');
+  }
   await ticklerList.waitForLoadState('domcontentloaded', { timeout: 20000 });
   await h.assertNotErrorPage(ticklerList, 'the patient tickler list');
 
@@ -261,6 +270,13 @@ async function workflow(s) {
     await editPopup.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     h.assert(new URL(editPopup.url()).searchParams.get('tickler_no') === ticklerNo,
       'the edit popup opened a tickler other than the one this check saved');
+    const unsafeGet = await s.context.request.get(h.appUrl(s.config.baseUrl, '/tickler/EditTickler'), {
+      params: { method: 'editTickler', ticklerNo, status: 'C', priority: 'High',
+        assignedToProviders: provider, xml_appointment_date: editDate, newMessage: 'must not save via GET' },
+      maxRedirects: 0,
+    });
+    h.assert(unsafeGet.status() === 405 && unsafeGet.headers().allow === 'POST',
+      'Tickler edits must reject GET with Allow: POST');
     const historyBefore = sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`);
     await postInvalidForm(s.context, editPopup, {
       xml_appointment_date: '2026-02-29', newMessage: 'rejected comment', status: 'C',
@@ -285,7 +301,9 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('tickler-validation-messages', workflow);
+if (require.main === module) runWorkflow('tickler-validation-messages', workflow, {
+  openMaster: process.env.TICKLER_DIRECT_LIST !== 'true',
+});
 module.exports = {
   MISSING_DATE_KEY, SELECTORS, assertMessages, assertNoMessages, bundleMessage, exerciseValidation, workflow,
 };

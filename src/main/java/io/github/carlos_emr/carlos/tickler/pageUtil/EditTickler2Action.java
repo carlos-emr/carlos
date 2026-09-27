@@ -71,6 +71,10 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
+        if (!requirePost()) {
+            return NONE;
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         String ticklerNoStr = request.getParameter("ticklerNo");
@@ -231,6 +235,10 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
+        if (!requirePost()) {
+            return NONE;
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (activeText == null) {
@@ -302,6 +310,16 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         return "close";
+    }
+
+    /** Reject safe-method requests before changing ticklers or suggested text. */
+    private boolean requirePost() {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     private String[] activeText;
