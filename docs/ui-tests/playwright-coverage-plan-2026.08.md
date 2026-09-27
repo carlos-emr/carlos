@@ -168,7 +168,7 @@ make; neither is a shortcut around the rule.
 | `contact-lifecycle` | §2.4 | External-contact search, punctuation-safe selection, clinical flags, consent, notes, cancellation, association deletion, professional consent/status round-trip, and editing a seeded internal relationship with reciprocal type/flags and duplicate checks |
 | `consultation-directory-crud` | §3.3 | Institution/department create, edit and cancelled/accepted deletion; unselected records survive |
 | `measurement-history` | §2.5 | Dated measurement values, plotted PNG bytes, selected-row deletion and preserved archive |
-| `tickler-validation-messages` | §3.4 | The add and edit tickler popups' validation alert, entered Search ▸ Master Record ▸ Tickler ▸ New Tickler: a failed Save shows exactly one message line, a second failed Save still shows one (issue #3957 — the old pages appended a copy per submit and never cleared it), and a valid save leaves no stale message and writes the restored date to `tickler` |
+| `tickler-validation-messages` | §3.4 | The add and edit tickler popups' validation alert, entered Search ▸ Master Record ▸ Tickler ▸ New Tickler: a failed Save shows exactly one message line, a second failed Save still shows one (issue #3957 — the old pages appended a copy per submit and never cleared it), and a valid save leaves no stale message and writes the restored date to `tickler`; also covers simultaneous failures, rejected invalid POSTs, GET mutation rejection and CAISI direct-list entry |
 
 The navigation audits share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding

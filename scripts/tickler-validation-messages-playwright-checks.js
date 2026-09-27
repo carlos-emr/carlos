@@ -259,9 +259,8 @@ async function workflow(s) {
   });
 
   await s.step('edit popup: repeated failed saves show one message line, a valid save clears it', async () => {
-    // The list refreshes itself on the add popup's broadcast; reload so the row
-    // is on the page regardless of DataTables timing, then click its pencil.
-    await ticklerList.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
+    // Wait for the application's broadcast-driven refresh. A forced page reload
+    // here can abort its in-flight ListTicklers request and mask refresh failures.
     const row = ticklerList.locator('#ticklerResults tbody tr').filter({ hasText: ticklerMessage }).first();
     await row.waitFor({ state: 'visible', timeout: 20000 });
     const editPopup = await s.popup(ticklerList, row.locator('a[onclick*="openTicklerEdit"]'), 'tickler-edit');

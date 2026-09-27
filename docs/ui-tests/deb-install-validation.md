@@ -1396,6 +1396,8 @@ alongside the localized identity labels, including unsupported-language fallback
 
 ### Tickler validation-message fix validation (2026-09-26, issue #3957)
 
+For the current alpha16 PR head, see [PR #3994 Ubuntu 26.04 VM validation](pr3994-validation.md). The chroot run below records the earlier port validation.
+
 Validation of the port of the tickler add/edit validation-message fix
 (issue #3957; reference openo-beta/Open-O PR #2410) against a package built
 from the fix branch off `release/2026.08`, run before the PR was opened.
