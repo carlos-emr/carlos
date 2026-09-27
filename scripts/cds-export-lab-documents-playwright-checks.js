@@ -75,7 +75,7 @@ const PDF = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer 
 const LONG_TEXT_RESULT = `ABCDEFGHIJ${'KLMNOPQRST'.repeat(14)}`;
 const CONTROL_TEXT_RESULT = 'Hemolysed\u000Bsample';
 
-function buildMessage(accession, marker) {
+function buildMessage(accession, marker, includeMalformedEd = false) {
   return [
     'MSH|^~\\&|PATHL7|CARLOSTEST|HTTPCLIENT|carlos|20260901101500||ORU^R01|PW3946MSG|P|2.3|||ER|AL',
     `PID||9999999999|3946||${marker}^WORKFLOW||19800102|F`,
@@ -87,7 +87,9 @@ function buildMessage(accession, marker) {
     `OBX|3|ST|SPEC^Specimen Quality||${CONTROL_TEXT_RESULT}||||||F|||20260901100000`,
     `OBR|2||${accession}|PDF^Pathology Report|RT|20260901100000|20260901100000|||||||20260901100000||`
       + 'TESTLAB^CARLOS^TEST LAB||||||20260901100000||PATH|F',
-    `OBX|1|ED|PDF^Pathology Report||^TEXT^PDF^Base64^${PDF.toString('base64')}||||||F|||20260901100000`,
+    ...(includeMalformedEd ? ['OBX|1|ED|MISSING^Unavailable report||||||||F|||20260901100000',
+      'NTE|1||Document pending'] : []),
+    `OBX|${includeMalformedEd ? 2 : 1}|ED|PDF^Pathology Report||^TEXT^PDF^Base64^${PDF.toString('base64')}||||||F|||20260901100000`,
   ].join('\r') + '\r';
 }
 
@@ -150,7 +152,7 @@ function invalidXmlCharacters(text) {
  * The #3946 contract for one exported patient file. Pure, so the node unit test
  * can pin it against hand-built XML without a deployment.
  */
-function assertLabExport(xml, { accession, pdf = PDF }) {
+function assertLabExport(xml, { accession, pdf = PDF, emptyDocument = false }) {
   h.assert(invalidXmlCharacters(xml).length === 0, 'the exported XML contains characters XML 1.0 forbids');
 
   const labs = elements(xml, 'LaboratoryResults').filter(block => block.includes(accession));
@@ -170,8 +172,18 @@ function assertLabExport(xml, { accession, pdf = PDF }) {
     'a result containing a vertical tab was not exported with the character removed');
 
   const reports = elements(xml, 'Reports').filter(block => firstText(block, 'MessageUniqueID') === accession);
-  h.assert(reports.length === 1, `expected the embedded PDF as exactly one Reports entry, found ${reports.length}`);
-  const [report] = reports;
+  h.assert(reports.length === (emptyDocument ? 2 : 1),
+    emptyDocument ? `expected the unavailable report and later PDF, found ${reports.length}`
+      : `expected the embedded PDF as exactly one Reports entry, found ${reports.length}`);
+  const report = emptyDocument ? reports.find(block => firstText(block, 'Format') === 'Binary') : reports[0];
+  h.assert(report, 'the valid PDF after the unavailable document was not exported');
+  if (emptyDocument) {
+    const unavailable = reports.find(block => firstText(block, 'Format') === 'Text');
+    h.assert(unavailable && firstText(unavailable, 'Class') === 'Lab Report', 'unavailable report metadata is missing');
+    h.assert(firstText(unavailable, 'FileExtensionAndVersion') === '.txt', 'unavailable report is not a text fallback');
+    h.assert((firstText(unavailable, 'Notes') || '').includes('Document pending'), 'unavailable report notes were lost');
+    h.assert(!firstText(unavailable, 'TextContent'), 'an unavailable report acquired an invented value');
+  }
   h.assert(firstText(report, 'Class') === 'Lab Report', 'the embedded document is not classed as a Lab Report');
   h.assert(firstText(report, 'Format') === 'Binary', 'the embedded document is not exported as Binary');
   h.assert(firstText(report, 'FileExtensionAndVersion') === '.pdf', 'the embedded PDF has no .pdf extension');
@@ -230,7 +242,7 @@ function decryptExport(encrypted) {
 
 function seedLab(s) {
   const accession = `PW3946-${randomBytes(6).toString('hex')}`;
-  const message = Buffer.from(buildMessage(accession, s.marker), 'utf8').toString('base64');
+  const message = Buffer.from(buildMessage(accession, s.marker, true), 'utf8').toString('base64');
   const labNo = s.sql.value(`INSERT INTO hl7TextMessage (fileUploadCheck_id, message, type, serviceName, created)
     VALUES (0, ${h.sqlString(message)}, 'PATHL7', 'PLAYWRIGHT-3946', NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(labNo), 'the synthetic HL7 lab was not created');
@@ -296,6 +308,9 @@ async function workflow(s) {
     let zip = fs.readFileSync(await download.path());
     if (download.suggestedFilename().toLowerCase().endsWith('.pgp')) zip = decryptExport(zip);
     const entries = readZip(zip);
+    h.assert([...entries.entries()].some(([name, content]) => name.endsWith('ExportEvent.log')
+      && content.toString('utf8').includes('embedded lab document has no payload')),
+    'the unavailable embedded document was not disclosed in the export event log');
     const xmlNames = [...entries.keys()].filter(name => name.toLowerCase().endsWith('.xml'));
     h.assert(xmlNames.length === 1, `expected one patient XML in the export zip, found ${xmlNames.length}`);
     xml = entries.get(xmlNames[0]).toString('utf8');
@@ -305,7 +320,7 @@ async function workflow(s) {
 
   await s.step('the embedded PDF is a Lab Report and the results are clean, well-formed XML', async () => {
     assertWellFormed(xml);
-    assertLabExport(xml, { accession });
+    assertLabExport(xml, { accession, emptyDocument: true });
     h.assert(elements(xml, 'Appointments').length === 1, 'Owned appointment is missing from the complete export');
     h.assert(elements(xml, 'ClinicalNotes').length === 1, 'Owned clinical note is missing from the complete export');
     h.assert(firstText(xml, 'MyClinicalNotesContent') === s.marker, 'Exported clinical note changed');

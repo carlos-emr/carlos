@@ -2,6 +2,7 @@
 """Intersect a Git Java diff with JaCoCo source-line hits for an audit."""
 
 import argparse
+import codecs
 import re
 import subprocess
 import sys
@@ -56,7 +57,19 @@ def changed_lines(diff):
     path = None
     for line in diff.splitlines():
         if line.startswith("diff --git "):
-            path = line.split(" b/", 1)[1]
+            path = None
+        elif line.startswith("+++ "):
+            destination = line[4:]
+            if destination.startswith('"'):
+                quoted = re.match(r'^"((?:[^"\\]|\\.)*)"', destination)
+                if quoted is None:
+                    raise ValueError("Malformed quoted Git destination path")
+                # Git quotes UTF-8 bytes with C/octal escapes, not Unicode code points.
+                destination = codecs.escape_decode(quoted.group(1).encode("utf-8"))[0].decode(
+                    "utf-8", errors="surrogateescape")
+            else:
+                destination = destination.split("\t", 1)[0]
+            path = destination[2:] if destination.startswith("b/") else None
         elif line.startswith("@@ ") and path is not None:
             match = re.search(r"\+(\d+)(?:,(\d+))?", line)
             if match:

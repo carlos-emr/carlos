@@ -79,4 +79,25 @@ class MessageHandlerEmbeddedDocumentUnitTest {
                 .isEqualTo(PathL7EmbeddedDocumentMessage.PDF);
         assertThat(new String(PathL7EmbeddedDocumentMessage.PDF, StandardCharsets.US_ASCII)).startsWith("%PDF");
     }
+
+    @Test
+    void shouldUseFallback_whenEdObservationHasNoValues() throws Exception {
+        PATHL7Handler handler = new PATHL7Handler();
+        handler.init(PathL7EmbeddedDocumentMessage.message());
+        var obx = handler.msg.getRESPONSE().getORDER_OBSERVATION(1).getOBSERVATION(0).getOBX();
+        obx.clear();
+        obx.getValueType().setValue("ED");
+        assertThat(obx.getObx5_ObservationValue()).isEmpty();
+        assertThat(handler.getOBXDocumentEncoding(1, 0)).isNull();
+    }
+
+    @Test
+    void shouldUseFallback_whenEdObservationContainsAnotherDataType() throws Exception {
+        PATHL7Handler handler = new PATHL7Handler();
+        handler.init(PathL7EmbeddedDocumentMessage.message());
+        var obx = handler.msg.getRESPONSE().getORDER_OBSERVATION(1).getOBSERVATION(0).getOBX();
+        obx.getObservationValue(0).setData(new ca.uhn.hl7v2.model.v23.datatype.ST(handler.msg));
+        assertThat(handler.isOBXEmbeddedDocument(1, 0)).isTrue();
+        assertThat(handler.getOBXDocumentEncoding(1, 0)).isNull();
+    }
 }

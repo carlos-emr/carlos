@@ -195,6 +195,20 @@ class DemographicExportAction42ActionLabDocumentUnitTest extends DemographicExpo
     }
 
     @Test
+    void shouldWarnAndContinueExport_whenEdValueFieldIsEntirelyAbsent() {
+        replaceMessage(PathL7EmbeddedDocumentMessage.message().replace("OBX|1|ED|PDF^Pathology Report||",
+                "OBX|1|ED|MISSING^Unavailable report||||||||F|||20260901100000\r"
+                + "NTE|1||Document pending\rOBX|2|ED|PDF^Pathology Report||"));
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+        assertThat(patientRecord.getReportsArray()).hasSize(2);
+        assertThat(patientRecord.getReportsArray(0).getContent().getTextContent()).isEmpty();
+        assertThat(patientRecord.getReportsArray(0).getNotes()).contains("Document pending");
+        assertThat(patientRecord.getReportsArray(1).getContent().getMedia())
+                .isEqualTo(PathL7EmbeddedDocumentMessage.PDF);
+        assertThat(action.exportError).anyMatch(message -> message.contains("no payload"));
+    }
+
+    @Test
     void shouldKeepEmptyEdAsReportAndWarnInsteadOfDroppingIt() {
         replaceMessage(PathL7EmbeddedDocumentMessage.message().replace(
                 Base64.getEncoder().encodeToString(PathL7EmbeddedDocumentMessage.PDF), ""));

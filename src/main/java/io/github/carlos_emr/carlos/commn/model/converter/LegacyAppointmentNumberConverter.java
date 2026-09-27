@@ -27,11 +27,21 @@ import jakarta.persistence.Converter;
  */
 @Converter(autoApply = false)
 public class LegacyAppointmentNumberConverter implements AttributeConverter<Integer, Integer> {
+    /**
+     * Preserves the appointment number when writing the database column.
+     * @param appointmentNumber appointment number, possibly {@code null}
+     * @return the unchanged appointment number
+     */
     @Override
     public Integer convertToDatabaseColumn(Integer appointmentNumber) {
         return appointmentNumber;
     }
 
+    /**
+     * Converts the legacy nullable column to the public no-appointment sentinel.
+     * @param appointmentNumber appointment number read from the database
+     * @return zero for {@code null}, otherwise the unchanged appointment number
+     */
     @Override
     public Integer convertToEntityAttribute(Integer appointmentNumber) {
         return appointmentNumber == null ? 0 : appointmentNumber;

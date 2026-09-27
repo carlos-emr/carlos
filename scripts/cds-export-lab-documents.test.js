@@ -119,3 +119,22 @@ test('the seeded HL7 message carries the three #3946 shapes', () => {
   assert.ok(segments.some(s => s.includes('Hemolysed\u000Bsample')));
   assert.ok(!/[|^~\\&]/.test(PDF.toString('base64')), 'the PDF base64 must not contain an HL7 delimiter');
 });
+
+
+test('the malformed ED fixture keeps an empty value before the valid PDF', () => {
+  const segments = buildMessage(ACCESSION, 'FAKE-PWmarker', true).split('\r');
+  const documents = segments.filter(s => s.includes('|ED|'));
+  assert.equal(documents.length, 2);
+  assert.equal(documents[0].split('|')[5], '');
+  assert.ok(documents[1].includes(PDF.toString('base64')));
+});
+
+test('the extended export contract requires both unavailable metadata and the later PDF', () => {
+  const unavailable = `<Reports><Format>Text</Format><FileExtensionAndVersion>.txt</FileExtensionAndVersion>`
+    + `<Content><TextContent/></Content><Class>Lab Report</Class><Notes>Document pending</Notes>`
+    + `<MessageUniqueID>${ACCESSION}</MessageUniqueID></Reports>`;
+  assert.deepEqual(assertLabExport(exportXml({labs: GOOD_LABS, reports: [unavailable, report()]}),
+    {accession: ACCESSION, emptyDocument: true}), {labs: 3, reports: 2});
+  assert.throws(() => assertLabExport(exportXml({labs: GOOD_LABS, reports: [report()]}),
+    {accession: ACCESSION, emptyDocument: true}), /unavailable report and later PDF/);
+});

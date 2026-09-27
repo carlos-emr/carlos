@@ -19,8 +19,12 @@ REPORT = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </package></report>"""
 
 DIFF = """diff --git a/src/main/java/io/github/x/A.java b/src/main/java/io/github/x/A.java
+--- a/src/main/java/io/github/x/A.java
++++ b/src/main/java/io/github/x/A.java
 @@ -9,0 +10,3 @@ class A {
 diff --git a/src/main/java/io/github/x/B.java b/src/main/java/io/github/x/B.java
+--- a/src/main/java/io/github/x/B.java
++++ b/src/main/java/io/github/x/B.java
 @@ -1 +1 @@
 """
 
@@ -74,6 +78,28 @@ class ChangedLineAuditTest(unittest.TestCase):
                     [sys.executable, script, report, "HEAD", "--per-file"], cwd=directory, text=True)
                 self.assertIn("1 covered / 1 (100.0%)", output)
                 self.assertIn("src/main/java/io/github/x/A.java", output)
+
+    def test_should_decode_actual_git_paths_with_spaces_unicode_and_escaped_characters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=directory, text=True)
+            git("init", "-q")
+            names = ["With Space.java", "Échantillon.java", 'Quoted"Name.java', "Tab\tName.java"]
+            prefix = "src/main/java/io/github/x/"
+            for name in names + ["Removed.java"]:
+                source = Path(directory) / (prefix + name)
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text("old\n")
+            git("add", ".")
+            git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")
+            for name in names:
+                (Path(directory) / (prefix + name)).write_text("new\n")
+            (Path(directory) / (prefix + "Removed.java")).unlink()
+            for quote_paths in ("true", "false"):
+                diff = git("-c", "core.quotePath=" + quote_paths, "diff", "-U0", "--src-prefix=a/", "--dst-prefix=b/")
+                self.assertEqual(dict(audit_script.changed_lines(diff)), {prefix + name: {1} for name in names})
+
 
 
 if __name__ == "__main__":
