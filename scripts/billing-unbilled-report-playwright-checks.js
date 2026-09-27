@@ -116,16 +116,18 @@ async function runReport(page, s, screen, date, scenario) {
     // link contract from the separate province-specific billing editor workflow.
     const routePattern = '**/billing?**';
     await s.context.route(routePattern, route => route.fulfill({status:200, contentType:'text/html', body:'<!doctype html><title>Billing link check</title>'}));
+    const reportUrl = page.url();
     let popup;
     let billing;
     try {
       [popup] = await Promise.all([page.waitForEvent('popup'), link.click()]);
-      await popup.waitForLoadState('domcontentloaded');
+      await popup.waitForURL(url => url.pathname.endsWith('/billing'), {waitUntil:'domcontentloaded'});
       billing = new URL(popup.url());
     } finally {
       if (popup) await popup.close();
       await s.context.unroute(routePattern);
     }
+    h.assert(page.url() === reportUrl, `${screen.name}: opening a bill navigated away from the report`);
     h.assert(billing.searchParams.get('start_time') === expectedTime, `${screen.name}: billing link time changed`);
     h.assert(billing.searchParams.get('billRegion') === screen.name, `${screen.name}: billing link province changed`);
     h.assert(billing.searchParams.get('demographic_name') === `${s.marker} ${label}${NAME_SUFFIX}`, `${screen.name}: billing link patient name changed`);

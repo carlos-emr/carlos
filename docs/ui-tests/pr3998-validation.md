@@ -15,7 +15,8 @@ comes from Chitrank Davé's Open-O PRs #134/#186 (commits 62fc595f7 and baf8e88a
   regression failed because `09:40:00` was rendered as a date; it passes with time formatting.
 - BC omitted dates use the existing blank-date defaults. Build the BC billing URL with
   UTF-8 query encoding and JavaScript-attribute encoding, preserve nullable names/status,
-  tolerate an unset billing form and pin the link to the BC billing route.
+  tolerate an unset billing form and pin the link to the BC billing route. Cancel the anchor
+  default navigation: the BC base URL otherwise sends the report tab home when opening a bill.
 - Extend the installed browser matrix with combined `NV`/`CS` statuses, exact displayed and
   linked times, province/name parameters, omitted dates and hostile display text. All fixtures
   are owned and removed with the existing workflow cleanup.

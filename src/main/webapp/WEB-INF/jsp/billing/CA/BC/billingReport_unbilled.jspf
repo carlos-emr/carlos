@@ -98,7 +98,7 @@
 			face="Arial, Helvetica, sans-serif"><carlos:encode value="<%= reason %>"/> </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "<carlos:encode value="<%= billingUrl %>" context="javaScriptAttribute"/>")'
+			onClick='popupPage(700,1000, "<carlos:encode value="<%= billingUrl %>" context="javaScriptAttribute"/>"); return false;'
 			title="<carlos:encode value="<%= reason %>" context="htmlAttribute"/>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;
