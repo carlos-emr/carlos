@@ -28,6 +28,8 @@ migration/
            V1.0.22__add_lab_routing_lock_audit_columns.sql
            V1.0.29__rename_placeholder_demo_clinic.sql
            V1.0.30__add_ocean_setting.sql
+           V1.0.32__add_nrtf_tuning_fork_measurement_type.sql
+           V1.0.33__aacp_provided_revised_reviewed_validation.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -35,6 +37,7 @@ migration/
            V1.0.11__billing_filename_unique_indexes.sql
            V1.0.12__portable_billing_filename_unique_indexes.sql
            V1.0.23__activate_legacy_consultation_services.sql
+           V1.0.34__add_oma_uninsured_service_fees.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
@@ -42,16 +45,23 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.30`
-(`common/V1.0.30`, shared by both provinces), and the next free number for ANY
-location — shared or province — is `V1.0.31`. The version line is global:
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.34`
+(`on/V1.0.34`, Ontario only; the highest shared one is `common/V1.0.33`), and the next free
+number for ANY location — shared or province — is `V1.0.35`. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.30` today on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.30`) but would silently
+run — `on/V1.0.34` on Ontario and `common/V1.0.33` on BC today. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.33`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.
+
+**Reserved `V1.0.31` (release 2026.08).** #3746 (Ocean setting) merged as `common/V1.0.30`; #3694
+(provider signature identity), still open, can take `V1.0.31`. The OMD conformance migrations
+(#3900) were numbered `V1.0.32`–`V1.0.34` ahead of both for that reason. This assumes #3694 merges
+before any database, whether a dev container, a CI fixture or a packaged snapshot, has migrated to
+`V1.0.32` or later. Otherwise the rule above applies: a PR merged after that point must renumber
+above the high-water mark.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 

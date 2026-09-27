@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
@@ -32,7 +33,7 @@ async function workflow(s) {
     h.assert(s.sql.value(formCount) === '0', 'Unexpected RH form rows remain on the owned patient');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM workflow WHERE demographic_no=${h.sqlString(s.patient)}`) === '0', 'Unexpected workflow rows remain on the owned patient');
   });
-  const chart = await s.chart();
+  let chart = await s.chart();
   await chart.locator('#menuTitle1 a').hover();
   let page = await s.popup(chart, chart.getByRole('link', { name: formName, exact: true }), 'rh-new-form');
   let workflowId;
@@ -52,16 +53,26 @@ async function workflow(s) {
     h.assert(row[2] === s.marker && await page.locator('[name="comments"]').inputValue() === s.marker, 'Saved comments were lost in persistence or rendering');
     h.assert(await page.locator('[name="formId"]').inputValue() === row[0], 'Success page reopened a different form record');
   });
-  await s.step('reopen through the chart saved forms list and update the existing pregnancy', async () => {
+  await s.step('reopen through the chart and update the existing pregnancy', async () => {
     await page.close();
-    // The Forms module heading is the chart's own control for the saved forms list;
-    // the per-form shortcut anchors are not rendered for a freshly saved record.
-    const formsHeading = chart.locator('h3[onclick*="/encounter/ViewFormlist"]');
-    h.assert(await formsHeading.count() === 1, 'Chart did not render exactly one Forms module heading');
-    const list = await s.popup(chart, formsHeading, 'rh-form-list');
-    const savedLinks = list.locator('a').filter({ hasText: formName });
-    h.assert(await savedLinks.count() === 1, 'Patient saved forms list did not show exactly one owned RH form');
-    page = await s.popup(list, savedLinks.first(), 'rh-reopen');
+    // A fresh chart page rather than chart.reload(): leaving the encounter fires its
+    // unload beacon to CaseManagementEntry, which the browser reports as an aborted
+    // "ping" request and the strict page recorder counts as a failure.
+    const refreshed = await s.context.newPage();
+    await refreshed.goto(chart.url(), { waitUntil: 'domcontentloaded' });
+    await waitForNavbars(refreshed, 20000);
+    chart = refreshed;
+    // One navbar ENTRY, not one anchor: LeftNavBarDisplay.jsp renders each saved form as a
+    // title link plus a "...date" suffix link with the same target, and the suffix overlays
+    // the end of a long title, so count the entries and click the title's visible left edge.
+    const entries = chart.locator('#leftNavBar li, #rightNavBar li')
+      .filter({ has: chart.locator('a[onclick*="/form/forwardshortcutname"]') });
+    // The navbars fill their sections asynchronously after waitForNavbars returns; wait for the
+    // forms section to render its entry before counting, or a slow load reads as zero.
+    await entries.first().waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
+    h.assert(await entries.count() === 1, 'Owned patient should have exactly one saved form entry');
+    page = await ui.clickOpensPopup(chart, entries.first().locator('a[onclick*="/form/forwardshortcutname"]').first(),
+      { context: s.context, recorder: s.recorder, label: 'rh-reopen', timeout: 20000, position: { x: 8, y: 9 } });
     h.assert(await page.locator('[name="comments"]').inputValue() === s.marker, 'Reopened RH form lost comments');
     await page.locator('[name="state"]').selectOption('2');
     await page.locator('[name="comments"]').fill(s.marker + ' edited'); await save();
