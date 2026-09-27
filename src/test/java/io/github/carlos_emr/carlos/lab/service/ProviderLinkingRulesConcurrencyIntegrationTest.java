@@ -39,6 +39,7 @@ class ProviderLinkingRulesConcurrencyIntegrationTest extends CarlosTestBase {
     private TransactionTemplate tx;
     private ProviderLinkingRulesService service;
     private LoggedInInfo admin;
+    private CountDownLatch writersAtLock;
 
     @BeforeEach
     void setUp() {
@@ -53,7 +54,16 @@ class ProviderLinkingRulesConcurrencyIntegrationTest extends CarlosTestBase {
         var security = mock(SecurityInfoManager.class);
         admin = mock(LoggedInInfo.class);
         when(security.hasPrivilege(admin, "_admin", "w", null)).thenReturn(true);
-        service = new ProviderLinkingRulesService(properties, security, coordination);
+        // Checkpoint at the lock boundary: count each writer as it reaches lockRoutingReport,
+        // then delegate to the real database lock.
+        writersAtLock = new CountDownLatch(2);
+        var checkpoint = mock(ProviderLabRoutingDao.class);
+        doAnswer(call -> {
+            writersAtLock.countDown();
+            coordination.lockRoutingReport(call.getArgument(0));
+            return null;
+        }).when(checkpoint).lockRoutingReport(anyInt());
+        service = new ProviderLinkingRulesService(properties, security, checkpoint);
     }
 
     @AfterEach
@@ -70,7 +80,6 @@ class ProviderLinkingRulesConcurrencyIntegrationTest extends CarlosTestBase {
     void shouldStoreOnlyLastSavedGlobalValue_whenFirstSavesOverlap(boolean rollBackFirst) throws Exception {
         var firstSaved = new CountDownLatch(1);
         var releaseFirst = new CountDownLatch(1);
-        var secondStarted = new CountDownLatch(1);
         try (var workers = Executors.newFixedThreadPool(2)) {
             var first = workers.submit(() -> {
                 try (var audit = mockStatic(LogAction.class)) {
@@ -87,13 +96,11 @@ class ProviderLinkingRulesConcurrencyIntegrationTest extends CarlosTestBase {
                 assertThat(firstSaved.await(10, TimeUnit.SECONDS)).isTrue();
                 var second = workers.submit(() -> {
                     try (var audit = mockStatic(LogAction.class)) {
-                        return tx.execute(status -> {
-                            secondStarted.countDown();
-                            return service.setEnabled(admin, false);
-                        });
+                        return tx.execute(status -> service.setEnabled(admin, false));
                     }
                 });
-                assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+                // The second writer has reached the lock, not merely started its transaction.
+                assertThat(writersAtLock.await(10, TimeUnit.SECONDS)).isTrue();
                 // Writer two cannot return success before writer one's transaction finishes.
                 assertThatThrownBy(() -> second.get(200, TimeUnit.MILLISECONDS))
                         .isInstanceOf(TimeoutException.class);

@@ -759,9 +759,11 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldUnlinkWithNullAuditActor_whenAuthorizedSessionHasNoLoggedInInfo() throws Exception {
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
-        when(securityInfoManager.hasPrivilege(isNull(), eq("_hrm"), eq("w"), isNull())).thenReturn(true);
+    void shouldUnlinkWithNullAuditActor_whenActorLookupReturnsNullAfterAuthorization() throws Exception {
+        // execute() and removeDemographic() each authorize the real identity; only the later
+        // audit-actor lookup inside the report lock comes back empty.
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request))
+                .thenReturn(loggedInInfo, loggedInInfo, null);
         request.addParameter("method", "removeDemographic");
         request.addParameter("reportId", "7");
 
@@ -771,6 +773,19 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         verify(hrmDocumentToDemographicDao).deleteByHrmDocumentId(7);
         verify(mrpRoutingService).routeMatchedHrmToMrp(7, null, null);
         verify(transactions).commit(transactionStatus);
+    }
+
+    @Test
+    void shouldRefuseUnlink_whenSessionHasNoLoggedInInfo() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
+        request.addParameter("method", "removeDemographic");
+        request.addParameter("reportId", "7");
+
+        assertThatThrownBy(() -> new HRMModifyDocument2Action().execute())
+                .isInstanceOf(SecurityException.class);
+
+        verify(hrmDocumentToDemographicDao, never()).deleteByHrmDocumentId(anyInt());
+        verifyNoInteractions(mrpRoutingService);
     }
 
     @Test
