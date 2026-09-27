@@ -309,8 +309,8 @@ public class EditTickler2Action extends ActionSupport {
             try {
                 textSuggestId = Integer.parseInt(activeTextStr);
             } catch (NumberFormatException e) {
-                //probably a new text suggestion then
-                logger.error("textSuggestId in activeText cannot be parsed as an int. Value: '{}'", activeTextStr, e);
+                // A nonnumeric value is a new suggestion, not a parsing failure.
+                // Do not log entered text or the exception: both may contain clinical details.
             }
 
             TicklerTextSuggest ts = null;
@@ -336,8 +336,8 @@ public class EditTickler2Action extends ActionSupport {
             try {
                 textSuggestId = Integer.parseInt(inactiveTextStr);
             } catch (NumberFormatException e) {
-                //probably a new text suggestion then
-                logger.error("textSuggestId in inactiveText cannot be parsed as an int. Value: '{}'", inactiveTextStr, e);
+                // A nonnumeric value is a new suggestion, not a parsing failure.
+                // Do not log entered text or the exception: both may contain clinical details.
             }
 
             TicklerTextSuggest ts = null;

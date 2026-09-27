@@ -179,6 +179,195 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         assertThat(output.getFirst().getDisplayName()).isEqualTo("Source confirmation required");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldUseStoredPatient_whenResponseMetadataOmitsOrMatchesPatient(boolean omitted) {
+        var stored = storedResponse();
+        var submitted = responseSubmission(omitted ? null : DEMOGRAPHIC_NO);
+        when(consultationManager.getResponse(loggedInInfo, 456)).thenReturn(stored);
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 456)).thenReturn(List.of());
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
+        route("MDS");
+        var transaction = responseTransaction();
+
+        assertThat(service.saveResponse(submitted)).isSameAs(submitted);
+
+        assertThat(stored.getDemographicNo()).isEqualTo(DEMOGRAPHIC_NO);
+        assertThat(stored.getPlan()).isEqualTo("updated plan");
+        org.mockito.Mockito.verify(consultationManager).saveConsultationResponse(loggedInInfo, stored);
+        var saved = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc.class);
+        org.mockito.Mockito.verify(consultationManager).saveConsultResponseDoc(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getValue().getLabType()).isEqualTo("MDS");
+        org.mockito.Mockito.verify(transaction).commit(any());
+        org.mockito.Mockito.verify(transaction, org.mockito.Mockito.never()).rollback(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {124, 0, -1})
+    void shouldRejectResponsePatientChange_beforeMutatingStoredClinicalData(int patient) {
+        var stored = storedResponse();
+        when(consultationManager.getResponse(loggedInInfo, 456)).thenReturn(stored);
+        var transaction = responseTransaction();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.saveResponse(responseSubmission(patient)))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+
+        assertThat(stored.getDemographicNo()).isEqualTo(DEMOGRAPHIC_NO);
+        assertThat(stored.getPlan()).isEqualTo("original plan");
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultationResponse(any(), any());
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultResponseDoc(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(routing);
+        org.mockito.Mockito.verify(transaction).rollback(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missingResponse", "missingStoredPatient", "missingReferringDoctor", "newMissingPatient", "missingPayload"})
+    void shouldRejectInvalidResponseMetadata_withoutFalseSuccessOrPartialMutation(String condition) {
+        var stored = storedResponse();
+        var submitted = responseSubmission(DEMOGRAPHIC_NO);
+        if ("missingStoredPatient".equals(condition)) stored.setDemographicNo(null);
+        if ("missingReferringDoctor".equals(condition)) submitted.setReferringDoctor(null);
+        if ("newMissingPatient".equals(condition)) {
+            submitted.setId(null);
+            submitted.setDemographic(null);
+        } else if (!"missingPayload".equals(condition)) {
+            when(consultationManager.getResponse(loggedInInfo, 456))
+                    .thenReturn("missingResponse".equals(condition) ? null : stored);
+        }
+        var transaction = responseTransaction();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.saveResponse("missingPayload".equals(condition) ? null : submitted))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThat(stored.getPlan()).isEqualTo("original plan");
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultationResponse(any(), any());
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultResponseDoc(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(routing);
+        org.mockito.Mockito.verify(transaction).rollback(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldSaveEachSourceOnce_whenResponseSelectionContainsDuplicateLabs(boolean alreadyAttached) {
+        var stored = storedResponse();
+        var submitted = responseSubmission(DEMOGRAPHIC_NO);
+        submitted.setAttachments(List.of(lab("MDS"), lab("HL7"), lab("MDS")));
+        when(consultationManager.getResponse(loggedInInfo, 456)).thenReturn(stored);
+        var existing = new io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc(456, 77, "L", PROVIDER_NO);
+        ReflectionTestUtils.setField(existing, "id", 900);
+        existing.setLabType("MDS");
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 456)).thenReturn(alreadyAttached ? List.of(existing) : List.of());
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
+        route("MDS");
+        route("HL7");
+        responseTransaction();
+
+        service.saveResponse(submitted);
+
+        var saved = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc.class);
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.times(alreadyAttached ? 1 : 2)).saveConsultResponseDoc(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getAllValues()).extracting(io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc::getLabType)
+                .containsExactlyElementsOf(alreadyAttached ? List.of("HL7") : List.of("MDS", "HL7"));
+        assertThat(existing.getDeleted()).isNull();
+    }
+
+    private io.github.carlos_emr.carlos.commn.model.ConsultationResponse storedResponse() {
+        var response = new io.github.carlos_emr.carlos.commn.model.ConsultationResponse();
+        ReflectionTestUtils.setField(response, "id", 456);
+        response.setDemographicNo(DEMOGRAPHIC_NO);
+        response.setPlan("original plan");
+        return response;
+    }
+
+    private io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseTo1 responseSubmission(Integer patient) {
+        var response = new io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseTo1();
+        response.setId(456);
+        if (patient != null) {
+            var demographic = new io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1();
+            demographic.setDemographicNo(patient);
+            response.setDemographic(demographic);
+        }
+        var referring = new io.github.carlos_emr.carlos.webserv.rest.to.model.ProfessionalSpecialistTo1();
+        referring.setId(7);
+        response.setReferringDoctor(referring);
+        response.setPlan("updated plan");
+        response.setAttachments(List.of(lab("MDS")));
+        return response;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldRejectRequestBeforeMutation_whenPatientChangesOrRequestIsMissing(boolean missing) {
+        var submitted = requestSubmission();
+        var stored = storedRequest();
+        if (!missing) submitted.setDemographicId(999);
+        var demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+        when(demographicManager.getDemographic(loggedInInfo, submitted.getDemographicId()))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(missing ? null : stored);
+        var transaction = responseTransaction();
+
+        assertThat(service.updateConsultation(submitted).getStatus()).isEqualTo(400);
+
+        assertThat(stored.getDemographicId()).isEqualTo(DEMOGRAPHIC_NO);
+        assertThat(stored.getReasonForReferral()).isEqualTo("original reason");
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultationRequest(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(routing, documentManager);
+        org.mockito.Mockito.verify(transaction).rollback(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldRespectAttachmentPresence_whenUpdatingRequest(boolean omitted) {
+        var submitted = requestSubmission();
+        submitted.setAttachments(omitted ? null : List.of());
+        var stored = storedRequest();
+        var demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+        when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+        when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(stored);
+        var existing = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, "L", PROVIDER_NO);
+        existing.setId(900);
+        existing.setLabType("MDS");
+        if (!omitted) when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of(existing));
+        var transaction = responseTransaction();
+
+        assertThat(service.updateConsultation(submitted).getStatus()).isEqualTo(200);
+
+        assertThat(stored.getReasonForReferral()).isEqualTo("updated reason");
+        assertThat(existing.getDeleted()).isEqualTo(omitted ? null : "Y");
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.times(omitted ? 0 : 1)).saveConsultRequestDoc(any(), any());
+        org.mockito.Mockito.verify(transaction).commit(any());
+    }
+
+    private ConsultationRequestTo1 requestSubmission() {
+        var request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setReferralDate(new java.util.Date());
+        request.setServiceId(1);
+        request.setUrgency("2");
+        request.setStatus("1");
+        request.setReasonForReferral("updated reason");
+        request.setAttachments(List.of(lab("MDS")));
+        return request;
+    }
+
+    private io.github.carlos_emr.carlos.commn.model.ConsultationRequest storedRequest() {
+        var request = new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        ReflectionTestUtils.setField(request, "id", 456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setReasonForReferral("original reason");
+        return request;
+    }
+
+    private org.springframework.transaction.PlatformTransactionManager responseTransaction() {
+        var transaction = org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transaction.getTransaction(any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        ReflectionTestUtils.setField(service, "transactionManager", transaction);
+        return transaction;
+    }
+
     private void route(String source) {
         var row = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(77, source, DEMOGRAPHIC_NO);
         when(routing.findByLabNoAndLabType(77, source)).thenReturn(List.of(row));

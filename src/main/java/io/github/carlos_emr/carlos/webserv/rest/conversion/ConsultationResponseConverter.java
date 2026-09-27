@@ -36,7 +36,28 @@ import org.springframework.stereotype.Component;
 @Component
 public class ConsultationResponseConverter extends AbstractConverter<ConsultationResponse, ConsultationResponseTo1> {
 
+    /**
+     * Applies submitted fields after validating the response's patient and referring doctor.
+     * An existing response retains its patient when the demographic object is omitted; a
+     * submitted patient cannot move that response or its existing clinical attachments.
+     *
+     * @param loggedInInfo authenticated caller context
+     * @param t submitted response fields
+     * @param d existing response, or a new unsaved response
+     * @return the updated response
+     * @throws IllegalArgumentException if required metadata is missing or ownership changes
+     * @throws ConversionException if conversion cannot complete
+     */
     public ConsultationResponse getAsDomainObject(LoggedInInfo loggedInInfo, ConsultationResponseTo1 t, ConsultationResponse d) throws ConversionException {
+        if (t == null || d == null) throw new IllegalArgumentException("Consultation response is unavailable");
+        Integer patient = t.getDemographic() == null ? d.getDemographicNo() : t.getDemographic().getDemographicNo();
+        if (patient == null || patient <= 0
+                || (d.getId() != null && !patient.equals(d.getDemographicNo()))) {
+            throw new IllegalArgumentException("Invalid consultation response patient");
+        }
+        if (t.getReferringDoctor() == null) {
+            throw new IllegalArgumentException("Consultation response requires a referring doctor");
+        }
         d.setResponseDate(t.getResponseDate());
         d.setReferralDate(t.getReferralDate());
         d.setReferringDocId(t.getReferringDoctor().getId());
@@ -53,7 +74,7 @@ public class ConsultationResponseConverter extends AbstractConverter<Consultatio
         d.setConcurrentProblems(t.getConcurrentProblems());
         d.setAllergies(t.getAllergies());
         d.setProviderNo(t.getProviderNo());
-        d.setDemographicNo(t.getDemographic().getDemographicNo());
+        d.setDemographicNo(patient);
         d.setStatus(t.getStatus());
         d.setSendTo(t.getSendTo());
         d.setUrgency(t.getUrgency());

@@ -2607,6 +2607,19 @@
       "env": [
         "TICKLER_DIRECT_LIST"
       ]
+    },
+    {
+      "name": "consultation-response-attachments",
+      "script": "scripts/consultation-response-attachments-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }

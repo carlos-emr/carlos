@@ -198,6 +198,22 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should accept a lab when a later source-qualified routing row belongs to the patient")
+        void shouldAcceptLab_whenAnyMatchingRoutingRowBelongsToPatient() {
+            var other = new PatientLabRouting(77, "MDS", DEMOGRAPHIC_NO + 1);
+            var owned = new PatientLabRouting(77, "MDS", DEMOGRAPHIC_NO);
+            when(patientLabRoutingDao.findByLabNoAndLabType(77, "MDS")).thenReturn(List.of(other, owned));
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77"));
+
+            ArgumentCaptor<TicklerDocs> saved = ArgumentCaptor.forClass(TicklerDocs.class);
+            verify(ticklerDocsDao).persist(saved.capture());
+            assertThat(saved.getValue().getLabType()).isEqualTo("MDS");
+            assertThat(saved.getValue().getDocumentNo()).isEqualTo(77);
+        }
+
+        @Test
         @DisplayName("should check a lab against its own source's routing and record that source")
         void shouldKeepLabType_whenAttachingLab() {
             labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");

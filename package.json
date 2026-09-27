@@ -167,7 +167,8 @@
     "test:demographic-label-content-playwright": "node scripts/demographic-label-content-playwright-checks.js",
     "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js",
     "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js",
-    "test:tickler-validation-messages-playwright": "node scripts/tickler-validation-messages-playwright-checks.js"
+    "test:tickler-validation-messages-playwright": "node scripts/tickler-validation-messages-playwright-checks.js",
+    "test:consultation-response-attachments-playwright": "node scripts/consultation-response-attachments-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

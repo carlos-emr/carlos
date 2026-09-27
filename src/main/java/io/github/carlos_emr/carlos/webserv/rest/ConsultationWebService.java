@@ -257,11 +257,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return new TransactionTemplate(transactionManager)
                     .execute(status -> createConsultationInTransaction(data));
         } catch (IllegalArgumentException e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid attachment selection; reload and select the attachments again").build();
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid consultation request or attachment selection; reload and try again").build();
         }
     }
 
     private Response createConsultationInTransaction(ConsultationRequestTo1 data) {
+        if (data == null) throw new IllegalArgumentException("Consultation request is required");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
 
         if (data.getId() != null) {
@@ -298,11 +299,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return new TransactionTemplate(transactionManager)
                     .execute(status -> updateConsultationInTransaction(data));
         } catch (IllegalArgumentException e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid attachment selection; reload and select the attachments again").build();
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid consultation request or attachment selection; reload and try again").build();
         }
     }
 
     private Response updateConsultationInTransaction(ConsultationRequestTo1 data) {
+        if (data == null) throw new IllegalArgumentException("Consultation request is required");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
 
         if (data.getId() == null) {
@@ -321,7 +323,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         consultationManager.saveConsultationRequest(loggedInInfo, request);
 
         //save attachments
-        if (!data.getAttachments().isEmpty()) {
+        if (data.getAttachments() != null) {
             saveRequestAttachments(data);
         }
 
@@ -339,6 +341,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response saveRequest(ConsultationRequestTo1 data) {
+        if (data == null) throw new jakarta.ws.rs.BadRequestException("Consultation request is required");
         Response response = null;
 
         if (data.getId() == null) { //new consultation request
@@ -435,11 +438,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return new TransactionTemplate(transactionManager)
                     .execute(status -> saveResponseInTransaction(data));
         } catch (IllegalArgumentException e) {
-            throw new jakarta.ws.rs.BadRequestException("Invalid attachment selection; reload and select the attachments again");
+            throw new jakarta.ws.rs.BadRequestException("Invalid consultation response or attachment selection; reload and try again");
         }
     }
 
     private ConsultationResponseTo1 saveResponseInTransaction(ConsultationResponseTo1 data) {
+        if (data == null) throw new IllegalArgumentException("Consultation response is required");
         ConsultationResponse response = null;
 
         if (data.getId() == null) { //new consultation response
@@ -774,6 +778,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private void saveRequestAttachments(ConsultationRequestTo1 request) {
+        if (request.getAttachments() == null) return;
         List<ConsultationAttachmentTo1> goodAttachments = new ArrayList<>();
         for (ConsultationAttachmentTo1 attachment : request.getAttachments()) {
 
@@ -908,8 +913,14 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
         }
 
-        //compare current & new, remove from current list the unchanged ones - no need to update them
+        // Compare each source-qualified selection once; duplicate checkboxes must not
+        // create duplicate rows or consume an already-matched existing attachment again.
+        java.util.Set<String> uniqueAttachments = new java.util.HashSet<>();
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
+            String identity = newAtth.getDocumentType() + ":"
+                    + (ConsultationAttachmentTo1.TYPE_LAB.equals(newAtth.getDocumentType()) ? newAtth.getLabType() : "")
+                    + ":" + newAtth.getDocumentNo();
+            if (!uniqueAttachments.add(identity)) continue;
             boolean isNew = true;
             for (ConsultResponseDoc doc : currentDocs) {
                 if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()
