@@ -9,7 +9,7 @@ Ported from openo-beta/Open-O PR #2491 (Sebastian Ibanez) for #3984, with the se
 data-migration gaps in that PR closed rather than copied.
 
 ## Storage
-- Table `ticklerdocs` (`database/mysql/migration/common/V1.0.35__tickler_docs.sql`), mirroring
+- Table `ticklerdocs` (`database/mysql/migration/common/V1.0.37__tickler_docs.sql`), mirroring
   `consultdocs`/`EFormDocs`: `tickler_id`, `document_no`, `doctype` (`D` document, `L` lab,
   `E` eForm, `F` encounter form, `H` HRM), `lab_type` (lab source: HL7/MDS/CML/BCP, labs only),
   `deleted` (soft delete, `Y`), `attach_date`, `provider_no`, plus the repository audit pair

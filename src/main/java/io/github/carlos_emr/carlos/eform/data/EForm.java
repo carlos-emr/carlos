@@ -1448,6 +1448,20 @@ public class EForm extends EFormBase {
         }
     }
 
+    /**
+     * Supplies the persisted subject for templates without their own subject control.
+     * The floating toolbar copies this field on load and submits it on save; without it,
+     * reopening a saved template such as Rich Text Letter silently clears the subject.
+     */
+    public void ensureSubjectInput() {
+        Element form = getDocument().selectFirst("form");
+        if (form != null && form.selectFirst("[name=subject]") == null) {
+            // Jsoup escapes attribute values when serializing; keep the original text here.
+            form.appendElement("input").attr("type", "hidden").attr("name", "subject")
+                    .attr("value", getFormSubject());
+        }
+    }
+
     public void addHiddenInputElement(String id, String value) {
         addHiddenInputElement(id, null, null, value, null);
     }

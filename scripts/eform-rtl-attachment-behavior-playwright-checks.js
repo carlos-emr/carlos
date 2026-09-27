@@ -22,7 +22,7 @@ const { chromium } = require('playwright');
 const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
 const databaseConfig = readConfig({ require: ['MYSQL_PASSWORD'] });
 const db = createSqlRunner(databaseConfig.mysql);
-const stamp = `RTL_SOURCE_${Date.now()}_${process.pid}`;
+const stamp = `RTL_SOURCE_${Date.now()}_${process.pid} & "follow-up" <test>`;
 const {
   assert,
   buildArtifactPath,
@@ -129,6 +129,8 @@ const config = {
     wirePage(viewPage, 'rtl-behavior-saved-view', recorder);
     await gotoApp(viewPage, config.baseUrl, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}`);
     await viewPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    assert(await viewPage.locator('#remote_eform_subject').inputValue() === stamp,
+      'reopening the saved eForm changed its subject');
     // Let the Rich Text Letter editor finish initializing (the toolbar guard refuses to save while
     // the legacy " loading... " template placeholder is still present).
     await viewPage.waitForFunction(
@@ -137,9 +139,20 @@ const config = {
     ).catch(() => {});
     const mergedPdfPath = buildArtifactPath(config.screenshotDir, `rtl-attachment-merged-${Date.now()}`, '.pdf');
     const downloadPromise = viewPage.waitForEvent('download', { timeout: 90000 });
+    // Independent ownership marker lets cleanup find the PDF revision even if subject
+    // preservation regresses. Never infer ownership from an ID range or creation time.
+    await viewPage.evaluate(owner => {
+      const marker = document.createElement('input');
+      marker.type = 'hidden';
+      marker.name = 'prValidationOwner';
+      marker.value = owner;
+      document.forms[0].appendChild(marker);
+    }, stamp);
     await viewPage.locator('#remoteDownloadButton').click();
     const download = await downloadPromise;
     await download.saveAs(mergedPdfPath);
+    assert(db.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${Number(config.demographicNo)} AND subject=${sqlString(stamp)}`) === '2',
+      'PDF export must preserve the subject on its saved revision');
     const mergedBytes = fs.readFileSync(mergedPdfPath);
     assert(mergedBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Merged eForm+attachment payload was not a PDF');
     const mergedRaw = mergedBytes.toString('latin1');
@@ -168,9 +181,9 @@ const config = {
       await browser.close();
     } finally {
       try {
-        const ids = db.rows(`SELECT fdid FROM eform_data WHERE demographic_no=${Number(config.demographicNo)} AND subject=${sqlString(stamp)}`).map(([id]) => Number(id));
+        const ids = db.rows(`SELECT fdid FROM eform_data d WHERE demographic_no=${Number(config.demographicNo)} AND (subject=${sqlString(stamp)} OR EXISTS (SELECT 1 FROM eform_values v WHERE v.fdid=d.fdid AND v.var_name='prValidationOwner' AND v.var_value=${sqlString(stamp)}))`).map(([id]) => Number(id));
         if (ids.length) {
-          db.execute(`START TRANSACTION; DELETE FROM EFormDocs WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_values WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_data WHERE fdid IN (${ids.join(',')}) AND subject=${sqlString(stamp)}; COMMIT`);
+          db.execute(`START TRANSACTION; DELETE FROM EFormDocs WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_values WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_data WHERE fdid IN (${ids.join(',')}) AND demographic_no=${Number(config.demographicNo)}; COMMIT`);
         }
         assert(db.value(`SELECT COUNT(*) FROM eform_data WHERE subject=${sqlString(stamp)}`) === '0', 'owned eForm fixture remains');
       } finally {

@@ -36,20 +36,9 @@ const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
  *      reload - does not leak tickler A's stale note/revision/noteId into
  *      tickler B's (still noteless) dialog.
  *
- * ticklerDemoMain.jsp (the schedule-view popup the fix's PR description
- * calls out as previously missing the pre-open reset) is NOT used as the
- * driver page here: as of this writing it throws an unrelated, pre-existing
- * org.hibernate.LazyInitializationException on the lazy Tickler.comments
- * collection (ticklerDemoMain.jsp line ~978, untouched by the note-dialog
- * fix) whenever a demographic has any tickler, producing a generic
- * "CARLOS Error: 0" page instead of the tickler list - the same reason
- * tickler-crud-playwright-checks.js's openDemoTicklerList() targets
- * ViewTicklerMain instead of ViewTicklerDemoMain despite its name. Both
- * pages share the same resetTicklerNoteFields()/applyTicklerNoteFields()
- * functions from js/ticklerNoteDialog.js, so exercising them through
- * ticklerMain.jsp still covers the shared logic this fix introduced; it
- * just cannot exercise ticklerDemoMain.jsp's own reset-call wiring
- * specifically until that unrelated Hibernate session issue is fixed.
+ * The dialog is exercised through ViewTicklerMain. The separate tickler-demo-main
+ * check covers the patient tickler page; both use the shared note dialog helpers.
+ * Cleanup is limited to this run's stamped ticklers, notes and their links.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:tickler-note-dialog-playwright
@@ -352,7 +341,6 @@ async function closeDialogIfOpen(page) {
 
 (async () => {
   cleanupTicklerRows();
-  purgeDanglingTicklerNoteLinks();
 
   const launchOptions = {
     headless: true,
