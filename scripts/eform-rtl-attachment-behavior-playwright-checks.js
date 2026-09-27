@@ -14,10 +14,15 @@
 
 /*
  * Local-only browser regression check for Rich Text Letter attachment behavior.
+ * Requires MYSQL_HOST/USER/PASSWORD/DATABASE for source assertions and owned fixture cleanup.
  */
 
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
+const databaseConfig = readConfig({ require: ['MYSQL_PASSWORD'] });
+const db = createSqlRunner(databaseConfig.mysql);
+const stamp = `RTL_SOURCE_${Date.now()}_${process.pid}`;
 const {
   assert,
   buildArtifactPath,
@@ -50,6 +55,7 @@ const config = {
 };
 
 (async () => {
+  assert(/^[1-9][0-9]*$/.test(config.demographicNo), 'RTL_DEMOGRAPHIC_NO must be a positive ID');
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
@@ -62,7 +68,7 @@ const config = {
     await managerPage.close();
 
     const addPage = await openAddEform(context, config, recorder, fid, config.demographicNo, 'rtl-behavior-add');
-    const fdid = await saveCurrentEform(addPage, `RTL behavior ${Date.now()}`);
+    const fdid = await saveCurrentEform(addPage, stamp);
 
     const popup = await openAttachPopup(addPage, context);
     await waitForPopupReady(popup, recorder, 'rtl-behavior-popup');
@@ -77,6 +83,11 @@ const config = {
     const selectedDocValue = await firstDoc.getAttribute('value');
     assert(selectedDocValue, 'RTL attachment popup did not expose a document checkbox value');
     await firstDoc.check();
+    const lab = popup.locator('input[name="labNo"][value^="HL7:"]').first();
+    await lab.waitFor({state:'attached', timeout:15000});
+    const selectedLabValue = await lab.inputValue();
+    assert(/^HL7:[1-9][0-9]*$/.test(selectedLabValue), 'lab selection lost its source');
+    await lab.check();
 
     await Promise.all([
       popup.waitForLoadState('domcontentloaded').catch(() => {}),
@@ -89,12 +100,15 @@ const config = {
     assert(normalizedPopupBodyText === 'ok', `Attachment submit did not complete cleanly: ${normalizedPopupBodyText}`);
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-behavior-popup-after-submit');
     await popup.close();
+    assert(db.value(`SELECT COUNT(*) FROM EFormDocs WHERE fdid=${Number(fdid)} AND doctype='L' AND lab_type='HL7' AND document_no=${Number(selectedLabValue.split(':')[1])} AND deleted IS NULL`) === '1',
+      'saved eForm attachment did not preserve the selected lab source');
 
     const reopenedPopup = await openAttachPopup(addPage, context);
     await waitForPopupReady(reopenedPopup, recorder, 'rtl-behavior-popup-reopen');
     const reopenedDoc = reopenedPopup.locator(`input[name="docNo"][value="${selectedDocValue}"]`);
     await reopenedDoc.waitFor({ state: 'attached', timeout: 15000 });
     assert(await reopenedDoc.isChecked(), `Reopened attach popup should keep document ${selectedDocValue} checked`);
+    assert(await reopenedPopup.locator(`input[name="labNo"][value="${selectedLabValue}"]`).isChecked(), 'reopened eForm lost its source-qualified lab');
     await screenshot(reopenedPopup, config.screenshotDir, 'rtl-attachment-behavior-popup-reopen');
     await reopenedPopup.close();
 
@@ -150,6 +164,18 @@ const config = {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close();
+    try {
+      await browser.close();
+    } finally {
+      try {
+        const ids = db.rows(`SELECT fdid FROM eform_data WHERE demographic_no=${Number(config.demographicNo)} AND subject=${sqlString(stamp)}`).map(([id]) => Number(id));
+        if (ids.length) {
+          db.execute(`START TRANSACTION; DELETE FROM EFormDocs WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_values WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_data WHERE fdid IN (${ids.join(',')}) AND subject=${sqlString(stamp)}; COMMIT`);
+        }
+        assert(db.value(`SELECT COUNT(*) FROM eform_data WHERE subject=${sqlString(stamp)}`) === '0', 'owned eForm fixture remains');
+      } finally {
+        db.dispose();
+      }
+    }
   }
-})();
+})().catch(error => { console.error(error.message); process.exitCode = 1; });
