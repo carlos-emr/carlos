@@ -99,9 +99,19 @@ async function assertStored(page, config, description, expectedUrl) {
   assert(sql.value(`SELECT appointment_no FROM document WHERE document_no=${documentNo}`) === appointment,
     'The stored link lost its appointment association');
   assert(!html.includes('http://https://'), 'stored link still carries the http://https:// prefix');
-  assert(!/<script/i.test(html), 'stored link page still contains inline script');
-  assert(html.includes(`content="0; url=${expectedUrl}"`), `stored link does not meta-refresh to ${expectedUrl}`);
-  assert(html.includes(`href="${expectedUrl}"`), `stored link has no fallback anchor to ${expectedUrl}`);
+  // Compare decoded attributes using the browser's HTML parser, rather than duplicating
+  // production escaping in the expected fixture (especially URLs with multiple ampersands).
+  const stored = await page.evaluate(markup => {
+    const document = new DOMParser().parseFromString(markup, 'text/html');
+    return {
+      scripts: document.querySelectorAll('script').length,
+      refresh: document.querySelector('meta[http-equiv="refresh"]')?.getAttribute('content'),
+      href: document.querySelector('a')?.getAttribute('href'),
+    };
+  }, html);
+  assert(stored.scripts === 0, 'stored link page still contains inline script');
+  assert(stored.refresh === `0; url=${expectedUrl}`, `stored link does not meta-refresh to ${expectedUrl}`);
+  assert(stored.href === expectedUrl, `stored link has no fallback anchor to ${expectedUrl}`);
   assert(await page.locator(`a[title="${description} (link)"]`).count() === 1,
     'the stored link is not listed exactly once in the document report');
   return documentNo;
@@ -185,8 +195,8 @@ async function main() {
 
   // 1. https is kept, stored safely, and actually opens.
   const httpsDesc = `${marker}-https`;
-  const httpsUrl = `https://${PROBE_HOST}/report?id=1&amp;src=carlos`;
-  const httpsTyped = `https://${PROBE_HOST}/report?id=1&src=carlos`;
+  const httpsUrl = `https://${PROBE_HOST}/report?id=1&src=carlos&ready=1`;
+  const httpsTyped = httpsUrl;
   let response = await submitLink(page, httpsDesc, httpsTyped);
   assert(response.status() < 400, `Add Link (https) POST returned HTTP ${response.status()}`);
   const documentNo = await assertStored(page, config, httpsDesc, httpsUrl);
@@ -209,12 +219,12 @@ async function main() {
   await assertStored(page, config, bareDesc, `https://${PROBE_HOST}/schemeless`);
 
   // Preserve exact Unicode path spelling and escapes when the stored link opens.
-  const unicodeTyped = `https://${PROBE_HOST}/cafe\u0301?q=e\u0301&ready=1`;
-  const unicodeUrl = `https://${PROBE_HOST}/cafe%CC%81?q=e%CC%81&ready=1`;
+  const unicodeTyped = `https://${PROBE_HOST}/cafe\u0301?q=e\u0301&ready=1&source=carlos`;
+  const unicodeUrl = `https://${PROBE_HOST}/cafe%CC%81?q=e%CC%81&ready=1&source=carlos`;
   await openReport(page, config, demographicNo);
   response = await submitLink(page, `${marker}-unicode`, unicodeTyped);
   assert(response.status() < 400, 'Unicode Add Link failed');
-  const unicodeDocument = await assertStored(page, config, `${marker}-unicode`, unicodeUrl.replace('&', '&amp;'));
+  const unicodeDocument = await assertStored(page, config, `${marker}-unicode`, unicodeUrl);
   const unicodeViewer = await context.newPage();
   wireStrictPage(unicodeViewer, 'unicode-link-viewer', recorder);
   await Promise.all([

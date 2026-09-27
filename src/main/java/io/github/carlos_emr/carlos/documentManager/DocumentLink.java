@@ -58,16 +58,6 @@ public final class DocumentLink {
     /** ASCII-only case matching avoids Unicode case folding in the scheme allowlist. */
     private static final Pattern WEB_SCHEME = Pattern.compile("https?", Pattern.CASE_INSENSITIVE);
 
-    /**
-     * Address-bar shorthand for a dotted host or localhost plus a numeric port.
-     * Other single-label host:port inputs are ambiguous with opaque URI schemes;
-     * callers must supply http:// or https:// for those names. IPv4/IPv6 literals
-     * do not match EXPLICIT_SCHEME and are validated by URI's server parser.
-     */
-    private static final Pattern HOST_WITH_PORT = Pattern.compile(
-            "(?:localhost|[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+\\.?):[0-9]+(?:[/?#].*)?",
-            Pattern.CASE_INSENSITIVE);
-
     private DocumentLink() {
     }
 
@@ -100,7 +90,7 @@ public final class DocumentLink {
         }
         if (candidate.startsWith("//")) {
             candidate = "https:" + candidate;
-        } else if (!EXPLICIT_SCHEME.matcher(candidate).find() || HOST_WITH_PORT.matcher(candidate).matches()) {
+        } else if (!EXPLICIT_SCHEME.matcher(candidate).find() || hasHostAndNumericPort(candidate)) {
             candidate = "https://" + candidate;
         }
 
@@ -121,6 +111,27 @@ public final class DocumentLink {
         // Unicode path/query text: canonically equivalent spellings can name distinct resources.
         String normalizedScheme = scheme.length() == 5 ? "https" : "http";
         return Optional.of(normalizedScheme + encodeNonAscii(candidate.substring(scheme.length())));
+    }
+
+    /**
+     * Recognizes dotted-host/localhost port shorthand in linear time and constant stack space.
+     * URI's server parser remains responsible for validating host labels and the port range.
+     * Other single-label prefixes remain explicit schemes; a port cannot contain user info.
+     */
+    private static boolean hasHostAndNumericPort(String candidate) {
+        int colon = candidate.indexOf(':');
+        if (colon < 1) return false;
+        String host = candidate.substring(0, colon);
+        if (!"localhost".equalsIgnoreCase(host) && host.indexOf('.') < 0) return false;
+        int index = colon + 1;
+        int portStart = index;
+        while (index < candidate.length()) {
+            char current = candidate.charAt(index);
+            if (current == '/' || current == '?' || current == '#') break;
+            if (current < '0' || current > '9') return false;
+            index++;
+        }
+        return index > portStart;
     }
 
     /** Percent-encodes UTF-8 bytes without Unicode normalization or double-encoding existing escapes. */

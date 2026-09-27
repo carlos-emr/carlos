@@ -102,6 +102,25 @@ class DocumentLinkUnitTest {
         }
 
         @Test
+        void shouldNormalizeWithoutStackOverflow_whenShorthandHasManyHostLabels() {
+            String candidate = "a.".repeat(20_000) + "example.org:8443/path?q=1#fragment";
+            assertThat(DocumentLink.normalizeUrl(candidate)).hasValue("https://" + candidate);
+        }
+
+        @Test
+        void shouldRejectWithoutStackOverflow_whenLongShorthandHasInvalidPort() {
+            String candidate = "a.".repeat(20_000) + "example.org:8443x/path";
+            assertThat(DocumentLink.normalizeUrl(candidate)).isEmpty();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"localhost:443@evil.example", "example.org:443@evil.example", "example.org:",
+                "example.org:/path", "example.org:443x/path", "example.org:\u0663/path"})
+        void shouldRejectShorthand_whenPortIsMissingOrNotAsciiNumeric(String candidate) {
+            assertThat(DocumentLink.normalizeUrl(candidate)).isEmpty();
+        }
+
+        @Test
         void shouldAcceptSingleQuote_asLegalUriCharacter() {
             // A single quote is legal in a URI; it is kept here and HTML-encoded on output.
             assertThat(DocumentLink.normalizeUrl("https://example.org/it's")).hasValue("https://example.org/it's");
