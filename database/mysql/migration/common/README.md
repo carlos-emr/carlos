@@ -40,11 +40,10 @@ measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (Ontar
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `on/V1.0.34`
-(the highest shared one is `common/V1.0.33`), so the next free version for ANY location is `V1.0.35`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.39`, so the next free version for ANY location is `V1.0.40`
 (see `../README.md`).
 
-### V1.0.39 — Automatic MRP routing provenance
+## V1.0.39 — Automatic MRP routing provenance
 
 PR #4000 adds nullable `mrpDemographicNo` to `HRMDocumentToProvider` and
 `providerLabRouting`. Existing rows remain independent (`NULL`); new automatic MRP and

@@ -55,7 +55,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>Invoked after {@code SearchPatient2Action} resolves (or the user manually
  * selects) a demographic match for an MDS lab. Updates the lab-to-demographic
- * routing via {@code CommonLabResultData.updatePatientLabRouting(...)} then
+ * routing and MRP access atomically via {@link MrpRoutingService#matchPatientLab} then
  * redirects to {@code /oscarMDS/ViewOpenEChart} (the {@code _lab r} gate
  * for {@code OpenEChart.jsp}) rather than self-redirecting.
  *

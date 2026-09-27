@@ -759,6 +759,21 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldUnlinkWithNullAuditActor_whenAuthorizedSessionHasNoLoggedInInfo() throws Exception {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
+        when(securityInfoManager.hasPrivilege(isNull(), eq("_hrm"), eq("w"), isNull())).thenReturn(true);
+        request.addParameter("method", "removeDemographic");
+        request.addParameter("reportId", "7");
+
+        assertThat(new HRMModifyDocument2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(hrmDocumentToDemographicDao).deleteByHrmDocumentId(7);
+        verify(mrpRoutingService).routeMatchedHrmToMrp(7, null, null);
+        verify(transactions).commit(transactionStatus);
+    }
+
+    @Test
     @DisplayName("should route a matched report to the patient's MRP when provider linking rules are on")
     void shouldReportMrpRouted_whenLinkingRulesRouteToMrp() throws Exception {
         when(mrpRoutingService.routeMatchedHrmToMrp(7, 123, "999998")).thenReturn(true);

@@ -130,7 +130,6 @@ class PatientMatch2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should apply provider linking rules after a saved match")
     void shouldRouteToMrp_afterSavedMatch() throws Exception {
         when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
-        labResults.when(() -> CommonLabResultData.updatePatientLabRouting("555", "42", "HL7")).thenReturn(true);
 
         assertThat(new PatientMatch2Action(mrpRouting).execute()).isEqualTo(ActionSupport.NONE);
 
@@ -139,23 +138,20 @@ class PatientMatch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not widen who sees a lab whose match failed")
-    void shouldNotRouteToMrp_whenMatchFails() throws Exception {
+    @DisplayName("should reject malformed patient IDs before calling the matching service")
+    void shouldRejectMalformedPatient_whenNoMatchCanBeMade() throws Exception {
         when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
-        doThrow(new IllegalStateException("match failed"))
-                .when(mrpRouting).matchPatientLab("555", "HL7", 42, "999998");
-
-        new PatientMatch2Action(mrpRouting).execute();
-
-        assertThat(response.getStatus()).isEqualTo(500);
+        request.setParameter("demographicNo", "not-a-patient");
+        assertThat(new PatientMatch2Action(mrpRouting).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getRedirectedUrl()).isNull();
+        verifyNoInteractions(mrpRouting);
     }
 
     @Test
     @DisplayName("should show failure when the atomic patient and MRP match fails")
     void shouldShowError_whenMrpRoutingThrows() throws Exception {
         when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
-        labResults.when(() -> CommonLabResultData.updatePatientLabRouting("555", "42", "HL7")).thenReturn(true);
         doThrow(new IllegalStateException("database down"))
                 .when(mrpRouting).matchPatientLab(eq("555"), eq("HL7"), eq(42), eq("999998"));
 

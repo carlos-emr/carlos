@@ -11,6 +11,7 @@ non-zero when changed-line coverage is below PCT percent, for use as a gate.
 """
 
 import argparse
+import codecs
 import math
 import re
 import subprocess
@@ -66,7 +67,18 @@ def parse_diff(diff):
     path = None
     for line in diff.splitlines():
         if line.startswith("diff --git "):
-            path = line.split(" b/", 1)[1]
+            path = None
+        elif line.startswith("+++ "):
+            destination = line[4:]
+            if destination.startswith('"'):
+                quoted = re.match(r'^"((?:[^"\\]|\\.)*)"', destination)
+                if quoted is None:
+                    raise ValueError("Malformed quoted Git destination path")
+                destination = codecs.escape_decode(quoted.group(1).encode("utf-8"))[0].decode(
+                    "utf-8", errors="surrogateescape")
+            else:
+                destination = destination.split("\t", 1)[0]
+            path = destination[2:] if destination.startswith("b/") else None
         elif line.startswith("@@ ") and path is not None:
             match = re.search(r"\+(\d+)(?:,(\d+))?", line)
             if match:
@@ -119,7 +131,7 @@ def main(argv=None):
     source_lines = read_jacoco_lines(args.jacoco_xml)
     paths = args.path or ["src/main/java"]
     for prefix in paths:
-        if not prefix.startswith("src/main/java"):
+        if (prefix != "src/main/java" and not prefix.startswith("src/main/java/")) or ".." in prefix.split("/"):
             raise SystemExit(f"--path must be under src/main/java: {prefix}")
 
     diff = subprocess.check_output(
@@ -145,8 +157,6 @@ def main(argv=None):
     if args.per_file:
         print("Per file (covered / executable, missed lines):")
         for filename, (covered, missed, missed_lines) in files.items():
-            if covered + missed == 0:
-                continue
             listed = ",".join(str(n) for n in missed_lines) or "-"
             print(f"  {covered:3} / {covered + missed:3}  {filename}  missed: {listed}")
 

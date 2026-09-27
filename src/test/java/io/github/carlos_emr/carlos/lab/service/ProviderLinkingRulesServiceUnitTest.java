@@ -58,6 +58,7 @@ class ProviderLinkingRulesServiceUnitTest extends CarlosUnitTestBase {
 
     private static final String KEY = "provider_linking_rules";
 
+    private io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao coordination;
     private PropertyDao propertyDao;
     private SecurityInfoManager security;
     private LoggedInInfo admin;
@@ -65,6 +66,7 @@ class ProviderLinkingRulesServiceUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        coordination = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao.class);
         propertyDao = mock(PropertyDao.class);
         security = mock(SecurityInfoManager.class);
         admin = mock(LoggedInInfo.class);
@@ -131,6 +133,7 @@ class ProviderLinkingRulesServiceUnitTest extends CarlosUnitTestBase {
                 .hasMessage("missing required sec object (_admin)");
         verify(propertyDao, never()).persist(any());
         verify(propertyDao, never()).merge(any());
+        org.mockito.Mockito.verifyNoInteractions(coordination);
         logActionMock.verifyNoInteractions();
     }
 
@@ -138,12 +141,16 @@ class ProviderLinkingRulesServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should create the global row on first use and audit the change")
     void shouldCreateGlobalRow_whenNoneExists() {
         when(security.hasPrivilege(admin, "_admin", "w", null)).thenReturn(true);
-        when(propertyDao.findByName(KEY)).thenReturn(List.of());
+        when(propertyDao.findByNameForUpdate(KEY)).thenReturn(List.of());
 
         assertThat(service.setEnabled(admin, true)).isTrue();
 
         ArgumentCaptor<Property> saved = ArgumentCaptor.forClass(Property.class);
-        verify(propertyDao).persist(saved.capture());
+        var order = org.mockito.Mockito.inOrder(coordination, propertyDao);
+        order.verify(coordination).lockRoutingReport(
+                io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao.PROVIDER_LINKING_RULES_LOCK);
+        order.verify(propertyDao).findByNameForUpdate(KEY);
+        order.verify(propertyDao).persist(saved.capture());
         assertThat(saved.getValue().getName()).isEqualTo(KEY);
         assertThat(saved.getValue().getValue()).isEqualTo("true");
         assertThat(saved.getValue().getProviderNo()).isNull();
@@ -160,7 +167,7 @@ class ProviderLinkingRulesServiceUnitTest extends CarlosUnitTestBase {
         Property first = row(null, "true");
         Property duplicate = row("", "true");
         Property providerRow = row("999998", "true");
-        when(propertyDao.findByName(KEY)).thenReturn(List.of(first, duplicate, providerRow));
+        when(propertyDao.findByNameForUpdate(KEY)).thenReturn(List.of(first, duplicate, providerRow));
 
         assertThat(service.setEnabled(admin, false)).isFalse();
 

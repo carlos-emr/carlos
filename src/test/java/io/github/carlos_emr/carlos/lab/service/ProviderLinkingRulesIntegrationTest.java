@@ -76,6 +76,9 @@ class ProviderLinkingRulesIntegrationTest extends CarlosTestBase {
     void setUp() {
         // LogAction writes asynchronously on its own thread; the audit call is pinned by the unit test.
         logAction = mockStatic(LogAction.class);
+        // V1.0.21 owns this table; Hibernate's entity-generated test schema omits it.
+        em.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)")
+                .executeUpdate();
         em.createQuery("DELETE FROM Property p WHERE p.name = :name")
                 .setParameter("name", "provider_linking_rules").executeUpdate();
     }

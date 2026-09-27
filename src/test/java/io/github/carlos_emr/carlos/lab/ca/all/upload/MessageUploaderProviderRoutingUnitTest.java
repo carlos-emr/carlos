@@ -92,7 +92,7 @@ class MessageUploaderProviderRoutingUnitTest extends CarlosUnitTestBase {
         order.verify(routing).route("555", "201", "HL7");
         order.verify(routing).route("555", "202", "HL7");
         verifyNoMoreInteractions(routing);
-        verify(mrpRouting, never()).recordUploadRouting(any(), any(), any());
+        verify(mrpRouting, never()).routeUploadedLabToMrp(anyString(), any());
     }
 
     @Test
@@ -117,7 +117,7 @@ class MessageUploaderProviderRoutingUnitTest extends CarlosUnitTestBase {
         verify(routing).route("555", "101", "HL7");
         verify(routing).route("555", "201", "HL7");
         verifyNoMoreInteractions(routing);
-        verify(mrpRouting, never()).recordUploadRouting(any(), any(), any());
+        verify(mrpRouting, never()).routeUploadedLabToMrp(anyString(), any());
     }
 
     @Test

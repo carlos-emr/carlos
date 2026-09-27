@@ -43,9 +43,22 @@ function createLabRoutingFixture(sql, rows, provider, labs) {
           // Marker is allocated before INSERT, so cleanup recovers a committed insert whose
           // acknowledgement was lost. Every older version is routed before acknowledgement,
           // preventing the application from creating untracked rows when it files the chain.
-          sql(`INSERT INTO providerLabRouting (provider_no,lab_no,status,comment,lab_type)
-            VALUES ('${providerNo}',${lab},'N','${marker}','HL7')`);
-          recoverInserted();
+          let insertionFailure;
+          try {
+            sql(`INSERT INTO providerLabRouting (provider_no,lab_no,status,comment,lab_type)
+              VALUES ('${providerNo}',${lab},'N','${marker}','HL7')`);
+          } catch (error) {
+            insertionFailure = error;
+          }
+          try {
+            // Recover before returning control: acknowledgement may overwrite the marker.
+            recoverInserted();
+          } catch (error) {
+            if (insertionFailure) throw new AggregateError([insertionFailure, error],
+              'Lab fixture insert and ownership recovery failed', {cause: insertionFailure});
+            throw error;
+          }
+          if (insertionFailure) throw insertionFailure;
         }
       }
       if (resetExisting) sql(`UPDATE providerLabRouting SET status='N' WHERE ${scope}`);

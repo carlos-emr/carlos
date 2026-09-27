@@ -49,6 +49,7 @@ test('recovers a committed fixture INSERT even when its acknowledgement was lost
   const value = createLabRoutingFixture(env.sql, env.rows, '101', ['100']);
   env.failInsert();
   assert.throws(() => value.prepare(), /lost INSERT acknowledgement/);
+  env.owned.length = 0; // acknowledgement overwrites the marker before cleanup
   value.cleanup();
   assert.ok(env.writes.some(s => s.startsWith('DELETE') && s.includes('id=900')));
 });
@@ -68,4 +69,20 @@ test('refuses foreign source snapshots and malformed identifiers before mutation
   assert.throws(() => createLabRoutingFixture(env.sql, env.rows, '101', ['100']), /foreign source/);
   assert.throws(() => createLabRoutingFixture(env.sql, env.rows, '101 OR 1=1', ['100']), /identifiers/);
   assert.deepEqual(env.writes, []);
+});
+
+test('reports both failures with the INSERT failure as cause when immediate recovery also fails', () => {
+  const insertFailure = new Error('lost insert reply');
+  const recoveryFailure = new Error('lost ownership query');
+  const value = createLabRoutingFixture(() => { throw insertFailure; },
+    statement => {
+      if (statement.includes('IFNULL(HEX(status)')) return [];
+      throw recoveryFailure;
+    }, '101', ['100']);
+  assert.throws(() => value.prepare(), error => {
+    assert.ok(error instanceof AggregateError);
+    assert.equal(error.cause, insertFailure);
+    assert.deepEqual(error.errors, [insertFailure, recoveryFailure]);
+    return true;
+  });
 });

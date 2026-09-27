@@ -32,6 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -61,10 +63,19 @@ public class ProviderLinkingRulesService {
     /** Audit {@code content} value for a change of the switch. */
     public static final String AUDIT_CONTENT = "providerLinkingRules";
 
+    private final ProviderLabRoutingDao coordination;
     private final PropertyDao propertyDao;
     private final SecurityInfoManager securityInfoManager;
 
+    /** Compatibility constructor for callers predating database coordination. */
     public ProviderLinkingRulesService(PropertyDao propertyDao, SecurityInfoManager securityInfoManager) {
+        this(propertyDao, securityInfoManager, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ProviderLinkingRulesService(PropertyDao propertyDao, SecurityInfoManager securityInfoManager,
+                                       ProviderLabRoutingDao coordination) {
+        this.coordination = coordination;
         this.propertyDao = propertyDao;
         this.securityInfoManager = securityInfoManager;
     }
@@ -93,8 +104,14 @@ public class ProviderLinkingRulesService {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
+        // Serialize first saves even when no property row exists. The reserved negative key
+        // shares the existing database coordination table without colliding with report IDs.
+        (coordination != null ? coordination : SpringUtils.getBean(ProviderLabRoutingDao.class))
+                .lockRoutingReport(ProviderLabRoutingDao.PROVIDER_LINKING_RULES_LOCK);
         String value = Boolean.toString(enabled);
-        List<Property> rows = findGlobalRows();
+        // A current locking read sees the preceding writer even under REPEATABLE_READ.
+        List<Property> rows = propertyDao.findByNameForUpdate(Property.PROPERTY_KEY.provider_linking_rules.name())
+                .stream().filter(p -> StringUtils.isBlank(p.getProviderNo())).toList();
         if (rows.isEmpty()) {
             Property property = new Property();
             property.setName(Property.PROPERTY_KEY.provider_linking_rules.name());

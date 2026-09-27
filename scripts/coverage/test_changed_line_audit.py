@@ -30,8 +30,12 @@ JACOCO = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 """
 
 DIFF = """diff --git a/src/main/java/io/github/carlos_emr/carlos/lab/service/MrpRoutingService.java b/src/main/java/io/github/carlos_emr/carlos/lab/service/MrpRoutingService.java
+--- /dev/null
++++ b/src/main/java/io/github/carlos_emr/carlos/lab/service/MrpRoutingService.java
 @@ -0,0 +9,4 @@
 diff --git a/src/main/java/io/github/carlos_emr/carlos/Unbuilt.java b/src/main/java/io/github/carlos_emr/carlos/Unbuilt.java
+--- a/src/main/java/io/github/carlos_emr/carlos/Unbuilt.java
++++ b/src/main/java/io/github/carlos_emr/carlos/Unbuilt.java
 @@ -1 +1 @@
 """
 
@@ -66,8 +70,9 @@ class ChangedLineAuditTest(unittest.TestCase):
     def test_should_allow_mapped_changes_without_executable_lines(self):
         diff = DIFF.split("diff --git a/src/main/java/io/github/carlos_emr/carlos/Unbuilt")[0].replace("+9,4", "+9,1")
         with patch.object(audit_script.subprocess, "check_output", return_value=diff):
-            with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(audit_script.main([self.write(JACOCO), "BASE", "HEAD", "--fail-under", "100"]), 0)
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(audit_script.main([self.write(JACOCO), "BASE", "HEAD", "--per-file", "--fail-under", "100"]), 0)
+            self.assertIn("0 /   0  " + SERVICE, output.getvalue())
 
     def test_should_parse_added_line_ranges_for_each_file(self):
         changed = audit_script.parse_diff(DIFF)
@@ -87,8 +92,23 @@ class ChangedLineAuditTest(unittest.TestCase):
             audit_script.read_jacoco_lines(self.write(hostile))
 
     def test_should_refuse_paths_outside_production_sources(self):
-        with self.assertRaises(SystemExit):
-            audit_script.main([self.write(JACOCO), "HEAD", "HEAD", "--path", "src/test/java"])
+        for path in ["src/test/java", "src/main/java_backup", "src/main/java/../resources"]:
+            with self.subTest(path=path), self.assertRaises(SystemExit):
+                audit_script.main([self.write(JACOCO), "HEAD", "HEAD", "--path", path])
+
+    def test_should_accept_production_root_and_child_prefixes(self):
+        for path in ["src/main/java", "src/main/java/io/github"]:
+            with patch.object(audit_script.subprocess, "check_output", return_value="") as git:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(audit_script.main([self.write(JACOCO), "HEAD", "HEAD", "--path", path]), 0)
+                self.assertEqual(git.call_args.args[0][-1], path)
+
+    def test_should_decode_git_quoted_paths_and_ignore_deleted_files(self):
+        quoted = r'b/src/main/java/space name\t\"caf\303\251.java'
+        diff = ('diff --git "a/ignored" "' + quoted + '"\n+++ "' + quoted
+                + '"\n@@ -1 +2,2 @@\ndiff --git a/gone b/gone\n+++ /dev/null\n@@ -1 +0,0 @@\n')
+        self.assertEqual(dict(audit_script.parse_diff(diff)),
+                         {'src/main/java/space name\t"café.java': {2, 3}})
 
 
 if __name__ == "__main__":

@@ -538,9 +538,10 @@ public class HRMModifyDocument2Action extends ActionSupport {
             providers = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
                 // Bulk: the report lock loaded these links into HRMDocument.matchedDemographics, and
                 // removing them one by one through the EntityManager failed the commit flush.
+                LoggedInInfo actor = LoggedInInfo.getLoggedInInfoFromSession(request);
                 hrmDocumentToDemographicDao.deleteByHrmDocumentId(Integer.parseInt(hrmDocumentId));
                 mrpRoutingService.routeMatchedHrmToMrp(Integer.parseInt(hrmDocumentId), null,
-                        LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                        actor == null ? null : actor.getLoggedInProviderNo());
                 return providerAssignments(Integer.parseInt(hrmDocumentId));
             });
             success = true;
@@ -598,6 +599,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 // Bulk, not EntityManager.remove(): the report lock loaded these links into
                 // HRMDocument.matchedDemographics, and removing them one by one made the flush
                 // throw, so re-linking a report always failed.
+                LoggedInInfo actor = LoggedInInfo.getLoggedInInfoFromSession(request);
                 hrmDocumentToDemographicDao.deleteByHrmDocumentId(Integer.parseInt(hrmDocumentId));
 
                 HRMDocumentToDemographic demographicMapping = new HRMDocumentToDemographic();
