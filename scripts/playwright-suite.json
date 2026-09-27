@@ -1715,6 +1715,23 @@
       "timeoutSec": 300
     },
     {
+      "name": "patient-letters-envelopes",
+      "script": "scripts/patient-letters-envelopes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DEMOGRAPHIC_NO",
+        "LETTER_DOCUMENT_DIR",
+        "MYSQL_DOCKER_CONTAINER"
+      ]
+    },
+    {
       "name": "rx-fax-pharmacy-phone",
       "script": "scripts/rx-fax-pharmacy-phone-playwright-checks.js",
       "tiers": [
