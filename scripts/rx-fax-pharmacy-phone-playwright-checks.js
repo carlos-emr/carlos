@@ -53,6 +53,7 @@ const { cleanupOwnedWorkflow } = require('./lib/workflow-session');
 const {
   assert,
   createRecorder,
+  buildFailureDetails,
   createSqlRunner,
   gotoApp,
   launchBrowser,
@@ -162,7 +163,7 @@ function lineProblems(testCase, line) {
   return problems;
 }
 
-async function faxAndPaste(page, testCase) {
+async function faxAndPaste(page, testCase, releasePharmacy) {
   const bodies = [];
   let retryClicked = false;
   await page.route(/\/rx\/WriteToEncounter/, async (route) => {
@@ -171,7 +172,7 @@ async function faxAndPaste(page, testCase) {
     if (testCase.retry && bodies.length === 1) {
       // The server's explicit pre-write rejection: the only answer ViewScript2 treats as safe to
       // retry. Nothing reaches the chart on this attempt.
-      await route.fulfill({ status: 409, headers: { 'X-Carlos-Encounter-Write': 'not-written' }, body: '' });
+      await route.fulfill({ status: 409, headers: { 'X-Carlos-Encounter-Write': 'not-written' }, contentType: 'text/plain', body: 'Synthetic pre-write refusal' });
       return;
     }
     await route.continue();
@@ -184,6 +185,7 @@ async function faxAndPaste(page, testCase) {
     roundTrip.catch(() => {});
     await modalFrame.locator('#faxPasteButton').click();
     const [faxResponse] = await roundTrip;
+    releasePharmacy();
     assert(faxResponse.status() === 200, `case ${testCase.key}: the fax POST answered HTTP ${faxResponse.status()}`);
 
     if (testCase.retry) {
@@ -223,12 +225,20 @@ async function runCase(context, testCase) {
   const page = await context.newPage();
   const label = `case-${testCase.key}`;
   wireStrictPage(page, label, recorder);
+  // A pharmacy header must already be available to a fast Fax click. Hold the
+  // redundant contact lookup until the fax has queued to expose the old race.
+  let releasePharmacy;
+  const pharmacyGate = new Promise(resolve => { releasePharmacy = resolve; });
+  await page.route('**/rx/managePharmacy2?method=getPharmacyInfo*', async route => {
+    await pharmacyGate;
+    try { await route.continue(); } catch (error) { if (!page.isClosed()) throw error; }
+  });
   try {
     await writeCustomRxThroughUi(page, testCase);
     let outcome;
     // The page alerts "could not paste to EMR" once when the server refuses the first write; that
     // is the expected path for the retry case and must not happen for the others.
-    const dialogs = await withExpectedDialogs(page, async () => { outcome = await faxAndPaste(page, testCase); });
+    const dialogs = await withExpectedDialogs(page, async () => { outcome = await faxAndPaste(page, testCase, releasePharmacy); });
     const { bodies, retryClicked } = outcome;
     const problems = [];
     const expectedAlerts = testCase.retry ? 1 : 0;
@@ -248,14 +258,15 @@ async function runCase(context, testCase) {
     if (stored.occurrences !== 1) problems.push(`stored: the chart note carries this fax line ${stored.occurrences} times`);
     if (stored.line !== null && sent !== null && stored.line !== sent) problems.push('stored: the chart line differs from the text the page sent');
     const filename = db.value(`SELECT filename FROM faxes WHERE faxline=${sqlString(fromFaxNumber)}
-      AND demographicNo=${demographicNo} AND destination=${sqlString(testCase.pharmacyFax)}`);
+      AND demographicNo=${demographicNo} AND destination=${sqlString(`1${testCase.pharmacyFax}`)}`);
     assert(/^prescription_[a-zA-Z0-9_-]{1,128}\.pdf$/.test(filename), `case ${testCase.key}: expected exactly one owned fax PDF`);
     let pdfText;
     try {
       pdfText = execFileSync('pdftotext', ['-raw', path.join(artifactDirectories[0], filename), '-'],
         { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (_) { throw new Error(`case ${testCase.key}: owned fax PDF extraction failed`); }
-    assert(pdfText.includes(marker) && pdfText.includes(testCase.pharmacyFax), `case ${testCase.key}: fax PDF lost its pharmacy`);
+    assert(pdfText.includes(marker), `case ${testCase.key}: fax PDF lost its pharmacy name`);
+    assert(pdfText.includes(testCase.pharmacyFax), `case ${testCase.key}: fax PDF lost its pharmacy fax number`);
     assert(!pdfText.includes('RxPreview.msgTel') && !/\bnull\b/i.test(pdfText), `case ${testCase.key}: fax PDF has unresolved or missing values`);
     if (testCase.expectedPhones) {
       assert(pdfText.replace(/\s+/g, '').includes(`Tel:${testCase.expectedPhones}`.replace(/\s+/g, '')),
@@ -268,6 +279,8 @@ async function runCase(context, testCase) {
     assert(problems.length === 0, `case ${testCase.key} (${testCase.label}): ${problems.join('; ')}`);
     return `${testCase.key}${testCase.retry ? '+retry' : ''}`;
   } finally {
+    releasePharmacy();
+    await page.unrouteAll({ behavior: 'wait' });
     await page.close().catch(() => {});
   }
 }
@@ -300,4 +313,6 @@ runCheck({
   run: main,
   cleanup: async () => cleanupOwnedWorkflow({ browser, sql: db, patient: fixtures?.patient, marker,
     cleanups: fixtures ? [fixtures.cleanup] : [] }),
+}).then(result => {
+  if (result.outcome === 'FAIL') console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
 });

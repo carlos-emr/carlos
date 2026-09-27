@@ -117,8 +117,8 @@ class RxPharmacyDataComposePhoneUnitTest {
         String phone = RxPharmacyData.composePharmacyPhone(
                 pharmacyWithPhones("416-555-0000\r\next 123", "416-555-0001\n\n"));
 
-        assertThat(phone).isEqualTo("416-555-0000 ext 123 416-555-0001");
-        assertThat(phone).doesNotContain("\n").doesNotContain("\r");
+        assertThat(phone).isEqualTo("416-555-0000 ext 123 416-555-0001")
+                .doesNotContain("\n", "\r");
     }
 
     @Test

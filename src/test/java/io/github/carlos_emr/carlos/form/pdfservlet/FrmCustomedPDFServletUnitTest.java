@@ -451,6 +451,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                     }
                 }.getText(pdf);
             }
+            if ("fr".equals(language)) assertThat(pdfText).doesNotContain("Tel:");
             assertThat(pdfText).doesNotContain("Toronto,", ", ,");
             assertThat(pdfText).contains("ATTENTION:").contains("Main St Pharmacy").contains("4165551212");
             assertThat(pdfText).doesNotContainIgnoringCase("null");

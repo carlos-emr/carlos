@@ -116,6 +116,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final String TELEPHONE_LABEL = "RxPreview.msgTel";
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -686,7 +687,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // item for a pharmacy without phone1 (issue #3974).
             String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacyInfo);
             if (!pharmacyPhone.isEmpty()) {
-                pharmacy.add(geti18nTagValue(locale, "RxPreview.msgTel") + ": " + pharmacyPhone);
+                pharmacy.add(geti18nTagValue(locale, TELEPHONE_LABEL) + ": " + pharmacyPhone);
             }
             pharmacy.add(pharmacyInfo.getFax());
             PdfPTable pharmacyTable = new PdfPTable(1);
@@ -788,7 +789,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                 // render clnicaTel;
                 if (this.clinicTel != null && !this.clinicTel.isEmpty()) {
-                    prescriberHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgTel")).append(": ").append(this.clinicTel);
+                    prescriberHeading.append(newline).append(geti18nTagValue(locale, TELEPHONE_LABEL)).append(": ").append(this.clinicTel);
                 }
                 if (this.clinicFax != null && !this.clinicFax.isEmpty()) {
                     prescriberHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgFax")).append(": ").append(this.clinicFax);
@@ -1151,7 +1152,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // the main clinic bound above.
         String offeredBlock = null;
         if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
-            String tel = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel"));
+            String tel = SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), TELEPHONE_LABEL));
             String fax = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgFax"));
             // A covering provider may legitimately refax this stored prescription. The callback
             // header still belongs to the persisted prescriber whose name and signature are on the
@@ -1254,7 +1255,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         bound.put("patientAddress", demographic.getAddress() == null ? "" : demographic.getAddress());
         bound.put("patientCityPostal", formatCityPostal(city, province, postal));
         bound.put("patientHIN", demographic.getHin() == null ? "" : demographic.getHin());
-        bound.put("patientPhone", LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel") + ": " + phone);
+        bound.put("patientPhone", LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), TELEPHONE_LABEL) + ": " + phone);
         return true;
     }
 

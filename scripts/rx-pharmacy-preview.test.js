@@ -8,12 +8,12 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp'), 'utf8');
-const start = jsp.indexOf('function pharmacyText(');
+const start = jsp.indexOf('var initialPharmacy =');
 const end = jsp.indexOf('</script>', start);
 assert.ok(start >= 0 && end > start);
 const source = jsp.slice(start, end).replace(/<fmt:message\b[^>]*\/>/g, 'paper-size warning');
 
-function setup(hasFrame = true, hasWarning = true) {
+function setup(hasFrame = true, hasWarning = true, initialPharmacy = null) {
   let target = null;
   let load;
   const frame = {
@@ -25,7 +25,10 @@ function setup(hasFrame = true, hasWarning = true) {
     document: { getElementById: (id) => id === 'preview' ? (hasFrame ? frame : null) : (hasWarning ? warning : null) },
     parent: { document: { querySelector: () => null } },
   });
-  vm.runInContext(source, context);
+  const rendered = source.replace('<carlos:encode value="<%= pharmacyPreviewJson %>" context="javaScript"/>',
+    JSON.stringify(JSON.stringify(initialPharmacy)).slice(1, -1).replace(/'/g, '\\x27'))
+    .replace('${carlos:forJavaScript(msg_removePharmacyInfo)}', 'Remove');
+  vm.runInContext(rendered, context);
   return { context, frame, warning, setTarget: (value) => { target = value; }, load: () => load() };
 }
 
@@ -73,3 +76,18 @@ for (const [hasFrame, hasWarning] of [[false, true], [true, false], [false, fals
     assert.equal(fixture.warning.hidden, true);
   });
 }
+
+
+test('the selected pharmacy is ready before the iframe loads without an asynchronous lookup', () => {
+  const fixture = setup(true, true, { id: '71', name: '<unsafe & pharmacy>', phone1: "x'1", phone2: null });
+  const target = { innerHTML: '' };
+  fixture.setTarget(target);
+  fixture.load();
+  assert.ok(target.innerHTML.includes('&lt;unsafe &amp; pharmacy&gt;'));
+  assert.ok(target.innerHTML.includes("name='pharmacyInfo' value='71'"));
+  assert.ok(target.innerHTML.includes('x&#39;1'));
+  assert.ok(!target.innerHTML.includes('null'));
+  fixture.context.reducePreview();
+  fixture.load();
+  assert.equal(target.innerHTML, '', 'an explicit remove must survive iframe reload');
+});
