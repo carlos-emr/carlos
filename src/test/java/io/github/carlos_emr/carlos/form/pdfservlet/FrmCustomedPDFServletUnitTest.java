@@ -437,6 +437,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         stubStoredSignature();
         stubActiveFaxConfig();
         stubRecordDemographic();
+        boolean narrow = paper.equals("PageSize.A6") || paper.equals("PageSize.HALFLETTER");
+        if (narrow) {
+            demographicManager.getDemographic(null, DEMOGRAPHIC_NO).setAddress(
+                    "123 Long Residential Avenue Building Three Apartment Twenty Four");
+        }
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
@@ -457,7 +462,24 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             String pdfText;
             try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(
                     documentDir.resolve("prescription_rx-123.pdf").toFile())) {
+                float[] headerPositions = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
                 pdfText = new org.apache.pdfbox.text.PDFTextStripper() {
+                    @Override
+                    protected void writeString(String text, List<org.apache.pdfbox.text.TextPosition> positions)
+                            throws java.io.IOException {
+                        if (!positions.isEmpty()) {
+                            float top = (float) positions.stream().mapToDouble(
+                                    position -> position.getYDirAdj() - position.getHeightDir()).min().orElseThrow();
+                            float bottom = (float) positions.stream().mapToDouble(
+                                    org.apache.pdfbox.text.TextPosition::getYDirAdj).max().orElseThrow();
+                            if (text.contains("1234567890")) headerPositions[0] = bottom;
+                            if (text.contains("ATTENTION:")) headerPositions[1] = top;
+                            if (text.contains("4165551212")) headerPositions[2] = bottom;
+                            if (text.contains("Amoxicillin")) headerPositions[3] = top;
+                        }
+                        super.writeString(text, positions);
+                    }
+
                     @Override
                     protected void processTextPosition(org.apache.pdfbox.text.TextPosition text) {
                         if (text.getDir() == 0) {
@@ -468,6 +490,15 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                         super.processTextPosition(text);
                     }
                 }.getText(pdf);
+                if (narrow) {
+                    for (float position : headerPositions) {
+                        assertThat(Float.isFinite(position)).as("patient, pharmacy and drug text position exists").isTrue();
+                    }
+                    assertThat(headerPositions[1]).as("pharmacy starts below the complete patient header")
+                            .isGreaterThan(headerPositions[0]);
+                    assertThat(headerPositions[3]).as("drug text starts below the complete pharmacy block")
+                            .isGreaterThan(headerPositions[2]);
+                }
             }
             if ("fr".equals(language)) assertThat(pdfText).doesNotContain("Tel:");
             assertThat(pdfText).doesNotContain("Toronto,", ", ,");

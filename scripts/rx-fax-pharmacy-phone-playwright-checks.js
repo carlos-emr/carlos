@@ -67,6 +67,7 @@ const {
   wireStrictPage,
 } = require('./lib/playwright-harness');
 const { assertFaxCaseBrowser } = require('./rx-fax-pharmacy-browser');
+const { assertStackedRxPdf } = require('./lib/rx-pdf-layout');
 const { settleOperations } = require('./graceful-signal-cancellation');
 
 let demographicNo;
@@ -103,6 +104,7 @@ const CASES = [
   },
 ].map((c, index) => ({
   ...c,
+  paper: ['PageSize.A6', 'PageSize.HALFLETTER', 'PageSize.LETTER'][index],
   pharmacyFax: `555${runSuffix}${index + 1}`,
   drugName: `${drugNamePrefix} ${c.key}`,
 }));
@@ -137,6 +139,7 @@ async function writeCustomRxThroughUi(page, testCase) {
   // Fax & Paste reads #preview2Form from the nested preview synchronously; wait for it.
   await modalFrame.frameLocator('#preview').locator('#preview2Form')
     .waitFor({ state: 'attached', timeout: faxRoundTripTimeoutMs });
+  await modalFrame.locator('#printPageSize').selectOption(testCase.paper);
   await modalFrame.locator('#faxNumber').selectOption(fromFaxNumber);
   assert(await modalFrame.locator('#faxNumber').inputValue() === fromFaxNumber, 'Owned fax sender was not selected');
   const scriptNo = db.value(`SELECT MAX(script_no) FROM drugs WHERE customName=${sqlString(testCase.drugName)} AND demographic_no=${demographicNo};`);
@@ -287,6 +290,15 @@ async function runCase(context, testCase) {
     } else {
       const pharmacyBlock = pdfText.slice(pdfText.indexOf('ATTENTION:'), pdfText.indexOf(testCase.pharmacyFax));
       assert(!pharmacyBlock.includes('Tel:'), `case ${testCase.key}: no-phone pharmacy has a dangling telephone label`);
+    }
+    if (testCase.paper !== 'PageSize.LETTER') {
+      let bounds;
+      try {
+        bounds = execFileSync('pdftotext', ['-bbox', path.join(artifactDirectories[0], filename), '-'],
+          { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] });
+      } catch (_) { throw new Error(`case ${testCase.key}: owned fax PDF geometry extraction failed`); }
+      assertStackedRxPdf(bounds, { patientLastWord: '0000000000', pharmacyFax: testCase.pharmacyFax, drugWord: 'PW' });
+      console.log(`  PASS ${testCase.paper}: patient, pharmacy and drug blocks do not overlap`);
     }
     assertFaxCaseBrowser(recorder, label, testCase.retry);
     assert(problems.length === 0, `case ${testCase.key} (${testCase.label}): ${problems.join('; ')}`);

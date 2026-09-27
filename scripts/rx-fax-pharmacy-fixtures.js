@@ -20,9 +20,11 @@ function createFaxPhoneFixtures({ db, config, marker, fromFaxNumber, drugNamePre
     }
     demographicNo = db.value(`INSERT INTO demographic
       (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
-       provider_no,hc_type,province,roster_status,lastUpdateDate)
+       provider_no,hc_type,province,roster_status,lastUpdateDate,address,city,postal,phone,hin)
       VALUES (${sqlString(marker)},'FaxPhone','1980','01','02','F','AC',
-      ${sqlString(providerNo)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+      ${sqlString(providerNo)},'ON','ON','NR',NOW(),
+      '123 Long Residential Avenue Building Three Apartment Twenty Four','Fixture City',
+      'M1A 1A1','9055550123','0000000000'); SELECT LAST_INSERT_ID()`);
     assert(/^[1-9]\d*$/.test(demographicNo), 'Owned patient was not created');
     pharmacyId = db.value(`INSERT INTO pharmacyInfo (name,address,city,province,postalCode,fax,status,uid)
       VALUES (${sqlString(marker)},'1 Fixture Lane','Fixture City','ON','M1A 1A1','5550100100','1',0);
