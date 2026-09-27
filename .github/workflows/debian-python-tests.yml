@@ -79,9 +79,20 @@ jobs:
             echo "::error::debian/carlos-ctl.pin names no tag"
             exit 1
           fi
-          git clone --quiet --depth 1 --branch "$tag" \
-            https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"
-          echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
+          if git clone --quiet --depth 1 --branch "$tag" \
+              https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"; then
+            echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
+          else
+            # the pin's pre-release fallback commit (see debian/carlos-ctl.pin)
+            fallback="$(sed -n 's/^fallback=//p' debian/carlos-ctl.pin)"
+            if [ -z "$fallback" ]; then
+              echo "::error::carlos-ctl tag $tag is not published and debian/carlos-ctl.pin names no fallback commit"
+              exit 1
+            fi
+            git clone --quiet https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"
+            git -C "$CARLOS_CTL_SRC" checkout --quiet "$fallback"
+            echo "::warning::carlos-ctl tag $tag is not published yet; testing against the pin's fallback commit $fallback"
+          fi
       # Ubuntu 26.04 ships Python 3.14. The runner's 3.12 CSV reader has
       # a known QUOTE_NOTNULL bug and cannot validate the target semantics.
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6

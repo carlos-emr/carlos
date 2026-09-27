@@ -36,10 +36,11 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       # Several script tests read carlos-ctl, which is its own repository
       # since the split; the checkout is the release debian/carlos-ctl.pin
-      # names, so they run against the CLI a release ships. Those tests skip
-      # without it, and a pin whose tag is not published yet (the CLI
-      # release lands before the CARLOS one) is a warning here, not a
-      # failure: debian-python-tests.yml is the job that enforces the pin.
+      # names, so they run against the CLI a release ships. A pin whose tag
+      # is not published yet (the CLI release lands before the CARLOS one)
+      # falls back to the pin's fallback commit with a warning, and the
+      # tests skip when there is neither: debian-python-tests.yml enforces
+      # the pin.
       - name: Check out the pinned carlos-ctl release
         run: |
           set -euo pipefail
@@ -52,7 +53,15 @@ jobs:
               https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"; then
             echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
           else
-            echo "::warning::carlos-ctl tag $tag is not published yet; the CLI-dependent script tests are skipped"
+            # the pin's pre-release fallback commit (see debian/carlos-ctl.pin)
+            fallback="$(sed -n 's/^fallback=//p' debian/carlos-ctl.pin)"
+            if [ -n "$fallback" ]; then
+              git clone --quiet https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"
+              git -C "$CARLOS_CTL_SRC" checkout --quiet "$fallback"
+              echo "::warning::carlos-ctl tag $tag is not published yet; testing against the pin's fallback commit $fallback"
+            else
+              echo "::warning::carlos-ctl tag $tag is not published yet; the CLI-dependent script tests are skipped"
+            fi
           fi
       - name: Run all script regressions
         run: npm run test:scripts

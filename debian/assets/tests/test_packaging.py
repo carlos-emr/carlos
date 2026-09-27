@@ -108,3 +108,45 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheCarlosCtlPin(unittest.TestCase):
+
+    """debian/carlos-ctl.pin is read by three hands: the release build
+    (fetch-carlos-ctl.sh, the tag only), and the two CI jobs that check
+    out the pinned CLI and, until that tag is published, its fallback
+    commit. Its shape is a contract between them."""
+
+    PIN = ROOT / "debian" / "carlos-ctl.pin"
+    WORKFLOWS = (ROOT / ".github" / "workflows" / "debian-python-tests.yml",
+                 ROOT / ".github" / "workflows" / "script-regressions.yml")
+
+    def _fields(self):
+        fields = {}
+        for line in self.PIN.read_text(encoding="utf-8").splitlines():
+            if line and not line.startswith("#"):
+                key, _, value = line.partition("=")
+                fields[key] = value
+        return fields
+
+    def test_the_tag_is_a_debian_native_version(self):
+        tag = self._fields().get("tag")
+        self.assertRegex(tag or "", r"^\d+\.\d+\.\d+(-[A-Za-z0-9.]+)?$")
+
+    def test_a_fallback_names_one_full_commit(self):
+        # a branch name would move under the job; a short id is ambiguous
+        fallback = self._fields().get("fallback")
+        if fallback is not None:
+            self.assertRegex(fallback, r"^[0-9a-f]{40}$")
+        self.assertEqual(set(self._fields()) - {"tag", "fallback"}, set(),
+                         "unknown key in debian/carlos-ctl.pin")
+
+    def test_the_jobs_read_the_tag_and_the_fallback_the_same_way(self):
+        for workflow in self.WORKFLOWS:
+            text = workflow.read_text(encoding="utf-8")
+            self.assertIn("sed -n 's/^tag=//p' debian/carlos-ctl.pin", text, workflow.name)
+            self.assertIn("sed -n 's/^fallback=//p' debian/carlos-ctl.pin", text, workflow.name)
+            self.assertIn('checkout --quiet "$fallback"', text, workflow.name)
+        # the release build never falls back: a missing release is a failure
+        fetch = (ROOT / "debian" / "fetch-carlos-ctl.sh").read_text(encoding="utf-8")
+        self.assertNotIn("fallback", fetch)
