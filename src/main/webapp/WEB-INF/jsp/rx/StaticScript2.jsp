@@ -135,11 +135,19 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
 
+        <fmt:message var="staticScriptRequestError" key="global.msgSomethingWrong"/>
         <script language="javascript">
-            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            var csrfToken = csrfEl ? csrfEl.value : '';
+            function postStaticScript(url, data) {
+                return new Promise(function(resolve, reject) {
+                    CarlosAjax.request(url, {
+                        method: 'post', parameters: data,
+                        onSuccess: resolve,
+                        onFailure: function() { reject(new Error('Prescription history request failed')); }
+                    });
+                });
+            }
 
-            function addFavorite2(drugId, brandName) {
+            async function addFavorite2(drugId, brandName) {
                 var favoriteName = window.prompt('Please enter a name for the Favorite:', brandName);
 
                 if (favoriteName !== null && favoriteName.length > 0) {
@@ -147,16 +155,14 @@
                     oscarLog(url);
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                        credentials: 'same-origin',
-                        body: data
-                    }).then(function() {
+                    try {
+                        await postStaticScript(url, data);
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
                         window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>';
-                    });
+                    } catch (error) {
+                        alert('${carlos:forJavaScript(staticScriptRequestError)}');
+                    }
                 }
             }
 
@@ -164,22 +170,15 @@
             async function reRxDrugSearch3(reRxDrugId) {
                 var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
                 var urlUpdateId = "${carlos:forJavaScript(ctx)}" + "/rx/WriteScript";
-                fetch(urlUpdateId, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                    credentials: 'same-origin',
-                    body: dataUpdateId + "&parameterValue=updateReRxDrug"
-                });
-
-                var data = "drugId=" + encodeURIComponent(reRxDrugId);
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
-                await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                    credentials: 'same-origin',
-                    body: data
-                });
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                try {
+                    await postStaticScript(urlUpdateId, dataUpdateId + "&parameterValue=updateReRxDrug");
+                    var data = "drugId=" + encodeURIComponent(reRxDrugId);
+                    var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
+                    await postStaticScript(url, data);
+                    location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                } catch (error) {
+                    alert('${carlos:forJavaScript(staticScriptRequestError)}');
+                }
             }
 
         </script>
