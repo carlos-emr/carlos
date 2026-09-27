@@ -162,7 +162,17 @@ public class RxPrescriptionData {
         return new Prescription(0, providerNo, demographicNo);
     }
 
+    /**
+     * Creates an in-memory prescription from an available favorite.
+     *
+     * @param providerNo the prescribing provider
+     * @param demographicNo the current patient
+     * @param favorite the non-null favorite to copy
+     * @return an unsaved prescription containing the favorite's instructions
+     * @throws IllegalArgumentException if the favorite is unavailable
+     */
     public Prescription newPrescription(String providerNo, int demographicNo, Favorite favorite) {
+        if (favorite == null) throw new IllegalArgumentException("Prescription favorite is unavailable");
         // Create new prescription from favorite (only in memory)
         Prescription prescription = new Prescription(0, providerNo, demographicNo);
 

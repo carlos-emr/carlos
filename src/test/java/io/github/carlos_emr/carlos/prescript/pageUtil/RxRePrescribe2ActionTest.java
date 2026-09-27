@@ -535,6 +535,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
             action.saveReRxDrugIdToStash();
             assertThat(response.getStatus()).isEqualTo(200);
             verify(bean).addStashItem(mockLoggedInInfo, staged);
+            verify(staged).setRandomId(org.mockito.ArgumentMatchers.longThat(value -> value >= 0 && value <= 1_000_000));
             verify(bean).setStashIndex(7);
         }
     }
