@@ -29,9 +29,7 @@
 
 package io.github.carlos_emr.carlos.messenger.config.pageUtil;
 
-import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
-import io.github.carlos_emr.carlos.commn.model.GroupMembers;
 import io.github.carlos_emr.carlos.commn.model.Groups;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -41,11 +39,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgAddressBookMaker;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
-import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.LinkedHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.ResourceBundle;
 
@@ -85,11 +84,12 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final String INVALID_REASON = "invalid";
     private static final Logger logger = MiscUtils.getLogger();
 
     private MessengerGroupManager messengerGroupManager = SpringUtils.getBean(MessengerGroupManager.class);
     private GroupsDao groupsDao = SpringUtils.getBean(GroupsDao.class);
-    private GroupMembersDao groupMembersDao = SpringUtils.getBean(GroupMembersDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
@@ -186,29 +186,86 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * Adds a healthcare provider or contact to a messenger group.
      * 
      * <p>This method handles adding members to groups using composite identifiers.
-     * The member ID is expected to be in a composite format that includes the contact
-     * type and identifier.</p>
+     * The member ID is expected to be in the composite format produced by
+     * {@link ContactIdentifier#getCompositeId()}.</p>
+     *
+     * <p>Direct-response endpoint. It answers a small JSON body the admin page reads:
+     * <ul>
+     *   <li>{@code 200 {"success":true}} when the membership was written;</li>
+     *   <li>{@code 409 {"success":false,"reason":"duplicate"}} when the contact is already
+     *       in that group, so the page can say so instead of silently writing a second row
+     *       (a duplicate row delivers every group message twice);</li>
+     *   <li>{@code 400 {"success":false,"reason":"invalid"}} when {@code member} is malformed or
+     *       {@code group} is invalid or no longer exists.</li>
+     * </ul>
      * 
-     * Request parameter "member": The composite member ID to add (format: type:id).
+     * Request parameter "member": The composite member ID to add.
      * Request parameter "group": The target group ID, defaults to "0" (root) if not specified.
      *
-     * @return NONE as response is set via request attribute
+     * @return NONE; the response body is written directly
+     * @throws java.io.IOException if the JSON response cannot be written
      */
     @SuppressWarnings("unused")
-    public String add() {
+    public String add() throws java.io.IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String memberId = request.getParameter("member");
-        String groupId = request.getParameter("group");
-        if (groupId == null) {
-            groupId = "0";
+        Integer groupId = parseGroupId(request.getParameter("group"));
+        ContactIdentifier contactIdentifier = parseMemberId(memberId);
+        if (contactIdentifier == null || groupId == null) {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
         }
-        if (memberId != null && !memberId.isEmpty()) {
-            // Parse the composite ID which contains contact type and identifier
-            ContactIdentifier contactIdentifier = new ContactIdentifier(memberId);
-            messengerGroupManager.addMember(loggedInInfo, contactIdentifier, Integer.parseInt(groupId));
+        try {
+            var result = messengerGroupManager.addMemberIfAbsent(loggedInInfo, contactIdentifier, groupId);
+            return result.created() ? writeMutationResult(HttpServletResponse.SC_OK, null)
+                    : writeMutationResult(HttpServletResponse.SC_CONFLICT, "duplicate");
+        } catch (MessengerGroupManager.UnknownGroupException _) {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
         }
-        request.setAttribute("success", true);
+    }
 
+    private static ContactIdentifier parseMemberId(String value) {
+        // Provider numbers occupy a six-character column; optional numeric components
+        // are facility, clinic location and group. Reject negative-provider ambiguity.
+        if (value == null || !value.matches("\\w{1,6}(?:-\\d+){0,3}")) return null;
+        String[] parts = value.split("-");
+        try {
+            ContactIdentifier id = new ContactIdentifier();
+            id.setContactId(parts[0]);
+            if (parts.length > 1) id.setFacilityId(Integer.parseInt(parts[1]));
+            if (parts.length > 2) id.setClinicLocationNo(Integer.parseInt(parts[2]));
+            if (parts.length > 3) id.setGroupId(Integer.parseInt(parts[3]));
+            return id;
+        } catch (NumberFormatException _) {
+            return null;
+        }
+    }
+
+    /**
+     * Parse the {@code group} parameter; absent means the general registry (group 0).
+     *
+     * @return the group id, or {@code null} when the value is not a non-negative integer
+     */
+    private static Integer parseGroupId(String groupParam) {
+        if (groupParam == null || groupParam.isEmpty()) {
+            return 0;
+        }
+        try {
+            int groupId = Integer.parseInt(groupParam);
+            return groupId >= 0 ? groupId : null;
+        } catch (NumberFormatException _) {
+            return null;
+        }
+    }
+
+    private String writeMutationResult(int status, String reason) throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", status == HttpServletResponse.SC_OK);
+        if (reason != null) result.put("reason", reason);
+        JSON.writeValue(response.getWriter(), result);
         return NONE;
     }
 
@@ -229,29 +286,36 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * @return NONE as response is set via request attribute
      */
     @SuppressWarnings("unused")
-    public String remove() {
+    public String remove() throws java.io.IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String memberId = request.getParameter("member");
-        String groupId = request.getParameter("group");
-        if (groupId == null || groupId.isEmpty()) {
-            groupId = "0";
-        }
+        Integer groupId = parseGroupId(request.getParameter("group"));
+        if (groupId == null) return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
 
         if (memberId != null && !memberId.isEmpty()) {
             // Parse the composite ID for the member to remove
-            ContactIdentifier contactIdentifier = new ContactIdentifier(memberId);
+            ContactIdentifier contactIdentifier = parseMemberId(memberId);
+            if (contactIdentifier == null) return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
 
-            if ("0".equals(groupId)) {
+            if (groupId == 0) {
                 // Remove member from all groups
                 messengerGroupManager.removeMember(loggedInInfo, contactIdentifier);
             } else {
                 // Remove member from specific group
-                contactIdentifier.setGroupId(Integer.parseInt(groupId));
+                contactIdentifier.setGroupId(groupId);
                 messengerGroupManager.removeGroupMember(loggedInInfo, contactIdentifier);
             }
-        } else if (!"0".equals(groupId)) {
+        } else if (groupId != 0) {
             // No member specified - delete the entire group
-            messengerGroupManager.removeGroup(loggedInInfo, Integer.parseInt(groupId));
+            try {
+                if (!messengerGroupManager.removeGroup(loggedInInfo, groupId)) {
+                    return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
+                }
+            } catch (MessengerGroupManager.GroupHasChildrenException _) {
+                return writeMutationResult(HttpServletResponse.SC_CONFLICT, "children");
+            }
+        } else {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
         }
 
         return NONE;
@@ -269,15 +333,19 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      *
      * @return the result of the fetch operation
      */
-    public String create() {
+    public String create() throws java.io.IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String groupName = request.getParameter("groupName");
-        String parentId = request.getParameter("parentId");
-        if (parentId == null) {
-            parentId = "0";
+        Integer parentId = parseGroupId(request.getParameter("parentId"));
+        if (parentId == null || groupName == null || groupName.isBlank()) {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
         }
 
-        messengerGroupManager.addGroup(loggedInInfo, groupName, Integer.parseInt(parentId));
+        try {
+            messengerGroupManager.addGroup(loggedInInfo, groupName, parentId);
+        } catch (IllegalArgumentException _) {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
+        }
         // Refresh the display after creating the group
         fetch();
 
@@ -306,42 +374,20 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      */
     @Deprecated
     @SuppressWarnings("unused")
-    public String delete() {
-        String parent = new String();
-
-        GroupsDao dao = SpringUtils.getBean(GroupsDao.class);
-
-        // Get the parent ID of the group to be deleted
-        Groups gg = dao.find(ConversionUtils.fromIntString(grpNo));
-        if (gg != null) {
-            parent = "" + gg.getParentId();
+    public String delete() throws java.io.IOException {
+        Integer groupId = parseGroupId(grpNo);
+        if (groupId == null || groupId == 0) return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
+        Groups group = groupsDao.find(groupId);
+        if (group == null) return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
+        try {
+            if (!messengerGroupManager.removeGroup(LoggedInInfo.getLoggedInInfoFromSession(request), groupId)) {
+                return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
+            }
+        } catch (MessengerGroupManager.GroupHasChildrenException _) {
+            return writeMutationResult(HttpServletResponse.SC_CONFLICT, "children");
         }
-
-        // Check if this group has any child groups
-        if (dao.findByParentId(ConversionUtils.fromIntString(parent)).size() > 1) {
-            request.setAttribute("groupNo", grpNo);
-            request.setAttribute("fail", "This Group has Children, you must delete the children groups first");
-            return "failure";
-        }
-
-        // Remove all members from the group first
-        for (GroupMembers g : groupMembersDao.findByGroupId(Integer.parseInt(grpNo))) {
-            groupMembersDao.remove(g.getId());
-        }
-
-        // Delete the group itself
-        Groups g = groupsDao.find(Integer.parseInt(grpNo));
-        if (g != null) {
-            groupsDao.remove(g.getId());
-        }
-
-        // Update the system address book to reflect the deletion
-        MsgAddressBookMaker addMake = new MsgAddressBookMaker();
-        addMake.updateAddressBook();
-        
-        // Return to the parent group view
-        request.setAttribute("groupNo", parent);
-
+        new MsgAddressBookMaker().updateAddressBook();
+        request.setAttribute("groupNo", String.valueOf(group.getParentId()));
         return SUCCESS;
     }
 
@@ -364,77 +410,41 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      */
     @Deprecated
     @SuppressWarnings("unused")
-    public String update() {
-
-        // Enforce security: only administrators can update groups
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
+    public String update() throws java.io.IOException {
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(info, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
-
-        String[] providers = this.getProviders();
-
-        String parent = new String();
-
-        // Get localized button labels to determine which operation was requested
-        ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
-
-        if (update.equals(oscarR.getString("messenger.config.MessengerAdmin.btnUpdateGroupMembers"))) {
-            // Update group members operation
-            
-            // First remove all existing members from the group
-            for (GroupMembers g : groupMembersDao.findByGroupId(Integer.parseInt(grpNo))) {
-                groupMembersDao.remove(g.getId());
-            }
-
-            // Add all newly selected providers to the group
-            for (int i = 0; i < providers.length; i++) {
-                GroupMembers gm = new GroupMembers();
-                gm.setGroupId(Integer.parseInt(grpNo));
-                gm.setProviderNo(providers[i]);
-                groupMembersDao.persist(gm);
-            }
-
-            // Update the system address book to reflect membership changes
-            MsgAddressBookMaker addMake = new MsgAddressBookMaker();
-            addMake.updateAddressBook();
-            request.setAttribute("groupNo", grpNo);
-        } else if (delete.equals(oscarR.getString("messenger.config.MessengerAdmin.btnDeleteThisGroup"))) {
-            // Delete group operation
-            
-            GroupsDao dao = SpringUtils.getBean(GroupsDao.class);
-            // Get the parent ID for navigation after deletion
-            Groups gg = dao.find(ConversionUtils.fromIntString(grpNo));
-            if (gg != null) {
-                parent = "" + gg.getParentId();
-            }
-
-            // Validate that the group has no children
-            if (dao.findByParentId(ConversionUtils.fromIntString(parent)).size() > 1) {
-                request.setAttribute("groupNo", grpNo);
-                request.setAttribute("fail", "This Group has Children, you must delete the children groups first");
-                return "failure";
-            }
-
-            // Remove all members from the group
-            for (GroupMembers g : groupMembersDao.findByGroupId(Integer.parseInt(grpNo))) {
-                groupMembersDao.remove(g.getId());
-            }
-
-            // Delete the group itself
-            Groups g = groupsDao.find(Integer.parseInt(grpNo));
-            if (g != null) {
-                groupsDao.remove(g.getId());
-            }
-
-            // Update the system address book
-            MsgAddressBookMaker addMake = new MsgAddressBookMaker();
-            addMake.updateAddressBook();
-            // Navigate to parent group after deletion
-            request.setAttribute("groupNo", parent);
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+        boolean updating = bundle.getString("messenger.config.MessengerAdmin.btnUpdateGroupMembers").equals(update);
+        boolean deleting = bundle.getString("messenger.config.MessengerAdmin.btnDeleteThisGroup").equals(delete);
+        if (updating == deleting) {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
         }
-
+        if (deleting) return delete();
+        Integer groupId = parseGroupId(grpNo);
+        String[] providers = getProviders();
+        if (grpNo == null || grpNo.isEmpty() || groupId == null || !validLegacyProviders(providers)) {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
+        }
+        try {
+            messengerGroupManager.replaceGroupMembers(info, groupId, providers);
+        } catch (MessengerGroupManager.UnknownGroupException _) {
+            return writeMutationResult(HttpServletResponse.SC_BAD_REQUEST, INVALID_REASON);
+        }
+        new MsgAddressBookMaker().updateAddressBook();
+        request.setAttribute("groupNo", grpNo);
         return SUCCESS;
     }
+
+    private static boolean validLegacyProviders(String[] providers) {
+        if (providers == null) return true;
+        for (String provider : providers) {
+            if (parseMemberId(provider) == null || provider.contains("-")) return false;
+        }
+        return true;
+    }
+
     /**
      * The group number/ID being operated on (for legacy methods).
      */

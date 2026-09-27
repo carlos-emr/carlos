@@ -66,6 +66,7 @@
  */
 
 const { chromium } = require('playwright');
+const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -88,14 +89,9 @@ const messageB = `${stamp}_B stale-data leak check`;
 const firstNoteText = `${stamp} first note text`;
 const secondNoteText = `${stamp} second note text (edited)`;
 
-// casemgmt_note_link.table_name value identifying a tickler-linked note (see
-// CaseManagementNoteLink.TICKLER in the Java model).
-const NOTE_LINK_TABLE_TICKLER = 10;
-
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
-let createdTicklerIds = [];
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -181,36 +177,7 @@ function assert(condition, message) {
 }
 
 function cleanupTicklerRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
-  sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
-  sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
-}
-
-function purgeDanglingTicklerNoteLinks() {
-  // Filtered demo snapshots (and any hand-pruned dev database) can carry
-  // casemgmt_note_link rows whose TICKLER table_id no longer exists in the
-  // tickler table. Ticklers created by this test then REUSE those
-  // auto-increment ids and "inherit" the orphaned notes, which reads exactly
-  // like the stale-data leak this script exists to detect. Those links are
-  // unreachable garbage (their tickler is gone; the app only soft-deletes
-  // ticklers, so this state never arises from the UI) - purge them so the
-  // fresh-tickler-has-a-blank-dialog premise holds. Links of existing
-  // ticklers are untouched.
-  sql(`DELETE FROM casemgmt_note_link WHERE table_name = ${NOTE_LINK_TABLE_TICKLER} AND table_id NOT IN (SELECT tickler_no FROM tickler)`);
-}
-
-function cleanupNoteRows() {
-  if (createdTicklerIds.length === 0) {
-    return;
-  }
-  const ids = createdTicklerIds.map((id) => Number(id)).join(',');
-  const noteIdSubquery = `SELECT note_id FROM casemgmt_note_link WHERE table_name = ${NOTE_LINK_TABLE_TICKLER} AND table_id IN (${ids})`;
-  // ticklerSaveNote() also links every saved note to the system "TicklerNote"
-  // issue via casemgmt_issue_notes, which FKs to casemgmt_note.note_id and
-  // must be cleared first.
-  sql(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${noteIdSubquery})`);
-  sql(`DELETE FROM casemgmt_note WHERE note_id IN (${noteIdSubquery})`);
-  sql(`DELETE FROM casemgmt_note_link WHERE table_name = ${NOTE_LINK_TABLE_TICKLER} AND table_id IN (${ids})`);
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, noteTexts: [firstNoteText, secondNoteText] });
 }
 
 function getTicklerRows() {
@@ -380,7 +347,6 @@ async function closeDialogIfOpen(page) {
 
 (async () => {
   cleanupTicklerRows();
-  purgeDanglingTicklerNoteLinks();
 
   const launchOptions = {
     headless: true,
@@ -400,7 +366,6 @@ async function closeDialogIfOpen(page) {
 
     const ticklerAId = await createTickler(context, messageA);
     const ticklerBId = await createTickler(context, messageB);
-    createdTicklerIds = [ticklerAId, ticklerBId];
 
     const page = await context.newPage();
     wirePage(page, 'tickler-main');
@@ -459,7 +424,6 @@ async function closeDialogIfOpen(page) {
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
-    cleanupNoteRows();
     cleanupTicklerRows();
     cleanupMysqlDefaultsFile();
   }
