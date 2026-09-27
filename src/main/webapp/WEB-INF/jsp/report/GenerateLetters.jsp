@@ -225,6 +225,18 @@
                     <fmt:message key="report.GenerateLetters.noPatientsSelected"/>
                 </div>
                 <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("envelopeGenerationFailed"))) { %>
+                <div id="envelopeGenerationFailed" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.envelopeFailed"/></div>
+                <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("letterGenerationFailed"))) { %>
+                <div id="letterGenerationFailed" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.generationFailed"/></div>
+                <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("letterGenerationUncertain"))) { %>
+                <div id="letterGenerationUncertain" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.generationUncertain"/></div>
+                <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("letterSelectionIncomplete"))) { %>
+                <div id="letterSelectionIncomplete" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.selectionIncomplete"/></div>
+                <% } %>
                 <%
                     ManageLetters mLetter = new ManageLetters();
                     ArrayList list = mLetter.getActiveReportList();

@@ -70,6 +70,9 @@
     <body>
     <div class="container">
     <div class="searchBox">
+    <% if (Boolean.TRUE.equals(request.getAttribute("letterUploadFailed"))) { %>
+    <div id="letterUploadFailed" class="alert alert-danger" role="alert"><fmt:message key="report.ManageLetters.uploadFailed"/></div>
+    <% } %>
 
         <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
             <h4 style="margin:0; font-size:18px;">
@@ -96,7 +99,7 @@
                 </tr>
                 <tr>
                     <td style="font-weight:bold;"><fmt:message key="report.ManageLetters.label.reportName"/></td>
-                    <td><input type="text" name="reportName" class="form-control form-control-sm" style="width:auto; display:inline-block;"/></td>
+                    <td><input type="text" name="reportName" maxlength="255" value="<carlos:encode value='<%= StringUtils.defaultString(request.getParameter("reportName")) %>' context="htmlAttribute"/>" class="form-control form-control-sm" style="width:auto; display:inline-block;"/></td>
                 </tr>
             </table>
             <div style="padding:5px 0 15px 0;">

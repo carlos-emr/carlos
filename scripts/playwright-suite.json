@@ -1565,6 +1565,7 @@
       "timeoutSec": 240,
       "env": [
         "DEMOGRAPHIC_NO",
+        "LETTER_DOCUMENT_DIR",
         "MYSQL_DOCKER_CONTAINER"
       ]
     },

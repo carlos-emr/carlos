@@ -55,7 +55,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import org.openpdf.text.Document;
 import org.openpdf.text.DocumentException;
-import org.openpdf.text.FontFactory;
+import org.openpdf.text.Font;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
 import org.openpdf.text.Paragraph;
 import org.openpdf.text.Rectangle;
 import org.openpdf.text.pdf.PdfWriter;
@@ -128,6 +130,12 @@ public class GenerateEnvelopes2Action extends ActionSupport {
             return INPUT;
         }
 
+        if (patients.size() != request.getParameterValues("demos").length) {
+            request.setAttribute("letterSelectionIncomplete", Boolean.TRUE);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return INPUT;
+        }
+
         String curUser_no = (String) request.getSession().getAttribute("user");
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
@@ -149,13 +157,15 @@ public class GenerateEnvelopes2Action extends ActionSupport {
             pdf = renderEnvelopes(patients, buildAutoPrintScript(defaultPrinterNamePDFLabel, silentPrintPDFLabel));
         } catch (RuntimeException e) {
             // OpenPDF's DocumentException is unchecked, so this also covers document build failures.
-            logger.error("Envelope PDF generation failed", e);
-            sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            return NONE;
+            logger.error("Envelope PDF generation failed ({})", e.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            request.setAttribute("envelopeGenerationFailed", Boolean.TRUE);
+            return INPUT;
         }
 
         response.setContentType("application/pdf");
-        response.setHeader("Content-Disposition", "filename=\"envelopePDF-" + UtilDateUtilities.getToday("yyyy-mm-dd.hh.mm.ss") + ".pdf\"");
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Content-Disposition", "filename=\"envelopePDF-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".pdf\"");
         response.setContentLength(pdf.length);
         try {
             response.getOutputStream().write(pdf);
@@ -233,13 +243,24 @@ public class GenerateEnvelopes2Action extends ActionSupport {
         float marginRight = 0;
         float marginTop = 144;
         float marginBottom = 0;
+        BaseFont font = envelopeFont();
         Document document = new Document(_10Envelope, marginLeft, marginRight, marginTop, marginBottom);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(document, out);
         document.open();
         try {
             for (Demographic d : patients) {
-                document.add(getEnvelopeLabel(formatEnvelopeLabel(d)));
+                String label = formatEnvelopeLabel(d);
+                if (label.codePoints().anyMatch(c -> !Character.isWhitespace(c) && !font.charExists(c))) {
+                    throw new IllegalArgumentException("The envelope font cannot represent this address");
+                }
+                Paragraph paragraph = fitEnvelopeLabel(label, font, _10Envelope.getWidth() - marginLeft - marginRight,
+                        _10Envelope.getHeight() - marginTop - marginBottom);
+                ColumnText column = new ColumnText(writer.getDirectContent());
+                column.setSimpleColumn(marginLeft, marginBottom, _10Envelope.getWidth() - marginRight,
+                        _10Envelope.getHeight() - marginTop);
+                column.addElement(paragraph);
+                if (ColumnText.hasMoreText(column.go())) throw new IllegalStateException("Envelope address overflow");
                 document.newPage();
             }
             PdfAction action = PdfAction.javaScript(autoPrintScript, writer);
@@ -264,25 +285,26 @@ public class GenerateEnvelopes2Action extends ActionSupport {
                 + Objects.toString(d.getPostal(), "");
     }
 
-    private void sendError(int status) {
-        try {
-            if (!response.isCommitted()) {
-                response.sendError(status);
-            }
-        } catch (IOException ioe) {
-            logger.warn("Unable to send envelope error status {}", status, ioe);
+    private BaseFont envelopeFont() {
+        try (var input = request.getServletContext().getResourceAsStream("/library/eforms/dejavufonts/ttf/DejaVuSans.ttf")) {
+            if (input == null) throw new IllegalStateException("Envelope font is unavailable");
+            return BaseFont.createFont("carlos-envelope.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED,
+                    true, input.readAllBytes(), null);
+        } catch (IOException error) {
+            throw new IllegalStateException("Envelope font could not be loaded", error);
         }
     }
 
-    /**
-     * Creates a formatted paragraph for an envelope address label.
-     *
-     * @param text String the address text with newline separators
-     * @return Paragraph the formatted label in Helvetica 18pt with 22pt leading
-     */
-    Paragraph getEnvelopeLabel(String text) {
-        Paragraph p = new Paragraph(text, FontFactory.getFont(FontFactory.HELVETICA, 18));
-        p.setLeading(22);
-        return p;
+    /** Keep the complete mailing block on one envelope, using 18pt whenever it fits. */
+    private Paragraph fitEnvelopeLabel(String text, BaseFont font, float width, float height) {
+        for (int size = 18; size >= 8; size--) {
+            Paragraph paragraph = new Paragraph(text, new Font(font, size));
+            paragraph.setLeading(size + 4);
+            ColumnText probe = new ColumnText(null);
+            probe.setSimpleColumn(0, 0, width, height);
+            probe.addElement(paragraph);
+            if (!ColumnText.hasMoreText(probe.go(true))) return paragraph;
+        }
+        throw new IllegalArgumentException("Envelope address does not fit");
     }
 }

@@ -93,6 +93,7 @@ class ManagePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
         reportLettersDao = mock(ReportLettersDao.class);
         loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ReportLettersDao.class, reportLettersDao);
         registerMock(LogLettersDao.class, mock(LogLettersDao.class));
@@ -167,7 +168,9 @@ class ManagePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.getReportFile()).isNull();
             assertThat(action.getReportFileFileName()).isNull();
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(request.getAttribute("letterUploadFailed")).isEqualTo(Boolean.TRUE);
             verifyNoInteractions(reportLettersDao);
         }
 
@@ -192,6 +195,39 @@ class ManagePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.execute()).isEqualTo("success_manage_from_prevention");
         }
+    }
+
+    @Test
+    void shouldShowFailure_whenUploadedXmlIsInvalid() throws Exception {
+        Files.writeString(uploadTemp.toPath(), "not XML");
+        ManagePatientLetters2Action action = new ManagePatientLetters2Action();
+        action.withUploadedFiles(List.of(upload("reportFile", "letter.jrxml")));
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("letterUploadFailed")).isEqualTo(Boolean.TRUE);
+        verifyNoInteractions(reportLettersDao);
+    }
+
+    @Test
+    void shouldRejectInvalidName_beforeSavingTemplate() {
+        for (String name : new String[]{"", " ", "x".repeat(256)}) {
+            request.setParameter("reportName", name);
+            ManagePatientLetters2Action action = new ManagePatientLetters2Action();
+            action.withUploadedFiles(List.of(upload("reportFile", "letter.jrxml")));
+            assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+            assertThat(response.getStatus()).isEqualTo(400);
+        }
+        verifyNoInteractions(reportLettersDao);
+    }
+
+    @Test
+    void shouldShowFailure_whenTemplatePersistenceFails() {
+        org.mockito.Mockito.doThrow(new IllegalStateException("injected failure")).when(reportLettersDao).persist(any());
+        ManagePatientLetters2Action action = new ManagePatientLetters2Action();
+        action.withUploadedFiles(List.of(upload("reportFile", "letter.jrxml")));
+        assertThat(action.execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("letterUploadFailed")).isEqualTo(Boolean.TRUE);
     }
 
     @Nested

@@ -30,233 +30,81 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Hashtable;
-
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import io.github.carlos_emr.CarlosProperties;
-import net.sf.jasperreports.engine.JREmptyDataSource;
-import net.sf.jasperreports.engine.JasperExportManager;
-import net.sf.jasperreports.engine.JasperFillManager;
-import net.sf.jasperreports.engine.JasperPrint;
-import net.sf.jasperreports.engine.JasperReport;
-
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.managers.ProgramManager2;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.documentManager.EDoc;
-import io.github.carlos_emr.carlos.documentManager.EDocUtil;
-import io.github.carlos_emr.carlos.eform.APExecute;
-import io.github.carlos_emr.carlos.prevention.reports.FollowupManagement;
-import io.github.carlos_emr.carlos.report.data.ManageLetters;
-import io.github.carlos_emr.carlos.util.ConcatPDF;
-import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.report.data.PatientLetterBatchService;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/** Generates a complete letter batch before filing documents and follow-ups. */
 public class GeneratePatientLetters2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    private static final Logger log = MiscUtils.getLogger();
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-
-    private static Logger log = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(info, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
-
-        // Letter generation files a document per patient and can mark follow-ups, so it only runs
-        // from the Generate Letters form POST; refuse GET/HEAD before any of that happens.
         if (!"POST".equals(request.getMethod())) {
-            try {
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            } catch (IOException e) {
-                log.warn("Unable to send 405 for non-POST letter generation", e);
-            }
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
-
         String[] demos = request.getParameterValues("demos");
-        String id = request.getParameter("reportLetter");
-        String providerNo = (String) request.getSession().getAttribute("user");
-
-        // Nothing checked on the form is a user mistake: say so on the page rather than returning an
-        // empty response. Checked before the template is loaded so no work is done (issue #3963).
         if (demos == null || demos.length == 0) {
-            log.warn("Letter generation requested with no patients selected");
             request.setAttribute(GenerateEnvelopes2Action.NO_PATIENTS_SELECTED_ATTRIBUTE, Boolean.TRUE);
             return INPUT;
         }
-
-        // Validate all demographic numbers are strictly numeric to prevent path traversal
-        // via crafted values flowing into the generated filename.
-        for (String demo : demos) {
-            if (demo == null || !demo.matches("\\d+")) {
-                log.warn("Invalid non-numeric demographic number rejected: {}", LogSafe.sanitize(demo));
-                throw new SecurityException("Invalid demographic number");
-            }
+        byte[] pdf;
+        try {
+            ManagePatientLetters2Action.configureJasperCompileClasspath(request);
+            pdf = SpringUtils.getBean(PatientLetterBatchService.class).generate(info,
+                    request.getParameter("reportLetter"), demos, "ON".equals(request.getParameter("addFollowUp")),
+                    request.getParameter("followupType"), request.getParameter("followupValue"),
+                    request.getParameter("message"));
+        } catch (SecurityException denied) {
+            throw denied;
+        } catch (PatientLetterBatchService.OutcomeUncertainException uncertain) {
+            log.error("Patient letter commit outcome is unknown; generated files retained for reconciliation");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            request.setAttribute("letterGenerationUncertain", Boolean.TRUE);
+            return INPUT;
+        } catch (IllegalArgumentException invalid) {
+            return generationFailure(HttpServletResponse.SC_BAD_REQUEST);
+        } catch (Exception failure) {
+            // Jasper exceptions can contain template expressions or patient values.
+            log.error("Patient letter batch failed ({})", failure.getClass().getSimpleName());
+            return generationFailure(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
-
-        ManagePatientLetters2Action.configureJasperCompileClasspath(request);
-
-        if (log.isTraceEnabled()) {
-            log.trace("# of demos " + demos.length);
-        }
-
-        ServletOutputStream sos = null;
-        //OscarDocumentCreator osc = new OscarDocumentCreator();
-
-        //Get Jasper Report
-        //InputStream ins = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarBilling/ca/bc/reports/MyLetter.jrxml");
-
-        if (log.isTraceEnabled()) {
-            log.trace("Getting xml configuration stream ");
-        }
-        ManageLetters manageLetters = new ManageLetters();
-        JasperReport jasperReport = manageLetters.getReport(id); //osc.getJasperReport(ins);
-
-        Hashtable letterData = manageLetters.getReportData(id);
-
-        String[] reportParams = ManageLetters.getReportParams(jasperReport);
-        APExecute apExe = new APExecute();
-        if (log.isTraceEnabled()) {
-            log.trace("Compiled Jasper Report ");
-        }
-
-        ArrayList<Object> fullPatientlist = new ArrayList<Object>();
-
-        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        //for each demographic generate a letter for that patient
-        for (int i = 0; i < demos.length; i++) {
-            //fill the map with patient info
-            if (log.isTraceEnabled()) {
-                log.trace("Getting demographic info for {}", LogSafe.sanitize(demos[i]));
-            }
-
-            HashMap parameters = new HashMap();
-            if (reportParams != null) {
-                for (int p = 0; p < reportParams.length; p++) {
-                    MiscUtils.getLogger().debug("demo = {}", LogSafe.sanitize(demos[i]));
-                    // deepcode ignore SqlInjection: report template SQL executed via DatabaseAP; templates are admin-configured
-                    parameters.put(reportParams[p], apExe.execute(reportParams[p], demos[i]));
-                }
-            }
-
-            try {
-
-                if (log.isTraceEnabled()) {
-                    log.trace("Filling report for {}", LogSafe.sanitize(demos[i]));
-                }
-                JasperPrint print = JasperFillManager.fillReport(jasperReport, parameters, new JREmptyDataSource());
-
-                String description = letterData.get("ID") + "-" + letterData.get("report_name");
-                String type = "others";
-                String fileName = letterData.get("ID") + "-" + StringUtils.replace((String) letterData.get("report_name"), " ", "-") + "-" + demos[i] + ".pdf";
-                String html = "";
-                char status = 'A';
-                String observationDate = UtilDateUtilities.DateToString(new Date());
-                String module = "demographic";
-                String moduleId = demos[i];
-
-                EDoc newDoc = new EDoc(description, type, fileName, "", providerNo, providerNo, "", status, observationDate, "", "", module, moduleId);
-                newDoc.setDocPublic("0");
-                newDoc.setContentType("application/pdf");
-
-                // if the document was added in the context of a program
-                ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
-                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
-                if (pp != null && pp.getProgramId() != null) {
-                    newDoc.setProgramId(pp.getProgramId().intValue());
-                }
-
-                fileName = newDoc.getFileName();
-                File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
-                // Sync the EDoc filename with the validated (sanitized) name so the DB
-                // record matches the actual file on disk.
-                newDoc.setFileName(validatedFile.getName());
-                String savePath = validatedFile.getAbsolutePath();
-                if (log.isTraceEnabled()) {
-                    log.trace("writing report to disk for file {}", LogSafe.sanitize(fileName));
-                }
-                JasperExportManager.exportReportToPdfFile(print, savePath);
-                if (log.isTraceEnabled()) {
-                    log.trace("Saving reference to database for {}", LogSafe.sanitize(demos[i]));
-                }
-                EDocUtil.addDocumentSQL(newDoc);
-
-                fullPatientlist.add(savePath);
-
-            } catch (SecurityException secEx) {
-                MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", LogSafe.sanitize(demos[i]), secEx.getMessage());
-            } catch (Exception jpException) {
-                MiscUtils.getLogger().error("Error", jpException);
-            }
-
-        }
-
-
-        //LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_JASPERREPORTLETER, demographic$, request.getRemoteAddr());
-        manageLetters.logLetterCreated(providerNo, id, demos);
-        MiscUtils.getLogger().debug("Add Follow Up {}", LogSafe.sanitize(request.getParameter("addFollowUp")));
-        if (request.getParameter("addFollowUp") != null && request.getParameter("addFollowUp").equals("ON")) {
-            //MARK IN MEASUREMENTS????
-            MiscUtils.getLogger().debug("IN MARK MEASUREMENTS");
-            String followUpType = request.getParameter("followupType"); //"FLUF";
-            String followUpValue = request.getParameter("followupValue"); //"L1";
-            String comment = request.getParameter("message");
-            MiscUtils.getLogger().debug("Follow up type {} follow up value {}", LogSafe.sanitize(followUpType), LogSafe.sanitize(followUpValue));
-            if (followUpType != null && followUpValue != null) {
-                FollowupManagement fup = new FollowupManagement();
-                fup.markFollowupProcedure(followUpType, followUpValue, demos, providerNo, new Date(), comment);
-            }
-        }
-
-        response.setHeader("Content-disposition", "inline; filename=GeneratedLetters.pdf");
-        response.setHeader("Cache-Control", "max-age=0");
+        response.setHeader("Content-Disposition", "inline; filename=GeneratedLetters.pdf");
+        response.setHeader("Cache-Control", "no-store");
         response.setDateHeader("Expires", 0);
         response.setContentType("application/pdf");
-
-
+        response.setContentLength(pdf.length);
         try {
-            sos = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error", ex);
+            response.getOutputStream().write(pdf);
+        } catch (IOException failure) {
+            // Clinical records are already committed; do not claim they were rolled back.
+            log.warn("Saved patient letters could not be downloaded ({})", failure.getClass().getSimpleName());
+            if (!response.isCommitted()) {
+                response.reset();
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
-
-
-        ConcatPDF.concat(fullPatientlist, sos);
-
-        if (log.isTraceEnabled()) {
-            log.trace("End of GeneratePatientLetters Action");
-        }
-        // The PDF has been streamed; stop Struts from resolving a result into the download.
         return NONE;
     }
 
+    private String generationFailure(int status) {
+        response.setStatus(status);
+        request.setAttribute("letterGenerationFailed", Boolean.TRUE);
+        return INPUT;
+    }
 }

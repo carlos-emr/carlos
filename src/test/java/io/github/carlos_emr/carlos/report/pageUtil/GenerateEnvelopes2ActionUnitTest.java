@@ -95,7 +95,7 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
         // DemographicData resolves this at construction; the envelope path never uses it.
         registerMock(DemographicCustDao.class, mock(DemographicCustDao.class));
 
-        request = new MockHttpServletRequest("GET", "/carlos/report/GenerateEnvelopes");
+        request = new MockHttpServletRequest(new org.springframework.mock.web.MockServletContext("src/main/webapp", new org.springframework.core.io.FileSystemResourceLoader()), "GET", "/carlos/report/GenerateEnvelopes");
         request.getSession().setAttribute("user", "999998");
         response = new MockHttpServletResponse();
 
@@ -192,6 +192,17 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldRefusePartialEnvelope_whenAnySelectedPatientIsUnavailable() {
+        request.addParameter("demos", "1", "abc", "9999999999");
+        when(demographicManager.getDemographic(loggedInInfo, "1")).thenReturn(patient("FAKE-Ann", "FAKE-Smith"));
+        assertThat(new GenerateEnvelopes2Action().execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("letterSelectionIncomplete")).isEqualTo(Boolean.TRUE);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        verifyNoInteractions(userPropertyDao);
+    }
+
     @Nested
     @DisplayName("PDF download")
     class PdfDownload {
@@ -199,7 +210,7 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should stream a PDF and return NONE when a patient is selected")
         void shouldStreamPdfAndReturnNone_whenPatientSelected() {
-            request.addParameter("demos", "1", "abc", "2");
+            request.addParameter("demos", "1", "2");
             when(demographicManager.getDemographic(loggedInInfo, "1")).thenReturn(patient("FAKE-Ann", "FAKE-Smith"));
             when(demographicManager.getDemographic(loggedInInfo, "2")).thenReturn(patient("FAKE-Bob", "FAKE-Jones"));
 
@@ -289,6 +300,39 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(GenerateEnvelopes2Action.formatEnvelopeLabel(patient("FAKE-Ann", "FAKE-Smith")))
                     .isEqualTo("FAKE-Ann FAKE-Smith\n1 FAKE Street\nToronto, ON\nM1M 1M1");
         }
+    }
+
+    @Test
+    void shouldPreserveAccentedAndCyrillicNames_inEnvelopePdf() throws Exception {
+        var action = new GenerateEnvelopes2Action();
+        var patient = patient("Łukasz", "Жуков");
+        byte[] bytes = action.renderEnvelopes(java.util.List.of(patient), "");
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf)).contains("Łukasz", "Жуков");
+        }
+    }
+
+    @Test
+    void shouldKeepLongAddressesOnOnePagePerPatient_withoutDroppingText() throws Exception {
+        var first = patient("Aleksandra ".repeat(5), "Kowalska ".repeat(6));
+        first.setAddress("Long street name ".repeat(4));
+        first.setCity("Long city name ".repeat(4));
+        byte[] bytes = new GenerateEnvelopes2Action().renderEnvelopes(java.util.List.of(first, patient("Bob", "Jones")), "");
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(2);
+            String text = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf).replaceAll("\\s+", " ");
+            assertThat(text).contains(first.getFirstName().trim(), first.getLastName().trim(), first.getAddress().trim(), first.getCity().trim(), "Bob Jones");
+        }
+    }
+
+    @Test
+    void shouldRefuseUnsupportedGlyphs_withoutReturningAnIncompletePdf() {
+        request.addParameter("demos", "1");
+        when(demographicManager.getDemographic(loggedInInfo, "1")).thenReturn(patient("𠀀", "Test"));
+        assertThat(new GenerateEnvelopes2Action().execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(request.getAttribute("envelopeGenerationFailed")).isEqualTo(Boolean.TRUE);
     }
 
     @Test

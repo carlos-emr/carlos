@@ -66,6 +66,7 @@ class GeneratePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
     private ReportLettersDao reportLettersDao;
     private LogLettersDao logLettersDao;
+    private io.github.carlos_emr.carlos.report.data.PatientLetterBatchService batches;
     private LoggedInInfo loggedInInfo;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -75,6 +76,8 @@ class GeneratePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
         reportLettersDao = mock(ReportLettersDao.class);
         logLettersDao = mock(LogLettersDao.class);
+        batches = mock(io.github.carlos_emr.carlos.report.data.PatientLetterBatchService.class);
+        registerMock(io.github.carlos_emr.carlos.report.data.PatientLetterBatchService.class, batches);
         loggedInInfo = mock(LoggedInInfo.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ReportLettersDao.class, reportLettersDao);
@@ -135,14 +138,52 @@ class GeneratePatientLetters2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject a non-numeric demographic number before loading the template")
-    void shouldThrowSecurityException_forNonNumericDemographic() {
+    void shouldShowFailure_forInvalidSelection() throws Exception {
         request.addParameter("demos", "1", "../../etc");
         request.addParameter("reportLetter", "1");
 
-        assertThatThrownBy(() -> new GeneratePatientLetters2Action().execute())
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("Invalid demographic number");
+        when(batches.generate(eq(loggedInInfo), eq("1"), any(), eq(false), isNull(), isNull(), isNull()))
+                .thenThrow(new IllegalArgumentException("Invalid selection"));
+        assertThat(new GeneratePatientLetters2Action().execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("letterGenerationFailed")).isEqualTo(Boolean.TRUE);
         verifyNoInteractions(reportLettersDao, logLettersDao);
+    }
+
+    @Test
+    void shouldShowFailure_whenBatchRenderingFails() throws Exception {
+        request.addParameter("demos", "1");
+        request.addParameter("reportLetter", "7");
+        when(batches.generate(eq(loggedInInfo), eq("7"), any(), eq(false), isNull(), isNull(), isNull()))
+                .thenThrow(new java.io.IOException("injected failure"));
+        assertThat(new GeneratePatientLetters2Action().execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("letterGenerationFailed")).isEqualTo(Boolean.TRUE);
+        assertThat(response.getContentType()).isNull();
+    }
+
+    @Test
+    void shouldExplainUncertainCommit_withoutClaimingThatNothingWasSaved() throws Exception {
+        request.addParameter("demos", "1");
+        request.addParameter("reportLetter", "7");
+        when(batches.generate(eq(loggedInInfo), eq("7"), any(), eq(false), isNull(), isNull(), isNull()))
+                .thenThrow(new io.github.carlos_emr.carlos.report.data.PatientLetterBatchService.OutcomeUncertainException(new IllegalStateException()));
+        assertThat(new GeneratePatientLetters2Action().execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("letterGenerationUncertain")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("letterGenerationFailed")).isNull();
+    }
+
+    @Test
+    void shouldStreamCompleteBatch_whenGenerationSucceeds() throws Exception {
+        request.addParameter("demos", "1");
+        request.addParameter("reportLetter", "7");
+        byte[] pdf = "%PDF-fixture".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        when(batches.generate(eq(loggedInInfo), eq("7"), any(), eq(false), isNull(), isNull(), isNull())).thenReturn(pdf);
+        assertThat(new GeneratePatientLetters2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).isEqualTo(pdf);
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
     }
 
     @Test

@@ -51,9 +51,8 @@
  *   MYSQL_DOCKER_CONTAINER=<name>   run the mysql client inside this container instead of locally
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  *
- * SQL is used only to find a patient and to remove the rows this script creates. Without a
- * reachable database set DEMOGRAPHIC_NO; the uploaded template is still archived through the UI,
- * but generated letter documents are then left behind, so run against a disposable database.
+ * SQL and LETTER_DOCUMENT_DIR (the local application document directory) are required so
+ * every owned template, document, follow-up and PDF can be removed and verified after the run.
  */
 
 const { chromium } = require('playwright');
@@ -61,6 +60,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { clickAndAwaitReload } = require('./lib/playwright-ui');
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
 
@@ -108,7 +108,8 @@ const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const mysqlContainer = process.env.MYSQL_DOCKER_CONTAINER || '';
-const stamp = Date.now();
+const stamp = `${Date.now()}_${process.pid}`;
+const documentDirectory = process.env.LETTER_DOCUMENT_DIR;
 const reportName = `PW_LETTER_${stamp}`;
 // Spaces and a path prefix exercise the sanitizer; the stored name must be the basename with
 // spaces turned into underscores, never the Struts upload_*.tmp name.
@@ -351,11 +352,7 @@ async function uploadTemplate(context) {
     buffer: Buffer.from(MINIMAL_JRXML, 'utf8'),
   });
   await page.locator('input[name="reportName"]').fill(reportName);
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded', { timeout: 30000 }),
-    page.waitForURL(/\/report\/ManageLetters/, { timeout: 30000 }),
-    page.locator('form[action$="/report/ManageLetters"] input[type="submit"]').click(),
-  ]);
+  await clickAndAwaitReload(page, page.locator('form[action$="/report/ManageLetters"] input[type="submit"]'));
   await assertNoErrorPage(page, 'manage-letters-upload');
 
   await safeGoto(page, '/report/ViewManageLetters', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -371,6 +368,22 @@ async function uploadTemplate(context) {
     const download = await context.request.get(appUrl(`/report/DownloadLetter?reportID=${encodeURIComponent(reportLetterId)}`));
     const disposition = download.headers()['content-disposition'] || '';
     expect(disposition.includes(`filename="${expectedStoredName}"`), 'download-letter: Content-Disposition uses stored name', { disposition });
+  }
+  await page.close();
+}
+
+async function checkInvalidUpload(context) {
+  const page = await context.newPage();
+  await safeGoto(page, '/report/ViewManageLetters', {waitUntil:'domcontentloaded'});
+  const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+  for (const [name, content] of [[reportName, 'not XML'], ['', MINIMAL_JRXML]]) {
+    const response = await context.request.post(appUrl('/report/ManageLetters'), {multipart:{
+      reportName:name, 'CSRF-TOKEN':token,
+      reportFile:{name:uploadName, mimeType:'text/xml', buffer:Buffer.from(content)},
+    }});
+    const html = await response.text();
+    expect(response.status() === 400 && /id="letterUploadFailed"/.test(html), 'invalid-upload: visible failure', {status:response.status()});
+    expect(sql(`SELECT COUNT(*) FROM report_letters WHERE report_name='${reportName}'`) === '0', 'invalid-upload: nothing saved', {});
   }
   await page.close();
 }
@@ -431,7 +444,7 @@ async function checkGenerateLetters(context, demographicNo) {
   // Happy path: a patient selected returns the concatenated letters PDF.
   if (reportLetterId) {
     const letters = await context.request.post(appUrl('/report/GenerateLetters'), {
-      form: { reportLetter: reportLetterId, demos: demographicNo, 'CSRF-TOKEN': csrfToken },
+      form: { reportLetter: reportLetterId, demos: demographicNo, addFollowUp:'ON', followupType:'FLUF', followupValue:'L1', message:reportName, 'CSRF-TOKEN': csrfToken },
     });
     const body = await letters.body();
     expect(letters.status() === 200, 'generate-letters-pdf: HTTP 200', { status: letters.status() });
@@ -439,37 +452,42 @@ async function checkGenerateLetters(context, demographicNo) {
       { contentType: letters.headers()['content-type'] });
     expect(isPdf(body), 'generate-letters-pdf: body starts with %PDF', { head: body.subarray(0, 16).toString('latin1') });
     expect(!pdfHasTrailingHtml(body), 'generate-letters-pdf: no HTML appended after the PDF', {});
+    expect(sql(`SELECT COUNT(*) FROM document WHERE docdesc='${reportLetterId}-${reportName}'`) === '1', 'letters: document saved once', {});
+    expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND demographicNo=${Number(demographicNo)}`) === '1', 'letters: follow-up saved once', {});
+    const invalid = await context.request.post(appUrl('/report/GenerateLetters'), {
+      form:{reportLetter:reportLetterId, demos:'2147483648', addFollowUp:'ON', followupType:'FLUF', followupValue:'L1', message:reportName, 'CSRF-TOKEN':csrfToken},
+    });
+    expect(invalid.status() === 400 && /id="letterGenerationFailed"/.test(await invalid.text()), 'letters: invalid selection visibly refused', {status:invalid.status()});
+    expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}'`) === '1', 'letters: failed request did not record follow-up', {});
+    const partial = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${demographicNo}&demos=2147483648`));
+    expect(partial.status() === 400 && /id="letterSelectionIncomplete"/.test(await partial.text()), 'envelopes: incomplete selection refused', {status:partial.status()});
   }
 }
 
-async function cleanup(context) {
-  if (!reportLetterId) {
-    return;
-  }
-  // Remove the generated letter documents and the template row when SQL is reachable; otherwise
-  // archive the template through the UI so it drops off the list.
-  const docs = trySql(`DELETE d, c FROM document d JOIN ctl_document c ON c.document_no = d.document_no
-      WHERE d.docdesc = '${reportLetterId}-${reportName}'`);
-  const tmpl = trySql(`DELETE FROM report_letters WHERE ID = ${Number(reportLetterId)} AND report_name = '${reportName}'`);
-  trySql(`DELETE FROM log_letters WHERE report_id = ${Number(reportLetterId)}`);
-  if (!docs.ok || !tmpl.ok) {
-    console.error(`WARN: SQL cleanup unavailable (${docs.error || tmpl.error}); archiving template ${reportLetterId} via UI`);
-    const page = await context.newPage();
-    try {
-      await safeGoto(page, '/report/ViewManageLetters', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      const row = page.locator('tr', { hasText: reportName });
-      if (await row.count() === 1) {
-        await Promise.all([
-          page.waitForLoadState('domcontentloaded', { timeout: 30000 }),
-          row.locator('button[type="submit"]').click(),
-        ]);
+async function cleanup() {
+  const owned = sql(`SELECT ID FROM report_letters WHERE report_name = '${reportName}'`);
+  const ids = owned ? owned.split('\n').map(Number) : [];
+  if (!ids.length) return;
+  if (ids.some(id => !Number.isSafeInteger(id) || id <= 0)) throw new Error('Invalid owned template ID');
+  for (const id of ids) {
+    const rows = sql(`SELECT document_no,docfilename FROM document WHERE docdesc='${id}-${reportName}'`);
+    const documents = rows ? rows.split('\n').map(row => row.split('\t')) : [];
+    for (const [number, filename] of documents) {
+      if (!/^\d+$/.test(number) || path.basename(filename) !== filename || !filename.startsWith(`letter-${id}-`) || !filename.endsWith('.pdf')) {
+        throw new Error('Refusing to remove a file not owned by this letter test');
       }
-    } catch (error) {
-      console.error(`WARN: UI cleanup failed: ${error.message}`);
-    } finally {
-      await page.close();
+      fs.rmSync(path.join(documentDirectory, filename), {force:true});
     }
+    sql(`START TRANSACTION;
+      DELETE d,c FROM document d LEFT JOIN ctl_document c ON c.document_no=d.document_no WHERE d.docdesc='${id}-${reportName}';
+      DELETE FROM log_letters WHERE report_id=${id};
+      DELETE FROM report_letters WHERE ID=${id} AND report_name='${reportName}';
+      DELETE FROM measurements WHERE comments='${reportName}';
+      COMMIT`);
+    if (sql(`SELECT COUNT(*) FROM document WHERE docdesc='${id}-${reportName}'`) !== '0') throw new Error('Owned letter documents remain');
   }
+  if (sql(`SELECT COUNT(*) FROM report_letters WHERE report_name='${reportName}'`) !== '0') throw new Error('Owned template remains');
+  if (sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}'`) !== '0') throw new Error('Owned follow-up remains');
 }
 
 (async () => {
@@ -477,6 +495,10 @@ async function cleanup(context) {
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
+  if (!documentDirectory || !path.isAbsolute(documentDirectory) || !fs.statSync(documentDirectory).isDirectory()) {
+    throw new Error('LETTER_DOCUMENT_DIR must name the local application document directory for verified cleanup');
+  }
+  sql('SELECT 1');
   const demographicNo = resolveDemographicNo();
   const browser = await chromium.launch(launchOptions);
   let context;
@@ -489,6 +511,7 @@ async function cleanup(context) {
     await checkEnvelopesWithoutSelection(context);
     await checkEnvelopePdf(context, demographicNo);
     await checkMutatorsRejectGet(context);
+    await checkInvalidUpload(context);
     await uploadTemplate(context);
     await checkGenerateLetters(context, demographicNo);
 
@@ -498,15 +521,15 @@ async function cleanup(context) {
     }
     console.log('PASS patient letters keep the uploaded name; envelopes and letters handle empty selections');
   } finally {
-    if (context) {
-      await cleanup(context).catch((error) => console.error(`WARN: cleanup failed: ${error.message}`));
+    try {
+      await cleanup();
+    } finally {
+      if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+      await browser.close();
     }
-    if (mysqlDefaults) {
-      fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
-    }
-    await browser.close();
   }
 })().catch((error) => {
+  if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, {recursive:true, force:true});
   console.error('FAIL patient letters/envelopes Playwright check');
   console.error(error.stack || error.message);
   process.exit(1);
