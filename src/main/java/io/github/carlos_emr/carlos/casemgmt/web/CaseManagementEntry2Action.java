@@ -2001,7 +2001,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private void releaseNoteLock(String providerNo, Integer demographicNo, Long noteId) {
         logger.debug("REMOVING LOCK FOR PROVIDER " + providerNo + " DEMO " + demographicNo + " NOTE ID " + noteId);
-        casemgmtNoteLockDao.remove(providerNo, demographicNo, noteId);
+        casemgmtNoteLockDao.removeForSession(providerNo, demographicNo, noteId, request.getSession().getId());
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
