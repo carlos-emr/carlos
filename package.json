@@ -36,6 +36,7 @@
     "test:drug-search-playwright": "node scripts/drug-search-playwright-checks.js",
     "test:allergy-rx-alert-playwright": "node scripts/allergy-rx-alert-playwright-checks.js",
     "test:document-pagination-playwright": "node scripts/document-pagination-playwright-checks.js",
+    "test:document-add-link-playwright": "node scripts/document-add-link-playwright-checks.js",
     "test:document-upload-playwright": "node scripts/document-upload-playwright-checks.js",
     "test:pr-hardening-playwright": "node scripts/pr-hardening-playwright-checks.js",
     "test:error-sanitization-playwright": "node scripts/error-sanitization-playwright-checks.js",
@@ -104,6 +105,7 @@
     "test:lab-requisition-links-playwright": "node scripts/lab-requisition-links-playwright-checks.js",
     "test:lab-pdf-footer-playwright": "node scripts/lab-pdf-footer-playwright-checks.js",
     "test:lab-acknowledge-playwright": "node scripts/lab-acknowledge-playwright-checks.js",
+    "test:lab-line-break-rendering-playwright": "node scripts/lab-line-break-rendering-playwright-checks.js",
     "test:prevention-recall-report-playwright": "node scripts/prevention-recall-report-playwright-checks.js",
     "test:measurement-validation-playwright": "node scripts/measurement-validation-playwright-checks.js",
     "test:application-health-playwright": "node scripts/application-health-playwright-checks.js",
@@ -125,6 +127,8 @@
     "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js",
     "test:inbox-lab-versions-playwright": "node scripts/inbox-lab-versions-playwright-checks.js",
     "test:inbox-preview-acknowledge-playwright": "node scripts/inbox-preview-acknowledge-playwright-checks.js",
+    "test:inbox-rapid-review-advance-playwright": "node scripts/inbox-rapid-review-advance-playwright-checks.js",
+    "test:inbox-preview-boundary-resync-playwright": "node scripts/inbox-preview-boundary-resync-playwright-checks.js",
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
@@ -134,6 +138,7 @@
     "test:episode-lifecycle-playwright": "node scripts/episode-lifecycle-playwright-checks.js",
     "test:diagnosis-flowsheet-playwright": "node scripts/diagnosis-flowsheet-playwright-checks.js",
     "test:prevention-lifecycle-playwright": "node scripts/prevention-lifecycle-playwright-checks.js",
+    "test:echart-prevention-row-links-playwright": "node scripts/echart-prevention-row-links-playwright-checks.js",
     "test:allergy-custom-lifecycle-playwright": "node scripts/allergy-custom-lifecycle-playwright-checks.js",
     "test:contact-lifecycle-playwright": "node scripts/contact-lifecycle-playwright-checks.js",
     "test:consultation-directory-crud-playwright": "node scripts/consultation-directory-crud-playwright-checks.js",
@@ -165,7 +170,8 @@
     "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js",
     "test:demographic-label-content-playwright": "node scripts/demographic-label-content-playwright-checks.js",
     "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js",
-    "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js"
+    "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js",
+    "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
