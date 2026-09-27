@@ -316,10 +316,18 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
-    void shouldRespectAttachmentPresence_whenUpdatingRequest(boolean omitted) {
-        var submitted = requestSubmission();
-        submitted.setAttachments(omitted ? null : List.of());
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"omitted", "null", "empty"})
+    void shouldRespectAttachmentPresence_whenUpdatingRequest(String selection) throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.node.ObjectNode json = mapper.valueToTree(requestSubmission());
+        json.remove("attachments");
+        if ("null".equals(selection)) json.putNull("attachments");
+        if ("empty".equals(selection)) json.putArray("attachments");
+        var submitted = mapper.treeToValue(json, ConsultationRequestTo1.class);
+        boolean omitted = !"empty".equals(selection);
+        assertThat(submitted.hasAttachmentSelection()).isEqualTo(!"omitted".equals(selection));
+        assertThat(mapper.valueToTree(submitted).has("attachmentSelectionProvided")).isFalse();
+        assertThat(mapper.valueToTree(submitted).has("attachmentSelection")).isFalse();
         var stored = storedRequest();
         var demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
         ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
