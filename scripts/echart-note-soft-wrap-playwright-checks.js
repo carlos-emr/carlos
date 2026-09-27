@@ -477,7 +477,7 @@ async function legacyNoteWorkflow(session) {
     try {
       // Compatibility routes have no link in the modern chart; use their actual action entry points.
       const incoming = new URL(`${session.config.baseUrl}/encounter/IncomingEncounter`);
-      incoming.search = new URLSearchParams({ demographicNo: patient, providerNo: session.provider }).toString();
+      incoming.search = new URLSearchParams({ demographicNo: patient, providerNo: session.provider, casetoEncounter: 'true' }).toString();
       await page.goto(incoming.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 });
       await h.assertNotErrorPage(page, 'legacy encounter editor');
       for (const name of ['shTextarea', 'fhTextarea', 'mhTextarea', 'ocTextarea', 'reTextarea', 'enTextarea']) {
