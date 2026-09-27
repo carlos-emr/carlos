@@ -1524,6 +1524,19 @@
       ]
     },
     {
+      "name": "messenger-group-admin",
+      "script": "scripts/messenger-group-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "multiple-session",
       "script": "scripts/multiple-session-playwright-checks.js",
       "tiers": [
@@ -1996,6 +2009,24 @@
       ]
     },
     {
+      "name": "provider-preferences",
+      "script": "scripts/provider-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Uses the disposable test provider; snapshots and restores printer, document-description and text-signature preferences."
+    },
+    {
       "name": "surface-audit:referrals-surface",
       "script": "scripts/surface-audit-playwright-checks.js",
       "envSet": {
@@ -2170,6 +2201,24 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "record-access",
+      "script": "scripts/record-access-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes owned patients, an episode and scratchpad versions; requires a second provider in a local disposable database."
+    },
+    {
       "name": "diagnosis-flowsheet",
       "script": "scripts/diagnosis-flowsheet-playwright-checks.js",
       "tiers": [
@@ -2310,6 +2359,24 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ]
+    },
+    {
+      "name": "lot-number-search",
+      "script": "scripts/lot-number-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns and removes one synthetic lot catalogue row; exercises initial and repeated search from Administration."
     },
     {
       "name": "consultation-signature-fallback",
@@ -2539,8 +2606,10 @@
       "timeoutSec": 180,
       "env": [
         "INACTIVE_DRUG_DIN",
-        "INACTIVE_DRUG_DATE"
-      ]
+        "INACTIVE_DRUG_DATE",
+        "DRUGREF_TEST_DATABASE"
+      ],
+      "fixtures": "Creates and removes an owned patient; reads a known inactive DrugRef product and selects it into the unsaved Rx editor; never saves a prescription."
     },
     {
       "name": "referral-labels",
