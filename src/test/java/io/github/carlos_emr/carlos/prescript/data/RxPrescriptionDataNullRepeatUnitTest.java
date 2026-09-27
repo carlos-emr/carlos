@@ -2,8 +2,11 @@
 package io.github.carlos_emr.carlos.prescript.data;
 
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.dao.FavoriteDao;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,6 +14,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -34,6 +40,52 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
         RxPrescriptionData.Prescription result = byId ? data.getPrescription(27) : data.toPrescription(drug, 1);
         assertThat(result.getRepeat()).isEqualTo(expected);
         assertThat(result.getSpecial()).isEqualTo("Synthetic drug: one tablet daily");
+        assertThat(drug.getRepeat()).isEqualTo(repeats);
+    }
+
+    @ParameterizedTest
+    @CsvSource(nullValues = "NULL", value = {"NULL,0,30,30", "0,0,30,30", "3,3,30,30", "NULL,0,NULL,30"})
+    @DisplayName("should reuse available legacy instructions without unboxing absent repeats or parsing an absent quantity")
+    void shouldPreserveAvailableInstructions_whenReusingLegacyDrug(Integer repeats, int expected, String quantity, String expectedQuantity) {
+        Drug drug = new Drug();
+        drug.setRepeat(repeats);
+        drug.setQuantity(quantity);
+        drug.setSpecial("One tablet daily");
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.findByCustomNameDemographicIdAndProviderNo("Synthetic drug", 1, "999998")).thenReturn(drug);
+        registerMock(DrugDao.class, dao);
+        RxPrescriptionData.Prescription result = new RxPrescriptionData().newPrescription("999998", 1);
+        result.setCustomName("Synthetic drug");
+        result.setQuantity("30");
+
+        RxUtil.setSpecialQuantityRepeat(result);
+
+        assertThat(result.getRepeat()).isEqualTo(expected);
+        assertThat(result.getQuantity()).isEqualTo(expectedQuantity);
+        assertThat(result.getSpecial()).isEqualTo("One tablet daily");
+        assertThat(drug.getRepeat()).isEqualTo(repeats);
+        assertThat(drug.getQuantity()).isEqualTo(quantity);
+    }
+
+    @ParameterizedTest
+    @CsvSource(nullValues = "NULL", value = {"NULL,0", "0,0", "3,3"})
+    @DisplayName("should preserve repeat counts when saving a legacy drug as a favorite")
+    void shouldPreserveRepeatCount_whenAddingLegacyDrugToFavorites(Integer repeats, int expected) {
+        Drug drug = new Drug();
+        drug.setRepeat(repeats);
+        drug.setSpecial("Synthetic drug: one tablet daily");
+        FavoriteDao dao = mock(FavoriteDao.class);
+        registerMock(FavoriteDao.class, dao);
+        doAnswer(invocation -> {
+            Favorite saved = invocation.getArgument(0);
+            assertThat(saved.getRepeat()).isEqualTo(expected);
+            assertThat(saved.getSpecial()).isEqualTo(drug.getSpecial());
+            saved.setId(42);
+            return null;
+        }).when(dao).persist(any(Favorite.class));
+
+        assertThat(RxPrescriptionData.addToFavorites("999998", "Synthetic favorite", drug)).isTrue();
+        verify(dao).persist(any(Favorite.class));
         assertThat(drug.getRepeat()).isEqualTo(repeats);
     }
 }

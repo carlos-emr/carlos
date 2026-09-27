@@ -1571,6 +1571,21 @@
       ]
     },
     {
+      "name": "rx-legacy-null-fields",
+      "script": "scripts/rx-legacy-null-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ARTIFACT_DIR"
+      ]
+    },
+    {
       "name": "rx-fax-record-binding",
       "script": "scripts/rx-fax-record-binding-playwright-checks.js",
       "tiers": [

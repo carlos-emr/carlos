@@ -1357,7 +1357,7 @@ public class RxUtil {
     }
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
-        String qStr = d.getQuantity();
+        String qStr = d.getQuantity() == null ? "" : d.getQuantity();
         Pattern p1 = Pattern.compile("\\d+");
         Matcher m1 = p1.matcher(qStr);
         if (m1.find()) {
@@ -1372,7 +1372,7 @@ public class RxUtil {
         }
         rx.setUnitName(d.getUnitName());
 
-        rx.setRepeat(d.getRepeat());
+        rx.setRepeat(d.getRepeat() == null ? 0 : d.getRepeat());
         rx.setSpecial(d.getSpecial());
         rx.setSpecial(trimSpecial(rx));
     }
