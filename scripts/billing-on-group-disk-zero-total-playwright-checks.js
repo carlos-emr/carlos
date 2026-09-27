@@ -369,7 +369,7 @@ async function main() {
             assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Regeneration must ask for confirmation');
           }),
         ]);
-        assert(response.status() === 200, 'Regenerate request failed');
+        assert(response.status() === 200, `Regenerate request failed: HTTP ${response.status()}`);
         await page.waitForLoadState('domcontentloaded');
         await assertNotErrorPage(page, 'Regenerated OHIP disk');
         assert(await page.locator('form[name="form1"]').count() === 1, 'Regeneration returned the failure page');
