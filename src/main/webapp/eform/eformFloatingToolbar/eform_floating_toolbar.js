@@ -358,21 +358,30 @@ jQuery(document).on('click', '*[data-poload]', function () {
                 const attachDocumentList = jQuery('<div>', {'id': 'attachDocumentList'});
                 jQuery('form:first').append(attachDocumentList);
             }
-            jQuery('#attachDocumentList').empty();
+            // Build and validate every delegate before touching the stored list: a selection
+            // that eformAttachmentSubmissionValue refuses (a lab checkbox without a valid
+            // source) must not leave the list half replaced or empty, or the next save would
+            // silently drop the attachments the form already had.
+            let inputs;
+            try {
+                inputs = jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled']), .unlisted_attachment_check:checked"
+                ).map(function () {
+                    const element = jQuery(this);
+                    return jQuery("<input />", {
+                        type: 'hidden',
+                        name: element.attr('name'),
+                        value: eformAttachmentSubmissionValue(element),
+                        id: "delegate_" + element.attr('id'),
+                        class: 'delegateAttachment'
+                    })[0];
+                }).get();
+            } catch (selectionError) {
+                alert('An attachment selection is invalid. Please reselect it.');
+                return false;
+            }
 
             // pass the checked documents to the eForm document list(attachDocumentList)
-            jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled']), .unlisted_attachment_check:checked"
-            ).each(function (index, data) {
-                let element = jQuery(this);
-                let input = jQuery("<input />", {
-                    type: 'hidden',
-                    name: element.attr('name'),
-                    value: eformAttachmentSubmissionValue(element),
-                    id: "delegate_" + element.attr('id'),
-                    class: 'delegateAttachment'
-                });
-                jQuery('#attachDocumentList').append(input);
-            });
+            jQuery('#attachDocumentList').empty().append(inputs);
 
             // show total attachments
             jQuery('#remoteTotalAttachments').empty().append(jQuery('.delegateAttachment').length);

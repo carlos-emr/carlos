@@ -49,7 +49,6 @@ import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
-import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
@@ -206,7 +205,16 @@ public class TicklerAttachmentService {
             // equals the stored set is "nothing shown", not a change, and the rows are left
             // alone. Any difference would add or drop items the caller may not see.
             if (!isTypeReadable(loggedInInfo, documentType, demographicNo)) {
-                if (wanted.equals(existing.keySet())) {
+                // The form carried only the rows listAttachments showed: a row whose item has
+                // since moved to another patient is omitted there whatever the caller's rights,
+                // so it is not part of "unchanged" and its absence is not a change either.
+                Set<AttachmentRef> shown = new HashSet<>();
+                for (AttachmentRef ref : existing.keySet()) {
+                    if (belongsToPatient(loggedInInfo, documentType, ref, demographicNo)) {
+                        shown.add(ref);
+                    }
+                }
+                if (wanted.equals(shown)) {
                     continue;
                 }
                 requireTypeReadable(loggedInInfo, documentType, demographicNo);
@@ -568,8 +576,10 @@ public class TicklerAttachmentService {
                 owned = documentBelongsToPatient(documentNo, demographicNo);
                 break;
             case LAB:
-                PatientLabRouting routing = patientLabRoutingDao.findDemographics(ref.labType(), documentNo);
-                owned = routing != null && demographicNo.equals(routing.getDemographicNo());
+                // A lab can carry more than one routing row; the single-result lookup picked one
+                // without ordering, so ownership is any row of this source and id for the patient.
+                owned = patientLabRoutingDao.findByLabNoAndLabType(documentNo, ref.labType()).stream()
+                        .anyMatch(routing -> demographicNo.equals(routing.getDemographicNo()));
                 break;
             case EFORM:
                 EFormData eForm = eFormDataDao.find(documentNo.intValue());

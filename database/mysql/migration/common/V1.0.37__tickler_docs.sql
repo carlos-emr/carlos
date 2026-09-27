@@ -62,14 +62,18 @@ FROM (
   SELECT DISTINCT
     tl.`tickler_no`,
     tl.`table_id`,
+    -- table_name is compared under utf8mb4_general_ci, so a legacy 'hl7' passes the source
+    -- filter below; the stored lab_type is folded to upper case because the application
+    -- compares sources case-sensitively (TicklerAttachmentParameters canonicalises to
+    -- upper case) and V1.0.38 applies the same rule to consultdocs and EFormDocs.
     CASE
-      WHEN tl.`table_name` = 'DOC' THEN 'D'
-      WHEN tl.`table_name` = 'HRM' THEN 'H'
+      WHEN UPPER(tl.`table_name`) = 'DOC' THEN 'D'
+      WHEN UPPER(tl.`table_name`) = 'HRM' THEN 'H'
       ELSE 'L'
     END AS `doctype`,
     CASE
-      WHEN tl.`table_name` IN ('DOC', 'HRM') THEN NULL
-      ELSE tl.`table_name`
+      WHEN UPPER(tl.`table_name`) IN ('DOC', 'HRM') THEN NULL
+      ELSE UPPER(tl.`table_name`)
     END AS `lab_type`,
     COALESCE(DATE(t.`creation_date`), DATE(t.`update_date`), CURDATE()) AS `attach_date`,
     COALESCE(t.`creator`, '') AS `provider_no`,

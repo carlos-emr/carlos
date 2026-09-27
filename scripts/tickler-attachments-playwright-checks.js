@@ -84,7 +84,9 @@ const message = `${stamp} call patient about attached results`;
 const db = createSqlRunner(config.mysql);
 
 function ticklerRows() {
-  return db.rows(`SELECT tickler_no, status FROM tickler WHERE message LIKE ${sqlString(`%${stamp}%`)} ORDER BY tickler_no`)
+  // Own rows only: this run's marker in the message and the configured patient, the same
+  // ownership rule scripts/lib/tickler-fixture-cleanup.js applies.
+  return db.rows(`SELECT tickler_no, status FROM tickler WHERE demographic_no=${Number(demographicNo)} AND message LIKE ${sqlString(`%${stamp}%`)} ORDER BY tickler_no`)
     .map(([id, status]) => ({ id, status }));
 }
 

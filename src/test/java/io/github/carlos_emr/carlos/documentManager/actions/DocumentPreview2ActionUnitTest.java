@@ -916,7 +916,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject other lab sources before the HL7 PDF renderer")
-    void shouldRejectNonHl7PreviewBeforeRendering() throws Exception {
+    void shouldRejectPreview_whenLabSourceIsNotHl7() throws Exception {
         request.setParameter("method", "renderLabPDF");
         request.setParameter("segmentId", "44");
         request.setParameter("demographicNo", "123");
@@ -930,7 +930,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should not authorize an HL7 preview through a colliding MDS route")
-    void shouldRejectHl7WithoutItsOwnPatientRoute() {
+    void shouldRejectHl7Preview_withoutOwnPatientRoute() {
         request.setParameter("method", "renderLabPDF");
         request.setParameter("segmentId", "44");
         request.setParameter("demographicNo", "123");

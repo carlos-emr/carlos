@@ -211,10 +211,18 @@ async function saveAndClosePicker(page) {
       process.exitCode = 1;
     }
   } finally {
-    if (requestId) {
-      cleanupSeed(requestId);
+    // A cleanup assertion must not replace the original failure or skip disposal
+    // (db.dispose() removes the option file that carries the database password).
+    try {
+      if (requestId) {
+        cleanupSeed(requestId);
+      }
+    } catch (cleanupError) {
+      console.error(`FAIL cleanup: ${cleanupError.message}`);
+      process.exitCode = 1;
+    } finally {
+      db.dispose();
+      await browser.close();
     }
-    db.dispose();
-    await browser.close();
   }
 })();

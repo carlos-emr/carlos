@@ -65,6 +65,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -147,7 +148,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         routing.setLabNo(labNo);
         routing.setLabType(labType);
         routing.setDemographicNo(demographicNo);
-        when(patientLabRoutingDao.findDemographics(labType, labNo)).thenReturn(routing);
+        when(patientLabRoutingDao.findByLabNoAndLabType(labNo, labType)).thenReturn(List.of(routing));
     }
 
     @Nested
@@ -208,7 +209,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             verify(ticklerDocsDao).persist(captor.capture());
             assertThat(captor.getValue().getLabType()).isEqualTo("MDS");
             assertThat(captor.getValue().getDocumentNo()).isEqualTo(77);
-            verify(patientLabRoutingDao, never()).findDemographics(eq("HL7"), any());
+            verify(patientLabRoutingDao, never()).findByLabNoAndLabType(anyInt(), eq("HL7"));
         }
 
         @Test
@@ -242,7 +243,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             hl7Routing.setLabNo(77);
             hl7Routing.setLabType("HL7");
             hl7Routing.setDemographicNo(DEMOGRAPHIC_NO);
-            lenient().when(patientLabRoutingDao.findDemographics("HL7", 77)).thenReturn(hl7Routing);
+            lenient().when(patientLabRoutingDao.findByLabNoAndLabType(77, "HL7")).thenReturn(List.of(hl7Routing));
 
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77")))
                     .isInstanceOf(SecurityException.class);
@@ -272,7 +273,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         void shouldThrowIllegalArgument_whenLabSourceIsDocRoute() {
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "DOC:11")))
                     .isInstanceOf(IllegalArgumentException.class);
-            verify(patientLabRoutingDao, never()).findDemographics(anyString(), any());
+            verify(patientLabRoutingDao, never()).findByLabNoAndLabType(anyInt(), anyString());
             verify(ticklerDocsDao, never()).persist(any());
         }
 
@@ -465,12 +466,35 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             mds.setLabType("MDS");
             TicklerDocs legacyHl7 = stored(78, "L");
             when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds, legacyHl7));
+            labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
+            labOwnedBy(78, DEMOGRAPHIC_NO, "HL7");
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77", "HL7:78"));
 
             verify(ticklerDocsDao, never()).merge(any());
             verify(ticklerDocsDao, never()).persist(any());
-            verify(patientLabRoutingDao, never()).findDemographics(any(), any());
+        }
+
+        @Test
+        @DisplayName("should leave a type the caller cannot read alone when only its rows still shown are resubmitted")
+        void shouldLeaveTypeUntouched_whenTypeReadDeniedAndMovedRowOmitted() {
+            // The Edit form never carried the row whose lab was re-routed to another patient
+            // (listAttachments omits it whatever the caller's rights), so its absence from the
+            // submission is not a change and must not fail the save.
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+            TicklerDocs shown = stored(77, "L");
+            shown.setLabType("MDS");
+            TicklerDocs moved = stored(78, "L");
+            moved.setLabType("HL7");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(shown, moved));
+            labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
+            labOwnedBy(78, DEMOGRAPHIC_NO + 1, "HL7");
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77"));
+
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
+            assertThat(moved.getDeleted()).isNull();
         }
 
         @Test
@@ -480,6 +504,9 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             TicklerDocs mds = stored(77, "L");
             mds.setLabType("MDS");
             when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds));
+            // The stored lab is still the patient's, so the form showed it: adding or dropping it
+            // is a change to a type the caller may not read.
+            labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
 
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77", "MDS:79")))
                     .isInstanceOf(SecurityException.class)
@@ -536,7 +563,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO, submission(DocumentType.LAB, "HL7:77")))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_lab)");
-            verify(patientLabRoutingDao, never()).findDemographics(any(), any());
+            verify(patientLabRoutingDao, never()).findByLabNoAndLabType(anyInt(), any());
         }
     }
 

@@ -867,15 +867,33 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
     }
 
+    /** The patient the stored response belongs to; refuses a response that has none. */
+    private Integer requireResponseDemographic(ConsultationResponseTo1 response) {
+        ConsultationResponse stored = response.getId() == null
+                ? null : consultationManager.getResponse(getLoggedInInfo(), response.getId());
+        Integer demographicNo = stored == null ? null : stored.getDemographicNo();
+        if (demographicNo == null) {
+            throw new IllegalArgumentException("Consultation response has no patient");
+        }
+        return demographicNo;
+    }
+
     private void saveResponseAttachments(ConsultationResponseTo1 response) {
         List<ConsultationAttachmentTo1> newAttachments = response.getAttachments();
         List<ConsultResponseDoc> storedDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
         if (newAttachments == null || storedDocs == null) return;
         List<ConsultResponseDoc> currentDocs = new ArrayList<>(storedDocs);
 
-        // Resolve all lab sources before mutating any attachment.
+        // Resolve all lab sources before mutating any attachment. The patient comes from the
+        // stored response, not the client payload: a request may omit the demographic object
+        // (a NullPointerException would surface as a 500 inside the transaction) and it must
+        // not be able to validate a lab against a different patient than the response's.
+        Integer responseDemographicNo = null;
         for (ConsultationAttachmentTo1 attachment : newAttachments) {
             if (ConsultationAttachmentTo1.TYPE_LAB.equals(attachment.getDocumentType())) {
+                if (responseDemographicNo == null) {
+                    responseDemographicNo = requireResponseDemographic(response);
+                }
                 String source = attachment.getLabType();
                 boolean retainedUnresolved = "UNRESOLVED".equals(source) && currentDocs.stream().anyMatch(
                         row -> "L".equals(row.getDocType()) && row.getDocumentNo() == attachment.getDocumentNo()
@@ -884,7 +902,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
                     String selection = source == null ? Integer.toString(attachment.getDocumentNo())
                             : source + ":" + attachment.getDocumentNo();
                     var reference = LabAttachmentReference.resolve(
-                            selection, response.getDemographic().getDemographicNo(), patientLabRoutingDao);
+                            selection, responseDemographicNo, patientLabRoutingDao);
                     attachment.setLabType(reference.source());
                 }
             }

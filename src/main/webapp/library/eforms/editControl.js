@@ -351,7 +351,15 @@ function setLetterTemplateSubject(template, preserveExisting) {
     if (!subject || (preserveExisting && subject.value !== '')) { return; }
     subject.value = template === 'blank.rtl' ? '' : template.substring(0, template.lastIndexOf('.'));
     // The floating toolbar listens for input, including programmatic template changes.
-    subject.dispatchEvent(new Event('input', { bubbles: true }));
+    // Older engines this asset still declares support for have no Event constructor.
+    var inputEvent;
+    if (typeof Event === 'function') {
+        inputEvent = new Event('input', { bubbles: true });
+    } else {
+        inputEvent = document.createEvent('Event');
+        inputEvent.initEvent('input', true, false);
+    }
+    subject.dispatchEvent(inputEvent);
 }
 
 function loadDefaultTemplate() {

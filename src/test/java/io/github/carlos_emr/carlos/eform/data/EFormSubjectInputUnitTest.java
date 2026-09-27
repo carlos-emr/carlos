@@ -20,7 +20,7 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void preservesStoredSubjectInTemplatesWithoutAControlAndEscapesExactlyOnce() {
+    void shouldPreserveStoredSubject_whenTemplateHasNoControl() {
         EForm form = new EForm();
         form.setFormHtml("<html><body><form id='letter'></form></body></html>");
         String subject = "Follow-up & \"results\" <script>alert(1)</script>";
@@ -34,7 +34,7 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void preservesExistingTemplateControlIncludingAnIntentionallyEmptyValue() {
+    void shouldPreserveTemplateControl_whenValueIsIntentionallyEmpty() {
         EForm form = new EForm();
         form.setFormHtml("<form><input name='subject' value=''></form>");
         form.setFormSubject("Old subject");
@@ -46,7 +46,7 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void initializesANewFormWithoutAnUndefinedSubject() {
+    void shouldInitializeNewForm_withoutUndefinedSubject() {
         EForm form = new EForm();
         form.setFormHtml("<form></form>");
         form.ensureSubjectInput();

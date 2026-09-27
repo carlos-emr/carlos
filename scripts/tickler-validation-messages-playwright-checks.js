@@ -207,7 +207,8 @@ async function workflow(s) {
       sql.execute(`DELETE FROM tickler_update WHERE tickler_no=${id}`);
     }
     sql.execute(`DELETE FROM tickler WHERE demographic_no=${patient} AND message=${h.sqlString(ticklerMessage)}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient}`) === '0',
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient}
+      AND message=${h.sqlString(ticklerMessage)}`) === '0',
       'Tickler fixture cleanup left rows behind');
   });
 

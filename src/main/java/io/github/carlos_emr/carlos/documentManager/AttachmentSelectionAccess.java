@@ -46,7 +46,7 @@ public class AttachmentSelectionAccess {
         };
         if (!security.hasPrivilege(info, privilege, SecurityInfoManager.READ, String.valueOf(patient))) {
             if (new HashSet<>(selected).equals(new HashSet<>(existing))) return false;
-            throw new SecurityException("Attachment selection requires " + privilege + " read access");
+            throw new SecurityException("missing required sec object (" + privilege + ")");
         }
         // LAB source and ownership are checked together by DocumentAttach before any writes.
         if (type == DocumentType.LAB) return true;
