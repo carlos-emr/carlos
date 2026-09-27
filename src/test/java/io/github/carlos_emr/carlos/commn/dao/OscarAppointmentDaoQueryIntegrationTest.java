@@ -779,6 +779,25 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
     class SearchUnbillHistoryDateRange {
 
         @Test
+        @DisplayName("should keep provider and inclusive date boundaries with every include combination")
+        void shouldKeepProviderAndDateScope_whenIncludeFlagsChange() {
+            // Given
+            Appointment first = createAndPersist(yesterday, PROVIDER_NO, 100, "t");
+            Appointment last = createAndPersist(tomorrow, PROVIDER_NO, 101, "t");
+            Appointment outside = createAndPersist(lastWeek, PROVIDER_NO, 102, "t");
+            Appointment other = createAndPersist(today, "other-provider", 103, "t");
+            // When / Then
+            for (boolean noShow : new boolean[]{false, true}) {
+                for (boolean cancelled : new boolean[]{false, true}) {
+                    assertThat(oscarAppointmentDao.findUnbilledAppointments(
+                            PROVIDER_NO, yesterday, tomorrow, noShow, cancelled))
+                            .extracting(Appointment::getId).contains(first.getId(), last.getId())
+                            .doesNotContain(outside.getId(), other.getId());
+                }
+            }
+        }
+
+        @Test
         @DisplayName("should return unbilled appointments in date range")
         void shouldReturnUnbilled_whenInDateRange() {
             // Given
@@ -857,7 +876,7 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             // When
             List<Appointment> defaults = oscarAppointmentDao.search_unbill_history_daterange(
                     PROVIDER_NO, yesterday, tomorrow);
-            List<Appointment> explicit = oscarAppointmentDao.search_unbill_history_daterange(
+            List<Appointment> explicit = oscarAppointmentDao.findUnbilledAppointments(
                     PROVIDER_NO, yesterday, tomorrow, false, false);
 
             // Then
@@ -874,7 +893,7 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
 
             // When
-            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+            List<Appointment> result = oscarAppointmentDao.findUnbilledAppointments(
                     PROVIDER_NO, yesterday, tomorrow, true, false);
 
             // Then
@@ -891,7 +910,7 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
 
             // When
-            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+            List<Appointment> result = oscarAppointmentDao.findUnbilledAppointments(
                     PROVIDER_NO, yesterday, tomorrow, false, true);
 
             // Then
@@ -909,7 +928,7 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             Appointment zeroDemo = createAndPersist(today, PROVIDER_NO, 0, "N");
 
             // When
-            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+            List<Appointment> result = oscarAppointmentDao.findUnbilledAppointments(
                     PROVIDER_NO, yesterday, tomorrow, true, true);
 
             // Then

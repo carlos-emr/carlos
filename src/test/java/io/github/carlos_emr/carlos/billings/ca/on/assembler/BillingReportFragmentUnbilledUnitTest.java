@@ -67,7 +67,7 @@ class BillingReportFragmentUnbilledUnitTest {
         appointmentDao = mock(OscarAppointmentDao.class);
         assembler = new BillingReportFragmentViewModelAssembler(
                 mock(BillingDao.class), mock(BillingDetailDao.class), appointmentDao);
-        when(appointmentDao.search_unbill_history_daterange(
+        when(appointmentDao.findUnbilledAppointments(
                 anyString(), any(Date.class), any(Date.class), anyBoolean(), anyBoolean()))
                 .thenReturn(List.of());
     }
@@ -84,7 +84,7 @@ class BillingReportFragmentUnbilledUnitTest {
     void shouldExcludeNoShowAndCancelled_whenNoCheckboxSubmitted() {
         assembler.assemble(unbilledRequest(), null, "unbilled");
 
-        verify(appointmentDao).search_unbill_history_daterange(
+        verify(appointmentDao).findUnbilledAppointments(
                 eq("999998"), any(Date.class), any(Date.class), eq(false), eq(false));
         verify(appointmentDao, never()).search_unbill_history_daterange(
                 anyString(), any(Date.class), any(Date.class));
@@ -98,7 +98,7 @@ class BillingReportFragmentUnbilledUnitTest {
 
         assembler.assemble(request, null, "unbilled");
 
-        verify(appointmentDao).search_unbill_history_daterange(
+        verify(appointmentDao).findUnbilledAppointments(
                 eq("999998"), any(Date.class), any(Date.class), eq(true), eq(true));
     }
 
@@ -109,7 +109,7 @@ class BillingReportFragmentUnbilledUnitTest {
 
         assembler.assemble(request, null, "unbilled");
 
-        verify(appointmentDao).search_unbill_history_daterange(
+        verify(appointmentDao).findUnbilledAppointments(
                 eq("999998"), any(Date.class), any(Date.class), eq(true), eq(false));
     }
 
@@ -121,9 +121,9 @@ class BillingReportFragmentUnbilledUnitTest {
         appt.setName("FAKE-Patient, Test");
         appt.setProviderNo("999998");
         appt.setAppointmentDate(new Date());
-        appt.setStartTime(new Date());
+        appt.setStartTime(java.sql.Time.valueOf("09:40:00"));
         appt.setStatus("N");
-        when(appointmentDao.search_unbill_history_daterange(
+        when(appointmentDao.findUnbilledAppointments(
                 anyString(), any(Date.class), any(Date.class), eq(true), eq(false)))
                 .thenReturn(List.of(appt));
         MockHttpServletRequest request = unbilledRequest();
@@ -133,5 +133,7 @@ class BillingReportFragmentUnbilledUnitTest {
 
         assertThat(model.getUnbilledRows()).hasSize(1);
         assertThat(model.getUnbilledRows().get(0).apptNo()).isEqualTo("42");
+        assertThat(model.getUnbilledRows().get(0).apptTime()).isEqualTo("09:40:00");
+        assertThat(model.getUnbilledRows().get(0).popupUrl()).contains("&start_time=09:40:00");
     }
 }

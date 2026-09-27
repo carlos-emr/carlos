@@ -84,6 +84,17 @@ class UnbilledReportStatusParametersUnitTest {
     }
 
     @Test
+    void shouldKeepExclusionDefault_whenParametersAreDuplicated() {
+        for (String[] values : new String[][]{{"true", "false"}, {"false", "true"}, {"true", "true"}, {}}) {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter(UnbilledReportStatusParameters.INCLUDE_NO_SHOW, values);
+            request.setParameter(UnbilledReportStatusParameters.INCLUDE_CANCELLED, values);
+            assertThat(UnbilledReportStatusParameters.includeNoShow(request)).isFalse();
+            assertThat(UnbilledReportStatusParameters.includeCancelled(request)).isFalse();
+        }
+    }
+
+    @Test
     void shouldExposeStableParameterNames_forJspCheckboxes() {
         assertThat(UnbilledReportStatusParameters.INCLUDE_NO_SHOW).isEqualTo("includeNoShow");
         assertThat(UnbilledReportStatusParameters.INCLUDE_CANCELLED).isEqualTo("includeCancelled");

@@ -34,12 +34,12 @@
 	<% 
  String dateBegin = request.getParameter("xml_vdate");
    String dateEnd = request.getParameter("xml_appointment_date");
-   if (dateEnd.compareTo("") == 0) dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-   if (dateBegin.compareTo("") == 0) dateBegin="1950-01-01"; // set to any early time to start search from beginning
+   if (dateEnd == null || dateEnd.isEmpty()) dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
+   if (dateBegin == null || dateBegin.isEmpty()) dateBegin="1950-01-01"; // set to any early time to start search from beginning
 
    	// No-Show / Cancelled visits are excluded unless opted in via the checkboxes
    	// on billingReportControl.jsp (issue #3960; open-osp/Open-O PR #134/#186).
-   	List<Appointment> bs = appointmentDao.search_unbill_history_daterange(request.getParameter("providerview"),
+    List<Appointment> bs = appointmentDao.findUnbilledAppointments(request.getParameter("providerview"),
    			ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd),
    			UnbilledReportStatusParameters.includeNoShow(request),
    			UnbilledReportStatusParameters.includeCancelled(request));
@@ -73,9 +73,19 @@
 		demoName = a.getName();
 		userno=a.getProviderNo();
 		apptDate = ConversionUtils.toDateString(a.getAppointmentDate());
-		apptTime =  ConversionUtils.toDateString(a.getStartTime());
+		apptTime =  ConversionUtils.toTimeString(a.getStartTime());
 		reason = a.getReason();
      	apptStatus = a.getStatus();
+        // Encode each query value, then encode the complete URL for the JavaScript attribute.
+        String billingUrl = request.getContextPath() + "/billing?billRegion=BC&billForm="
+            + URLEncoder.encode(oscarVariables.getProperty("default_view", ""), java.nio.charset.StandardCharsets.UTF_8)
+            + "&hotclick=&appointment_no=" + apptNo
+            + "&demographic_name=" + URLEncoder.encode(java.util.Objects.toString(demoName, ""), java.nio.charset.StandardCharsets.UTF_8)
+            + "&status=" + URLEncoder.encode(java.util.Objects.toString(apptStatus, ""), java.nio.charset.StandardCharsets.UTF_8)
+            + "&demographic_no=" + demoNo
+            + "&user_no=" + URLEncoder.encode(java.util.Objects.toString(userno, ""), java.nio.charset.StandardCharsets.UTF_8)
+            + "&apptProvider_no=" + URLEncoder.encode(providerview, java.nio.charset.StandardCharsets.UTF_8)
+            + "&appointment_date=" + apptDate + "&start_time=" + apptTime + "&bNewForm=1";
 %>
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
 		<TD align="center" width="20%"><b><font size="2"
@@ -88,7 +98,7 @@
 			face="Arial, Helvetica, sans-serif"><carlos:encode value="<%= reason %>"/> </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "<%= request.getContextPath() %>/billing?billRegion=<%=URLEncoder.encode(oscarVariables.getProperty("billregion"))%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=apptNo%>&demographic_name=<%=URLEncoder.encode(demoName)%>&status=<%=apptStatus%>&demographic_no=<%=demoNo%>&user_no=<%=userno%>&apptProvider_no=<%=providerview%>&appointment_date=<%=apptDate%>&start_time=<%=apptTime==null?"00:00:00":apptTime%>&bNewForm=1")'
+			onClick='popupPage(700,1000, "<carlos:encode value="<%= billingUrl %>" context="javaScriptAttribute"/>")'
 			title="<carlos:encode value="<%= reason %>" context="htmlAttribute"/>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;

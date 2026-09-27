@@ -65,7 +65,8 @@ public final class UnbilledReportStatusParameters {
 
     private static boolean isChecked(HttpServletRequest request, String name) {
         // Exact match on the checkbox's value attribute: anything else (absent,
-        // "on", "TRUE", garbage) falls back to the exclusion default.
-        return request != null && "true".equals(request.getParameter(name));
+        // "on", "TRUE", garbage, duplicate parameters) falls back to the exclusion default.
+        String[] values = request == null ? null : request.getParameterValues(name);
+        return values != null && values.length == 1 && "true".equals(values[0]);
     }
 }

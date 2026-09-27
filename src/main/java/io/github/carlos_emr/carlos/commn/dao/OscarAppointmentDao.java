@@ -149,7 +149,7 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
      * ({@code C*}) appointments are excluded, matching the Ontario "new report"
      * unbilled query ({@link #findBillingOnNewReportUnbilledRows}).
      *
-     * <p>Equivalent to {@code search_unbill_history_daterange(providerNo,
+     * <p>Equivalent to {@code findUnbilledAppointments(providerNo,
      * startDate, endDate, false, false)}.</p>
      *
      * @param providerNo appointment provider number
@@ -177,7 +177,7 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
      * @return matching appointments ordered by date then start time, newest first
      * @since 2026-09-26
      */
-    public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate,
+    public List<Appointment> findUnbilledAppointments(String providerNo, Date startDate, Date endDate,
                                                              boolean includeNoShow, boolean includeCancelled);
 
     public List<Appointment> findByDateAndProvider(Date date, String provider_no);

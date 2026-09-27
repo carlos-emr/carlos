@@ -37,19 +37,23 @@ const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
+const NAME_SUFFIX = " O'Neil & <patient>";
+const REASON_SUFFIX = " <img src=x onerror=window.unbilledInjected=true> \"'&";
 const FIXTURES = [
   { status: 't', label: 'todo' },
   { status: 'c', label: 'custom3' },
   { status: 'N', label: 'noshow' },
   { status: 'C', label: 'cancelled' },
   { status: 'B', label: 'billed' },
+  { status: 'NV', label: 'noshow-verified' },
+  { status: 'CS', label: 'cancelled-signed' },
 ];
 
 const SCENARIOS = [
   { noShow: false, cancelled: false, expected: ['todo', 'custom3'] },
-  { noShow: true, cancelled: false, expected: ['todo', 'custom3', 'noshow'] },
-  { noShow: false, cancelled: true, expected: ['todo', 'custom3', 'cancelled'] },
-  { noShow: true, cancelled: true, expected: ['todo', 'custom3', 'noshow', 'cancelled'] },
+  { noShow: true, cancelled: false, expected: ['todo', 'custom3', 'noshow', 'noshow-verified'] },
+  { noShow: false, cancelled: true, expected: ['todo', 'custom3', 'cancelled', 'cancelled-signed'] },
+  { noShow: true, cancelled: true, expected: ['todo', 'custom3', 'noshow', 'noshow-verified', 'cancelled', 'cancelled-signed'] },
 ];
 
 const SCREENS = [
@@ -74,7 +78,7 @@ function pickEmptyDate(sql, provider) {
 
 async function listedLabels(page, marker) {
   const cells = await page.locator('tr').filter({ hasText: marker }).locator('td:nth-child(3)').allInnerTexts();
-  return cells.map(text => text.trim().slice(marker.length + 1)).sort();
+  return cells.map(text => text.trim().slice(marker.length + 1, -NAME_SUFFIX.length)).sort();
 }
 
 async function runReport(page, s, screen, date, scenario) {
@@ -99,6 +103,28 @@ async function runReport(page, s, screen, date, scenario) {
     `${screen.name}: Include No-Show checkbox state was not echoed after submit`);
   h.assert(await page.locator('input[name="includeCancelled"]').isChecked() === scenario.cancelled,
     `${screen.name}: Include Cancelled checkbox state was not echoed after submit`);
+  for (const label of scenario.expected) {
+    const index = FIXTURES.findIndex(f => f.label === label);
+    const expectedTime = `${String(9 + Math.floor(index / 6)).padStart(2, '0')}:${String((index % 6) * 10).padStart(2, '0')}:00`;
+    const row = page.locator('tr').filter({has:page.locator('td:nth-child(3)', {hasText: new RegExp(`^${s.marker} ${label}${NAME_SUFFIX}$`)})});
+    h.assert((await row.locator('td:nth-child(2)').innerText()).trim() === expectedTime, `${screen.name}: appointment time changed`);
+    h.assert((await row.locator('td:nth-child(4)').innerText()).trim() === `${s.marker} ${label}${REASON_SUFFIX}`, `${screen.name}: reason text changed`);
+    h.assert(await row.locator('img').count() === 0, `${screen.name}: reason rendered as HTML`);
+    h.assert(!await page.evaluate(() => window.unbilledInjected), `${screen.name}: reason script executed`);
+    const link = row.locator('a').filter({hasText:'Bill'});
+    // Capture popup arguments without navigating away or opening an unrelated billing schema.
+    const captured = await link.evaluate(element => {
+      let value;
+      const original = window.popupPage;
+      window.popupPage = (...args) => { value = args[2]; };
+      try { element.click(); } finally { window.popupPage = original; }
+      return value;
+    });
+    const billing = new URL(captured, s.config.baseUrl);
+    h.assert(billing.searchParams.get('start_time') === expectedTime, `${screen.name}: billing link time changed`);
+    h.assert(billing.searchParams.get('billRegion') === screen.name, `${screen.name}: billing link province changed`);
+    h.assert(billing.searchParams.get('demographic_name') === `${s.marker} ${label}${NAME_SUFFIX}`, `${screen.name}: billing link patient name changed`);
+  }
   return listedLabels(page, s.marker);
 }
 
@@ -131,17 +157,17 @@ async function workflow(s) {
   }
 
   FIXTURES.forEach((fixture, index) => {
-    const time = `09:${String(index * 10).padStart(2, '0')}:00`;
+    const time = `${String(9 + Math.floor(index / 6)).padStart(2, '0')}:${String((index % 6) * 10).padStart(2, '0')}:00`;
     const id = sql.value(`INSERT INTO appointment (provider_no,appointment_date,start_time,end_time,name,
         demographic_no,program_id,reason,status,createdatetime,updatedatetime,creator,lastupdateuser)
       VALUES (${h.sqlString(provider)},${h.sqlString(date)},${h.sqlString(time)},${h.sqlString(time)},
-        ${h.sqlString(`${marker} ${fixture.label}`)},${patient},0,${h.sqlString(`${marker} ${fixture.label}`)},
+        ${h.sqlString(`${marker} ${fixture.label}${NAME_SUFFIX}`)},${patient},0,${h.sqlString(`${marker} ${fixture.label}${REASON_SUFFIX}`)},
         ${h.sqlString(fixture.status)},NOW(),NOW(),'playwright',${h.sqlString(provider)}); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), `appointment fixture ${fixture.label} was not created`);
     appointmentIds.push(id);
   });
   h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no IN (${appointmentIds.join(',')})
-      AND BINARY status IN ('t','c','N','C','B')`) === String(FIXTURES.length),
+      AND BINARY status IN ('t','c','N','C','B','NV','CS')`) === String(FIXTURES.length),
   'appointment fixtures did not persist their exact-case statuses');
 
   const page = await s.context.newPage();
@@ -156,6 +182,12 @@ async function workflow(s) {
       });
     }
   }
+  await s.step('BC omitted dates retain report defaults', async () => {
+    const response = await h.gotoApp(page, s.config.baseUrl,
+      `/billing/CA/BC/ViewBillingReportControl?reportAction=unbilled&providerview=${encodeURIComponent(provider)}`);
+    h.assert(response.status() === 200, 'BC report rejected omitted dates');
+    await h.assertNotErrorPage(page, 'BC report omitted dates');
+  });
   await page.close();
 }
 

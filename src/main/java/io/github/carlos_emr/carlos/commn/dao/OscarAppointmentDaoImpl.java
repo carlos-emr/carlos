@@ -457,7 +457,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         try {
             return query.getSingleResult();
-        } catch (NoResultException e) {
+        } catch (NoResultException _) {
             MiscUtils.getLogger().info("Couldn't find appointment for demographic " + demographicNo + " today.");
             return null;
         } catch (NonUniqueResultException e) {
@@ -566,7 +566,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate) {
-        return search_unbill_history_daterange(providerNo, startDate, endDate, false, false);
+        return findUnbilledAppointments(providerNo, startDate, endDate, false, false);
     }
 
     /**
@@ -579,7 +579,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
      * parameters.</p>
      */
     @Override
-    public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate,
+    public List<Appointment> findUnbilledAppointments(String providerNo, Date startDate, Date endDate,
                                                              boolean includeNoShow, boolean includeCancelled) {
         StringBuilder jpql = new StringBuilder("select a from Appointment a where a.providerNo = :providerNo"
                 + " and a.appointmentDate >= :startDate and a.appointmentDate <= :endDate"

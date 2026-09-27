@@ -218,13 +218,13 @@
         <tr>
             <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
                  opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
-            <td width="30%" align="right"><font size="2" color="#333333" face="Verdana, Arial, Helvetica, sans-serif">
-                <b>Unbilled:</b>
+            <td style="width:30%;text-align:right;font-size:small;color:#333;font-family:Verdana,Arial,Helvetica,sans-serif">
+                <b><fmt:message key="billing.unbilled.label"/>:</b>
                 <label><input type="checkbox" name="includeNoShow" value="true"
-                    <%= UnbilledReportStatusParameters.includeNoShow(request) ? "checked" : "" %>> Include No-Show</label>
+                    <%= UnbilledReportStatusParameters.includeNoShow(request) ? "checked" : "" %>><fmt:message key="billing.unbilled.includeNoShow"/></label>
                 <label><input type="checkbox" name="includeCancelled" value="true"
-                    <%= UnbilledReportStatusParameters.includeCancelled(request) ? "checked" : "" %>> Include Cancelled</label>
-            </font></td>
+                    <%= UnbilledReportStatusParameters.includeCancelled(request) ? "checked" : "" %>><fmt:message key="billing.unbilled.includeCancelled"/></label>
+            </td>
             <td></td>
             <td></td>
         </tr>

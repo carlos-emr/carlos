@@ -131,13 +131,13 @@
         <tr>
             <%-- Unbilled report only: No-Show / Cancelled visits are excluded unless
                  opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
-            <td align="right"><font size="2" color="#333333" face="Verdana, Arial, Helvetica, sans-serif">
-                <b>Unbilled:</b>
+            <td style="text-align:right;font-size:small;color:#333;font-family:Verdana,Arial,Helvetica,sans-serif">
+                <b><fmt:message key="billing.unbilled.label"/>:</b>
                 <label><input type="checkbox" name="includeNoShow" value="true"
-                    ${billingReportControlModel.includeNoShow ? 'checked' : ''}> Include No-Show</label>
+                    ${billingReportControlModel.includeNoShow ? 'checked' : ''}><fmt:message key="billing.unbilled.includeNoShow"/></label>
                 <label><input type="checkbox" name="includeCancelled" value="true"
-                    ${billingReportControlModel.includeCancelled ? 'checked' : ''}> Include Cancelled</label>
-            </font></td>
+                    ${billingReportControlModel.includeCancelled ? 'checked' : ''}><fmt:message key="billing.unbilled.includeCancelled"/></label>
+            </td>
             <td></td>
             <td></td>
         </tr>

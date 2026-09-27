@@ -137,7 +137,7 @@ public class BillingReportFragmentViewModelAssembler {
         // No-Show and Cancelled visits are excluded unless the user opts in, so
         // this screen agrees with the ON new-report unbilled list (issue #3960).
         List<io.github.carlos_emr.carlos.commn.model.Appointment> bs =
-                appointmentDao.search_unbill_history_daterange(providerView, dateBegin, dateEnd,
+                appointmentDao.findUnbilledAppointments(providerView, dateBegin, dateEnd,
                         UnbilledReportStatusParameters.includeNoShow(request),
                         UnbilledReportStatusParameters.includeCancelled(request));
         List<BillingReportFragmentViewModel.UnbilledRow> rows = new ArrayList<>();
@@ -152,7 +152,7 @@ public class BillingReportFragmentViewModelAssembler {
             String demoName = nullToEmpty(a.getName());
             String userNo = nullToEmpty(a.getProviderNo());
             String apptDate = ConversionUtils.toDateString(a.getAppointmentDate());
-            String apptTime = ConversionUtils.toDateString(a.getStartTime());
+            String apptTime = ConversionUtils.toTimeString(a.getStartTime());
             String reason = nullToEmpty(a.getReason());
 
             // The .jspf hands popupUrl straight to popupPage() without adding the
