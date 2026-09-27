@@ -329,12 +329,12 @@ async function checkUnicodeEnvelope(context) {
   const marker = `FAKE_LETTER_${stamp}`;
   const provider = sql(`SELECT provider_no FROM security WHERE user_name=${sqlString(testUser)}`);
   if (!provider) throw new Error('Test provider was not found');
-  const patient = sql(`INSERT INTO demographic
-    (first_name,last_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
-    VALUES ('Łukasz Жуков',${sqlString(marker)},'1980','01','02','F','AC',${sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
-  if (!/^[1-9]\d*$/.test(patient)) throw new Error('Synthetic envelope patient was not created');
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'letter-envelope-pdf-'));
   try {
+    const patient = sql(`INSERT INTO demographic
+      (first_name,last_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES ('Łukasz Жуков',${sqlString(marker)},'1980','01','02','F','AC',${sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    if (!/^[1-9]\d*$/.test(patient)) throw new Error('Synthetic envelope patient was not created');
     const response = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${patient}`));
     const bytes = await response.body();
     expect(response.status() === 200 && isPdf(bytes), 'unicode-envelope: complete PDF returned', {status:response.status()});
@@ -344,8 +344,8 @@ async function checkUnicodeEnvelope(context) {
     expect(text.includes('Łukasz Жуков') && text.includes(marker), 'unicode-envelope: original patient name preserved in installed PDF', {});
   } finally {
     fs.rmSync(temporary, {recursive:true, force:true});
-    sql(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${sqlString(marker)}`);
-    if (sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) !== '0') throw new Error('Owned envelope patient remains');
+    sql(`DELETE FROM demographic WHERE first_name='Łukasz Жуков' AND last_name=${sqlString(marker)}`);
+    if (sql(`SELECT COUNT(*) FROM demographic WHERE last_name=${sqlString(marker)}`) !== '0') throw new Error('Owned envelope patient remains');
   }
 }
 
