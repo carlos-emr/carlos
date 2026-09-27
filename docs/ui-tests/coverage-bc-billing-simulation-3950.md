@@ -92,3 +92,9 @@ Rebased by merging release/2026.08 at `25a867f07b9bda663aaa70aab8e5de225605f999`
 - Existing BC billing-association browser check passed all three steps, including invalid-input rejection and create/reopen/update/delete. Both workflows verified removal of their owned fixtures.
 
 The VM was stopped during compilation, and builds and browser checks ran serially.
+
+## Documentation follow-up (2026-09-27)
+
+Addressed the summary-only review finding by documenting `genSimulation.jsp` immediately after its copyright header. The block describes the actual provider/date/version/centre parameters, generated request attribute, forwarding, access requirement and the protected route's introduction date from Git history. This changes only a JSP comment; executable code and test behavior are unchanged from the full verification above.
+
+A clean build compiled all 982 JSPs and packaged the WAR. All three DEBs were rebuilt as `2026.08.0~alpha16~pr3988.2` and installed on the Ubuntu 26.04 VM. All 6,666 checked files matched the tested, packaged and installed payload. Installed application-health browser checks and final package health passed, with zero automatic restarts. The existing Ontario configuration and database were retained; the VM was stopped afterward. The earlier full Java, script and BC workflow results above remain the behavioral validation for the unchanged implementation.
