@@ -523,6 +523,98 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"PageSize.A6", "PageSize.HALFLETTER"})
+    @DisplayName("should place the narrow-page pharmacy block below a full patient heading and above the drugs")
+    void shouldPlacePharmacyBelowPatientHeading_onNarrowPaper(String paper, @TempDir Path tempDir) throws Exception {
+        // A full patient heading (date, name, DOB, address, city, phone, HIN) runs past the
+        // pharmacy block's historical fixed position on A6/half-letter; the block must follow
+        // the measured heading and the prescription body must start beneath the block.
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        io.github.carlos_emr.carlos.commn.model.PharmacyInfo pharmacy =
+                new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
+        pharmacy.setName("Main St Pharmacy");
+        pharmacy.setAddress("1 Main St");
+        pharmacy.setCity("Toronto");
+        pharmacy.setProvince("ON");
+        pharmacy.setPostalCode("M1M 1M1");
+        pharmacy.setPhone1("416-555-0101");
+        pharmacy.setFax("4165551212");
+        io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao pharmacyInfoDao =
+                mock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class);
+        when(pharmacyInfoDao.getPharmacy(7)).thenReturn(pharmacy);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class, pharmacyInfoDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class));
+        MockHttpServletRequest request = createFaxRequest();
+        request.addParameter("pharmacyInfo", "7");
+        request.addParameter("rxPageSize", paper);
+        request.addParameter("showPatientDOB", "true");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<PrescriptionQrCodeUIBean> qrCodeMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            qrCodeMock.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(false);
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+            servlet.service(request, response);
+
+            assertThat(response.getContentAsString()).contains("fax-success");
+            // Each run of horizontal text with its top and bottom, measured down from the page top.
+            List<Object[]> runs = new java.util.ArrayList<>();
+            try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(
+                    documentDir.resolve("prescription_rx-123.pdf").toFile())) {
+                new org.apache.pdfbox.text.PDFTextStripper() {
+                    @Override
+                    protected void writeString(String text, List<org.apache.pdfbox.text.TextPosition> positions) {
+                        List<org.apache.pdfbox.text.TextPosition> horizontal =
+                                positions.stream().filter(position -> position.getDir() == 0).toList();
+                        if (!horizontal.isEmpty()) {
+                            double top = horizontal.stream().mapToDouble(p -> p.getYDirAdj() - p.getHeightDir()).min().orElseThrow();
+                            double bottom = horizontal.stream().mapToDouble(org.apache.pdfbox.text.TextPosition::getYDirAdj).max().orElseThrow();
+                            runs.add(new Object[] {text.strip(), top, bottom});
+                        }
+                    }
+                }.getText(pdf);
+            }
+            double hinBottom = bottomOf(runs, "1234567890");
+            double attentionTop = topOf(runs, "ATTENTION:");
+            double pharmacyFaxBottom = bottomOf(runs, "4165551212");
+            double drugTop = topOf(runs, "Amoxicillin 500 mg capsule");
+            assertThat(attentionTop).as("pharmacy block starts below the patient HIN line").isGreaterThan(hinBottom);
+            assertThat(drugTop).as("prescription body starts below the pharmacy block").isGreaterThan(pharmacyFaxBottom);
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    private static double topOf(List<Object[]> runs, String fragment) {
+        return runs.stream().filter(run -> ((String) run[0]).contains(fragment))
+                .mapToDouble(run -> (double) run[1]).findFirst()
+                .orElseThrow(() -> new AssertionError("PDF text not found: " + fragment));
+    }
+
+    private static double bottomOf(List<Object[]> runs, String fragment) {
+        return runs.stream().filter(run -> ((String) run[0]).contains(fragment))
+                .mapToDouble(run -> (double) run[2]).findFirst()
+                .orElseThrow(() -> new AssertionError("PDF text not found: " + fragment));
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"document", "missing-file", "io", "runtime"})
     @DisplayName("should report a definite fax failure when PDF generation fails before persistence")
     void shouldReportDefiniteFaxFailure_whenPdfGenerationFails(String failureType) throws Exception {
