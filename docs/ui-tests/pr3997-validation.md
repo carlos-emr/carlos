@@ -104,3 +104,21 @@ Validation:
   and demographic** retained its exact fingerprint. Owned PDFs, templates, follow-ups, logs
   and synthetic patients were removed. Final health/file checks passed; zero automatic service
   restarts; VM stopped. No schema or configuration changes were required.
+
+## Second review and updated release validation
+
+Merged `release/2026.08` through `773a8c34cf` into the review branch after four other batch PRs were merged externally. The integration was conflict-free. The new review changes add upload boundary tests and documentation; application behavior is unchanged by those follow-ups.
+
+The upload tests use empty and 16,777,216-byte files and assert HTTP 400, the upload-failure attribute, and no interactions with either Jasper compilation or the report-letter DAO. This distinguishes the size refusal from an ordinary invalid-XML compilation failure. The patient-label test's class documentation uses its initial Git date (`2026-09-27`). The ManageLetters JSP documentation describes its upload/list/download/delete behavior, parameters, retained values and failure state, with the page's original protected-path date (`2026-07-07`).
+
+Reviewed Semgrep alert 27305 at the evaluated browser function: its literal code receives the application response as a structured argument, parses a detached document, and reads selected-patient inputs. It neither interpolates executable code nor derives a navigation/request target. A rule-specific suppression explains this false positive. Installed checks still verify the actual letter and envelope error responses retain the valid selected patient and exclude the malformed identifier.
+
+Validation against the updated release:
+
+- Clean full Java suite: **13,643 tests, zero failures/errors, 51 skips**.
+- Full Node suite: **1,122 passed**. BDD naming across 273 files, encoder, security-message, JSP taglib and locale checks passed.
+- All **982 JSPs**, WAR and Javadocs built. Changed executable Java coverage: **298/317 (94.0%)**, with no unmapped files.
+- All three DEBs `2026.08.0~alpha16~pr3997.3` were built and installed on Ubuntu 26.04. **6,673** tested/packaged/installed file comparisons matched.
+- All **six Playwright checks passed with zero skips**: patient letters/envelopes, application health, prevention recall, demographic report navigation, all report-index surfaces and admin report validation.
+
+Every original row in document, ctl_document, log_letters, report_letters, measurements and demographic retained its fingerprint. Owned fixtures were removed. Final health and payload checks passed; automatic restarts remained zero, the VM had 4.4 GiB free, and it was stopped. Work ran serially and the VM remained stopped during compilation.
