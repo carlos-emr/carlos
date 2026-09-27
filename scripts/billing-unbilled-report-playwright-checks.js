@@ -209,6 +209,26 @@ async function workflow(s) {
       await s.context.unroute(pattern);
     }
   });
+  for (const [label, field] of [['Begin:', 'xml_vdate'], ['End:', 'xml_appointment_date']]) {
+    await s.step(`BC ${label} calendar returns its date to the report`, async () => {
+      const reportUrl = page.url();
+      const [calendar] = await Promise.all([page.waitForEvent('popup'), page.getByRole('link', {name:label, exact:true}).click()]);
+      try {
+        await calendar.waitForURL(url => url.pathname.endsWith('/ViewBillingCalendarPopup'), {waitUntil:'domcontentloaded'});
+        await h.assertNotErrorPage(calendar, 'BC date calendar');
+        h.assert(page.url().split('#')[0] === reportUrl.split('#')[0], 'Calendar navigated away from its report');
+        const day = calendar.locator('a[onclick^="typeMultiDate"]').first();
+        const action = await day.getAttribute('onclick');
+        const values = /^typeMultiDate\((\d+),(\d+),\s*(\d+)\)$/.exec(action);
+        h.assert(values, 'Calendar day has no date');
+        const expected = values.slice(1).map(Number).join('-');
+        await Promise.all([calendar.waitForEvent('close'), day.click()]);
+        h.assert(await page.locator(`input[name="${field}"]`).inputValue() === expected, 'Calendar date did not reach the report');
+      } finally {
+        if (!calendar.isClosed()) await calendar.close();
+      }
+    });
+  }
   await page.close();
 }
 

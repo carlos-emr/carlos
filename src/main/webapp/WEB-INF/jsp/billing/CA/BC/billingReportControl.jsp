@@ -205,14 +205,14 @@
                 <div align="center"><input type="text" name="xml_vdate"
                                            value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"> <font size="1"
                                                                          face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">Begin:</a></font>
+                                                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300'); return false;">Begin:</a></font>
                 </div>
             </td>
             <td width="40%"><input type="text" name="xml_appointment_date"
                                    value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"> <font size="1"
                                                                             face="Arial, Helvetica, sans-serif"><a
                     href="#"
-                    onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
+                    onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300'); return false;">End:</a></font>
             </td>
         </tr>
         <tr>
