@@ -110,7 +110,7 @@ Save / Sign / Bill buttons through their handlers because the row sits below the
 ## 0. What has landed so far
 
 Phase 0 of §5 (the shared harness, the suite manifest and the runner) is in the
-repository, and **32 checks implementing this plan are present** — listed
+repository, and **33 checks implementing this plan are present** — listed
 in the second table below, which is the authoritative account of what exists.
 Items outside that implementation table remain planned.
 
@@ -172,6 +172,7 @@ complement the UI workflows.
 | `contact-lifecycle` | §2.4 | External-contact search, punctuation-safe selection, clinical flags, consent, notes, cancellation, association deletion, professional consent/status round-trip, and editing a seeded internal relationship with reciprocal type/flags and duplicate checks |
 | `consultation-directory-crud` | §3.3 | Institution/department create, edit and cancelled/accepted deletion; unselected records survive |
 | `measurement-history` | §2.5 | Dated measurement values, plotted PNG bytes, selected-row deletion and preserved archive |
+| `tickler-validation-messages` | §3.4 | The add and edit tickler popups' validation alert, entered Search ▸ Master Record ▸ Tickler ▸ New Tickler: a failed Save shows exactly one message line, a second failed Save still shows one (issue #3957 — the old pages appended a copy per submit and never cleared it), and a valid save leaves no stale message and writes the restored date to `tickler`; also covers simultaneous failures, rejected invalid POSTs, GET mutation rejection and CAISI direct-list entry |
 | `provider-preferences` | §3.7 | Printer name and silent-print save (read-only when the printer feature is off), a NULL text signature edited without duplicate rows or GET writes, and document-description create/edit/reopen/delete with punctuation; every touched setting is snapshotted and restored. The other §3.7 preference sections remain planned |
 | `record-access` | §2.5, §4.4 | Cross-patient episode read and reassignment refused with 404 and no change; another provider's scratch-pad version neither readable nor deletable, while the owner's is |
 | `lot-number-search` | §3.4 | Administration ▸ Search lot number by prevention, inside its iframe: an exact owned lot returned with punctuation intact, then a repeated no-match search from the results page, with the row unchanged |
@@ -310,6 +311,7 @@ priority group where its module lives:
 | `messenger`, `messenger-inbox-actions` | `messenger/DisplayMessages` | Schedule ▸ Msg |
 | `messenger-group-admin` | `messenger?method=fetch` (injected) | Schedule ▸ Administration ▸ System Management ▸ Messenger Group Admin |
 | `tickler-crud`, `tickler-note-dialog` | `tickler/ViewAddTickler`, `ViewTicklerMain` | Schedule ▸ Tickler ▸ Add Tickler |
+| `tickler-validation-messages` | `tickler/ViewAddTickler`, `ViewTicklerEdit` | Search ▸ Master Record ▸ Tickler ▸ New Tickler; list row ▸ pencil (edit) |
 | `add-login-account`, `assign-role` | `admin/View…AddARecord`, `admin/ProviderRole` | Schedule ▸ Administration ▸ User Management ▸ … |
 | `allergy-add-penicillin`, `allergy-rx-alert` | `rx/showAllergy`, `encounter/IncomingEncounter` | Chart ▸ Allergies |
 | `eform-*` (six scripts) | `eform/efmformmanager`, `efmformadd_data`, `efmshowform_data` | Schedule ▸ Administration ▸ Forms/eForms ▸ Manage eForms; Chart ▸ eForms |

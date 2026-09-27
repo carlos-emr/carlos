@@ -211,6 +211,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
+            // Letter generation files a document per patient and marks follow-ups; template upload
+            // persists a report_letters row. Both are _report r, POST-only (issue #3963).
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action",
+                    "_report", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action",
+                    "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
@@ -226,6 +232,9 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action",
                     "_msg", "w"),
             // --- tickler ---
+            // Both editTickler and suggested-text dispatches are POST-only.
+            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action",
                     "_tickler", "w"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action",
@@ -507,6 +516,15 @@ class MutatorActionGetRejectionContractUnitTest {
                 "w",
                 httpMethod,
                 Map.of("method", "addIncomingDocument"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("EditTickler2Action should reject unsafe methods for the edit dispatch")
+    void shouldRejectUnsafeMethod_forTicklerEditDispatch(String httpMethod) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                "_tickler", "u", httpMethod, Map.of("method", "editTickler"));
     }
 
     private static void assertRejectsUnsafeMethod(
