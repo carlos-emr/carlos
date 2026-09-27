@@ -136,6 +136,25 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldRecordChangedStatusPriorityAndAssignee_whenUpdateSucceeds() {
+        mockRequest.setParameter("status", "C");
+        mockRequest.setParameter("priority", "High");
+        mockRequest.setParameter("assignedToProviders", "999999");
+        when(manager.updateTickler(any(), any())).thenReturn(true);
+        assertThat(editAction().editTickler()).isEqualTo("close");
+        assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
+        assertThat(tickler.getPriority()).isEqualTo(Tickler.PRIORITY.High);
+        assertThat(tickler.getTaskAssignedTo()).isEqualTo("999999");
+        assertThat(tickler.getUpdates()).hasSize(2);
+        assertThat(tickler.getUpdates()).anySatisfy(update -> {
+            assertThat(update.getStatus()).isEqualTo(Tickler.STATUS.C);
+            assertThat(update.getPriority()).isEqualTo("High");
+            assertThat(update.getAssignedTo()).isEqualTo("999999");
+        });
+        verify(manager).updateTickler(mockLoggedInInfo, tickler);
+    }
+
+    @Test
     void shouldPreserveOriginalTimestamp_whenAddingComment() {
         mockRequest.setParameter("newMessage", "new comment");
         when(manager.updateTickler(any(), any())).thenReturn(true);
