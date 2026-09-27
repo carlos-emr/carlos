@@ -15,6 +15,16 @@ import uuid
 MIGRATION = (Path(__file__).resolve().parents[1] /
              'database/mysql/migration/common/V1.0.40__enforce_provider_signature_identity.sql').read_text()
 
+# A conflict must be refused by the staging table's validation index, before
+# providerExt is rewritten. A refusal from the final providerExt index would
+# mean the source had already been deleted and reinserted.
+STAGING_REFUSAL = "for key 'signature_identity_validation'"
+UNIQUE_PROVIDER_INDEXES = (
+    "SELECT COUNT(*) FROM (SELECT index_name FROM information_schema.statistics "
+    "WHERE table_schema=DATABASE() AND table_name='providerExt' GROUP BY index_name "
+    "HAVING COUNT(*)=1 AND MIN(non_unique)=0 AND MIN(column_name)='provider_no' "
+    "AND MIN(sub_part) IS NULL) indexes")
+
 
 class SignatureIdentityMigration(unittest.TestCase):
     def setUp(self):
@@ -31,7 +41,7 @@ class SignatureIdentityMigration(unittest.TestCase):
                      'KEY idx_providerExt_provider_no(provider_no)) ENGINE=InnoDB '
                      'DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci')
 
-    def run_sql(self, sql, *, database=True, success=True, error='Duplicate entry'):
+    def run_sql(self, sql, *, database=True, success=True, error=STAGING_REFUSAL):
         result = subprocess.run(self.command + ([self.database] if database else []),
                                 input=sql, text=True, capture_output=True, timeout=30)
         if success:
@@ -48,7 +58,8 @@ class SignatureIdentityMigration(unittest.TestCase):
     def test_empty_table_and_future_uniqueness(self):
         self.run_sql(MIGRATION)
         self.run_sql("INSERT INTO providerExt VALUES ('T099',NULL)")
-        self.run_sql("INSERT INTO providerExt VALUES ('T099',NULL)", success=False)
+        self.run_sql("INSERT INTO providerExt VALUES ('T099',NULL)", success=False,
+                     error="for key 'providerExt_provider_no_uq'")
 
     def test_duplicate_null_signature_is_repaired(self):
         self.run_sql("INSERT INTO providerExt VALUES ('999998',NULL),('999998',NULL)")
@@ -65,25 +76,25 @@ class SignatureIdentityMigration(unittest.TestCase):
         self.assertEqual(self.snapshot(), expected)
 
     def test_conflicting_case_is_not_silently_collapsed(self):
-        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099','doctor')")
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099','Doctor'),('T099','doctor')")
         before = self.snapshot()
         self.run_sql(MIGRATION, success=False)
         self.assertEqual(self.snapshot(), before)
 
     def test_conflicting_null_and_text_preserves_source(self):
-        self.run_sql("INSERT INTO providerExt VALUES ('T099',NULL),('T099','Doctor')")
+        self.run_sql("INSERT INTO providerExt VALUES ('T099',NULL),('T099','Doctor'),('T099','Doctor')")
         before = self.snapshot()
         self.run_sql(MIGRATION, success=False)
         self.assertEqual(self.snapshot(), before)
 
     def test_conflicting_trailing_space_preserves_source(self):
-        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099','Doctor ')")
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099','Doctor'),('T099','Doctor ')")
         before = self.snapshot()
         self.run_sql(MIGRATION, success=False)
         self.assertEqual(self.snapshot(), before)
 
     def test_conflicting_provider_case_preserves_source(self):
-        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('t099','Doctor')")
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099','Doctor'),('t099','Doctor')")
         before = self.snapshot()
         self.run_sql(MIGRATION, success=False)
         self.assertEqual(self.snapshot(), before)
@@ -125,6 +136,63 @@ class SignatureIdentityMigration(unittest.TestCase):
         self.run_sql(MIGRATION, success=False, error='providerExt_has_unexpected_columns')
         self.assertEqual(self.run_sql('SELECT id,provider_no,signature,note FROM providerExt ORDER BY id'),
                          before)
+
+    def test_single_unexpected_column_is_refused(self):
+        self.run_sql("ALTER TABLE providerExt ADD COLUMN note VARCHAR(20) DEFAULT 'default'")
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor','kept'),('T099','Doctor','kept')")
+        before = self.run_sql('SELECT provider_no,signature,note FROM providerExt')
+        self.run_sql(MIGRATION, success=False, error='providerExt_has_unexpected_columns')
+        self.assertEqual(self.run_sql('SELECT provider_no,signature,note FROM providerExt'), before)
+
+    def test_generated_invisible_primary_key_is_not_an_unexpected_column(self):
+        # The shape MySQL 8.0.30+ adds under sql_generate_invisible_primary_key.
+        self.run_sql('ALTER TABLE providerExt ADD COLUMN my_row_id BIGINT UNSIGNED NOT NULL '
+                     'AUTO_INCREMENT INVISIBLE PRIMARY KEY FIRST')
+        self.run_sql("INSERT INTO providerExt (provider_no,signature) VALUES ('T099','Doctor'),('T099','Doctor')")
+        self.run_sql(MIGRATION)
+        self.assertEqual(self.run_sql("SELECT COUNT(*) FROM providerExt WHERE provider_no='T099'"), '1')
+
+    def test_visible_or_data_carrying_my_row_id_is_still_refused(self):
+        self.run_sql('ALTER TABLE providerExt ADD COLUMN my_row_id INT')
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor',7),('T099','Doctor',8)")
+        self.run_sql(MIGRATION, success=False, error='providerExt_has_unexpected_columns')
+
+    def test_retry_succeeds_after_conflict_is_resolved(self):
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099','doctor')")
+        self.run_sql(MIGRATION, success=False)
+        self.run_sql("DELETE FROM providerExt WHERE BINARY signature = 'doctor'")
+        self.run_sql(MIGRATION)
+        self.assertEqual(self.snapshot(), '54303939\t446F63746F72')
+        self.assertEqual(self.run_sql(UNIQUE_PROVIDER_INDEXES), '1')
+
+    def test_provider_trailing_space_conflict_preserves_source(self):
+        # PAD SPACE collations treat 'T099' and 'T099 ' as the same key.
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T099 ','Doctor')")
+        before = self.snapshot()
+        self.run_sql(MIGRATION, success=False)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_composite_or_prefix_unique_index_is_not_mistaken_for_identity(self):
+        for index in ('UNIQUE KEY composite_uq (provider_no, signature)',
+                      'UNIQUE KEY prefix_uq (provider_no(3))'):
+            with self.subTest(index=index):
+                self.run_sql('DROP TABLE providerExt')
+                self.run_sql('CREATE TABLE providerExt (provider_no VARCHAR(6), signature VARCHAR(255), '
+                             + index + ') DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci')
+                self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor')")
+                self.run_sql(MIGRATION)
+                self.assertEqual(self.run_sql(UNIQUE_PROVIDER_INDEXES), '1')
+                self.run_sql("INSERT INTO providerExt VALUES ('T099','Other')", success=False,
+                             error="Duplicate entry")
+
+    def test_existing_identity_index_under_another_name_is_reused(self):
+        self.run_sql('ALTER TABLE providerExt ADD UNIQUE KEY legacy_provider_uq (provider_no)')
+        self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor')")
+        self.run_sql(MIGRATION)
+        self.assertEqual(self.run_sql(UNIQUE_PROVIDER_INDEXES), '1')
+        self.assertEqual(self.run_sql("SELECT COUNT(*) FROM information_schema.statistics WHERE "
+                                      "table_schema=DATABASE() AND table_name='providerExt' "
+                                      "AND index_name='providerExt_provider_no_uq'"), '0')
 
 
 if __name__ == '__main__':

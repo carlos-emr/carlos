@@ -8,6 +8,9 @@
 -- The temporary copy uses the source column definitions/collation. Its unique
 -- index validates ALL values before the source is changed. BINARY DISTINCT is
 -- deliberate: case/accent/space differences in signature text are not duplicates.
+-- The staging key uses the column collation, so provider numbers differing only
+-- in case or trailing spaces ('T099', 't099', 'T099 ') are one identity and are
+-- refused as a conflict, even with equal signatures, rather than merged.
 -- A duplicate-key failure here leaves providerExt untouched. Resolve conflicting
 -- values from a backup with the provider, repair the failed Flyway entry using
 -- the documented procedure, and retry. Never edit a published migration.
@@ -16,10 +19,15 @@
 -- table with any other column would have that column's values replaced by
 -- defaults, so refuse it before anything changes. The deliberately unknown
 -- column name is the error an operator sees; MySQL cannot PREPARE a SIGNAL.
+-- MySQL 8.0.30+ with sql_generate_invisible_primary_key adds an invisible
+-- auto-increment my_row_id key to this key-less table. It carries no data, so
+-- regenerating it on reinsert loses nothing and it is not counted.
 SET @signature_unexpected_columns = (
     SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema = DATABASE() AND table_name = 'providerExt'
         AND column_name NOT IN ('provider_no', 'signature')
+        AND NOT (column_name = 'my_row_id' AND column_key = 'PRI'
+            AND extra LIKE '%auto_increment%' AND extra LIKE '%INVISIBLE%')
 );
 SET @signature_column_guard = IF(@signature_unexpected_columns = 0, 'SELECT 1',
     'SELECT providerExt_has_unexpected_columns_resolve_before_signature_repair FROM providerExt');

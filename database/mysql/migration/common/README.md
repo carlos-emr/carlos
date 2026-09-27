@@ -49,14 +49,13 @@ Applied together with the selected province (`common` + `on`, or `common` + `bc`
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
 next free number accounts for province deltas too. The highest migration in this branch is `common/V1.0.40`.
-`V1.0.35` is allocated to PR #3996 and `V1.0.37`–`V1.0.39` are claimed by open branches, so the
-next unallocated version for ANY location is `V1.0.41` (see `../README.md`). Consult every active
+`V1.0.31` and `V1.0.35` are intentionally unused and `V1.0.37`–`V1.0.39` are claimed by open PRs
+#3996 and #4000, so the next unallocated version for ANY location is `V1.0.41` (see `../README.md`). Consult every active
 branch inventory before assigning a version. Never edit a published migration or silently enable
 out-of-order application during promotion.
 
-Messenger membership coordination (#3964) adds
-`common/V1.0.36__serialize_messenger_membership_changes.sql`. `V1.0.35` is already
-allocated to the tickler-document PR #3996. Apply/merge these forward migrations in version order; if their merge
+Messenger membership coordination (PR #3986, issue #3964) adds
+`common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized
