@@ -25,6 +25,10 @@
     "timeoutSec  wall clock the runner allows before it gives up on the check.",
     "runLast     the check is destructive to shared state (deliberate failed logins)",
     "            and must run after the positive suite.",
+    "manual      the check is never part of a tier run: it needs credentials",
+    "            the harness contract does not carry (the installer's",
+    "            initial-admin.txt) and changes the administrator password,",
+    "            so it runs only when named with --only.",
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
@@ -212,6 +216,25 @@
       "env": [
         "ASSIGN_ROLE_SCREENSHOT_DIR",
         "ASSIGN_ROLE_SUPER_ROOT"
+      ]
+    },
+    {
+      "name": "billing-on-group-disk-zero-total",
+      "script": "scripts/billing-on-group-disk-zero-total-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "GROUP_DISK_DEMOGRAPHIC_NO",
+        "GROUP_DISK_PAID_CODE",
+        "GROUP_DISK_SERVICE_DATE",
+        "GROUP_DISK_TEMPLATE_PROVIDER",
+        "OHIP_DISK_DIR"
       ]
     },
     {
@@ -487,6 +510,20 @@
       ]
     },
     {
+      "name": "document-add-link",
+      "script": "scripts/document-add-link-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "document-upload",
       "script": "scripts/document-upload-playwright-checks.js",
       "tiers": [
@@ -608,6 +645,32 @@
         "NOTE_DEMOGRAPHIC_NO",
         "NOTE_PROVIDER_NO"
       ]
+    },
+    {
+      "name": "echart-note-soft-wrap",
+      "script": "scripts/echart-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "encounter-legacy-note-soft-wrap",
+      "script": "scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     },
     {
       "name": "echart-print",
@@ -1017,6 +1080,18 @@
       "timeoutSec": 300
     },
     {
+      "name": "billing-unbilled-report",
+      "script": "scripts/billing-unbilled-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
       "name": "flu-billing-report",
       "script": "scripts/flu-billing-report-playwright-checks.js",
       "tiers": [
@@ -1104,6 +1179,36 @@
       ]
     },
     {
+      "name": "inbox-rapid-review-advance",
+      "script": "scripts/inbox-rapid-review-advance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "inbox-preview-boundary-resync",
+      "script": "scripts/inbox-preview-boundary-resync-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "lab-pdf-footer",
       "script": "scripts/lab-pdf-footer-playwright-checks.js",
       "tiers": [
@@ -1148,6 +1253,21 @@
       "env": [
         "LAB_PROVIDER_NO",
         "LAB_SEGMENT_ID"
+      ]
+    },
+    {
+      "name": "lab-line-break-rendering",
+      "script": "scripts/lab-line-break-rendering-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_BREAK_SCREENSHOT_DIR"
       ]
     },
     {
@@ -1217,6 +1337,21 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "cds-export-lab-documents",
+      "script": "scripts/cds-export-lab-documents-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CDS_EXPORT_GNUPGHOME"
+      ]
     },
     {
       "name": "rest-roster-enrolled-to",
@@ -1389,6 +1524,19 @@
       ]
     },
     {
+      "name": "messenger-group-admin",
+      "script": "scripts/messenger-group-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "multiple-session",
       "script": "scripts/multiple-session-playwright-checks.js",
       "tiers": [
@@ -1460,6 +1608,22 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "patient-search-rest-dob",
+      "script": "scripts/patient-search-rest-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_PROGRAM_DOMAIN_RESTRICTION"
+      ],
+      "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {
       "name": "patient-search-modes",
@@ -1551,6 +1715,56 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "patient-letters-envelopes",
+      "script": "scripts/patient-letters-envelopes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DEMOGRAPHIC_NO",
+        "LETTER_DOCUMENT_DIR",
+        "MYSQL_DOCKER_CONTAINER"
+      ]
+    },
+    {
+      "name": "rx-fax-pharmacy-phone",
+      "script": "scripts/rx-fax-pharmacy-phone-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 5100,
+      "env": [
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_ROUND_TRIP_TIMEOUT_MS",
+        "RX_FAX_DOCUMENT_DIR",
+        "RX_FAX_SPOOL_DIR"
+      ]
+    },
+    {
+      "name": "rx-legacy-null-fields",
+      "script": "scripts/rx-legacy-null-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ARTIFACT_DIR"
+      ]
     },
     {
       "name": "rx-fax-record-binding",
@@ -1847,6 +2061,24 @@
       ]
     },
     {
+      "name": "provider-preferences",
+      "script": "scripts/provider-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Uses the disposable test provider; snapshots and restores printer, document-description and text-signature preferences."
+    },
+    {
       "name": "surface-audit:referrals-surface",
       "script": "scripts/surface-audit-playwright-checks.js",
       "envSet": {
@@ -1985,6 +2217,21 @@
       ]
     },
     {
+      "name": "tickler-validation-messages",
+      "script": "scripts/tickler-validation-messages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TICKLER_DIRECT_LIST"
+      ]
+    },
+    {
       "name": "next-appointment-lookup",
       "script": "scripts/next-appointment-lookup-playwright-checks.js",
       "tiers": [
@@ -2021,6 +2268,24 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "record-access",
+      "script": "scripts/record-access-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes owned patients, an episode and scratchpad versions; requires a second provider in a local disposable database."
+    },
+    {
       "name": "diagnosis-flowsheet",
       "script": "scripts/diagnosis-flowsheet-playwright-checks.js",
       "tiers": [
@@ -2055,6 +2320,24 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
+    },
+    {
+      "name": "echart-prevention-row-links",
+      "script": "scripts/echart-prevention-row-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient, its preventions and its note draft; local disposable database only."
     },
     {
       "name": "allergy-custom-lifecycle",
@@ -2143,6 +2426,24 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ]
+    },
+    {
+      "name": "lot-number-search",
+      "script": "scripts/lot-number-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns and removes one synthetic lot catalogue row; exercises initial and repeated search from Administration."
     },
     {
       "name": "consultation-signature-fallback",
@@ -2372,8 +2673,10 @@
       "timeoutSec": 180,
       "env": [
         "INACTIVE_DRUG_DIN",
-        "INACTIVE_DRUG_DATE"
-      ]
+        "INACTIVE_DRUG_DATE",
+        "DRUGREF_TEST_DATABASE"
+      ],
+      "fixtures": "Creates and removes an owned patient; reads a known inactive DrugRef product and selects it into the unsaved Rx editor; never saves a prescription."
     },
     {
       "name": "referral-labels",
@@ -2483,6 +2786,19 @@
       "env": []
     },
     {
+      "name": "billing-bc-simulation-encoding",
+      "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "facility-selection",
       "script": "scripts/facility-selection-playwright-checks.js",
       "tiers": [
@@ -2562,6 +2878,27 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "deb-login",
+      "script": "scripts/deb-login-playwright-checks.js",
+      "tiers": [
+        "front-door"
+      ],
+      "manual": true,
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ADMIN_FILE",
+        "ADMIN_PASSWORD",
+        "ADMIN_PIN",
+        "ADMIN_USER",
+        "NEW_PASSWORD",
+        "STRICT_TLS"
+      ]
     },
     {
       "name": "consultation-print-preview",
