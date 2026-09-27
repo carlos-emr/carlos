@@ -21,7 +21,16 @@ Build-Depends:
 # dh_installsysusers and the `installsysusers` sequence addon arrived in
 # debhelper 13.6; compat 13 alone is satisfied by older versions that would
 # silently build a package with no system accounts declared.
- debhelper (>= 13.6~),
+#
+# 13.14.1, not 13.6: the render browser unit is staged by debian/rules into
+# usr/lib/systemd/system and picked up by `dh_installsystemd --name` from
+# there. Verified against the shipped tools: 13.11.4 (Debian 12) scans only
+# lib/systemd/system, so it would build a package whose enable/stop snippets
+# are missing and whose render browser is never enabled -- a silent
+# eForm print/fax/archive outage -- while 13.14.1 (Ubuntu 24.04) and 13.31
+# (Ubuntu 26.04) scan both. Raise this only alongside a check of the
+# dh_installsystemd unit-directory scan.
+ debhelper (>= 13.14.1~),
 # The package test gate renders the carlos-ctl(8) source with every groff
 # warning enabled before lintian's Ubuntu-specific man-db false positive is
 # overridden.

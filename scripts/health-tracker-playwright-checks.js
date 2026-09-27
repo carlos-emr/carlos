@@ -302,6 +302,41 @@ async function workflow(s) {
     await page.close();
   });
 
+  await s.step('a failed progress-note write reports the saved measurement and missing note', async () => {
+    const trigger = `pw_health_tracker_${process.pid}`;
+    const drop = () => sql.execute(`DROP TRIGGER IF EXISTS ${trigger}`);
+    s.cleanup(drop);
+    const before = measurementRows(s);
+    const notesBefore = Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${sqlString(String(patient))}`));
+    // Fail only this harness's synthetic patient's note; all other charts are unaffected.
+    sql.execute(`DELIMITER //
+CREATE TRIGGER ${trigger} BEFORE INSERT ON casemgmt_note FOR EACH ROW
+BEGIN
+  IF NEW.demographic_no = ${sqlString(String(patient))} THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Synthetic Health Tracker note failure';
+  END IF;
+END//
+DELIMITER ;`);
+    try {
+      page = await openTracker(s, 'health-tracker-note-failure');
+      await page.locator(`#trackerForm input[name="${FIELD}"]`).fill('83.7');
+      await page.locator(`#trackerForm input[name="${FIELD}_note"]`).check();
+      await Promise.all([
+        page.waitForEvent('domcontentloaded'),
+        page.locator('button[form="trackerForm"][value="Save All"]').click(),
+      ]);
+      await assertNotErrorPage(page, 'health-tracker note failure');
+      const alert = page.locator('#validation-alert');
+      assert(await alert.isVisible(), 'A failed progress note was silently reported as a successful save');
+      assert((await alert.innerText()).includes('measurements were saved'), 'The warning does not explain that the measurements were saved');
+      assert((await alert.innerText()).includes('progress note could not be confirmed'), 'The warning does not identify the missing note');
+      assert(measurementRows(s) === before + 1, 'The measurement was not preserved after the note failure');
+      assert(Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${sqlString(String(patient))}`)) === notesBefore,
+        'The synthetic note-write failure was not exercised');
+      await page.close();
+    } finally { drop(); }
+  });
+
   await s.step('the save endpoint refuses GET', async () => {
     // From inside the page so the request carries the logged-in session: an
     // unauthenticated GET would be bounced to login and prove nothing about the

@@ -26,9 +26,10 @@ an administration tool — a working, secured EMR from `apt install`.
   and disk sized for your document store plus backups.
 - Root access. The *installation* uses root; the *running system* does not —
   every long-lived component runs as an unprivileged account.
-- The `universe` component enabled and the package lists current. Five of the
-  dependencies (`tomcat11-common`, `libtomcat11-java`, `openjdk-25-jre-headless`,
-  `modsecurity-crs`, `libnginx-mod-http-modsecurity`) live in `universe`, and
+- The `universe` component enabled and the package lists current. Four of the
+  dependencies (`tomcat11-common`, `libtomcat11-java`, `modsecurity-crs`,
+  `libnginx-mod-http-modsecurity`) live in `universe` (`openjdk-25-jre-headless`
+  is in `main`), and
   without it the install stops on unmet dependencies before anything is
   configured. It is enabled by default on Ubuntu Server.
 
