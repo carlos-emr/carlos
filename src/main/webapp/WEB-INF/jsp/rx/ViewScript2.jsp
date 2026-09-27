@@ -291,7 +291,7 @@
             String pharmacyPhoneSegment = pharmacyPhone.isEmpty() ? "" : " Tel: " + pharmacyPhone;
             // The selected pharmacy is already loaded above. Send its snapshot with the page:
             // a second asynchronous lookup can finish after a fast print/fax submission.
-            String pharmacyPreviewJson = pharmacy == null ? "null" : new org.json.JSONObject()
+            String pharmacyPreviewJson = pharmacy == null ? "null" : new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
                     .put("id", prefPharmacyId).put("name", pharmacy.getName()).put("address", pharmacy.getAddress())
                     .put("city", pharmacy.getCity()).put("province", pharmacy.getProvince()).put("postalCode", pharmacy.getPostalCode())
                     .put("phone1", pharmacy.getPhone1()).put("phone2", pharmacy.getPhone2()).put("fax", pharmacy.getFax())
@@ -1435,11 +1435,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                 function printPharmacy(id) {
                                     var json = initialPharmacy;
                                     if (!json || String(json.id) !== String(id)) return;
-                                                        var text = pharmacyText(json.name) + "<br>" + pharmacyText(json.address) + "<br>" + pharmacyText(json.city) + ", " + pharmacyText(json.province) + ", "
-                                                            + pharmacyText(json.postalCode) + "<br>Tel:" + pharmacyText(json.phone1) + " " + pharmacyText(json.phone2) + "<br>Fax:" + pharmacyText(json.fax) + "<br>Email:" + pharmacyText(json.email) + "<br>Note:" + pharmacyText(json.notes);
+                                    var text = pharmacyText(json.name) + "<br>" + pharmacyText(json.address) + "<br>" + pharmacyText(json.city) + ", " + pharmacyText(json.province) + ", "
+                                        + pharmacyText(json.postalCode) + "<br>Tel:" + pharmacyText(json.phone1) + " " + pharmacyText(json.phone2) + "<br>Fax:" + pharmacyText(json.fax) + "<br>Email:" + pharmacyText(json.email) + "<br>Note:" + pharmacyText(json.notes);
 
-                                                        text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
-                                                        text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";
+                                    text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
+                                    text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";
                                     expandPreview(text);
                                 }
 
