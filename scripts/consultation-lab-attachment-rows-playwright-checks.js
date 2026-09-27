@@ -29,11 +29,11 @@
  *   3. opens the picker, asserts the stored lab is pre-checked, unchecks it,
  *      saves and closes, and asserts the row is gone;
  *   4. reopens the picker, checks the lab again, saves and closes, and asserts
- *      exactly one row came back under the same id with the bare segment id as
+ *      exactly one row came back under the same id with the source-qualified identifier as
  *      the delegate value;
  *   5. opens and closes the picker once more and asserts the row is not duplicated.
  *
- * Nothing is submitted; the seeded consultdocs row is removed in a finally.
+ * Nothing is submitted; the owned consultation and attachment fixtures are removed in a finally.
  *
  * The check SKIPS (exit 2) when the patient has no consultation request or no
  * HL7 lab, which is the case on a fresh install without the demo dataset.
@@ -64,14 +64,15 @@ const {
   login,
   newContext,
   readConfig,
+  sqlString,
   wirePage,
 } = require('./lib/playwright-harness');
 
 const config = readConfig({ require: ['MYSQL_PASSWORD'] });
 const demographicNo = process.env.CONSULT_DEMO_NO || '1';
 assert(/^\d+$/.test(demographicNo), 'CONSULT_DEMO_NO must be numeric');
-// The seed is tagged by provider so the finally only removes what this run added.
 const seedProvider = 'PWLROW';
+const stamp = `PW_LAB_SOURCE_${Date.now()}_${process.pid}`;
 
 const db = createSqlRunner(config.mysql);
 
@@ -84,7 +85,9 @@ function findHl7LabNo() {
 }
 
 function cleanupSeed(requestId) {
-  db.execute(`DELETE FROM consultdocs WHERE requestId=${Number(requestId)} AND provider_no='${seedProvider}'`);
+  assert(db.value(`SELECT reason FROM consultationRequests WHERE requestId=${Number(requestId)}`) === stamp, 'fixture parent ownership changed');
+  db.execute(`DELETE FROM consultdocs WHERE requestId=${Number(requestId)}`);
+  db.execute(`DELETE FROM consultationRequests WHERE requestId=${Number(requestId)} AND reason=${sqlString(stamp)}`);
 }
 
 async function openPicker(page) {
@@ -100,21 +103,28 @@ async function saveAndClosePicker(page) {
 
 (async () => {
   const recorder = createRecorder();
-  const requestId = findRequestId();
+  const originalRequestId = findRequestId();
+  let requestId = null;
   const labNo = findHl7LabNo();
   const browser = await launchBrowser(config);
   try {
-    if (!requestId || !labNo) {
+    if (!originalRequestId || !labNo) {
       throw new SkipCheck(`demographic ${demographicNo} has no consultation request or no HL7 lab to seed; load the demo dataset`);
     }
     const checkboxId = `labNoHL7${labNo}`;
     const rowId = `#entry_${checkboxId}`;
     const delegateId = `#delegate_${checkboxId}`;
 
-    // 1. Seed the stored lab attachment and open the request.
-    cleanupSeed(requestId);
-    db.execute(`INSERT INTO consultdocs (requestId, document_no, doctype, deleted, attach_date, provider_no)`
-      + ` VALUES (${Number(requestId)}, ${Number(labNo)}, 'L', NULL, CURDATE(), '${seedProvider}')`);
+    // Clone the parent so this check never changes a clinician's saved attachment set.
+    const columns = db.rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='consultationRequests' AND column_name<>'requestId' ORDER BY ordinal_position")
+      .map(([column]) => { assert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(column), 'unexpected schema identifier'); return column; });
+    const projection = columns.map(column => column === 'reason' ? sqlString(stamp) : `\`${column}\``).join(',');
+    requestId = db.value(`INSERT INTO consultationRequests (${columns.map(column => `\`${column}\``).join(',')}) SELECT ${projection} FROM consultationRequests WHERE requestId=${Number(originalRequestId)}; SELECT LAST_INSERT_ID()`);
+    assert(Number(requestId) > 0, 'owned consultation was not created');
+    for (const source of ["'HL7'", "'MDS'", 'NULL']) {
+      db.execute(`INSERT INTO consultdocs (requestId, document_no, doctype, lab_type, deleted, attach_date, provider_no)`
+        + ` VALUES (${Number(requestId)}, ${Number(labNo)}, 'L', ${source}, NULL, CURDATE(), '${seedProvider}')`);
+    }
 
     const context = await newContext(browser, config);
     const landingPage = await login(context, config, recorder);
@@ -131,11 +141,39 @@ async function saveAndClosePicker(page) {
     assert(await page.locator(`#entry_labNo${labNo}`).count() === 0,
       `stored lab row still uses the unqualified id entry_labNo${labNo}`);
 
+    // Colliding and unresolved stored IDs must stay separate and visibly removable.
+    for (const source of ['MDS', 'UNRESOLVED']) {
+      const missing = page.locator(`#entry_labNo${source}${labNo}`);
+      assert(await missing.count() === 1, `${source} attachment was lost or replaced by HL7`);
+      assert(await missing.locator('input').inputValue() === `${source}:${labNo}`, 'stored source changed');
+      await missing.locator('.removeUnavailableLab').click();
+      assert(await page.locator(rowId).count() === 1, 'removing another source removed HL7');
+    }
+
     // 3. Unchecking the stored lab removes its row.
     await openPicker(page);
     const checkbox = page.locator(`#attachDocumentsForm #${checkboxId}`);
     await checkbox.waitFor({ state: 'visible', timeout: 30000 });
     assert(await checkbox.isChecked(), 'picker did not pre-check the stored lab');
+    const preview = await checkbox.locator('..').locator('.preview-button').first().getAttribute('onclick');
+    assert(preview.includes(`HL7:${labNo}`) && preview.includes('labType=HL7'), 'preview lost source identity');
+    const cacheIsolated = await page.evaluate(id => {
+      addPdfAttachment('LAB', `HL7:${id}`, 'hl7-test', []);
+      addPdfAttachment('LAB', `MDS:${id}`, 'mds-test', []);
+      const isolated = getPdfAttachment('LAB', `HL7:${id}`).base64Data === 'hl7-test'
+        && getPdfAttachment('LAB', `MDS:${id}`).base64Data === 'mds-test';
+      pdfCache = pdfCache.filter(item => item.base64Data !== 'hl7-test' && item.base64Data !== 'mds-test');
+      return isolated;
+    }, labNo);
+    assert(cacheIsolated, 'PDF cache confused lab sources');
+    const rejectedPreview = await page.evaluate(async ({id, patient}) => {
+      const token = document.querySelector('input[name="CSRF-TOKEN"]');
+      const params = new URLSearchParams({method:'renderLabPDF', segmentId:id, demographicNo:patient, labType:'MDS'});
+      if (token) params.set('CSRF-TOKEN', token.value);
+      const response = await fetch(`${window.location.pathname.substring(0, window.location.pathname.indexOf('/encounter/'))}/previewDocs?${params}`, {credentials:'same-origin'});
+      return {status:response.status, text:await response.text()};
+    }, {id:labNo, patient:demographicNo});
+    assert(rejectedPreview.status === 400 && rejectedPreview.text.includes('lab_source_unsupported'), 'MDS preview reached the HL7 renderer');
     assert((await checkbox.getAttribute('class')) === 'lab_pre_check', 'stored lab was not marked as pre-checked');
     await checkbox.uncheck();
     await saveAndClosePicker(page);
@@ -150,8 +188,8 @@ async function saveAndClosePicker(page) {
     assert(await page.locator(rowId).count() === 1, `re-checking the lab did not add ${rowId} back`);
     assert(await page.locator(delegateId).count() === 1, `re-added row has no ${delegateId} input`);
     assert((await page.locator(delegateId).getAttribute('name')) === 'labNo', 're-added delegate is not named labNo');
-    assert((await page.locator(delegateId).getAttribute('value')) === String(labNo),
-      're-added delegate value is not the bare segment id');
+    assert((await page.locator(delegateId).getAttribute('value')) === `HL7:${labNo}`,
+      're-added delegate value lost its source');
 
     // 5. Another open/close does not duplicate the row.
     await openPicker(page);

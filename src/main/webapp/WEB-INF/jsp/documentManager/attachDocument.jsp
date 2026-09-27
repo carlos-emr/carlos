@@ -547,8 +547,8 @@
                                 <c:forEach items="${ allLabsSortedByVersions }" var="lab" varStatus="loop">
                                     <c:set var="labName" value="${fn:substring(lab.labName, 0, 30)}"/>
                                     <c:set var="totalVersions" value="${fn:length(lab.labVersionIds)}"/>
-                                    <c:set var="labPreviewParameters">method=renderLabPDF&segmentId=${carlos:forUriComponent(lab.segmentID)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
-                                    <c:set var="labPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.segmentID)}', '${carlos:forJavaScript(labPreviewParameters)}')</c:set>
+                                    <c:set var="labPreviewParameters">method=renderLabPDF&labType=${carlos:forUriComponent(lab.labType)}&segmentId=${carlos:forUriComponent(lab.segmentID)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
+                                    <c:set var="labPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.labType)}:${carlos:forJavaScript(lab.segmentID)}', '${carlos:forJavaScript(labPreviewParameters)}')</c:set>
                                     <li class="lab ${loop.index > 19 ? 'd-none' : ''}">
                                         <%-- Lab ids are only unique within their source, so the DOM id carries the
                                              source too (labNoHL7123); the submitted value stays the bare segment id. --%>
@@ -570,8 +570,8 @@
                                         <ul class="collapsible-content" style="list-style-type: none;padding:0px;">
                                             <c:forEach items="${ lab.labVersionIds }" var="version"
                                                        varStatus="versionLoop">
-                                                <c:set var="labVersionPreviewParameters">method=renderLabPDF&segmentId=${carlos:forUriComponent(version.key)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
-                                                <c:set var="labVersionPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(version.key)}', '${carlos:forJavaScript(labVersionPreviewParameters)}')</c:set>
+                                                <c:set var="labVersionPreviewParameters">method=renderLabPDF&labType=${carlos:forUriComponent(lab.labType)}&segmentId=${carlos:forUriComponent(version.key)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
+                                                <c:set var="labVersionPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.labType)}:${carlos:forJavaScript(version.key)}', '${carlos:forJavaScript(labVersionPreviewParameters)}')</c:set>
                                                 <li>
                                                     <input class="lab_check"
                                                            data-version="${totalVersions - versionLoop.index}"

@@ -658,7 +658,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("missing required sec object (_lab)");
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "123");
-        verify(mockPatientLabRoutingDao, never()).findDemographicByLabId(44);
+        verifyNoInteractions(mockPatientLabRoutingDao);
         verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.LAB), any());
     }
 
@@ -810,7 +810,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "renderLabPDF");
         request.setParameter("segmentId", "44");
         request.setParameter("demographicNo", "123");
-        when(mockPatientLabRoutingDao.findDemographicByLabId(44)).thenReturn(new PatientLabRouting(44, "HL7", 123));
+        when(mockPatientLabRoutingDao.findByLabNoAndLabType(44, "HL7")).thenReturn(List.of(new PatientLabRouting(44, "HL7", 123)));
 
         when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.LAB, 44))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("lab failed"));
@@ -904,7 +904,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "renderLabPDF");
         request.setParameter("segmentId", "44");
         request.setParameter("demographicNo", "123");
-        when(mockPatientLabRoutingDao.findDemographicByLabId(44)).thenReturn(new PatientLabRouting(44, "HL7", 456));
+        when(mockPatientLabRoutingDao.findByLabNoAndLabType(44, "HL7")).thenReturn(List.of(new PatientLabRouting(44, "HL7", 456)));
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
@@ -912,6 +912,33 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "123");
         verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.LAB), any());
+    }
+
+    @Test
+    @DisplayName("should reject other lab sources before the HL7 PDF renderer")
+    void shouldRejectNonHl7PreviewBeforeRendering() throws Exception {
+        request.setParameter("method", "renderLabPDF");
+        request.setParameter("segmentId", "44");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("labType", "MDS");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("lab_source_unsupported");
+        verifyNoInteractions(mockPatientLabRoutingDao, mockDocumentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("should not authorize an HL7 preview through a colliding MDS route")
+    void shouldRejectHl7WithoutItsOwnPatientRoute() {
+        request.setParameter("method", "renderLabPDF");
+        request.setParameter("segmentId", "44");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("labType", "HL7");
+        when(mockPatientLabRoutingDao.findByLabNoAndLabType(44, "HL7")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDocumentAttachmentManager);
     }
 
     @Test

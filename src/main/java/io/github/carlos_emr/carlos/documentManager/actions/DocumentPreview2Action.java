@@ -87,6 +87,8 @@ public class DocumentPreview2Action extends ActionSupport {
                         + "You can render it only after approving the listed issues, but the document may be incomplete."),
         HRM_RENDER_FAILED("hrm_render_failed", "Failed to render HRM PDF."),
         LAB_RENDER_FAILED("lab_render_failed", "Failed to render lab PDF."),
+        LAB_SOURCE_UNSUPPORTED("lab_source_unsupported",
+                "PDF preview is unavailable for this laboratory source. Open the original lab report."),
         FORM_RENDER_FAILED("form_render_failed", "Failed to render form PDF.");
 
         private final String code;
@@ -332,6 +334,14 @@ public class DocumentPreview2Action extends ActionSupport {
             return;
         }
         requirePrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, demographicNo);
+        // This renderer accepts HL7 segments only. Older clients omitted the source because
+        // this endpoint historically rendered HL7; an explicit other source must never fall back.
+        String labType = request.getParameter("labType");
+        if (labType != null && !"HL7".equals(labType)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, PreviewError.LAB_SOURCE_UNSUPPORTED);
+            return;
+        }
         resolveLabDemographicNoOrDeny(segmentId, demographicNo);
         try {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
@@ -710,9 +720,12 @@ public class DocumentPreview2Action extends ActionSupport {
     }
 
     private String resolveLabDemographicNoOrDeny(Integer segmentId, String requestedDemographicNo) {
-        PatientLabRouting patientLabRouting = patientLabRoutingDao.findDemographicByLabId(segmentId);
-        Integer demographicNo = patientLabRouting == null ? null : patientLabRouting.getDemographicNo();
-        return requireMatchingDemographicNo(demographicNo, requestedDemographicNo, "lab");
+        for (PatientLabRouting routing : patientLabRoutingDao.findByLabNoAndLabType(segmentId, "HL7")) {
+            if (requestedDemographicNo.equals(String.valueOf(routing.getDemographicNo()))) {
+                return requestedDemographicNo;
+            }
+        }
+        throw new SecurityException("lab does not match demographic");
     }
 
     private void requireFormBelongsToDemographic(LoggedInInfo loggedInInfo, Integer formId, String formName, Integer demographicNo) {

@@ -145,4 +145,36 @@ class DocumentAttachLabUnitTest extends CarlosUnitTestBase {
         verify(consultDocs, never()).persist(any());
         verify(consultDocs, never()).merge(any());
     }
+    @Test
+    void shouldRollbackBeforeDetaching_whenDocumentOwnershipValidationFails() {
+        consultOwner(42);
+        var info = mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        var access = createAndRegisterMock(AttachmentSelectionAccess.class);
+        ConsultDocs existing = new ConsultDocs(12, 7, "D", "provider");
+        when(consultDocs.findByRequestIdDocTypeForUpdate(12, "D")).thenReturn(List.of(existing));
+        when(access.validate(eq(info), eq(DocumentType.DOC), eq(42), any(), any()))
+                .thenThrow(new IllegalArgumentException("Attachment does not belong to this patient"));
+        DocumentAttach secured = new DocumentAttach(info, 42, false);
+        assertThatThrownBy(() -> secured.attachToConsult(new String[]{"8"}, DocumentType.DOC, "provider", 12))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(existing.getDeleted()).isNull();
+        verify(consultDocs, never()).persist(any());
+        verify(consultDocs, never()).merge(any());
+        verify(transactions).rollback(any());
+    }
+
+    @Test
+    void shouldPreserveRestrictedEformDocuments_withoutWriting() {
+        eformOwner(42);
+        var info = mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        var access = createAndRegisterMock(AttachmentSelectionAccess.class);
+        EFormDocs existing = new EFormDocs(12, 7, "D", "provider");
+        when(eformDocs.findByFdidIdDocTypeForUpdate(12, "D")).thenReturn(List.of(existing));
+        when(access.validate(info, DocumentType.DOC, 42, List.of("7"), List.of("7"))).thenReturn(false);
+        new DocumentAttach(info, 42, false).attachToEForm(new String[]{"7"}, DocumentType.DOC, "provider", 12);
+        verify(eformDocs, never()).persist(any());
+        verify(eformDocs, never()).merge(any());
+        assertThat(existing.getDeleted()).isNull();
+    }
+
 }

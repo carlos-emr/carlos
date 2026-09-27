@@ -370,7 +370,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        DocumentAttach documentAttach = new DocumentAttach(demographicNo, false);
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
@@ -398,7 +398,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, editOnOcean);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
@@ -422,7 +422,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
-        DocumentAttach documentAttach = new DocumentAttach(demographicNo, false);
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
     }
 
