@@ -96,7 +96,7 @@ class DocumentLinkUnitTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"example.org:8443/path", "localhost:8080/carlos", "127.0.0.1:443/", "[::1]:443/"})
+        @ValueSource(strings = {"example.org:8443/path", "localhost:8080/carlos", "LoCaLhOsT:8443/Path", "127.0.0.1:443/", "[::1]:443/"})
         void shouldAcceptSchemelessPort_forUnambiguousHost(String url) {
             assertThat(DocumentLink.normalizeUrl(url)).hasValue("https://" + url);
         }
@@ -151,7 +151,8 @@ class DocumentLinkUnitTest {
                 "http:example.org",
                 "https:///path-only", "https://:443", "https://user@", "https://user@:80/path",
                 "https://example.org:bad/path", "https://example.org:65536/path",
-                "https://example.org:-1/path", "https://[::1]:99999/", "https://example.org/\uD800"
+                "https://example.org:-1/path", "https://[::1]:99999/", "https://example.org/\uD800",
+                "localho\u017Ft:8443/path", "LOCALHO\u017FT:8443/path", "https://localho\u017Ft/path"
         })
         void shouldRejectUrl_forMalformedOrUnsafeCharacters(String url) {
             assertThat(DocumentLink.normalizeUrl(url)).isEmpty();

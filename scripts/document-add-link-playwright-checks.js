@@ -247,6 +247,8 @@ async function main() {
     ['opaque-digit', 'custom:123'], ['missing-host', 'https://:443/path'],
     ['empty-user-host', 'https://user@:80/path'], ['bad-port', `https://${PROBE_HOST}:bad/path`],
     ['large-port', `https://${PROBE_HOST}:65536/path`],
+    ['unicode-localhost-shorthand', 'localho\u017Ft:8443/path'],
+    ['unicode-localhost-host', 'https://localho\u017Ft/path'],
   ]) {
     refusals.push(await assertRejected(context, config, demographicNo, recorder,
       `${marker}-${label}`, url, label));

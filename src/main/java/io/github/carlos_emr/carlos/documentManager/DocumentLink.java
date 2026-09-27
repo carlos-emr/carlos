@@ -58,6 +58,9 @@ public final class DocumentLink {
     /** ASCII-only case matching avoids Unicode case folding in the scheme allowlist. */
     private static final Pattern WEB_SCHEME = Pattern.compile("https?", Pattern.CASE_INSENSITIVE);
 
+    /** Localhost shorthand uses the same ASCII-only matching as the scheme allowlist. */
+    private static final Pattern LOCALHOST = Pattern.compile("localhost", Pattern.CASE_INSENSITIVE);
+
     private DocumentLink() {
     }
 
@@ -122,7 +125,7 @@ public final class DocumentLink {
         int colon = candidate.indexOf(':');
         if (colon < 1) return false;
         String host = candidate.substring(0, colon);
-        if (!"localhost".equalsIgnoreCase(host) && host.indexOf('.') < 0) return false;
+        if (!LOCALHOST.matcher(host).matches() && host.indexOf('.') < 0) return false;
         int index = colon + 1;
         int portStart = index;
         while (index < candidate.length()) {
