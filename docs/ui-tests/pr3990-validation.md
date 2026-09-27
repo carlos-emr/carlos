@@ -51,3 +51,33 @@ clinical-freetext check (identified by its exact run stamp). Existing patient re
 were retained. The VM was stopped for every compile/package run; CPU/memory were
 limited during browser validation. Build hashes and complete logs are retained on the
 development machine in `work/pr3985-4000-evidence/`.
+
+## Follow-up review validation
+
+The follow-up also fixes #4040: save-on-switch previously removed the editor and
+recovery draft before the asynchronous save returned. It now waits for a saved-note
+acknowledgement, keeps controls/text on failure, and resumes navigation only after
+success. Pending issue refreshes defer the whole switch; the latest Save or Sign & Save
+choice replaces the queued action. A busy persistence request visibly prevents further
+changes. Empty/login HTTP 200 responses cannot replace the issue fields or count as saves.
+
+- Clean focused Java unit/integration run: 82 passed, zero failures/errors/skips.
+- Full Node suite: 1,060 passed; final save-order/failure-response regressions: 20 passed.
+- All 984 JSPs compile; WAR/Javadoc packaging passes.
+- All three DEBs built as `2026.08.0~alpha16~pr3990.7`; 6,679 packaged and installed
+  payload files match the tested output.
+- Installed modern/classic workflow: seven steps pass, including delayed save-on-switch,
+  Save followed by Sign & Save while both issue refreshes are held, and an intercepted
+  unacknowledged save followed by explicit retry. The failure control proves the editor,
+  typed text and issue fields survive and that no fixture note reaches persistence.
+- Application health, new-patient notes, Sign & Bill, and note-editor/autosave workflows
+  pass without failures or skips. Legacy textareas and literal recovery also pass.
+- A temporary authenticated rendering fixture included the installed selector JSP with
+  empty, zero and valid selections, plus no available programs. All four states pass;
+  available choices remain visible, the intended option is selected, and HTML-shaped
+  program labels render literally. The fixture was removed after the check.
+
+The review documentation, converter creation dates and test names are corrected.
+Infirmary layout tables are marked as presentational, obsolete font tags are removed,
+and the client-status selector has a visible label. These address the six Sonar
+reliability findings without changing the view's clinical content.
