@@ -89,3 +89,52 @@ The VM was stopped for compilation; local builds and browser checks ran serially
 Disk space was monitored and superseded packages removed. The VM was stopped after
 validation. No GitHub merge was performed. Final batch review and bot/CI convergence
 are tracked separately from these local validation results.
+
+## Follow-up review: concurrency, publication and visible errors
+
+- Corrected the coverage-plan row to describe separate provider disks and the R-button
+  regeneration flow. The browser check now also tests overlap refusal under a real external
+  POSIX lock. The application creates its persistent lock first through EMPTY's normal flow,
+  preserving application ownership; the test never creates a privileged replacement lock.
+- Fixed #4048 after both deterministic overlapping-operation regressions failed against the
+  prior code. A JVM guard and a filesystem lock now cover the entire export/regeneration
+  operation, including reads, rendering, publication, finalization and rollback. Requests
+  sharing HOME_DIR fail visibly before entering billing work while another operation owns it.
+  The empty lock inode is retained so processes cannot accidentally lock different inodes.
+- Completed output is written to an exclusive validated sibling, closed successfully and
+  atomically published. Existing POSIX permissions are preserved. Regeneration copies the
+  prior OHIP output without making its download disappear; rollback restores it atomically.
+  The public legacy `renameFile()` API retains its original move behavior for other callers.
+  Missing claim headers, batch headers or disk summaries now abort finalization explicitly.
+- Both rollback-path findings use `PathValidationUtils.getRequiredHomeDirectory()` and a
+  validated exact basename. Exclusive temporary siblings have a method-local FindSecBugs
+  explanation. Missing configuration, invalid directories, traversal, symlink locks,
+  partial/close-time write failures and rollback preservation are covered.
+- The first installed overlap check found a separate pre-existing error-message defect,
+  tracked in #4049: the interceptor published the handled exception only on the Struts
+  value stack while the billing page read a request attribute. The new regression failed
+  before the fix. Only package-handled exceptions now receive the explicit request attribute;
+  generic failures and authorization refusals remain private, with existing status/log behavior.
+
+Final validation:
+
+- **13,381 Java tests**, zero failures/errors, **51 existing skips**. The final focused billing
+  run passed **90 tests**, including real cross-JVM exclusion, release after failure, missing
+  finalization rows, retained downloads and file permissions. The full suite also verifies
+  the handled-message handoff and generic/refusal privacy. Changed Java coverage: **208/241 (86.3%)**.
+- **1,042 Node tests** passed, including real POSIX-lock lifetime/cleanup checks. BDD naming
+  passed across **277 files**; encoder, security-message and JSP taglib checks passed.
+  **982 JSPs**, WAR and Javadocs built successfully.
+- All three DEBs **2026.08.0~alpha16~pr3999.4** built with the VM stopped and installed on
+  Ubuntu 26.04. **6,671** tested/packaged/installed classes and web resources matched.
+- Installed OHIP checks pass without skips: blocked export allocates no disk and leaves the
+  claim unbilled; blocked regeneration preserves exact output and batch metadata; both display
+  the busy message. Normal ZERO/PAID exports, ZERO regeneration with EMPTY metadata, downloads,
+  summary/linkage assertions, NULL fields and EMPTY omission all pass.
+- Four neighboring workflows pass without skips: application health, Ontario submission,
+  flu billing and payment types. A local suite-wrapper reference to another PR's unavailable
+  check was corrected before running these existing checks; it required no application change.
+- Both installed runs preserved the original six billing-table checksums and configuration
+  fingerprint. The only new operational file is the empty persistent lock; original output
+  files were preserved and owned exports/backups/fixtures removed. Final installed verification
+  and health checks passed, NRestarts=0, VM disk had **4.5 GiB free**, and the VM was stopped.
