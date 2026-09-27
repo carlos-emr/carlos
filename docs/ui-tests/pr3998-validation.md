@@ -26,7 +26,30 @@ comes from Chitrank Davé's Open-O PRs #134/#186 (commits 62fc595f7 and baf8e88a
 
 ## Validation
 
-Final full-suite, package and installed browser results will be recorded after completion.
+- Full Java suite: 13,363 tests, zero failures/errors, 51 existing skips; focused DAO,
+  filter, view-model and bundle tests passed. Changed executable Java coverage: 33/33 (100%).
+- Node suite: 1,034 tests passed. BDD naming, security-message, encoder, JSP taglib and
+  i18n checks passed. All 982 JSPs compiled; WAR and Javadoc builds passed.
+- Built all three DEBs as `2026.08.0~alpha16~pr3998.4`, installed on Ubuntu 26.04,
+  and matched 6,671 packaged/installed classes and web files to tested output.
+- Installed service health and all four selected Playwright checks passed: application health,
+  unbilled reports, flu billing and third-party billing. The unbilled check completed all twelve
+  steps: eight ON/BC status combinations, omitted BC dates, provider management, and both calendars.
+- The matrix checks `t`, lowercase `c`, `N`, `C`, `B`, `NV` and `CS`; exact displayed/link times;
+  province and patient-name URL parameters; names containing apostrophes, ampersands and markup;
+  literal reason text with an inert image/event payload; and preservation of the report tab.
+  Billing/provider popups use neutral intercepted responses to test real clicks and URLs without
+  invoking a different province's editor. Date pickers load the real endpoint and return a selected
+  date to the real report form.
+- Third-party billing passed 30 assertions; its optional new-report Bill-link assertion reported
+  no eligible row in this dataset. The changed ON/BC report links are explicitly exercised by the
+  owned-fixture matrix. Flu billing passed all listed provider/year/mapping assertions.
+- Installed testing caught and corrected the BC Bill and Manage Provider anchors navigating the
+  report tab home. The calendar links shared the cause; the final checks verify both picker flows.
+  The harness also now waits for the popup's destination URL before reading it.
+- Cleanup verified removal of owned appointments, the synthetic patient and any owned report
+  provider row. An additional final query found zero test-name appointments. Original VM schema
+  and configuration were unchanged, and the VM was stopped. Builds and VM checks ran serially.
 
 ## Scanner review
 
