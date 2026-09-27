@@ -37,8 +37,8 @@ const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
-const NAME_SUFFIX = " O'Neil & <patient>";
-const REASON_SUFFIX = " <img src=x onerror=window.unbilledInjected=true> \"'&";
+const NAME_SUFFIX = " O'&<x>";
+const REASON_SUFFIX = " <img src=x onerror=window.x=true> \"'&";
 const FIXTURES = [
   { status: 't', label: 'todo' },
   { status: 'c', label: 'custom3' },
@@ -110,7 +110,7 @@ async function runReport(page, s, screen, date, scenario) {
     h.assert((await row.locator('td:nth-child(2)').innerText()).trim() === expectedTime, `${screen.name}: appointment time changed`);
     h.assert((await row.locator('td:nth-child(4)').innerText()).trim() === `${s.marker} ${label}${REASON_SUFFIX}`, `${screen.name}: reason text changed`);
     h.assert(await row.locator('img').count() === 0, `${screen.name}: reason rendered as HTML`);
-    h.assert(!await page.evaluate(() => window.unbilledInjected), `${screen.name}: reason script executed`);
+    h.assert(!await page.evaluate(() => window.x), `${screen.name}: reason script executed`);
     const link = row.locator('a').filter({hasText:'Bill'});
     // Capture popup arguments without navigating away or opening an unrelated billing schema.
     const captured = await link.evaluate(element => {
