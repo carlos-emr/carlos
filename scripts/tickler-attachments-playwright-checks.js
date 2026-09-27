@@ -382,11 +382,18 @@ async function postEditForm(page, fields) {
     // route it to this patient must be refused, and the stored lab must survive the attempt.
     const storedLab = live.find((row) => row.doctype === 'L');
     const wrongSource = storedLab.labType === 'HL7' ? 'MDS' : 'HL7';
+    const editState = () => JSON.stringify(db.rows(`SELECT status, priority, task_assigned_to, service_date, update_date,
+      (SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)}),
+      (SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${Number(ticklerNo)})
+      FROM tickler WHERE tickler_no=${Number(ticklerNo)}`));
+    const beforeRejectedEdit = editState();
     const wrongSourceRefused = await postEditForm(guardPage, {
-      method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
+      method: 'editTickler', ticklerNo, status: 'A', priority: 'Low', assignedToProviders: providerNo,
+      newMessage: `${stamp} rejected comment must roll back`,
       xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `${wrongSource}:${storedLab.documentNo}`,
     });
     assert(!/tickler-edit-ok/.test(wrongSourceRefused.text), 'edit action accepted a lab id under the wrong source');
+    assert(editState() === beforeRejectedEdit, 'rejected attachment edit saved fields, history or comment');
     assert(liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === storedLab.labType && row.documentNo === storedLab.documentNo),
       `stored lab was disturbed by the refused wrong-source POST: ${JSON.stringify(attachmentRows(ticklerNo))}`);
     // patientLabRouting also routes documents under DOC; a document id submitted as a DOC lab
