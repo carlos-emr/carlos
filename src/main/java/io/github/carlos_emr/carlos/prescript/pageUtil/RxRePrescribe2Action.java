@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -67,6 +68,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+
+    private static final SecureRandom STAGED_IDS = new SecureRandom();
 
     private static final String PRIVILEGE_READ = "r";
     private static final String PRIVILEGE_WRITE = "w";
@@ -378,58 +381,77 @@ public String saveDigitalSignature() throws IOException {
     return NONE;
 }
 
+    /** Render the prescribing workspace without replacing its staged prescriptions. */
+    public String viewPrescribing() throws IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
+            return null;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_READ,
+                String.valueOf(bean.getDemographicNo()))) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
+        return SUCCESS;
+    }
+
     public String saveReRxDrugIdToStash() throws IOException {
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
-            response.sendRedirect("error.html");
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
             return null;
         }
-        StringBuilder auditStr = new StringBuilder();
 
         RxPrescriptionData rxData = new RxPrescriptionData();
 
-        // String strId = (request.getParameter("drugId").split("_"))[1];
-        String strId = request.getParameter("drugId");
+        int drugId = parsePositiveInt(request.getParameter("drugId"));
+        if (drugId < 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid prescription identifier");
+            return null;
+        }
         try {
-            int drugId = Integer.parseInt(strId);
             // get original drug
-            RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            RxPrescriptionData.Prescription oldRx = rxData.getPrescriptionIfPresent(drugId);
+            if (oldRx == null || oldRx.getDemographicNo() != bean.getDemographicNo()) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return null;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
+                    String.valueOf(bean.getDemographicNo()))) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return null;
+            }
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = (long) STAGED_IDS.nextInt(1_000_001);
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
-            List<RxPrescriptionData.Prescription> listReRx = new ArrayList<Prescription>();
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
-            // add prescript to prescript list
-            if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                listReRx.add(rx);
-            }
             // save prescript to stash
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
 
-            auditStr.append(rx.getAuditString() + "\n");
-
-            // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+            MiscUtils.getLogger().error("Unable to stage prescription history item ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to stage prescription");
         }
         MiscUtils.getLogger().debug("================end saveReRxDrugIdToStash of RxRePrescribe2Action.java=================");
         return null;
@@ -461,19 +483,17 @@ public String saveDigitalSignature() throws IOException {
             try {
               	 rand = Long.parseLong(request.getParameter("rand"));
 	    }  catch (NumberFormatException e) {
-		rand = Math.round(Math.random() * 10001);
+		rand = (long) STAGED_IDS.nextInt(10_002);
             }
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
@@ -543,7 +563,7 @@ public String saveDigitalSignature() throws IOException {
 
         List<RxPrescriptionData.Prescription> listLongTerm = new ArrayList<Prescription>();
         for (int i = 0; i < listLongTermMed.size(); i++) {
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = (long) STAGED_IDS.nextInt(1_000_001);
 
             // loop this
             int drugId = listLongTermMed.get(i);
@@ -563,13 +583,11 @@ public String saveDigitalSignature() throws IOException {
             // give prescript a random id.
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
@@ -628,19 +646,17 @@ public String saveDigitalSignature() throws IOException {
         MiscUtils.getLogger().debug(reRxDrugList);
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
         for (String drugId : reRxDrugList) {
-            Long rand = Math.round(Math.random() * 1000000);
+            Long rand = (long) STAGED_IDS.nextInt(1_000_001);
             RxPrescriptionData rxData = new RxPrescriptionData();
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(Integer.parseInt(drugId));
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx);
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
-            MiscUtils.getLogger().debug("qText in represcribe2=" + qText);
             if (qText != null && RxUtil.isStringToNumber(qText)) {
             } else {
                 rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
                 rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
             }
-            MiscUtils.getLogger().debug("quantity, unitName represcribe2=" + rx.getQuantity() + "; " + rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
             if (RxUtil.isRxUniqueInStash(bean, rx)) {

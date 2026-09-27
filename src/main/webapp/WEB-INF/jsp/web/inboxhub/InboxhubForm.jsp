@@ -652,15 +652,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                 ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)
                 : false;
             if (handledInPlace) {
-                // Deliberately NO re-fetch. fetchInboxhubData re-runs the whole search from
+                // Deliberately NO full re-fetch. fetchInboxhubData re-runs the whole search from
                 // page 1 and replaces #inboxhubMode wholesale, which drops the clinician back
                 // at the top of a list they had scrolled into, discards every page after the
                 // first, and in preview mode reloads every card's iframe — one full lab
                 // render each. Acknowledging one item changes no other item, so nothing left
-                // on screen needs re-reading.
-                if (rapidReviewState) {
-                    openNextInboxItem();
-                }
+                // on screen needs re-reading. (While preview pages remain unloaded the helper
+                // has already asked for the one page the removal can have changed; see
+                // resyncInboxhubPreviewBoundary.) Rapid Review has advanced inside the helper
+                // too, once per item, so the popup's own window.opener call and this broadcast
+                // cannot open two results between them.
             } else {
                 // Two reasons to ask the server instead.
                 //
@@ -668,8 +669,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                 // be listing Acknowledged items, where this acknowledgement ADDS a row rather
                 // than removing one. Only the server can say which.
                 //
-                // OR PAGES REMAIN UNLOADED (dropAcknowledgedInboxhubItem reports false for
-                // that too), and then dropping the item in place is not enough.
+                // OR LIST MODE IS STILL LOADING (dropAcknowledgedInboxhubItem reports false for
+                // that too), and then dropping the row in place is not enough.
                 // The server pages by OFFSET, not by cursor: LabDataController turns the page
                 // number into `page - 1` and the DAOs multiply it out
                 // (HRMDocumentToProviderDao: `setFirstResult(page * pageSize)`). An
@@ -681,14 +682,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                 // The client cannot compensate for that shift. One page number drives three
                 // windows at two different page sizes (labs at 100 per page, documents and HRM
                 // at pageSize), so no arithmetic on it expresses "everything moved up by one
-                // item". Re-fetching re-syncs all three. Once hasMoreData is false no later
-                // page will ever be asked for, and only then is skipping the re-fetch safe --
-                // which is the state list mode reaches on its own, since it chains
-                // loadMoreListData until the whole result set is loaded.
+                // item". Re-fetching re-syncs all three. List mode chains loadMoreListData
+                // until the whole result set is loaded, so this is a state it leaves on its
+                // own within moments; preview mode, which pages only as the clinician scrolls
+                // and pays a full lab render per card, re-syncs the boundary page in place
+                // instead (see resyncInboxhubPreviewBoundary) and never reaches this branch
+                // for an item that was on screen.
                 fetchInboxhubData();
-                // When Rapid Review is on, open the next item after the refresh completes
+                // When Rapid Review is on, open the next item after the refresh completes. For
+                // an item that WAS on screen the helper has armed this already; this covers the
+                // item that was not (and the bare 'refresh' a patient match posts).
                 if (rapidReviewState) {
-                    pendingRapidReviewOpen = true;
+                    armPendingRapidReview(inboxhubResultSetGeneration);
                 }
             }
         };
@@ -760,29 +765,45 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     function removeInboxhubRow(segmentId, labType) {
         const rowEl = inboxhubItemElement(segmentId, labType);
-        if (rowEl.length === 0) { return false; }
+        if (rowEl.length === 0) {
+            // The remembered neighbours are deliberately left alone. This can be the broadcast
+            // for an item the popup's window.opener call already removed, or an older version
+            // in a lab's chain, which never has a row of its own and is reported after the
+            // version that did -- in both cases the neighbours remembered a moment ago are the
+            // ones Rapid Review must still open. An item that was never on screen forces a
+            // re-fetch, and resetDataPageCount() drops what is stale then.
+            return false;
+        }
         if (jQuery('#inbox_table').length > 0) {
+            // Remember the row that moves up into the acknowledged one's place BEFORE it
+            // goes — afterwards there is nothing left to ask — so Rapid Review can open the
+            // next result instead of the first row of the table. The DataTable renders its
+            // rows in display order and pages nothing (paging: false), so the next <tr> in
+            // the DOM is the row the clinician sees below this one, whatever the sort. The
+            // row above is remembered too: when the acknowledged row was the LAST one loaded
+            // its successor is not on screen yet, and "the row after the one above" is how it
+            // is found once it has arrived.
+            const row = rowEl.first();
+            rememberNextInboxhubItem(row.next('tr'), row.prev('tr'));
             jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
             markInboxhubItemHandled(segmentId, labType, rowEl);
             return true;
         }
         if (jQuery('#inboxViewItems').length > 0) {
-            // Remember the card that moves up into the acknowledged one's place BEFORE it
-            // goes — afterwards there is nothing left to ask — so Rapid Review can advance to
-            // the next result instead of scrolling back to the top of the list.
+            // Same reason as above: Rapid Review advances to the card that took the
+            // acknowledged one's place rather than scrolling back to the top of the list.
             const card = rowEl.first();
-            const following = card.next('.document-card');
-            nextInboxhubPreviewCard = following.length > 0 ? following : null;
+            rememberNextInboxhubItem(card.next('.document-card'), card.prev('.document-card'));
             card.remove();
             markInboxhubItemHandled(segmentId, labType, rowEl);
             // Nothing is topped up from the server here, and that is deliberate. A removal
             // can shorten the list past the point where #inboxViewItems scrolls, which is how
-            // preview mode asks for its next page -- but an item is only ever removed in place
-            // when the inbox ALREADY holds the whole result set (see
-            // dropAcknowledgedInboxhubItem), so there is no next page to ask for. While pages
-            // do remain, the acknowledgement re-syncs instead and that re-fetch repopulates
-            // the list. A top-up call here could therefore only ever fire in the case its own
-            // hasMoreData guard rejects, or start a request the re-sync immediately aborts.
+            // preview mode asks for its next page. Once the inbox holds the whole result set
+            // there is no next page to ask for; while pages remain, dropAcknowledgedInboxhubItem
+            // re-syncs the boundary page (resyncInboxhubPreviewBoundary), and that merge is
+            // what puts the item that shifted into the loaded window on screen. A top-up call
+            // here would either be rejected by its own hasMoreData guard or duplicate that
+            // re-sync's request.
             return true;
         }
         return false;
@@ -868,14 +889,82 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     function forgetHandledInboxhubItems() {
         handledInboxhubItems = Object.create(null);
+        advancedInboxhubItems = Object.create(null);
     }
 
     /**
-     * The card that took an acknowledged one's place, captured before its removal.
+     * The neighbours of an acknowledged item, captured before the removal.
      *
-     * Preview mode only; consumed by openNextInboxItem and cleared as it is read.
+     * Held as identities ({segmentId, labType}) and NOT as elements, because the elements
+     * may not survive to be opened: the DataTable redraws its rows after a removal, and on
+     * the re-fetch route the whole result set is replaced and the rows are rendered again,
+     * on whichever page they now land. Resolving the identities against the DOM at the moment
+     * of opening is what makes the same record serve both modes and both advance routes.
+     *
+     * The successor is what Rapid Review opens. The predecessor is the fallback for when the
+     * successor was not on screen at the time — the acknowledged item was the last one loaded
+     * — and is found again as "the item after the one above" once the next page, or the
+     * preview boundary re-sync, has rendered it. Both null when nothing was remembered, which
+     * is when Rapid Review falls back to the first row.
      */
-    var nextInboxhubPreviewCard = null;
+    var nextInboxhubItem = null;
+    var previousInboxhubItem = null;
+
+    /**
+     * Records the items on either side of the one about to be removed.
+     *
+     * @param {Object} following jQuery set holding the next row or card, possibly empty
+     * @param {Object} preceding jQuery set holding the previous row or card, possibly empty
+     */
+    function rememberNextInboxhubItem(following, preceding) {
+        nextInboxhubItem = inboxhubItemIdentity(following);
+        previousInboxhubItem = inboxhubItemIdentity(preceding);
+    }
+
+    /** The identity a rendered row or card carries, or null for an empty set or a malformed one. */
+    function inboxhubItemIdentity(element) {
+        if (!element || element.length === 0) { return null; }
+        const segmentId = element.attr('data-segment-id');
+        const labType = element.attr('data-lab-type');
+        return inboxhubItemKey(segmentId, labType) === null
+            ? null : { segmentId: String(segmentId), labType: String(labType) };
+    }
+
+    function forgetNextInboxhubItem() {
+        nextInboxhubItem = null;
+        previousInboxhubItem = null;
+    }
+
+    function hasRememberedNextInboxhubItem() {
+        return nextInboxhubItem !== null || previousInboxhubItem !== null;
+    }
+
+    /**
+     * The rendered element Rapid Review should advance to, or an empty set when it is not
+     * on screen (yet): nothing was remembered, the item sits on a page not loaded yet, or
+     * another window acknowledged it in the meantime.
+     *
+     * @param {string} kind 'tr' for list rows or '.document-card' for preview cards
+     */
+    function nextInboxhubElement(kind) {
+        if (nextInboxhubItem !== null) {
+            const next = inboxhubItemElement(nextInboxhubItem.segmentId, nextInboxhubItem.labType).filter(kind);
+            if (next.length > 0) { return next.first(); }
+        }
+        if (previousInboxhubItem !== null) {
+            const before = inboxhubItemElement(previousInboxhubItem.segmentId, previousInboxhubItem.labType).filter(kind);
+            if (before.length > 0) { return before.first().next(kind); }
+        }
+        return jQuery();
+    }
+
+    /** The link that opens the next item in LIST mode, or null when it is not rendered. */
+    function nextInboxhubListRowLink() {
+        const row = nextInboxhubElement('tr');
+        if (row.length === 0) { return null; }
+        const link = row.find('a');
+        return link.length > 0 ? link[0] : null;
+    }
 
     /**
      * The per-item bookkeeping key, or null when the message did not name a usable item.
@@ -985,14 +1074,222 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         countAcknowledgedInboxhubItem(segmentId, resolvedType, clearedCount);
         // Not "did THIS call remove something": the popup's direct window.opener route may
         // have removed it already, and that is just as much a reason to skip the re-fetch.
-        //
-        // The paging condition belongs HERE, in the contract, rather than in the caller. Two
-        // routes reach this function -- the BroadcastChannel listener, and labDisplay.jsp's
-        // dropFromInboxhubDirectly() for a browser without BroadcastChannel -- and a gate
-        // applied in one of them leaves the other reintroducing the page-boundary bug. What
-        // every caller actually needs to know is "is a re-sync still required", so that is
-        // what this answers. See the listener for why unloaded pages force one.
-        return isInboxhubItemHandled(segmentId, resolvedType) && !hasMoreData;
+        if (!isInboxhubItemHandled(segmentId, resolvedType)) { return false; }
+        // The paging condition belongs HERE, in the contract, rather than in the caller. Three
+        // routes reach this function -- the BroadcastChannel listener, labDisplay.jsp's
+        // dropFromInboxhubDirectly() for a browser without BroadcastChannel, and the legacy
+        // removeReport() opener entry point -- and a gate applied in one of them leaves the
+        // others reintroducing the page-boundary bug. What every caller actually needs to
+        // know is "is a full re-sync still required", so that is what this answers. Once
+        // hasMoreData is false no later page will ever be asked for, so no offset can be
+        // skipped. While pages remain, preview mode re-syncs the one page the removal can
+        // have changed and reports that nothing more is needed; list mode, still chaining its
+        // pages in, leaves the answer to the full re-fetch.
+        const settled = !hasMoreData || resyncInboxhubPreviewBoundary();
+        // Rapid Review is decided here for the same reason: whichever route delivered the
+        // acknowledgement, the clinician expects the next result to open. Settled in place,
+        // the next item is on screen and opens now -- at most once per item, because the
+        // opener call and the broadcast that follows it both land here. Not settled, the
+        // caller re-fetches (or list mode is still paging in on its own), and the advance
+        // follows the redraw that renders the remembered row.
+        if (rapidReviewState) {
+            if (settled) {
+                advanceRapidReviewOnce(segmentId, resolvedType);
+            } else {
+                // The caller's re-fetch is one resetDataPageCount() away; the advance is for
+                // the result set that reset brings, not for whatever the clinician searches
+                // for later.
+                armPendingRapidReview(inboxhubResultSetGeneration + 1);
+            }
+        }
+        return settled;
+    }
+
+    /**
+     * Items Rapid Review has already advanced past, keyed as handledInboxhubItems is.
+     *
+     * One acknowledgement reaches dropAcknowledgedInboxhubItem up to twice -- the popup's
+     * direct window.opener call and its broadcast -- and opening the next result twice would
+     * hand the clinician the successor and then, the remembered item being spent, the first
+     * row. Same lifetime as the handled record: a fetch replaces the screen and with it what
+     * "already advanced" was about.
+     */
+    var advancedInboxhubItems = Object.create(null);
+
+    /**
+     * Opens the next result for Rapid Review, once per acknowledged item.
+     */
+    function advanceRapidReviewOnce(segmentId, labType) {
+        const key = inboxhubItemKey(segmentId, labType);
+        if (key !== null) {
+            if (advancedInboxhubItems[key]) { return; }
+            advancedInboxhubItems[key] = true;
+        }
+        openNextInboxItem();
+    }
+
+    /**
+     * Bumped every time a fetch replaces the rendered result set, so a boundary re-sync that
+     * was in flight when the clinician changed the search cannot merge cards from the old
+     * query into the new list.
+     */
+    var inboxhubResultSetGeneration = 0;
+
+    /**
+     * Preview mode, pages still unloaded, one item just taken off screen: asks the server for
+     * the ONE page that removal can have changed, and merges the answer into the rendered
+     * cards without touching any of them.
+     *
+     * The server pages by offset (see the BroadcastChannel listener). Removing one result
+     * shifts every later result up a place, so the item that sat first on the next unloaded
+     * page now sits last on the last loaded one — and that is the only item on any loaded
+     * page that this window has not rendered. Every earlier page's window gains only an item
+     * that was already rendered from the page after it. Re-fetching the last loaded page is
+     * therefore a complete re-sync of what is on screen, at the cost of one card render
+     * instead of one per card; the full re-fetch it replaces re-rendered every iframe on the
+     * page and dropped every page after the first.
+     *
+     * Preview increments `page` after each page it appends, so the last loaded page is
+     * `page - 1`. A scroll-triggered fetch of the next page may be in flight at the same
+     * time; the merge de-duplicates by item identity, so whichever answer lands second adds
+     * nothing twice.
+     *
+     * @return {boolean} true when this is preview mode and the re-sync was started (or is
+     *                   moot), so the caller must NOT fall back to the full re-fetch; false in
+     *                   list mode, which still needs one
+     */
+    /**
+     * The boundary re-sync in flight, if any: its request and whether paging must resume once it
+     * has landed. A second acknowledgement while one is in flight re-syncs the same page and
+     * supersedes it, inheriting that answer.
+     */
+    var pendingBoundaryResync = null;
+
+    function resyncInboxhubPreviewBoundary() {
+        if (jQuery('#inboxViewItems').length === 0) { return false; }
+        // A next-page request already in flight may have been computed BEFORE the
+        // acknowledgement committed. Appended as it is, it would carry the pre-shift window
+        // while every later page is fetched post-shift, and the result on ITS far boundary
+        // would never be fetched by anyone. So it is withdrawn here, the boundary page is
+        // re-synced against what is actually on screen, and the same page is asked for again
+        // — post-shift — once the merge is done. (A response that has already landed needs
+        // nothing of the sort: it is then the last loaded page, and the page re-synced below.)
+        let resumePaging = false;
+        if (pendingBoundaryResync !== null) {
+            // An earlier re-sync of this same page has not answered yet; this one supersedes it.
+            const superseded = pendingBoundaryResync;
+            pendingBoundaryResync = null;
+            resumePaging = superseded.resumePaging;
+            superseded.request.abort();
+        } else if (isFetchingData && currentFetchRequest) {
+            currentFetchRequest.abort();
+            resumePaging = true;
+        }
+        const boundaryPage = page - 1;
+        if (boundaryPage < 1) {
+            isFetchingData = false;
+            if (resumePaging) { fetchInboxhubViewData(); }
+            return true;
+        }
+        // Held for the duration: the preview scroll handler starts the next page only while
+        // this is false, and a page appended in the middle of the merge could leave the
+        // shifted card with no rendered neighbour to sit beside. Paging resumes below once the
+        // merge has landed, when the clinician has scrolled to the end meanwhile.
+        isFetchingData = true;
+        const generation = inboxhubResultSetGeneration;
+        const url = inboxContextPath + "/web/inboxhub/Inboxhub?method=displayInboxView";
+        const request = jQuery.ajax({
+            url: url,
+            method: 'POST',
+            data: inboxSearchFormData + filter + "&page=" + boundaryPage + "&pageSize=" + pageSize,
+            success: function(data) {
+                settle();
+                if (generation !== inboxhubResultSetGeneration) { return; }
+                mergeInboxhubPreviewCards(data);
+                if (resumePaging || isInboxhubPreviewScrolledToEnd()) { fetchInboxhubViewData(); }
+            },
+            error: function(xhr, status) {
+                settle();
+                // The full re-fetch is the safe answer when the boundary page cannot be read:
+                // slower, but it never leaves a result unfetched. A Rapid Review advance still
+                // waiting on this page is carried over to the result set that re-fetch creates;
+                // armed for the current generation, the reset would otherwise drop it.
+                if (status !== 'abort' && generation === inboxhubResultSetGeneration) {
+                    if (pendingRapidReviewOpen) { armPendingRapidReview(inboxhubResultSetGeneration + 1); }
+                    fetchInboxhubData();
+                }
+            }
+        });
+        pendingBoundaryResync = { request: request, resumePaging: resumePaging };
+        // Releases the in-flight hold, unless a newer re-sync or a new result set owns it now.
+        function settle() {
+            if (pendingBoundaryResync !== null && pendingBoundaryResync.request === request) {
+                pendingBoundaryResync = null;
+            }
+            if (generation === inboxhubResultSetGeneration && pendingBoundaryResync === null) {
+                isFetchingData = false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether the preview list is scrolled to where its scroll handler would ask for the next page. */
+    function isInboxhubPreviewScrolledToEnd() {
+        const container = document.getElementById('inboxViewItems');
+        if (!container) { return false; }
+        return container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
+    }
+
+    /**
+     * Merges a re-fetched preview page into the cards already on screen.
+     *
+     * Cards already rendered are LEFT WHERE THEY ARE — moving an iframe in the DOM reloads
+     * its document, which is the very cost this exists to avoid — and only the cards the
+     * window has never shown are inserted, each next to the neighbour the server listed it
+     * beside so the page keeps the server's order. A card this window itself took off
+     * screen is not put back, even if a stale answer still lists it. The page's own scripts
+     * are not run: the only one that matters is the end-of-results flag, which is read off
+     * the parsed script elements instead.
+     *
+     * @param {string} data the HTML the server rendered for one preview page
+     */
+    function mergeInboxhubPreviewCards(data) {
+        const container = document.getElementById('inboxViewItems');
+        if (!container) { return; }
+        const parsed = new DOMParser().parseFromString(data, 'text/html');
+        const fetched = parsed.querySelectorAll('.document-card');
+        const entries = [];
+        fetched.forEach(function(card) {
+            const segmentId = card.getAttribute('data-segment-id');
+            const labType = card.getAttribute('data-lab-type');
+            if (inboxhubItemKey(segmentId, labType) === null) { return; }
+            const rendered = inboxhubItemElement(segmentId, labType).filter('.document-card');
+            entries.push({ card: card, segmentId: segmentId, labType: labType,
+                rendered: rendered.length > 0 ? rendered[0] : null });
+        });
+        entries.forEach(function(entry, at) {
+            if (entry.rendered !== null || isInboxhubItemHandled(entry.segmentId, entry.labType)) { return; }
+            let anchor = null;
+            for (let before = at - 1; before >= 0 && anchor === null; before--) {
+                if (entries[before].rendered !== null) { anchor = entries[before].rendered; }
+            }
+            if (anchor !== null) {
+                anchor.after(entry.card);
+            } else {
+                let following = null;
+                for (let next = at + 1; next < entries.length && following === null; next++) {
+                    if (entries[next].rendered !== null) { following = entries[next].rendered; }
+                }
+                if (following !== null) { following.before(entry.card); } else { container.append(entry.card); }
+            }
+            entry.rendered = entry.card;
+        });
+        // The page's scripts are not run, so its end-of-results statement is read off the
+        // parsed script elements — and only those: rendered patient text is never consulted.
+        const endOfResults = Array.prototype.some.call(parsed.querySelectorAll('script'),
+            function(script) { return /hasMoreData\s*=\s*false/.test(script.textContent || ''); });
+        if (endOfResults) { hasMoreData = false; }
+        settlePendingPreviewAdvance();
     }
 
     /**
@@ -1005,46 +1302,111 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         window.location.href = ctxPath + '/web/inboxhub/Inboxhub?method=displayInboxForm';
     }
 
-    // Flag set by BroadcastChannel listener to open the next item after data loads
+    /**
+     * Whether Rapid Review still owes the clinician the next result, and for which result set.
+     *
+     * Armed when the next item could not be opened at once: the caller is about to re-fetch
+     * (list mode still loading, or the item was not on screen), or preview is fetching the
+     * card that took the acknowledged one's place. The generation says which result set the
+     * advance belongs to, so resetDataPageCount() can tell the re-fetch it expects from a
+     * search the clinician makes later — the latter must not open a row of the new list.
+     */
     var pendingRapidReviewOpen = false;
+    var pendingRapidReviewGeneration = 0;
+
+    function armPendingRapidReview(generation) {
+        pendingRapidReviewOpen = true;
+        pendingRapidReviewGeneration = generation;
+    }
 
     /**
      * Rapid Review auto-advance, after the acknowledged item was dropped in place.
      *
      * Nothing is being re-fetched on this route, so the next item is already rendered and
-     * can be reached at once: the list opens its first row, and preview mode — where every
-     * card is rendered and there is no link to open — brings the card that took the
-     * acknowledged one's place into view. Scrolling to that card rather than to the first
-     * one is the point: the clinician stays where they were working.
+     * can be reached at once. In list mode that is the row that took the acknowledged
+     * one's place — NOT the first row of the table, which is where a clinician who started
+     * part-way down the list used to be sent back to — and only when nothing followed does
+     * this fall back to the top. Preview mode has no link to open, so it brings the card that
+     * took the acknowledged one's place into view instead; when that card is still on its way
+     * (the acknowledged one was the last loaded and the boundary re-sync is fetching its
+     * successor) the advance waits for the merge. Either way the clinician stays where they
+     * were working.
      */
     function openNextInboxItem() {
-        const nextLink = document.querySelector('#inbox_table tbody tr a');
-        if (nextLink) {
-            nextLink.click();
+        if (jQuery('#inbox_table').length > 0) {
+            const nextLink = nextInboxhubListRowLink() || document.querySelector('#inbox_table tbody tr a');
+            forgetNextInboxhubItem();
+            if (nextLink) {
+                nextLink.click();
+            }
             return;
         }
-        const nextCard = nextInboxhubPreviewCard;
-        nextInboxhubPreviewCard = null;
-        if (nextCard && nextCard.length > 0) {
+        const nextCard = nextInboxhubElement('.document-card');
+        if (nextCard.length > 0) {
+            forgetNextInboxhubItem();
             nextCard[0].scrollIntoView({ block: 'start' });
+            return;
+        }
+        if (hasMoreData && hasRememberedNextInboxhubItem()) {
+            armPendingRapidReview(inboxhubResultSetGeneration);
+        } else {
+            forgetNextInboxhubItem();
         }
     }
 
     /**
-     * Rapid Review auto-advance on the re-fetch route: opens the first item in the table.
+     * Rapid Review auto-advance on the re-fetch route, run after each list page is drawn.
      *
      * Only for the path that could not drop the item in place and asked the server for a
-     * fresh list. The acknowledged item is gone from that list, so its "first" row is
-     * effectively the next one to review. Waits for the DataTable draw event so the row is
-     * rendered, and in its final order, before clicking.
+     * fresh list. The row to open is the one that followed the acknowledged item, remembered
+     * before the re-fetch discarded the screen — or, when the acknowledged row was the last
+     * one loaded, the row after the one that preceded it; it is opened as soon as a drawn
+     * page holds it. The re-fetched list arrives one page at a time (labs 100 to a page,
+     * documents and HRM at pageSize), so a row from further down the inbox may not be on
+     * page one — this waits while pages remain, and falls back to the first row only once
+     * the whole result set is loaded and the row is genuinely gone (acknowledged from
+     * another window), or when nothing was remembered in the first place.
+     *
+     * Called from addDataInInboxhubListTable AFTER the DataTable has drawn, so the row it
+     * looks for is rendered and in its final order.
      */
-    function openNextInboxItemAfterDraw() {
-        jQuery('#inbox_table').one('draw.dt', function() {
-            var nextLink = document.querySelector('#inbox_table tbody tr a');
-            if (nextLink) {
-                nextLink.click();
-            }
-        });
+    function advancePendingRapidReview() {
+        if (!pendingRapidReviewOpen) { return; }
+        const nextLink = nextInboxhubListRowLink();
+        if (nextLink) {
+            pendingRapidReviewOpen = false;
+            forgetNextInboxhubItem();
+            nextLink.click();
+            return;
+        }
+        if (hasRememberedNextInboxhubItem() && hasMoreData) { return; }
+        pendingRapidReviewOpen = false;
+        forgetNextInboxhubItem();
+        const firstLink = document.querySelector('#inbox_table tbody tr a');
+        if (firstLink) {
+            firstLink.click();
+        }
+    }
+
+    /**
+     * Rapid Review auto-advance in preview mode once more cards have arrived — from the
+     * boundary re-sync or from the next page — for an acknowledged card whose successor was
+     * not on screen at the time. Scrolls to it if it is now rendered; gives up once nothing
+     * more will arrive.
+     */
+    function settlePendingPreviewAdvance() {
+        if (!pendingRapidReviewOpen || jQuery('#inboxViewItems').length === 0) { return; }
+        const nextCard = nextInboxhubElement('.document-card');
+        if (nextCard.length > 0) {
+            pendingRapidReviewOpen = false;
+            forgetNextInboxhubItem();
+            nextCard[0].scrollIntoView({ block: 'start' });
+            return;
+        }
+        if (!hasRememberedNextInboxhubItem() || !hasMoreData) {
+            pendingRapidReviewOpen = false;
+            forgetNextInboxhubItem();
+        }
     }
 
     // State variables preserved across inbox refreshes (the toolbar HTML inside
@@ -1185,16 +1547,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function addDataInInboxhubListTable(data) {
         if (page == 1) {
             jQuery("#inboxhubMode").html(data);
-            // Rapid Review auto-open: after acknowledging an item, open the next one
-            if (pendingRapidReviewOpen) {
-                pendingRapidReviewOpen = false;
-                openNextInboxItemAfterDraw();
-            }
             jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
             showInboxhubStats();
             restoreToolbarState();
             startInboxhubListProgress();
             updateInboxhubListProgress();
+            // Rapid Review auto-open: after acknowledging an item, open the next one. After the
+            // draw, so the row is rendered and in its final order; on every page, because the
+            // row may not be on this one.
+            advancePendingRapidReview();
             return;
         }
 
@@ -1216,6 +1577,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         }
 
         updateInboxhubListProgress();
+        advancePendingRapidReview();
     }
 
     /**
@@ -1239,6 +1601,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         } else {
             jQuery("#inboxViewItems").append(data);
         }
+        settlePendingPreviewAdvance();
     }
 
     function autoCompleteProvider() {
@@ -1272,11 +1635,28 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         if (currentFetchRequest) {
             currentFetchRequest.abort();  // Cancel the ongoing AJAX request
         }
+        if (pendingBoundaryResync !== null) {
+            // A boundary re-sync of the result set being discarded; its answer would be dropped
+            // by the generation check anyway, and it must not release the next fetch's hold.
+            const superseded = pendingBoundaryResync;
+            pendingBoundaryResync = null;
+            superseded.request.abort();
+        }
         jQuery("#inboxhubMode").empty();
         // The rendered result set is going away, so what this window took off screen is no
         // longer a statement about anything. See handledInboxhubItems for why the counted
         // record, whose totals survive the fetch, deliberately does NOT follow it here.
         forgetHandledInboxhubItems();
+        inboxhubResultSetGeneration++;
+        // A pending Rapid Review advance belongs to ONE result set: the re-fetch an
+        // acknowledgement asked for. That re-fetch is this very reset, and the advance was
+        // armed for the generation it creates. Any other reset is the clinician searching
+        // for something else, and the remembered neighbours of a row in the OLD list must
+        // not open a row of the new one.
+        if (!pendingRapidReviewOpen || pendingRapidReviewGeneration !== inboxhubResultSetGeneration) {
+            pendingRapidReviewOpen = false;
+            forgetNextInboxhubItem();
+        }
         page = 1;
         hasMoreData = true;
         isFetchingData = false;

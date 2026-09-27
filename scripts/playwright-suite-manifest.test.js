@@ -53,6 +53,25 @@ test('manifest entries are well formed and uniquely named', () => {
   }
 });
 
+test('a manual check runs only when named, never by tier or by default', () => {
+  const manual = checks.filter((check) => check.manual);
+  assert.ok(manual.length > 0, 'the packaged-install login check is manual');
+  for (const check of manual) {
+    assert.equal(check.manual, true, `${check.name}: manual must be the literal true`);
+    assert.ok(!check.runLast, `${check.name}: a manual check is not scheduled, so runLast means nothing`);
+    const everything = selectChecks(checks, parseArguments([]));
+    assert.ok(!everything.some((c) => c.name === check.name), `${check.name} leaked into the default run`);
+    for (const tier of check.tiers) {
+      const tiered = selectChecks(checks, parseArguments(['--tier', tier]));
+      assert.ok(!tiered.some((c) => c.name === check.name), `${check.name} leaked into --tier ${tier}`);
+    }
+    const named = selectChecks(checks, parseArguments(['--only', check.name]));
+    assert.deepEqual(named.map((c) => c.name), [check.name]);
+    const listed = selectChecks(checks, parseArguments(['--list']));
+    assert.ok(listed.some((c) => c.name === check.name), `${check.name} must stay discoverable in --list`);
+  }
+});
+
 test('standalone checks never require a database', () => {
   for (const check of checks.filter((entry) => entry.tiers.includes('standalone'))) {
     assert.equal(check.assertsDatabase, false,

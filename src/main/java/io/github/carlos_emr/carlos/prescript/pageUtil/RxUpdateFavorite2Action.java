@@ -68,9 +68,8 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         }
 
         // Setup variables
-        int favId = Integer.parseInt(this.getFavoriteId());
-
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        RxPrescriptionData.Favorite fav = findFavorite(this.getFavoriteId());
+        if (fav == null) return null;
 
         fav.setFavoriteName(this.getFavoriteName());
         fav.setCustomName(this.getCustomName());
@@ -93,15 +92,14 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String ajaxEditFavorite() {
+    public String ajaxEditFavorite() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
             throw new RuntimeException("missing required sec object (_rx)");
         }
 
         // Setup variables
-        int favId = Integer.parseInt(request.getParameter("favoriteId"));
-
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        RxPrescriptionData.Favorite fav = findFavorite(request.getParameter("favoriteId"));
+        if (fav == null) return null;
         String favName = request.getParameter("favoriteName");
         String customName = request.getParameter("customName");
         String takeMin = request.getParameter("takeMin");
@@ -147,6 +145,21 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return null;
     }
 
+
+    /** Resolve a positive favorite identity before applying any submitted fields. */
+    private RxPrescriptionData.Favorite findFavorite(String rawId) throws IOException {
+        int id;
+        try {
+            id = Integer.parseInt(rawId);
+            if (id <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException invalidId) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid prescription favorite identifier");
+            return null;
+        }
+        RxPrescriptionData.Favorite favorite = new RxPrescriptionData().getFavorite(id);
+        if (favorite == null) response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription favorite is unavailable");
+        return favorite;
+    }
 
     private String favoriteId = null;
     private String favoriteName = null;

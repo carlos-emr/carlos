@@ -31,10 +31,6 @@ Build-Depends:
 # (Ubuntu 26.04) scan both. Raise this only alongside a check of the
 # dh_installsystemd unit-directory scan.
  debhelper (>= 13.14.1~),
-# The package test gate renders the carlos-ctl(8) source with every groff
-# warning enabled before lintian's Ubuntu-specific man-db false positive is
-# overridden.
- groff-base,
  maven,
  openjdk-25-jdk-headless,
  tomcat11,
@@ -45,7 +41,9 @@ Build-Depends:
 # eForm renderer (debian/fetch-chromium.sh). Not needed when the
 # build supplies CHROMIUM_DIST or sets SKIP_EFORM_RENDERER.
  curl,
- unzip
+ unzip,
+# override_dh_auto_test parses every shipped OSCAR 19 manifest with python3
+ python3:any
 Standards-Version: 4.7.0
 Homepage: https://github.com/carlos-emr/carlos
 Vcs-Git: https://github.com/carlos-emr/carlos.git
@@ -85,17 +83,25 @@ Depends:
 # deb-systemd-invoke, used by the maintainer scripts so that policy-rc.d is
 # honoured in chroots and image builds.
  init-system-helpers (>= 1.54),
-# curl: the postinst readiness probe, `carlos-ctl check`, and the backup job's
-# failure webhook.
+# curl: the postinst readiness probe and the backup job's failure webhook.
  curl,
-# ss, for the listening-socket assertions in `carlos-ctl check`.
- iproute2,
-# ps, for the "no component runs as root" assertion in `carlos-ctl check`.
- procps,
-# python3-bcrypt hashes the replacement for the seeded administrator password
-# (bootstrap-admin) and the break-glass administrator import-o19 creates.
+# python3: the postinst parses the bind address with it, and the OSCAR 19
+# import guard (carlos-emr-o19-guard, consulted by the service unit on every
+# start) reads the import ledger with it.
  python3,
- python3-bcrypt,
+# The administration command: its own package from 2026.08.0~alpha16 (and
+# the 2026.09.0~snapshot25 developer build; carlos-emr/carlos-ctl). Through
+# 2026.08.0~alpha15 / snapshot24 the same code shipped inside this package.
+# The postinst calls db-rename-schema, init-config,
+# db-apply-settings, db-users, db-migrate, bootstrap-admin and demo-data, and
+# carlos-emr-provision.service calls finish-install --boot, so the floor is
+# the first carlos-ctl release that carries every one of those with the
+# calling convention this postinst uses. Plain Depends suffices: no package
+# here has a preinst, and dpkg configures a dependency before the depending
+# package's postinst runs (Policy 7.2). Raise the floor whenever this
+# package starts using a new verb or flag. carlos-ctl carries the
+# python3-bcrypt, iproute2, procps and jq the CLI itself needs.
+ carlos-ctl (>= 1.1.0),
  debconf (>= 0.5) | debconf-2.0,
 # --- eForm renderer (vendored Chromium under /usr/lib/carlos-emr/chromium) ---
 # Chromium's direct DT_NEEDED set, minus what the Essential/base system already
@@ -177,9 +183,7 @@ Recommends:
 # logrotate consumes /etc/logrotate.d/carlos-emr; without it the ModSecurity
 # audit log grows unbounded, so this is a strong recommendation rather than a
 # suggestion.
- logrotate,
-# jq makes `carlos-ctl waf tail` readable; it degrades to raw JSON without it.
- jq
+ logrotate
 Suggests:
  fail2ban,
  nftables
@@ -251,6 +255,9 @@ Depends:
 # mariadb-client (not -core) for the schema load; the -core package has the
 # client but not the tooling the rest of this deployment uses.
  mariadb-client (>= 1:11.4),
+# The postinst calls `carlos-ctl db-users`. Already pulled in through
+# carlos-emr, but named for visibility: the CLI is its own package.
+ carlos-ctl,
 # deb-systemd-invoke, to start MariaDB and to restart the shared Tomcat after
 # (un)deploying the DrugRef context.
  init-system-helpers (>= 1.54),
@@ -282,7 +289,11 @@ Architecture: all
 Section: oldlibs
 Depends:
  ${misc:Depends},
- carlos-emr (>= ${source:Version})
+ carlos-emr (>= ${source:Version}),
+# The pre-merge renderer's postrm (still run when a REMOVED old renderer is
+# purged) calls `carlos-ctl init-config`, guarded by `command -v carlos-ctl`.
+# Named for visibility: the CLI is its own package, pulled in via carlos-emr.
+ carlos-ctl
 Description: transitional package for the CARLOS EMR eForm renderer
  The headless Chromium renderer for CARLOS EMR eForm PDFs is now part of the
  carlos-emr package. This empty transitional package upgrades installations of

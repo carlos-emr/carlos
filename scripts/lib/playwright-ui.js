@@ -134,6 +134,8 @@ async function clickOpensPopup(page, locator, options = {}) {
   // Playwright page each and kept going, which is how a long run exhausts the
   // browser for a reason unrelated to anything it is testing.
   try {
+    // Named-window helpers can open about:blank before assigning the destination.
+    await popup.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await popup.waitForLoadState('domcontentloaded', { timeout });
     await popup.waitForLoadState('networkidle', { timeout }).catch(() => {});
     await assertNotErrorPage(popup, label);
@@ -198,6 +200,7 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     }
   }
   try {
+    await outcome.page.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await outcome.page.waitForLoadState('domcontentloaded', { timeout });
     await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
     await assertNotErrorPage(outcome.page, label, options);

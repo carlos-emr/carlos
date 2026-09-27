@@ -78,7 +78,7 @@ class CaseManagementCppSaveRegressionTest {
     void shouldRefreshUnresolvedIssues_afterCppSave() throws IOException {
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
 
-        int callbackStart = js.indexOf("function onIssueUpdate()");
+        int callbackStart = js.indexOf("function onIssueUpdate(complete)");
         assertThat(callbackStart).as("CPP issue update callback must exist").isGreaterThan(0);
         // Bound the slice by the next function declaration rather than by a specific
         // indentation of the closing brace, which a reformat would silently break.
@@ -96,7 +96,7 @@ class CaseManagementCppSaveRegressionTest {
                         + "encoded before #3422 and must stay that way")
                 .contains("encodeURIComponent(ctx + \"/encounter/displayIssues\")")
                 .contains("cmd=unresolvedIssues")
-                .contains("loadDiv('unresolvedIssueslist', reloadUrl, 0)");
+                .contains("loadDiv('unresolvedIssueslist', reloadUrl, 0,");
     }
 
     @Test
@@ -212,7 +212,7 @@ class CaseManagementCppSaveRegressionTest {
         String jsp = Files.readString(CASE_MGMT_ENTRY_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("${carlos:forHtmlContent(caseNote.note)}")
+                .contains("${carlos:forHtmlContent(caseManagementEntryForm.caseNote.note)}")
                 .doesNotContain("${caseNote.note}");
     }
 
