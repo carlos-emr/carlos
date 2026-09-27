@@ -74,7 +74,9 @@ public class EFormAttachDocs2Action extends ActionSupport {
      */
     @Override
     public String execute() throws ServletException, IOException {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // HTTP method tokens are case-sensitive (RFC 9110 §9.1), so a plain equals is the
+        // correct guard and keeps FindSecBugs IMPROPER_UNICODE out of the request path.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;

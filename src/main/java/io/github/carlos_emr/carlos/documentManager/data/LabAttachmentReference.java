@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 package io.github.carlos_emr.carlos.documentManager.data;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import java.util.List;
 import java.util.Locale;
@@ -11,6 +12,10 @@ public record LabAttachmentReference(String source, int id) {
     public static final String UNRESOLVED = "UNRESOLVED";
     public static final Set<String> SOURCES = Set.of("HL7", "MDS", "CML", "BCP");
 
+    // FindSecBugs IMPROPER_UNICODE: case folding of an internal/domain value (the lab source
+    // code is canonicalised and then restricted to the SOURCES allowlist); not a security or
+    // authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of an internal/domain value (lab source code canonicalised then restricted to the SOURCES allowlist); not a security or authorization decision")
     public LabAttachmentReference {
         if (source == null || id <= 0) throw new IllegalArgumentException("Invalid lab attachment");
         source = source.toUpperCase(Locale.ROOT);

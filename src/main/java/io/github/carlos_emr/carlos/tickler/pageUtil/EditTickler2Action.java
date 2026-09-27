@@ -363,7 +363,9 @@ public class EditTickler2Action extends ActionSupport {
 
     /** Reject safe-method requests before changing ticklers or suggested text. */
     private boolean requirePost() {
-        if ("POST".equalsIgnoreCase(request.getMethod())) {
+        // HTTP method tokens are case-sensitive (RFC 9110 §9.1): a plain equals is the correct
+        // guard, as in the other guarded actions, and keeps FindSecBugs IMPROPER_UNICODE out.
+        if ("POST".equals(request.getMethod())) {
             return true;
         }
         response.setHeader("Allow", "POST");
