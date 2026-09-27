@@ -381,22 +381,33 @@ public String saveDigitalSignature() throws IOException {
     public String saveReRxDrugIdToStash() throws IOException {
         MiscUtils.getLogger().debug("================in saveReRxDrugIdToStash  of RxRePrescribe2Action.java=================");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
-            response.sendRedirect("error.html");
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
             return null;
         }
-        StringBuilder auditStr = new StringBuilder();
 
         RxPrescriptionData rxData = new RxPrescriptionData();
 
-        // String strId = (request.getParameter("drugId").split("_"))[1];
-        String strId = request.getParameter("drugId");
+        int drugId = parsePositiveInt(request.getParameter("drugId"));
+        if (drugId < 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid prescription identifier");
+            return null;
+        }
         try {
-            int drugId = Integer.parseInt(strId);
             // get original drug
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            if (oldRx.getDemographicNo() != bean.getDemographicNo()) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return null;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
+                    String.valueOf(bean.getDemographicNo()))) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return null;
+            }
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx); // set writtendate, rxdate,enddate=null.
             Long rand = Math.round(Math.random() * 1000000);
@@ -415,21 +426,14 @@ public String saveDigitalSignature() throws IOException {
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
-            List<RxPrescriptionData.Prescription> listReRx = new ArrayList<Prescription>();
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
-            // add prescript to prescript list
-            if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                listReRx.add(rx);
-            }
             // save prescript to stash
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
 
-            auditStr.append(rx.getAuditString() + "\n");
-
-            // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+            MiscUtils.getLogger().error("Unable to stage prescription history item ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to stage prescription");
         }
         MiscUtils.getLogger().debug("================end saveReRxDrugIdToStash of RxRePrescribe2Action.java=================");
         return null;

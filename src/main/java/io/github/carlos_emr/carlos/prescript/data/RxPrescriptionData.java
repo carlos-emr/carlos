@@ -129,7 +129,7 @@ public class RxPrescriptionData {
         prescription.setShortTerm(drug.getShortTerm());
         prescription.setCustomNote(drug.isCustomNote());
         prescription.setPastMed(drug.getPastMed());
-        prescription.setDispenseInternal(drug.getDispenseInternal());
+        prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setStartDateUnknown(drug.getStartDateUnknown());
         prescription.setComment(drug.getComment());
         prescription.setPatientCompliance(drug.getPatientCompliance());
@@ -152,7 +152,7 @@ public class RxPrescriptionData {
             logger.warn("I strongly suspect something is wrong, either special is null or it appears to not contain anything useful. drugId={}, prescriptionSpecialLength={}, drugSpecialLength={}",
                     drugId, safeLength(prescriptionSpecial), safeLength(drugSpecial));
         }
-        prescription.setDispenseInternal(drug.getDispenseInternal());
+        prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setPharmacyId(drug.getPharmacyId());
         return prescription;
     }
@@ -313,6 +313,7 @@ public class RxPrescriptionData {
         p.setShortTerm(drug.getShortTerm());
         p.setCustomNote(drug.isCustomNote());
         p.setPastMed(drug.getPastMed());
+        p.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         p.setStartDateUnknown(drug.getStartDateUnknown());
         p.setComment(drug.getComment());
         p.setPatientCompliance(drug.getPatientCompliance());

@@ -24,6 +24,27 @@ import static org.mockito.Mockito.when;
 @DisplayName("Legacy prescription repeat defaults")
 class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
+    @CsvSource(nullValues = "NULL", value = {"true,NULL,false", "false,NULL,false", "true,false,false", "false,false,false", "true,true,true", "false,true,true"})
+    @DisplayName("should preserve internal dispensing flags and default missing legacy flags")
+    void shouldPreserveInternalDispensing_whenLoadingLegacyDrug(boolean byId, Boolean flag, boolean expected) {
+        Drug drug = new Drug();
+        drug.setId(27);
+        drug.setProviderNo("999998");
+        drug.setDemographicId(1);
+        drug.setSpecial("Synthetic drug: one tablet daily");
+        drug.setDispenseInternal(flag);
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.find(27)).thenReturn(drug);
+        registerMock(DrugDao.class, dao);
+
+        RxPrescriptionData data = new RxPrescriptionData();
+        RxPrescriptionData.Prescription result = byId ? data.getPrescription(27) : data.toPrescription(drug, 1);
+
+        assertThat(result.isDispenseInternal()).isEqualTo(expected);
+        assertThat(drug.getDispenseInternal()).isEqualTo(flag);
+    }
+
+    @ParameterizedTest
     @CsvSource(nullValues = "NULL", value = {"true,NULL,0", "false,NULL,0", "true,0,0", "false,0,0", "true,3,3", "false,3,3"})
     @DisplayName("should retain the repeat count or use zero when the database has no count")
     void shouldPreserveRepeatCount_whenLoadingLegacyDrug(boolean byId, Integer repeats, int expected) {
