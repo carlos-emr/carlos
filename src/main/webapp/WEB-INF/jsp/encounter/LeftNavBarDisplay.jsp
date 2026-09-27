@@ -195,8 +195,12 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         String div = navbarName.trim();
         int numItems = dao.numItems();
         String rawReloadURL = request.getParameter("reloadURL");
-        if (rawReloadURL == null) rawReloadURL = "";
-        StringBuilder reloadURL = new StringBuilder(rawReloadURL + "&reloadURL=" + rawReloadURL);
+        // Heading and reloadNav refreshes can omit reloadURL. Rebuild it from the
+        // display action so subsequent row popups never post to an empty path.
+        if (rawReloadURL == null || rawReloadURL.isBlank()) rawReloadURL = dao.getReloadUrl();
+        String reloadQuery = (rawReloadURL.contains("?") ? "&" : "?")
+                + "reloadURL=" + SafeEncode.forUriComponent(rawReloadURL);
+        StringBuilder reloadURL = new StringBuilder(rawReloadURL + reloadQuery);
         String strToDisplay = request.getParameter("numToDisplay");
         int numToDisplay;
         boolean xpanded = false;
@@ -206,7 +210,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
             numToDisplay = Integer.parseInt(strToDisplay);
             reloadURL.append("&numToDisplay=" + strToDisplay);
             if (numItems > numToDisplay) {
-                String xpandUrl = rawReloadURL + "&reloadURL=" + rawReloadURL + "&cmd=" + div;
+                String xpandUrl = rawReloadURL + reloadQuery + "&cmd=" + div;
                 manageItems = xpandUrl;
             }
         } else {

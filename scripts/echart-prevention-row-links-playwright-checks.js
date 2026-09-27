@@ -221,7 +221,7 @@ async function workflow(s) {
     const editor = await s.popup(chart, await rowWith(chart, recordNeedle(id)), 'prevention-rejection');
     const token = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const form = await editor.locator('form').filter({ has: editor.locator('#prevDate') }).evaluate(element => ({
-      action: element.action, entries: Array.from(new FormData(element).entries()),
+      action: new URL(element.getAttribute('action'), document.baseURI).href, entries: Array.from(new FormData(element).entries()),
     }));
     const before = JSON.stringify(sql.rows(`SELECT * FROM preventions WHERE demographic_no=${patient} ORDER BY id`));
     for (const [field, value] of [['demographic_no', child], ['id', '-1'], ['prevDate', '2026-02-30']]) {
@@ -264,7 +264,7 @@ async function workflow(s) {
     const editor = await s.popup(chart, await rowWith(chart, recordNeedle(childId)), 'prevention-merged-edit');
     const token = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const form = await editor.locator('form').filter({ has: editor.locator('#prevDate') }).evaluate(element => ({
-      action: element.action, entries: Array.from(new FormData(element).entries()),
+      action: new URL(element.getAttribute('action'), document.baseURI).href, entries: Array.from(new FormData(element).entries()),
     }));
     const body = new URLSearchParams(form.entries);
     body.set('prevDate', '2026-09');
