@@ -36,16 +36,21 @@ import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.Objects;
 
 public class AnonymousClientDischargeTask extends TimerTask {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    private AdmissionManager admissionManager;
+
+    /** Inject the service before the executor starts; do not depend on listener order. */
+    public void setAdmissionManager(AdmissionManager admissionManager) {
+        this.admissionManager = Objects.requireNonNull(admissionManager);
+    }
+
     public void run() {
         try {
-            AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-
             List<Admission> admissions = admissionManager.getActiveAnonymousAdmissions();
 
             for (Admission admission : admissions) {

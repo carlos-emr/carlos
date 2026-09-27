@@ -45,44 +45,46 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 
 <c:if test="${infirmaryView_isOscar != 'true'}">
 	<br>
-	<b>Program:</b>
+	<label for="bedprogram_no"><b>Program:</b></label>
 	<select id="bedprogram_no" name="bedprogram_no"
 		onchange="submitProgram(this,false)">
-		<%java.util.List programBean=(java.util.List)session.getAttribute("infirmaryView_programBeans");
-	String programId=(String)session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
-	if (programBean.size()==0 || programId.equalsIgnoreCase("0")){%>
+		<c:choose>
+        <c:when test="${empty infirmaryView_programBeans or empty infirmaryView_programId or infirmaryView_programId == '0'}">
 		<option value="0" selected>-No assigned program-</option>
-		<%}else{ %>
+		</c:when>
+        <c:otherwise>
 		<c:forEach var="pb" items="${infirmaryView_programBeans}">
 			<c:if test="${infirmaryView_programId == pb.value}">
-				<option value="<%=pb.getValue()%>" selected><%= pb.getLabel() %></option>
+				<option value="${carlos:forHtmlAttribute(pb.value)}" selected>${carlos:forHtml(pb.label)}</option>
 			</c:if>
 			<c:if test="${infirmaryView_programId != pb.value}">
-				<option value="<%=pb.getValue()%>"><%= pb.getLabel() %></option>
+				<option value="${carlos:forHtmlAttribute(pb.value)}">${carlos:forHtml(pb.label)}</option>
 			</c:if>
 		</c:forEach>
-		<%} %>
+		</c:otherwise>
+    </c:choose>
 	</select>
 </c:if>
 <c:if test="${infirmaryView_isOscar != 'false'}">
 	<br>
-		<b>Program:</b>
+		<label for="bedprogram_no"><b>Program:</b></label>
 		<select id="bedprogram_no" name="bedprogram_no"
 			onchange="submitProgram(this,true)">
-			<%java.util.List programBean=(java.util.List)session.getAttribute("infirmaryView_programBeans");
-	String programId=(String)session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
-	if (programBean.size()==0 || programId.equalsIgnoreCase("0")){%>
+			<c:choose>
+        <c:when test="${empty infirmaryView_programBeans or empty infirmaryView_programId or infirmaryView_programId == '0'}">
 			<option value="0" selected>-No assigned program-</option>
-			<%}else{ %>
+			</c:when>
+        <c:otherwise>
 			<c:forEach var="pb" items="${infirmaryView_programBeans}">
 				<c:if test="${infirmaryView_programId == pb.value}">
-					<option value="<%=pb.getValue()%>" selected><%= pb.getLabel() %></option>
+					<option value="${carlos:forHtmlAttribute(pb.value)}" selected>${carlos:forHtml(pb.label)}</option>
 				</c:if>
 				<c:if test="${infirmaryView_programId != pb.value}">
-					<option value="<%=pb.getValue()%>"><%= pb.getLabel() %></option>
+					<option value="${carlos:forHtmlAttribute(pb.value)}">${carlos:forHtml(pb.label)}</option>
 				</c:if>
 			</c:forEach>
-			<%} %>
+			</c:otherwise>
+    </c:choose>
 		</select>
 </c:if>
 

@@ -1537,7 +1537,7 @@
 
                                     <!-- caisi infirmary view extension add fffffffffffff-->
                                     <caisi:isModuleLoad moduleName="caisi">
-                                    <jsp:include page="infirmaryviewprogramlist.jspf"/>
+                                    <jsp:include page="infirmaryviewprogramlist.jsp"/>
                                 </td>
                             </tr>
                         </table>
