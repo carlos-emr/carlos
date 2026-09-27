@@ -75,7 +75,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -104,7 +103,6 @@
     }
 %>
 <%
-    boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
     String ticklerNoStr = request.getParameter("tickler_no");
 
     Integer ticklerNo = null;
@@ -250,6 +248,7 @@
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -350,41 +349,9 @@
                 if (btn) { btn.disabled = false; }
             }
 
-            function validateSelectedProgram() {
-                if (document.serviceform.program_assigned_to && document.serviceform.program_assigned_to.value === "none") {
-                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                    return false;
-                }
-                return true;
-            }
-
-            // Validation messages live in the #error alert. Every submit starts from an
-            // empty alert and renders only the failures of THIS attempt, one per line:
-            // appending (the old insertAdjacentText) piled the same message up on each
-            // retry and kept stale messages visible after the operator fixed the field.
-            // textContent on a per-message element keeps the bundle text inert markup.
-            function resetValidationMessages() {
-                var errorDiv = document.getElementById("error");
-                errorDiv.textContent = "";
-                errorDiv.style.display = "none";
-            }
-
-            function showValidationMessage(message) {
-                var errorDiv = document.getElementById("error");
-                var line = document.createElement("div");
-                line.className = "tickler-validation-message";
-                line.textContent = message;
-                errorDiv.appendChild(line);
-                errorDiv.style.display = "block";
-            }
-
             function validate(form) {
-                resetValidationMessages();
-                // Evaluate every validator (no short-circuit) so one submit reports
-                // every problem instead of revealing them one retry at a time.
-                var dateValid = validateDate(form);
-                var programValid = <%=caisiEnabled ? "validateSelectedProgram()" : "true"%>;
-                if (dateValid && programValid) {
+                CarlosTicklerValidation.reset();
+                if (validateDate(form)) {
                     // Disable update button to prevent double-submit
                     var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
                     if (btn) { btn.disabled = true; }
@@ -474,7 +441,7 @@
 
             function validateDate(form) {
                 if (form.xml_appointment_date.value === "" || !IsDate(form.xml_appointment_date.value)) {
-                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
+                    CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                     return false;
                 } else {
                     return true;
@@ -493,7 +460,7 @@
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
             </div>
-            <div id="error" class="alert alert-danger" style="display:none;"></div>
+            <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
 
             <%-- 1. Compact demographic card --%>
             <div class="demo-card">

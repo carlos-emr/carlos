@@ -62,9 +62,7 @@
 
     @since CARLOS EMR 2026
 --%>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
@@ -139,18 +137,6 @@
 
     Boolean writeToEncounter = false;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    Boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
-    Integer defaultProgramId = null;
-    List<ProgramProvider> programProviders = new ArrayList<ProgramProvider>();
-
-    if (caisiEnabled) {
-        ProgramProviderDAO programProviderDao = SpringUtils.getBean(ProgramProviderDAO.class);
-        programProviders = programProviderDao.getProgramProviderByProviderNo(loggedInInfo.getLoggedInProviderNo());
-        if (programProviders.size() == 1) {
-            defaultProgramId = programProviders.get(0).getProgram().getId();
-        }
-    }
-
     String parentAjaxId;
     if (request.getParameter("parentAjaxId") != null)
         parentAjaxId = request.getParameter("parentAjaxId");
@@ -212,6 +198,7 @@
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script>
         // i18n messages for JavaScript — encoded via SafeEncode.forJavaScript() to prevent XSS and broken JS strings
         const i18nQuickPickFrom = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' context="javaScriptBlock"/>';
@@ -438,34 +425,10 @@
             btns.forEach(function(b) { b.disabled = false; });
         }
 
-        // Validation messages live in the #error alert. Every submit starts from an
-        // empty alert and renders only the failures of THIS attempt, one per line:
-        // appending (the old insertAdjacentText) piled the same message up on each
-        // retry and kept stale messages visible after the operator fixed the field.
-        // textContent on a per-message element keeps the bundle text inert markup.
-        function resetValidationMessages() {
-            var errorDiv = document.getElementById("error");
-            errorDiv.textContent = "";
-            errorDiv.style.display = "none";
-        }
-
-        function showValidationMessage(message) {
-            var errorDiv = document.getElementById("error");
-            var line = document.createElement("div");
-            line.className = "tickler-validation-message";
-            line.textContent = message;
-            errorDiv.appendChild(line);
-            errorDiv.style.display = "block";
-        }
-
         function validate(form, writeToEncounter) {
             writeToEncounter = writeToEncounter || false;
-            resetValidationMessages();
-            // Evaluate every validator (no short-circuit) so one submit reports
-            // every problem instead of revealing them one retry at a time.
-            var demographicValid = validateDemoNo();
-            var programValid = <%= caisiEnabled ? "validateSelectedProgram()" : "true" %>;
-            if (demographicValid && programValid) {
+            CarlosTicklerValidation.reset();
+            if (validateDemoNo()) {
                 // Disable submit buttons to prevent double-submit
                 var btns = document.querySelectorAll('.action-bar-bottom .btn-primary, .action-bar-bottom .btn-secondary');
                 btns.forEach(function(b) { b.disabled = true; });
@@ -583,40 +546,30 @@
             }
         }
 
-        function validateSelectedProgram() {
-            if (document.serviceform.program_assigned_to.value === "none") {
-                showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                return false;
-            }
-            return true;
-        }
-
         function IsDate(value) {
             let dateWrapper = new Date(value);
             return !isNaN(dateWrapper.getDate());
         }
 
         function validateDemoNo() {
-            if (document.serviceform.demographic_no.value == "") {
-                showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' context="javaScriptBlock"/>');
-                return false;
-            } else {
-                if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
-                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
-                    return false;
-                }
-                <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
-                else if (!document.serviceform.task_assigned_to ||
-                         document.serviceform.task_assigned_to.options.length === 0 ||
-                         document.serviceform.task_assigned_to.value === "") {
-                    showValidationMessage('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
-                    return false;
-                }
-                <% } %>
-                else {
-                    return true;
-                }
+            var valid = true;
+            if (document.serviceform.demographic_no.value === "") {
+                CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' context="javaScriptBlock"/>');
+                valid = false;
             }
+            if (document.serviceform.xml_appointment_date.value === "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
+                CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
+                valid = false;
+            }
+            <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
+            if (!document.serviceform.task_assigned_to ||
+                    document.serviceform.task_assigned_to.options.length === 0 ||
+                    document.serviceform.task_assigned_to.value === "") {
+                CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
+                valid = false;
+            }
+            <% } %>
+            return valid;
         }
 
         function refresh() {

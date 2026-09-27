@@ -144,6 +144,18 @@ async function exerciseValidation(popup, { saveSelector, frameId, sentinelId, re
   h.assert(!(await popup.locator(SELECTORS.alert).isVisible()), `${label}: the alert was visible before any submit`);
 
   await date.fill('');
+  if (frameId === SELECTORS.addSavedMarker) {
+    const demographic = popup.locator('form[name="serviceform"] input[name="demographic_no"]').last();
+    const patient = await demographic.inputValue();
+    const missingPatient = bundleMessage('tickler.ticklerAdd.msgInvalidDemographic',
+      'Invalid demographic information, please verify!');
+    await demographic.evaluate((input) => { input.value = ''; });
+    for (let retry = 0; retry < 2; retry++) {
+      await popup.locator(saveSelector).first().click();
+      await assertMessages(popup, [missingPatient, missingDate], `${label} multiple errors attempt ${retry + 1}`);
+    }
+    await demographic.evaluate((input, value) => { input.value = value; }, patient);
+  }
   await popup.locator(saveSelector).first().click();
   await assertMessages(popup, [missingDate], `${label} first failed save`);
 
@@ -156,6 +168,22 @@ async function exerciseValidation(popup, { saveSelector, frameId, sentinelId, re
   await popup.locator(saveSelector).first().click();
   await waitForSaveSentinel(popup, frameId, sentinelId);
   await assertNoMessages(popup, `${label} valid save`);
+}
+
+/** Submit an owned form through the authenticated API context to test server validation independently. */
+async function postInvalidForm(context, popup, changes, expectedStatus, sentinel) {
+  const submission = await popup.locator('form[name="serviceform"]').evaluate((form) => ({
+    url: form.action,
+    fields: Object.fromEntries(new FormData(form)),
+  }));
+  h.assert(submission.fields['CSRF-TOKEN'], 'The tickler form has no CSRF token');
+  const response = await context.request.post(submission.url, {
+    form: { ...submission.fields, ...changes },
+    headers: { 'CSRF-TOKEN': submission.fields['CSRF-TOKEN'] },
+    maxRedirects: 0,
+  });
+  h.assert(response.status() === expectedStatus, 'Invalid tickler form returned an unexpected status');
+  h.assert(!(await response.text()).includes(sentinel), 'Invalid tickler form reported success');
 }
 
 async function workflow(s) {
@@ -172,8 +200,9 @@ async function workflow(s) {
     const rows = sql.rows(`SELECT tickler_no FROM tickler WHERE demographic_no=${patient}
       AND message=${h.sqlString(ticklerMessage)}`);
     for (const [id] of rows) {
-      sql.execute(`DELETE FROM tickler_comments WHERE tickler_no=${Number(id)}`);
-      sql.execute(`DELETE FROM tickler_update WHERE tickler_no=${Number(id)}`);
+      h.assert(/^[1-9]\d*$/.test(id), "Owned tickler ID is invalid");
+      sql.execute(`DELETE FROM tickler_comments WHERE tickler_no=${id}`);
+      sql.execute(`DELETE FROM tickler_update WHERE tickler_no=${id}`);
     }
     sql.execute(`DELETE FROM tickler WHERE demographic_no=${patient} AND message=${h.sqlString(ticklerMessage)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient}`) === '0',
@@ -197,6 +226,10 @@ async function workflow(s) {
       'the add popup did not open for the owned patient');
     await addPopup.locator('textarea[name="ticklerMessage"]').fill(ticklerMessage);
     await addPopup.locator('select[name="task_assigned_to"]').first().selectOption(provider);
+    await postInvalidForm(s.context, addPopup, { xml_appointment_date: '2026-02-29' }, 400, 'tickler-save-ok');
+    await postInvalidForm(s.context, addPopup, { xml_appointment_date: addDate, task_assigned_to: '' }, 400, 'tickler-save-ok');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient}`) === '0',
+      'A rejected add created a tickler');
     await exerciseValidation(addPopup, {
       saveSelector: SELECTORS.addSave,
       frameId: SELECTORS.addSavedMarker,
@@ -228,6 +261,16 @@ async function workflow(s) {
     await editPopup.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     h.assert(new URL(editPopup.url()).searchParams.get('tickler_no') === ticklerNo,
       'the edit popup opened a tickler other than the one this check saved');
+    const historyBefore = sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`);
+    await postInvalidForm(s.context, editPopup, {
+      xml_appointment_date: '2026-02-29', newMessage: 'rejected comment', status: 'C',
+    }, 200, 'tickler-edit-ok');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${ticklerNo}`) === '0',
+      'A rejected edit persisted a comment');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`) === historyBefore,
+      'A rejected edit changed history');
+    h.assert(sql.value(`SELECT CONCAT(DATE(service_date), ':', status) FROM tickler WHERE tickler_no=${ticklerNo}`) === `${addDate}:A`,
+      'A rejected edit changed the tickler');
     await exerciseValidation(editPopup, {
       saveSelector: SELECTORS.editSave,
       frameId: SELECTORS.editSavedMarker,

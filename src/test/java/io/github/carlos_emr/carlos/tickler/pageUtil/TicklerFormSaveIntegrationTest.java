@@ -1,0 +1,191 @@
+/*
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+package io.github.carlos_emr.carlos.tickler.pageUtil;
+
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+
+import java.util.Date;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+/** Regression coverage for rejected tickler saves and validation before entity mutation. */
+@Tag("integration")
+@Tag("tickler")
+class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
+    @Mock
+    private TicklerManager manager;
+    @Mock
+    private TicklerLinkDao linkDao;
+    private Tickler tickler;
+
+    @BeforeEach
+    void setUpForm() {
+        replaceSpringUtilsBean(TicklerManager.class, manager);
+        replaceSpringUtilsBean(TicklerLinkDao.class, linkDao);
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("demographic_no", "123");
+        mockRequest.setParameter("user_no", "999998");
+        mockRequest.setParameter("task_assigned_to", "999998");
+        mockRequest.setParameter("xml_appointment_date", "2026-03-04");
+        mockRequest.setParameter("ticklerNo", "456");
+        mockRequest.setParameter("status", "A");
+        mockRequest.setParameter("priority", "Normal");
+        mockRequest.setParameter("assignedToProviders", "999998");
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        tickler = new Tickler();
+        tickler.setId(456);
+        tickler.setDemographicNo(123);
+        tickler.setCreator("999998");
+        tickler.setTaskAssignedTo("999998");
+        tickler.setServiceDate(TicklerFormDate.parse("2026-03-04"));
+        tickler.setUpdateDate(new Date(1000));
+        when(manager.getTickler(mockLoggedInInfo, 456)).thenReturn(tickler);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "2026-02-29", "2026-13-01", "2026-03-04junk", "2026-3-4", "0000-01-01"})
+    void shouldRejectInvalidDate_withoutAddingTickler(String date) throws Exception {
+        setDate(date);
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(manager, never()).addTickler(any(), any());
+        verifyNoInteractions(linkDao);
+        assertThat(mockRequest.getAttribute("rowsAffected")).isNull();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "2026-02-29", "2026-13-01", "2026-03-04junk", "2026-3-4", "0000-01-01"})
+    void shouldRejectInvalidDate_withoutChangingExistingTickler(String date) {
+        setDate(date);
+        mockRequest.setParameter("newMessage", "must not persist");
+        mockRequest.setParameter("status", "C");
+        assertThat(editAction().editTickler()).isEqualTo("failure");
+        assertUnchanged();
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"status|", "status|Unknown", "priority|", "priority|urgent", "assignedToProviders|"}, delimiter = '|', nullValues = "NULL")
+    void shouldRejectInvalidEditFields_withoutChangingHistory(String field, String value) {
+        mockRequest.setParameter(field, value == null ? "" : value);
+        mockRequest.setParameter("newMessage", "must not persist");
+        assertThat(editAction().editTickler()).isEqualTo("failure");
+        assertUnchanged();
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"demographic_no|0", "demographic_no|-1", "user_no|", "task_assigned_to|"}, delimiter = '|')
+    void shouldRejectInvalidAddFields_withoutCallingManager(String field, String value) throws Exception {
+        mockRequest.setParameter(field, value == null ? "" : value);
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(manager, never()).addTickler(any(), any());
+    }
+
+    @Test
+    void shouldReportRejectedAdd_withoutUnboxingMissingIdOrLinking() throws Exception {
+        mockRequest.setParameter("docType", "document");
+        mockRequest.setParameter("docId", "12");
+        when(manager.addTickler(any(), any())).thenReturn(false);
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(linkDao);
+        assertThat(mockRequest.getAttribute("rowsAffected")).isNull();
+    }
+
+    @Test
+    void shouldReportMissingSavedId_asServerFailure() throws Exception {
+        when(manager.addTickler(any(), any())).thenReturn(true);
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(500);
+        assertThat(mockRequest.getAttribute("rowsAffected")).isNull();
+    }
+
+    @Test
+    void shouldRejectInvalidStoredTickler_beforeMutatingCommentsOrHistory() {
+        tickler.setCreator(null);
+        mockRequest.setParameter("newMessage", "must not persist");
+        assertThat(editAction().editTickler()).isEqualTo("failure");
+        assertUnchanged();
+    }
+
+    @Test
+    void shouldReportRejectedUpdate_withoutSuccessView() {
+        mockRequest.setParameter("xml_appointment_date", "2026-03-05");
+        when(manager.updateTickler(any(), any())).thenReturn(false);
+        EditTickler2Action action = editAction();
+        assertThat(action.editTickler()).isEqualTo("error");
+        assertThat(action.getActionErrors()).isNotEmpty();
+    }
+
+    @Test
+    void shouldPreserveOriginalTimestamp_whenAddingComment() {
+        mockRequest.setParameter("newMessage", "new comment");
+        when(manager.updateTickler(any(), any())).thenReturn(true);
+        assertThat(editAction().editTickler()).isEqualTo("close");
+        assertThat(tickler.getComments()).hasSize(1);
+        assertThat(tickler.getUpdates()).hasSize(1);
+        assertThat(tickler.getUpdates().iterator().next().getUpdateDate()).isEqualTo(new Date(1000));
+        verify(manager).updateTickler(mockLoggedInInfo, tickler);
+    }
+
+    @Test
+    void shouldAvoidInventingUpdates_whenFormIsUnchanged() {
+        assertThat(editAction().editTickler()).isEqualTo("close");
+        assertUnchanged();
+    }
+
+    @Test
+    void shouldSaveLeapDay_andReturnSuccessSentinel() throws Exception {
+        mockRequest.setParameter("xml_appointment_date", "2028-02-29");
+        when(manager.addTickler(any(), any())).thenAnswer(call -> {
+            Tickler saved = call.getArgument(1);
+            assertThat(saved.getServiceDate()).isEqualTo(TicklerFormDate.parse("2028-02-29"));
+            saved.setId(789);
+            return true;
+        });
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("rowsAffected")).isEqualTo(true);
+    }
+
+    private EditTickler2Action editAction() {
+        EditTickler2Action action = spy(new EditTickler2Action());
+        // CarlosWebTestBase supplies servlet/Spring state; it does not inject Struts' text provider.
+        doReturn("tickler.ticklerEdit.arg.error").when(action).getText("tickler.ticklerEdit.arg.error");
+        return action;
+    }
+
+    private void setDate(String date) {
+        if (date == null) {
+            mockRequest.removeParameter("xml_appointment_date");
+        } else {
+            mockRequest.setParameter("xml_appointment_date", date);
+        }
+    }
+
+    private void assertUnchanged() {
+        assertThat(tickler.getComments()).isEmpty();
+        assertThat(tickler.getUpdates()).isEmpty();
+        assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
+        assertThat(tickler.getServiceDate()).isEqualTo(TicklerFormDate.parse("2026-03-04"));
+        assertThat(tickler.getUpdateDate()).isEqualTo(new Date(1000));
+        verify(manager, never()).updateTickler(any(), any());
+    }
+}
