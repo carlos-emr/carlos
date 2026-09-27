@@ -662,3 +662,20 @@ test('unlink with no remaining providers clears the old assignment list', () => 
   assert.equal(container.textContent, '');
   assert.equal(children[0].textContent, 'No providers currently assigned');
 });
+
+test('assignment and unlink carry committed providers through the AJAX response normalizer', () => {
+  const env = demoAssignSetup({'data-inbox-inline': 'false'});
+  const children = [];
+  const container = element({textContent: 'OLD MRP', appendChild(node) { children.push(node); }});
+  env.elements.assignedProviders7 = container;
+  env.requests[0].success({success: true, message: 'Success', mrpRouted: true,
+    providers: [{id: 15, name: 'NEW MRP', signedOff: false, signedOffTimestamp: ''}]});
+  assert.equal(container.textContent, '');
+  assert.equal(children[0].nodeText, 'NEW MRP');
+  assert.deepEqual(env.reloads, [], 'the committed list is applied without reloading');
+
+  children.length = 0;
+  env.context.removeDemoFromHrm('7');
+  env.requests[1].success({success: true, message: 'Success', providers: []});
+  assert.equal(children[0].textContent, 'No providers currently assigned');
+});

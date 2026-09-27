@@ -34,7 +34,9 @@ function hrmResult(data, fallbackMessage) {
     // True only when a patient match also routed the report to the patient's MRP (Provider
     // Linking Rules). The provider list on this page is then stale.
     var mrpRouted = !!(data && data.mrpRouted === true);
-    return {success: success, message: message, clearedCount: clearedCount, mrpRouted: mrpRouted};
+    var providers = data && Array.isArray(data.providers) ? data.providers : undefined;
+    return {success: success, message: message, clearedCount: clearedCount, mrpRouted: mrpRouted,
+        providers: providers};
 }
 
 /**
