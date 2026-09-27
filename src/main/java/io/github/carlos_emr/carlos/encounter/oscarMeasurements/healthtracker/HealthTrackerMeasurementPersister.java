@@ -209,7 +209,7 @@ public class HealthTrackerMeasurementPersister {
             failures.add(new ValidationFailure("errors.invalid", List.of(label)));
         }
         if (!validation.isValidBloodPressure(regExp, value)) {
-            failures.add(new ValidationFailure("error.bloodPressure", List.of()));
+            failures.add(new ValidationFailure("errors.bloodPressure", List.of()));
         }
         if (!validation.isNumeric(numeric, value)) {
             failures.add(new ValidationFailure("errors.numeric", List.of(label)));
