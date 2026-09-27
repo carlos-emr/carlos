@@ -56,3 +56,22 @@ All three DEBs `2026.08.0~alpha16~pr3993.9` were installed on Ubuntu 26.04. Pack
 - `rx-fax-reprint-represcribe`: save, reprint and re-prescribe without duplicate persistence.
 
 Owned fixtures and the synthetic signature stamp were removed. Final health and installed hashes passed, automatic restarts remained zero, and the VM was stopped. Compilation and installed testing ran serially; the VM was stopped for every build. VM disk space finished at 4.5 GiB free.
+
+## Second review follow-up: stale history, satellite locale and preview completeness
+
+History staging now uses a single database lookup that can report an absent row. A missing or foreign-patient item returns 404 before the stash is changed; the existing prescription-loading API retains its contract. Both satellite address bundles in the page and the servlet's telephone/fax labels resolve the first supported browser language consistently. The binding regression exercises `Accept-Language: de-DE,fr` and confirms the French satellite block remains valid.
+
+Pharmacy preview lines now contain only trimmed, populated fields, with no empty contact labels or location separators. Values remain encoded and the pharmacy identifier is preserved. Node tests cover null, undefined, empty/whitespace, full contact data and hostile text. The strict browser negative-control test consumes the deliberate 404 first, then verifies each unrelated HTTP, console and runtime signal still fails the harness.
+
+Own review found #4051: prescription/patient/signature identifiers in servlet diagnostics, drug identifiers in history diagnostics, and clinical values in attached exceptions. Operational diagnostics now retain the reason and exception type without those identifiers, values or attached causes. Existing clinical audit calls remain unchanged. Tests capture formatted messages, event parameters and throwables across signature refusals, satellite fallback, missing instructions and invalid duration rendering.
+
+Validation:
+
+- Full Java suite: **13,423 tests, zero failures/errors, 51 skips**. Final focused suite: **162 passed**, including the real loader's one-lookup stale-history refusal and no stash interactions.
+- Full Node suite: **1,064 passed**. BDD naming (275 files), encoder, security-message, JSP taglib and locale checks passed.
+- All **982 JSPs**, WAR and Javadocs built. Changed executable Java lines: **151/162 (93.2%)**, with no unmapped files.
+- Built and installed all three DEBs `2026.08.0~alpha16~pr3993.10` on Ubuntu 26.04; **6,670** tested/packaged/installed files matched.
+- The installed legacy workflow passed five steps, including deletion of a history row after rendering its control, a visible 404 with no navigation, and unchanged staged prescription values after reopening the editor. Deleted-favorite recovery also passed.
+- Installed pharmacy-phone checks passed all three telephone cases, exact encounter-note/PDF readback and retry. The browser also verified omission of empty Email/Note labels and correct present/absent Tel labels. Reprint/re-prescribe passed.
+
+Six original clinical-table fingerprints matched before and after the browser runs. Owned fixtures and the synthetic stamp were removed. Final health and payload verification passed, automatic restarts remained zero, VM disk space was 4.4 GiB free, and the VM was stopped. Builds, installation and browser checks ran serially, with the VM stopped throughout compilation.
