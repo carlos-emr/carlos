@@ -1417,3 +1417,26 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### PR #3985 final review follow-up (2026-09-26)
+
+Built and installed all three `2026.08.0~alpha16~pr3985.11` DEBs on the local
+Ubuntu 26.04 VM after the Sonar and CodeRabbit follow-ups. All 6,675 tested
+class/resource/web-file hashes matched both the package and installed payload.
+The focused DAO, REST endpoint and merge-action suite passed 73 tests; all 1,062
+script tests passed, all 982 JSPs compiled, and WAR/Javadoc packaging passed.
+The prior full Java and broader appointment/receipt validation remains recorded
+in the PR review evidence; this follow-up changes only labels, a scoped query
+analysis suppression and rejection of zero-sized REST pages.
+
+The installed REST/search privacy browser check passed all 10 normal-mode steps
+and all 12 restricted-Caisi steps, including label associations and label-click
+activation, HTTP 400 for zero-sized pages, POST-only patient-term navigation,
+merged-result ordering/paging, unmerge return navigation, and program-domain
+filtering. A DAO regression verifies hostile-looking keywords across every
+merge search mode and hostile-looking provider IDs remain bound data; a stored
+literal containing SQL syntax still matches only its own patient.
+
+Original properties were restored byte-for-byte, owned fixtures removed, final
+package health passed, and the VM stopped. Compilation ran with the VM stopped;
+all local build and installed-test tasks ran serially.

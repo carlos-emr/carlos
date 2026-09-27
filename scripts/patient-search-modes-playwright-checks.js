@@ -29,17 +29,19 @@
  *      catches a search that quietly finds nothing -- the failure a "does the
  *      page render" check passes straight through.
  *
- * The modes do not share a matching rule, and that is the point: `hin` is an
- * exact match, `chart_no` and the name are prefix matches, `phone` and `address`
- * are substring matches, and `dob` is three independent prefix matches on the
- * year, month and day columns (DemographicDaoImpl). A check that assumed one
+ * The modes do not share a matching rule, and that is the point: `hin` is a
+ * prefix match, `chart_no` and the name are prefix matches, `phone` and `address`
+ * are substring matches, and `dob` matches year, month and day exactly, with
+ * omitted or whole-segment `%` wildcards (DobSearchPattern and DemographicDaoImpl).
+ * A check that assumed one
  * rule would pass on the mode it was written for and mean nothing on the rest.
  *
  * IT ALSO DRIVES REAL JAVASCRIPT, which is why it is a browser check and not an
  * HTTP one. checkTypeIn() lowercases a name search, rewrites a scanned health
- * card barcode into a HIN search, and refuses a short date of birth with an
- * alert(); searchInactive() and searchAll() rewrite the hidden ptstatus field
- * before submitting. None of that exists server-side.
+ * card barcode into a HIN search, and refuses malformed date-of-birth keywords
+ * with an alert() while allowing partial dates and whole-segment wildcards.
+ * searchInactive() and searchAll() rewrite the hidden ptstatus field before
+ * submitting. None of that exists server-side.
  *
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, the schedule's Search control,
  * then the form. Never by navigating to a search URL.
@@ -200,19 +202,60 @@ const MODES = [
   {
     name: 'search_dob',
     title: 'date of birth',
-    // THREE independent prefix matches, one per column, not a date comparison.
-    // The page's formatDateInput() reformats the digits into YYYY-MM-DD as the
-    // user types, and checkTypeIn() refuses anything shorter.
+    // THREE independent LIKE matches, one per column, not a date comparison.
+    // DobSearchPattern (issue #3956) turns YYYY[-MM[-DD]] into one bound value
+    // per column: digits exactly (month/day zero-padded), a typed or omitted
+    // segment as the % wildcard. See dobPredicate().
     columns: ['year_of_birth', 'month_of_birth', 'date_of_birth'],
     seedValue: (row) => `${row[0]}-${row[1]}-${row[2]}`,
-    predicate: (alias, value) => {
-      const [year, month, day] = String(value).split('-');
-      return `${alias}.year_of_birth LIKE ${sqlString(`${year}%`)}`
-        + ` AND ${alias}.month_of_birth LIKE ${sqlString(`${month}%`)}`
-        + ` AND ${alias}.date_of_birth LIKE ${sqlString(`${day}%`)}`;
-    },
+    predicate: (alias, value) => dobPredicate(alias, value),
+  },
+  {
+    // Same form mode, partial keyword: the year-month shape the 8-digit rule
+    // used to refuse in the browser and the 3-segment split used to refuse in
+    // the DAO.
+    name: 'search_dob',
+    title: 'date of birth (year and month)',
+    columns: ['year_of_birth', 'month_of_birth'],
+    seedValue: (row) => `${row[0]}-${row[1]}`,
+    predicate: (alias, value) => dobPredicate(alias, value),
+  },
+  {
+    // Same form mode, whole-segment wildcard: any month of a given year and day.
+    name: 'search_dob',
+    title: 'date of birth (any month)',
+    columns: ['year_of_birth', 'date_of_birth'],
+    seedValue: (row) => `${row[0]}-%-${row[1]}`,
+    predicate: (alias, value) => dobPredicate(alias, value),
   },
 ];
+
+/**
+ * The DOB rule, transcribed from DobSearchPattern.parse(): up to three hyphen
+ * segments, digits bound exactly (a one-digit month/day padded to two), and a
+ * "%" or omitted segment bound as the LIKE wildcard. Only the shapes this
+ * check seeds are modelled; anything else is refused rather than guessed at.
+ */
+function dobPredicate(alias, value) {
+  const segments = String(value).trim().replace(/-$/, '').split('-');
+  assert(segments.length >= 1 && segments.length <= 3,
+    `a date of birth search takes one to three segments; the seeded value had ${segments.length}`);
+  const [year, month = '%', day = '%'] = segments;
+  const bind = (segment, width) => (segment === '%' ? '%' : segment.padStart(width, '0'));
+  for (const [segment, pattern] of [[year, /^(\d{4}|%)$/], [month, /^(\d{1,2}|%)$/], [day, /^(\d{1,2}|%)$/]]) {
+    // The shape, never the value: the value is a patient's date of birth.
+    assert(pattern.test(segment), 'a seeded date of birth segment did not match the DOB search grammar');
+  }
+  for (const [segment, maximum] of [[month, 12], [day, 31]]) {
+    assert(segment === '%' || (Number(segment) >= 1 && Number(segment) <= maximum),
+      'a seeded date of birth segment did not match the DOB search grammar');
+  }
+  assert([year, month, day].some((segment) => segment !== '%'),
+    'an all-wildcard keyword did not match the DOB search grammar');
+  return `${alias}.year_of_birth LIKE ${sqlString(bind(year, 4))}`
+    + ` AND ${alias}.month_of_birth LIKE ${sqlString(bind(month, 2))}`
+    + ` AND ${alias}.date_of_birth LIKE ${sqlString(bind(day, 2))}`;
+}
 
 /** The app's definition of "active", as SQL for one table alias. */
 function activePredicate(alias, inactiveStatuses) {
@@ -385,7 +428,7 @@ async function checkMode(page, sql, mode, inactive, timeout) {
     + 'The one legitimate cause is the Caisi program-domain '
     + 'restriction, which narrows results to the provider\'s own programs; anything else is a defect.');
 
-  return { mode: mode.name, matched: shown.length };
+  return { mode: mode.name, title: mode.title, matched: shown.length };
 }
 
 /**
@@ -434,38 +477,48 @@ async function checkStatusScope(page, sql, inactive, timeout) {
 }
 
 /**
- * A short date of birth is refused in the browser, before any request is made.
+ * A malformed date of birth is refused in the browser, before any request is made.
  *
- * This is the one validation on this form that is client-only, so nothing
- * server-side would catch its loss. Without it a stray "2020" becomes a
- * year-prefix search that returns every patient born that year.
+ * Issue #3956 deliberately widened what is ACCEPTED: YYYY, YYYY-MM and
+ * YYYY-MM-DD, with % as a whole-segment wildcard, so "2020" is now a valid
+ * year search (the partial shapes are checked against SQL as their own modes
+ * above). What must still be refused is anything outside that grammar: an
+ * incomplete year would otherwise reach the server and silently find nothing,
+ * which reads to a clinician as "no such patient". The server parser
+ * (DobSearchPattern) refuses the same shapes, so this is feedback, not the
+ * only guard -- but losing it is still a usability regression worth catching.
  */
 async function checkDobValidation(page, timeout) {
-  const before = page.url();
-  // Through the strict wiring's ONE handler, not a second listener. Playwright
-  // delivers a dialog to every listener, so adding one alongside the strict
-  // handler does not replace it: the alert would still be recorded as an
-  // unexpected dialog and this check would fail its own assertStrictPage()
-  // precisely when the validation works. See withExpectedDialogs().
-  const dialogs = await withExpectedDialogs(page, async () => {
-    const { form, keyword } = await searchForm(page, timeout);
-    await form.locator('select[name="search_mode"]').first().selectOption('search_dob');
-    await keyword.fill('');
-    await keyword.type('2020', { delay: 15 });
-    await form.locator('input[type="submit"]').first().click({ timeout });
-    // No navigation is the assertion, so there is nothing to wait FOR. Give the
-    // handler a beat and then check the page did not move.
-    await page.waitForTimeout(750);
-  });
+  const refused = [];
+  for (const typed of ['198', '1980-13']) {
+    const before = page.url();
+    // Through the strict wiring's ONE handler, not a second listener. Playwright
+    // delivers a dialog to every listener, so adding one alongside the strict
+    // handler does not replace it: the alert would still be recorded as an
+    // unexpected dialog and this check would fail its own assertStrictPage()
+    // precisely when the validation works. See withExpectedDialogs().
+    const dialogs = await withExpectedDialogs(page, async () => {
+      const { form, keyword } = await searchForm(page, timeout);
+      await form.locator('select[name="search_mode"]').first().selectOption('search_dob');
+      await keyword.fill('');
+      await keyword.type(typed, { delay: 15 });
+      await form.locator('input[type="submit"]').first().click({ timeout });
+      // No navigation is the assertion, so there is nothing to wait FOR. Give the
+      // handler a beat and then check the page did not move.
+      await page.waitForTimeout(750);
+    });
 
-  assert(dialogs.length > 0,
-    'Typing a four-digit date of birth was accepted without complaint. checkTypeIn() is supposed to '
-    + 'refuse anything that is not YYYY-MM-DD; without it "2020" becomes a year-prefix search that '
-    + 'returns every patient born that year.');
-  assert(dialogs[0].type === 'alert', `Expected an alert() for a short date of birth, saw ${dialogs[0].type}`);
-  assert(page.url() === before,
-    'The form submitted anyway after warning about the date format, so the warning is cosmetic');
-  return { dialog: dialogs[0].type };
+    // The typed value is a fixed literal, not patient data, so naming it is safe.
+    assert(dialogs.length > 0,
+      `Typing the malformed date of birth "${typed}" was accepted without complaint. checkTypeIn() is `
+      + 'supposed to refuse anything that is not YYYY, YYYY-MM or YYYY-MM-DD (with % segments).');
+    assert(dialogs[0].type === 'alert',
+      `Expected an alert() for a malformed date of birth, saw ${dialogs[0].type}`);
+    assert(page.url() === before,
+      'The form submitted anyway after warning about the date format, so the warning is cosmetic');
+    refused.push(typed);
+  }
+  return { dialog: 'alert', refused: refused.length };
 }
 
 async function main() {
@@ -477,12 +530,14 @@ async function main() {
   const inactiveStatuses = inactive.length ? inactive : DEFAULT_INACTIVE_STATUSES;
 
   const modes = selected.length
-    ? selected.map((name) => {
-      const mode = MODES.find((candidate) => candidate.name === name);
+    ? selected.flatMap((name) => {
+      // Every variant of a form mode (search_dob has full, year-month and
+      // wildcard keyword shapes), not just the first entry with that name.
+      const variants = MODES.filter((candidate) => candidate.name === name);
       // A failure, not a skip: the name comes from the suite manifest, so a
       // typo would report SKIP forever and the mode would stop being checked.
-      assert(mode, `SEARCH_MODES names ${name}, which is not a search mode this page offers`);
-      return mode;
+      assert(variants.length > 0, `SEARCH_MODES names ${name}, which is not a search mode this page offers`);
+      return variants;
     })
     : MODES;
 
@@ -521,7 +576,7 @@ async function main() {
         results.push(await checkMode(page, sql, mode, inactiveStatuses, timeout));
       } catch (error) {
         if (error instanceof SkipCheck) {
-          skipped.push(`${mode.name}: ${error.message}`);
+          skipped.push(`${mode.title}: ${error.message}`);
           continue;
         }
         throw error;
