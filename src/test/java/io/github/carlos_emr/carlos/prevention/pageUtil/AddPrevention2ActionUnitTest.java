@@ -95,4 +95,36 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         data.verify(() -> PreventionData.deletePreventionData("100", "42"));
         verify(manager).removePrevention("42");
     }
+    @Test void shouldRejectMissingInteractiveDate_withoutWriting() throws Exception {
+        mockRequest.removeParameter("prevDate");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verifyNoInteractions();
+    }
+
+    @Test void shouldReportInvalidClinicalDate_withoutClearingCache() throws Exception {
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenThrow(new IllegalArgumentException("invalid date"));
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("form");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(manager);
+    }
+
+    @Test void shouldPreservePreviousRecordLink_whenUpdating() throws Exception {
+        mockRequest.setParameter("id", "100");
+        data.when(() -> PreventionData.updatetPreventionData(eq("100"), eq("999998"), eq("42"), eq("2026-09"),
+                any(), any(), any(), any(), any(), any(), argThat(extra -> extra.stream()
+                    .anyMatch(entry -> "100".equals(entry.get("previousId")))), any())).thenReturn(101);
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        verify(manager).removePrevention("42");
+    }
+
+    @Test void shouldRejectAnUnpersistedResult_withoutReportingSuccess() throws Exception {
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenReturn(-1);
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("form");
+        assertThat(mockResponse.getStatus()).isEqualTo(500);
+        verifyNoInteractions(manager);
+    }
+
 }

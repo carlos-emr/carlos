@@ -179,4 +179,16 @@ class PreventionDataWriteIntegrationTest extends CarlosTestBase {
         assertThat(extensionDao.findByPreventionId(id)).hasSize(1);
     }
 
+    @Test void shouldDeleteOnlyAnActiveRecordInTheRequestedChart() {
+        Integer id = insert("2026-09-01", extensions());
+        assertThatThrownBy(() -> PreventionData.deletePreventionData("" + id, "89003996"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(preventionDao.find(id).isDeleted()).isFalse();
+        PreventionData.deletePreventionData("" + id, "" + PATIENT);
+        assertThat(preventionDao.find(id).isDeleted()).isTrue();
+        assertThat(extensionDao.findByPreventionId(id)).hasSize(1);
+        assertThatThrownBy(() -> PreventionData.deletePreventionData("" + id))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
 }

@@ -19,6 +19,10 @@ The two checks added since, `echart-print-playwright-checks.js` and
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
 through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
 has not been re-run on a later snapshot.
+The current release-base validation for PR #3995 is recorded in
+[PR #3995 prevention validation](pr3995-validation.md). The following is the
+earlier port-validation record.
+
 `echart-prevention-row-links-playwright-checks.js` (issue #3975) was run on
 2026-09-26 against a 2026.09.0~snapshot24 package built from the
 `release/2026.08` port branch (DrugRef built from the pinned revision, pinned
