@@ -92,6 +92,22 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         if (!requirePost()) return NONE;
+        try {
+            return new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class))
+                    .execute(transaction -> {
+                        String result = editTicklerInTransaction(loggedInInfo);
+                        if (!"close".equals(result)) transaction.setRollbackOnly();
+                        return result;
+                    });
+        } catch (RuntimeException e) {
+            logger.error("Failed to commit tickler edit", e);
+            addActionError(getText("tickler.ticklerEdit.arg.error"));
+            return "error";
+        }
+    }
+
+    private String editTicklerInTransaction(LoggedInInfo loggedInInfo) {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         String ticklerNoStr = request.getParameter("ticklerNo");
@@ -103,7 +119,7 @@ public class EditTickler2Action extends ActionSupport {
         try {
             ticklerNo = Integer.parseInt(ticklerNoStr.trim());
         } catch (NumberFormatException e) {
-            logger.error("Invalid ticklerNo parameter: '{}'", ticklerNoStr);
+            logger.warn("Invalid ticklerNo parameter");
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
@@ -237,8 +253,8 @@ public class EditTickler2Action extends ActionSupport {
             }
         }
 
-        // Attachments are independent of the field/comment update: a user may change only the
-        // attachments. Synchronise only when the picker selection was actually submitted.
+        // A user may change only the attachments. Keep field, comment, history and attachment
+        // writes in one transaction, and synchronise only an explicitly submitted selection.
         if (TicklerAttachmentParameters.isSubmitted(request)) {
             try {
                 ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request));

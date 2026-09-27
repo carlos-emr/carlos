@@ -107,4 +107,24 @@ class AttachmentSelectionAccessUnitTest {
         assertThat(access.validate(info, DocumentType.LAB, 42, List.of("HL7:7"), List.of())).isTrue();
         verifyNoInteractions(documents, eforms, hrms, forms);
     }
+    @Test
+    void shouldUseConfiguredDocumentDao_whenLegacyAndMergedPatientBeansBothExist() {
+        var unusedLegacy = mock(DocumentDao.class);
+        try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.getBeanFactory().registerSingleton("documentDaoImpl", unusedLegacy);
+            context.getBeanFactory().registerSingleton("documentDao", documents);
+            context.getBeanFactory().registerSingleton("securityInfoManager", security);
+            context.getBeanFactory().registerSingleton("eFormDataDao", eforms);
+            context.getBeanFactory().registerSingleton("hrmDocumentToDemographicDao", hrms);
+            context.getBeanFactory().registerSingleton("formsManager", forms);
+            context.register(AttachmentSelectionAccess.class);
+            context.refresh();
+            owner(DocumentType.DOC, 42);
+            assertThat(context.getBean(AttachmentSelectionAccess.class)
+                    .validate(info, DocumentType.DOC, 42, List.of("7"), List.of())).isTrue();
+            verify(documents).findCtlDocsAndDocsByDocNo(7);
+            verifyNoInteractions(unusedLegacy);
+        }
+    }
+
 }

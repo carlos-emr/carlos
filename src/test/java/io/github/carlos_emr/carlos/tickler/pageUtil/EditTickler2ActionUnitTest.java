@@ -103,6 +103,9 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), (String) any()))
                 .thenReturn(true);
 
+        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenAnswer(call ->
+                new org.springframework.transaction.support.SimpleTransactionStatus());
         tickler = new Tickler();
         tickler.setId(42);
         tickler.setDemographicNo(1001);
@@ -199,4 +202,29 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("error");
     }
+    @Test
+    void shouldRollbackFieldsAndComment_whenAttachmentSaveFails() {
+        var dataSource = new org.h2.jdbcx.JdbcDataSource();
+        dataSource.setURL("jdbc:h2:mem:tickler-edit-" + java.util.UUID.randomUUID());
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        dataSource.setURL(dataSource.getURL() + ";DB_CLOSE_DELAY=-1");
+        jdbc.execute("CREATE TABLE edit_probe (id INT PRIMARY KEY, comment_count INT)");
+        jdbc.update("INSERT INTO edit_probe VALUES (42, 0)");
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class,
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
+        unchangedEditParameters();
+        request.setParameter("newMessage", "retry must not duplicate this comment");
+        request.setParameter("attachmentsSubmitted", "1");
+        request.setParameter("docNo", "11");
+        when(ticklerManager.updateTickler(any(), any())).thenAnswer(call -> {
+            jdbc.update("UPDATE edit_probe SET comment_count=comment_count+1 WHERE id=42");
+            return true;
+        });
+        doThrow(new IllegalArgumentException("Attachment does not belong to this patient"))
+                .when(ticklerAttachmentService).syncAttachments(any(), any(), any());
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        assertThat(jdbc.queryForObject("SELECT comment_count FROM edit_probe WHERE id=42", Integer.class)).isZero();
+        jdbc.execute("DROP ALL OBJECTS");
+    }
+
 }

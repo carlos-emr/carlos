@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Collection;
 import java.util.HashSet;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 /** Validates attachment selections while the caller holds the attachment parent's lock. */
 @Service
@@ -22,7 +23,8 @@ public class AttachmentSelectionAccess {
     private final HRMDocumentToDemographicDao hrms;
     private final FormsManager forms;
 
-    public AttachmentSelectionAccess(SecurityInfoManager security, DocumentDao documents,
+    public AttachmentSelectionAccess(SecurityInfoManager security,
+            @Qualifier("documentDao") DocumentDao documents,
             EFormDataDao eforms, HRMDocumentToDemographicDao hrms, FormsManager forms) {
         this.security = security;
         this.documents = documents;
