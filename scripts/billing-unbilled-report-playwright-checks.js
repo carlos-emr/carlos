@@ -195,6 +195,20 @@ async function workflow(s) {
     h.assert(response.status() === 200, 'BC report rejected omitted dates');
     await h.assertNotErrorPage(page, 'BC report omitted dates');
   });
+  await s.step('BC provider management keeps the report open', async () => {
+    const reportUrl = page.url();
+    const pattern = '**/oscarReport/ViewManageProvider?**';
+    await s.context.route(pattern, route => route.fulfill({status:200, contentType:'text/html', body:'<!doctype html><title>Provider link check</title>'}));
+    let popup;
+    try {
+      [popup] = await Promise.all([page.waitForEvent('popup'), page.getByRole('link', {name:'Manage Provider'}).click()]);
+      await popup.waitForURL(url => url.pathname.endsWith('/oscarReport/ViewManageProvider'), {waitUntil:'domcontentloaded'});
+      h.assert(page.url().split('#')[0] === reportUrl.split('#')[0], 'BC provider management navigated away from the report');
+    } finally {
+      if (popup) await popup.close();
+      await s.context.unroute(pattern);
+    }
+  });
   await page.close();
 }
 
