@@ -22,6 +22,7 @@
  */
 
 const { chromium } = require('playwright');
+const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -128,10 +129,7 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  // The stamp sits after the scoring text, so match it anywhere in the message.
-  const escapedStamp = escapeSql(`%${stamp}%`);
-  sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
-  sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp });
 }
 
 function getTicklerRows() {
