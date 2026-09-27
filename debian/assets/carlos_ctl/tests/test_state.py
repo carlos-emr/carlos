@@ -3714,6 +3714,31 @@ class TestTheBackupPhase(unittest.TestCase):
         self.assertIsNone(self.run_p3(ctx))
         self.assertEqual(self.units, [])
 
+    def test_resuming_a_skipped_backup_does_not_claim_a_snapshot_exists(self):
+        ctx = self.ctx(accepted={"no-pre-backup"})
+        self.assertIsNone(self.run_p3(ctx, configured=False))
+        self.assert_resume_backup_message(ctx, "WITHOUT a pre-import snapshot")
+
+    def test_resuming_an_acknowledged_backup_failure_preserves_the_warning(self):
+        ctx = self.ctx(accepted={"no-pre-backup"})
+        self.assertIsNone(self.run_p3(ctx, unit_rc=1))
+        self.assert_resume_backup_message(ctx, "WITHOUT a pre-import snapshot")
+
+    def test_resuming_a_successful_backup_reports_the_existing_snapshot(self):
+        ctx = self.ctx()
+        self.assertIsNone(self.run_p3(ctx))
+        self.assert_resume_backup_message(ctx, "pre-import snapshot already taken")
+
+    def assert_resume_backup_message(self, ctx, expected):
+        err = io.StringIO()
+        with mock.patch.object(o19import.HOST, "pre_import_backup") as backup, \
+                contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+            o19import.run_p3(ctx)
+        backup.assert_not_called()
+        self.assertIn(expected, err.getvalue())
+        if ctx["state"]["phases"]["backup"].get("skipped"):
+            self.assertNotIn("snapshot already taken", err.getvalue())
+
 
 class TestTheRollbackPointComesFirst(unittest.TestCase):
 
