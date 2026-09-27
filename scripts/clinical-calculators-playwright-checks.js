@@ -67,6 +67,7 @@
  * (docs/ui-tests/playwright-coverage-plan-2026.08.md).
  */
 
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const {
   assert, assertNotErrorPage, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
   wireStrictPage,
@@ -404,7 +405,7 @@ async function main() {
       + `fracture and ${coronary.refused.length} coronary age(s), and ${arithmetic.length} arithmetic sequence(s)`);
     return { fracture, coronary, arithmetic };
   } finally {
-    await browser.close().catch(() => {});
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
 }
 

@@ -181,6 +181,18 @@ body {
     min-height: 200px;
 }
 
+/* Until its image arrives a page reserves a letter-shaped box at the width the current zoom
+   renders at (set by documentAnnotate.js). A 200px placeholder let each loaded page push the
+   ones after it out of the lazy loader's window, so a jump to the end of a long fax showed
+   blank pages until the next scroll. */
+.page img.pending {
+    /* No percentage here: .page shrink-wraps its image, so 100% would resolve against the
+       placeholder itself. max-width above still keeps it inside a narrow window. */
+    width: min(var(--page-placeholder-width, 816px), 920px);
+    aspect-ratio: 8.5 / 11;
+    min-height: 0;
+}
+
 .page .overlay {
     position: absolute;
     inset: 0;

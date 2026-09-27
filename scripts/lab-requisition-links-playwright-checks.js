@@ -14,6 +14,7 @@ const {
 } = require('./lib/playwright-harness');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 
 async function main() {
   const config = readConfig();
@@ -43,22 +44,25 @@ async function main() {
     });
     const chart = await openChart(context, masterPage, recorder, 45000);
     await waitForNavbars(chart, 45000);
-    async function popupFrom(page, control, label) {
+    async function popupFrom(page, control, label, readySelector) {
       const pending = context.waitForEvent('page', { timeout: 45000 });
       pending.catch(() => {});
       await control.click();
       const popup = await pending;
       wireStrictPage(popup, label, recorder);
       await popup.waitForLoadState('domcontentloaded');
+      // The lab handoff can navigate again after its initial document loads.
+      // Wait for the destination's control before inspecting its body.
+      await popup.locator(readySelector).first().waitFor({ state: 'visible', timeout: 30000 });
       await assertNotErrorPage(popup, label);
       return popup;
     }
     const labLink = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: /URINALYSIS/i }).first();
     if (!await labLink.count()) throw new SkipCheck('need a linked demo Urinalysis report');
-    const lab = await popupFrom(chart, labLink, 'lab');
+    const lab = await popupFrom(chart, labLink, 'lab', 'input[value="Msg"]');
     const failures = [];
     try {
-      const compose = await popupFrom(lab, lab.locator('input[value="Msg"]').first(), 'lab-message');
+      const compose = await popupFrom(lab, lab.locator('input[value="Msg"]').first(), 'lab-message', '#subject');
       await compose.locator('#subject').waitFor({ state: 'visible', timeout: 30000 });
       assert(await compose.locator('input[name="demographic_no"]').inputValue() === demographicNo,
         'lab Msg composer lost its patient context');
@@ -66,7 +70,7 @@ async function main() {
       console.log('PASS lab Msg opens a composer for the report patient');
     } catch (error) { failures.push(`Msg: ${error.message}`); }
     try {
-      let request = await popupFrom(lab, lab.locator('input[title="Link to Requisition"]').first(), 'lab-requisition');
+      let request = await popupFrom(lab, lab.locator('input[title="Link to Requisition"]').first(), 'lab-requisition', 'select[name="linkReqId"]');
       const reportId = await request.locator('input[name="rptid"]').inputValue();
       const reportTable = await request.locator('input[name="table"]').inputValue();
       assert(/^\d+$/.test(reportId) && reportTable === 'hl7TextMessage', 'unexpected lab report identity');
@@ -91,7 +95,7 @@ async function main() {
         assert(saved.length === 1 && saved[0][0] === row.table && saved[0][1] === row.id && saved[0][2] === row.date,
           'link did not persist exactly the chosen requisition and date');
         await request.close();
-        request = await popupFrom(lab, lab.locator('input[title="Link to Requisition"]').first(), 'lab-requisition');
+        request = await popupFrom(lab, lab.locator('input[title="Link to Requisition"]').first(), 'lab-requisition', 'select[name="linkReqId"]');
         assert(await request.locator('select[name="linkReqId"]').inputValue() === value, 'reopened selector lost the saved link');
       }
       await request.locator('select[name="linkReqId"]').selectOption('-1');
@@ -117,7 +121,7 @@ async function main() {
         && /^You have started to edit this note in another window at [^\n]+\.\nDo you wish to continue\?$/.test(entry.text)));
     assertStrictPage(recorder);
   } finally {
-    try { if (browser) await browser.close(); }
+    try { if (browser) await closeBrowserWithChartCleanup(browser, config.baseUrl); }
     finally {
       try { if (ownedLinkWhere) sql.execute(`DELETE FROM labRequestReportLink WHERE ${ownedLinkWhere}`); }
       finally { sql.dispose(); }
