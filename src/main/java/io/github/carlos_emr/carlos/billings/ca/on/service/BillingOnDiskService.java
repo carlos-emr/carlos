@@ -419,8 +419,7 @@ public class BillingOnDiskService {
     }
 
     private static BillingFileWriteException uncertainCommit(RuntimeException cause) {
-        return new BillingFileWriteException("The database could not confirm the billing outcome. "
-                + "Generated files and rollback copies were retained. Reconcile the claims and OHIP output before retrying or submitting.", cause);
+        return BillingFileWriteException.forReason(BillingFileWriteException.Reason.UNCERTAIN_COMMIT, cause);
     }
 
     private static void cleanupNewFiles(List<OhipClaimFileService> htmlWriters,
@@ -445,8 +444,8 @@ public class BillingOnDiskService {
                 originalFailure.addSuppressed(restoreFailure);
             }
         }
-        if (incomplete) throw new BillingFileWriteException(
-                "Billing failed and some prior output could not be restored. Reconcile retained files before retrying or submitting.", originalFailure);
+        if (incomplete) throw BillingFileWriteException.forReason(
+                BillingFileWriteException.Reason.RESTORE_FAILED, originalFailure);
     }
 
     private record GroupDiskGeneration(String claimBody, List<OhipClaimFileService> writers) {

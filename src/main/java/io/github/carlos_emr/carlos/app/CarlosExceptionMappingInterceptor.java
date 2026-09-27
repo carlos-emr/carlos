@@ -72,10 +72,11 @@ import org.apache.struts2.interceptor.ExceptionMappingInterceptor;
  *   <li><b>A package's own typed mapping is left to the package.</b> All of the above applies to
  *       the generic {@value #ERROR_RESULT} and {@value #SECURITY_RESULT} results. A mapping to any
  *       other result (the billing package maps its validation, file-write and data-load exceptions
- *       to pages that render the exception's server-composed message) is that package handling an
- *       expected condition, not an unexpected failure: the exception is published to the value
- *       stack exactly as struts-default did so the page can read it, the status is left as the
- *       action set it, and the log gets one WARN line with the incident id and no message.</li>
+ *       to dedicated pages) is that package handling an expected condition. A safe copy with
+ *       fixed public guidance is published through the request and value stack, retaining known
+ *       billing types and a safe phase but no original message, context, filename, cause or stack.
+ *       The status is left as the action set it, and the log gets one WARN line with the incident
+ *       id and no message.</li>
  * </ul>
  *
  * <p>An exception no mapping covers is rethrown, exactly as before, and reaches the container's
@@ -124,10 +125,11 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
                 request.setAttribute(INCIDENT_ID_ATTRIBUTE, incidentId);
             }
             if (classification == Classification.HANDLED) {
-                // Package-owned pages read this explicit attribute. Struts 7 does not
-                // reliably resolve request.getAttribute through the value stack.
-                if (request != null) request.setAttribute("exception", e);
-                publishException(invocation, new ExceptionHolder(e));
+                // Both publication paths receive a safe copy. The original message, cause,
+                // filename and diagnostic context must never be reachable from the view.
+                Exception visible = PublicExceptionDetails.forView(e);
+                if (request != null) request.setAttribute("exception", visible);
+                publishException(invocation, new ExceptionHolder(visible));
                 return mapping.getResult();
             }
             if (response != null && !response.isCommitted()) {
@@ -145,7 +147,7 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
         REFUSAL,
         /** An unexpected failure mapped to the generic error page: 500, ERROR with the trace. */
         UNEXPECTED,
-        /** A typed exception the package maps to its own result: struts-default behaviour, WARN. */
+        /** A typed exception mapped to its own result: safe public copy, unchanged status, WARN. */
         HANDLED
     }
 
@@ -178,8 +180,8 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
         String exceptionType = e.getClass().getName();
 
         if (classification == Classification.HANDLED) {
-            // An expected condition the package renders itself; the message is the page's to show,
-            // not the log's. One line so the incident id still ties the page to the log.
+            // An expected condition rendered with fixed public guidance. One line keeps the
+            // incident id tied to the original exception type without exposing its message.
             LOGGER.warn("Handled {} [incident {}] in action {} ({} {}) provider={}",
                     exceptionType, incidentId, actionName, method, path, provider);
         } else if (classification == Classification.REFUSAL) {

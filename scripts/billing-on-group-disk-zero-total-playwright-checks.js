@@ -51,7 +51,7 @@ const os = require('node:os');
 const { randomBytes } = require('node:crypto');
 const { withOhipTestLock } = require('./lib/ohip-test-lock');
 const {
-  SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner,
+  SkipCheck, appUrl, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner,
   gotoApp, launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage, withExpectedDialogs,
 } = require('./lib/playwright-harness');
 
@@ -287,6 +287,7 @@ async function generateProviderDisk(context, config, recorder, window, providerN
   await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
   if (expectBusy) {
     assert((await page.locator('body').innerText()).includes('already in progress'), 'Overlapping export did not show the busy error');
+    assert((await page.locator('body').innerText()).includes('Incident reference:'), 'Missing busy-operation incident reference');
     return page;
   }
   await assertNotErrorPage(page, 'OHIP diskette page after Create Report');
@@ -325,6 +326,24 @@ async function main() {
     await login(context, config, recorder);
     // Let the application create its own lock inode before the external-lock checks.
     const emptyPage = await generateProviderDisk(context, config, recorder, window, EMPTY.providerNo);
+    const tokenInput = emptyPage.locator('form[name="form1"] input[name="CSRF-TOKEN"]');
+    await tokenInput.waitFor({ state: 'attached' });
+    const csrfToken = await tokenInput.inputValue();
+    const privateInput = `PRIVATE_PATIENT_${randomBytes(8).toString('hex')}`;
+    const diagnosesBefore = db.value('SELECT COUNT(*) FROM dxresearch');
+    const rejected = await context.request.post(appUrl(config.baseUrl, '/billing/CA/ON/ViewBillingONReview'), {
+      headers: { 'CSRF-TOKEN': csrfToken },
+      form: { 'CSRF-TOKEN': csrfToken, addToPatientDx: 'yes', demographic_no: privateInput, dxCode: '401' },
+      maxRedirects: 0,
+    });
+    assert(rejected.status() === 200, `Mapped billing rejection answered HTTP ${rejected.status()}`);
+    const rejectionHtml = await rejected.text();
+    assert(rejectionHtml.includes('Billing information could not be validated.'), 'Missing public validation guidance');
+    assert(rejectionHtml.includes('Incident reference:'), 'Missing validation incident reference');
+    assert(!rejectionHtml.includes(privateInput), 'Billing rejection disclosed the submitted private value');
+    assert(!rejectionHtml.includes('NumberFormatException'), 'Billing rejection disclosed its internal cause');
+    assert(db.value('SELECT COUNT(*) FROM dxresearch') === diagnosesBefore, 'Rejected billing input wrote a diagnosis');
+    console.log('  Rejected billing input: fixed public guidance, incident reference, no private value or diagnosis write');
     await emptyPage.close();
     await withOhipTestLock(diskDir, async () => {
       const blocked = await generateProviderDisk(context, config, recorder, window, ZERO.providerNo, true);
@@ -391,6 +410,7 @@ async function main() {
           await page.waitForLoadState('domcontentloaded');
           if (expectBusy) {
             assert((await page.locator('body').innerText()).includes('already in progress'), 'Overlapping regeneration did not show the busy error');
+            assert((await page.locator('body').innerText()).includes('Incident reference:'), 'Missing busy-operation incident reference');
           } else {
             await assertNotErrorPage(page, 'Regenerated OHIP disk');
             assert(await page.locator('form[name="form1"]').count() === 1, 'Regeneration returned the failure page');

@@ -38,3 +38,23 @@ test('missing application lock prevents the check without creating a root-owned 
     fs.rmSync(directory, { recursive: true });
   }
 });
+
+
+test('the real POSIX lock remains held beyond the former 60-second child lifetime', { timeout: 90000 }, async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ohip-long-lock-'));
+  const filename = path.join(directory, '.carlos-ohip-disk.lock');
+  fs.writeFileSync(filename, '');
+  const probe = () => spawnSync('python3', ['-c',
+    'import fcntl,sys\nwith open(sys.argv[1], "r+") as f: fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)\n',
+    filename], { timeout: 5000 });
+  try {
+    await withOhipTestLock(directory, async () => {
+      assert.equal(probe().status, 1);
+      await require('node:timers/promises').setTimeout(62000);
+      assert.equal(probe().status, 1, 'the lock must stay held until the operation finishes');
+    });
+    assert.equal(probe().status, 0, 'the lock must be released after the operation');
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});

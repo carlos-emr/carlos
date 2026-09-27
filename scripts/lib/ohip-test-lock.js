@@ -8,7 +8,7 @@ const path = require('node:path');
 async function withOhipTestLock(directory, operation) {
   const child = spawn('python3', ['-c',
     'import fcntl,sys\nwith open(sys.argv[1], "r+") as lock:\n fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)\n print("LOCKED", flush=True)\n sys.stdin.read()\n',
-    path.join(directory, '.carlos-ohip-disk.lock')], { stdio: ['pipe', 'pipe', 'pipe'], timeout: 60000 });
+    path.join(directory, '.carlos-ohip-disk.lock')], { stdio: ['pipe', 'pipe', 'pipe'] });
   const closed = new Promise(resolve => {
     child.once('error', error => resolve({ error }));
     child.once('close', (code, signal) => resolve({ code, signal }));
@@ -31,7 +31,11 @@ async function withOhipTestLock(directory, operation) {
     failure = error;
   } finally {
     child.stdin.destroy();
+    // Limit shutdown only. The lock must outlive any supported browser operation.
+    const shutdown = setTimeout(() => child.kill('SIGKILL'), 5000);
+    shutdown.unref();
     const exit = await closed;
+    clearTimeout(shutdown);
     if (exit.error || exit.code !== 0) {
       const cleanup = new Error('OHIP test lock process failed', { cause: exit.error });
       if (failure) failure = new AggregateError([failure, cleanup], 'OHIP check and lock cleanup failed', { cause: failure });
