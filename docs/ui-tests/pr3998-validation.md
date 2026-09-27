@@ -59,3 +59,27 @@ fixture uses the harness SQL string encoder and validated positive integer IDs; 
 contract reads only four literal repository-relative paths, with no request input. These
 scanner warnings do not identify an injection or traversal path. New deprecated markup and
 the nonconventional new DAO method name were corrected rather than suppressed.
+
+## Follow-up review validation
+
+- Replaced the browser row's dynamic regular expression with an exact literal accessible
+  cell-name selector. Fixture names now include `.[]` as well as apostrophes, ampersands
+  and markup; the longest fixture remains within the appointment-name column limit.
+- Documented purpose, features and request parameters in all four report form headers,
+  including independent default-off status controls and duplicate-parameter behavior.
+  Replaced the changed BC provider-management `font` wrapper with a styled span.
+- Fixed pre-existing appointment lookup logging in #4047: routine absence no longer logs
+  a patient identifier, and multiple results retain a generic warning without an identifier
+  or persistence exception. Existing real DAO integration tests now capture messages,
+  parameters and exceptions while preserving the earliest-appointment selection assertions.
+- Final focused Java/integration run: **79 tests**, zero failures/errors/skips. Full Node
+  regressions: **1,034 passed**. BDD, encoder, security-message and JSP taglib checks passed.
+  **982 JSPs**, WAR and Javadocs built successfully; changed Java coverage **35/35**.
+- Built all three DEBs as **2026.08.0~alpha16~pr3998.5** with the VM stopped, installed on
+  Ubuntu 26.04, and verified **6,671** tested/packaged/installed files. Application health,
+  third-party billing, flu billing and all twelve unbilled report steps passed. The neighboring
+  third-party check still reports its optional new-report Bill-link assertion unavailable in
+  this dataset; the changed ON/BC report links pass the owned-fixture matrix in all combinations.
+- Exact fingerprints of every original appointment, report-provider and demographic row
+  were unchanged after cleanup. Final installed payload/health checks passed, NRestarts=0,
+  VM disk had 4.5 GiB free, and the VM was stopped. No schema/configuration changes were needed.
