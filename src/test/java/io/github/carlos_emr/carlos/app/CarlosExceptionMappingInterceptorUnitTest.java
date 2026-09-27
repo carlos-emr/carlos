@@ -117,6 +117,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
 
         assertThat(result).isEqualTo("error");
         assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("exception")).isNull();
         Object incidentId = request.getAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE);
         assertThat(incidentId).isInstanceOf(String.class);
         assertThat((String) incidentId).matches("[0-9a-f-]{36}");
@@ -169,6 +170,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
             assertThat(event.getThrown()).isNull();
         }
         assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("exception")).isNull();
         assertThat(failure.getCause()).isSameAs(cause);
         assertThat(cause.getCause()).isSameAs(failure);
         assertThat(failure.getMessage()).isEqualTo("FAKE-Patient top");
@@ -188,6 +190,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
 
         assertThat(result).isEqualTo("securityError");
         assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("exception")).isNull();
         assertThat(request.getAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE)).isNotNull();
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0))
@@ -222,6 +225,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
 
         assertThat(result).isEqualTo("securityError");
         assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("exception")).isNull();
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0))
                 .startsWith("Authorization refused")
@@ -249,7 +253,8 @@ class CarlosExceptionMappingInterceptorUnitTest {
         ValueStack stack = mock(ValueStack.class);
         when(invocation.getProxy()).thenReturn(proxy);
         when(invocation.getStack()).thenReturn(stack);
-        when(invocation.invoke()).thenThrow(new IllegalStateException("Service code A007 is not billable on this date"));
+        var failure = new IllegalStateException("Service code A007 is not billable on this date");
+        when(invocation.invoke()).thenThrow(failure);
 
         String result;
         List<String> messages;
@@ -262,6 +267,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(request.getAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE)).isNotNull();
         verify(stack).push(any(ExceptionHolder.class));
+        assertThat(request.getAttribute("exception")).isSameAs(failure);
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0))
                 .startsWith("Handled")

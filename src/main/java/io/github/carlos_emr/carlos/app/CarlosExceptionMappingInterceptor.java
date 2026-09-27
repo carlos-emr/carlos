@@ -124,8 +124,9 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
                 request.setAttribute(INCIDENT_ID_ATTRIBUTE, incidentId);
             }
             if (classification == Classification.HANDLED) {
-                // The package's own result page reads the exception (request attribute "exception"
-                // resolves through the value stack); without this it renders with no message.
+                // Package-owned pages read this explicit attribute. Struts 7 does not
+                // reliably resolve request.getAttribute through the value stack.
+                if (request != null) request.setAttribute("exception", e);
                 publishException(invocation, new ExceptionHolder(e));
                 return mapping.getResult();
             }
