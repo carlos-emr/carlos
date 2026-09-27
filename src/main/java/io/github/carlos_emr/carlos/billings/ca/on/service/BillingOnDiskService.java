@@ -86,6 +86,10 @@ public class BillingOnDiskService {
      */
     @SuppressWarnings("unchecked")
     public void generateNewDisk(HttpServletRequest request) {
+        BillingOutputLock.run(() -> generateNewDiskLocked(request));
+    }
+
+    private void generateNewDiskLocked(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String provider = request.getParameter("providers");
         String mohOffice = request.getParameter("billcenter");
@@ -121,6 +125,10 @@ public class BillingOnDiskService {
      */
     @SuppressWarnings("unchecked")
     public void regenerateDisk(HttpServletRequest request) {
+        BillingOutputLock.run(() -> regenerateDiskLocked(request));
+    }
+
+    private void regenerateDiskLocked(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String diskId = request.getParameter("diskId");
         String mohOffice = request.getParameter("billcenter");
@@ -359,7 +367,7 @@ public class BillingOnDiskService {
         boolean renamed = false;
         try {
             writer.backupHtmlForRollback();
-            writer.renameFile();
+            writer.backupFileForRollback();
             renamed = true;
             writer.writeFile(writer.getValue());
             writer.writeHtml(writer.getHtmlCode());
@@ -396,7 +404,7 @@ public class BillingOnDiskService {
         boolean renamed = false;
         try {
             for (OhipClaimFileService writer : writers) writer.backupHtmlForRollback();
-            ohipWriter.renameFile();
+            ohipWriter.backupFileForRollback();
             renamed = true;
             for (OhipClaimFileService writer : writers) writer.writeHtml(writer.getHtmlCode());
             ohipWriter.writeFile(claimBody);

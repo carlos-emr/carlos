@@ -1,15 +1,12 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /** Owns a private rollback copy of one existing billing preview. */
 final class BillingOutputSnapshot {
@@ -24,14 +21,7 @@ final class BillingOutputSnapshot {
     }
 
     static BillingOutputSnapshot capture(String filename) {
-        String directory = CarlosProperties.getInstance().getProperty("HOME_DIR");
-        if (directory == null || directory.isBlank()) {
-            throw new BillingFileWriteException("Billing output directory is not configured");
-        }
-        Path output = PathValidationUtils.validatePath(filename, new File(directory)).toPath();
-        if (!output.getFileName().toString().equals(filename)) {
-            throw new BillingFileWriteException("Billing preview must use a filename without path components");
-        }
+        Path output = BillingOutputFiles.path(filename);
         Path backup = null;
         try {
             boolean existed = Files.exists(output);
@@ -39,7 +29,7 @@ final class BillingOutputSnapshot {
                 if (!Files.isRegularFile(output)) {
                     throw new IOException("Billing preview is not a regular file");
                 }
-                backup = Files.createTempFile(output.getParent(), ".ohip-preview-" + output.getFileName() + "-", ".bak");
+                backup = BillingOutputFiles.temporarySibling(output, ".ohip-preview-", ".bak");
                 Files.copy(output, backup, StandardCopyOption.REPLACE_EXISTING,
                         StandardCopyOption.COPY_ATTRIBUTES);
             }
@@ -57,7 +47,7 @@ final class BillingOutputSnapshot {
         try {
             if (existed) {
                 // Keep the backup if restoration fails, so reconciliation remains possible.
-                Files.move(backup, output, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(backup, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                 backup = null;
             } else {
                 Files.deleteIfExists(output);

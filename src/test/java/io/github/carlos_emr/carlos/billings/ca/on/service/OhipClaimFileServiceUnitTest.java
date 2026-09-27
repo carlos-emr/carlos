@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.lang.reflect.Modifier;
@@ -161,7 +162,7 @@ class OhipClaimFileServiceUnitTest {
 
         assertThatThrownBy(() -> service.writeFile("payload"))
                 .isInstanceOf(BillingFileWriteException.class)
-                .hasCauseInstanceOf(java.io.FileNotFoundException.class);
+                .hasCauseInstanceOf(java.io.IOException.class);
     }
 
     @Test
@@ -189,6 +190,52 @@ class OhipClaimFileServiceUnitTest {
 
         assertThat(ohipFile).doesNotExist();
         assertThat(htmlFile).doesNotExist();
+    }
+
+    @Test
+    void shouldKeepOriginalDownloadAvailable_whenPreparingRegeneration() throws IOException {
+        Path original = tempDir.resolve("claim.preserved.txt");
+        Files.writeString(original, "prior claim output");
+        service.setOhipFilename("claim.preserved.txt");
+        service.backupFileForRollback();
+        assertThat(original).hasContent("prior claim output");
+        service.writeFile("replacement");
+        assertThat(original).hasContent("replacement" + System.lineSeparator());
+        service.restoreRenamedFile();
+        assertThat(original).hasContent("prior claim output");
+        try (var files = Files.list(tempDir)) { assertThat(files.toList()).containsExactly(original); }
+    }
+
+    @Test
+    void shouldPreserveExistingPermissions_whenReplacingDownload() throws IOException {
+        Path original = tempDir.resolve("claim.permissions.txt");
+        Files.writeString(original, "prior claim output");
+        var permissions = java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----");
+        Files.setPosixFilePermissions(original, permissions);
+        service.setOhipFilename("claim.permissions.txt");
+        service.writeFile("replacement");
+        assertThat(original).hasContent("replacement" + System.lineSeparator());
+        assertThat(Files.getPosixFilePermissions(original)).isEqualTo(permissions);
+    }
+
+    @Test
+    void shouldPreservePreviousDownload_whenPartialWriteFails() throws Exception {
+        Path original = tempDir.resolve("claim.partial.txt");
+        Files.writeString(original, "prior claim output");
+        service.setOhipFilename("claim.partial.txt");
+        try (var _ = org.mockito.Mockito.mockConstruction(FileOutputStream.class, (stream, context) -> {
+            // Inspect the published name while the replacement writer is active.
+            org.mockito.Mockito.doAnswer(invocation -> {
+                assertThat(original).hasContent("prior claim output");
+                throw new IOException("simulated partial write");
+            }).when(stream).write(org.mockito.ArgumentMatchers.any(byte[].class),
+                    org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+        })) {
+            assertThatThrownBy(() -> service.writeFile("replacement"))
+                    .isInstanceOf(BillingFileWriteException.class).hasRootCauseMessage("simulated partial write");
+        }
+        assertThat(original).hasContent("prior claim output");
+        try (var files = Files.list(tempDir)) { assertThat(files.toList()).containsExactly(original); }
     }
 
     @Test
@@ -362,6 +409,32 @@ class OhipClaimFileServiceUnitTest {
 
 
     @Test
+    void shouldRejectFinalization_whenClaimHeaderDisappears() {
+        assertThatThrownBy(() -> service.updateHeader1BilledBatchId("42", "12"))
+                .isInstanceOf(BillingFileWriteException.class).hasMessageContaining("claim header no longer exists");
+        verify(cheaderDao, never()).merge(any());
+    }
+
+    @Test
+    void shouldRejectFinalization_whenDiskSummaryDisappears() {
+        assertThatThrownBy(() -> service.updateDisknameSum(42))
+                .isInstanceOf(BillingFileWriteException.class).hasMessageContaining("disk summary no longer exists");
+    }
+
+    @Test
+    void shouldRejectFinalization_whenBatchHeaderDisappears() {
+        var header = new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto();
+        header.setId("42");
+        service.stageRegeneratedBatchHeader(header, () -> { });
+        service.setProviderNo("999998");
+        service.setEFlag("1");
+        service.createBillingFileStr(mock(LoggedInInfo.class), "42", new String[]{"B"}, true, "4", false);
+        assertThatThrownBy(service::finalizeGeneratedDisk)
+                .isInstanceOf(BillingFileWriteException.class).hasMessageContaining("batch header no longer exists");
+        verify(headerDao, never()).merge(any());
+    }
+
+    @Test
     void shouldKeepRegenerationMetadataUnchanged_untilClaimFinalization() {
         var header = new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto();
         header.setId("42");
@@ -374,6 +447,7 @@ class OhipClaimFileServiceUnitTest {
         service.createBillingFileStr(mock(LoggedInInfo.class), "42", new String[]{"B"}, true, "4", false);
         assertThat(service.getCurrentBatchHeader()).isSameAs(header);
         org.mockito.Mockito.verifyNoInteractions(persist);
+        when(headerDao.find(42)).thenReturn(new io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader());
         service.finalizeGeneratedDisk();
         service.finalizeGeneratedDisk();
         verify(persist).run();

@@ -82,9 +82,13 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private BillingOnDiskService service;
 
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path outputDirectory;
+    private Object oldHome;
+
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
+        oldHome = io.github.carlos_emr.CarlosProperties.getInstance().put("HOME_DIR", outputDirectory.toString());
         // ProviderBillCenter (constructed inside the service) resolves these via SpringUtils.
         createAndRegisterMock(ProviderBillCenterDao.class);
         createAndRegisterMock(BillCenterDao.class);
@@ -116,6 +120,8 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() {
+        if (oldHome == null) io.github.carlos_emr.CarlosProperties.getInstance().remove("HOME_DIR");
+        else io.github.carlos_emr.CarlosProperties.getInstance().put("HOME_DIR", oldHome);
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
@@ -211,7 +217,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         service.regenerateDisk(request);
 
-        verify(empty, never()).renameFile();
+        verify(empty, never()).backupFileForRollback();
         verify(empty, never()).writeFile(anyString());
         verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
     }
@@ -221,7 +227,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         OhipClaimFileService writer = memberWriter("new-body", BigDecimal.TEN, 1);
         when(diskCreationService.getProvider("20")).thenReturn(List.of(provider("101")));
         when(claimFileFactory.getObject()).thenReturn(writer);
-        doThrow(new IllegalStateException("rename failed")).when(writer).renameFile();
+        doThrow(new IllegalStateException("rename failed")).when(writer).backupFileForRollback();
         MockHttpServletRequest request = allProvidersRequest();
         request.setParameter("diskId", "20");
 

@@ -23,7 +23,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.math.BigDecimal;
@@ -1037,28 +1036,28 @@ public class OhipClaimFileService {
      */
     public void updateHeader1BilledBatchId(String newInvNo, String batchId) {
         BillingONCHeader1 header = cheaderDao.find(Integer.parseInt(newInvNo));
-        if (header != null) {
-            header.setStatusStrict(BillingStatus.BILLED);
-            header.setHeaderId(Integer.parseInt(batchId));
-            cheaderDao.merge(header);
-        }
+        if (header == null) throw new BillingFileWriteException("Cannot finalize OHIP output: claim header no longer exists");
+        header.setStatusStrict(BillingStatus.BILLED);
+        header.setHeaderId(Integer.parseInt(batchId));
+        cheaderDao.merge(header);
     }
 
     private void updateBatchHeaderSum(String bid, String hn, String rn, String tn) {
         BillingONHeader h = headerDao.find(Integer.parseInt(bid));
-        if (h != null) {
-            h.sethCount(hn);
-            h.setrCount(rn);
-            h.settCount(tn);
-            headerDao.merge(h);
-        }
+        if (h == null) throw new BillingFileWriteException("Cannot finalize OHIP output: batch header no longer exists");
+        h.sethCount(hn);
+        h.setrCount(rn);
+        h.settCount(tn);
+        headerDao.merge(h);
     }
 
     /**
      * Updates the generated disk-name row with final claim counts and total.
      */
     public void updateDisknameSum(int bid) {
-        for (BillingONFilename f : filenameDao.findByDiskIdAndProvider(bid, providerNo)) {
+        List<BillingONFilename> filenames = filenameDao.findByDiskIdAndProvider(bid, providerNo);
+        if (filenames.isEmpty()) throw new BillingFileWriteException("Cannot finalize OHIP output: disk summary no longer exists");
+        for (BillingONFilename f : filenames) {
             f.setClaimRecord((healthcardCount + patientCount) + "/" + recordCount);
             f.setTotal(totalAmount);
             filenameDao.merge(f);
@@ -1286,6 +1285,30 @@ public class OhipClaimFileService {
         }
     }
 
+    /**
+     * Preserves a unique claim-file rollback copy while keeping the prior download available.
+     * The legacy {@link #renameFile()} API retains its move semantics for existing callers.
+     *
+     * @throws BillingFileWriteException if the prior output cannot be preserved
+     */
+    public void backupFileForRollback() {
+        var original = BillingOutputFiles.path(ohipFilename);
+        java.nio.file.Path backup = null;
+        try {
+            if (!java.nio.file.Files.isRegularFile(original)) throw new IOException("Prior OHIP output is not a regular file");
+            backup = BillingOutputFiles.temporarySibling(original, ".ohip-preview-", ".bak");
+            java.nio.file.Files.copy(original, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
+            rememberRenamedFile(original.toFile(), backup.toFile());
+        } catch (IOException failure) {
+            if (backup != null) {
+                try { java.nio.file.Files.deleteIfExists(backup); }
+                catch (IOException cleanup) { failure.addSuppressed(cleanup); }
+            }
+            throw new BillingFileWriteException("Could not preserve prior OHIP output", failure);
+        }
+    }
+
     private void rememberRenamedFile(File originalFile, File backupFile) {
         lastRenamedOriginalFile = originalFile;
         lastRenamedBackupFile = backupFile;
@@ -1337,7 +1360,7 @@ public class OhipClaimFileService {
         if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;
         try {
             java.nio.file.Files.move(lastRenamedBackupFile.toPath(), lastRenamedOriginalFile.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             lastRenamedOriginalFile = null;
             lastRenamedBackupFile = null;
         } catch (IOException failure) {
@@ -1372,56 +1395,18 @@ public class OhipClaimFileService {
      * @param value1 complete MOH fixed-width claim payload to write.
      * @throws BillingFileWriteException when path validation or disk I/O fails.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
-        String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-        File safeOut = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
-                ohipFilename, new File(home_dir));
-        // try-with-resources: close both streams on every exit path so a
-        // mid-write throw (PrintStream.println, FileOutputStream constructor)
-        // doesn't leak file handles.
-        // Wrap in BufferedWriter rather than PrintStream — PrintStream's
-        // close() calls flush() internally and swallows the resulting
-        // IOException, so checkError() inside try-with-resources misses
-        // the canonical disk-full-on-final-flush failure mode. BufferedWriter
-        // close() actually throws IOException, so try-with-resources surfaces
-        // close-time IO failures.
-        try (FileOutputStream out = new FileOutputStream(safeOut);
-             java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.US_ASCII);
-             java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
-            bw.write(value1);
-            bw.newLine();
-        } catch (IOException e) {
-            _logger.error("Write OHIP File Error: filename={}", ohipFilename, e);
-            throw new BillingFileWriteException(
-                    "Failed to write OHIP claim file: " + ohipFilename, e);
-        }
+        BillingOutputFiles.write(ohipFilename, value1, java.nio.charset.StandardCharsets.US_ASCII, "OHIP claim file");
     }
 
     /**
-     * Writes the companion HTML claim preview to the configured output path.
+     * Atomically publishes the complete UTF-8 HTML companion after its writer closes successfully.
      *
-     * @param htmlvalue1 complete HTML preview payload to write.
-     * @throws BillingFileWriteException when path validation or disk I/O fails.
+     * @param htmlvalue1 complete HTML preview payload
+     * @throws BillingFileWriteException if validation, writing or atomic publication fails
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
-        String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
-        File safeHtml = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
-                htmlFilename, new File(home_dir1));
-        // Same BufferedWriter shape as writeFile — see writeFile rationale.
-        try (FileOutputStream out1 = new FileOutputStream(safeHtml);
-             java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out1, java.nio.charset.StandardCharsets.UTF_8);
-             java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
-            bw.write(htmlvalue1);
-            bw.newLine();
-        } catch (IOException e) {
-            _logger.error("Write HTML File Error: filename={}", htmlFilename, e);
-            throw new BillingFileWriteException(
-                    "Failed to write OHIP HTML companion file: " + htmlFilename, e);
-        }
+        BillingOutputFiles.write(htmlFilename, htmlvalue1, java.nio.charset.StandardCharsets.UTF_8, "OHIP HTML companion file");
     }
 
     // return x zero str, e.g. 000000

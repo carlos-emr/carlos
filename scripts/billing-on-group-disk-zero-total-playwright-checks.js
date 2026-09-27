@@ -49,6 +49,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { randomBytes } = require('node:crypto');
+const { withOhipTestLock } = require('./lib/ohip-test-lock');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner,
   gotoApp, launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage, withExpectedDialogs,
@@ -255,7 +256,7 @@ async function cleanupResources(browser, db, state, diskDir) {
   if (failures.length) throw new AggregateError(failures, 'OHIP browser/fixture cleanup incomplete');
 }
 
-async function generateProviderDisk(context, config, recorder, window, providerNo) {
+async function generateProviderDisk(context, config, recorder, window, providerNo, expectBusy = false) {
   const page = await context.newPage();
   wireStrictPage(page, 'ohip-disk', recorder);
   await gotoApp(page, config.baseUrl, '/billing/CA/ON/ViewBillingONMRI');
@@ -284,6 +285,10 @@ async function generateProviderDisk(context, config, recorder, window, providerN
   ]);
   assert(response.status() === 200, `Create Report answered HTTP ${response.status()}`);
   await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
+  if (expectBusy) {
+    assert((await page.locator('body').innerText()).includes('already in progress'), 'Overlapping export did not show the busy error');
+    return page;
+  }
   await assertNotErrorPage(page, 'OHIP diskette page after Create Report');
   // A failed generation is mapped to an operator error page that still
   // answers 200; only the diskette page itself carries the Create Report form.
@@ -318,6 +323,18 @@ async function main() {
     browser = await launchBrowser(config);
     const context = await newContext(browser, config);
     await login(context, config, recorder);
+    // Let the application create its own lock inode before the external-lock checks.
+    const emptyPage = await generateProviderDisk(context, config, recorder, window, EMPTY.providerNo);
+    await emptyPage.close();
+    await withOhipTestLock(diskDir, async () => {
+      const blocked = await generateProviderDisk(context, config, recorder, window, ZERO.providerNo, true);
+      await blocked.close();
+    });
+    assert(db.value(`SELECT COUNT(*) FROM billing_on_diskname d JOIN billing_on_filename f ON f.disk_id=d.id`
+      + ` WHERE d.groupno=${sqlString(state.groupNo)} AND f.providerno=${sqlString(ZERO.providerNo)}`) === '0',
+      'Blocked export allocated a disk');
+    assert(db.value(`SELECT status FROM billing_on_cheader1 WHERE id=${Number(ZERO.headerId)}`) === 'O',
+      'Blocked export billed the claim');
     for (const member of [ZERO, PAID]) {
       const page = await generateProviderDisk(context, config, recorder, window, member.providerNo);
       const disks = db.rows(`SELECT d.id, d.ohipfilename FROM billing_on_diskname d JOIN billing_on_filename f ON f.disk_id=d.id`
@@ -361,26 +378,38 @@ async function main() {
             + columns.map((c) => overrides[c] || `\`${c}\``).join(',')
             + ` FROM ${table} WHERE disk_id=${Number(diskId)} LIMIT 1`);
         }
-        const row = page.locator('tr').filter({ has: page.locator(`a[href*="filename=${encodeURIComponent(ohipFile)}"]`) }).first();
-        const [response] = await Promise.all([
-          page.waitForResponse((r) => r.request().method() === 'POST'
-            && new URL(r.url()).pathname.endsWith('/billing/CA/ON/ViewOnregenreport'), { timeout: 120000 }),
-          withExpectedDialogs(page, () => row.locator('input[value="R"]').click()).then((dialogs) => {
-            assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Regeneration must ask for confirmation');
-          }),
-        ]);
-        assert(response.status() === 200, `Regenerate request failed: HTTP ${response.status()}`);
-        await page.waitForLoadState('domcontentloaded');
-        await assertNotErrorPage(page, 'Regenerated OHIP disk');
-        assert(await page.locator('form[name="form1"]').count() === 1, 'Regeneration returned the failure page');
+        const regenerate = async (expectBusy = false) => {
+          const row = page.locator('tr').filter({ has: page.locator(`a[href*="filename=${encodeURIComponent(ohipFile)}"]`) }).first();
+          const [response] = await Promise.all([
+            page.waitForResponse((r) => r.request().method() === 'POST'
+              && new URL(r.url()).pathname.endsWith('/billing/CA/ON/ViewOnregenreport'), { timeout: 120000 }),
+            withExpectedDialogs(page, () => row.locator('input[value="R"]').click()).then((dialogs) => {
+              assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Regeneration must ask for confirmation');
+            }),
+          ]);
+          assert(response.status() === 200, `Regenerate request failed: HTTP ${response.status()}`);
+          await page.waitForLoadState('domcontentloaded');
+          if (expectBusy) {
+            assert((await page.locator('body').innerText()).includes('already in progress'), 'Overlapping regeneration did not show the busy error');
+          } else {
+            await assertNotErrorPage(page, 'Regenerated OHIP disk');
+            assert(await page.locator('form[name="form1"]').count() === 1, 'Regeneration returned the failure page');
+          }
+        };
+        const beforeOutput = fs.readFileSync(path.join(diskDir, ohipFile));
+        const beforeHeaders = JSON.stringify(db.rows(`SELECT * FROM billing_on_header WHERE disk_id=${Number(diskId)} ORDER BY id`));
+        await withOhipTestLock(diskDir, () => regenerate(true));
+        assert(fs.readFileSync(path.join(diskDir, ohipFile)).equals(beforeOutput), 'Blocked regeneration changed the existing download');
+        assert(JSON.stringify(db.rows(`SELECT * FROM billing_on_header WHERE disk_id=${Number(diskId)} ORDER BY id`)) === beforeHeaders,
+          'Blocked regeneration changed batch metadata');
+        await gotoApp(page, config.baseUrl, '/billing/CA/ON/ViewBillingONMRI');
+        await regenerate();
         await checkDownload();
         assert(db.value(`SELECT claimrecord FROM billing_on_filename WHERE disk_id=${Number(diskId)}`
           + ` AND providerno=${sqlString(EMPTY.providerNo)}`) === '', 'Empty member was finalized during regeneration');
       }
       await page.close();
     }
-    const emptyPage = await generateProviderDisk(context, config, recorder, window, EMPTY.providerNo);
-    await emptyPage.close();
     const emptyDisks = db.rows(`SELECT d.ohipfilename FROM billing_on_diskname d JOIN billing_on_filename f ON f.disk_id=d.id`
       + ` WHERE d.groupno=${sqlString(state.groupNo)} AND f.providerno=${sqlString(EMPTY.providerNo)}`
       + ` AND d.id<>${ZERO.diskId}`);
@@ -388,7 +417,7 @@ async function main() {
     assert(!fs.existsSync(path.join(diskDir, emptyDisks[0][0])), 'Empty provider produced an OHIP file');
 
     assertStrictPage(recorder);
-    console.log('  ZERO and PAID exported separately; NULL fields accepted; ZERO regenerated; EMPTY omitted');
+    console.log('  Overlapping export/regeneration refused without mutation; ZERO and PAID exported separately; NULL fields accepted; ZERO regenerated; EMPTY omitted');
     return { diskId: ZERO.diskId };
   };
 

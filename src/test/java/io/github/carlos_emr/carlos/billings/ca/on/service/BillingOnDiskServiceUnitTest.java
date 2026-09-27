@@ -54,8 +54,12 @@ class BillingOnDiskServiceUnitTest {
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private BillingOnDiskService service;
 
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path outputDirectory;
+    private Object oldHome;
+
     @BeforeEach
     void setUp() {
+        oldHome = io.github.carlos_emr.CarlosProperties.getInstance().put("HOME_DIR", outputDirectory.toString());
         providerDao = mock(ProviderDao.class);
         diskCreationService = mock(BillingDiskCreationService.class);
         diskLoader = mock(BillingOnDiskLoader.class);
@@ -78,6 +82,8 @@ class BillingOnDiskServiceUnitTest {
 
     @AfterEach
     void tearDown() {
+        if (oldHome == null) io.github.carlos_emr.CarlosProperties.getInstance().remove("HOME_DIR");
+        else io.github.carlos_emr.CarlosProperties.getInstance().put("HOME_DIR", oldHome);
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
@@ -186,7 +192,7 @@ class BillingOnDiskServiceUnitTest {
                 .hasMessageContaining("permission denied");
 
         verify(claimFileService).readInBillingNo();
-        verify(claimFileService).renameFile();
+        verify(claimFileService).backupFileForRollback();
         verify(claimFileService).createBillingFileStr(eq(loggedInInfo), eq("78"),
                 aryEq(new String[]{"B"}), eq(false), eq("4"), eq(false), eq(false));
         verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
@@ -208,7 +214,7 @@ class BillingOnDiskServiceUnitTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("db down");
 
-        verify(claimFileService).renameFile();
+        verify(claimFileService).backupFileForRollback();
         verify(claimFileService).restoreRenamedFile();
         verify(claimFileService).restoreHtmlForRollback();
         verify(claimFileService, never()).deleteOhipFileQuietly();
@@ -231,7 +237,7 @@ class BillingOnDiskServiceUnitTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("claim body failed");
 
-        verify(claimFileService, never()).renameFile();
+        verify(claimFileService, never()).backupFileForRollback();
         verify(claimFileService, never()).restoreRenamedFile();
         verify(claimFileService, never()).writeFile(anyString());
         verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
@@ -247,13 +253,13 @@ class BillingOnDiskServiceUnitTest {
         when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
         when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
         doThrow(new BillingFileWriteException("rename failed"))
-                .when(claimFileService).renameFile();
+                .when(claimFileService).backupFileForRollback();
 
         assertThatThrownBy(() -> service.regenerateDisk(request))
                 .isInstanceOf(BillingFileWriteException.class)
                 .hasMessageContaining("rename failed");
 
-        verify(claimFileService).renameFile();
+        verify(claimFileService).backupFileForRollback();
         verify(claimFileService, never()).deleteOhipFileQuietly();
         verify(claimFileService, never()).deleteHtmlFileQuietly();
         verify(claimFileService, never()).restoreRenamedFile();
