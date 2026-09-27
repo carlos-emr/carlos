@@ -457,13 +457,12 @@ async function checkGenerateLetters(context, demographicNo) {
   expect(csrfToken.length > 0, 'generate-letters: CSRF token bootstrapped on the form', {});
 
   // Envelope button: request URL must carry demos but not the CSRF token.
-  let envelopeUrl = '';
-  await page.route('**/report/GenerateEnvelopes**', async (route) => {
-    envelopeUrl = route.request().url();
-    await route.fulfill({ status: 204, body: '' });
-  });
-  await page.locator('input[type="button"][onclick*="genEnvelopes"]').click();
-  await page.waitForTimeout(500);
+  await page.route('**/report/GenerateEnvelopes**', route => route.fulfill({ status: 204, body: '' }));
+  const [envelopeResponse] = await Promise.all([
+    page.waitForResponse('**/report/GenerateEnvelopes**', { timeout: 10000 }),
+    page.locator('input[type="button"][onclick*="genEnvelopes"]').click(),
+  ]);
+  const envelopeUrl = envelopeResponse.url();
   expect(envelopeUrl.includes(`demos=${demographicNo}`), 'generate-envelopes-button: demos in URL', { envelopeUrl: envelopeUrl.replace(/CSRF-TOKEN=[^&]*/, 'CSRF-TOKEN=<redacted>') });
   expect(!/CSRF-TOKEN=/i.test(envelopeUrl), 'generate-envelopes-button: CSRF token kept out of URL', {});
   await page.unroute('**/report/GenerateEnvelopes**');
@@ -474,8 +473,10 @@ async function checkGenerateLetters(context, demographicNo) {
   await page.locator('input[name="demos"]').uncheck();
   const dialogCountBefore = dialogs.length;
   const urlBefore = page.url();
-  await page.locator('#listDemographic input[type="submit"]').click();
-  await page.waitForTimeout(500);
+  await Promise.all([
+    page.waitForEvent('dialog', { timeout: 10000 }),
+    page.locator('#listDemographic input[type="submit"]').click(),
+  ]);
   expect(dialogs.length === dialogCountBefore + 1 && /No patients selected/i.test(dialogs[dialogs.length - 1].text),
     'generate-letters: empty selection blocked in the browser', { dialogs: dialogs.slice(dialogCountBefore) });
   expect(page.url() === urlBefore, 'generate-letters: no navigation on empty selection', { url: page.url() });
@@ -501,7 +502,7 @@ async function checkGenerateLetters(context, demographicNo) {
     expect(isPdf(body), 'generate-letters-pdf: body starts with %PDF', { head: body.subarray(0, 16).toString('latin1') });
     expect(!pdfHasTrailingHtml(body), 'generate-letters-pdf: no HTML appended after the PDF', {});
     expect(sql(`SELECT COUNT(*) FROM document WHERE docdesc='${reportLetterId}-${reportName}'`) === '1', 'letters: document saved once', {});
-    expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND demographicNo=${Number(demographicNo)}`) === '1', 'letters: follow-up saved once', {});
+    expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND type='FLUF' AND demographicNo=${Number(demographicNo)}`) === '1', 'letters: follow-up saved once', {});
     // A malformed ID reaches the application through the WAF; integer overflow is covered in Java tests.
     const invalid = await context.request.post(appUrl('/report/GenerateLetters'), {
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -517,7 +518,7 @@ async function checkGenerateLetters(context, demographicNo) {
       new DOMParser().parseFromString(markup, 'text/html').querySelectorAll('input[name="demos"]'), input => input.value), html);
     expect(JSON.stringify(await selectedPatients(invalidHtml)) === JSON.stringify([String(demographicNo)]),
       'letters: valid selected patient retained on error page; invalid ID omitted', {});
-    expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}'`) === '1', 'letters: failed request did not record follow-up', {});
+    expect(sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND type='FLUF' AND demographicNo=${Number(demographicNo)}`) === '1', 'letters: failed request did not record follow-up', {});
     const partial = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${demographicNo}&demos=abc`));
     const partialHtml = await partial.text();
     expect(partial.status() === 400 && /id="letterSelectionIncomplete"/.test(partialHtml), 'envelopes: incomplete selection refused', {status:partial.status()});
@@ -527,7 +528,10 @@ async function checkGenerateLetters(context, demographicNo) {
   await page.close();
 }
 
-async function cleanup() {
+async function cleanup(demographicNo) {
+  if (!/^[1-9]\d*$/.test(String(demographicNo)) || !Number.isSafeInteger(Number(demographicNo))) {
+    throw new Error('Invalid owned follow-up patient');
+  }
   const owned = sql(`SELECT ID FROM report_letters WHERE report_name = '${reportName}'`);
   const ids = owned ? owned.split('\n').map(Number) : [];
   if (!ids.length) return;
@@ -545,12 +549,12 @@ async function cleanup() {
       DELETE d,c FROM document d LEFT JOIN ctl_document c ON c.document_no=d.document_no WHERE d.docdesc='${id}-${reportName}';
       DELETE FROM log_letters WHERE report_id=${id};
       DELETE FROM report_letters WHERE ID=${id} AND report_name='${reportName}';
-      DELETE FROM measurements WHERE comments='${reportName}';
+      DELETE FROM measurements WHERE comments='${reportName}' AND type='FLUF' AND demographicNo=${Number(demographicNo)};
       COMMIT`);
     if (sql(`SELECT COUNT(*) FROM document WHERE docdesc='${id}-${reportName}'`) !== '0') throw new Error('Owned letter documents remain');
   }
   if (sql(`SELECT COUNT(*) FROM report_letters WHERE report_name='${reportName}'`) !== '0') throw new Error('Owned template remains');
-  if (sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}'`) !== '0') throw new Error('Owned follow-up remains');
+  if (sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND type='FLUF' AND demographicNo=${Number(demographicNo)}`) !== '0') throw new Error('Owned follow-up remains');
 }
 
 (async () => {
@@ -586,7 +590,7 @@ async function cleanup() {
     }
     console.log('PASS patient letters keep the uploaded name; envelopes and letters handle empty selections');
   }, [
-    cleanup,
+    () => cleanup(demographicNo),
     () => { if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true }); },
     () => browser.close(),
   ]);
