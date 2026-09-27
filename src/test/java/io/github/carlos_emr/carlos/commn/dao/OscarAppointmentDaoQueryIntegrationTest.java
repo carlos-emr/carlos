@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.MyGroup;
 import io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -1248,10 +1249,13 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
         @DisplayName("should return null when no appointment exists today")
         void shouldReturnNull_whenNoAppointmentToday() {
             // When
-            Appointment result = oscarAppointmentDao.findDemoAppointmentToday(99999);
+            try (LogCapture capture = LogCapture.forLogger(OscarAppointmentDaoImpl.class)) {
+                Appointment result = oscarAppointmentDao.findDemoAppointmentToday(99999);
 
-            // Then
-            assertThat(result).isNull();
+                // Then: absence is routine and must not disclose the searched patient.
+                assertThat(result).isNull();
+                assertThat(capture.events()).isEmpty();
+            }
         }
 
         @Test
@@ -1270,12 +1274,20 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             entityManager.clear();
 
             // When
-            Appointment result = oscarAppointmentDao.findDemoAppointmentToday(12345);
+            try (LogCapture capture = LogCapture.forLogger(OscarAppointmentDaoImpl.class)) {
+                Appointment result = oscarAppointmentDao.findDemoAppointmentToday(12345);
 
-            // Then
-            assertThat(result).isNotNull();
-            assertThat(result.getId()).isEqualTo(earlier.getId());
-            assertThat(result.getId()).isNotEqualTo(later.getId());
+                // Then: preserve selection and useful diagnostics without patient data or exceptions.
+                assertThat(result).isNotNull();
+                assertThat(result.getId()).isEqualTo(earlier.getId());
+                assertThat(result.getId()).isNotEqualTo(later.getId());
+                assertThat(capture.messages()).containsExactly(
+                        "Multiple appointments found today; returning earliest appointment");
+                assertThat(capture.events()).allSatisfy(event -> {
+                    assertThat(event.getThrown()).isNull();
+                    assertThat(event.getMessage().getParameters()).isNullOrEmpty();
+                });
+            }
         }
     }
 

@@ -37,7 +37,7 @@ const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
-const NAME_SUFFIX = " O'&<x>";
+const NAME_SUFFIX = " O'&<x>.[]";
 const REASON_SUFFIX = " <img src=x onerror=window.x=true> \"'&";
 const FIXTURES = [
   { status: 't', label: 'todo' },
@@ -106,7 +106,7 @@ async function runReport(page, s, screen, date, scenario) {
   for (const label of scenario.expected) {
     const index = FIXTURES.findIndex(f => f.label === label);
     const expectedTime = `${String(9 + Math.floor(index / 6)).padStart(2, '0')}:${String((index % 6) * 10).padStart(2, '0')}:00`;
-    const row = page.locator('tr').filter({has:page.locator('td:nth-child(3)', {hasText: new RegExp(`^${s.marker} ${label}${NAME_SUFFIX}$`)})});
+    const row = page.getByRole('cell', { name: `${s.marker} ${label}${NAME_SUFFIX}`, exact: true }).locator('..');
     h.assert((await row.locator('td:nth-child(2)').innerText()).trim() === expectedTime, `${screen.name}: appointment time changed`);
     h.assert((await row.locator('td:nth-child(4)').innerText()).trim() === `${s.marker} ${label}${REASON_SUFFIX}`, `${screen.name}: reason text changed`);
     h.assert(await row.locator('img').count() === 0, `${screen.name}: reason rendered as HTML`);

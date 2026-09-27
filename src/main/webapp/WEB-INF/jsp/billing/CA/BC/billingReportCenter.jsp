@@ -28,6 +28,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingReportCenter.jsp - British Columbia billing report selection.
+    Features: provider/date filters and independent, default-off No-Show and
+    Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+    Request parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+    includeNoShow and includeCancelled. Each status opt-in requires one true value;
+    missing or repeated values preserve the exclusion default.
+    @since 2026-09-26 (status opt-ins)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>

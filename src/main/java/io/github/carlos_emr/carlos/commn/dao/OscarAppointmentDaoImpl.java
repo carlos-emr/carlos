@@ -458,11 +458,10 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         try {
             return query.getSingleResult();
         } catch (NoResultException _) {
-            MiscUtils.getLogger().info("Couldn't find appointment for demographic " + demographicNo + " today.");
             return null;
-        } catch (NonUniqueResultException e) {
-            MiscUtils.getLogger().error(
-                    "Multiple appointments found for demographic {} today; returning earliest appointment", demographicNo, e);
+        } catch (NonUniqueResultException _) {
+            // Expected fallback: keep identifiers and persistence exception payloads out of logs.
+            MiscUtils.getLogger().warn("Multiple appointments found today; returning earliest appointment");
             TypedQuery<Appointment> fallbackQuery = entityManager.createQuery(orderedSql, Appointment.class);
             fallbackQuery.setParameter(1, demographicNo);
             fallbackQuery.setMaxResults(1);

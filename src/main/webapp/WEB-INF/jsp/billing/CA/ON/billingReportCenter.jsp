@@ -31,8 +31,12 @@
     Rendered by ViewBillingReportCenter2Action which:
       - enforces _report r privilege
       - redirects admin/doctor roles to the new-report dashboard
-      - resolves the provider-list select rows + the three echoed
-        parameters into ${reportCenterModel}.
+      - resolves the provider-list select rows and echoed filters into ${reportCenterModel}.
+    Features: provider/date filters and independent, default-off No-Show and
+    Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+    Form parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+    includeNoShow and includeCancelled. Each status opt-in requires one true value;
+    missing or repeated values preserve the exclusion default.
     Pure presentation here — no DAO lookups inline.
     @since 2006
 --%>

@@ -22,9 +22,15 @@
 --%>
 <%--
   Purpose: Supports billingReportControl in the Ontario billing workflow.
+  Features: provider/date filters, report results and independent, default-off
+  No-Show and Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+  Request parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+  includeNoShow and includeCancelled. Each status opt-in requires one true value;
+  missing or repeated values preserve the exclusion default.
   Expected request model data includes: billingReportControlModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2006
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

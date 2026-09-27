@@ -28,6 +28,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingReportControl.jsp - British Columbia billing report selection and results.
+    Features: provider/date filters and independent, default-off No-Show and
+    Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+    Request parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+    includeNoShow and includeCancelled. Each status opt-in requires one true value;
+    missing or repeated values preserve the exclusion default.
+    @since 2026-09-26 (status opt-ins)
+--%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -130,9 +139,9 @@
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr bgcolor="#FFFFFF">
         <div align="right"><a href=#
-                              onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport'); return false;"><font
-                face="Arial, Helvetica, sans-serif" size="1">Manage Provider
-            List </font></a></div>
+                              onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport'); return false;"><span
+                style="font-family: Arial, Helvetica, sans-serif; font-size: xx-small">Manage Provider
+            List </span></a></div>
     </tr>
 </table>
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
