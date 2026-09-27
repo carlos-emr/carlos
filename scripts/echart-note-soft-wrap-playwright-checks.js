@@ -335,6 +335,8 @@ async function workflow(session, { legacyOnly = false } = {}) {
   });
 
   if (legacyOnly) {
+    h.assert(await session.schedule.locator('#bedprogram_no').count() === 1,
+      'Caisi schedule must render exactly one program selector');
     await legacyNoteWorkflow(session);
     return;
   }

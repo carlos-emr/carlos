@@ -43,52 +43,30 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 }
 </script>
 
-<c:if test="${infirmaryView_isOscar != 'true'}">
-	<br>
-	<label for="bedprogram_no"><b>Program:</b></label>
-	<select id="bedprogram_no" name="bedprogram_no"
-		onchange="submitProgram(this,false)">
-		<c:choose>
+<br>
+<label for="bedprogram_no"><b>Program:</b></label>
+<select id="bedprogram_no" name="bedprogram_no"
+        onchange="submitProgram(this,${infirmaryView_isOscar != 'false'})">
+    <c:choose>
         <c:when test="${empty infirmaryView_programBeans or empty infirmaryView_programId or infirmaryView_programId == '0'}">
-		<option value="0" selected>-No assigned program-</option>
-		</c:when>
+            <option value="0" selected>-No assigned program-</option>
+        </c:when>
         <c:otherwise>
-		<c:forEach var="pb" items="${infirmaryView_programBeans}">
-			<c:if test="${infirmaryView_programId == pb.value}">
-				<option value="${carlos:forHtmlAttribute(pb.value)}" selected>${carlos:forHtml(pb.label)}</option>
-			</c:if>
-			<c:if test="${infirmaryView_programId != pb.value}">
-				<option value="${carlos:forHtmlAttribute(pb.value)}">${carlos:forHtml(pb.label)}</option>
-			</c:if>
-		</c:forEach>
-		</c:otherwise>
+            <c:forEach var="pb" items="${infirmaryView_programBeans}">
+                <c:choose>
+                    <c:when test="${infirmaryView_programId == pb.value}">
+                        <option value="${carlos:forHtmlAttribute(pb.value)}" selected>${carlos:forHtml(pb.label)}</option>
+                    </c:when>
+                    <c:otherwise>
+                        <option value="${carlos:forHtmlAttribute(pb.value)}">${carlos:forHtml(pb.label)}</option>
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>
+        </c:otherwise>
     </c:choose>
-	</select>
-</c:if>
-<c:if test="${infirmaryView_isOscar != 'false'}">
-	<br>
-		<label for="bedprogram_no"><b>Program:</b></label>
-		<select id="bedprogram_no" name="bedprogram_no"
-			onchange="submitProgram(this,true)">
-			<c:choose>
-        <c:when test="${empty infirmaryView_programBeans or empty infirmaryView_programId or infirmaryView_programId == '0'}">
-			<option value="0" selected>-No assigned program-</option>
-			</c:when>
-        <c:otherwise>
-			<c:forEach var="pb" items="${infirmaryView_programBeans}">
-				<c:if test="${infirmaryView_programId == pb.value}">
-					<option value="${carlos:forHtmlAttribute(pb.value)}" selected>${carlos:forHtml(pb.label)}</option>
-				</c:if>
-				<c:if test="${infirmaryView_programId != pb.value}">
-					<option value="${carlos:forHtmlAttribute(pb.value)}">${carlos:forHtml(pb.label)}</option>
-				</c:if>
-			</c:forEach>
-			</c:otherwise>
-    </c:choose>
-		</select>
-</c:if>
+</select>
 
-<c:if test="${infirmaryView_isOscar != 'true'}">
+<c:if test="${infirmaryView_isOscar == 'false'}">
   &nbsp;
   <select id="program_clientstatus" name="program_clientstatus"
 		onchange="submitStatus(this)">
