@@ -209,9 +209,8 @@
 		
 	
 
-		<jaxrs:features>
-			<cxf:logging />
-		</jaxrs:features>
+        <!-- This surface carries Ocean integration credentials. Do not enable CXF
+             payload logging here: both request and response bodies contain settings. -->
 
 		<!-- REST data services are exposed on BOTH the session surface (/ws/rs, here)
 		     and the OAuth surface (/ws/services, applicationContextREST.xml). Keep the two
@@ -244,6 +243,9 @@
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
+			<!-- Constructor injection requires both dependencies at startup; OceanSettingDaoImpl
+                 is discovered by spring_jpa.xml and spring_managers.xml component scans. -->
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.OceanService" autowire="constructor" />
 <!--			<bean class="org.oscarehr.webservbserv.rest.SystemInfoService" autowire="byName" /> -->
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />

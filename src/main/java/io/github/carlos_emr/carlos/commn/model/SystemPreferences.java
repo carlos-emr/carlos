@@ -44,7 +44,9 @@ public class SystemPreferences extends AbstractModel<Integer> {
 
     public enum SCHEDULE_PREFERENCE_KEYS {schedule_display_type, schedule_display_custom_roster_status}
 
-    public enum ECHART_PREFERENCE_KEYS {echart_hide_timer}
+    public enum ECHART_PREFERENCE_KEYS {echart_hide_timer,
+        // The enum name is the persisted OSCAR-compatible preference key.
+        @SuppressWarnings("java:S115") echart_show_ocean}
 
     public enum MASTER_FILE_PREFERENCE_KEYS {display_former_name, redirect_for_contact}
 

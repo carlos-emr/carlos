@@ -22,8 +22,28 @@ PROVISION_LOCK="${STATE}/.finish-install.lock"
 acquire_provision_lock() {
     command -v flock >/dev/null 2>&1 || return 0
     mkdir -p "${STATE}" 2>/dev/null || return 1
-    exec 9>"${PROVISION_LOCK}" 2>/dev/null || return 1
+    # Probe in a subshell first: under dash a redirection attached to `exec` is
+    # permanent (a trailing 2>/dev/null here silenced every later warning in
+    # this script), and a failed one exits the shell instead of returning.
+    ( exec 9>"${PROVISION_LOCK}" ) 2>/dev/null || return 1
+    exec 9>"${PROVISION_LOCK}" || return 1
     flock -w 300 9
+}
+
+# Whole seconds on the monotonic clock, for the bounded waits below: date +%s
+# moves with NTP steps, which would end a wait early (skipping provisioning
+# while MariaDB is still restarting) or hold dpkg past its stated bound.
+uptime_s() {
+    cut -d. -f1 /proc/uptime
+}
+
+# carlos-emr.service is running or on its way up. is-active alone is false while a
+# unit is still `activating`, which would end a readiness wait before it began.
+emr_alive() {
+    case "$(systemctl is-active carlos-emr.service 2>/dev/null)" in
+        active|activating|reloading) return 0 ;;
+    esac
+    return 1
 }
 
 case "$1" in
@@ -45,7 +65,30 @@ case "$1" in
         install -m 0644 "${SHARE}/tomcat/Catalina/localhost/drugref2.xml" \
             "${CONF_DIR}/tomcat/Catalina/localhost/drugref2.xml"
 
-        if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+        # Start MariaDB and wait for it, the same bounded wait carlos-emr.postinst
+        # uses. A single probe lost the race whenever the server was still
+        # starting -- and in the usual transaction it is: carlos-emr is configured
+        # immediately before this package and its db-apply-settings RESTARTS
+        # MariaDB to apply the CARLOS drop-in. Losing that race skipped the whole
+        # DrugRef provisioning and seed load while configure still reported
+        # success, leaving prescribing lookups empty until someone ran
+        # dpkg-reconfigure by hand. deb-systemd-invoke honours policy-rc.d.
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke start mariadb.service >/dev/null 2>&1 || true
+            # Wall-clock bound, and every probe (this final one too) is capped by
+            # timeout(1) as well as --connect-timeout, so a server that accepts
+            # the socket but never answers cannot hold configure past the
+            # "60 seconds" the warning below reports.
+            deadline=$(( $(uptime_s) + 60 ))
+            while [ "$(uptime_s)" -lt "${deadline}" ] \
+                && ! timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+                sleep 2
+            done
+        fi
+
+        DB_READY=0
+        if timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; then
+            DB_READY=1
             # Provision the account and password (carlos-ctl handles both
             # packages' accounts in one place, and is idempotent). No `|| true`
             # here: everything below assumes the drugref account exists with
@@ -139,8 +182,12 @@ case "$1" in
                 echo "carlos-emr-drugref: WARNING:   sudo mariadb -e 'DROP DATABASE drugref2' && sudo dpkg-reconfigure carlos-emr-drugref" >&2
             fi
         else
-            echo "carlos-emr-drugref: MariaDB is not reachable; finish with:" >&2
-            echo "carlos-emr-drugref:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
+            echo "carlos-emr-drugref: WARNING: MariaDB did not answer within 60 seconds, so the" >&2
+            echo "carlos-emr-drugref: WARNING: DrugRef database was NOT provisioned or loaded and" >&2
+            echo "carlos-emr-drugref: WARNING: prescribing lookups will return nothing. Once MariaDB" >&2
+            echo "carlos-emr-drugref: WARNING: is running (systemctl status mariadb), finish with the" >&2
+            echo "carlos-emr-drugref: WARNING: command below, which also restarts the EMR to load DrugRef:" >&2
+            echo "carlos-emr-drugref: WARNING:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
         fi
 
         # Restart so Tomcat picks up the new context. DrugRef shares the JVM
@@ -149,20 +196,87 @@ case "$1" in
         # is-active is a query, not a lifecycle action, so systemctl is the
         # right tool for it; the restart itself goes through deb-systemd-invoke
         # so policy-rc.d is honoured.
-        # is-failed as well as is-active: three packages in this transaction each
-        # restart carlos-emr.service, so an earlier one may already have spent
-        # the unit's StartLimitBurst and left it failed. Skipping here would then
+        # is-failed as well as is-active: an earlier start (carlos-emr's, or a
+        # crash-looping deploy) may already have spent the unit's
+        # StartLimitBurst and left it failed. Skipping here would then
         # leave the EMR down for good. reset-failed clears the start counter (and
         # the failed state) so a restart we asked for on purpose is never refused
         # as a crash loop — see the same guard in carlos-emr.postinst.
-        if [ -d /run/systemd/system ] && \
+        # Not when MariaDB never answered: nothing was provisioned, DrugRef cannot
+        # deploy without its account and schema, and a restart would only take a
+        # running EMR down for its ~2-minute redeploy. Nothing needs loading from
+        # disk either: apt unpacks both packages before configuring either, so
+        # carlos-emr's own configure already (re)started the EMR on these DrugRef
+        # files. The dpkg-reconfigure the warning above asks for restarts it.
+        #
+        # Under dpkg the restart is not done here at all: this package activates
+        # carlos-emr's carlos-emr-restart trigger, which carlos-emr's own
+        # configure activates too, and dpkg runs the triggered carlos-emr
+        # postinst ONCE after both are configured -- one ~2-minute webapp deploy
+        # per transaction instead of two, and the waiting happens there. It
+        # applies the same rule as below (restart only an EMR that is running or
+        # crash-looped, or that carlos-emr's configure asked to start). Outside
+        # dpkg (dpkg-reconfigure, which sets no DPKG_RUNNING_VERSION) nothing
+        # would process the trigger, so the restart and wait below run inline.
+        if [ "${DB_READY}" = 1 ] && [ -n "${DPKG_RUNNING_VERSION:-}" ] \
+            && dpkg-trigger --no-await carlos-emr-restart 2>/dev/null; then
+            echo "carlos-emr-drugref: the EMR restarts once, at the end of this transaction, to load DrugRef."
+        elif [ "${DB_READY}" = 1 ] && [ -d /run/systemd/system ] && \
            { systemctl is-active --quiet carlos-emr.service || \
              systemctl is-failed --quiet carlos-emr.service; }; then
             systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
-            deb-systemd-invoke restart carlos-emr.service || {
+            if ! deb-systemd-invoke restart carlos-emr.service; then
                 echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
                 echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2
-            }
+            elif ! emr_alive; then
+                # A restart can exit 0 without starting anything: the unit's
+                # ConditionPathExists= skips it while the seeded-credential guard
+                # is in place (carlos-emr.postinst explains that state). Nothing
+                # will come up, so do not wait for it.
+                echo "carlos-emr-drugref: the EMR is not running (see carlos-emr's messages above);"
+                echo "carlos-emr-drugref: DrugRef deploys with it when it starts."
+            else
+                # Wait for the redeploy, bounded, as carlos-emr.postinst does after
+                # its own start: returning with Tomcat still down for the ~2 minute
+                # deploy made the operator's first `carlos-ctl check` report
+                # "nothing is listening on 18080" over a healthy system.
+                # Loopback Tomcat, not the front door: DrugRef is loopback-only
+                # and the front door is carlos-emr's to prove. The XML-RPC
+                # endpoint, because the context root answers 404 even when
+                # deployed: the service answers a GET with 405 once DrugRef is
+                # up (200 is accepted too), and 000 / 404 / 503 until then.
+                echo "carlos-emr-drugref: waiting for the EMR to redeploy with DrugRef (a couple of minutes)..."
+                # A deadline (monotonic, see uptime_s), not an attempt count: each
+                # probe can take its full 10-second --max-time, so 60 attempts plus
+                # a 5-second sleep could hold dpkg for 15 minutes behind a "five
+                # minutes" message.
+                # The last probe may start just before the deadline, so the true
+                # bound is ~5 min + 10 s.
+                deadline=$(( $(uptime_s) + 300 ))
+                code=""
+                while [ "$(uptime_s)" -lt "${deadline}" ] && emr_alive; do
+                    # Match READY positively. curl already prints 000 when it
+                    # cannot connect, so an `|| echo 000` fallback turned that
+                    # into 000000, which a list of not-ready codes let through:
+                    # the loop declared DrugRef deployed a second into the
+                    # restart, before the new JVM had even bound the port.
+                    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                            http://127.0.0.1:18080/drugref2/DrugrefService 2>/dev/null || true)"
+                    case "${code}" in
+                        200|405) break ;;
+                    esac
+                    sleep 5
+                done
+                # The loop also ends early if the EMR stops (a failed deploy), so
+                # judge by the answer, not by the counter.
+                case "${code:-}" in
+                    200|405) echo "carlos-emr-drugref: DrugRef is deployed." ;;
+                    *)
+                        echo "carlos-emr-drugref: WARNING: DrugRef did not answer within five minutes of the restart" >&2
+                        echo "carlos-emr-drugref: WARNING: (systemctl status carlos-emr; carlos-ctl logs | grep drugref2)." >&2
+                        ;;
+                esac
+            fi
         fi
         ;;
     abort-upgrade|abort-remove|abort-deconfigure)

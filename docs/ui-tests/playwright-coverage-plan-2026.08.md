@@ -110,7 +110,7 @@ Save / Sign / Bill buttons through their handlers because the row sits below the
 ## 0. What has landed so far
 
 Phase 0 of §5 (the shared harness, the suite manifest and the runner) is in the
-repository, and **29 checks implementing this plan are present** — listed
+repository, and **32 checks implementing this plan are present** — listed
 in the second table below, which is the authoritative account of what exists.
 Items outside that implementation table remain planned.
 
@@ -124,18 +124,20 @@ Items outside that implementation table remain planned.
 | `package.json` | `test:playwright`, `test:playwright-smoke`, `test:playwright-list`, plus the 8 checks that had no alias at all | a test asserts every manifest entry is reachable by an alias |
 
 **Checks implementing this plan, landed so far.** Each script's header names the
-section it implements, and every *browser* check is UI-driven: it is entered by
-clicking from the schedule, never by a URL.
+section it implements, and browser workflow checks are UI-driven: they are entered by
+clicking from the schedule. The protocol exceptions below exercise server contracts directly.
 
-**Two checks in the table below are exceptions, and are marked as such.**
+**Three checks in the table below are exceptions, and are marked as such.**
 `csrf-bootstrap-audit` drives no browser at all — it reads the webapp's JSPs
 from disk, which is why it can run on every pull request without a deployment.
 `mutator-get-rejection-live` logs in through the browser and then issues its
 GET/HEAD probes with `context.request.fetch()`: its assertion is about the
 *transport* — what the server does when a mutator route is asked with a read
 method — and no control in the UI issues one, so there is no click that would
-exercise it. Both are protocol- or source-level assertions that the UI cannot
-make; neither is a shortcut around the rule.
+exercise it. `patient-search-rest-dob` uses authenticated `context.request.post()`
+to verify the REST search contract, including typed JSON and invalid pagination that
+the browser form cannot produce. These protocol- or source-level assertions
+complement the UI workflows.
 
 | Check | Implements | Covers |
 |---|---|---|
@@ -153,7 +155,8 @@ make; neither is a shortcut around the rule.
 | `surface-audit:workflow-surface` | §4.4 | WorkFlow list |
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |
 | `demographic-edit-update` | §2.4 (also §2.4 `demographic-audit`) | Editing a patient from the Master Record, asserted against the database, restored — and asserted to have been **recorded** in the audit trail with an actor |
-| `patient-search-modes` | §2.4 | Every patient-search mode, the active/inactive/all scope, and the browser-side date-of-birth refusal |
+| `patient-search-modes` | §2.4 | Every patient-search mode (date of birth as a full date, a year-month, and a `%` month wildcard — issue #3956), the active/inactive/all scope, and the browser-side refusal of a malformed date of birth |
+| `patient-search-rest-dob` (protocol probe) | §2.4 | Authenticated `ws/rs/demographics/search`: full, partial, wildcard and padded dates; count/result parity; malformed input; pagination and active/inactive status. Owns and cleans a synthetic patient in an unused birth year plus its program/admission relationship, including Caisi program-domain deployments. `EXPECT_PROGRAM_DOMAIN_RESTRICTION=true/false` also verifies visibility after removing fixture admissions. UI round trips cover private POST search/sort/paging, appointment/report selection and new-patient handoffs, global merged-record sorting, and the unmerge return page using owned pagination fixtures. |
 | `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |
 | `inboxhub-filters` | §2.6 | The Inbox's type and review-status filters, asserted as a *partition* of the unfiltered list — which is what catches a filter that is silently ignored |
@@ -164,10 +167,14 @@ make; neither is a shortcut around the rule.
 | `episode-lifecycle` | §2.5 | Description validation; create/edit/complete/reactivate/archive with persisted history and chart refresh |
 | `diagnosis-flowsheet` | §2.5 | Code search/add; diagnosis-triggered diabetes flowsheet and A1C entry; resolve and cancelled/accepted archive |
 | `prevention-lifecycle` | §3.4 | Vaccine picker; refused/completed/ineligible status, comments and dates; reopen and archive |
+| `echart-prevention-row-links` | §3.4 | Each eChart Preventions row opens its own prevention (issue #3975): add route preset to the row, the disambiguation route exactly when CVCMapping has several vaccines, the newest record by id once one exists; saving closes the popup **without reloading the eChart** (unsaved note text survives) and refreshes only the box. Fails against the pre-#3975 `close.jsp` |
 | `allergy-custom-lifecycle` | §3.2 | Non-drug custom allergy; confirmation cancellation; amendment retaining history; cancelled/accepted archive |
 | `contact-lifecycle` | §2.4 | External-contact search, punctuation-safe selection, clinical flags, consent, notes, cancellation, association deletion, professional consent/status round-trip, and editing a seeded internal relationship with reciprocal type/flags and duplicate checks |
 | `consultation-directory-crud` | §3.3 | Institution/department create, edit and cancelled/accepted deletion; unselected records survive |
 | `measurement-history` | §2.5 | Dated measurement values, plotted PNG bytes, selected-row deletion and preserved archive |
+| `provider-preferences` | §3.7 | Printer name and silent-print save (read-only when the printer feature is off), a NULL text signature edited without duplicate rows or GET writes, and document-description create/edit/reopen/delete with punctuation; every touched setting is snapshotted and restored. The other §3.7 preference sections remain planned |
+| `record-access` | §2.5, §4.4 | Cross-patient episode read and reassignment refused with 404 and no change; another provider's scratch-pad version neither readable nor deletable, while the owner's is |
+| `lot-number-search` | §3.4 | Administration ▸ Search lot number by prevention, inside its iframe: an exact owned lot returned with punctuation intact, then a repeated no-match search from the results page, with the row unchanged |
 
 The navigation audits share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
@@ -301,6 +308,7 @@ priority group where its module lives:
 | `fax-configure` | `admin/ViewConfigureFax` | Schedule ▸ Administration ▸ Faxes ▸ Configure Fax (shell; the panel lists Status ▸ Fax Status) |
 | `rx-*` (five scripts) | `rx/choosePatient?demographicNo=…` | Chart ▸ Rx (or Master Record ▸ Prescriptions) |
 | `messenger`, `messenger-inbox-actions` | `messenger/DisplayMessages` | Schedule ▸ Msg |
+| `messenger-group-admin` | `messenger?method=fetch` (injected) | Schedule ▸ Administration ▸ System Management ▸ Messenger Group Admin |
 | `tickler-crud`, `tickler-note-dialog` | `tickler/ViewAddTickler`, `ViewTicklerMain` | Schedule ▸ Tickler ▸ Add Tickler |
 | `add-login-account`, `assign-role` | `admin/View…AddARecord`, `admin/ProviderRole` | Schedule ▸ Administration ▸ User Management ▸ … |
 | `allergy-add-penicillin`, `allergy-rx-alert` | `rx/showAllergy`, `encounter/IncomingEncounter` | Chart ▸ Allergies |
@@ -310,6 +318,7 @@ priority group where its module lives:
 | `lab-pdf-footer` | `lab/CA/ALL/PrintPDF` | Search ▸ Master Record ▸ E-Chart ▸ Urinalysis ▸ Print; poppler-utils required; full expected confidentiality notice, printable bounds, no overlap and page numbering on every page |
 | `patient-messenger-context` | `messenger/DisplayDemographicMessages` | Search ▸ Master Record ▸ E-Chart ▸ Messenger tab; two demo patients in one session, eight subject/date sorts retain patient context; owned message fixtures cleaned |
 | `document-upload` | `web/inboxhub/Inboxhub` | Schedule ▸ Inbox ▸ Doc Upload |
+| `document-add-link` | `documentManager/ViewDocumentReport?function=demographic…` | Chart ▸ eDocs ▸ Add Link; https kept (no `http://https://`), schemeless gets `https://`, opening the stored link lands on the https URL (host intercepted in-browser), `javascript:` and quote-bearing URLs refused with nothing stored (#3949) |
 | `consultation-*` (four) | `encounter/ViewRequest?requestId=…` | Schedule ▸ Consultations ▸ row |
 
 Once the shared `navigate.*` map exists (§2.1) each of these becomes a one-line change.
@@ -467,7 +476,7 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `demographic-export-import` | Administration ▸ Data Management ▸ Demographic Export; ▸ Import New Demographic | Export produces the CDS XML for the patient (bytes); importing the fixture creates `FAKE-` patients; the import log downloads | Fixture files; delete created rows | `demographic/DemographicExport`, `form/importUpload`, `importLogDownload` |
 | `patient-set-cohort` | Master Record ▸ add to patient set; Schedule ▸ Report ▸ Demographic Report Tool ▸ sets | Set created, patient added, set drives a report row (the `prevention-recall-report` pattern) | Throwaway set | `demographic/ViewAddDemoToPatientSet`, `report/CreateDemographicSet`, `DemographicSetEdit` |
 | `demographic-audit` | Master Record ▸ Edit ▸ clinical section ▸ audit link | The edit `demographic-edit-update` made appears with user and time | Reuse | `demographic/ViewDemographicAudit` |
-| `patient-search-modes` | Schedule ▸ Search: name, HIN, phone, chart no, DOB (existing), address, all; Active/inactive; swipe | Result set per mode; inactive excluded by default and included on request; nothing beyond the search term in the URL | Demo data | `demographic/ViewSearch`, `DemographicSearch`, `ViewZdemographicSwipe` |
+| `patient-search-modes` | Schedule ▸ Search: name, HIN, phone, chart no, DOB (full, YYYY-MM, `%` wildcard), address, all; Active/inactive; swipe | Result set per mode; inactive excluded by default and included on request; nothing beyond the search term in the URL | Demo data | `demographic/ViewSearch`, `DemographicSearch`, `ViewZdemographicSwipe` |
 
 ### 2.5 Chart / encounter
 
@@ -504,7 +513,9 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `billing-on-correction-delete` | Master Record ▸ Billing History ▸ bill; Administration ▸ Billing ▸ Billing Correction | Edit service code/dx/units → `billing_on_item` updated; status change; delete variants mark `billing_on_cheader1.status='D'` and unbill the appointment (day sheet B badge) | Bill created through the `billing-on-submit` path | `BillingONCorrection`, `UpdateBillingONCorrection`, `ViewBillingONStatus`, `BillingDelete*` |
 | `billing-on-invoice-3rdparty` | Master Record ▸ Invoice List ▸ print; Administration ▸ Billing ▸ Billing Correction ▸ 3rd-party bill ▸ payments; Administration ▸ Billing ▸ Manage Payment Type | bytes `%PDF` with the invoice logo; `billing_on_payment` rows; statement balances | Third-party bill | `BillingInvoice*`, `ViewBillingON3rdInv`, `billingON3rdPayments`, `Add3rdPartyPayment`, `managePaymentType` |
 | `billing-on-ohip-file-cycle` | Administration ▸ Billing ▸ Simulation OHIP File; Generate OHIP File; Billing Reconciliation ▸ pick the RA file ▸ summary / detail ▸ settle; Upload MOH files (fixture error report); View MOH files | Claim file bytes match the MOH fixed-width layout for the seeded bills; bills flip to `B`; the RA creates `raheader`/`radetail`; settle flips to `S`; the error report marks rejects | Synthetic RA placed in the MOH files directory by the fixture (the `ImportOnRA` route has no UI caller — the Billing Reconciliation page reads the directory), synthetic error-report file, seeded bills | `ViewBillingOHIPsimulation`, `ViewBillingOHIPreport`, `ViewGenReport`, `ViewGenRA`, `ViewOnGenRA*`, `ViewOnGenRAsettle`, `BillingONUpload`, `DocumentErrorReportUpload`, `moveMOHFiles` |
+| `billing-on-group-disk-zero-total` **(landed, issue #3942)** | Administration ▸ Billing ▸ Generate OHIP diskette ▸ select each provider separately ▸ Create Report ▸ download the OHIP file ▸ regenerate the ZERO provider with R | Each selected provider gets its own disk; ZERO has the expected HEB/HEH/HET records, billed claims, disk linkage and filename summary; the unselected provider remains unbilled; regeneration preserves records and empty-provider metadata; the provider with no claims produces no file | Throwaway three-provider billing group and two seeded claims in an isolated date window; owned rows/files removed | `ViewBillingONMRI`, `ViewOngenreport`, `ViewOnregenreport`, `OscarDownload` |
 | `billing-on-mri-batch-clipboard` | Schedule ▸ Billing ▸ MRI; Administration ▸ Billing ▸ Batch Billing; bill form ▸ clipboard ▸ print | MRI lists unbilled/errored; batch creates N bills from N appointments; clipboard rows and print bytes | Seeded appointments | `ViewBillingONMRI`, `BatchBill`, `ViewBillingClipboard`, `ViewPrintBillingClipboard` |
+| `billing-unbilled-report` (landed, issue #3960) | ON and BC `ViewBillingReportControl` ▸ Unbilled ▸ Include No-Show / Include Cancelled ▸ Create Report | Owned `t`/`c`/`N`/`C`/`B` appointments: N and C listed only when opted in, B never, lowercase `c` always; checkbox state echoed | Owned FAKE- patient, appointments, and (when missing) the `billingreport` reportprovider row | `ViewBillingReportControl` (ON, BC), `OscarAppointmentDao.search_unbill_history_daterange` |
 | `billing-on-reports` | Schedule ▸ Report ▸ Generate a billing report ▸ unbilled / billed / unsettled / OB / flu ▸ Create Report; Administration ▸ Billing ▸ Invoice Reports, End Year Statement, Payment Received Report, INR Batch Billing; Administration ▸ Reports ▸ Age-Sex Report | Row counts equal SQL for the same range; PDF/CSV bytes | Seeded bills | `ViewBillingReportCenter`, `billingLreport`, `ViewBillingOBECEA`, `endYearStatement/*`, `DbReportAgeSex`, `ViewInrReportINR`, `InrUpdateINRbilling` |
 | `billing-on-admin-config` | Administration ▸ Billing ▸ Manage Billing Form, Add Billing Location, Manage Private Billing Code, Manage Billing Codes (dx), Upload Schedule Of Benefits (fixture), Manage Clinic NBR Codes, Manage Referral Doctors, Manage Service Code Display Styles, GST Control/Report; bill form ▸ favourites | Each CRUD writes and restores `ctl_billingservice`, `billingservice`, `billing_payment_type`, `clinic_nbr`, `professionalSpecialists`… | Restore | `ManageBillingform*`, `ManageBillingLocation`, `ViewBillingONEditPrivateCode`, `BillingDigUpdate`, `benefitScheduleUpload`, `clinicNbrManage`, `ViewSearchRefDoc`, `manageCSSStyles`, `admin/Gst*`, `ViewBillingONFavourite` |
 | `billing-shortcut` | Day sheet ▸ B ▸ billing form ▸ shortcut page 1 / 2 | Shortcut save creates the same rows as the long form | Seeded appointment | `billingShortcutPg1View`, `BillingShortcutPg2Save` |
@@ -564,7 +575,9 @@ until the package can be installed with nginx + ModSecurity in CI.
 | Check | Path | Asserts | Routes |
 |---|---|---|---|
 | `messenger-attachments` | Schedule ▸ Msg ▸ Compose ▸ attach document / lab / eForm; recipient opens it ▸ PDF preview ▸ Transfer to chart; Administration ▸ System Management ▸ Messenger Group Admin ▸ group message; Chart ▸ Messenger ▸ patient-linked list | Attachments listed; preview bytes; note written; one `messagelisttbl` row per group member; markdown body renders (obs. 8) | `messenger/attachmentFrameset`, `AdjustAttachments`, `PreviewPDF`, `WriteToEncounter`, `AddGroup`, `DisplayDemographicMessages` |
+| `messenger-group-admin` (**implemented**, issue #3964) | Schedule ▸ Administration ▸ System Management ▸ Messenger Group Admin (shell): Manage Contacts; "+" new group; group ▸ Last, First typeahead ▸ Add Contact; the same pick again; direct duplicate POSTs | No negative (system/deactivated) provider number is offered as a contact; the typeahead offers a provider once; one group row + one registry row per add; a repeat pick shows "already in this group" and posts nothing; the server answers 409 to a duplicate for the group and for group 0 and 400 to a bad group id, with row counts unchanged | `messenger?method=fetch`, `method=create`, `method=add` |
 | `tickler-forward-filters` | Schedule ▸ Tickler: forward to another provider; priority/status/date filters; Tickler ▸ Add Tickler ▸ suggested text; Preferences ▸ Lab, Prevention & Messaging ▸ tickler settings; Dashboard ▸ Assign Tickler | Forwarded row appears for the other provider; filters match SQL; the patient-view date window (obs. 12) asserted fixed | `tickler/ForwardDemographicTickler`, `EditTicklerTextSuggest`, `setTicklerPreferences`, `web/dashboard/display/AssignTickler` |
+| `echart-prevention-row-links` (implemented) | Chart ▸ Preventions box row (no record) ▸ save; same row (now recorded) ▸ reopen | One `preventions` row with the typed date; eChart main frame not navigated and the typed note retained; refreshed row links `id=<new>`; reopened form shows that date | `prevention/ViewAddPreventionData`, `ViewAddPreventionDataDisambiguate`, `prevention/AddPrevention`, `encounter/displayPrevention` |
 | `prevention-edit-delete-refuse` | Chart ▸ Preventions: edit and delete an existing immunization; refused / ineligible; comments; next-date recall | `preventions` + `preventionsExt` rows; recall shows in the tickler | `prevention/AddPrevention` |
 | `prevention-admin` | Administration ▸ Schedule Management ▸ Prevention Notification Settings; System Management ▸ Prevention List Manager (shell), Add Prevention Lot number / Search lot number by prevention; Chart ▸ Preventions ▸ print | Config rows; lot rows offered in the picker; print bytes | `ViewPreventionManager`, `ViewPreventionListManager`, `admin/LotNr*`, `rtlPreventions` |
 

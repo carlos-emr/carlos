@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # System accounts for CARLOS EMR.
 #
-# Two accounts, deliberately separate, and neither is a member of any
+# Three accounts, deliberately separate, and none is a member of any
 # privileged group:
 #
 #   carlos         runs the JVM. Owns the document store and Tomcat's writable
@@ -12,10 +12,11 @@
 #                  uid can read.
 #   carlos-render  runs the headless browser that renders eForms to PDF, and is
 #                  a member of NO group — deliberately, including not `carlos`.
-#                  DECLARED IN carlos-emr-eform-renderer.sysusers, not here: the
-#                  account and the directory it owns must be created by the same
-#                  package, or carlos-emr's tmpfiles run first on a clean install
-#                  and fail with "Failed to resolve user 'carlos-render'".
+#                  Declared here together with the directory it owns
+#                  (carlos-emr.tmpfiles): dh runs sysusers before tmpfiles within
+#                  a package, and the postinst creates the account before its own
+#                  explicit systemd-tmpfiles call. (Until 2026.08.0~alpha13 it was
+#                  declared by the separate carlos-emr-eform-renderer package.)
 #
 # Why carlos-render exists at all: chromedriver listens on a loopback TCP port
 # with no authentication, and a WebDriver new-session request can specify the
@@ -56,3 +57,4 @@
 u carlos       - "CARLOS EMR application server" /var/lib/carlos-emr        /usr/sbin/nologin
 u carlos-backup - "CARLOS EMR backup" /var/backups/carlos-emr /usr/sbin/nologin
 m carlos-backup carlos
+u carlos-render - "CARLOS EMR eForm render browser" /var/lib/carlos-emr/renderer /usr/sbin/nologin

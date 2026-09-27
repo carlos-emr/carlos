@@ -104,14 +104,21 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().debug("Lab Upload content type = " + importFile.getName());
             // Re-validate at point of use for static analysis visibility
             File validatedImportFile = PathValidationUtils.validateUpload(importFile);
-            InputStream is = Files.newInputStream(validatedImportFile.toPath());
             filename = importFile.getName();
 
-            int check = FileUploadCheck.addFile(filename, is, proNo);
-            is.reset();
+            // Snapshot the upload once. The duplicate check, parser, and archive writer each consume
+            // a stream, and the file stream cannot be reset; reopening the path per reader could also
+            // hash one version of the file while importing or archiving another. Struts caps
+            // multipart uploads (struts.multipart.maxSize), which bounds this buffer.
+            byte[] uploadContent;
+            try (InputStream uploadStream = PathValidationUtils.openValidatedUploadInputStream(validatedImportFile)) {
+                uploadContent = uploadStream.readAllBytes();
+            }
+
+            int check = FileUploadCheck.addFile(filename, new ByteArrayInputStream(uploadContent), proNo);
             if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
                 Connection connection = new Connection();
-                ArrayList<String> messages = connection.Retrieve(is);
+                ArrayList<String> messages = connection.Retrieve(new ByteArrayInputStream(uploadContent));
                 if (messages != null) {
                     try {
                         int size = messages.size();
@@ -140,8 +147,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     //connection.Acknowledge(success);
                 }
                 //SAVE FILE TO DISK
-                is.reset();
-                if (!saveFile(is, filename)) {
+                if (!saveFile(new ByteArrayInputStream(uploadContent), filename)) {
                     outcome = OUTCOME_EXCEPTION;
                 }
             } else {

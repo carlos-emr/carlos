@@ -31,19 +31,33 @@ cleanup. It preserves all existing routing records and comments. All application
 run the updated acknowledgement code to participate in this coordination protocol.
 `V1.0.22__add_lab_routing_lock_audit_columns.sql` also supplies the standard audit
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
+`V1.0.32__add_nrtf_tuning_fork_measurement_type.sql` seeds the NRTF measurement type
+("Neurological exam: 128Hz tuning fork D1") used by the diabetes flowsheets for OntarioMD
+DE16.066; the insert is existence-guarded because `measurementType.type` is not unique.
+`V1.0.33__aacp_provided_revised_reviewed_validation.sql` moves the Asthma Action Plan (AACP)
+measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (OntarioMD DE16.098).
 
 `V1.0.23.1__widen_email_config.sql` widens `emailConfig.configDetails` to `TEXT` to match the
 entity mapping. `V1.0.29__rename_placeholder_demo_clinic.sql` replaces the seeded placeholder
 clinic name.
-`V1.0.30__enforce_provider_signature_identity.sql` repairs exact duplicate provider
+`V1.0.40__enforce_provider_signature_identity.sql` repairs exact duplicate provider
 signature rows for assigned providers and enforces the mapped provider identity.
 Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures fail
 before source changes. See the parent README for preparation and recovery instructions.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
-shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version
-number) so one migration covers both provinces. The version line is global across `common` + the
-selected province, so the next free number accounts for province deltas too. The highest version in
-use is `common/V1.0.30`, so the next free version for ANY location is `V1.0.31` (see `../README.md`).
-Consult every active branch inventory before assigning a version. Never edit a published migration or
-silently enable out-of-order application during promotion.
+shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
+covers both provinces. The version line is global across `common` + the selected province, so the
+next free number accounts for province deltas too. The highest migration in this branch is `common/V1.0.40`.
+`V1.0.35` is allocated to PR #3996 and `V1.0.37`–`V1.0.39` are claimed by open branches, so the
+next unallocated version for ANY location is `V1.0.41` (see `../README.md`). Consult every active
+branch inventory before assigning a version. Never edit a published migration or silently enable
+out-of-order application during promotion.
+
+Messenger membership coordination (#3964) adds
+`common/V1.0.36__serialize_messenger_membership_changes.sql`. `V1.0.35` is already
+allocated to the tickler-document PR #3996. Apply/merge these forward migrations in version order; if their merge
+order changes after a release, renumber the still-unreleased migration before
+shipping it. The coordination table contains no clinical data and does not
+rewrite legacy memberships. All application instances must run the serialized
+membership writer before relying on cross-instance duplicate prevention.

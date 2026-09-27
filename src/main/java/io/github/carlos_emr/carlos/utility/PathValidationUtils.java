@@ -768,6 +768,24 @@ public final class PathValidationUtils {
     }
 
     /**
+     * Returns the canonical, existing administrator-configured billing output directory.
+     *
+     * @return the canonical HOME_DIR directory
+     * @throws IOException if HOME_DIR is absent, unavailable or not a directory
+     */
+    public static File getRequiredHomeDirectory() throws IOException {
+        String home = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        if (home == null || home.isBlank()) {
+            throw new IOException("HOME_DIR not configured; rejecting file access");
+        }
+        File directory = new File(home).getCanonicalFile();
+        if (!directory.isDirectory()) {
+            throw new IOException("HOME_DIR is not an existing directory; rejecting file access");
+        }
+        return directory;
+    }
+
+    /**
      * Validates that the path string is contained within DOCUMENT_DIR, which must be configured.
      * Use this for application-created lab file paths that must fail closed when
      * DOCUMENT_DIR is unavailable.

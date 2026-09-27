@@ -13,7 +13,7 @@ import unittest
 import uuid
 
 MIGRATION = (Path(__file__).resolve().parents[1] /
-             'database/mysql/migration/common/V1.0.30__enforce_provider_signature_identity.sql').read_text()
+             'database/mysql/migration/common/V1.0.40__enforce_provider_signature_identity.sql').read_text()
 
 
 class SignatureIdentityMigration(unittest.TestCase):

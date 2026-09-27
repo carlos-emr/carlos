@@ -33,9 +33,8 @@
       have been flipped to billed; an admin should reconcile against the
       OHIP claim record before retrying.
 
-  PHI-safe: the exception message is composed at the throw site with the
-  ohipFilename only (no patient identifiers). Rendered with the carlos:encode
-  tag in context="html" mode for defense-in-depth.
+  Only fixed public guidance and the phase enum are displayed. Original messages,
+  filenames, causes and diagnostic context are withheld, including container-error fallbacks.
 
   @since 2026-04-29
 --%>
@@ -45,7 +44,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    // Pull the exception message defensively — Struts2 ExceptionMappingInterceptor
+    // Resolve the failure defensively — Struts2 ExceptionMappingInterceptor
     // places the caught exception on the ValueStack and exposes it as the
     // request attribute "exception". Fall back to the JSP errorPage and the
     // container error dispatcher attributes for completeness.
@@ -63,23 +62,17 @@
             __bfwe = (Throwable) __attr;
         }
     }
-    String __bfweMessage = __bfwe == null ? ""
-            : (__bfwe.getMessage() == null ? "" : __bfwe.getMessage());
+    String __bfweMessage = io.github.carlos_emr.carlos.app.PublicExceptionDetails.message(__bfwe);
     request.setAttribute("__bfweMessage", __bfweMessage);
 
-    // BillingDataLoadException carries structured Phase + context for
-    // operator-facing rendering. Pull them out via reflection-free
-    // type check so the same JSP serves BillingFileWriteException too.
+    // The phase is a fixed enum; dynamic context must never be rendered.
     String __phase = "";
-    java.util.Map<String, String> __ctx = java.util.Collections.emptyMap();
     if (__bfwe instanceof io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException) {
         io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException __dle =
                 (io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException) __bfwe;
         __phase = __dle.phase().name();
-        __ctx = __dle.context();
     }
     request.setAttribute("__phase", __phase);
-    request.setAttribute("__ctx", __ctx);
 %>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
@@ -113,18 +106,12 @@
                 <span><carlos:encode value="${__phase}" context="html"/></span>
             </p>
         </c:if>
-        <c:if test="${not empty __ctx}">
-            <dl class="row mb-0">
-                <c:forEach var="entry" items="${__ctx}">
-                    <dt class="col-sm-3 text-end"><carlos:encode value="${entry.key}" context="html"/>:</dt>
-                    <dd class="col-sm-9"><carlos:encode value="${entry.value}" context="html"/></dd>
-                </c:forEach>
-            </dl>
-        </c:if>
-        <p class="mb-0">Check the application log for the full stack trace, then
-           contact your billing administrator. The claim batch was <strong>not</strong>
+        <p class="mb-0">Contact your billing administrator and quote the incident reference. The claim batch was <strong>not</strong>
            submitted.</p>
     </div>
+    <c:if test="${not empty carlosIncidentId}">
+        <p>Incident reference: <carlos:encode value="${carlosIncidentId}" context="html"/></p>
+    </c:if>
     <div class="d-flex gap-2">
         <a class="btn btn-secondary" href="javascript:history.back()" role="button">Back</a>
     </div>

@@ -13,6 +13,12 @@ const { spawnSync } = require('node:child_process');
 
 const repo = path.join(__dirname, '..');
 const read = (...p) => fs.readFileSync(path.join(repo, ...p), 'utf8');
+// The carlos-ctl CLI is its own repository since the split
+// (carlos-emr/carlos-ctl): CARLOS_CTL_SRC names a checkout, else the installed
+// package under /usr/lib/carlos-ctl is read. Tests that need it skip otherwise.
+const ctlSrc = [process.env.CARLOS_CTL_SRC, '/usr/lib/carlos-ctl']
+  .find((d) => d && fs.existsSync(path.join(d, 'carlos_ctl', 'provision.py')));
+const readCtl = (...p) => fs.readFileSync(path.join(ctlSrc, 'carlos_ctl', ...p), 'utf8');
 const postinst = read('debian', 'carlos-emr.postinst');
 const MARKER = '/var/lib/carlos-emr/.install-incomplete';
 
@@ -81,7 +87,7 @@ test('the boot-time completion watches the same marker and runs before the EMR',
   const unit = read('debian', 'carlos-emr.carlos-emr-provision.service');
   assert.ok(unit.includes(`ConditionPathExists=${MARKER}`),
     'the unit must be skipped, not merely quick, on a healthy boot');
-  assert.match(unit, /^ExecStart=\/usr\/lib\/carlos-emr\/carlos-ctl finish-install --boot$/m);
+  assert.match(unit, /^ExecStart=\/usr\/sbin\/carlos-ctl finish-install --boot$/m);
   assert.match(unit, /^After=mariadb\.service/m);
   assert.match(unit, /^Before=carlos-emr\.service$/m);
   assert.match(unit, /^WantedBy=multi-user\.target$/m);
@@ -102,13 +108,13 @@ test('the boot-time completion watches the same marker and runs before the EMR',
     /dh_installsystemd --no-start --name=carlos-emr-provision/);
 });
 
-test('finish-install reads the marker the postinst wrote, and defaults safely without one', () => {
+test('finish-install reads the marker the postinst wrote, and defaults safely without one', { skip: !ctlSrc && 'set CARLOS_CTL_SRC to a carlos-ctl checkout' }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-provision-'));
   try {
     const marker = path.join(root, '.install-incomplete');
     const probe = `
 import sys
-sys.path.insert(0, ${JSON.stringify(path.join(repo, 'debian', 'assets'))})
+sys.path.insert(0, ${JSON.stringify(ctlSrc)})
 from carlos_ctl import provision
 provision.MARKER = ${JSON.stringify(marker)}
 print("absent", provision.pending(), provision._answer("reset_admin", True),
@@ -141,10 +147,10 @@ provision.clear()
   }
 });
 
-test('carlos-ctl exposes finish-install, and check points at it', () => {
+test('carlos-ctl exposes finish-install, and check points at it', { skip: !ctlSrc && 'set CARLOS_CTL_SRC to a carlos-ctl checkout' }, () => {
   const probe = `
 import sys
-sys.path.insert(0, ${JSON.stringify(path.join(repo, 'debian', 'assets'))})
+sys.path.insert(0, ${JSON.stringify(ctlSrc)})
 from carlos_ctl import cli, provision
 assert cli._VERBS["finish-install"] is provision.cmd_finish_install
 assert "finish-install" in cli._USAGE
@@ -156,7 +162,7 @@ print("ok")
 
   // The same unreachable database skips the drugref package's seed load, which
   // lives in ITS maintainer script: point at that rather than reimplement it.
-  const provision = read('debian', 'assets', 'carlos_ctl', 'provision.py');
+  const provision = readCtl('provision.py');
   assert.match(provision, /dpkg-reconfigure carlos-emr-drugref/);
   assert.match(provision, /table_schema='drugref2'/);
 
@@ -182,7 +188,12 @@ print("ok")
   // Only a MISSING flock(1) falls through to the pre-lock behavior; a lock file
   // that cannot be opened defers provisioning instead of running unserialized.
   assert.match(postinst, /command -v flock[^\n]*\|\| return 0/);
-  assert.match(postinst, /! mkdir -p "\$\{STATE\}"[^\n]*\|\| ! exec 9>/);
+  assert.match(postinst, /! mkdir -p "\$\{STATE\}"[^\n]*\\\n\s*\|\| ! \( exec 9>"\$\{PROVISION_LOCK\}" \) 2>\/dev\/null \\\n\s*\|\| ! exec 9>"\$\{PROVISION_LOCK\}"; then/);
+  // The real exec carries NO redirection of its own: under dash a redirection on
+  // `exec` is permanent, and a 2>/dev/null there silenced every later warning.
+  for (const script of [postinst, fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr-drugref.postinst'), 'utf8')]) {
+    assert.doesNotMatch(script, /^\s*[^#\n(]*exec 9>"\$\{PROVISION_LOCK\}" 2>/m);
+  }
   // The sentinel is the per-start guard; when it cannot be written the mask is
   // the only containment left, and recovery has to lift it again.
   assert.match(provision, /"systemctl", "mask", "carlos-emr\.service"/);
@@ -214,7 +225,7 @@ print("ok")
   // not delete the marker a previous failed configure left behind.
   assert.match(postinst, /INSTALL_INCOMPLETE\}" = 0 \] && \[ "\$\{MIGRATION_OK:-1\}" = 1/);
 
-  const validate = read('debian', 'assets', 'carlos_ctl', 'validate.py');
+  const validate = readCtl('validate.py');
   // check reports the unfinished install FIRST: it is the one cause behind the
   // dozen unrelated-looking failures the rest of the run then reports.
   assert.ok(validate.indexOf('provision.pending()') < validate.indexOf('print("services")'));
@@ -228,7 +239,7 @@ print("ok")
 
 // Behavioral tests mock only the external database/systemd boundary. They run
 // the complete repair command and assert its exit status and persistent state.
-test('repair failure and recovery behavior', () => {
+test('repair failure and recovery behavior', { skip: !ctlSrc && 'set CARLOS_CTL_SRC to a carlos-ctl checkout' }, () => {
   const result = spawnSync('python3', [path.join(__dirname, 'deb-install-completion-tests.py')],
     { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -435,7 +446,7 @@ front_door_listening
 
 test('postinst HTTP probe uses the last overrides and the matching wildcard address family', () => {
   const start = postinst.indexOf('        PROBE_NAME="$(sed');
-  const end = postinst.indexOf('        i=0', start);
+  const end = postinst.indexOf('        deadline=', start);
   assert.ok(start >= 0 && end > start);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-probe-'));
   try {

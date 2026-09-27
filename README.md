@@ -23,22 +23,25 @@ CARLOS EMR continues to evolve through community-driven development, providing a
 
 **Running CARLOS on a server** — install the Debian packages. Every
 [release](https://github.com/carlos-emr/carlos/releases) ships the
-`carlos-emr`, `carlos-emr-drugref`, and `carlos-emr-eform-renderer` `.deb`
-files (with checksums and provenance attestations) that set up the whole
-system on one Ubuntu 26.04 machine: the application, MariaDB, an nginx +
+`carlos-emr` (amd64) and `carlos-emr-drugref` `.deb` files, plus a
+transitional `carlos-emr-eform-renderer` for upgrades (with checksums and
+provenance attestations), that set up the whole system on one Ubuntu 26.04
+x86-64 machine: the application, MariaDB, an nginx +
 ModSecurity web application firewall, HTTPS, scheduled encrypted backups,
 eForm PDF rendering, and the `carlos-ctl` administration tool — with every
 long-running component under an unprivileged account.
 
 ```bash
-sudo apt install ./carlos-emr_<version>_all.deb \
+sudo apt install ./carlos-emr_<version>_amd64.deb \
+                 ./carlos-ctl_<ctl-version>_all.deb \
                  ./carlos-emr-drugref_<version>_all.deb \
-                 ./carlos-emr-eform-renderer_<version>_amd64.deb
+                 ./carlos-emr-eform-renderer_<version>_all.deb
 sudo carlos-ctl check
 ```
 
 Full install and quickstart guide: **[docs/install-deb.md](docs/install-deb.md)**;
-administration reference: **[docs/carlos-ctl.md](docs/carlos-ctl.md)**.
+administration reference: **[carlos-ctl](https://github.com/carlos-emr/carlos-ctl/blob/main/docs/carlos-ctl.md)**
+(the `carlos-ctl` command is its own package and repository, which `carlos-emr` depends on).
 
 **Developing CARLOS** — use the [devcontainer](.devcontainer/README.md), a
 complete disposable development environment with synthetic data. It is for
