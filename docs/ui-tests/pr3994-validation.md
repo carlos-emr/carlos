@@ -33,3 +33,15 @@ The first installed CAISI attempt reproduced the shared #4012 scheduler JSP defe
 All owned patient, tickler, note, issue and history fixtures were removed. The original properties file was restored byte-for-byte after the temporary CAISI setting. A count and SHA-256 comparison verified all 327 pre-existing note-link rows were unchanged. Final health passed and the VM was stopped. Host root space remained about 3.3 GiB free and VM space about 4.5 GiB free; superseded DEBs and build staging were removed while logs and package hashes were retained.
 
 Application payload commit: `855910bf9a`. Evidence logs and hashes are retained locally in `/home/michael/work/pr3985-4000-evidence/` with the `pr3994-` prefix.
+
+## Review follow-up
+
+All six new findings are addressed. Tickler priorities use stable enum values for both selection and submission while keeping localized labels (#4043). New active/inactive suggested text is persisted without logging the text or parsing exception (#4044). Add/edit/suggestion mutation guards now compare the exact POST method; 405 responses advertise `Allow: POST`. The tests reject lowercase, mixed-case and Unicode case-fold variants before mutation.
+
+Owned tickler cleanup removes all links belonging to the deleted ticklers even when their notes are excluded by the text filter; those notes remain intact. Regression cases cover no matching notes and an empty note-text list. The validation-function extractor uses fixed regex literals. Both pooled-tag tests follow the BDD naming convention. Shared CAISI views match #3990's independent placeholder/program rendering, presentation-table semantics, HTML5 spans and associated status label, addressing all six Sonar reliability findings.
+
+Follow-up validation passed: **106 Java integration/tag/mutation tests**, **1,044 complete Node tests**, encoder and BDD audits, **984 JSPs**, WAR and Javadocs. The initial new add-method test exposed a missing `Allow` header; that was corrected before the final passing run.
+
+All three DEBs `2026.08.0~alpha16~pr3994.3` were installed on Ubuntu 26.04; **6,673 package and installed files** matched the tested source. The expanded target passed in normal and CAISI modes. Its French edit pages display Élevée/Normale/Faible while submitting High/Normal/Low, preserve the stored selection, persist every priority and comment, and preserve High during a comment-only edit. Existing `tickler-crud`, `tickler-note-dialog` and `tickler-demo-main` checks also passed. A temporary authenticated JSP probe exercised four selector cases with the actual included JSP, including available programs with empty/zero selections and encoded labels.
+
+The probe and fixtures were removed; CAISI configuration was restored byte-for-byte. All **327 original note-link rows** retained their exact count and SHA-256 hash. Final health and installed hashes passed, `NRestarts=0`, VM free space was 4.5 GiB, and the VM was stopped. Builds and tests ran serially with the VM stopped throughout compilation. Application payload commit: `2bbf3845a2`.
