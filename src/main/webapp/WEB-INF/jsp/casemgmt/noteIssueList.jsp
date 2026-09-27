@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AJAX issue-list fragment for the active note, including encounter type and clinical flags.
+    Uses demographicNo and newNoteIdx request parameters and caseManagementEntryForm
+    (request model or patient-specific session fallback). Refresh must finish before saving.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean, io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@page import="org.owasp.encoder.Encode" %>
@@ -256,7 +262,7 @@
 
 
 
-<div id="noteIssues">
+<div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
         <b><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>

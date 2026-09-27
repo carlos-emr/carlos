@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Classic case-management note entry page with issue selection and soft-wrapped clinical text.
+    Uses the caseManagementEntryForm model and showResolved request parameter; preserves
+    patient/provider scope and typed line breaks when editing and saving.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 
 
 

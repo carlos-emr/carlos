@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Legacy encounter concurrency recovery page. Displays the session EctSessionBean encounter
+    as encoded, soft-wrapped text for the authorized user to recover without adding line breaks.
+    No request parameters; requires the authenticated session and _eChart read permission.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

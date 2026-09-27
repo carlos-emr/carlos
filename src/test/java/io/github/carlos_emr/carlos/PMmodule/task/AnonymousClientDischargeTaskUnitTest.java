@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class AnonymousClientDischargeTaskUnitTest {
     @Test
-    void injectedManagerWorksWithoutStaticSpringFactoryAndOnlyDischargesOldAdmissions() {
+    void shouldDischargeOnlyOldAdmissions_withInjectedManager() {
         AdmissionManager manager = mock(AdmissionManager.class);
         Admission old = admission(25);
         Admission recent = admission(23);
@@ -42,7 +42,7 @@ class AnonymousClientDischargeTaskUnitTest {
     }
 
     @Test
-    void databaseFailureStillReleasesThreadResources() {
+    void shouldReleaseThreadResources_whenDatabaseFails() {
         AdmissionManager manager = mock(AdmissionManager.class);
         when(manager.getActiveAnonymousAdmissions()).thenThrow(new IllegalStateException("test unavailable"));
         AnonymousClientDischargeTask task = new AnonymousClientDischargeTask();
@@ -55,7 +55,7 @@ class AnonymousClientDischargeTaskUnitTest {
     }
 
     @Test
-    void caisiConfigInjectsManagerAndSchedulesTaskOnlyOnceWithExistingDelayAndPeriod() {
+    void shouldInjectAndScheduleOnce_withExistingDelayAndPeriod() {
         var factory = new DefaultListableBeanFactory();
         new XmlBeanDefinitionReader(factory).loadBeanDefinitions(new ClassPathResource("applicationContextCaisi.xml"));
         BeanDefinition task = factory.getBeanDefinition("scheduledAnonymousClientDischargeTask");

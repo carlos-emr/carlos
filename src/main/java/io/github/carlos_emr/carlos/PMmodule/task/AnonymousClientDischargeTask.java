@@ -44,7 +44,11 @@ public class AnonymousClientDischargeTask extends TimerTask {
 
     private AdmissionManager admissionManager;
 
-    /** Inject the service before the executor starts; do not depend on listener order. */
+    /**
+     * Inject the service before the executor starts; do not depend on listener order.
+     *
+     * @param admissionManager the non-null admission service
+     */
     public void setAdmissionManager(AdmissionManager admissionManager) {
         this.admissionManager = Objects.requireNonNull(admissionManager);
     }

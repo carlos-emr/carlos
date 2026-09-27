@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 @org.junit.jupiter.api.Tag("unit")
 class ProgramExclusiveViewTagUnitTest {
     @Test
-    void pooledTagDoesNotRetainAnotherProvidersExclusiveView() throws Exception {
+    void shouldResetExclusiveView_whenPooledTagChangesProvider() throws Exception {
         ProviderDefaultProgramDao dao = mock(ProviderDefaultProgramDao.class);
         Program program = new Program();
         program.setExclusiveView("appointment");
@@ -33,7 +33,7 @@ class ProgramExclusiveViewTagUnitTest {
     }
 
     @Test
-    void absentOrEmptyViewUsesTheUnrestrictedDefault() throws Exception {
+    void shouldUseUnrestrictedDefault_whenViewIsAbsentOrEmpty() throws Exception {
         ProviderDefaultProgramDao dao = mock(ProviderDefaultProgramDao.class);
         Program program = new Program();
         when(dao.findProgramsByProvider("1")).thenReturn(List.of(program));

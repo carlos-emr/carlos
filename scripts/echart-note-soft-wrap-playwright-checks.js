@@ -175,7 +175,7 @@ async function savedNote(sql, patient, needle, expected) {
     if (row && row[3] === '1') break;
     await new Promise((resolve) => setTimeout(resolve, 250));
   } while (Date.now() < deadline);
-  h.assert(row, 'Save did not create a casemgmt_note row for the fixture note');
+  h.assert(row && row[3] === '1', 'Save did not persist the expected fixture note revision before timeout');
   const [noteId, uuid, signed, prefixMatches, rest, carriageReturns, lineFeeds] = row;
   return {
     noteId, uuid, signed: signed === '1', prefixMatches: prefixMatches === '1', rest,
@@ -242,7 +242,7 @@ async function signAndSave(chart, typed) {
 }
 
 /** Hold both editor issue responses to exercise a real fast-save race deterministically. */
-async function saveWithDelayedIssues(chart, open, prepare, save) {
+async function saveWithDelayedIssues(chart, open, prepare, save, { preserveEditor = false } = {}) {
   let releaseEdit; let releasePanel; let saves = 0;
   const editGate = new Promise(resolve => { releaseEdit = resolve; });
   const panelGate = new Promise(resolve => { releasePanel = resolve; });
@@ -251,7 +251,7 @@ async function saveWithDelayedIssues(chart, open, prepare, save) {
     && method(request) === 'edit';
   const isPanel = request => /\/encounter\/displayIssues/.test(request.url());
   const record = request => {
-    if (/\/CaseManagementEntry/.test(request.url()) && ['save', 'saveAndExit'].includes(method(request))) saves++;
+    if (/\/CaseManagementEntry/.test(request.url()) && ['save', 'saveAndExit', 'ajaxsave'].includes(method(request))) saves++;
   };
   const delay = async route => {
     if (isEdit(route.request())) await editGate;
@@ -264,13 +264,20 @@ async function saveWithDelayedIssues(chart, open, prepare, save) {
   try {
     const editRequested = chart.waitForRequest(isEdit, { timeout: 30000 });
     await open(); await editRequested; await prepare();
+    const editorId = await activeEditor(chart).getAttribute('id');
+    const assertEditorIntact = async () => {
+      if (preserveEditor) h.assert(await activeEditor(chart).getAttribute('id') === editorId,
+        'Note switching removed the editor before its issue fields finished loading');
+    };
     const saved = save().then(() => ({ ok: true }), error => ({ error }));
     await new Promise(resolve => setTimeout(resolve, 150));
     h.assert(saves === 0, 'Save submitted before the editor issue fields finished loading');
+    await assertEditorIntact();
     const panelRequested = chart.waitForRequest(isPanel, { timeout: 30000 });
     releaseEdit(); await panelRequested;
     await new Promise(resolve => setTimeout(resolve, 150));
     h.assert(saves === 0, 'Save submitted before the related issue panel finished loading');
+    await assertEditorIntact();
     releasePanel();
     const result = await saved;
     if (result.error) throw result.error;
@@ -375,6 +382,69 @@ async function workflow(session, { legacyOnly = false } = {}) {
     await openEditorAndSettle(chart, () => chart.locator('#newNoteImg').first().click());
   });
 
+  await session.step('Save on switching notes waits for both issue refreshes and opens the requested editor', async () => {
+    const text = noteText(tag, 'save on switch');
+    let previousEditor;
+    const dialogs = await h.withExpectedDialogs(chart, async () => {
+      await saveWithDelayedIssues(chart,
+        () => chart.locator('#newNoteImg').first().click(),
+        async () => {
+          previousEditor = await activeEditor(chart).getAttribute('id');
+          await typeInto(activeEditor(chart), text);
+        },
+        () => clickAndExpectSave(chart, '#newNoteImg', 'ajaxsave'),
+        { preserveEditor: true });
+      await chart.waitForFunction(oldId => {
+        const editor = document.querySelector('#encMainDiv textarea[name="caseNote_note"]');
+        return editor && editor.id !== oldId && issueUpdatesPending === 0;
+      }, previousEditor, { timeout: 30000 });
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Switch must ask once to save the changed note');
+    assertStoredAsTyped(await savedNote(sql, patient, `${tag} save on switch`, text), text, 'save-on-switch note');
+  });
+
+  await session.step('An unacknowledged save preserves text and issue controls for an explicit retry', async () => {
+    const text = noteText(tag, 'switch retry');
+    await typeInto(activeEditor(chart), text);
+    const editorId = await activeEditor(chart).getAttribute('id');
+    const issuesBefore = await chart.locator('#noteIssues').innerHTML();
+    let intercepted = 0;
+    const failSave = async route => {
+      const method = new URLSearchParams(route.request().postData() || '').get('method');
+      if (method === 'ajaxsave') {
+        intercepted++;
+        await route.fulfill({ status: 200, contentType: 'text/html', body: '<p>Controlled missing save acknowledgement</p>' });
+      } else await route.continue();
+    };
+    await chart.route('**/CaseManagementEntry*', failSave);
+    try {
+      const dialogs = await h.withExpectedDialogs(chart, async () => {
+        await clickAndExpectSave(chart, '#newNoteImg', 'ajaxsave');
+        await chart.waitForFunction(() => !noteSwitchSavePending);
+      });
+      h.assert(intercepted === 1, 'The failure control must intercept exactly one save');
+      h.assert(dialogs.length === 2 && dialogs[0].type === 'confirm' && dialogs[1].type === 'alert',
+        'The failed save must report an error after confirmation');
+      h.assert(await activeEditor(chart).getAttribute('id') === editorId, 'Failure removed the active editor');
+      h.assert(await activeEditor(chart).inputValue() === text, 'Failure lost the typed note');
+      h.assert(await activeEditor(chart).isEnabled(), 'Failure left the editor disabled');
+      h.assert(await chart.locator('#noteIssues').innerHTML() === issuesBefore, 'Failure replaced the issue fields');
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+        AND note LIKE ${h.sqlString(`%${tag} switch retry%`)}`) === '0', 'The intercepted save reached persistence');
+    } finally {
+      await chart.unroute('**/CaseManagementEntry*', failSave);
+    }
+    const dialogs = await h.withExpectedDialogs(chart, async () => {
+      await clickAndExpectSave(chart, '#newNoteImg', 'ajaxsave');
+      await chart.waitForFunction(oldId => {
+        const editor = document.querySelector('#encMainDiv textarea[name="caseNote_note"]');
+        return editor && editor.id !== oldId && issueUpdatesPending === 0;
+      }, editorId, { timeout: 30000 });
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Retry must confirm and save once');
+    assertStoredAsTyped(await savedNote(sql, patient, `${tag} switch retry`, text), text, 'retried switch note');
+  });
+
   await session.step('New-note editor soft-wraps and Sign & Save stores only the typed line break', async () => {
     // Opened from the untouched opening editor, so no "not saved" prompt is expected: the
     // strict page wiring fails the step on any dialog.
@@ -387,7 +457,11 @@ async function workflow(session, { legacyOnly = false } = {}) {
         await typeInto(editor, firstText);
         assertSoftWrap(await probeEditor(editor), 'the new-note icon editor');
       },
-      () => signAndSave(chart, firstText));
+      async () => {
+        // A later Sign & Save must supersede an earlier Save while the same refresh is pending.
+        await chart.locator('#saveImg').first().click();
+        await signAndSave(chart, firstText);
+      });
     first = await savedNote(sql, patient, `${tag} new-note icon`, firstText);
     h.assert(first.signed, 'Sign & Save did not sign the note');
     assertStoredAsTyped(first, firstText, 'the note signed and saved from the new-note icon editor');

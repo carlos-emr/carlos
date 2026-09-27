@@ -43,6 +43,8 @@
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
 
     var ctx;        //url context
     var providerNo;
@@ -1473,15 +1475,14 @@ function updateCPPNote() {
     var selectBoxes = new Object();
     var unsavedNoteWarning;
     var editLabel;
-    function changeToView(id) {
+    function changeToView(id, afterSave) {
+        if (deferNoteSaveUntilIssues(function () { changeToView(id, afterSave); })) return false;
+        if ($(id) == null) return true;
+
         var parent = $(id).parentNode.id;
         var nId = parent.substr(1);
 
         var tmp = $(id).value;
-        var saving = false;
-        var summaryId = "summary";
-        var summary;
-
         var sig = 'sig' + nId;
 
         // check if case note has been changed
@@ -1491,11 +1492,23 @@ function updateCPPNote() {
             if (!confirm(unsavedNoteWarning))
                 return false;
             else {
-                saving = true;
-                if (ajaxSaveNote(sig, nId, tmp) == false)
-                    return false;
+                ajaxSaveNote(sig, nId, tmp, function (succeeded) {
+                    if (!succeeded) return; // Keep the text and controls available for recovery.
+                    finishChangeToView(id, true, tmp);
+                    if (afterSave) afterSave();
+                });
+                return false;
             }
         }
+        finishChangeToView(id, false, tmp);
+        return true;
+    }
+
+    function finishChangeToView(id, saving, tmp) {
+        // The save response can rename the note container to its new database ID.
+        var parent = $(id).parentNode.id;
+        var nId = parent.substr(1);
+        var sig = 'sig' + nId;
 
         // remove lock from note
         removeLock(id);
@@ -1955,6 +1968,10 @@ function updateCPPNote() {
     }
 
     function editNote(e) {
+        Event.stop(e);
+        // Defer the entire switch, including locks and editor teardown, until issue fields settle.
+        if (deferNoteSaveUntilIssues(function () { editNote(e); })) return false;
+
         var el = Event.element(e);
         var payload;
         var regEx = /\d+/;
@@ -1999,7 +2016,7 @@ function updateCPPNote() {
 
         // if we have an edit textarea already open, close it
         if ($(caseNote) != null && $(caseNote).parentNode.id != $(txt).id) {
-            if (!changeToView(caseNote)) {
+            if (!changeToView(caseNote, function () { editNote(e); })) {
                 $(caseNote).focus();
                 return;
             }
@@ -2342,7 +2359,7 @@ function updateCPPNote() {
     var encMinError;
     var encTimeMandatoryMsg;
     var encTimeMandatory;
-    function ajaxSaveNote(div, noteId, noteTxt) {
+    function ajaxSaveNote(div, noteId, noteTxt, complete) {
 
         if (lostNoteLock) {
             alert(noteLockLostError);
@@ -2433,13 +2450,34 @@ function updateCPPNote() {
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
-        CarlosAjax.updater(
-            {success: div},
+        updatedNoteId = -1;
+        clearAutoSaveTimer();
+        var restoreControls = beginNoteSwitchSave();
+        var saveConfirmed = false;
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
-                evalScripts: true,
                 postBody: params,
+                onSuccess: function (request) {
+                    // A login page or empty HTTP 200 is not a saved note. Validate the
+                    // server acknowledgement before replacing any recoverable editor fields.
+                    var responseDocument = new DOMParser().parseFromString(request.responseText, "text/html");
+                    var issues = responseDocument.getElementById("noteIssues");
+                    var savedId = issues ? issues.getAttribute("data-saved-note-id") : null;
+                    if (!savedId || !/^[1-9][0-9]*$/.test(savedId)) return;
+                    $(div).update(request.responseText);
+                    saveConfirmed = String(updatedNoteId) === savedId;
+                },
+                onComplete: function (request) {
+                    restoreControls();
+                    var succeeded = request.status >= 200 && request.status < 300 && saveConfirmed;
+                    if (!succeeded) {
+                        setTimer();
+                        if (request.status >= 200 && request.status < 300) alert(savingNoteError);
+                    }
+                    if (complete) complete(succeeded);
+                },
                 onFailure: function (request) {
                     if (request.status == 409) {
                         lostNoteLock = true;
@@ -2447,7 +2485,7 @@ function updateCPPNote() {
                     } else if (request.status == 403) {
                         alert(sessionExpiredError);
                     } else {
-                        alert(savingNoteError + " " + request.status + " " + request.responseText);
+                        alert(savingNoteError + " " + request.status);
                     }
                 }
             }
@@ -2783,11 +2821,37 @@ function updateCPPNote() {
     var issueUpdatesPending = 0;
     var issueUpdateFailed = false;
     var queuedNoteSave = null;
+    var noteSwitchSavePending = false;
+    var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
+
+    function beginNoteSwitchSave() {
+        noteSwitchSavePending = true;
+        var form = document.forms["caseManagementEntryForm"];
+        var controls = Array.from(form.elements).map(function (control) {
+            var disabled = control.disabled;
+            control.disabled = true;
+            return {control: control, disabled: disabled};
+        });
+        var status = $("autosaveTime");
+        var previousStatus = status ? status.textContent : "";
+        if (status) status.textContent = noteSavingMessage;
+        form.setAttribute("aria-busy", "true");
+        return function () {
+            noteSwitchSavePending = false;
+            controls.forEach(function (entry) { entry.control.disabled = entry.disabled; });
+            if (status) status.textContent = previousStatus;
+            form.removeAttribute("aria-busy");
+        };
+    }
 
     function deferNoteSaveUntilIssues(save) {
+        if (noteSwitchSavePending) {
+            alert(noteSavingMessage);
+            return true;
+        }
         if (issueUpdatesPending > 0) {
-            // Repeated clicks while loading must not submit the note twice.
-            if (queuedNoteSave == null) queuedNoteSave = {editor: caseNote, save: save};
+            // Keep one action, honoring the latest Save, Sign & Save, or navigation choice.
+            queuedNoteSave = {editor: caseNote, save: save};
             return true;
         }
         if (issueUpdateFailed) {
@@ -2811,6 +2875,10 @@ function updateCPPNote() {
     }
 
     function ajaxUpdateIssues(method, div) {
+        if (noteSwitchSavePending) {
+            alert(noteSavingMessage);
+            return false;
+        }
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = method;
         frm.ajax.value = true;
@@ -2925,6 +2993,9 @@ function updateCPPNote() {
         if (e != null)
             Event.stop(e);
 
+        // Resume the whole navigation so the requested new editor is opened after the save.
+        if (deferNoteSaveUntilIssues(function () { newNote(null); })) return false;
+
         ++newNoteCounter;
         var newNoteIdx = "0" + newNoteCounter;
         var safeNewNoteIdx = newNoteIdx.replace(/\s+/g, "");
@@ -2942,7 +3013,7 @@ function updateCPPNote() {
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
-        if (changeToView(caseNote)) {
+        if (changeToView(caseNote, function () { newNote(null); })) {
 
             caseNote = "caseNote_note" + safeNoteIdSuffix;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";

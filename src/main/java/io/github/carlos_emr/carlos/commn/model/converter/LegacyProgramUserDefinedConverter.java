@@ -4,10 +4,14 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
-/** Preserves the schema and model's true default for a nullable legacy userDefined flag. */
+/**
+ * Preserves the schema and model's true default for a nullable legacy userDefined flag.
+ *
+ * @since 2026-09-26
+ */
 @Converter(autoApply = false)
 public class LegacyProgramUserDefinedConverter implements AttributeConverter<Boolean, Boolean> {
-    /** Returns explicit true/false values unchanged for persistence. */
+    /** Returns the model value unchanged for persistence, including NULL. */
     @Override
     public Boolean convertToDatabaseColumn(Boolean value) {
         return value;
