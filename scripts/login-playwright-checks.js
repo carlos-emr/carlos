@@ -168,14 +168,14 @@ function escapeSql(value) {
 
 function securityRow() {
   const out = sql(
-    `SELECT password, forcePasswordReset, IFNULL(passwordUpdateDate, 'NULL')`
+    `SELECT password, forcePasswordReset, IFNULL(passwordUpdateDate, 'NULL'), IFNULL(lastUpdateDate, 'NULL')`
       + ` FROM security WHERE user_name='${escapeSql(testUser)}'`
   );
   if (!out) {
     throw new Error(`No security row found for ${testUser}`);
   }
-  const [password, forcePasswordReset, passwordUpdateDate] = out.split('\t');
-  return { password, forcePasswordReset, passwordUpdateDate };
+  const [password, forcePasswordReset, passwordUpdateDate, lastUpdateDate] = out.split('\t');
+  return { password, forcePasswordReset, passwordUpdateDate, lastUpdateDate };
 }
 
 function restoreOriginal() {
@@ -185,10 +185,13 @@ function restoreOriginal() {
   const dateSql = original.passwordUpdateDate === 'NULL'
     ? 'NULL'
     : `'${escapeSql(original.passwordUpdateDate)}'`;
+  const lastUpdateSql = original.lastUpdateDate === 'NULL'
+    ? 'NULL'
+    : `'${escapeSql(original.lastUpdateDate)}'`;
   sql(
     `UPDATE security SET password='${escapeSql(original.password)}',`
       + ` forcePasswordReset=${Number(original.forcePasswordReset)},`
-      + ` passwordUpdateDate=${dateSql}`
+      + ` passwordUpdateDate=${dateSql}, lastUpdateDate=${lastUpdateSql}`
       + ` WHERE user_name='${escapeSql(testUser)}'`
   );
 }
