@@ -295,7 +295,7 @@ class SafeEncodeUnitTest {
         }
 
         @Test
-        void shouldMatchForHtmlContent_forHtmlContentWithBreakMarkers_whenNoBreaks() {
+        void shouldMatchHtmlContentEncoding_withoutBreakMarkers() {
             for (String input : NON_NULL_INPUTS) {
                 if (input.contains("\n") || input.contains("\r") || input.contains("<br")) {
                     continue;
