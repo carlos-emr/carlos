@@ -104,7 +104,7 @@ const CASES = [
   },
 ].map((c, index) => ({
   ...c,
-  paper: ['PageSize.A6', 'PageSize.HALFLETTER', 'PageSize.LETTER'][index],
+  paper: ['PageSize.A6', 'PageSize.A4', 'PageSize.Letter'][index],
   pharmacyFax: `555${runSuffix}${index + 1}`,
   drugName: `${drugNamePrefix} ${c.key}`,
 }));
@@ -291,7 +291,7 @@ async function runCase(context, testCase) {
       const pharmacyBlock = pdfText.slice(pdfText.indexOf('ATTENTION:'), pdfText.indexOf(testCase.pharmacyFax));
       assert(!pharmacyBlock.includes('Tel:'), `case ${testCase.key}: no-phone pharmacy has a dangling telephone label`);
     }
-    if (testCase.paper !== 'PageSize.LETTER') {
+    if (testCase.paper === 'PageSize.A6') {
       let bounds;
       try {
         bounds = execFileSync('pdftotext', ['-bbox', path.join(artifactDirectories[0], filename), '-'],
