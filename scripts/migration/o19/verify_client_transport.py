@@ -19,7 +19,15 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "debian/assets"))
+os.environ.setdefault(
+    "CARLOS_CTL_O19_MANIFEST_DIR",
+    str(Path(__file__).resolve().parents[3] / "debian" / "assets" / "o19-manifest"))
+# The carlos-ctl package is its own repository since the split
+# (carlos-emr/carlos-ctl): import it from a checkout named by CARLOS_CTL_SRC,
+# from whatever is already importable, or from the installed package.
+for _cand in (os.environ.get("CARLOS_CTL_SRC"), "/usr/lib/carlos-ctl"):
+    if _cand and os.path.isdir(os.path.join(_cand, "carlos_ctl")) and _cand not in sys.path:
+        sys.path.insert(0, _cand)
 from carlos_ctl import (o19docs, o19host, o19import,            # noqa: E402
                         o19_preflight)
 

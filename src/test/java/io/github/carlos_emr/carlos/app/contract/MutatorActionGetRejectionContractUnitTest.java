@@ -134,6 +134,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action",
+                    "_admin", "w"),
             // --- login ---
             // Logout2Action is in io.github.carlos_emr.carlos.login, which is not yet in
             // IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan won't auto-find it.

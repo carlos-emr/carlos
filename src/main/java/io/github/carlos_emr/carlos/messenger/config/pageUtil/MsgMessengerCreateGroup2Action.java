@@ -35,9 +35,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
-import io.github.carlos_emr.carlos.commn.model.Groups;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -75,7 +74,7 @@ public class MsgMessengerCreateGroup2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private GroupsDao dao = SpringUtils.getBean(GroupsDao.class);
+    private MessengerGroupManager messengerGroupManager = SpringUtils.getBean(MessengerGroupManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
@@ -91,7 +90,10 @@ public class MsgMessengerCreateGroup2Action extends ActionSupport {
      * </ol>
      * </p>
      * 
-     * @return SUCCESS constant indicating successful completion, redirects to the parent group view
+     * Non-POST requests receive 405. Invalid names, identifiers, operations and stale groups
+     * receive 400 without refreshing the address book.
+     *
+     * @return SUCCESS for a completed mutation, or NONE after an HTTP error response
      * @throws IOException if there's an I/O error during processing
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the user lacks administrative privileges
@@ -103,40 +105,31 @@ public class MsgMessengerCreateGroup2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        String grpName = this.getGroupName();
-        String parentID = this.getParentID();
-        String type = this.getType2();
-
-        // Remove any leading/trailing whitespace from the group name
-        grpName = grpName.trim();
-
-        // Only process if a valid group name was provided
-        if (!grpName.equals("")) {
-            if (type.equals("1")) {
-                // Type 1: Create a new group
-                GroupsDao gd = SpringUtils.getBean(GroupsDao.class);
-                Groups g = new Groups();
-                g.setParentId(Integer.parseInt(parentID));
-                g.setGroupDesc(grpName);
-                gd.persist(g);
-
-                // Update the system-wide address book to include the new group
-                MsgAddressBookMaker addMake = new MsgAddressBookMaker();
-                addMake.updateAddressBook();
-            } else if (type.equals("2")) {
-                // Type 2: Rename an existing group (parentID actually contains the group ID to rename)
-                Groups g = dao.find(Integer.parseInt(parentID));
-                if (g != null) {
-                    g.setGroupDesc(grpName);
-                    dao.merge(g);
-                }
-                // Update the system-wide address book with the renamed group
-                MsgAddressBookMaker addMake = new MsgAddressBookMaker();
-                addMake.updateAddressBook();
-            }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
-        // Set the group number for the view to display the correct parent group
-        request.setAttribute("groupNo", parentID);
+        String groupName = getGroupName();
+        String parent = getParentID();
+        String operation = getType2();
+        try {
+            int groupId = Integer.parseInt(parent);
+            if (groupId < 0) throw new IllegalArgumentException("Invalid Messenger group id");
+            if ("1".equals(operation)) {
+                messengerGroupManager.addGroup(LoggedInInfo.getLoggedInInfoFromSession(request), groupName, groupId);
+            } else if ("2".equals(operation)) {
+                messengerGroupManager.renameGroup(LoggedInInfo.getLoggedInInfoFromSession(request), groupId, groupName);
+            } else {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid Messenger group operation");
+                return NONE;
+            }
+        } catch (IllegalArgumentException _) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid Messenger group request");
+            return NONE;
+        }
+        new MsgAddressBookMaker().updateAddressBook();
+        request.setAttribute("groupNo", parent);
         return SUCCESS;
     }
 

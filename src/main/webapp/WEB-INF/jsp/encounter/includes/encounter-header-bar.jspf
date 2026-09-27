@@ -15,7 +15,7 @@
         <a href="#"
            onclick="popupPage(150,200,'calculatorWin','${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(bean.demographicNo)}'); return false;"
            title="<fmt:message key="encounter.Index.calculators"/>">
-            <img alt="<fmt:message key="encounter.Index.calculators"/>" src="graphics/calculator.gif">
+            <img alt="<fmt:message key="encounter.Index.calculators"/>" src="${ctx}/encounter/graphics/calculator.gif">
         </a>
     </div>
 

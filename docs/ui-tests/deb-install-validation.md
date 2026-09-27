@@ -19,6 +19,15 @@ The two checks added since, `echart-print-playwright-checks.js` and
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
 through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
 has not been re-run on a later snapshot.
+`messenger-group-admin-playwright-checks.js` (issue #3964) was added on
+2026-09-26 and run against a 2026.09.0~snapshot24 package built from the
+`release/2026.08` fix branch and installed into an Ubuntu 26.04 container
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`): **PASS**, alongside
+`messenger`, `messenger-inbox-actions`, `surface-audit:messenger-surface` and
+`admin-index-links` (`ADMIN_LINKS_ONLY=messenger`). The same check **FAILS**
+against the unfixed release head and against each half of the fix swapped back
+in isolation (old page: Add Contact enabled before a pick; old action: a
+duplicate add answered 200 instead of 409).
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
@@ -402,7 +411,7 @@ shipped). Being additive (`INSERT IGNORE` only), it never touches
 the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 (The devcontainer counterpart is `.devcontainer/db/scripts/populate_db.sh`;
 if the two ever disagree about the RTL chain, that script and
-`debian/assets/carlos_ctl/dbops.py` are the authorities.)
+`carlos_ctl/dbops.py` in carlos-emr/carlos-ctl are the authorities.)
 
 `carlos-ctl demo-data` also copies the demo document FILES (the PDFs the
 dump's document rows reference, plus the fictitious HRM report that
@@ -460,6 +469,40 @@ VALUES
  ('999998','2026-08-08','10:00:00','10:15:00','LOCAL_SEED_OBEC_REPORT_2',71,'','','','',NULL,'','','t',NOW(),'carlosdoc'),
  ('999998','2026-08-10','11:00:00','11:15:00','LOCAL_SEED_OBEC_REPORT_3',81,'','','','',NULL,'','','t',NOW(),'carlosdoc');"
 ```
+
+`cds-export-lab-documents-playwright-checks.js` (#3946) needs one more
+fixture, and it deliberately does **not** relax the package's
+`demographic.export.encryptedOnly=true` default: it gives the install a PGP
+recipient instead. A fresh install has no PGP (`PGP_BIN` names a nonexistent
+`/usr/bin/pgpgpg`), so without this the export page warns, the action refuses
+every export, and the check SKIPs naming this fixture. `PGPEncrypt` runs
+`PGP_BIN PGP_CMD FILE PGP_KEY` with only `PGP_ENV` in the environment and
+expects `FILE.pgp` (the PGP 2 convention); the wrapper below maps that onto
+GnuPG. The key is a throwaway validation key, never an operator's.
+
+```bash
+lxc exec carlos-test -- bash -c '
+  set -e
+  apt-get install -y gnupg libxml2-utils
+  G=/var/lib/carlos-emr/export-gnupg
+  install -d -o carlos -g carlos -m 0700 "$G"
+  runuser -u carlos -- gpg --homedir "$G" --batch --passphrase "" \
+      --quick-gen-key "CARLOS Export Validation <export-validation@carlos.invalid>" default default never
+  printf "%s\n" "#!/bin/sh" \
+    "# PGP 2-style front end for GnuPG: carlos-export-pgp -e FILE RECIPIENT -> FILE.pgp" \
+    "[ \"\$1\" = -e ] && [ -n \"\$2\" ] && [ -n \"\$3\" ] || exit 2" \
+    "exec /usr/bin/gpg --batch --yes --trust-model always --output \"\$2.pgp\" --recipient \"\$3\" --encrypt \"\$2\"" \
+    > /usr/local/bin/carlos-export-pgp
+  chmod 0755 /usr/local/bin/carlos-export-pgp
+  sed -i "s#^PGP_BIN: .*#PGP_BIN: /usr/local/bin/carlos-export-pgp#;
+          s#^PGP_KEY: .*#PGP_KEY: export-validation@carlos.invalid#;
+          s#^PGP_ENV: .*#PGP_ENV: GNUPGHOME=$G#" /etc/carlos-emr/carlos.properties'
+```
+
+The keyring sits under `/var/lib/carlos-emr`, the only tree the hardened
+`carlos-emr.service` may write (gpg writes its trust database and lock files
+there). Export `CDS_EXPORT_GNUPGHOME=/var/lib/carlos-emr/export-gnupg` for the
+suite; the check runs as root and decrypts the `.pgp` download with it.
 
 Restart once after loading so nothing serves from a pre-load cache:
 
@@ -667,6 +710,11 @@ suite_failed=0
 # demographic 1 / provider 999998 and clean up after themselves; the few knobs they take:
 #   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
 #   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
+#   GROUP_DISK_SERVICE_DATE=2003-02-03 GROUP_DISK_PAID_CODE=A007A
+#                                (billing-on-group-disk-zero-total, issue #3942: selects only owned
+#                                ZERO/PAID/EMPTY providers, verifies zero-value export and regeneration,
+#                                and removes its owned rows/files including backups. OHIP_DISK_DIR
+#                                must name the install's local HOME_DIR; optional legacy fields are NULL.)
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
@@ -1417,6 +1465,62 @@ non-English keys now carry English values and immediate `# TODO: translate`
 markers pending verified translations. Existing localized identity and roster
 labels are retained. The browser check verifies the configured placeholders
 alongside the localized identity labels, including unsupported-language fallback.
+
+### Issue #3942 group OHIP disk $0-total validation (2026-09-26)
+
+Validation of the `BillingOnDiskService` fix (a group member whose claims total
+$0 was left off the group OHIP disk), run against freshly built packages
+(`2026.09.0~snapshot24`: `carlos-emr_…_amd64`, `carlos-emr-drugref_…_all`,
+`carlos-emr-eform-renderer_…_all`, built with `dpkg-buildpackage -us -uc -b`
+from the branch; lintian `--fail-on error` clean) installed with the section 3
+preseed on a fresh Ubuntu 26.04 container.
+
+**Environment deviations from the runbook above.** No LXD: the target was an
+Ubuntu 26.04 **container** running systemd (`--privileged`, host network,
+cgroup2 mounted over `/sys/fs/cgroup` before `/sbin/init`). Two container
+artefacts were worked around before `apt install`, neither a packaging defect:
+the image's `/usr/sbin/policy-rc.d` (which blocks every service start, so
+MariaDB never came up) was removed, and because the kernel had no IPv6 the
+stock nginx `default` site's `listen [::]` lines were dropped (CARLOS's own
+rendered site already omits `[::]` without an IPv6 stack). The WAR was built
+once with `mvn package` and handed to the packaging as `CARLOS_WAR` because
+Maven Central rate-limited (HTTP 429) the repeated clean-cache downloads. With
+that, the install finished with `INSTALL_RC=0` and `carlos-ctl check` reported
+**All checks passed** (front door, WAF blocking, live DrugRef lookup, 432 tables,
+29 Flyway migrations).
+
+**Results.** After the first-login reset (section 6),
+`billing-on-group-disk-zero-total-playwright-checks.js` (with
+`OHIP_DISK_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/download`):
+
+| Build under test | Result |
+|---|---|
+| fixed package | **PASS** — $0 member and paid member submitted, empty member omitted (2 batches, 3 items) |
+| pre-fix `BillingOnDiskService` classes swapped into the same install, service restarted | **FAIL** — `issue #3942: the $0-total member's batch … is missing from the group disk` |
+| fixed classes restored | **PASS**, also through `run-playwright-suite.js --only billing-on-group-disk-zero-total` |
+
+Every run left no fixture rows (providers, `providersite`, claims, disks,
+batch headers) and, with `OHIP_DISK_DIR` set, no disk files.
+`billing-on-submit`, `application-health` and `billing-payment-types` also
+passed on the same install. Changed-line coverage of the Java fix from the
+focused unit tests (`scripts/coverage/changed_line_audit.py`): 2/2 executable
+lines covered.
+
+Fixture providers must share a site with the operator (the demo `admin` role
+carries `_site_access_privacy`, and the diskette page lists only same-site
+providers). The historical run above worked around NULL optional claim fields;
+PR #3999 now fixes that exporter defect (#4032), and the fixture deliberately
+uses NULL for the optional referral, facility, laboratory, review, and location
+fields.
+
+The current fixture selects its own providers individually, checks that ZERO
+never bills the unselected PAID member, then regenerates ZERO through the real
+R button with legacy empty-member metadata. It requires a local `OHIP_DISK_DIR`
+and cleans only rows matched by its unique marker, provider IDs and disk
+membership (#4033). It also removes owned numeric OHIP backups and preview
+rollback copies. Unit tests cover combined group batches, partial setup failures,
+unknown transaction outcomes, staged regeneration metadata, rollback failures and unrelated-file preservation
+(#4034). The earlier all-provider cleanup described above is superseded.
 
 ### Alpha15 report: chart header English on first open (2026-09-26)
 
