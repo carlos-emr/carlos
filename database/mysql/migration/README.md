@@ -80,6 +80,13 @@ and enforces one row per non-NULL provider identifier, matching the Hibernate en
 Every legacy unassigned NULL-provider row is preserved, including identical rows
 and rows with a NULL signature. These rows are outside the provider identity rule.
 
+The repair rewrites rows through `provider_no` and `signature` only. If an adopted
+`providerExt` has any other column, the migration stops before changing anything with an
+unknown-column error naming `providerExt_has_unexpected_columns_resolve_before_signature_repair`.
+Values in such a column would otherwise be replaced by defaults. Decide with the site whether
+the extra column is still needed, move or drop it from a backed-up database, and then use the
+same repair-and-retry steps.
+
 The executable isolated-database regression is
 `python3 scripts/test-provider-signature-migration.py` from the repository root, using a
 disposable local MariaDB/MySQL server and a CREATE/DROP DATABASE-capable account. The
@@ -87,11 +94,11 @@ client reads its usual option file or `MYSQL_PWD`; `MYSQL_HOST` must be local an
 `MYSQL_USER` defaults to root. The test removes only its randomly named databases.
 Both province CI jobs run it before their full Flyway migration/upgrade checks.
 
-**Provider signature identity numbered `V1.0.40` (release 2026.08).** `V1.0.31` was reserved for
-#3694, but `V1.0.32`–`V1.0.34` and `V1.0.36` merged first, so databases on this line may already
-have run past `V1.0.31` and Flyway (no `outOfOrder`) would never apply it there. Per the rule
-above, #3694 was renumbered above the high-water mark and above the versions claimed by open
-branches (`V1.0.35`, `V1.0.37`–`V1.0.39`). `V1.0.31` stays unused.
+**Provider signature identity numbered `V1.0.40` (release 2026.08).** `V1.0.31` was reserved
+for PR #3694, but `V1.0.32`–`V1.0.34` and `V1.0.36` merged first, so databases on this line may
+already have run past `V1.0.31` and Flyway (no `outOfOrder`) would never apply it there. Per the
+rule above, PR #3694 was renumbered above the high-water mark and above the versions claimed by
+open branches (`V1.0.35`, `V1.0.37`–`V1.0.39`). `V1.0.31` stays unused.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 

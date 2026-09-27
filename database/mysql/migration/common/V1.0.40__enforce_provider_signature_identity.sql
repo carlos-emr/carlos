@@ -11,23 +11,40 @@
 -- A duplicate-key failure here leaves providerExt untouched. Resolve conflicting
 -- values from a backup with the provider, repair the failed Flyway entry using
 -- the documented procedure, and retry. Never edit a published migration.
-CREATE TEMPORARY TABLE carlos_signature_identity_v1_0_30 LIKE providerExt;
-ALTER TABLE carlos_signature_identity_v1_0_30
+--
+-- The repair rewrites rows through provider_no and signature only. An adopted
+-- table with any other column would have that column's values replaced by
+-- defaults, so refuse it before anything changes. The deliberately unknown
+-- column name is the error an operator sees; MySQL cannot PREPARE a SIGNAL.
+SET @signature_unexpected_columns = (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'providerExt'
+        AND column_name NOT IN ('provider_no', 'signature')
+);
+SET @signature_column_guard = IF(@signature_unexpected_columns = 0, 'SELECT 1',
+    'SELECT providerExt_has_unexpected_columns_resolve_before_signature_repair FROM providerExt');
+PREPARE signature_column_statement FROM @signature_column_guard;
+EXECUTE signature_column_statement;
+DEALLOCATE PREPARE signature_column_statement;
+
+CREATE TEMPORARY TABLE carlos_signature_identity_v1_0_40 LIKE providerExt;
+ALTER TABLE carlos_signature_identity_v1_0_40
     ADD UNIQUE INDEX signature_identity_validation (provider_no);
-INSERT INTO carlos_signature_identity_v1_0_30 (provider_no, signature)
+INSERT INTO carlos_signature_identity_v1_0_40 (provider_no, signature)
 SELECT DISTINCT BINARY provider_no, BINARY signature FROM providerExt
 WHERE provider_no IS NOT NULL;
 -- NULL provider IDs have no mapped identity and remain outside the unique rule.
 -- Preserve their multiplicity, even when their signature values are identical.
-INSERT INTO carlos_signature_identity_v1_0_30 (provider_no, signature)
-SELECT provider_no, signature FROM providerExt WHERE provider_no IS NULL;
+INSERT INTO carlos_signature_identity_v1_0_40 (provider_no, signature)
+SELECT provider_no, signature FROM providerExt
+WHERE provider_no IS NULL;
 
 START TRANSACTION;
 DELETE FROM providerExt;
 INSERT INTO providerExt (provider_no, signature)
-SELECT provider_no, signature FROM carlos_signature_identity_v1_0_30;
+SELECT provider_no, signature FROM carlos_signature_identity_v1_0_40;
 COMMIT;
-DROP TEMPORARY TABLE carlos_signature_identity_v1_0_30;
+DROP TEMPORARY TABLE carlos_signature_identity_v1_0_40;
 
 -- An adopted database may already enforce this identity under a different name.
 SET @signature_identity_present = (

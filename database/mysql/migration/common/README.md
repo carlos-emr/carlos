@@ -42,8 +42,8 @@ entity mapping. `V1.0.29__rename_placeholder_demo_clinic.sql` replaces the seede
 clinic name.
 `V1.0.40__enforce_provider_signature_identity.sql` repairs exact duplicate provider
 signature rows for assigned providers and enforces the mapped provider identity.
-Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures fail
-before source changes. See the parent README for preparation and recovery instructions.
+Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures,
+and a `providerExt` with columns beyond `provider_no` and `signature`, fail before source changes. See the parent README for preparation and recovery instructions.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration

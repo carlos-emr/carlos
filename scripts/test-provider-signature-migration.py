@@ -31,14 +31,14 @@ class SignatureIdentityMigration(unittest.TestCase):
                      'KEY idx_providerExt_provider_no(provider_no)) ENGINE=InnoDB '
                      'DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci')
 
-    def run_sql(self, sql, *, database=True, success=True):
+    def run_sql(self, sql, *, database=True, success=True, error='Duplicate entry'):
         result = subprocess.run(self.command + ([self.database] if database else []),
                                 input=sql, text=True, capture_output=True, timeout=30)
         if success:
             self.assertEqual(result.returncode, 0, result.stderr)
         else:
-            self.assertNotEqual(result.returncode, 0, 'Conflicting signatures must be rejected')
-            self.assertIn('Duplicate entry', result.stderr)
+            self.assertNotEqual(result.returncode, 0, 'The migration must refuse this data')
+            self.assertIn(error, result.stderr)
         return result.stdout.strip()
 
     def snapshot(self):
@@ -113,6 +113,18 @@ class SignatureIdentityMigration(unittest.TestCase):
         repaired = self.snapshot()
         self.run_sql(MIGRATION)
         self.assertEqual(self.snapshot(), repaired)
+
+    def test_unexpected_column_is_refused_before_rows_change(self):
+        # The repair rewrites rows through provider_no and signature only, so an
+        # adopted table with any other column would lose that column's values.
+        self.run_sql('ALTER TABLE providerExt ADD COLUMN id INT NOT NULL AUTO_INCREMENT UNIQUE, '
+                     "ADD COLUMN note VARCHAR(20) DEFAULT 'default'")
+        self.run_sql("INSERT INTO providerExt (provider_no,signature,note) VALUES "
+                     "('T099','Doctor','kept'),('T099','Doctor','kept')")
+        before = self.run_sql('SELECT id,provider_no,signature,note FROM providerExt ORDER BY id')
+        self.run_sql(MIGRATION, success=False, error='providerExt_has_unexpected_columns')
+        self.assertEqual(self.run_sql('SELECT id,provider_no,signature,note FROM providerExt ORDER BY id'),
+                         before)
 
 
 if __name__ == '__main__':
