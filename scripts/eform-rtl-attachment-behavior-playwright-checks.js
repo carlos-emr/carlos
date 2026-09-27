@@ -129,8 +129,18 @@ const config = {
     wirePage(viewPage, 'rtl-behavior-saved-view', recorder);
     await gotoApp(viewPage, config.baseUrl, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}`);
     await viewPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    assert(await viewPage.locator('#remote_eform_subject').inputValue() === stamp,
-      'reopening the saved eForm changed its subject');
+    const reopenedSubject = await viewPage.locator('#remote_eform_subject').inputValue();
+    if (reopenedSubject !== stamp) {
+      console.error('Synthetic subject diagnostics', JSON.stringify({
+        storedMatches: db.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${Number(fdid)} AND subject=${sqlString(stamp)}`),
+        controls: await viewPage.locator('[name=subject]').evaluateAll(fields => fields.map(field => ({
+          value: field.value, type: field.type, id: field.id,
+          formIndex: Array.from(document.forms).indexOf(field.form),
+        }))),
+      }));
+    }
+    assert(reopenedSubject === stamp,
+      `reopening the saved eForm changed its synthetic subject: ${JSON.stringify(reopenedSubject)}`);
     // Let the Rich Text Letter editor finish initializing (the toolbar guard refuses to save while
     // the legacy " loading... " template placeholder is still present).
     await viewPage.waitForFunction(

@@ -30,7 +30,9 @@ include the fixes tracked in #4020–#4022 and #4012.
 The previous complete Java run passed 13,577 tests (51 existing skips); all 1,046 Node tests
 passed. Added regressions cover source collisions, permissions, real Spring bean wiring,
 Hibernate query-time flush, atomic tickler rollback, nullable consultation rendering and eForm
-subject text. Final package and installed results are recorded below after the last build.
+subject text. Toolbar initialization now waits for its asynchronous fragment, and automatic
+  letter-template loading preserves saved or typed subjects. Explicit template selections
+  update both subject controls. Final package and installed results are recorded below after the last build.
 
 Ubuntu 26.04 DEBs for iteration 4 passed 6,696 payload and installed-file comparisons, health
 checks and these browser scenarios (no skipped scenarios in their final runs):

@@ -30,12 +30,8 @@ document.addEventListener("DOMContentLoaded", function(){
 
 		// add listener to the subject element
 		if(document.forms[0].elements["subject"]) {
-			document.forms[0].elements["subject"].addEventListener("input", function () {
-				document.getElementById("remote_eform_subject").value = this.value;
-			})
-			document.forms[0].elements["subject"].addEventListener("click", function () {
-				document.getElementById("remote_eform_subject").value = this.value;
-			})
+			document.forms[0].elements["subject"].addEventListener("input", moveSubjectReverse);
+			document.forms[0].elements["subject"].addEventListener("click", moveSubjectReverse);
 		}
 
 	const isSuccessAndAutoclose = document.getElementById("isSuccess_Autoclose") &&
@@ -821,7 +817,7 @@ function moveSubject() {
 
 function moveSubjectReverse() {
     let subjectElement = document.forms[0].elements["subject"];
-    let subjectElementValue;
+    let subjectElementValue = "";
 
     if (subjectElement) {
         subjectElementValue = subjectElement.value;
@@ -1011,6 +1007,8 @@ function includeHTML(elmnt) {
                 // event handlers — innerHTML is required for toolbar functionality.
                 toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
                 elmnt.append(toolbarWrapper);
+                // Initialize only once the asynchronous toolbar input exists.
+                moveSubjectReverse();
                 // The toolbar arrives after DOMContentLoaded, so the preview guard that ran there
                 // found no Save button yet: hide it now that the fragment is in the DOM (#3904).
                 hideAdminPreviewSaveButton();
