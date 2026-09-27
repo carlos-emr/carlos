@@ -122,6 +122,8 @@ public class OhipClaimFileService {
 
     private String errorFatalMsg = "";
     private BillingBatchHeaderDto currentBatchHeader = null;
+    private BillingBatchHeaderDto regeneratedBatchHeader;
+    private Runnable finalizeRegeneratedMetadata;
     private BillingClaimHeaderDto currentClaimHeader = null;
     private BillingClaimItemDto currentItem = null;
     private Properties propBillingNo = null;
@@ -197,6 +199,7 @@ public class OhipClaimFileService {
     private String ohipFilename;
     private File lastRenamedOriginalFile;
     private File lastRenamedBackupFile;
+    private BillingOutputSnapshot htmlRollbackSnapshot;
     private String ohipReciprocal;
     private String ohipRecord;
     private String ohipVer;
@@ -294,8 +297,9 @@ public class OhipClaimFileService {
 
         dto = dto.withPayProgram(h.getPayProgram());
         dto = dto.withPayee(h.getPayee());
-        dto = dto.withReferralNumber(h.getRefNum());
-        dto = dto.withFacilityNumber(h.getFaciltyNum());
+        // Legacy rows may omit optional fields; the fixed-width contract represents absence as spaces.
+        dto = dto.withReferralNumber(java.util.Objects.toString(h.getRefNum(), ""));
+        dto = dto.withFacilityNumber(java.util.Objects.toString(h.getFaciltyNum(), ""));
         try {
             dto = dto.withAdmissionDate(ConversionUtils.toDateString(h.getAdmissionDate()));
         } catch (ParseException e) {
@@ -314,9 +318,9 @@ public class OhipClaimFileService {
                             "billId", String.valueOf(h.getId()),
                             "field", "admission_date"));
         }
-        dto = dto.withReferringLabNumber(h.getRefLabNum());
-        dto = dto.withManualReview(h.getManReview());
-        dto = dto.withLocation(h.getLocation());
+        dto = dto.withReferringLabNumber(java.util.Objects.toString(h.getRefLabNum(), ""));
+        dto = dto.withManualReview(java.util.Objects.toString(h.getManReview(), ""));
+        dto = dto.withLocation(java.util.Objects.toString(h.getLocation(), ""));
 
         dto = dto.withDemographicNo("" + h.getDemographicNo());
         dto = dto.withProviderNo(h.getProviderNo());
@@ -985,6 +989,7 @@ public class OhipClaimFileService {
         if (!"1".equals(eFlag) || pendingBatchHeaderId == null) {
             return;
         }
+        if (finalizeRegeneratedMetadata != null) finalizeRegeneratedMetadata.run();
         for (String claimHeaderId : pendingBilledClaimHeaderIds) {
             updateHeader1BilledBatchId(claimHeaderId, pendingBatchHeaderId);
         }
@@ -993,6 +998,14 @@ public class OhipClaimFileService {
                 String.valueOf(pendingPatientCount),
                 String.valueOf(pendingRecordCount));
         resetGeneratedDiskFinalization();
+        regeneratedBatchHeader = null;
+        finalizeRegeneratedMetadata = null;
+    }
+
+    /** Stages the exact header rendered into a regenerated disk and its atomic metadata update. */
+    public void stageRegeneratedBatchHeader(BillingBatchHeaderDto header, Runnable finalizeMetadata) {
+        regeneratedBatchHeader = java.util.Objects.requireNonNull(header);
+        finalizeRegeneratedMetadata = java.util.Objects.requireNonNull(finalizeMetadata);
     }
 
     private void resetGeneratedDiskFinalization() {
@@ -1082,6 +1095,13 @@ public class OhipClaimFileService {
      * filename from the disk-name table.
      */
     public void getBatchHeaderObj(String bid) {
+        if (regeneratedBatchHeader != null) {
+            if (!java.util.Objects.equals(bid, regeneratedBatchHeader.getId())) {
+                throw new IllegalStateException("Regeneration header does not match the requested batch");
+            }
+            setBatchHeaderObj(regeneratedBatchHeader);
+            return;
+        }
         BillingONHeader h = headerDao.find(ConversionUtils.fromIntString(bid));
         if (h == null) {
             // Distinguish missing-header from file-write failure: a missing
@@ -1281,25 +1301,47 @@ public class OhipClaimFileService {
         deleteConfiguredOutputQuietly(htmlFilename, "HTML");
     }
 
+    /** Preserves an existing preview before any regeneration output is replaced. */
+    public void backupHtmlForRollback() {
+        if (htmlRollbackSnapshot != null) throw new IllegalStateException("Preview already preserved");
+        htmlRollbackSnapshot = BillingOutputSnapshot.capture(htmlFilename);
+    }
+
+    /** Restores the preview after a confirmed failed regeneration, retaining the copy on failure. */
+    public void restoreHtmlForRollback() {
+        if (htmlRollbackSnapshot == null) return;
+        htmlRollbackSnapshot.restore();
+        htmlRollbackSnapshot = null;
+    }
+
+    /** Removes an obsolete preview rollback copy without undoing a committed submission. */
+    public void discardHtmlBackup() {
+        if (htmlRollbackSnapshot == null) return;
+        htmlRollbackSnapshot.discard();
+        htmlRollbackSnapshot = null;
+    }
+
     /**
      * Restores the original OHIP file after a regeneration failure, suppressing
      * cleanup failures so the original exception remains visible to callers.
      */
     public void restoreLastRenameQuietly() {
-        if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null
-                || !lastRenamedBackupFile.exists()) {
-            return;
+        try { restoreRenamedFile(); }
+        catch (RuntimeException failure) {
+            _logger.warn("Could not restore the prior OHIP output ({})", failure.getClass().getSimpleName());
         }
+    }
+
+    /** Restores the original claim file, surfacing any failure that requires operator reconciliation. */
+    public void restoreRenamedFile() {
+        if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;
         try {
-            java.nio.file.Files.move(lastRenamedBackupFile.toPath(),
-                    lastRenamedOriginalFile.toPath(),
+            java.nio.file.Files.move(lastRenamedBackupFile.toPath(), lastRenamedOriginalFile.toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             lastRenamedOriginalFile = null;
             lastRenamedBackupFile = null;
-        } catch (IOException | RuntimeException e) {
-            _logger.warn("Failed to restore renamed OHIP file from {} to {}",
-                    LogSafe.sanitize(lastRenamedBackupFile.getName()),
-                    LogSafe.sanitize(lastRenamedOriginalFile.getName()), e);
+        } catch (IOException failure) {
+            throw new BillingFileWriteException("Could not restore prior OHIP output; retain the backup for reconciliation", failure);
         }
     }
 

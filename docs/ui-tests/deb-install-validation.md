@@ -644,11 +644,10 @@ suite_failed=0
 #   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
 #   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
 #   GROUP_DISK_SERVICE_DATE=2003-02-03 GROUP_DISK_PAID_CODE=A007A
-#                                (billing-on-group-disk-zero-total, issue #3942: generates an "All Providers"
-#                                OHIP disk over a 5-day window around the date, which must hold no other
-#                                unbilled claim -- the check SKIPs otherwise. It seeds a throwaway billing
-#                                group and removes every disk, batch, claim and provider row it created;
-#                                set OHIP_DISK_DIR to the install's HOME_DIR to remove the disk files too)
+#                                (billing-on-group-disk-zero-total, issue #3942: selects only owned
+#                                ZERO/PAID/EMPTY providers, verifies zero-value export and regeneration,
+#                                and removes its owned rows/files including backups. OHIP_DISK_DIR
+#                                must name the install's local HOME_DIR; optional legacy fields are NULL.)
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
@@ -1440,8 +1439,18 @@ passed on the same install. Changed-line coverage of the Java fix from the
 focused unit tests (`scripts/coverage/changed_line_audit.py`): 2/2 executable
 lines covered.
 
-Fixture notes learned on this install: the fixture providers must share a site
-with the operator (the demo `admin` role carries `_site_access_privacy`, and the
-diskette page lists only same-site providers), and the seeded claim header must
-store its optional fields as `''` like the bill-entry save does — a `NULL`
-`ref_num` makes `OhipClaimFileService` throw while building the claim header.
+Fixture providers must share a site with the operator (the demo `admin` role
+carries `_site_access_privacy`, and the diskette page lists only same-site
+providers). The historical run above worked around NULL optional claim fields;
+PR #3999 now fixes that exporter defect (#4032), and the fixture deliberately
+uses NULL for the optional referral, facility, laboratory, review, and location
+fields.
+
+The current fixture selects its own providers individually, checks that ZERO
+never bills the unselected PAID member, then regenerates ZERO through the real
+R button with legacy empty-member metadata. It requires a local `OHIP_DISK_DIR`
+and cleans only rows matched by its unique marker, provider IDs and disk
+membership (#4033). It also removes owned numeric OHIP backups and preview
+rollback copies. Unit tests cover combined group batches, partial setup failures,
+unknown transaction outcomes, staged regeneration metadata, rollback failures and unrelated-file preservation
+(#4034). The earlier all-provider cleanup described above is superseded.

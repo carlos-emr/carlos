@@ -207,6 +207,33 @@ class OhipClaimFileServiceUnitTest {
     }
 
     @Test
+    void shouldRestorePriorPreview_afterRegeneratedWriteFails() throws Exception {
+        Path original = tempDir.resolve("prior.html");
+        Files.writeString(original, "prior preview");
+        service.setHtmlFilename("prior.html");
+        service.backupHtmlForRollback();
+        assertThatThrownBy(service::backupHtmlForRollback).isInstanceOf(IllegalStateException.class);
+        service.writeHtml("replacement");
+        service.restoreHtmlForRollback();
+        service.restoreHtmlForRollback();
+        assertThat(original).hasContent("prior preview");
+        try (var files = Files.list(tempDir)) { assertThat(files.toList()).containsExactly(original); }
+    }
+
+    @Test
+    void shouldDiscardPreviewBackup_afterSuccessfulReplacement() throws Exception {
+        Path original = tempDir.resolve("prior.html");
+        Files.writeString(original, "prior preview");
+        service.setHtmlFilename("prior.html");
+        service.backupHtmlForRollback();
+        service.writeHtml("replacement");
+        service.discardHtmlBackup();
+        service.discardHtmlBackup();
+        assertThat(Files.readString(original)).contains("replacement");
+        try (var files = Files.list(tempDir)) { assertThat(files.toList()).containsExactly(original); }
+    }
+
+    @Test
     void shouldThrowBillingFileWriteException_whenWriteHtmlTargetIsADirectory() {
         File asDir = new File(tempDir.toFile(), "report.html");
         assertThat(asDir.mkdir()).isTrue();
@@ -328,6 +355,71 @@ class OhipClaimFileServiceUnitTest {
         assertThat(service.getOhipRecord()).isEqualTo("1");
         assertThat(service.getTotalAmount()).isEqualTo("12.34");
         assertThat(service.getBigTotal()).isEqualByComparingTo("12.34");
+        assertThat(service.getHtmlValue()).contains("Pass").contains("A001A");
+        verify(itemDao).findByCh1IdsExcludingDeletedAndSettled(List.of(12345678));
+        verify(itemDao, never()).findByCh1Id(12345678);
+    }
+
+
+    @Test
+    void shouldKeepRegenerationMetadataUnchanged_untilClaimFinalization() {
+        var header = new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto();
+        header.setId("42");
+        header.setDiskId("12");
+        header.setMohOffice("4");
+        Runnable persist = mock(Runnable.class);
+        service.stageRegeneratedBatchHeader(header, persist);
+        service.setProviderNo("999998");
+        service.setEFlag("1");
+        service.createBillingFileStr(mock(LoggedInInfo.class), "42", new String[]{"B"}, true, "4", false);
+        assertThat(service.getCurrentBatchHeader()).isSameAs(header);
+        org.mockito.Mockito.verifyNoInteractions(persist);
+        service.finalizeGeneratedDisk();
+        service.finalizeGeneratedDisk();
+        verify(persist).run();
+    }
+
+    @Test
+    void shouldExportZeroValueClaim_whenOptionalLegacyFieldsAreNull() throws Exception {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        BillingONCHeader1 header = hcpHeader();
+        header.setRefNum(null);
+        header.setFaciltyNum(null);
+        header.setRefLabNum(null);
+        header.setManReview(null);
+        header.setLocation(null);
+        BillingONItem item = hcpItem();
+        item.setFee("0.00");
+        Demographic demographic = mock(Demographic.class);
+        when(demographic.getRosterStatus()).thenReturn("RO");
+        when(demographic.getBirthDayAsString()).thenReturn("1980-01-01");
+        when(demographic.getSex()).thenReturn("F");
+        when(demographicManager.getDemographic(loggedInInfo, "123")).thenReturn(demographic);
+        when(lookupService.getPatientCurBillingDemo(loggedInInfo, "123"))
+                .thenReturn(List.of("DOE", "JANE", "19800101", "1234567890", "AB", "ON", "F"));
+        when(cheaderDao.findByProviderStatusAndDateRange(eq("999998"), eq(List.of("O")), any(DateRange.class)))
+                .thenReturn(List.of(header));
+        when(itemDao.findByCh1IdsExcludingDeletedAndSettled(List.of(12345678)))
+                .thenReturn(List.of(item));
+        when(billingServiceDao.codeRequiresSLI("A001A")).thenReturn(false);
+
+        service.setProviderNo("999998");
+        service.setDateRange(new DateRange(
+                BillingDates.parseIsoDate("2026-04-01"),
+                BillingDates.parseIsoDate("2026-04-30")));
+        service.setEFlag("0");
+        service.setContextPath("");
+
+        service.createBillingFileStr(loggedInInfo, "0", new String[] {"O"}, true, "P", false);
+
+        assertThat(service.getValue())
+                .contains("\nHEH1234567890AB1980010112345678HCPP" + " ".repeat(44) + "\r")
+                .contains("\nHETA001A  0000000120260402401");
+        assertThat(service.getRecordCount()).isEqualTo(1);
+        assertThat(service.getOhipClaim()).isEqualTo("1");
+        assertThat(service.getOhipRecord()).isEqualTo("1");
+        assertThat(service.getTotalAmount()).isEqualTo("0.00");
+        assertThat(service.getBigTotal()).isEqualByComparingTo("0.00");
         assertThat(service.getHtmlValue()).contains("Pass").contains("A001A");
         verify(itemDao).findByCh1IdsExcludingDeletedAndSettled(List.of(12345678));
         verify(itemDao, never()).findByCh1Id(12345678);
