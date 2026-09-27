@@ -25,6 +25,10 @@
     "timeoutSec  wall clock the runner allows before it gives up on the check.",
     "runLast     the check is destructive to shared state (deliberate failed logins)",
     "            and must run after the positive suite.",
+    "manual      the check is never part of a tier run: it needs credentials",
+    "            the harness contract does not carry (the installer's",
+    "            initial-admin.txt) and changes the administrator password,",
+    "            so it runs only when named with --only.",
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
@@ -2653,6 +2657,27 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "deb-login",
+      "script": "scripts/deb-login-playwright-checks.js",
+      "tiers": [
+        "front-door"
+      ],
+      "manual": true,
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ADMIN_FILE",
+        "ADMIN_PASSWORD",
+        "ADMIN_PIN",
+        "ADMIN_USER",
+        "NEW_PASSWORD",
+        "STRICT_TLS"
+      ]
     }
   ]
 }
