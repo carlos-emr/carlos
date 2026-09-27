@@ -1151,6 +1151,21 @@
       ]
     },
     {
+      "name": "lab-line-break-rendering",
+      "script": "scripts/lab-line-break-rendering-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_BREAK_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "lab-macro-tickler",
       "script": "scripts/lab-macro-tickler-playwright-checks.js",
       "tiers": [
@@ -1473,6 +1488,20 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "patient-search-rest-dob",
+      "script": "scripts/patient-search-rest-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": ["EXPECT_PROGRAM_DOMAIN_RESTRICTION"],
+      "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {
       "name": "patient-search-modes",
@@ -2068,6 +2097,24 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
+    },
+    {
+      "name": "echart-prevention-row-links",
+      "script": "scripts/echart-prevention-row-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient, its preventions and its note draft; local disposable database only."
     },
     {
       "name": "allergy-custom-lifecycle",

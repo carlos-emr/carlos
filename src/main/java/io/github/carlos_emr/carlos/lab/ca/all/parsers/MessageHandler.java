@@ -47,6 +47,16 @@ import ca.uhn.hl7v2.HL7Exception;
  * <p>
  * The results for the majority of the methods should be retrieved from the
  * 'msg' object
+ * <p>
+ * <b>Line breaks.</b> Many handlers translate the HL7 {@code \.br\} escape into a
+ * literal {@code <br />} inside the text they return (results, comments, and
+ * sometimes other fields). That marker is a shared contract: the lab PDF, the
+ * upload splitter and the demographic export all parse it. Views must therefore
+ * never print the returned text raw, and must not plain-HTML-encode it either
+ * (that shows a visible {@code <br />}); render it with
+ * {@code SafeEncode.forHtmlContentWithBreakMarkers} (tag context
+ * {@code htmlWithBreakMarkers}), which encodes the text and turns only the
+ * markers into line breaks.
  */
 public interface MessageHandler {
 
