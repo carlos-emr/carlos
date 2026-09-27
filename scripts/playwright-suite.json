@@ -25,6 +25,10 @@
     "timeoutSec  wall clock the runner allows before it gives up on the check.",
     "runLast     the check is destructive to shared state (deliberate failed logins)",
     "            and must run after the positive suite.",
+    "manual      the check is never part of a tier run: it needs credentials",
+    "            the harness contract does not carry (the installer's",
+    "            initial-admin.txt) and changes the administrator password,",
+    "            so it runs only when named with --only.",
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
@@ -487,6 +491,20 @@
       ]
     },
     {
+      "name": "document-add-link",
+      "script": "scripts/document-add-link-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "document-upload",
       "script": "scripts/document-upload-playwright-checks.js",
       "tiers": [
@@ -608,6 +626,32 @@
         "NOTE_DEMOGRAPHIC_NO",
         "NOTE_PROVIDER_NO"
       ]
+    },
+    {
+      "name": "echart-note-soft-wrap",
+      "script": "scripts/echart-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "encounter-legacy-note-soft-wrap",
+      "script": "scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     },
     {
       "name": "echart-print",
@@ -1017,6 +1061,18 @@
       "timeoutSec": 300
     },
     {
+      "name": "billing-unbilled-report",
+      "script": "scripts/billing-unbilled-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
+    },
+    {
       "name": "flu-billing-report",
       "script": "scripts/flu-billing-report-playwright-checks.js",
       "tiers": [
@@ -1104,6 +1160,36 @@
       ]
     },
     {
+      "name": "inbox-rapid-review-advance",
+      "script": "scripts/inbox-rapid-review-advance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "inbox-preview-boundary-resync",
+      "script": "scripts/inbox-preview-boundary-resync-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "INBOX_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "lab-pdf-footer",
       "script": "scripts/lab-pdf-footer-playwright-checks.js",
       "tiers": [
@@ -1148,6 +1234,21 @@
       "env": [
         "LAB_PROVIDER_NO",
         "LAB_SEGMENT_ID"
+      ]
+    },
+    {
+      "name": "lab-line-break-rendering",
+      "script": "scripts/lab-line-break-rendering-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_BREAK_SCREENSHOT_DIR"
       ]
     },
     {
@@ -1217,6 +1318,21 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "cds-export-lab-documents",
+      "script": "scripts/cds-export-lab-documents-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CDS_EXPORT_GNUPGHOME"
+      ]
     },
     {
       "name": "rest-roster-enrolled-to",
@@ -1460,6 +1576,20 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "patient-search-rest-dob",
+      "script": "scripts/patient-search-rest-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": ["EXPECT_PROGRAM_DOMAIN_RESTRICTION"],
+      "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {
       "name": "patient-search-modes",
@@ -2072,6 +2202,24 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "echart-prevention-row-links",
+      "script": "scripts/echart-prevention-row-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient, its preventions and its note draft; local disposable database only."
+    },
+    {
       "name": "allergy-custom-lifecycle",
       "script": "scripts/allergy-custom-lifecycle-playwright-checks.js",
       "tiers": [
@@ -2498,6 +2646,19 @@
       "env": []
     },
     {
+      "name": "billing-bc-simulation-encoding",
+      "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "facility-selection",
       "script": "scripts/facility-selection-playwright-checks.js",
       "tiers": [
@@ -2577,6 +2738,27 @@
       "timeoutSec": 120,
       "env": [],
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
+    },
+    {
+      "name": "deb-login",
+      "script": "scripts/deb-login-playwright-checks.js",
+      "tiers": [
+        "front-door"
+      ],
+      "manual": true,
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ADMIN_FILE",
+        "ADMIN_PASSWORD",
+        "ADMIN_PIN",
+        "ADMIN_USER",
+        "NEW_PASSWORD",
+        "STRICT_TLS"
+      ]
     }
   ]
 }

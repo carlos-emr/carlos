@@ -22,6 +22,16 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Builds BC billing simulation HTML for active providers and forwards it to ViewBillingSim.
+    Features: provider billing-number filtering, date-bounded extraction and simulation output.
+    Parameters: providers is a provider billing number or % for all active providers (the default);
+    xml_vdate is the start date (blank means no lower bound); xml_appointment_date is the end
+    date (blank uses curDate). verCode and billcenter supply the extraction version and centre.
+    Produces the html request attribute and forwards the effective dates and provider selection.
+    Requires _admin.billing or _admin write access.
+    @since 2026-07-07 (introduction of this protected JSP route)
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -61,7 +71,7 @@
 
     int bCount = 1;
     String batchCount = "0";
-    String provider = request.getParameter("providers");
+    String provider = Objects.requireNonNullElse(request.getParameter("providers"), "%");
 
     String proOHIP = "";
     String billinggroup_no;
@@ -80,7 +90,8 @@
     }
 
     for (Provider p : providerDao.getActiveProviders()) {
-        if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
+        if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()
+                && ("%".equals(provider) || provider.equals(p.getOhipNo()))) {
 
             proOHIP = p.getOhipNo();
 
@@ -113,6 +124,6 @@
 
 <jsp:forward page='/billing/CA/BC/ViewBillingSim'>
     <jsp:param name="xml_appointment_date" value='<%= dateEnd %>'/>
-    <jsp:param name="xml_v_date" value='<%= dateBegin %>'/>
-    <jsp:param name="provider" value='<%= provider %>'/>
+    <jsp:param name="xml_vdate" value='<%= dateBegin %>'/>
+    <jsp:param name="providers" value='<%= provider %>'/>
 </jsp:forward>

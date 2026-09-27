@@ -102,7 +102,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
         String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
         if (rightCfg != null) { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<carlos:encode value='<%= rightCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rightCfg.url() %>' context="javaScriptAttribute"/>'); return false;">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="<%=trackHeadingPopup(dao, rightCfg)%>popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<carlos:encode value='<%= rightCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rightCfg.url() %>' context="javaScriptAttribute"/>'); return false;">&#43;</a></h3>
 <%      } else { %>
         <h3><a href="javascript:void(0);" <%=rightEvent%>="<carlos:encode value='<%= dao.getRightURL() %>' context="htmlAttribute"/>">&#43;</a></h3>
 <%      } %>
@@ -180,7 +180,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
     <div class="nav-menu-title">
 <%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
         if (leftCfg != null) { %>
-        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        <h3 onclick="<%=trackHeadingPopup(dao, leftCfg)%>popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } else { %>
         <h3 onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
@@ -195,8 +195,12 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         String div = navbarName.trim();
         int numItems = dao.numItems();
         String rawReloadURL = request.getParameter("reloadURL");
-        if (rawReloadURL == null) rawReloadURL = "";
-        StringBuilder reloadURL = new StringBuilder(rawReloadURL + "&reloadURL=" + rawReloadURL);
+        // Heading and reloadNav refreshes can omit reloadURL. Rebuild it from the
+        // display action so subsequent row popups never post to an empty path.
+        if (rawReloadURL == null || rawReloadURL.isBlank()) rawReloadURL = dao.getReloadUrl();
+        String reloadQuery = (rawReloadURL.contains("?") ? "&" : "?")
+                + "reloadURL=" + SafeEncode.forUriComponent(rawReloadURL);
+        StringBuilder reloadURL = new StringBuilder(rawReloadURL + reloadQuery);
         String strToDisplay = request.getParameter("numToDisplay");
         int numToDisplay;
         boolean xpanded = false;
@@ -206,7 +210,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
             numToDisplay = Integer.parseInt(strToDisplay);
             reloadURL.append("&numToDisplay=" + strToDisplay);
             if (numItems > numToDisplay) {
-                String xpandUrl = rawReloadURL + "&reloadURL=" + rawReloadURL + "&cmd=" + div;
+                String xpandUrl = rawReloadURL + reloadQuery + "&cmd=" + div;
                 manageItems = xpandUrl;
             }
         } else {
@@ -356,6 +360,14 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         }
 
         return j;
+    }
+
+    public String trackHeadingPopup(NavBarDisplayDAO dao, NavBarDisplayDAO.PopupConfig popup) {
+        if (!dao.isTrackHeadingPopups()) return "";
+        return "reloadWindows['" + SafeEncode.forJavaScriptAttribute(popup.windowName())
+            + "'] = '" + SafeEncode.forJavaScriptAttribute(dao.getReloadUrl())
+            + "';reloadWindows['" + SafeEncode.forJavaScriptAttribute(popup.windowName() + "div")
+            + "'] = '" + SafeEncode.forJavaScriptAttribute(dao.getDivId()) + "';";
     }
 
     public String trackWindowString(String url, String reloadUrl, String cmd, Pattern pattern) {
