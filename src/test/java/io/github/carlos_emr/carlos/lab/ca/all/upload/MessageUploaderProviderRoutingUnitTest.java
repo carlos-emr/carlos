@@ -103,8 +103,8 @@ class MessageUploaderProviderRoutingUnitTest extends CarlosUnitTestBase {
         MessageUploader.routeToProviders("555", providers("201"), "101", routing, mrpRouting, "999998");
 
         verify(routing).route("555", "201", "HL7");
-        verify(routing).route("555", "101", "HL7");
-        verify(mrpRouting).recordUploadRouting("555", "101", "999998");
+        verify(routing, never()).route("555", "101", "HL7");
+        verify(mrpRouting).routeUploadedLabToMrp("555", "999998");
     }
 
     @Test
@@ -134,9 +134,10 @@ class MessageUploaderProviderRoutingUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep the unmatched fallback to the MRP whatever the rules say")
     void shouldFallBackToMrp_whenNoProviderMatched() throws Exception {
+        when(mrpRouting.routeUploadedFallbackToMrp("555", null)).thenReturn(true);
         MessageUploader.routeToProviders("555", providers(), "101", routing, mrpRouting, null);
 
-        verify(routing).route("555", "101", "HL7");
+        verify(mrpRouting).routeUploadedFallbackToMrp("555", null);
         verifyNoMoreInteractions(routing);
         verify(mrpRouting, never()).shouldRouteUploadToMrp(anyString());
     }
@@ -149,4 +150,11 @@ class MessageUploaderProviderRoutingUnitTest extends CarlosUnitTestBase {
         verify(routing).route("555", "0", "HL7");
         verifyNoMoreInteractions(routing);
     }
+    @Test
+    void shouldKeepUnassignedQueue_whenFallbackMrpIsInactive() throws Exception {
+        MessageUploader.routeToProviders("555", providers(), "101", routing, mrpRouting, null);
+        verify(routing).route("555", "0", "HL7");
+        verifyNoMoreInteractions(routing);
+    }
+
 }

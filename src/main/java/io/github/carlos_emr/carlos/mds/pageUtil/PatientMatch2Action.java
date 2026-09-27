@@ -41,9 +41,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import org.owasp.encoder.Encode;
 
@@ -120,32 +118,22 @@ public class PatientMatch2Action extends ActionSupport {
         String newURL;
 
         try {
-            // Only a saved match may widen who sees the lab: a failed one leaves it unmatched.
-            if (CommonLabResultData.updatePatientLabRouting(labNo, demographicNo, labType)) {
-                routeToMrp(labNo, labType, demographicNo, loggedInInfo);
-            }
+            mrpRoutingService.matchPatientLab(labNo, labType, Integer.valueOf(demographicNo == null ? "" : demographicNo.trim()),
+                    loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
             newURL = request.getContextPath() + "/oscarMDS/ViewOpenEChart"
                     + "?demographicNo=" + Encode.forUriComponent(demographicNo == null ? "" : demographicNo);
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         } catch (Exception e) {
             MiscUtils.getLogger().error("exception in PatientMatch2Action", e);
-            newURL = request.getContextPath() + "/errorpage";
+            // The popup uses fetch(response.ok); redirecting to a 200 error page falsely closes it.
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         response.sendRedirect(newURL);
         return NONE;
     }
 
-    /**
-     * Applies Provider Linking Rules after the match has been saved. A failure here is logged and
-     * does not undo the match: the lab is on the right chart, and "Send to MRP" still works.
-     */
-    private void routeToMrp(String labNo, String labType, String demographicNo, LoggedInInfo loggedInInfo) {
-        try {
-            mrpRoutingService.routeMatchedLabToMrp(labNo, labType, Integer.valueOf(demographicNo.trim()),
-                    loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
-        } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Provider linking rules failed for matched lab {}",
-                    LogSafe.sanitize(labNo), e);
-        }
-    }
 }

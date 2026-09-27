@@ -87,6 +87,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        var patients = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class);
+        when(patients.getDemographicById(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
         hrmDocumentDao = mock(HRMDocumentDao.class);
         hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
         hrmDocumentToProviderDao = mock(HRMDocumentToProviderDao.class);
@@ -826,4 +828,18 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
                 row -> "456".equals(row.getProviderNo())));
         verify(hrmDocumentToProviderDao).deleteByHrmDocumentIdAndProviderNo(7, "-1");
     }
+    @Test
+    void shouldPreserveCurrentPatient_whenReplacementPatientDoesNotExist() throws Exception {
+        when(io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                io.github.carlos_emr.carlos.commn.dao.DemographicDao.class).getDemographicById(123)).thenReturn(null);
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+        new HRMModifyDocument2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("\"success\":false");
+        verify(hrmDocumentToDemographicDao, never()).deleteByHrmDocumentId(anyInt());
+        verifyNoInteractions(mrpRoutingService);
+    }
+
 }

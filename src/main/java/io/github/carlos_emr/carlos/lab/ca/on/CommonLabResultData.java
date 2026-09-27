@@ -651,13 +651,30 @@ public class CommonLabResultData {
     }
 
     public static boolean updatePatientLabRouting(String labNo, String demographicNo, String labType) {
-        boolean result = false;
-
         try {
+            String chain = new CommonLabResultData().getMatchingLabs(labNo, labType);
+            List<Integer> versions = java.util.Arrays.stream(chain.split(","))
+                    .map(String::trim).map(Integer::valueOf).distinct().toList();
+            return updatePatientLabRouting(versions, demographicNo, labType);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Could not resolve lab versions for patient matching", e);
+            return false;
+        }
+    }
 
-            // update pateintLabRouting for labs with the same accession number
-            CommonLabResultData data = new CommonLabResultData();
-            String[] labArray = data.getMatchingLabs(labNo, labType).split(",");
+    /**
+     * Saves the already resolved version chain without querying a different chain halfway through.
+     * @param versions source-validated versions in clinical order, locked by the caller
+     * @param demographicNo target patient identifier
+     * @param labType source type
+     * @return false on failure; the caller must roll back its surrounding transaction
+     */
+    public static boolean updatePatientLabRouting(List<Integer> versions, String demographicNo, String labType) {
+        try {
+            if (versions == null || versions.isEmpty() || versions.stream().anyMatch(id -> id == null || id <= 0)) {
+                return false;
+            }
+            String[] labArray = versions.stream().map(String::valueOf).toArray(String[]::new);
             for (int i = 0; i < labArray.length; i++) {
 
                 // delete old entries
@@ -693,19 +710,43 @@ public class CommonLabResultData {
                 }
 
 
-                // add labs to measurements table
-                populateMeasurementsTable(labArray[i], demographicNo, labType);
-
             }
 
+            reconcileMatchedLabMeasurements(labArray, demographicNo, labType);
+
             // Every version is now routed to the patient; callers act on the match only on true.
-            result = true;
-            return result;
+            return true;
 
         } catch (Exception e) {
             Logger l = MiscUtils.getLogger();
-            l.error("exception in CommonLabResultData.updateLabRouting()", e);
+            l.error("exception in CommonLabResultData.updatePatientLabRouting()", e);
             return false;
+        }
+    }
+
+    /**
+     * Moves imported measurements with their source result on a corrected patient match.
+     * Re-importing every version duplicated current measurements and left the old patient's
+     * values visible. Existing values and annotations are retained; an unmatched result with
+     * no imported values imports only the final version in the existing clinical version order.
+     * Must join the patient-match transaction.
+     */
+    private static void reconcileMatchedLabMeasurements(String[] labIds, String demographicNo, String labType) {
+        if (!LabResultData.HL7TEXT.equals(labType)) return;
+        var measurements = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class);
+        int patient = Integer.parseInt(demographicNo);
+        boolean existing = false;
+        for (String id : labIds) {
+            for (var measurement : measurements.findByValue("lab_no", id)) {
+                existing = true;
+                if (!Integer.valueOf(patient).equals(measurement.getDemographicId())) {
+                    measurement.setDemographicId(patient);
+                    measurements.merge(measurement);
+                }
+            }
+        }
+        if (!existing && labIds.length > 0) {
+            populateMeasurementsTable(labIds[labIds.length - 1], demographicNo, labType);
         }
     }
 
@@ -801,6 +842,22 @@ public class CommonLabResultData {
     }
 
     // //
+
+    /**
+     * Resolves all versions for a mutation without hiding a failed source query behind one report id.
+     * @param labNo selected report identifier
+     * @param labType source-qualified lab type
+     * @return the source's clinically ordered version chain
+     */
+    public String getMatchingLabsForMutation(String labNo, String labType) {
+        return switch (labType) {
+            case "HL7" -> Hl7textResultsData.getMatchingLabs(labNo);
+            case "MDS" -> new MDSResultsData().getMatchingLabs(labNo, true);
+            case "CML" -> new MDSResultsData().getMatchingCMLLabs(labNo, true);
+            case "BCP" -> new PathnetResultsData().getMatchingLabs(labNo, true);
+            default -> throw new IllegalArgumentException("Unsupported lab source");
+        };
+    }
 
     public String getMatchingLabs(String lab_no, String lab_type) {
         String labs = null;

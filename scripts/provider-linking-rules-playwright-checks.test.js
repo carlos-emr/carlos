@@ -54,23 +54,23 @@ test('restorePropertyStatements puts back exactly the rows that existed', () => 
 
 test('deleteLabStatements covers every table an upload writes, for numeric ids only', () => {
   assert.deepEqual(deleteLabStatements([]), []);
-  const statements = deleteLabStatements(['101', 'x; DROP TABLE demographic', 102]).join('\n');
+  const statements = deleteLabStatements(['101', 102]).join('\n');
   for (const table of ['measurements', 'measurementsExt', 'providerLabRouting', 'patientLabRouting',
     'providerLabRoutingLock', 'fileUploadCheck', 'hl7TextInfo', 'hl7TextMessage']) {
     assert.match(statements, new RegExp(`\\b${table}\\b`), `${table} is cleaned`);
   }
   assert.ok(statements.includes('IN (101,102)'));
-  assert.ok(!statements.includes('DROP'), 'a non-numeric id never reaches SQL');
+  assert.throws(() => deleteLabStatements(['101', 'x; DROP TABLE demographic']), /positive integers/);
 });
 
 test('restoreHrmStatements rebuilds the report rows from the snapshot', () => {
   const statements = restoreHrmStatements('5',
     [['1', '42', '2026-01-01 00:00:00']],
-    [['3', '101', '1', '2026-01-02 00:00:00', '1', null]]);
+    [['3', '101', '1', '2026-01-02 00:00:00', '1', null, '42']]);
   assert.equal(statements.length, 4);
   assert.match(statements[0], /DELETE FROM HRMDocumentToDemographic WHERE hrmDocumentId='5'/);
   assert.match(statements[1], /DELETE FROM HRMDocumentToProvider WHERE hrmDocumentId='5'/);
   assert.match(statements[2], /\('1', '42', '5', '2026-01-01 00:00:00'\)/);
-  assert.match(statements[3], /\('3', '101', '5', '1', '2026-01-02 00:00:00', '1', NULL\)/);
+  assert.match(statements[3], /\('3', '101', '5', '1', '2026-01-02 00:00:00', '1', NULL, '42'\)/);
   assert.throws(() => restoreHrmStatements('5 OR 1', [], []), /numeric/);
 });

@@ -368,7 +368,9 @@ function addDemoToHrm(reportId) {
             container.appendChild(removeLink);
             document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = 'none';
             toggleButtonBar(true, reportId);
-            if (result.mrpRouted) {
+            if (Array.isArray(result.providers)) {
+                updateHrmProviderAssignments(reportId, result.providers);
+            } else if (result.mrpRouted) {
                 showMrpRouted(reportId, container);
             }
         });
@@ -430,6 +432,40 @@ function removeDemoFromHrm(reportId) {
         document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = '';
         document.getElementById('demofind' + reportId + 'hrm').value = null;
         toggleButtonBar(false, reportId);
+        if (Array.isArray(result.providers)) {
+            updateHrmProviderAssignments(reportId, result.providers);
+        }
+    });
+}
+
+/** Refreshes the report's actual assignments, including revoked automatic access, without losing inbox state. */
+function updateHrmProviderAssignments(reportId, providers) {
+    var container = document.getElementById('assignedProviders' + reportId);
+    if (!container) return;
+    container.textContent = '';
+    if (!providers.length) {
+        var empty = document.createElement('i');
+        empty.textContent = 'No providers currently assigned';
+        container.appendChild(empty);
+        return;
+    }
+    providers.forEach(function (provider) {
+        container.appendChild(document.createTextNode(provider.name));
+        if (provider.signedOff) {
+            var signed = document.createElement('abbr');
+            signed.title = provider.signedOffTimestamp;
+            signed.textContent = ' (Signed-Off ' + provider.signedOffTimestamp + ')';
+            container.appendChild(signed);
+        }
+        var remove = document.createElement('a');
+        remove.href = '#';
+        remove.textContent = '(remove)';
+        remove.addEventListener('click', function (event) {
+            event.preventDefault();
+            removeProvFromHrm(provider.id, reportId);
+        });
+        container.appendChild(remove);
+        container.appendChild(document.createElement('br'));
     });
 }
 

@@ -3,7 +3,8 @@
 **Administration → Labs/Inbox → Provider Linking Rules** is one clinic-wide switch. When it is
 on, an HL7 lab or HRM report that is matched to a patient also goes to that patient's **Most
 Responsible Provider** (MRP, `demographic.provider_no`). Without it, the report goes only to the
-ordering or delivered-to provider.
+ordering or delivered-to provider. The legacy upload fallback still sends a result with no
+matched ordering provider to an active MRP; otherwise it stays in the unassigned inbox.
 
 It is for clinics where specialists, locums or residents order tests but the family physician
 must see the result. Without the switch, someone has to use **Send to MRP** in the inbox for each
@@ -18,8 +19,8 @@ open-osp/Open-O pull request #196 by Deval Italiya.
 |---|---|---|
 | **HL7 upload** (`MessageUploader`): the message names providers that match | Routed to those providers | Also routed to the matched patient's MRP |
 | **HL7 upload**: no provider in the message matches | Routed to the MRP, or to the unassigned inbox (`0`) when no patient matched | Same as off |
-| **Lab Patient Match** (`oscarMDS/PatientMatch`): an unmatched lab is matched from the Patient Search popup | Patient link only | Every version of the lab is also routed to the MRP, and the unassigned (`0`) rows are dropped |
-| **HRM assign patient** (`hospitalReportManager/Modify`, `method=assignDemographic`) | Patient link only | Also routed to the MRP, the MRP's HRM forwarding rules are applied, and the unclaimed (`-1`) rows are removed. The viewer reloads to show the MRP |
+| **Lab Patient Match** (`oscarMDS/PatientMatch`): a lab is matched or corrected from the Patient Search popup | Patient link and removal of obsolete automatic access | Every version of the lab is also routed to the MRP, and the unassigned (`0`) rows are dropped |
+| **HRM assign patient** (`hospitalReportManager/Modify`, `method=assignDemographic`) | Patient link and removal of obsolete automatic access | Also routed to the MRP, the MRP's HRM forwarding rules are applied, and the unclaimed (`-1`) rows are removed. The viewer updates its provider list in place |
 | **eDocuments** (scanned or uploaded documents) | Not affected | Not affected |
 
 Rules shared by every path:
@@ -32,6 +33,18 @@ Rules shared by every path:
 - **The MRP's forwarding rules apply** as they do for any other delivery. For labs these are
   `IncomingLabRules` through `ProviderLabRouting`. For HRM, forwarding is one hop only, as the
   manual assign-provider action does.
+- **Correcting or unlinking a patient revokes obsolete automatic access.** New automatic MRP and
+  forwarded rows record their source patient in `mrpDemographicNo`. A correction removes those
+  rows when they no longer belong to the current match, even if the switch has since been turned
+  off. Existing delivered/manual assignments are retained; a later independent assignment promotes
+  an automatic row so it also survives correction. With no remaining recipient, the report returns
+  to the unassigned inbox. Existing rows without provenance are retained because their origin cannot
+  safely be inferred.
+- **Patient corrections are atomic.** Patient links, provider access and existing source-linked lab
+  measurements move in one transaction. Existing measurement values and annotations are preserved;
+  repeated matching does not import duplicate measurements. A failed lookup or write leaves the
+  previous state intact and reports failure to the popup. The selected source/report and target
+  patient must exist.
 - **Only new events are affected.** Turning the switch on does not re-route results already in
   the system.
 - **The decision does not depend on who triggers it.** An automatic import, a user with `_lab`
@@ -42,7 +55,12 @@ Rules shared by every path:
 
 - **Where it is stored:** one global `property` row named `provider_linking_rules`, with the value
   `true` or `false`. A missing row, a provider-scoped row, or any value other than `true` means
-  off. No migration or seed data is needed. A row inserted by SQL with the column's default
+  off. If duplicate global rows disagree, routing is off regardless of row order. No setting seed
+  is needed. Migration `V1.0.39__track_automatic_mrp_routing.sql` adds the nullable provenance
+  columns in both routing tables and is required before this application version starts. In the
+  PR #3985–4000 rollout, deploy #3986's migration 36 and #3996's migrations 37/38 before 39;
+  applying 39 first would put those lower versions out of order for Flyway.
+  A row inserted by SQL with the column's default
   `provider_no = ''` counts as global, the same as one saved from the page (`NULL`).
 - **Page:** `admin/providerLinkingRules` (`ProviderLinkingRules2Action`) accepts GET and HEAD
   only and needs `_admin` read. A user without `_admin` write sees the switch disabled.
@@ -65,11 +83,14 @@ Rules shared by every path:
   administrator's provider number and IP address.
 - **Audit entries are written only after the change commits.** A match that rolls back leaves
   no entry, so the log never records a routing that did not happen.
-- **Every automatic routing is audited** in the `log` table:
+- **Each newly created direct MRP routing is audited** in the `log` table (an existing routing
+  does not generate a duplicate “route to MRP” event):
   `action = 'route to MRP'`, `content = 'providerLinkingRules'`,
-  `contentId = '<HL7|MDS|CML|…|HRM>:<report id>'`, `demographic_no` (not recorded for an HL7
-  upload), `data = 'mrp=<provider no>'`. The provider number is the user who triggered the match,
+  `contentId = '<HL7|MDS|CML|…|HRM>:<report id>'`, `demographic_no`, `data = 'mrp=<provider no>'`. The provider number is the user who triggered the match,
   or empty for an automatic import.
+- The no-orderer upload fallback uses audit content `labPatientFallback`; it is independent of
+  the switch. A committed lab patient match also records `match patient` / `labPatientRouting`,
+  including when the MRP already had independent access.
 - **The application log gets only sanitised identifiers** (`LogSafe`): the report type and id.
   No names, health numbers or report content are logged.
 
@@ -96,9 +117,10 @@ patient rows are now deleted in bulk
 `HRMDocumentToDemographicDao.deleteByHrmDocumentId`). `HRMModifyTransactionIntegrationTest`
 pins all four cases.
 
-The unused `auto_link_to_mrp` key and its `ProviderManager2` methods, left over from the fork's
-first commit, were removed. They required a security object CARLOS never seeded, and nothing
-could turn them on.
+The legacy `auto_link_to_mrp` enum key and `ProviderManager2` methods remain available and are
+marked deprecated for compatibility. Their old permission and storage behavior is preserved.
+They do not enable the new clinic-wide rule: migrating an unrelated old preference automatically
+would widen access without an administrator choosing it.
 
 ## Tests
 
@@ -111,9 +133,16 @@ could turn them on.
   test:provider-linking-rules-playwright`, manifest entry `provider-linking-rules`, Ontario, core
   tier, database-asserting). It drives the switch from the Administration panel and then covers:
   - a synthetic CML lab uploaded through **HL7 Lab Upload**, with the switch off and then on;
-  - Patient Match from the lab's Patient Search popup;
-  - HRM assign-patient in the HRM viewer;
+  - Patient Match and correction from the lab's Patient Search popup, preserving independent
+    ordering access and moving measurements without duplication;
+  - HRM assign-patient and unlink in the viewer, verifying provenance, revoked access and the
+    updated provider list;
   - the save route's refusal of GET and of a POST without a CSRF token.
 
   It restores everything it changed. Its pure helpers are pinned by
   `scripts/provider-linking-rules-playwright-checks.test.js`.
+
+Related pre-existing defects found during review are tracked in [#4036](https://github.com/carlos-emr/carlos/issues/4036)
+(atomic patient matching and visible failure), [#4037](https://github.com/carlos-emr/carlos/issues/4037)
+(measurement ownership and duplication), and [#4038](https://github.com/carlos-emr/carlos/issues/4038)
+(patient/status inbox query syntax).

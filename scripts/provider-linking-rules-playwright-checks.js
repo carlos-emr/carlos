@@ -126,7 +126,8 @@ function restorePropertyStatements(snapshot) {
 
 /** Statements that delete every row an uploaded lab left behind. */
 function deleteLabStatements(labNos) {
-  const ids = labNos.filter((id) => /^\d+$/.test(String(id)));
+  assert(labNos.every((id) => /^[1-9]\d*$/.test(String(id))), 'cleanup lab ids must be positive integers');
+  const ids = [...new Set(labNos.map(String))];
   if (!ids.length) {
     return [];
   }
@@ -158,15 +159,15 @@ function restoreHrmStatements(hrmId, demographicRows, providerRows) {
     statements.push('INSERT INTO HRMDocumentToDemographic (id, demographicNo, hrmDocumentId, timeAssigned) VALUES '
       + `(${value(id)}, ${value(demographicNo)}, ${sqlString(hrmId)}, ${value(timeAssigned)})`);
   }
-  for (const [id, providerNo, signedOff, signedOffTimestamp, viewed, filed] of providerRows) {
-    statements.push('INSERT INTO HRMDocumentToProvider (id, providerNo, hrmDocumentId, signedOff, signedOffTimestamp, viewed, filed) VALUES '
-      + `(${value(id)}, ${value(providerNo)}, ${sqlString(hrmId)}, ${value(signedOff)}, ${value(signedOffTimestamp)}, ${value(viewed)}, ${value(filed)})`);
+  for (const [id, providerNo, signedOff, signedOffTimestamp, viewed, filed, mrpDemographicNo] of providerRows) {
+    statements.push('INSERT INTO HRMDocumentToProvider (id, providerNo, hrmDocumentId, signedOff, signedOffTimestamp, viewed, filed, mrpDemographicNo) VALUES '
+      + `(${value(id)}, ${value(providerNo)}, ${sqlString(hrmId)}, ${value(signedOff)}, ${value(signedOffTimestamp)}, ${value(viewed)}, ${value(filed)}, ${value(mrpDemographicNo)})`);
   }
   return statements;
 }
 
 function uniqueToken() {
-  return crypto.randomBytes(4).toString('hex').toUpperCase();
+  return crypto.randomBytes(8).toString('hex').toUpperCase();
 }
 
 async function waitFor(description, probe, timeoutMs = 20000) {
@@ -279,14 +280,39 @@ function routedProviders(sql, labNo) {
     .map((row) => row[0]);
 }
 
+async function matchLabToPatient(context, config, sql, recorder, labNo, patient) {
+    const search = await context.newPage();
+    wireStrictPage(search, 'patient-search', recorder);
+    // The popup closes itself after a match; keep it open so the result can be read.
+    await search.addInitScript(() => { window.close = () => {}; });
+    await gotoApp(search, config.baseUrl, `/oscarMDS/ViewPatientSearch?labNo=${Number(labNo)}&labType=HL7`);
+    await search.locator('#search_hin').check();
+    await search.locator('#keyword').fill(patient.hin);
+    await clickAndAwaitReload(search, search.locator('#titlesearch button[type="submit"]'),
+      { label: 'Patient Search' });
+    const row = search.locator(`tr[onclick*="selectPatient('${patient.demographicNo}')"]`).first();
+    await row.waitFor({ state: 'visible', timeout: 30000 });
+    const [matchResponse] = await Promise.all([
+      search.waitForResponse((r) => r.request().method() === 'POST' && /\/oscarMDS\/PatientMatch/.test(r.url()),
+        { timeout: 30000 }),
+      row.click(),
+    ]);
+    assert(matchResponse.status() < 400, `Patient Match answered HTTP ${matchResponse.status()}`);
+    assert(sql.value(`SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${Number(labNo)}`)
+      === patient.demographicNo, 'Patient Match did not link the lab to the patient');
+    await search.close();
+}
+
 async function main({ throwIfCancelled } = {}) {
   const config = readConfig();
   const sql = createSqlRunner(config.mysql);
   const recorder = createRecorder();
   const labUploads = [];
+  const uploadAccessions = [];
   const propertySnapshot = sql.rows(`SELECT id, value, IFNULL(provider_no, ${sqlString(NULL_MARKER)})
     FROM property WHERE name=${sqlString(PROPERTY)} ORDER BY id`);
   let hrmSnapshot = null;
+  let correctionFixture = null;
   let browser;
 
   const cleanup = () => {
@@ -300,20 +326,49 @@ async function main({ throwIfCancelled } = {}) {
         }
       }
     };
+    // An upload may commit before its response fails. Recover every owned accession before cleanup.
+    for (const accession of uploadAccessions) {
+      try {
+        for (const [id] of sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum LIKE ${sqlString(`${accession}%`)}`)) {
+          labUploads.push(id);
+        }
+      } catch (error) {
+        failures.push(error.message);
+      }
+    }
     run(deleteLabStatements(labUploads));
     if (hrmSnapshot) {
       run(restoreHrmStatements(hrmSnapshot.hrmId, hrmSnapshot.demographics, hrmSnapshot.providers));
     }
     run(restorePropertyStatements(propertySnapshot));
+    if (correctionFixture) {
+      run([`DELETE FROM demographic WHERE last_name=${sqlString(correctionFixture.lastName)}
+        AND first_name='PLRFixture' AND hin=${sqlString(correctionFixture.hin)}`]);
+    }
     sql.dispose();
     assert(failures.length === 0, `cleanup could not restore ${failures.length} statement(s): ${failures[0]}`);
   };
 
   try {
     const { patient, orderer, hrmId } = findFixtures(sql);
+    correctionFixture = {
+      lastName: `PLR${uniqueToken()}`, firstName: 'PLRFixture',
+      hin: `9${String(crypto.randomInt(0, 1000000000)).padStart(9, '0')}`,
+      dob: '19800115', sex: 'F', mrp: orderer.providerNo,
+    };
+    assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE hin=${sqlString(correctionFixture.hin)}`) === '0',
+      'the correction fixture HIN collides with a patient');
+    // Record its marker before insertion so a lost INSERT response is still recoverable.
+    correctionFixture.demographicNo = sql.value(`INSERT INTO demographic
+      (last_name, first_name, hin, year_of_birth, month_of_birth, date_of_birth, sex,
+       patient_status, provider_no, date_joined, lastUpdateDate)
+      VALUES (${sqlString(correctionFixture.lastName)}, 'PLRFixture', ${sqlString(correctionFixture.hin)},
+        '1980', '01', '15', 'F', 'AC', ${sqlString(orderer.providerNo)}, CURDATE(), NOW()); SELECT LAST_INSERT_ID()`);
+    assert(/^[1-9]\d*$/.test(correctionFixture.demographicNo), 'correction fixture id was not returned');
     const makeMessage = (hin) => {
       const token = uniqueToken();
       const accession = `PLR${token}`;
+      uploadAccessions.push(accession);
       return {
         accession,
         body: buildCmlMessage({
@@ -329,8 +384,8 @@ async function main({ throwIfCancelled } = {}) {
 
     // 1. The page shows what is stored, then the switch is turned off through it.
     const frame = await openAdminFrame(page, config, '/admin/providerLinkingRules');
-    const storedOn = propertySnapshot.some(([, value, provider]) => (provider === NULL_MARKER || provider === '')
-      && value === 'true');
+    const globalRows = propertySnapshot.filter(([, , provider]) => provider === NULL_MARKER || provider.trim() === '');
+    const storedOn = globalRows.length > 0 && globalRows.every(([, value]) => String(value).trim() === 'true');
     await frame.locator('#providerLinkingRulesEnabled').waitFor({ state: 'visible', timeout: 30000 });
     assert((await frame.locator('#providerLinkingRulesEnabled').isChecked()) === storedOn,
       'the switch does not show the stored setting');
@@ -373,35 +428,33 @@ async function main({ throwIfCancelled } = {}) {
     const unmatchedLab = await uploadLab(page, config, sql, makeMessage(unknownHin), labUploads);
     await waitFor('the unmatched lab to be routed', () => routedProviders(sql, unmatchedLab).length > 0);
     assert(!routedProviders(sql, unmatchedLab).includes(patient.mrp), 'an unmatched lab reached the MRP');
-    const search = await context.newPage();
-    wireStrictPage(search, 'patient-search', recorder);
-    // The popup closes itself after a match; keep it open so the result can be read.
-    await search.addInitScript(() => { window.close = () => {}; });
-    await gotoApp(search, config.baseUrl, `/oscarMDS/ViewPatientSearch?labNo=${Number(unmatchedLab)}&labType=HL7`);
-    await search.locator('#search_hin').check();
-    await search.locator('#keyword').fill(patient.hin);
-    await clickAndAwaitReload(search, search.locator('#titlesearch button[type="submit"]'),
-      { label: 'Patient Search' });
-    const row = search.locator(`tr[onclick*="selectPatient('${patient.demographicNo}')"]`).first();
-    await row.waitFor({ state: 'visible', timeout: 30000 });
-    const [matchResponse] = await Promise.all([
-      search.waitForResponse((r) => r.request().method() === 'POST' && /\/oscarMDS\/PatientMatch/.test(r.url()),
-        { timeout: 30000 }),
-      row.click(),
-    ]);
-    assert(matchResponse.status() < 400, `Patient Match answered HTTP ${matchResponse.status()}`);
+    await matchLabToPatient(context, config, sql, recorder, unmatchedLab, patient);
     await waitFor('the matched lab to reach the MRP', () => routedProviders(sql, unmatchedLab).includes(patient.mrp));
-    assert(sql.value(`SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${Number(unmatchedLab)}`)
-      === patient.demographicNo, 'Patient Match did not link the lab to the patient');
     assert(!routedProviders(sql, unmatchedLab).includes('0'), 'the unassigned routing row survived the MRP routing');
-    await search.close();
+
+    // Correct a matched report to another patient. The former automatic MRP must lose access;
+    // the independent ordering provider (also the corrected patient's MRP) must remain.
+    const measurementCount = sql.value(`SELECT COUNT(*) FROM measurements m JOIN measurementsExt e
+      ON e.measurement_id=m.id WHERE e.keyval='lab_no' AND e.val=${sqlString(onLab)}`);
+    assert(Number(measurementCount) > 0, 'the synthetic lab did not import any measurements');
+    await matchLabToPatient(context, config, sql, recorder, onLab, correctionFixture);
+    assert(!routedProviders(sql, onLab).includes(patient.mrp), 'patient correction retained the former automatic MRP');
+    assert(routedProviders(sql, onLab).includes(orderer.providerNo), 'patient correction revoked the independent orderer');
+    assert(sql.value(`SELECT COUNT(*) FROM measurements m JOIN measurementsExt e ON e.measurement_id=m.id
+      WHERE e.keyval='lab_no' AND e.val=${sqlString(onLab)} AND m.demographicNo=${Number(correctionFixture.demographicNo)}`)
+      === measurementCount, 'patient correction did not move all source-linked measurements');
+    await matchLabToPatient(context, config, sql, recorder, onLab, correctionFixture);
+    assert(sql.value(`SELECT COUNT(*) FROM measurements m JOIN measurementsExt e ON e.measurement_id=m.id
+      WHERE e.keyval='lab_no' AND e.val=${sqlString(onLab)}`) === measurementCount,
+    'repeating a patient match duplicated measurements');
+
 
     // 6. HRM: assign an unlinked report to the patient in the HRM viewer.
     hrmSnapshot = {
       hrmId,
       demographics: sql.rows(`SELECT id, demographicNo, timeAssigned FROM HRMDocumentToDemographic
         WHERE hrmDocumentId=${sqlString(hrmId)} ORDER BY id`),
-      providers: sql.rows(`SELECT id, providerNo, signedOff, signedOffTimestamp, viewed, filed FROM HRMDocumentToProvider
+      providers: sql.rows(`SELECT id, providerNo, signedOff, signedOffTimestamp, viewed, filed, mrpDemographicNo FROM HRMDocumentToProvider
         WHERE hrmDocumentId=${sqlString(hrmId)} ORDER BY id`),
     };
     // Fixture: the report is unclaimed (a -1 row, as an unmatched HRM delivery leaves it) and the
@@ -433,9 +486,12 @@ async function main({ throwIfCancelled } = {}) {
       hasText: `${patient.dob.slice(0, 4)}-${patient.dob.slice(4, 6)}-${patient.dob.slice(6, 8)}`,
     }).first();
     await choice.waitFor({ state: 'visible', timeout: 30000 });
-    // Picking the patient posts the match; a report open on its own page then reloads to show
-    // the MRP the rules added (hrmActions.js showMrpRouted).
-    await clickAndAwaitReload(hrm, choice, { label: 'the HRM patient pick' });
+    // The committed response refreshes the provider list in place, including revoked assignments.
+    const [assignment] = await Promise.all([
+      hrm.waitForResponse((r) => r.request().method() === 'POST' && /hospitalReportManager\/Modify/.test(r.url())),
+      choice.click(),
+    ]);
+    assert((await assignment.json()).success === true, 'HRM patient assignment failed');
     await waitFor('the HRM report to be linked to the patient', () => sql.value(`SELECT demographicNo FROM HRMDocumentToDemographic
       WHERE hrmDocumentId=${sqlString(hrmId)}`) === patient.demographicNo);
     assert(sql.value(`SELECT COUNT(*) FROM HRMDocumentToProvider WHERE hrmDocumentId=${sqlString(hrmId)}
@@ -444,9 +500,19 @@ async function main({ throwIfCancelled } = {}) {
       AND providerNo='-1'`) === '0', 'the unclaimed HRM row survived the MRP routing');
     // ProviderDao.getProviderName renders "First Last".
     const mrpName = sql.value(`SELECT CONCAT(first_name, ' ', last_name) FROM provider WHERE provider_no=${sqlString(patient.mrp)}`);
-    await hrm.locator(`#provstatus${Number(hrmId)}`).waitFor({ state: 'attached', timeout: 30000 });
-    assert((await hrm.locator('body').innerText()).includes(mrpName),
-      'the reloaded HRM viewer does not list the MRP under Assigned Providers');
+    await hrm.locator(`#assignedProviders${Number(hrmId)}`).getByText(mrpName, { exact: false })
+      .waitFor({ state: 'visible', timeout: 30000 });
+    assert(sql.value(`SELECT mrpDemographicNo FROM HRMDocumentToProvider WHERE hrmDocumentId=${sqlString(hrmId)}
+      AND providerNo=${sqlString(patient.mrp)}`) === patient.demographicNo, 'HRM automatic access has no patient provenance');
+    const [removed] = await Promise.all([
+      hrm.waitForResponse((r) => r.request().method() === 'POST' && /hospitalReportManager\/Modify/.test(r.url())),
+      hrm.locator(`#demostatus${Number(hrmId)} a`, { hasText: '(remove)' }).first().click(),
+    ]);
+    assert((await removed.json()).success === true, 'HRM unlink failed after automatic routing');
+    await hrm.locator(`#assignedProviders${Number(hrmId)}`).getByText(mrpName, { exact: false })
+      .waitFor({ state: 'hidden', timeout: 30000 });
+    assert(sql.value(`SELECT COUNT(*) FROM HRMDocumentToProvider WHERE hrmDocumentId=${sqlString(hrmId)}
+      AND mrpDemographicNo IS NOT NULL`) === '0', 'unlink retained automatically granted HRM access');
     await hrm.close();
 
     // 7. The save route refuses GET and a POST without a token, and neither changes anything.
@@ -455,13 +521,12 @@ async function main({ throwIfCancelled } = {}) {
     assert(getResponse.status() === 405, `GET on the save route answered ${getResponse.status()}, expected 405`);
     const forged = await page.request.post(`${config.baseUrl.href.replace(/\/$/, '')}/admin/saveProviderLinkingRules`,
       { form: { enabled: 'false' }, failOnStatusCode: false, maxRedirects: 0 });
-    assert(forged.status() !== 302 || !/providerLinkingRules\?saved=true/.test(forged.headers().location || ''),
-      'a POST without a CSRF token was accepted');
+    assert(forged.status() === 403, `POST without a CSRF token answered ${forged.status()}, expected 403`);
     assert(sql.value(`SELECT value FROM property WHERE name=${sqlString(PROPERTY)}
       AND (provider_no IS NULL OR provider_no='') LIMIT 1`) === 'true', 'a token-less POST changed the switch');
 
     assertStrictPage(recorder);
-    return { hl7: 3, patientMatch: 1, hrm: 1 };
+    return { hl7: 3, patientMatch: 3, hrm: 1, hrmUnlink: 1, patientCorrection: 1 };
   } finally {
     try {
       if (browser) {

@@ -452,14 +452,12 @@ public final class MessageUploader {
                 String mrp = altProviderNo.trim();
                 // An MRP who ordered the test was routed above; this is not a linking-rule routing.
                 if (!providerNums.contains(mrp)) {
-                    routing.route(labId, mrp, "HL7");
-                    mrpRouting.recordUploadRouting(labId, mrp, uploaderProviderNo);
+                    mrpRouting.routeUploadedLabToMrp(labId, uploaderProviderNo);
                 }
             }
         } else {
-            if (altProviderNo != null && !altProviderNo.equals("0")) {
-                routing.route(labId, altProviderNo, "HL7");
-            } else {
+            if (altProviderNo == null || "0".equals(altProviderNo)
+                    || !mrpRouting.routeUploadedFallbackToMrp(labId, uploaderProviderNo)) {
                 routing.route(labId, "0", "HL7");
             }
         }

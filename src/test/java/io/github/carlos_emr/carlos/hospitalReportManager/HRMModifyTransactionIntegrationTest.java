@@ -83,6 +83,11 @@ class HRMModifyTransactionIntegrationTest extends CarlosTestBase {
         when(security.hasPrivilege(eq(user), eq("_hrm"), anyString(), isNull())).thenReturn(true);
         action = new HRMModifyDocument2Action();
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
+        // These transaction fixtures use synthetic chart ids; chart existence is pinned by the action unit test.
+        var patients = mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class);
+        when(patients.getDemographicById(org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+        ReflectionTestUtils.setField(action, "demographicDao", patients);
     }
 
     @AfterEach
@@ -346,4 +351,125 @@ class HRMModifyTransactionIntegrationTest extends CarlosTestBase {
         java.util.List<HRMDocumentToDemographic> links = tx.execute(status -> demographics.findByHrmDocumentId(reportId));
         assertThat(links).singleElement().satisfies(link -> assertThat(link.getDemographicNo()).isEqualTo(4343));
     }
+    private io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService automaticRouter() {
+        var rules = mock(io.github.carlos_emr.carlos.commn.dao.IncomingLabRulesDao.class);
+        var forward = new io.github.carlos_emr.carlos.commn.model.IncomingLabRules();
+        forward.setFrwdProviderNo("OLD-FORWARD");
+        var type = new io.github.carlos_emr.carlos.commn.model.IncomingLabRulesType();
+        type.setType("HRM");
+        forward.setForwardTypes(new java.util.ArrayList<>(java.util.List.of(type)));
+        when(rules.findCurrentByProviderNo("OLD-MRP")).thenReturn(java.util.List.of(forward));
+        return new io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService(routes, rules);
+    }
+
+    @Test
+    void shouldRevokeOldAutomaticRecipients_whenPatientIsCorrected() {
+        var router = automaticRouter();
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.assignProvider(reportId, "ORDERING");
+            router.reconcileMrpRouting(reportId, 101, "OLD-MRP");
+        });
+        assertThat(routedProviders()).containsExactly("OLD-FORWARD", "OLD-MRP", "ORDERING");
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 202, "NEW-MRP");
+        });
+        assertThat(routedProviders()).containsExactly("NEW-MRP", "ORDERING");
+        tx.executeWithoutResult(status -> assertThat(routes.findByHrmDocumentIdAndProviderNo(reportId, "NEW-MRP")
+                .getMrpDemographicNo()).isEqualTo(202));
+    }
+
+    @Test
+    void shouldPreserveManualAssignmentAndForwarding_whenPatientIsCorrected() {
+        var router = automaticRouter();
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 101, "OLD-MRP");
+            router.assignProvider(reportId, "OLD-MRP");
+        });
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 202, "NEW-MRP");
+        });
+        assertThat(routedProviders()).containsExactly("NEW-MRP", "OLD-FORWARD", "OLD-MRP");
+        tx.executeWithoutResult(status -> assertThat(routes.findByHrmDocumentIdAndProviderNo(reportId, "OLD-MRP")
+                .getMrpDemographicNo()).isNull());
+    }
+
+    @Test
+    void shouldPreserveSignOffAndAvoidDuplicateAudit_whenSamePatientIsMatchedAgain() {
+        var router = automaticRouter();
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 101, "OLD-MRP");
+            var row = routes.findByHrmDocumentIdAndProviderNo(reportId, "OLD-MRP");
+            row.setSignedOff(1);
+            routes.merge(row);
+        });
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            assertThat(router.reconcileMrpRouting(reportId, 101, "OLD-MRP")).isFalse();
+        });
+        tx.executeWithoutResult(status -> assertThat(routes.findByHrmDocumentIdAndProviderNo(reportId, "OLD-MRP")
+                .getSignedOff()).isEqualTo(1));
+        assertThat(routedProviders()).containsExactly("OLD-FORWARD", "OLD-MRP");
+    }
+
+    @Test
+    void shouldReturnReportToUnclaimed_whenPatientIsUnlinkedAfterRulesDisabled() throws Exception {
+        var router = automaticRouter();
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 101, "OLD-MRP");
+        });
+        linkPatient(101);
+        request.addParameter("method", "removeDemographic");
+        action.execute();
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        assertThat(routedProviders()).containsExactly("-1");
+    }
+
+    @Test
+    void shouldRestoreOldAccess_whenReplacementFailsAfterRevocation() {
+        var router = automaticRouter();
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 101, "OLD-MRP");
+        });
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 202, "NEW-MRP");
+            em.flush();
+            throw new IllegalStateException("injected failure after access replacement");
+        })).isInstanceOf(IllegalStateException.class);
+        assertThat(routedProviders()).containsExactly("OLD-FORWARD", "OLD-MRP");
+    }
+
+    @Test
+    void shouldKeepIndependentHrmDelivery_whenPatientIsLaterCorrected() {
+        var router = automaticRouter();
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 101, "OLD-MRP");
+        });
+        var providerDao = mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("OLD-MRP");
+        when(providerDao.getProviderByPractitionerNo("123456")).thenReturn(provider);
+        var report = mock(HRMReport.class);
+        when(report.getDeliverToUserId()).thenReturn("D123456");
+        try (var spring = mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class,
+                org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                    io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class)).thenReturn(providerDao);
+            assertThat(HRMReportParser.routeReportToProvider(report, reportId)).isTrue();
+        }
+        tx.executeWithoutResult(status -> {
+            documents.findForUpdate(reportId);
+            router.reconcileMrpRouting(reportId, 202, "NEW-MRP");
+        });
+        assertThat(routedProviders()).containsExactly("NEW-MRP", "OLD-MRP");
+    }
+
 }

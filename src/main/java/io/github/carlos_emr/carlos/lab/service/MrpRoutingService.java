@@ -25,7 +25,15 @@
  */
 package io.github.carlos_emr.carlos.lab.service;
 
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -48,7 +56,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * <p>Called from the three places a report meets a patient: HL7 upload
  * ({@code MessageUploader}), manual lab-to-patient matching ({@code PatientMatch2Action}) and
  * manual HRM-to-patient matching ({@code HRMModifyDocument2Action.assignDemographic}). With the
- * switch off every method is a no-op, so behaviour is exactly as before.</p>
+ * switch off no new rule-based access is added; obsolete automatic access is still revoked on
+ * a corrected patient match. The legacy no-orderer upload fallback remains available.</p>
  *
  * <p>The MRP is {@code demographic.provider_no}. It is skipped when blank, {@code 0} (no MRP),
  * {@code -1} (the HRM "unclaimed" marker) or not an active provider: routing a result to a
@@ -122,28 +131,111 @@ public class MrpRoutingService {
      * @param actorProviderNo the provider who made the match, for the audit log
      * @return {@code true} when the lab was routed to the MRP
      */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean routeMatchedLabToMrp(String labNo, String labType, Integer demographicNo, String actorProviderNo) {
         if (StringUtils.isBlank(labNo) || StringUtils.isBlank(labType)
-                || DOCUMENT_LAB_TYPE.equals(labType) || HRM_TYPE.equals(labType)) {
-            return false;
-        }
-        if (!providerLinkingRulesService.isEnabled()) {
-            return false;
-        }
-        String mrp = resolveRoutableMrp(demographicNo);
-        if (mrp == null) {
-            return false;
-        }
+                || DOCUMENT_LAB_TYPE.equals(labType) || HRM_TYPE.equals(labType)) return false;
+        List<Integer> versions = matchingLabIds(labNo, labType);
+        ProviderLabRoutingDao dao = SpringUtils.getBean(ProviderLabRoutingDao.class);
+        versions.stream().sorted().forEach(dao::lockRoutingReport);
+        return reconcileLabVersions(versions, labType, demographicNo, actorProviderNo);
+    }
 
-        ArrayList<String[]> labs = new ArrayList<>();
-        labs.add(new String[]{labNo, labType});
-        if (!CommonLabResultData.updateLabRouting(labs, mrp)) {
-            // updateLabRouting logs its own failure; the match itself has already been saved.
-            logger.warn("Provider linking rules could not route lab {} to the MRP", LogSafe.sanitize(labNo));
-            return false;
+    private boolean reconcileLabVersions(List<Integer> versions, String labType, Integer demographicNo, String actorProviderNo) {
+        String mrp = providerLinkingRulesService.isEnabled() ? resolveRoutableMrp(demographicNo) : null;
+        boolean created = false;
+        ProviderLabRouting router = new ProviderLabRouting();
+        for (int version : versions) {
+            if (router.reconcileMrpRouting(version, labType, demographicNo, mrp)) {
+                audit(actorProviderNo, labType, Integer.toString(version), mrp, demographicNo);
+                created = true;
+            }
         }
-        audit(actorProviderNo, labType, labNo, mrp, demographicNo);
+        return created;
+    }
+
+    /** Saves the patient and reconciles provider access as one transaction across all versions. */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void matchPatientLab(String labNo, String labType, Integer demographicNo, String actorProviderNo) {
+        if (demographicNo == null || demographicNo <= 0 || demographicDao.getDemographicById(demographicNo) == null) {
+            throw new IllegalArgumentException("Patient does not exist");
+        }
+        List<Integer> versions = matchingLabIds(labNo, labType);
+        ProviderLabRoutingDao dao = SpringUtils.getBean(ProviderLabRoutingDao.class);
+        versions.stream().sorted().forEach(dao::lockRoutingReport);
+        if (!CommonLabResultData.updatePatientLabRouting(versions, demographicNo.toString(), labType)) {
+            throw new IllegalStateException("Patient match could not be saved");
+        }
+        reconcileLabVersions(versions, labType, demographicNo, actorProviderNo);
+        CommittedAudit.write(() -> LogAction.addLog(actorProviderNo, "match patient", "labPatientRouting",
+                labType + ":" + labNo, null, demographicNo.toString(), "patient and provider routing updated"));
+    }
+
+    private List<Integer> matchingLabIds(String labNo, String labType) {
+        if (StringUtils.isBlank(labNo) || StringUtils.isBlank(labType)) {
+            throw new IllegalArgumentException("Lab identifier and type are required");
+        }
+        int reportId = Integer.parseInt(labNo);
+        requireReport(reportId, labType);
+        String chain = new CommonLabResultData().getMatchingLabsForMutation(labNo, labType);
+        if (StringUtils.isBlank(chain)) throw new IllegalStateException("Lab version lookup returned no report");
+        List<Integer> versions = Arrays.stream(chain.split(","))
+                .map(String::trim).map(Integer::valueOf).distinct().toList();
+        if (!versions.contains(reportId)) throw new IllegalStateException("Lab version chain does not include the selected report");
+        for (int version : versions) requireReport(version, labType);
+        return versions;
+    }
+
+    private void requireReport(int reportId, String labType) {
+        if (reportId <= 0) throw new IllegalArgumentException("Invalid lab identifier");
+        boolean exists = switch (labType) {
+            case "HL7" -> SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class).find(reportId) != null;
+            case "MDS" -> SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.MdsMSHDao.class).find(reportId) != null;
+            case "CML" -> SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.LabPatientPhysicianInfoDao.class).find(reportId) != null;
+            case "BCP" -> SpringUtils.getBean(io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7MessageDao.class).find(reportId) != null;
+            default -> throw new IllegalArgumentException("Unsupported lab source");
+        };
+        if (!exists) throw new IllegalArgumentException("Lab report does not exist");
+    }
+
+    /** Uses the persisted patient match for upload provenance; never invents independent access. */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public boolean routeUploadedLabToMrp(String labNo, String actorProviderNo) {
+        int reportId = Integer.parseInt(labNo);
+        Integer patient = uploadedPatient(reportId);
+        if (patient == null) return false;
+        String mrp = providerLinkingRulesService.isEnabled() ? resolveRoutableMrp(patient) : null;
+        boolean created = new ProviderLabRouting().reconcileMrpRouting(reportId, "HL7", patient, mrp);
+        if (created) audit(actorProviderNo, "HL7", labNo, mrp, patient);
+        return created;
+    }
+
+    /**
+     * Keeps the legacy no-orderer fallback while tracking why its MRP received the report.
+     * An inactive or unknown MRP leaves the report in the unassigned inbox.
+     * @param labNo uploaded HL7 report
+     * @param actorProviderNo uploading actor, or null for automatic import
+     * @return true when an active MRP holds the report, including an existing assignment
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public boolean routeUploadedFallbackToMrp(String labNo, String actorProviderNo) {
+        int reportId = Integer.parseInt(labNo);
+        Integer patient = uploadedPatient(reportId);
+        String mrp = resolveRoutableMrp(patient);
+        if (mrp == null) return false;
+        if (new ProviderLabRouting().reconcileMrpRouting(reportId, "HL7", patient, mrp)) {
+            CommittedAudit.write(() -> LogAction.addLog(actorProviderNo, AUDIT_ACTION, "labPatientFallback",
+                    "HL7:" + labNo, null, patient.toString(), "mrp=" + mrp));
+        }
         return true;
+    }
+
+    private Integer uploadedPatient(int reportId) {
+        SpringUtils.getBean(ProviderLabRoutingDao.class).lockRoutingReport(reportId);
+        List<PatientLabRouting> matches = SpringUtils.getBean(PatientLabRoutingDao.class)
+                .findByLabNoAndLabType(reportId, "HL7");
+        List<Integer> patients = matches.stream().map(PatientLabRouting::getDemographicNo).distinct().toList();
+        return patients.size() == 1 ? patients.get(0) : null;
     }
 
     /**
@@ -156,19 +248,15 @@ public class MrpRoutingService {
      * @param hrmDocumentId the report just matched
      * @param demographicNo the patient it was matched to
      * @param actorProviderNo the provider who made the match, for the audit log
-     * @return {@code true} when the report is now routed to the MRP
+     * @return {@code true} only when the direct MRP routing was newly created
      */
     public boolean routeMatchedHrmToMrp(int hrmDocumentId, Integer demographicNo, String actorProviderNo) {
-        if (!providerLinkingRulesService.isEnabled()) {
-            return false;
+        String mrp = providerLinkingRulesService.isEnabled() ? resolveRoutableMrp(demographicNo) : null;
+        boolean created = hrmProviderRoutingService.reconcileMrpRouting(hrmDocumentId, demographicNo, mrp);
+        if (created) {
+            audit(actorProviderNo, HRM_TYPE, Integer.toString(hrmDocumentId), mrp, demographicNo);
         }
-        String mrp = resolveRoutableMrp(demographicNo);
-        if (mrp == null) {
-            return false;
-        }
-        hrmProviderRoutingService.assignProvider(hrmDocumentId, mrp);
-        audit(actorProviderNo, HRM_TYPE, Integer.toString(hrmDocumentId), mrp, demographicNo);
-        return true;
+        return created;
     }
 
     /**

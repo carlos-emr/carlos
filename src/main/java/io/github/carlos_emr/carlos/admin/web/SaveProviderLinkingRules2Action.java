@@ -62,6 +62,8 @@ public class SaveProviderLinkingRules2Action extends ActionSupport {
     }
 
     @Override
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT",
+            justification = "Container context path plus a constant application route; no request parameter determines the destination")
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();

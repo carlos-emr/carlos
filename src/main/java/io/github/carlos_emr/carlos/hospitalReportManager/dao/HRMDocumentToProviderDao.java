@@ -152,12 +152,9 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, hrmDocumentId);
         query.setParameter(2, providerNo);
-        try {
-            List<HRMDocumentToProvider> results = query.getResultList();
-            return results.get(results.size() - 1);
-        } catch (Exception e) {
-            return null;
-        }
+        @SuppressWarnings("unchecked")
+        List<HRMDocumentToProvider> results = query.getResultList();
+        return results.isEmpty() ? null : results.get(results.size() - 1);
     }
 
     public List<HRMDocumentToProvider> findByHrmDocumentIdAndProviderNoList(Integer hrmDocumentId, String providerNo) {
@@ -189,6 +186,13 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         query.setParameter(1, hrmDocumentId);
         query.setParameter(2, providerNo);
         return query.executeUpdate();
+    }
+
+    /** Deletes only a rule-owned row; bulk DML avoids the report's eager collection cascade. */
+    public int deleteAutomaticRouting(Integer routingId) {
+        return entityManager.createQuery("delete from HRMDocumentToProvider x where x.id=:id"
+                + " and x.mrpDemographicNo is not null")
+                .setParameter("id", routingId).executeUpdate();
     }
 
     public List<HRMDocumentToProvider> findSignedByHrmDocumentId(Integer hrmDocumentId) {

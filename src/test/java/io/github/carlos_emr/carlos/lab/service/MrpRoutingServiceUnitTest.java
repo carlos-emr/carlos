@@ -34,7 +34,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
+import org.mockito.MockedConstruction;
+import static org.mockito.Mockito.mockConstruction;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,15 +77,22 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
     private HrmProviderRoutingService hrmRouting;
     private MockedStatic<CommonLabResultData> labResults;
     private MrpRoutingService service;
+    private MockedConstruction<CommonLabResultData> matchingLabs;
+    private MockedConstruction<ProviderLabRouting> routers;
 
     @BeforeEach
     void setUp() {
         // CommonLabResultData resolves these in its static initializer.
         createAndRegisterMock(PatientLabRoutingDao.class);
+        var messages = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        when(messages.find(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextMessage());
         createAndRegisterMock(ProviderLabRoutingDao.class);
         createAndRegisterMock(QueueDocumentLinkDao.class);
         createAndRegisterMock(SecurityInfoManager.class);
         labResults = mockStatic(CommonLabResultData.class);
+        matchingLabs = mockConstruction(CommonLabResultData.class, (mock, context) ->
+                when(mock.getMatchingLabsForMutation(anyString(), anyString())).thenReturn("555"));
+        routers = mockConstruction(ProviderLabRouting.class);
 
         rules = mock(ProviderLinkingRulesService.class);
         demographicDao = mock(DemographicDao.class);
@@ -93,6 +103,8 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() {
+        routers.close();
+        matchingLabs.close();
         labResults.close();
     }
 
@@ -158,6 +170,33 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+
+    @Test
+    void shouldTrackFallbackProvenance_whenRulesAreOff() {
+        givenPatientWithMrp(MRP);
+        givenProvider(MRP, "1");
+        var match = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        match.setDemographicNo(PATIENT);
+        when(io.github.carlos_emr.carlos.utility.SpringUtils.getBean(PatientLabRoutingDao.class)
+                .findByLabNoAndLabType(555, "HL7")).thenReturn(java.util.List.of(match));
+        assertThat(service.routeUploadedFallbackToMrp("555", "actor")).isTrue();
+        verify(routers.constructed().get(0)).reconcileMrpRouting(555, "HL7", PATIENT, MRP);
+        verifyNoInteractions(rules);
+    }
+
+    @Test
+    void shouldDeclineInactiveFallback_whenNoOrdererMatched() {
+        givenPatientWithMrp(MRP);
+        givenProvider(MRP, "0");
+        var match = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        match.setDemographicNo(PATIENT);
+        when(io.github.carlos_emr.carlos.utility.SpringUtils.getBean(PatientLabRoutingDao.class)
+                .findByLabNoAndLabType(555, "HL7")).thenReturn(java.util.List.of(match));
+        assertThat(service.routeUploadedFallbackToMrp("555", "actor")).isFalse();
+        assertThat(routers.constructed()).isEmpty();
+        verifyNoInteractions(rules);
+    }
+
     @Nested
     @DisplayName("manual lab match")
     class LabMatch {
@@ -177,15 +216,13 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
             when(rules.isEnabled()).thenReturn(true);
             givenPatientWithMrp(MRP);
             givenProvider(MRP, "1");
-            labResults.when(() -> CommonLabResultData.updateLabRouting(any(ArrayList.class), eq(MRP)))
-                    .thenReturn(true);
+            routers.close();
+            routers = mockConstruction(ProviderLabRouting.class, (mock, context) ->
+                    when(mock.reconcileMrpRouting(555, "HL7", PATIENT, MRP)).thenReturn(true));
 
             assertThat(service.routeMatchedLabToMrp("555", "HL7", PATIENT, "999998")).isTrue();
 
-            labResults.verify(() -> CommonLabResultData.updateLabRouting(
-                    org.mockito.ArgumentMatchers.<ArrayList<String[]>>argThat(labs -> labs.size() == 1
-                            && "555".equals(labs.get(0)[0]) && "HL7".equals(labs.get(0)[1])),
-                    eq(MRP)));
+            verify(routers.constructed().get(0)).reconcileMrpRouting(555, "HL7", PATIENT, MRP);
             logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(MrpRoutingService.AUDIT_ACTION),
                     eq(MrpRoutingService.AUDIT_CONTENT), eq("HL7:555"), isNull(), eq("42"), eq("mrp=101")));
         }
@@ -196,10 +233,13 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
             when(rules.isEnabled()).thenReturn(true);
             givenPatientWithMrp(MRP);
             givenProvider(MRP, "1");
-            labResults.when(() -> CommonLabResultData.updateLabRouting(any(ArrayList.class), anyString()))
-                    .thenReturn(false);
+            routers.close();
+            routers = mockConstruction(ProviderLabRouting.class, (mock, context) ->
+                    when(mock.reconcileMrpRouting(555, "HL7", PATIENT, MRP))
+                            .thenThrow(new IllegalStateException("routing failed")));
 
-            assertThat(service.routeMatchedLabToMrp("555", "HL7", PATIENT, "999998")).isFalse();
+            assertThatThrownBy(() -> service.routeMatchedLabToMrp("555", "HL7", PATIENT, "999998"))
+                    .isInstanceOf(IllegalStateException.class);
             logActionMock.verifyNoInteractions();
         }
 
@@ -251,12 +291,22 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("manual HRM match")
     class HrmMatch {
+        @Test
+        void shouldNotAudit_whenMrpAlreadyHasAccess() {
+            when(rules.isEnabled()).thenReturn(true);
+            givenPatientWithMrp(MRP);
+            givenProvider(MRP, "1");
+            assertThat(service.routeMatchedHrmToMrp(7, PATIENT, "999998")).isFalse();
+            logActionMock.verifyNoInteractions();
+        }
+
 
         @Test
         @DisplayName("should do nothing when the rules are off")
         void shouldDoNothing_whenRulesAreOff() {
             assertThat(service.routeMatchedHrmToMrp(7, PATIENT, "999998")).isFalse();
-            verifyNoInteractions(hrmRouting, demographicDao);
+            verify(hrmRouting).reconcileMrpRouting(7, PATIENT, null);
+            verifyNoInteractions(demographicDao);
         }
 
         @Test
@@ -265,10 +315,11 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
             when(rules.isEnabled()).thenReturn(true);
             givenPatientWithMrp(MRP);
             givenProvider(MRP, "1");
+            when(hrmRouting.reconcileMrpRouting(7, PATIENT, MRP)).thenReturn(true);
 
             assertThat(service.routeMatchedHrmToMrp(7, PATIENT, "999998")).isTrue();
 
-            verify(hrmRouting).assignProvider(7, MRP);
+            verify(hrmRouting).reconcileMrpRouting(7, PATIENT, MRP);
             logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(MrpRoutingService.AUDIT_ACTION),
                     eq(MrpRoutingService.AUDIT_CONTENT), eq("HRM:7"), isNull(), eq("42"), eq("mrp=101")));
         }
@@ -279,6 +330,7 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
             when(rules.isEnabled()).thenReturn(true);
             givenPatientWithMrp(MRP);
             givenProvider(MRP, "1");
+            when(hrmRouting.reconcileMrpRouting(7, PATIENT, MRP)).thenReturn(true);
             org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
             try {
                 service.routeMatchedHrmToMrp(7, PATIENT, "999998");
@@ -302,6 +354,7 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
             when(rules.isEnabled()).thenReturn(true);
             givenPatientWithMrp(MRP);
             givenProvider(MRP, "1");
+            when(hrmRouting.reconcileMrpRouting(7, PATIENT, MRP)).thenReturn(true);
             org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
             try {
                 service.routeMatchedHrmToMrp(7, PATIENT, "999998");

@@ -24,6 +24,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -83,6 +85,8 @@ public class HRMModifyDocument2Action extends ActionSupport {
     HRMDocumentToProviderDao hrmDocumentToProviderDao = (HRMDocumentToProviderDao) SpringUtils.getBean(HRMDocumentToProviderDao.class);
     HRMDocumentSubClassDao hrmDocumentSubClassDao = (HRMDocumentSubClassDao) SpringUtils.getBean(HRMDocumentSubClassDao.class);
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
+    private io.github.carlos_emr.carlos.commn.dao.DemographicDao demographicDao =
+            SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     // transient: ActionSupport implements Serializable; Spring-managed beans are not serializable.
@@ -523,6 +527,7 @@ public class HRMModifyDocument2Action extends ActionSupport {
      */
     public String removeDemographic() throws IOException {
         boolean success = false;
+        ArrayNode providers = null;
         String hrmDocumentId = request.getParameter("reportId");
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
@@ -530,18 +535,25 @@ public class HRMModifyDocument2Action extends ActionSupport {
         }
 
         try {
-            success = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
+            providers = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
                 // Bulk: the report lock loaded these links into HRMDocument.matchedDemographics, and
                 // removing them one by one through the EntityManager failed the commit flush.
                 hrmDocumentToDemographicDao.deleteByHrmDocumentId(Integer.parseInt(hrmDocumentId));
-                return true;
+                mrpRoutingService.routeMatchedHrmToMrp(Integer.parseInt(hrmDocumentId), null,
+                        LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                return providerAssignments(Integer.parseInt(hrmDocumentId));
             });
+            success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to remove HRM document from demographic but failed.", e);
             success = false;
         }
 
-        return writeResult(success);
+        ObjectNode body = OBJECT_MAPPER.createObjectNode();
+        body.put("success", success);
+        body.put("message", success ? SUCCESS_MESSAGE : FAILURE_MESSAGE);
+        if (success) body.set("providers", providers);
+        return writeBody(body);
 
     }
 
@@ -564,14 +576,18 @@ public class HRMModifyDocument2Action extends ActionSupport {
         boolean success = false;
         String hrmDocumentId = request.getParameter("reportId");
         String demographicNo = request.getParameter("demographicNo");
-        boolean mrpRouted = false;
+        PatientMatchResult match = null;
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
         try {
-            mrpRouted = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
+            match = mutateReport(Integer.parseInt(hrmDocumentId), () -> {
+                int patientId = Integer.parseInt(demographicNo);
+                if (patientId <= 0 || demographicDao.getDemographicById(patientId) == null) {
+                    throw new IllegalArgumentException("Patient does not exist");
+                }
                 // No inner catch. Clearing the existing links is not a best-effort preliminary: if it
                 // fails and the new link is written anyway, the report is attached to the old chart
                 // AND the new one, and the JSON still says "Success". An HRM report showing on two
@@ -593,13 +609,16 @@ public class HRMModifyDocument2Action extends ActionSupport {
                 hrmDocumentToDemographicDao.merge(demographicMapping);
 
                 LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                return mrpRoutingService.routeMatchedHrmToMrp(Integer.parseInt(hrmDocumentId),
+                boolean mrpRouted = mrpRoutingService.routeMatchedHrmToMrp(Integer.parseInt(hrmDocumentId),
                         Integer.valueOf(demographicNo),
                         loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
+                return new PatientMatchResult(mrpRouted, providerAssignments(Integer.parseInt(hrmDocumentId)));
             });
             success = true;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Tried to assign HRM document to demographic but failed.", e);
+            response.setStatus(e instanceof IllegalArgumentException
+                    ? HttpServletResponse.SC_BAD_REQUEST : HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             success = false;
         }
 
@@ -607,8 +626,26 @@ public class HRMModifyDocument2Action extends ActionSupport {
         body.put("success", success);
         body.put("message", success ? SUCCESS_MESSAGE : FAILURE_MESSAGE);
         // Only a committed routing is reported: a rollback undoes the MRP row with the match.
-        body.put("mrpRouted", success && mrpRouted);
+        body.put("mrpRouted", success && match.mrpRouted());
+        if (success) body.set("providers", match.providers());
         return writeBody(body);
+    }
+
+    private record PatientMatchResult(boolean mrpRouted, ArrayNode providers) { }
+
+    /** Captures the committed response inside the same transaction as the patient/access changes. */
+    private ArrayNode providerAssignments(int reportId) {
+        ArrayNode result = OBJECT_MAPPER.createArrayNode();
+        for (HRMDocumentToProvider row : hrmDocumentToProviderDao.findByHrmDocumentId(reportId)) {
+            if (HrmProviderRoutingService.UNCLAIMED_PROVIDER_NO.equals(row.getProviderNo())) continue;
+            String name = SpringUtils.getBean(ProviderDao.class).getProviderName(row.getProviderNo());
+            ObjectNode provider = result.addObject();
+            provider.put("id", row.getId());
+            provider.put("name", name == null ? row.getProviderNo() : name);
+            provider.put("signedOff", Integer.valueOf(1).equals(row.getSignedOff()));
+            provider.put("signedOffTimestamp", row.getSignedOffTimestamp() == null ? "" : row.getSignedOffTimestamp().toString());
+        }
+        return result;
     }
 
     /**

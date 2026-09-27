@@ -180,4 +180,16 @@ class ProviderLinkingRules2ActionUnitTest {
 
         verify(rules).setEnabled(loggedInInfo, false);
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"https://evil.invalid/", "//evil.invalid/", "/../logout", "%0d%0aLocation:https://evil.invalid/"})
+    void shouldKeepRedirectInsideApplication_whenTargetParameterIsHostile(String target) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("redirect", target);
+        request.setParameter("returnUrl", target);
+        request.setParameter("enabled", "true");
+        when(security.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        save().execute();
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/providerLinkingRules?saved=true");
+    }
+
 }

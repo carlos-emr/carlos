@@ -640,3 +640,25 @@ test('a match without MRP routing, or a failed one, never reloads', () => {
   failed.requests[0].success({success: false, message: 'Error encountered', mrpRouted: true});
   assert.deepEqual(failed.reloads, []);
 });
+
+test('committed provider assignments replace revoked access using text nodes, preserving sign-off', () => {
+  const children = [];
+  const container = element({textContent: 'OLD PROVIDER', appendChild(node) { children.push(node); }});
+  const {context} = setup({elements: {assignedProviders7: container}});
+  context.updateHrmProviderAssignments('7', [{id: 15, name: '<img src=x onerror=alert(1)>',
+    signedOff: true, signedOffTimestamp: '2026-09-27 12:00:00'}]);
+  assert.equal(container.textContent, '');
+  assert.equal(children[0].nodeText, '<img src=x onerror=alert(1)>');
+  assert.equal(children[1].tag, 'abbr');
+  assert.equal(children[1].title, '2026-09-27 12:00:00');
+  assert.equal(children[2].tag, 'a');
+});
+
+test('unlink with no remaining providers clears the old assignment list', () => {
+  const children = [];
+  const container = element({textContent: 'OLD MRP', appendChild(node) { children.push(node); }});
+  const {context} = setup({elements: {assignedProviders7: container}});
+  context.updateHrmProviderAssignments('7', []);
+  assert.equal(container.textContent, '');
+  assert.equal(children[0].textContent, 'No providers currently assigned');
+});

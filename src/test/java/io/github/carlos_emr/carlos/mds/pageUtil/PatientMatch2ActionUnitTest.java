@@ -134,7 +134,7 @@ class PatientMatch2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(new PatientMatch2Action(mrpRouting).execute()).isEqualTo(ActionSupport.NONE);
 
-        verify(mrpRouting).routeMatchedLabToMrp("555", "HL7", 42, "999998");
+        verify(mrpRouting).matchPatientLab("555", "HL7", 42, "999998");
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/oscarMDS/ViewOpenEChart?demographicNo=42");
     }
 
@@ -142,24 +142,26 @@ class PatientMatch2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should not widen who sees a lab whose match failed")
     void shouldNotRouteToMrp_whenMatchFails() throws Exception {
         when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
-        labResults.when(() -> CommonLabResultData.updatePatientLabRouting(anyString(), anyString(), anyString()))
-                .thenReturn(false);
+        doThrow(new IllegalStateException("match failed"))
+                .when(mrpRouting).matchPatientLab("555", "HL7", 42, "999998");
 
         new PatientMatch2Action(mrpRouting).execute();
 
-        verify(mrpRouting, never()).routeMatchedLabToMrp(anyString(), anyString(), any(), any());
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getRedirectedUrl()).isNull();
     }
 
     @Test
-    @DisplayName("should keep the match and open the chart when MRP routing fails")
-    void shouldStillOpenChart_whenMrpRoutingThrows() throws Exception {
+    @DisplayName("should show failure when the atomic patient and MRP match fails")
+    void shouldShowError_whenMrpRoutingThrows() throws Exception {
         when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
         labResults.when(() -> CommonLabResultData.updatePatientLabRouting("555", "42", "HL7")).thenReturn(true);
         doThrow(new IllegalStateException("database down"))
-                .when(mrpRouting).routeMatchedLabToMrp(eq("555"), eq("HL7"), eq(42), eq("999998"));
+                .when(mrpRouting).matchPatientLab(eq("555"), eq("HL7"), eq(42), eq("999998"));
 
         assertThat(new PatientMatch2Action(mrpRouting).execute()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/oscarMDS/ViewOpenEChart?demographicNo=42");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getRedirectedUrl()).isNull();
     }
 }

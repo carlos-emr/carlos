@@ -26,6 +26,9 @@
 package io.github.carlos_emr.carlos.hospitalReportManager.service;
 
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -83,38 +86,88 @@ public class HrmProviderRoutingService {
      */
     @Transactional
     public boolean assignProvider(int hrmDocumentId, String providerNo) {
-        boolean created = addRoutingIfAbsent(hrmDocumentId, providerNo);
+        boolean created = addRoutingIfAbsent(hrmDocumentId, providerNo, null);
         applyForwardingRules(hrmDocumentId, providerNo);
         removeUnclaimedRouting(hrmDocumentId);
         return created;
     }
 
-    private boolean addRoutingIfAbsent(int hrmDocumentId, String providerNo) {
+    /**
+     * Reconciles rule-owned access with the current patient and MRP under the caller's report lock.
+     * Independent assignments are never deleted. Repeating an unchanged match preserves sign-off.
+     * A null provider revokes obsolete automatic access even after the clinic disables the rule.
+     * @return whether the direct MRP row was newly created (for accurate auditing)
+     */
+    @Transactional
+    public boolean reconcileMrpRouting(int hrmDocumentId, Integer demographicNo, String providerNo) {
+        Set<String> desired = new LinkedHashSet<>();
+        if (providerNo != null && demographicNo != null) {
+            desired.add(providerNo);
+            desired.addAll(forwardedProviders(providerNo));
+        }
+        for (HRMDocumentToProvider existing : hrmDocumentToProviderDao.findByHrmDocumentId(hrmDocumentId)) {
+            if (existing.getMrpDemographicNo() != null
+                    && (!Objects.equals(demographicNo, existing.getMrpDemographicNo())
+                        || !desired.contains(existing.getProviderNo()))) {
+                hrmDocumentToProviderDao.deleteAutomaticRouting(existing.getId());
+            }
+        }
+        boolean created = false;
+        for (String recipient : desired) {
+            boolean added = addRoutingIfAbsent(hrmDocumentId, recipient, demographicNo);
+            if (recipient.equals(providerNo)) created = added;
+        }
+        if (!desired.isEmpty()) {
+            removeUnclaimedRouting(hrmDocumentId);
+        } else if (hrmDocumentToProviderDao.findByHrmDocumentId(hrmDocumentId).isEmpty()) {
+            // Unlinking must not leave a result with no inbox at all.
+            addRoutingIfAbsent(hrmDocumentId, UNCLAIMED_PROVIDER_NO, null);
+        }
+        return created;
+    }
+
+    private boolean addRoutingIfAbsent(int hrmDocumentId, String providerNo, Integer demographicNo) {
         List<HRMDocumentToProvider> existing =
                 hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNoList(hrmDocumentId, providerNo);
         if (existing != null && !existing.isEmpty()) {
+            if (demographicNo == null) {
+                // A later manual assignment is an independent reason to retain access.
+                for (HRMDocumentToProvider row : existing) {
+                    if (row.getMrpDemographicNo() != null) {
+                        row.setMrpDemographicNo(null);
+                        hrmDocumentToProviderDao.merge(row);
+                    }
+                }
+            }
             return false;
         }
         HRMDocumentToProvider routing = new HRMDocumentToProvider();
         routing.setHrmDocumentId(hrmDocumentId);
         routing.setProviderNo(providerNo);
         routing.setSignedOff(0);
+        routing.setMrpDemographicNo(demographicNo);
         hrmDocumentToProviderDao.persist(routing);
         return true;
     }
 
-    private void applyForwardingRules(int hrmDocumentId, String providerNo) {
+    private Set<String> forwardedProviders(String providerNo) {
+        Set<String> recipients = new LinkedHashSet<>();
         List<IncomingLabRules> rules = incomingLabRulesDao.findCurrentByProviderNo(providerNo);
-        if (rules == null) {
-            return;
-        }
-        for (IncomingLabRules rule : rules) {
-            String forwardTo = rule.getFrwdProviderNo();
-            // Forwarding is one hop, as it always was for HRM: the forwarded provider's own rules
-            // are not followed, so two providers forwarding to each other cannot loop.
-            if (StringUtils.isNotBlank(forwardTo) && rule.getForwardTypeStrings().contains(HRM_FORWARD_TYPE)) {
-                addRoutingIfAbsent(hrmDocumentId, forwardTo);
+        if (rules != null) {
+            for (IncomingLabRules rule : rules) {
+                String forwardTo = StringUtils.trimToNull(rule.getFrwdProviderNo());
+                // HRM forwarding remains one hop, including when the recipient forwards back.
+                if (forwardTo != null && rule.getForwardTypeStrings().contains(HRM_FORWARD_TYPE)) {
+                    recipients.add(forwardTo);
+                }
             }
+        }
+        return recipients;
+    }
+
+    private void applyForwardingRules(int hrmDocumentId, String providerNo) {
+        for (String recipient : forwardedProviders(providerNo)) {
+            addRoutingIfAbsent(hrmDocumentId, recipient, null);
         }
     }
 

@@ -43,3 +43,12 @@ covers both provinces. The version line is global across `common` + the selected
 next free number accounts for province deltas too. The highest version in use is `on/V1.0.34`
 (the highest shared one is `common/V1.0.33`), so the next free version for ANY location is `V1.0.35`
 (see `../README.md`).
+
+### V1.0.39 — Automatic MRP routing provenance
+
+PR #4000 adds nullable `mrpDemographicNo` to `HRMDocumentToProvider` and
+`providerLabRouting`. Existing rows remain independent (`NULL`); new automatic MRP and
+forwarded access can then be revoked safely when a patient match is corrected or removed.
+The two `ADD COLUMN IF NOT EXISTS` statements can be retried after interrupted DDL.
+For the #3985–4000 batch, deploy #3986 (V1.0.36) and #3996 (V1.0.37/V1.0.38) first,
+then V1.0.39, to keep Flyway versions in order across Ontario and British Columbia.
