@@ -337,7 +337,13 @@ class CanadianVaccineCatalogueManagerUnitTest extends CarlosUnitTestBase {
             first.start();
             firstFetching.await(5, TimeUnit.SECONDS);
             second.start();
-            Thread.sleep(200);
+            // Release the first update only once the second is provably parked on the update
+            // lock; a fixed sleep could let the second start after the first had finished.
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!manager.hasQueuedUpdate() && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertThat(manager.hasQueuedUpdate()).as("second update waits on the lock").isTrue();
             releaseFirst.countDown();
             first.join(5000);
             second.join(5000);

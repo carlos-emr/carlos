@@ -199,6 +199,14 @@ public class CanadianVaccineCatalogueManager {
     }
 
     /**
+     * Whether another update is waiting for the one in progress. Package-private so the
+     * serialization test can prove a second caller is parked on the lock rather than sleeping.
+     */
+    boolean hasQueuedUpdate() {
+        return updateLock.hasQueuedThreads();
+    }
+
+    /**
      * Fetches the raw bundle. Package-private so tests can substitute a fixture without a network.
      */
     String fetchBundleJson(String url) throws IOException {
