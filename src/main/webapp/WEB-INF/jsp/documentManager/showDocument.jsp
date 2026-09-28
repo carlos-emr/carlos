@@ -393,7 +393,7 @@
                 .then(function(response) {
                     if (btn) btn.disabled = false;
                     var img = document.getElementById('docImg_' + id);
-                    if (img) img.src = contextpath + "/documentManager/ManageDocument?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime());
+                    if (img) CarlosDocumentImages.load(img, contextpath + "/documentManager/ManageDocument?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime()));
                 })
                 .catch(function(error) {
                     console.error('Error:', error);
@@ -596,8 +596,7 @@
                     <%} %>
                 </div>
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
-                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
-                                                         onerror="this.src='<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptAttribute"/>/images/icon_alert.gif'"/></a>
+                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" data-document-image-src="<carlos:encode value='<%=url%>' context="htmlAttribute"/>"/></a>
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
@@ -928,7 +927,8 @@
 
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
-<script type="text/javascript"
+<script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
+    <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
 <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/csrfTokenFetch.js"></script>

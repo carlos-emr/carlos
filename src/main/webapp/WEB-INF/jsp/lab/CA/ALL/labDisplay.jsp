@@ -2885,7 +2885,8 @@ input[id^='acklabel_']{
         src="${pageContext.servletContext.contextPath}/js/carlosAutocomplete.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
-<script type="text/javascript"
+<script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
+    <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 
 </body>

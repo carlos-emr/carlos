@@ -6,6 +6,7 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const {checkIncomingPreviewCapacity} = require('./lib/incoming-preview-capacity-check');
 
 function fixturePdf(marker) {
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>',
@@ -101,6 +102,10 @@ async function workflow(s) {
   await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
   h.assert((await page.locator('fieldset legend').allTextContents()).some(text => text.includes(name)), 'Incoming queue did not open the owned PDF');
   const extract = () => page.locator('button[onclick^="extractPagePdf("]');
+  await s.step('native PDF and image previews wait through capacity overload and recover without replaying mutations', async () => {
+    await checkIncomingPreviewCapacity(s, page, name);
+    h.assert(fs.readFileSync(source).equals(original), 'Preview waiting changed the owned source PDF');
+  });
   await s.step('reap abandoned scratch files while preserving fresh work and unrelated hidden files', async () => {
     h.assert(!fs.existsSync(staleScratch), 'Queue access left an abandoned CARLOS scratch file');
     h.assert(fs.readFileSync(recentScratch).equals(original), 'Queue cleanup removed recent scratch work');

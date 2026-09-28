@@ -74,12 +74,46 @@ function validateBaseUrl(rawBaseUrl) {
   }
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   const local = localHosts.has(host) || privateIpv4;
   if (!local && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   return { href: parsed.href.replace(/\/+$/, ''), local, loopback: ['localhost', '127.0.0.1', '[::1]'].includes(host) };
+}
+
+/** One navigation boundary for ordinary, busy and failed-image viewer checks. */
+async function navigateAnnotationViewer(page, rawBaseUrl, viewerDocId, waitUntil = 'load') {
+  if (!/^[1-9][0-9]*$/.test(String(viewerDocId))) throw new Error('Viewer document ID must be a positive integer');
+  const target = new URL(validateBaseUrl(rawBaseUrl).href);
+  target.pathname = target.pathname.replace(/\/+$/, '') + '/documentManager/AnnotateDocument';
+  target.search = '';
+  target.hash = '';
+  target.searchParams.set('docId', String(viewerDocId));
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- Revalidated HTTP(S), credential-free local/explicitly opted-in base; fixed route and positive-integer query value. Guard behavior is exercised in annotation-navigation-guard.test.js.
+  return page.goto(target.href, {waitUntil});
+}
+
+/** Report a refused fax handoff immediately instead of waiting for a URL that cannot arrive. */
+async function waitForAnnotationFaxCover(page) {
+  const outcome = await page.waitForFunction(() => {
+    if (document.getElementById('btnSend')) return 'ready';
+    const refusal = document.querySelector('[role="alert"]');
+    if (window.location.pathname.endsWith('/documentManager/FaxDocument') && refusal) {
+      return /No active fax accounts are configured/.test(refusal.textContent) ? 'no-account' : 'refused';
+    }
+    if (document.querySelector('#status.error')) return 'save-failed';
+    return false;
+  }, null, {timeout: 120000});
+  const result = await outcome.jsonValue();
+  if (result === 'no-account') {
+    throw new Error('Annotation Save and fax requires an active fax account available to the test provider. Prepare an owned UI-only fax fixture; this required handoff check cannot pass without it.');
+  }
+  if (result !== 'ready') throw new Error('Annotation Save and fax was refused before reaching the cover page; inspect the visible save/fax error.');
 }
 
 const validatedBaseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -224,11 +258,7 @@ async function main() {
     check('save endpoint refuses GET with 405', getSave === 405, `status ${getSave}`);
 
     // ---- the viewer renders ----
-    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
-    // Same validated baseUrl; docId is a positive integer parsed from the environment.
-    const viewerResponse = await page.goto(
-      `${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`,
-      { waitUntil: 'domcontentloaded' });
+    const viewerResponse = await navigateAnnotationViewer(page, baseUrl, docId, 'domcontentloaded');
     await page.locator('svg.overlay').first().waitFor();
     await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
 
@@ -400,8 +430,8 @@ async function main() {
     async function openViewer(waitUntil = 'load', viewerDocId = docId) {
       const dismiss = dialog => dialog.accept();
       page.on('dialog', dismiss);
-      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${viewerDocId}`, { waitUntil }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated baseUrl; docId is a positive integer
-      page.off('dialog', dismiss);
+      try { await navigateAnnotationViewer(page, baseUrl, viewerDocId, waitUntil); }
+      finally { page.off('dialog', dismiss); }
       await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
     }
     async function mark(tool = 'highlight') {
@@ -1382,8 +1412,8 @@ async function main() {
     await page.route(busyImagePattern, busyImage);
     const acceptBusyNavigation = dialog => dialog.accept();
     page.on('dialog', acceptBusyNavigation);
-    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, {waitUntil: 'domcontentloaded'});
-    page.off('dialog', acceptBusyNavigation);
+    try { await navigateAnnotationViewer(page, baseUrl, docId, 'domcontentloaded'); }
+    finally { page.off('dialog', acceptBusyNavigation); }
     await page.waitForFunction(() => /Waiting for document capacity/.test(document.getElementById('status').textContent));
     check('document capacity waiting is visible and does not mark the page as broken',
       await page.locator('#status').getAttribute('class') === 'status busy'
@@ -1416,7 +1446,7 @@ async function main() {
 
     await page.route('**/ManageDocument?method=showPage&**', route => route.fulfill({ status: 500, body: '' }));
     page.once('dialog', dialog => dialog.accept());
-    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
+    await navigateAnnotationViewer(page, baseUrl, docId);
     await page.waitForFunction(() => document.querySelector('.page.load-failed'));
     check('failed page images report a visible error and do not enable saving',
       (await page.locator('#status').textContent()).includes('could not be loaded')
@@ -1428,6 +1458,7 @@ async function main() {
     await openViewer();
     await mark();
     await page.locator('#btnSaveFax').click();
+    await waitForAnnotationFaxCover(page);
     await page.waitForURL('**/fax/faxAction*', { timeout: 120000 });
     check('Save and fax reaches the protected POST cover page', await page.locator('#btnSend').count() === 1);
     const preview = await page.locator('input[name="faxFilePath"]').inputValue();

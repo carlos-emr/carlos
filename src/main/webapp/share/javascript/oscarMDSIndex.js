@@ -597,7 +597,7 @@ function rotate180(id) {
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
             }
         })
         .catch(error => console.error('Error:', error));
@@ -615,7 +615,7 @@ function rotate90(id) {
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
             }
         })
         .catch(error => console.error('Error:', error));
@@ -634,7 +634,7 @@ function removeFirstPage(id) {
                 if (displayDocumentAs == "PDF") {
                     showPDF(id, contextpath);
                 } else {
-                    jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                    CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                 }
                 const numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
                 jQuery("#numPages_" + id).text("" + numPages);
@@ -2521,7 +2521,7 @@ function showPageImg(docid, pn, cp) {
     } else if (docid && pn && cp) {
         const e = document.getElementById('docImg_' + docid);
         const url = cp + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + docid + '&curPage=' + pn;
-        if (e) e.setAttribute('src', url);
+        if (e) CarlosDocumentImages.load(e, url);
     }
 }
 

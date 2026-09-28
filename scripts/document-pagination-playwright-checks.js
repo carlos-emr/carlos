@@ -8,6 +8,7 @@
  * DOCUMENT_PAGINATION_DEMOGRAPHIC_NO defaults to demo patient 1.
  * Missing fixtures/configuration report SKIP, never PASS. No clinical rows are changed.
  */
+const {checkLegacyDocumentImages} = require('./lib/legacy-document-image-check');
 const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const {
   SkipCheck, assert, assertStrictPage, createRecorder, createSqlRunner,
@@ -57,6 +58,7 @@ async function main() {
       await target.click();
       const viewer = await pending;
       wireStrictPage(viewer, `document-${id}`, recorder);
+      viewer.setDefaultTimeout(120000); viewer.setDefaultNavigationTimeout(120000);
       await viewer.waitForLoadState('domcontentloaded');
       const mode = await viewer.locator(`#displayDocumentAs_${id}`).inputValue();
       if (mode !== 'Image') throw new SkipCheck('document pagination requires image display mode');
@@ -67,8 +69,8 @@ async function main() {
         await viewer.waitForFunction(({ id: docId, pageNo: expected }) => {
           const img = document.getElementById(`docImg_${docId}`);
           return img && img.complete && img.naturalWidth > 100 && img.naturalHeight > 100
-            && new URL(img.src).searchParams.get('curPage') === String(expected);
-        }, { id, pageNo }, { timeout: 45000 });
+            && new URL(img.getAttribute('data-document-image-src')).searchParams.get('curPage') === String(expected);
+        }, { id, pageNo }, { timeout: 120000 });
         assert(await image.isVisible(), 'document page image is hidden');
         assert(await viewer.locator(`#curPage_${id}`).inputValue() === String(pageNo), 'hidden page state is stale');
         assert((await viewer.locator(`#viewedPage_${id}`).innerText()).trim() === String(pageNo), 'visible page number is stale');
@@ -84,10 +86,10 @@ async function main() {
         for (const [action, pageNo] of [['next', 2], ['last', total], ['prev', total - 1], ['first', 1]]) {
           const responsePromise = viewer.waitForResponse((response) => {
             const url = new URL(response.url());
-            return url.searchParams.get('method') === 'viewDocPage'
+            return response.status() === 200 && url.searchParams.get('method') === 'viewDocPage'
               && url.searchParams.get('doc_no') === id
               && url.searchParams.get('curPage') === String(pageNo);
-          }, { timeout: 45000 });
+          }, { timeout: 120000 });
           const [response] = await Promise.all([responsePromise, viewer.locator(`#${action}P_${id}`).click()]);
           assert(response.status() === 200 && /^image\//.test(response.headers()['content-type'] || ''),
             `${action} did not load a document image successfully`);
@@ -99,7 +101,8 @@ async function main() {
       await viewer.close();
     }
     assertStrictPage(recorder);
-    return { documents: 2, transitions: 4 };
+    const capacity = await checkLegacyDocumentImages(context, config, multi[0]);
+    return { documents: 2, transitions: 4, capacity };
   } finally {
     try { if (browser) await closeBrowserWithChartCleanup(browser, config.baseUrl); }
     finally { sql.dispose(); }

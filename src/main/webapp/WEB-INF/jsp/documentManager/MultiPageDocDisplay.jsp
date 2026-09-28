@@ -231,6 +231,7 @@
     }
 %>
     </script>
+<script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
 </head>
 <body>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
@@ -248,7 +249,7 @@
                     <a id="lastP" href="javascript:void(0);" onclick="lastPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Last</a>
                     <%}%>
                 </div>
-                <a href="<%=url2%>"><img class="docTable" alt="document" src="<%=url%>" id="docImg_<%=docId%>"/></a>
+                <a href="<%=url2%>"><img class="docTable" alt="document" data-document-image-src="<carlos:encode value='<%=url%>' context="htmlAttribute"/>" id="docImg_<%=docId%>"/></a>
 
 
             </td>
@@ -386,11 +387,11 @@
                                                 var e = document.getElementById('docImg_' + docid);
                                                 if (e) {
                                                     // Find URl from src of image
-                                                    var url = e.getAttribute('src');
+                                                    var url = CarlosDocumentImages.source(e);
                                                     // Update query parameters based on URL, current page, and page number
                                                     url = updateQueryParam(url, 'curPage', pn);
                                                     // Set attribute to newly updated URL
-                                                    e.setAttribute('src', url);
+                                                    CarlosDocumentImages.load(e, url);
                                                 }
                                             }
                                         }

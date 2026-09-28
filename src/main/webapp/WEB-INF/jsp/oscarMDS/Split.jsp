@@ -62,6 +62,7 @@
     <script type="text/javascript"
             src="${ pageContext.servletContext.contextPath }/share/javascript/sorter.js"></script>
 
+<script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
 </head>
 <body>
 
@@ -104,8 +105,8 @@
                     for (int i = 1; i <= thisDocument.getNumberofpages(); i++) {
                 %>
                 <li>
-                    <img class="page"
-                         src='<carlos:encode value='<%= request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i %>' context="htmlAttribute"/>'/>
+                    <img class="page" alt="Document page <%=i%>"
+                         data-document-image-src='<carlos:encode value='<%= request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i %>' context="htmlAttribute"/>'/>
                 </li>
                 <%
                     }

@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.documentManager.annotation.DocumentWordBoxes;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -193,7 +194,7 @@ public class DocumentTextBoxes2Action extends ActionSupport {
             // same bound here, an oversized document turns every scroll into a full parse that
             // can only end at the deadline, and the deadline leaves the worker running.
             if (pdf.length() > AnnotatedDocumentService.MAX_ANNOTATABLE_BYTES) {
-                logger.warn("Word boxes refused for document {}: file exceeds the annotation size limit", docId);
+                logger.warn("Word boxes refused for document {}: file exceeds the annotation size limit", LogSafe.sanitizeObject(docId));
                 throw new IOException("Document is too large to extract word boxes from.");
             }
             List<double[]> extracted = BoundedPdfTask.runWithin(
@@ -215,7 +216,7 @@ public class DocumentTextBoxes2Action extends ActionSupport {
             // A page whose text cannot be read is not a viewer failure: it simply has no snap
             // targets, exactly like a page that was never OCR'd. Log and answer with an empty
             // list so the client falls back to free-hand rectangles.
-            logger.warn("Word boxes unavailable for document {} page {}", docId, page);
+            logger.warn("Word boxes unavailable for document {} page {}", LogSafe.sanitizeObject(docId), LogSafe.sanitizeObject(page));
         }
 
         ObjectNode payload = objectMapper.createObjectNode();

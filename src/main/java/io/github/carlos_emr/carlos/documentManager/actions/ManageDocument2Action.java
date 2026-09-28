@@ -954,11 +954,9 @@ public class ManageDocument2Action extends ActionSupport {
 
                 org.apache.pdfbox.pdmodel.common.PDRectangle mediaBox =
                         pdf.getPage(pageIndex).getCropBox();
-                long megapixels = (long) Math.ceil(
-                        (mediaBox.getWidth() / 72d * dpi) * (mediaBox.getHeight() / 72d * dpi) / 1_000_000d);
-                if (megapixels > MAX_RENDER_MEGAPIXELS) {
-                    log.error("Refusing to render page {} of document {}: {} megapixels exceeds the limit",
-                            pageNum, LogSafe.sanitize(d.getDocfilename()), megapixels); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                if (!isRenderWithinPixelLimit(mediaBox, dpi)) {
+                    log.error("Refusing to render page {} of document {}: pixel dimensions exceed the limit",
+                            LogSafe.sanitizeObject(pageNum), LogSafe.sanitize(d.getDocfilename()));
                     return EMPTY_IMAGE;
                 }
 
@@ -1731,8 +1729,7 @@ public class ManageDocument2Action extends ActionSupport {
         
         // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
-        File file = new File(filePath);
-        file = PathValidationUtils.validateExistingPath(file, baseDir);
+        File file = PathValidationUtils.validateExistingPath(filePath, baseDir);
 
         Locale locale = request.getLocale();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
@@ -1743,34 +1740,103 @@ public class ManageDocument2Action extends ActionSupport {
 
         int pageNumber = Integer.parseInt(pageNum);
 
-        response.setContentType("application/pdf");
-        response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
-
-        try (PDDocument reader = Loader.loadPDF(file)) {
-            // Validate page number is within bounds
-            int pageIndex = pageNumber - 1;
-            int totalPages = reader.getNumberOfPages();
-            if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {} with {} pages", pageNumber, LogSafe.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        response.setHeader("Cache-Control", "no-store");
+        try (IncomingPdfPage extracted = new IncomingPdfPage()) {
+            boolean found = BoundedPdfTask.runWithin(30, "incoming-document-page-extract", () -> {
+                Path staged = PathValidationUtils.createSecureTempFile("incoming-page-", ".pdf").toPath();
+                try {
+                    try (PDDocument reader = Loader.loadPDF(file, IOUtils.createTempFileOnlyStreamCache())) {
+                        int pageIndex = pageNumber - 1;
+                        if (pageIndex < 0 || pageIndex >= reader.getNumberOfPages()) {
+                            return false;
+                        }
+                        try (PDDocument page = new PDDocument(IOUtils.createTempFileOnlyStreamCache())) {
+                            org.apache.pdfbox.pdmodel.PDPage imported = page.importPage(reader.getPage(pageIndex));
+                            // Resources may be inherited from the original page tree.
+                            imported.setResources(reader.getPage(pageIndex).getResources());
+                            page.save(staged.toFile());
+                        }
+                    }
+                    extracted.publish(staged);
+                    staged = null; // Ownership transferred only after the PDF is fully closed.
+                    return true;
+                } finally {
+                    if (staged != null) Files.deleteIfExists(staged);
+                }
+            });
+            if (!found) {
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
                 return;
             }
-
-            try (PDDocument extractedPage = new PDDocument()) {
-                extractedPage.addPage(reader.getDocumentCatalog().getPages().get(pageIndex));
-                extractedPage.save(response.getOutputStream());
+            response.setContentType("application/pdf");
+            response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
+            try (InputStream input = Files.newInputStream(extracted.path())) {
+                org.apache.commons.io.IOUtils.copy(input, response.getOutputStream());
             }
-        } catch (Exception ex) {
-            response.setContentType("text/html;charset=UTF-8");
-            // Sanitize the filename to prevent XSS and response splitting
-            response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
-            response.getWriter().print("<br>" + props.getString("dms.incomingDocs.PDFCouldBeCorrupted"));
+        } catch (BoundedPdfTask.BusyException busy) {
+            sendIncomingPreviewBusy(busy);
+        } catch (IOException | RuntimeException ex) {
+            if (!response.isCommitted()) {
+                // Streaming may have selected the binary channel before an I/O failure.
+                // Reset that channel and its headers before producing an HTML error.
+                response.reset();
+                response.setHeader("Cache-Control", "no-store");
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
+                response.getWriter().print("<br>" + props.getString("dms.incomingDocs.PDFCouldBeCorrupted"));
+            }
+            log.error("Failed to extract incoming document page {} ({})",
+                    LogSafe.sanitizeObject(pageNumber), LogSafe.sanitize(ex.getClass().getSimpleName()));
+        }
+    }
 
-            MiscUtils.getLogger().error("Failed to extract page {} from PDF: {}", pageNumber, sanitizedPdfName, ex);
+    /** Owns a completed extraction even when its caller times out before the worker finishes. */
+    static final class IncomingPdfPage implements AutoCloseable {
+        private Path file;
+        private boolean closed;
+
+        synchronized void publish(Path completed) throws IOException {
+            if (closed) {
+                Files.deleteIfExists(completed);
+                throw new IOException("Incoming preview request already ended");
+            }
+            file = completed;
         }
 
+        synchronized Path path() {
+            return file;
+        }
+
+        @Override
+        public synchronized void close() throws IOException {
+            closed = true;
+            if (file != null) {
+                Files.deleteIfExists(file);
+                file = null;
+            }
+        }
+    }
+
+    /** Only an explicit unaccepted GET receives automatic iframe retry; mutations never reload. */
+    private void sendIncomingPreviewBusy(BoundedPdfTask.BusyException busy) throws IOException {
+        if (!"GET".equalsIgnoreCase(request.getMethod())) {
+            sendRenderBusy(busy);
+            return;
+        }
+        response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        response.setHeader("Retry-After", String.valueOf(BoundedPdfTask.RETRY_AFTER_SECONDS));
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentType("text/html;charset=UTF-8");
+        ResourceBundle labels = ResourceBundle.getBundle("oscarResources", request.getLocale());
+        String message = labels.getString("faxAnnotateViewer.status.documentServerBusy");
+        String script = request.getContextPath() + "/js/incomingDocumentCapacityWait.js";
+        response.getWriter().print("<!DOCTYPE html><html><body><p id=\"incomingDocumentCapacityWait\" role=\"status\">"
+                + Encode.forHtml(message) + "</p><script src=\"" + Encode.forHtmlAttribute(script)
+                + "\"></script></body></html>");
     }
 
     /**
@@ -1845,8 +1911,7 @@ public class ManageDocument2Action extends ActionSupport {
         
         // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
-        File file = new File(filePath);
-        file = PathValidationUtils.validateExistingPath(file, baseDir);
+        File file = PathValidationUtils.validateExistingPath(filePath, baseDir);
 
         String contentType = "application/pdf";
         response.setContentType(contentType);
@@ -1890,6 +1955,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        response.setHeader("Cache-Control", "no-store");
         String pageNum = request.getParameter("curPage");
         String queueId = request.getParameter("queueId");
         String pdfDir = request.getParameter("pdfDir");
@@ -1948,8 +2014,10 @@ public class ManageDocument2Action extends ActionSupport {
                 // The incoming file is already an image (e.g. an X-ray). Stream it
                 // directly with the correct content type rather than routing every file
                 // through the PDF rasteriser, which rejected non-PDFs and blanked the pane.
-                // nosemgrep: java.lang.security.httpservlet-path-traversal -- queueId/pdfDir/pdfName are traversal-screened above and resolveIncomingImageFile validates directory containment via PathValidationUtils.validateExistingPath
-                File imageFile = resolveIncomingImageFile(queueId, pdfDir, sanitizedPdfName);
+                File incomingRoot = PathValidationUtils.resolveConfiguredDirectory(
+                        CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"), "INCOMINGDOCUMENT_DIR");
+                File imageFile = PathValidationUtils.validateExistingPath(
+                        resolveIncomingImageFile(queueId, pdfDir, sanitizedPdfName), incomingRoot);
                 // Check existence BEFORE touching the response: validateExistingPath
                 // enforces containment but not existence, and a missing file must be a
                 // clean 404 rather than a 500 emitted after the output stream was opened.
@@ -1962,7 +2030,6 @@ public class ManageDocument2Action extends ActionSupport {
                 response.setContentType(imageContentType(lowerName));
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
-                // nosemgrep: java.lang.security.httpservlet-path-traversal -- imageFile was containment-validated by PathValidationUtils.validateExistingPath in resolveIncomingImageFile
                 bfis = new BufferedInputStream(new FileInputStream(imageFile));
                 org.apache.commons.io.IOUtils.copy(bfis, outs);
                 outs.flush();
@@ -1973,12 +2040,14 @@ public class ManageDocument2Action extends ActionSupport {
             File outfile = createIncomingCacheVersion(queueId, pdfDir, sanitizedPdfName, pn);
 
             if (outfile != null) {
-                // Security: Validate the file path before accessing
-                validateFilePath(outfile);
+                // Incoming previews may only read this incoming tree, including its
+                // per-queue cache directories; an unrelated filed document is not valid.
+                File incomingRoot = PathValidationUtils.resolveConfiguredDirectory(
+                        CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"), "INCOMINGDOCUMENT_DIR");
+                outfile = PathValidationUtils.validateExistingPath(outfile, incomingRoot);
                 response.setContentType("image/png");
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
-                // nosemgrep: java.lang.security.httpservlet-path-traversal -- outfile is the PathValidationUtils-validated cache file from createIncomingCacheVersion and is re-checked by validateFilePath immediately above
                 bfis = new BufferedInputStream(new FileInputStream(outfile));
                 org.apache.commons.io.IOUtils.copy(bfis, outs);
                 outs.flush();
@@ -1990,6 +2059,8 @@ public class ManageDocument2Action extends ActionSupport {
                         "This document page is not available.");
                 }
             }
+        } catch (BoundedPdfTask.BusyException busy) {
+            sendIncomingPreviewBusy(busy);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             // Fail loud: a blank iframe hides the failure from the clinician. Emit a
@@ -2103,38 +2174,59 @@ public class ManageDocument2Action extends ActionSupport {
         // Re-validate file path at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
 
-        try (PDDocument document = Loader.loadPDF(validatedFile)) {
-            PDFRenderer renderer = new PDFRenderer(document);
+        return BoundedPdfTask.runWithin(30, "incoming-document-page-render",
+                () -> renderIncomingPage(validatedFile, documentCacheDir, sanitizedPdfName, pageNum));
+    }
 
-            // Validate page number is within bounds
-            if (pageNum == null) {
-                log.error("Page number is null for PDF {}{}{}", LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+    /** Matches PDFRenderer's floor-and-minimum-one allocation dimensions before multiplying. */
+    static boolean isRenderWithinPixelLimit(org.apache.pdfbox.pdmodel.common.PDRectangle box, int dpi) {
+        // PDFRenderer receives a float scale; retain its rounding here too.
+        float scale = dpi / 72f;
+        double rawWidth = box.getWidth() * scale;
+        double rawHeight = box.getHeight() * scale;
+        if (dpi <= 0 || !Double.isFinite(rawWidth) || !Double.isFinite(rawHeight)
+                || rawWidth <= 0 || rawHeight <= 0) {
+            return false;
+        }
+        double width = Math.max(1, Math.floor(rawWidth));
+        double height = Math.max(1, Math.floor(rawHeight));
+        long maximumPixels = MAX_RENDER_MEGAPIXELS * 1_000_000L;
+        if (width > maximumPixels || height > maximumPixels
+                || width > Integer.MAX_VALUE || height > Integer.MAX_VALUE) {
+            return false;
+        }
+        return (long) width * (long) height <= maximumPixels;
+    }
+
+    /** Builds a complete PNG before atomically publishing its shared incoming-preview cache entry. */
+    private File renderIncomingPage(File source, File cacheDirectory, String filename, Integer pageNum) throws IOException {
+        try (PDDocument document = Loader.loadPDF(source, IOUtils.createTempFileOnlyStreamCache())) {
+            if (pageNum == null || pageNum < 1 || pageNum > document.getNumberOfPages()) {
                 return null;
             }
-
             int pageIndex = pageNum - 1;
-            int totalPages = document.getNumberOfPages();
-            if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {}{}{} with {} pages", pageNum, LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                return null;
+            org.apache.pdfbox.pdmodel.common.PDRectangle box = document.getPage(pageIndex).getCropBox();
+            if (!isRenderWithinPixelLimit(box, DEFAULT_RENDER_DPI)) {
+                throw new IOException("Incoming document page exceeds the preview pixel limit");
             }
-
-            // Render at 96 DPI to match jpedal settings (96 DPI / 72 DPI = 1.33 scale)
-            // Note: PDFBox uses 0-based page indexing, jpedal uses 1-based
-            BufferedImage image_to_save = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
-
-            // Use sanitized filename for cache file and validate path
-            String cacheFileName = sanitizedPdfName.substring(0, sanitizedPdfName.lastIndexOf('.')) + "_" + pageNum + ".png";
-            File cacheFile = PathValidationUtils.validatePath(cacheFileName, documentCacheDir);
-
-            // Write PNG using standard ImageIO
-            ImageIO.write(image_to_save, "png", cacheFile);
-            image_to_save.flush();
-
-            return cacheFile;
-        } catch (Exception e) {
-            log.error("Error decoding pdf file {}{}{}", LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            return null;
+            BufferedImage rendered = new PDFRenderer(document).renderImageWithDPI(pageIndex, DEFAULT_RENDER_DPI, ImageType.RGB);
+            try {
+                String cacheName = filename.substring(0, filename.lastIndexOf('.')) + "_" + pageNum + ".png";
+                File target = PathValidationUtils.validatePath(cacheName, cacheDirectory);
+                Path staged = Files.createTempFile(cacheDirectory.toPath(), "incoming-page-", ".png");
+                try {
+                    if (!ImageIO.write(rendered, "png", staged.toFile())) {
+                        throw new IOException("PNG writer unavailable");
+                    }
+                    Files.move(staged, target.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    return target;
+                } finally {
+                    Files.deleteIfExists(staged);
+                }
+            } finally {
+                rendered.flush();
+            }
         }
     }
 
@@ -2171,44 +2263,6 @@ public class ManageDocument2Action extends ActionSupport {
             log.error("Error retrieving document: {}", LogSafe.sanitize(output.getPath()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
         return response;
-    }
-    
-    /**
-     * Validates that a file path is safe to access and within allowed directories.
-     * Prevents path traversal attacks by ensuring the file's canonical path
-     * is within the expected document or cache directories.
-     * 
-     * @param file The file to validate
-     * @throws SecurityException if the file path is invalid or potentially malicious
-     */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private void validateFilePath(File file) throws SecurityException {
-        if (file == null) {
-            throw new SecurityException("File is null");
-        }
-
-        // Get all allowed directories
-        File documentDir = new File(DOCUMENT_DIR);
-        File documentCacheDir = new File(getDocumentCacheDir());
-        String incomingDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-        File incomingDirFile = new File(incomingDir);
-        File incomingCacheDir = getDocumentCacheDir(incomingDir);
-
-        // Try each directory - file must be in at least one
-        File[] allowedDirs = {documentDir, documentCacheDir, incomingDirFile, incomingCacheDir};
-
-        for (File allowedDir : allowedDirs) {
-            try {
-                file = PathValidationUtils.validateExistingPath(file, allowedDir);
-                return; // Valid if we get here without exception
-            } catch (SecurityException e) {
-                // File not in this directory, try next
-            }
-        }
-
-        // If we get here, file wasn't in any allowed directory
-        throw new SecurityException("File path is outside allowed directories");
     }
     
     /**
@@ -2278,7 +2332,7 @@ public class ManageDocument2Action extends ActionSupport {
             jsonArray.add(item);
         }
 
-        log.debug("searchDocumentDescriptions returning {} results", descriptions.size());
+        log.debug("searchDocumentDescriptions returning {} results", LogSafe.sanitizeObject(descriptions.size()));
 
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().print(jsonArray.toString());

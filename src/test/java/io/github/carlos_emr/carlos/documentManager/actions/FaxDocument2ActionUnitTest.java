@@ -2,6 +2,9 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -36,6 +39,7 @@ class FaxDocument2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo info;
     private SecurityInfoManager security;
     private FaxManager faxManager;
+    private CtlDocumentDao links;
 
     @BeforeEach
     void setUpGate() {
@@ -49,9 +53,27 @@ class FaxDocument2ActionUnitTest extends CarlosUnitTestBase {
         faxManager = mock(FaxManager.class);
         registerMock(SecurityInfoManager.class, security);
         registerMock(FaxManager.class, faxManager);
+        links = createAndRegisterMock(CtlDocumentDao.class);
         when(security.hasPrivilege(eq(info), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
         when(security.hasPrivilege(eq(info), eq("_fax"), eq("r"), isNull())).thenReturn(true);
         when(faxManager.getFaxGatewayAccounts(info)).thenReturn(List.of(mock(FaxConfig.class)));
+    }
+
+    @Test
+    void shouldRejectRestrictedSecondaryPatientBeforeMetadataOrHandoff() {
+        CtlDocument first = new CtlDocument();
+        first.setId(new CtlDocumentPK("demographic", 10, 42));
+        CtlDocument restricted = new CtlDocument();
+        restricted.setId(new CtlDocumentPK("demographic", 20, 42));
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(first, restricted));
+        when(security.isAllowedAccessToPatientRecord(info, 10)).thenReturn(true);
+        try (MockedStatic<EDocUtil> metadata = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            assertThat(request.getAttribute("preparedFaxTarget")).isNull();
+            metadata.verifyNoInteractions();
+        }
     }
 
     @Test

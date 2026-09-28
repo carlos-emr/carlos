@@ -483,6 +483,266 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldStreamIncomingRasterFromConfiguredRoot_withoutDependingOnFiledDocumentDirectory() throws Exception {
+        Path incoming = Files.createDirectory(tempDir.resolve("incoming"));
+        Path queue = Files.createDirectories(incoming.resolve("1/Fax"));
+        byte[] bytes = new byte[] { 7, 8, 9 };
+        Files.write(queue.resolve("scan.png"), bytes);
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incoming.toString());
+        authorizeIncomingPreview("scan.png");
+
+        action.execute();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("image/png");
+        assertThat(response.getContentAsByteArray()).isEqualTo(bytes);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void shouldReadOnlyIncomingCacheFiles_whenRendererReturnsAPath(boolean insideIncomingRoot) throws Exception {
+        Path incoming = Files.createDirectory(tempDir.resolve("incoming"));
+        Path cache = Files.createDirectories(incoming.resolve("1/Fax_cache"));
+        Path supplied = insideIncomingRoot ? cache.resolve("scan_1.png") : tempDir.resolve("other-patient.png");
+        byte[] bytes = new byte[] { 4, 5, 6 };
+        Files.write(supplied, bytes);
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incoming.toString());
+        authorizeIncomingPreview("scan.pdf");
+        TestManageDocument2Action preview = spy(action);
+        Mockito.doReturn(supplied.toFile()).when(preview).createIncomingCacheVersion("1", "Fax", "scan.pdf", 1);
+
+        preview.execute();
+
+        assertThat(response.getStatus()).isEqualTo(insideIncomingRoot ? 200 : 500);
+        assertThat(response.getContentAsByteArray()).isEqualTo(insideIncomingRoot ? bytes : new byte[0]);
+    }
+
+    @Test
+    void shouldRejectIncomingSymlinkOutsideConfiguredRoot_beforeReturningPatientBytes() throws Exception {
+        Path incoming = Files.createDirectory(tempDir.resolve("incoming"));
+        Path queue = Files.createDirectories(incoming.resolve("1/Fax"));
+        Path outside = tempDir.resolve("other-patient.png");
+        Files.write(outside, new byte[] { 1, 2, 3 });
+        Files.createSymbolicLink(queue.resolve("scan.png"), outside);
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incoming.toString());
+        authorizeIncomingPreview("scan.png");
+
+        action.execute();
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({ "viewIncomingDocPageAsPdf,GET", "viewIncomingDocPageAsImage,GET",
+            "viewIncomingDocPageAsPdf,POST", "viewIncomingDocPageAsImage,POST" })
+    void shouldWaitOnlyForUnacceptedIncomingGet_whenParserCapacityIsFull(String method, String httpMethod) throws Exception {
+        createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
+        authorizeIncomingPreview("scan.pdf");
+        request.setParameter("method", method);
+        request.setMethod(httpMethod);
+        try (MockedStatic<BoundedPdfTask> workers = mockStatic(BoundedPdfTask.class)) {
+            workers.when(() -> BoundedPdfTask.runWithin(anyInt(), anyString(), any()))
+                    .thenThrow(new BoundedPdfTask.BusyException());
+            action.execute();
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(response.getHeader("Retry-After")).isEqualTo("1");
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            if ("GET".equals(httpMethod)) {
+                assertThat(response.getContentAsString()).contains("incomingDocumentCapacityWait", "incomingDocumentCapacityWait.js");
+            } else {
+                assertThat(response.getContentAsString()).doesNotContain("<script", "incomingDocumentCapacityWait");
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "viewIncomingDocPageAsPdf", "viewIncomingDocPageAsImage" })
+    void shouldReportCorruptIncomingPdfAsFailureWithoutCapacityRetry(String method) throws Exception {
+        Path file = createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
+        Files.writeString(file, "not a PDF");
+        authorizeIncomingPreview("scan.pdf");
+        request.setMethod("GET");
+        request.setParameter("method", method);
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getHeader("Retry-After")).isNull();
+        assertThat(response.getContentAsString()).doesNotContain("incomingDocumentCapacityWait");
+    }
+
+    @Test
+    void shouldExtractRequestedIncomingPdfPage_beforeWritingServletResponse() throws Exception {
+        createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
+        authorizeIncomingPreview("scan.pdf");
+        request.setParameter("method", "viewIncomingDocPageAsPdf");
+        request.setParameter("curPage", "2");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument extracted = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+            assertThat(extracted.getNumberOfPages()).isEqualTo(1);
+            assertThat(extracted.getPage(0).getMediaBox().getWidth()).isEqualTo(240f);
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(extracted)).contains("Second page");
+        }
+    }
+
+    @Test
+    void shouldResetBinaryChannelBeforeErrorHtml_whenIncomingPdfStreamingFailsBeforeCommit() throws Exception {
+        createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
+        authorizeIncomingPreview("scan.pdf");
+        request.setParameter("method", "viewIncomingDocPageAsPdf");
+        response = new FailingBinaryResponse();
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+        action = new TestManageDocument2Action();
+
+        action.execute();
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+        assertThat(response.getContentAsString()).isNotEmpty().doesNotContain("%PDF-");
+    }
+
+    @Test
+    void shouldNeverWriteLatePdfBytes_whenExtractionFinishesAfterCallerTimeout() throws Exception {
+        createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
+        authorizeIncomingPreview("scan.pdf");
+        request.setParameter("method", "viewIncomingDocPageAsPdf");
+        java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Callable<?>> delayed = new java.util.concurrent.atomic.AtomicReference<>();
+        try (MockedStatic<BoundedPdfTask> workers = mockStatic(BoundedPdfTask.class)) {
+            workers.when(() -> BoundedPdfTask.runWithin(anyInt(), anyString(), any())).thenAnswer(invocation -> {
+                delayed.set(invocation.getArgument(2));
+                throw new IOException("simulated execution timeout");
+            });
+            action.execute();
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        byte[] failure = response.getContentAsByteArray();
+        assertThat(delayed.get()).isNotNull();
+        assertThatThrownBy(() -> delayed.get().call()).isInstanceOf(IOException.class);
+        assertThat(response.getContentAsByteArray()).isEqualTo(failure);
+        assertThat(response.getContentType()).isEqualTo("text/html;charset=UTF-8");
+    }
+
+    @ParameterizedTest
+    @CsvSource({ "14400,14400", "36000000,0.001" })
+    void shouldRejectOversizedIncomingRasterBeforeAllocatingPixels(float width, float height) throws Exception {
+        createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(width, height));
+        authorizeIncomingPreview("scan.pdf");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(Files.exists(tempDir.resolve("incoming/1/Fax_cache/scan_1.png"))).isFalse();
+    }
+
+    @ParameterizedTest
+    @CsvSource({ "612,792,96,true", "612,792,192,true", "14400,14400,96,false",
+            "36000000,0.001,96,false", "0.001,36000000,96,false", "0,792,96,false",
+            "NaN,792,96,false", "Infinity,792,96,false", "612,792,0,false", "0.001,0.001,96,true" })
+    void shouldBoundActualRasterAllocation_whenPageDimensionsAreExtreme(float width, float height, int dpi, boolean allowed) {
+        org.apache.pdfbox.pdmodel.common.PDRectangle box = Mockito.mock(org.apache.pdfbox.pdmodel.common.PDRectangle.class);
+        when(box.getWidth()).thenReturn(width);
+        when(box.getHeight()).thenReturn(height);
+        assertThat(ManageDocument2Action.isRenderWithinPixelLimit(box, dpi)).isEqualTo(allowed);
+    }
+
+    @Test
+    void shouldDiscardLateExtraction_whenTimedOutCallerAlreadyClosedItsResult() throws Exception {
+        ManageDocument2Action.IncomingPdfPage result = new ManageDocument2Action.IncomingPdfPage();
+        result.close();
+        Path late = Files.writeString(tempDir.resolve("late.pdf"), "completed after timeout");
+        assertThatThrownBy(() -> result.publish(late)).isInstanceOf(IOException.class);
+        assertThat(Files.exists(late)).isFalse();
+        assertThat(result.path()).isNull();
+        result.close();
+    }
+
+    @Test
+    void shouldDeleteCompletedExtraction_whenResponseStreamingFinishes() throws Exception {
+        Path completed = Files.writeString(tempDir.resolve("completed.pdf"), "completed");
+        try (ManageDocument2Action.IncomingPdfPage result = new ManageDocument2Action.IncomingPdfPage()) {
+            result.publish(completed);
+            assertThat(result.path()).isEqualTo(completed);
+            assertThat(Files.exists(completed)).isTrue();
+        }
+        assertThat(Files.exists(completed)).isFalse();
+    }
+
+    @Test
+    @Tag("integration")
+    void shouldPublishOnlyCompleteIncomingImages_whenConcurrentUsersRenderSamePage() throws Exception {
+        createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
+        File cache = action.createIncomingCacheVersion("1", "Fax", "scan.pdf", 1);
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(3);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        try {
+            java.util.List<java.util.concurrent.Future<?>> tasks = new java.util.ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                tasks.add(executor.submit(() -> {
+                    start.await();
+                    for (int j = 0; j < 8; j++) action.createIncomingCacheVersion("1", "Fax", "scan.pdf", 1);
+                    return null;
+                }));
+            }
+            tasks.add(executor.submit(() -> {
+                start.await();
+                for (int i = 0; i < 80; i++) {
+                    java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(cache);
+                    assertThat(image).as("the shared cache must never expose a partial PNG").isNotNull();
+                    assertThat(image.getWidth()).isEqualTo(160);
+                    image.flush();
+                }
+                return null;
+            }));
+            start.countDown();
+            for (java.util.concurrent.Future<?> task : tasks) task.get(30, java.util.concurrent.TimeUnit.SECONDS);
+            try (Stream<Path> files = Files.list(cache.toPath().getParent())) {
+                assertThat(files.map(path -> path.getFileName().toString()).toList()).containsExactly("scan_1.png");
+            }
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private Path createIncomingPdf(org.apache.pdfbox.pdmodel.common.PDRectangle firstSize) throws Exception {
+        Path incoming = Files.createDirectories(tempDir.resolve("incoming"));
+        Path directory = Files.createDirectories(incoming.resolve("1/Fax"));
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incoming.toString());
+        Path file = directory.resolve("scan.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument pdf = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage(firstSize));
+            org.apache.pdfbox.pdmodel.PDPage second = new org.apache.pdfbox.pdmodel.PDPage(
+                    new org.apache.pdfbox.pdmodel.common.PDRectangle(240, 320));
+            pdf.addPage(second);
+            try (org.apache.pdfbox.pdmodel.PDPageContentStream content = new org.apache.pdfbox.pdmodel.PDPageContentStream(pdf, second)) {
+                content.beginText();
+                content.setFont(new org.apache.pdfbox.pdmodel.font.PDType1Font(
+                        org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA), 12);
+                content.newLineAtOffset(20, 200);
+                content.showText("Second page");
+                content.endText();
+            }
+            // Exercise resources inherited from the page tree in the extraction path.
+            pdf.getPages().getCOSObject().setItem(org.apache.pdfbox.cos.COSName.RESOURCES, second.getResources());
+            second.getCOSObject().removeItem(org.apache.pdfbox.cos.COSName.RESOURCES);
+            pdf.save(file.toFile());
+        }
+        return file;
+    }
+
+    private void authorizeIncomingPreview(String filename) {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("method", "viewIncomingDocPageAsImage");
+        request.setParameter("queueId", "1");
+        request.setParameter("pdfDir", "Fax");
+        request.setParameter("pdfName", filename);
+        request.setParameter("curPage", "1");
+    }
+
     private CtlDocument patientLink(int patient) {
         CtlDocument link = new CtlDocument();
         link.setId(new CtlDocumentPK("demographic", patient, 42));
@@ -865,6 +1125,39 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         @Override
         protected boolean moveIncomingDocument(File sourceFile, File destFile) throws FileAlreadyExistsException {
             return !failMove && super.moveIncomingDocument(sourceFile, destFile);
+        }
+    }
+
+    private static final class FailingBinaryResponse extends MockHttpServletResponse {
+        private boolean binarySelected;
+
+        @Override
+        public jakarta.servlet.ServletOutputStream getOutputStream() {
+            binarySelected = true;
+            return new jakarta.servlet.ServletOutputStream() {
+                @Override
+                public void write(int value) throws IOException {
+                    throw new IOException("simulated stream failure before commit");
+                }
+
+                @Override
+                public boolean isReady() { return true; }
+
+                @Override
+                public void setWriteListener(jakarta.servlet.WriteListener listener) { }
+            };
+        }
+
+        @Override
+        public PrintWriter getWriter() throws java.io.UnsupportedEncodingException {
+            if (binarySelected) throw new IllegalStateException("binary channel already selected");
+            return super.getWriter();
+        }
+
+        @Override
+        public void reset() {
+            super.reset();
+            binarySelected = false;
         }
     }
 

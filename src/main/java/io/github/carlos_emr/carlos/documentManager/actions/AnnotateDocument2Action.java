@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
@@ -151,7 +152,7 @@ public class AnnotateDocument2Action extends ActionSupport {
             response.setHeader("Cache-Control", "no-store");
             return unavailable(e.getMessage());
         } catch (IOException | RuntimeException e) {
-            logger.warn("Could not read the page count for document {}", docId);
+            logger.warn("Could not read the page count for document {}", LogSafe.sanitizeObject(docId));
             return unavailable("This document could not be opened for annotation. "
                     + "It can still be faxed as it is.");
         }

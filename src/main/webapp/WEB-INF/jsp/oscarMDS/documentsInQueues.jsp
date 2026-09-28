@@ -140,6 +140,7 @@
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
+    <script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 
@@ -316,7 +317,7 @@
                         if (displayDocumentAs == "PDF") {
                             showPDF(id, contextpath);
                         } else {
-                            jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                            CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                         }
                         var numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
                         jQuery("#numPages_" + id).text("" + numPages);
@@ -343,7 +344,7 @@
                     if (displayDocumentAs == "PDF") {
                         showPDF(id, contextpath);
                     } else {
-                        jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                        CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                     }
                 }
             });
@@ -359,7 +360,7 @@
                     if (displayDocumentAs == "PDF") {
                         showPDF(id, contextpath);
                     } else {
-                        jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                        CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                     }
                 }
             });
@@ -2391,7 +2392,7 @@
             if (docid && pn && cp) {
                 var e = $('docImg_' + docid);
                 var url = cp + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + encodeURIComponent(docid) + '&curPage=' + encodeURIComponent(pn);
-                e.setAttribute('src', url);
+                CarlosDocumentImages.load(e, url);
             }
         }
 

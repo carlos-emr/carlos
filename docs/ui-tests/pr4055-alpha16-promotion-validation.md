@@ -103,7 +103,7 @@ the same 300-file limit. No CodeRabbit approval is claimed.
   checks command outcomes, validates document-query results and compares
   credential digests instead of printing password hashes or PIN prefixes.
 - Cold multipage annotation testing exposed image/OCR bursts that exhausted the
-  shared PDF workers. Viewers now share four image/text request slots and prioritize
+  shared document/annotation PDF workers. Viewers now share four image/text request slots and prioritize
   current pages. The server admits work in FIFO order with a bounded waiting queue;
   excess demand receives an explicit capacity response. Viewers wait with staggered,
   capped delays until capacity returns, and cancel obsolete work or closed-viewer
@@ -115,6 +115,29 @@ the same 300-file limit. No CodeRabbit approval is claimed.
   patient link before metadata, cached images or source bytes are read. Responses
   prevent browser caching across sessions. Tests cover allowed and denied users
   sharing a warm image cache, multiple patient links, worker saturation and recovery.
+
+The continued many-user audit also found incoming-document previews bypassing
+the bounded renderer and writing shared PNG cache files in place. Pending
+iteration 5 changes place their PDF work under bounded admission, stage complete
+cache files before atomic publication, and make capacity-refused iframe GETs
+wait automatically. PDF extraction uses owned temporary files so a late worker
+cannot write a timed-out servlet response. Genuine corrupt/missing-page errors
+remain errors; no mutation POST is retried. These changes and the legacy image
+loader still require source and installed regression runs.
+
+The same all-patient-link check now covers the fax handoff, direct document
+staging, staged preview/page-count reads and final queueing. A restriction added
+after staging must revoke the pending claim before persistence. Split checks
+access before its JSP reads metadata. The focused Java regression run passed
+254 tests with no failures or skips; the full Java/JSP/WAR rerun remains pending.
+
+The browser target audit found 23 standalone validators accepting DNS names
+that merely began like private IPv4 addresses. They now require actual four-octet
+private addresses or explicit remote-target opt-in. The complete script unit
+suite passed 1,463 tests with no failures/skips after the preview and guard
+changes. Real private addresses, credential rejection and remote opt-in remain
+covered. The heading's popup handler now belongs to its native link; installed
+mouse and keyboard verification remains required for that change.
 
 ## Test discovery
 
@@ -145,15 +168,21 @@ rule execution remain in scope.
 
 - Initial configured Java suite: 14,161 reported, zero failures/errors,
   51 existing skips.
-- Final full Java/JSP/WAR run at application revision `6a3d4b5203`: 15,166
+- Earlier full Java/JSP/WAR run at application revision `6a3d4b5203`: 15,166
   reported, zero failures/errors; the three Chromium Selenium checks skipped
   in that host run subsequently passed on the installed VM. The last favorite regressions separately passed
   54 tests before the complete rerun.
+- Latest full Java/JSP/WAR run at application revision `196650218a`: 15,195
+  reported, zero failures/errors and three host-only Selenium skips. The expanded
+  document-route suite subsequently passed all 51 tests. Installed reruns remain
+  required for this revision.
 - JSP compilation: 985 JSPs, zero errors. Javadoc: completed, 34 warnings, no
-  errors. WAR commit identity verified against the pushed application revision.
-- JaCoCo promotion changed-line audit: 2,265/2,454 executable Java lines covered
-  (92.3%); the only unmapped file is documentation-only `package-info.java`.
-  Review fixes: 159/176 (90.3%). Additional vacancy lifecycle/context, inbox
+  errors. Build logs, WAR SHA-256 and package payload hashes establish provenance;
+  the WAR manifest does not embed a full Git SHA.
+- JaCoCo promotion changed-line audit at iteration 4: 2,364/2,575 executable
+  Java lines covered (91.8%); the only unmapped file is documentation-only
+  `package-info.java`. Annotation changes after the expanded route tests:
+  109/120 covered (90.8%), with no unmapped files. Additional vacancy lifecycle/context, inbox
   fallback-date and favorite privilege regressions passed 66 tests with no skips.
 - Latest full Node suite: 1,386 passed, zero failures/skips, one test file at a time,
   with the pinned CLI checkout configured. This includes sustained annotation
@@ -169,6 +198,15 @@ rule execution remain in scope.
   Implicit fields, `@JoinColumn` and Hibernate XML mappings are outside that audit.
 - Pinned CLI source suite: 1,464 reported, including 19 opt-in MariaDB integration
   skips in the host run. All 19 subsequently passed against the installed VM.
+- Published CLI `1.1.0` became available during this review. Its release checksum
+  and GitHub build-provenance attestation verified against release source
+  `452ce6fa80910ab7c438184fbea6636df07cd1b0`. The complete released-source
+  suite reported 1,468 tests, zero failures/errors and 19 opt-in MariaDB skips;
+  installed payload/ownership and health checks passed for the published package.
+  All 19 live MariaDB cases subsequently passed on the VM. A full-suite VM trial
+  exposed 13 development-test assumptions that no packaged-host configuration
+  exists; those cases passed in the intended host run, and no live configuration
+  was removed to disguise that environment mismatch.
 - Installation recovery: 33 passed. Coverage helper: 14 passed.
 - Encoder, security-message, BDD naming, Struts DTD, JSP-taglib and locale
   checks passed before the final installed validation.
@@ -230,6 +268,26 @@ snapshot. Its first run exposed a verifier false positive for an inline HTML
 link with no physical file; corrected eligibility matches Java trimming, with
 ten live MariaDB edge cases passing. No placeholder file was fabricated.
 
+Iteration 4 packages (`2026.08.0~alpha16~pr4055.4`, application revision
+`196650218a`) passed all 9,862 installed payload hashes. The attested public
+CLI `1.1.0` passed verification of 27 regular files and three symlinks, modes,
+ownership and command ownership. The guarded transition from the earlier local
+review CLI was the only permitted package downgrade. Application health passed,
+and all 45 upgrade assertions passed against a fresh private pre-install baseline
+and the actual successful apt exit status. No clinical baseline was fabricated.
+All three precompiled Java Selenium checks passed with the installed Chromium.
+The direct eight-session annotation check passed across two providers: eight
+unique session cookies, four requests per viewer (32 aggregate peak), three
+sessions recovered from actual capacity refusals, three denied cached read paths,
+and isolated unsaved marks. The first secondary login used an invalid underscore;
+only its journaled test-account username was repaired to the application contract.
+
+The full annotation check passed its new busy-image and safe-save recovery cases
+but stopped at fax handoff because the synthetic account had deliberately been
+disabled. This is not a full-check pass. A guarded local-preview-only account
+fixture is being prepared for the final installed rerun; real external fax loops
+still require a valid disposable provider account.
+
 Three inbox acknowledgement checks now restore their exact original routing
 state. Consultation signature checks own their requests and remove only owned
 requests, signatures and verified preview files. Cleanup failures remain test
@@ -244,8 +302,9 @@ fixture-dependent skip as a pass.
 The iteration 3 full browser run stopped on its first check after reproducing a
 cold annotation page-load failure. A subsequent two-session prototype with browser
 source overrides passed, but is not installed-package proof. The waiting and
-authorization corrections above still require rebuilt iteration 4 packages and
-the complete installed rerun, including independently authenticated sessions.
+authorization corrections were built into all three iteration 4 packages.
+Their package/upgrade checks and the separate eight-session browser check passed;
+the complete annotation run still needs its active-account fixture. The legacy preview audit has additional changes awaiting the next build.
 
 At pushed revision `f8d7aea6cd`, CI completed with 43 successful checks, six skips
 and one neutral result. Sonar's quality gate passed with new reliability rated B;
@@ -260,13 +319,12 @@ promotion. Before that feature later merges, its unpublished migrations must
 be renumbered above the then-current release high-water mark. The migration
 inventories now state this explicitly; published SQL checksums are preserved.
 
-The pinned `carlos-ctl` 1.1.0 GitHub release was not published at review start.
-Its source fallback and a local test package can validate compatibility, but
-cannot satisfy the public-release prerequisite. Before promotion/tagging,
-publish that dependency in its own repository and run
-`debian/fetch-carlos-ctl.sh` with authenticated `gh`, without a local package
-override or attestation bypass. No release tag or merge is performed by this
-review.
+The pinned `carlos-ctl` 1.1.0 GitHub release was unpublished at review start but
+was published during validation. `debian/fetch-carlos-ctl.sh` now succeeds with
+authenticated `gh`, without a local package override or attestation bypass.
+The downloaded bytes and provenance verified; installed payload, ownership and
+application health checks passed for that public package. No release tag or merge is
+performed by this review.
 
 ## Additional static-analysis triage
 
@@ -276,7 +334,10 @@ dispatches the heading action from keyboard Enter and preserves the encounter.
 The two subsequent missing-label findings were fixed and cleared by the next
 scan. That scan flagged a repeated custom-name ID across mutually exclusive
 JSP branches; the unnecessary ID on the hidden input was removed, preserving
-the visible control's label association. A fresh scan remains required.
+the visible control's label association; the subsequent scan cleared it. The
+heading handler is now being moved onto its existing native link, which already
+fills the heading's clickable area. Mouse and keyboard regressions and a new
+scan remain required for that change.
 Transactional self-calls in the billing services intentionally share an
 existing transaction with the same REQUIRED propagation; they do not require
 an independent proxy boundary. Other critical classifications were primarily

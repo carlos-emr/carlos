@@ -174,9 +174,9 @@ async function workflow(s) {
   });
 
   await s.step('keyboard Enter on the heading link opens the patient list and preserves the unsaved note', async () => {
-    // The native anchor is the keyboard target; its click bubbles to the h3's
-    // PopupConfig handler. Exercise that real event path, not an injected click.
-    const headingLink = chart.locator('#preventions .nav-menu-title h3[onclick*="ViewPreventionIndex"] > a').first();
+    // The native anchor owns both keyboard and pointer activation. Exercise
+    // the real Enter event path, including its popup refresh registration.
+    const headingLink = chart.locator('#preventions .nav-menu-title h3 > a[onclick*="ViewPreventionIndex"]').first();
     await headingLink.focus();
     assert(await headingLink.evaluate(link => document.activeElement === link),
       'The Preventions heading link cannot receive keyboard focus');
@@ -203,7 +203,7 @@ async function workflow(s) {
   });
 
   for (const [label, selector] of [
-    ['heading', '#preventions .nav-menu-title h3[onclick*="ViewPreventionIndex"]'],
+    ['heading', '#preventions .nav-menu-title h3 > a[onclick*="ViewPreventionIndex"]'],
     ['plus', '#preventions .nav-menu-add-button a[onclick*="ViewPreventionIndex"]'],
   ]) {
     await s.step(`${label} list edits refresh only the prevention panel and preserve the unsaved note`, async () => {
@@ -277,7 +277,7 @@ async function workflow(s) {
     assert(/^[1-9]\d*$/.test(childId) && Number(childId) > Number(id), 'Merged older record was not created');
     async function closeListToRefresh() {
       const index = await s.popup(chart,
-        chart.locator('#preventions .nav-menu-title h3[onclick*="ViewPreventionIndex"]').first(), 'prevention-merged-list');
+        chart.locator('#preventions .nav-menu-title h3 > a[onclick*="ViewPreventionIndex"]').first(), 'prevention-merged-list');
       await index.locator(`[onclick*="ViewAddPreventionData?id=${childId}&"]`).first().waitFor({ state: 'visible' });
       const refresh = chart.waitForResponse(response => response.url().includes('/encounter/displayPrevention'));
       await index.close();

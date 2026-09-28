@@ -47,18 +47,23 @@ function clearPreviousTopSelection() {
 }
 
 function _rotater(e) {
-    if ($(e).parent().find("img.page").length > 0)
-        $(e).parent().find("img.page").rotateRight();
-    else
-        $(e).parent().find("canvas").rotateRight();
+    var parent = $(e).parent();
+    var preview = parent.find("img.page, canvas").get(0);
+    if (!preview || (preview.tagName === 'IMG' && (!preview.complete || !preview.naturalWidth))) return;
+    // Reuse the already decoded image; the legacy plugin otherwise draws a
+    // newly allocated Image before its asynchronous load has completed.
+    if (preview.tagName === 'IMG') preview.oImage = preview;
+    $(preview).rotateRight();
+    var rotated = parent.find("canvas, img.page").get(0);
+    // The plugin replaces the image with a canvas whose oImage still uses this
+    // blob on subsequent rotations. Transfer ownership before the DOM sweep.
+    if (rotated && window.CarlosDocumentImages) CarlosDocumentImages.retain(preview, rotated);
 
-    var r = parseInt($(e).attr("rotate"));
-    r = (r != "NaN" ? r : 0);
-
-    if (90 + r >= 360) r = -90;
-    $(e).attr("rotate", 90 + r);
-    $(e).parent().addClass("rotated");
-    $(e).parent().vAlign();
+    var r = parseInt($(e).attr("rotate"), 10);
+    r = Number.isFinite(r) ? r : 0;
+    $(e).attr("rotate", (r + 90) % 360);
+    parent.addClass("rotated");
+    parent.vAlign();
     resizeUl();
 };
 
@@ -68,21 +73,22 @@ function _resizeui() {
 }
 
 function _zoom(d) {
-    var img = $(d).find('img').attr('src');
-    var modal = $('img[src$="' + img + '"]').clone();
-
-    var t = new Image();
-    t.src = img;
-
-    var height = t.height;
-    var width = t.width;
-
+    var preview = $(d).find('img.page, canvas').get(0);
+    if (!preview || (preview.tagName === 'IMG' && (!preview.complete || !preview.naturalWidth))) return;
+    var modal = $(preview).clone();
+    if (preview.tagName === 'CANVAS') {
+        modal.get(0).getContext('2d').drawImage(preview, 0, 0);
+    }
+    // Clone only this page, not all images with an equal src. Keep its decoded
+    // resource alive if the original page is moved/removed while the dialog is open.
+    if (window.CarlosDocumentImages) CarlosDocumentImages.retain(preview, modal.get(0));
     modal.dialog({
         height: $(window).height() - 40,
         modal: true,
         draggable: false,
         resizable: false,
-        width: width
+        width: preview.naturalWidth || preview.width,
+        close: function () { $(this).dialog('destroy').remove(); }
     });
 }
 
@@ -178,7 +184,7 @@ $(document).ready(function () {
 
     $("#tool_savecontinue").click(function (e) {
         $("#builder").children().each(function () {
-            var num = $(this).find("span").text();
+            var num = $(this).find("span.num").first().text();
             var rotate = $(this).find("div").attr("rotate");
             $(this).attr("id", "page_" + num + "," + rotate);
         });

@@ -507,7 +507,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 240,
+      "timeoutSec": 420,
       "env": [
         "DOCUMENT_PAGINATION_DEMOGRAPHIC_NO"
       ]
@@ -522,7 +522,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 240,
+      "timeoutSec": 420,
       "env": [
         "INCOMINGDOCUMENT_DIR"
       ]

@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotation
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -168,7 +169,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         } catch (BoundedPdfTask.BusyException e) {
             return busy(response, e);
         } catch (IOException | RuntimeException e) {
-            logger.warn("Could not read the page count for document {} while saving annotations", docId);
+            logger.warn("Could not read the page count for document {} while saving annotations", LogSafe.sanitizeObject(docId));
             return json(response, HttpServletResponse.SC_BAD_REQUEST,
                     error("This document could not be opened."));
         }
@@ -226,7 +227,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return json(response, HttpServletResponse.SC_CONFLICT, error(e.getMessage()));
         } catch (IOException | IllegalStateException e) {
             // The cause can quote document internals; log it, do not return it.
-            logger.error("Failed to compose annotated copy of document {} ({})", docId, e.getClass().getSimpleName());
+            logger.error("Failed to compose annotated copy of document {} ({})", LogSafe.sanitizeObject(docId), LogSafe.sanitize(e.getClass().getSimpleName()));
             return json(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     error("The annotated document could not be saved."));
         }

@@ -1795,6 +1795,8 @@ package health passed, and the VM stopped. Compilation ran with the VM stopped;
 all local build and installed-test tasks ran serially.
 
 
+### PR #4055 annotation capacity and session validation
+
 Annotation validation exercises a newly filed multipage document so cached page images cannot
 hide excessive rendering demand. Each viewer limits combined image/text work to four requests
 and keeps its budget through response decoding and zoom changes. The server keeps its global
@@ -1820,3 +1822,15 @@ session cookies, and verifies that the restricted provider cannot read the other
 image cache, text boxes or viewer. Unsaved marks stay isolated. This subcheck never saves or sends
 documents. Its navigation/render waits are bounded at 120 seconds for queued work. Keep credentials
 out of logs and remove owned fixture rows/files through their recorded cleanup journal.
+
+Legacy inbox, document pagination and Split previews use the same capacity-aware GET policy.
+Each window admits at most four image requests through response-body consumption and decoding;
+initial preview markup does not dispatch native image requests outside that budget. Explicit
+rendering 503 responses wait with capped exponential backoff and jitter, while authentication,
+corrupt-image and other server failures remain visible. Changing pages or removing a patient
+fragment cancels obsolete queued waits without freeing accepted server work early. Decoded
+resources remain available to Split zoom/rotation and are released after their last connected
+owner disappears. Mutation POSTs are never retried. The `document-pagination` check exercises
+five consecutive capacity responses followed by recovery, Split rotation/zoom, and an intercepted
+Split POST while waiting; no document is filed by that subcheck. These additions require the
+next installed validation run before their behavior is reported as verified.
