@@ -283,12 +283,18 @@ if [ ! -e new-fullchain.pem ] && ! openssl x509 -in fullchain.pem -noout -checke
     --cert-path new-cert.pem --chain-path new-chain.pem --fullchain-path new-fullchain.pem
 fi
 if [ -e new-fullchain.pem ]; then
-  [ "$(openssl x509 -in new-fullchain.pem -pubkey -noout | pin_of)" = "$key_pin" ] \
-    || fail "new-fullchain.pem is not for live.key; delete the new-*.pem files to retry"
-  openssl verify ${CAFILE:+-CAfile "$CAFILE"} -untrusted new-fullchain.pem -verify_hostname "$HOST" \
-    new-fullchain.pem >/dev/null || fail "new-fullchain.pem does not verify (missing intermediates?)"
-  mv new-fullchain.pem fullchain.pem
-  mv new-cert.pem cert.pem 2>/dev/null || true; mv new-chain.pem chain.pem 2>/dev/null || true
+  for f in new-cert.pem new-chain.pem; do
+    [ -s "$f" ] || fail "$f is missing; save all three new-*.pem files"
+  done
+  [ "$(openssl x509 -in new-cert.pem -pubkey -noout | pin_of)" = "$key_pin" ] \
+    || fail "new-cert.pem is not for live.key; delete the new-*.pem files to retry"
+  [ "$(openssl x509 -in new-fullchain.pem -noout -fingerprint -sha256)" \
+    = "$(openssl x509 -in new-cert.pem -noout -fingerprint -sha256)" ] \
+    || fail "new-fullchain.pem does not begin with new-cert.pem"
+  openssl verify ${CAFILE:+-CAfile "$CAFILE"} -untrusted new-chain.pem -verify_hostname "$HOST" \
+    new-cert.pem >/dev/null || fail "new-cert.pem does not verify with new-chain.pem (missing intermediates?)"
+  mv new-cert.pem cert.pem && mv new-chain.pem chain.pem && mv new-fullchain.pem fullchain.pem \
+    || fail "could not install the new-*.pem files; check /etc/portal-tls"
 fi
 
 want=$(openssl x509 -in fullchain.pem -noout -fingerprint -sha256)
@@ -422,12 +428,13 @@ need to switch off: do a scheduled rotation.
 
 **With a standby key:**
 
-1. Stop the renewal job. Copy `standby.key` and `standby.csr` to `/etc/portal-tls` as `next.key`
-   and `next.csr`, then issue and install them with the rotation step 3 commands. CARLOS already
-   trusts this key, so nothing breaks.
-2. Set `patient_portal.certificate.pins` and `approved-pins.txt` to the new live pin **only**.
-   Restart CARLOS and open the **Patient portal** page; it must load. If step 1 or this check
-   fails, switch the portal off and leave the renewal job stopped until it is fixed.
+1. At once, set `patient_portal.certificate.pins` and `approved-pins.txt` to the standby key's pin
+   **only**, and restart CARLOS. CARLOS stops trusting the stolen key immediately; portal calls
+   fail, before any request is sent, until step 2 installs the standby key.
+2. Stop the renewal job. Copy `standby.key` and `standby.csr` to `/etc/portal-tls` as `next.key`
+   and `next.csr`, then issue and install them with the rotation step 3 commands. Open the
+   **Patient portal** page; it must load. If this fails, switch the portal off and leave the
+   renewal job stopped until it is fixed.
 3. If the key was compromised, revoke its certificate, proving it with the key itself so the CA can
    block the key:
    `certbot revoke --cert-path /etc/portal-tls/previous-cert.pem --key-path /etc/portal-tls/previous-live.key --reason keycompromise --no-delete-after-revoke`,
