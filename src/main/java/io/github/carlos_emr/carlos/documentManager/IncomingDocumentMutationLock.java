@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -28,6 +29,12 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class IncomingDocumentMutationLock {
     private static final Map<Path, Entry> ENTRIES = new HashMap<>();
     private static final long WAIT_MILLIS = TimeUnit.SECONDS.toMillis(30);
+    // Waiting happens on servlet threads, before parser admission. Keep the queue bounded
+    // even on large hosts so one busy document cannot consume the entire connector pool.
+    // Overflow is an explicit pre-work Busy response; browser callers retain and retry intent.
+    private static final int MAX_WAITING_REQUESTS = Math.min(32, Math.max(8, 2 * Runtime.getRuntime().availableProcessors()));
+    private static final Semaphore WAITING_PERMITS = new Semaphore(MAX_WAITING_REQUESTS);
+
 
     private IncomingDocumentMutationLock() { }
 
@@ -39,6 +46,15 @@ public final class IncomingDocumentMutationLock {
 
     public static Lease acquire(File source, File allowedDirectory) throws IOException {
         return acquire(source, allowedDirectory, true, WAIT_MILLIS);
+    }
+
+    /**
+     * PDF render workers must not wait for an editor holding this lease while that
+     * editor waits for a bounded PDF worker. Refuse immediately and release the
+     * worker permit, so the read-only HTTP request can retry without an inversion.
+     */
+    public static Lease acquireForRender(File source, File allowedDirectory) throws IOException {
+        return acquire(source, allowedDirectory, true, 0);
     }
 
     /** Reserve an extraction destination before publishing any bytes to its queue name. */
@@ -61,9 +77,19 @@ public final class IncomingDocumentMutationLock {
         boolean acquired = false;
         boolean handedOff = false;
         try {
-            // Timed tryLock honours FIFO fairness; the untimed overload can barge.
-            acquired = entry.lock.tryLock(waitMillis, TimeUnit.MILLISECONDS);
-            if (!acquired) throw new BoundedPdfTask.BusyException();
+            // The zero-time timed overload honours FIFO, unlike untimed tryLock. It also
+            // lets an existing owner re-enter without consuming a waiter slot. Free files
+            // remain available even when all waiting slots belong to other documents.
+            acquired = entry.lock.tryLock(0, TimeUnit.MILLISECONDS);
+            if (!acquired) {
+                if (waitMillis == 0 || !WAITING_PERMITS.tryAcquire()) throw new BoundedPdfTask.BusyException();
+                try {
+                    acquired = entry.lock.tryLock(waitMillis, TimeUnit.MILLISECONDS);
+                } finally {
+                    WAITING_PERMITS.release();
+                }
+                if (!acquired) throw new BoundedPdfTask.BusyException();
+            }
             // A terminal removal ends this document's identity even if an upload reuses
             // its queue filename before an already-waiting editor/filer wakes up.
             if (mustExist && reservedGeneration != entry.generation) {
@@ -111,6 +137,10 @@ public final class IncomingDocumentMutationLock {
             return entry == null ? 0 : entry.lock.getQueueLength();
         }
     }
+
+    static int maxWaitingRequests() { return MAX_WAITING_REQUESTS; }
+
+    static int waitingRequestCount() { return MAX_WAITING_REQUESTS - WAITING_PERMITS.availablePermits(); }
 
     static int registeredSources() {
         synchronized (ENTRIES) { return ENTRIES.size(); }

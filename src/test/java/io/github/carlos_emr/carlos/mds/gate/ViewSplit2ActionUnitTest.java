@@ -6,6 +6,8 @@
 package io.github.carlos_emr.carlos.mds.gate;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -49,12 +51,15 @@ class ViewSplit2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         registerMock(SecurityInfoManager.class, security);
         registerMock(CtlDocumentDao.class, links);
+        registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
         context = mockStatic(ServletActionContext.class);
         context.when(ServletActionContext::getRequest).thenReturn(request);
         context.when(ServletActionContext::getResponse).thenReturn(response);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         request.setParameter("document", "42");
         when(security.hasPrivilege(any(), eq("_lab"), eq("r"), isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq("r"), org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn(true);
         action = new ViewSplit2Action();
     }
 

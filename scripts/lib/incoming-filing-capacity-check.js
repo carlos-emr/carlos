@@ -2,7 +2,9 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const {createHash} = require('node:crypto');
 const h = require('./playwright-harness');
+const {prepareIncomingFilingProgram} = require('./incoming-filing-program-fixture');
 
 function validateFilingRequest(request, owned) {
   const fields = new URLSearchParams(request.postData() || '');
@@ -13,6 +15,8 @@ function validateFilingRequest(request, owned) {
     h.assert(fields.getAll(key).length === 1 && fields.get(key) === value, 'Refusing a filing outside the owned fixture');
   }
   h.assert(fields.getAll('CSRF-TOKEN').length === 1 && fields.get('CSRF-TOKEN'), 'Filing omitted its CSRF token');
+  h.assert(fields.getAll('sourceRevision').length === 1 && /^[a-f0-9]{64}$/.test(fields.get('sourceRevision'))
+    && fields.get('sourceRevision') === owned.revision, 'Filing changed its observed source revision');
   return request.postData();
 }
 
@@ -46,15 +50,16 @@ function cleanupFiling(session, description, store) {
 }
 
 /** Real installed form, guarded injected refusals, then one actual owned filing. */
-async function checkIncomingFilingCapacity(session, page, name, source, inspect) {
+async function checkIncomingFilingCapacity(session, page, name, source, inspect, {staleRevision} = {}) {
   h.assert(session.patient && /^[1-9]\d*$/.test(session.patient), 'Filing requires the workflow-owned patient');
   const directory = process.env.RX_FAX_DOCUMENT_DIR || process.env.DOCUMENT_DIR;
   h.assert(directory, 'Set RX_FAX_DOCUMENT_DIR or DOCUMENT_DIR to the installed document store');
   const store = fs.realpathSync(directory);
   const description = `${session.marker} incoming filing`;
+  prepareIncomingFilingProgram(session);
   session.cleanup(() => cleanupFiling(session, description, store));
   const original = fs.readFileSync(source);
-  const owned = {name, patient: session.patient, description};
+  const owned = {name, patient: session.patient, description, revision: createHash('sha256').update(original).digest('hex')};
   const endpoint = new URL(await page.locator('#forms_').getAttribute('action'), page.url()).href;
   const pattern = url => url.href === endpoint;
   const targets = new Set();
@@ -79,13 +84,51 @@ async function checkIncomingFilingCapacity(session, page, name, source, inspect)
     h.assert(type, 'Installed incoming form has no document type');
     await page.locator('#docType').selectOption(type);
     await page.locator('#documentDescription').fill(description);
-    await page.locator('#autocompletedemo').fill(session.marker);
-    await page.locator('.ui-autocomplete li').filter({hasText: session.marker}).first().click();
+    const search = page.waitForResponse(response => {
+      const request = response.request();
+      return new URL(response.url()).pathname.endsWith('/demographic/SearchDemographic')
+        && request.method() === 'POST' && new URLSearchParams(request.postData() || '').get('query') === session.marker;
+    }, {timeout: 20000});
+    search.catch(() => {});
+    const input = page.locator('#autocompletedemo');
+    await input.click();
+    await input.fill('');
+    await input.pressSequentially(session.marker, {delay: 30});
+    const searched = await search;
+    h.assert(searched.status() === 200, 'Patient autocomplete search failed');
+    const results = (await searched.json()).results;
+    h.assert(Array.isArray(results) && results.filter(item => String(item.demographicNo) === session.patient).length === 1,
+      'Patient autocomplete response must contain exactly one owned chart');
+    const candidates = page.locator('.ui-autocomplete:visible .ui-menu-item');
+    await candidates.first().waitFor({state: 'visible'});
+    // The display formatter may uppercase names or include escaped highlight
+    // markup. Select the owned patient identity, never a surname/text match.
+    const matches = await candidates.evaluateAll((items, patient) => items.map((item, index) => {
+      const data = window.jQuery(item).data('ui-autocomplete-item');
+      return data && String(data.demographicNo) === patient ? index : -1;
+    }).filter(index => index >= 0), session.patient);
+    h.assert(matches.length === 1, 'Patient autocomplete must offer exactly one owned chart');
+    await candidates.nth(matches[0]).click();
     h.assert(await page.locator('#demofind').inputValue() === session.patient, 'Patient selection left the owned chart');
   }
   await page.route(pattern, handler);
   try {
     await fill();
+    if (staleRevision) {
+      h.assert(/^[a-f0-9]{64}$/.test(staleRevision) && staleRevision !== owned.revision, 'Stale filing probe needs an actual older revision');
+      const fields = await page.locator('#forms_').evaluate(form =>
+        Object.fromEntries([...new FormData(form)].map(([key, value]) => [key, String(value)])));
+      const rejected = await session.context.request.post(endpoint, {
+        form: {...fields, sourceRevision: staleRevision},
+        headers: {'X-CARLOS-Incoming-Filing': 'bounded-v1', Referer: page.url()}, maxRedirects: 0,
+      });
+      try {
+        const data = await rejected.json();
+        h.assert(rejected.status() === 409 && data.success === false && data.accepted === false
+          && data.retryable === false && data.sourceChanged === true, 'Stale filing did not return a safe source conflict');
+        h.assert(fs.readFileSync(source).equals(original) && count() === '0', 'Stale filing changed the queue or chart');
+      } finally {await rejected.dispose();}
+    }
     const safeGet = new URL('ViewIncomingDocs', endpoint);
     safeGet.search = new URLSearchParams({queueId: '1', pdfDir: 'File', pdfNo: await page.locator('#forms_ [name="pdfNo"]').inputValue(), pdfPageNumber: '1'}).toString();
     await page.locator('#save').click();
@@ -111,7 +154,7 @@ async function checkIncomingFilingCapacity(session, page, name, source, inspect)
     await page.waitForURL(url => url.pathname.endsWith('/documentManager/ViewIncomingDocs') && url.searchParams.get('queueId') === '1');
     h.assert(!unsafe && attempts === 6 && new Set(bodies).size === 1, 'Filing retries changed inputs or did not recover after five refusals');
     h.assert(count() === '1' && !fs.existsSync(source), 'Recovered filing duplicated the document or left its queue source');
-    const rows = session.sql.rows(`SELECT d.docfilename,d.numberofpages FROM document d JOIN ctl_document c ON c.document_no=d.document_no WHERE d.document_no=${accepted.documentNo} AND d.docdesc=${h.sqlString(description)} AND c.module='demographic' AND c.module_id=${session.patient}`);
+    const rows = session.sql.rows(`SELECT d.docfilename,d.number_of_pages FROM document d JOIN ctl_document c ON c.document_no=d.document_no WHERE d.document_no=${accepted.documentNo} AND d.docdesc=${h.sqlString(description)} AND c.module='demographic' AND c.module_id=${session.patient}`);
     h.assert(rows.length === 1 && rows[0][1] === '1', 'Installed filing has incorrect patient linkage or page count');
     h.assert(path.basename(rows[0][0]) === rows[0][0] && rows[0][0].includes(session.marker), 'Accepted filename is not owned');
     h.assert(inspect(path.join(store, rows[0][0])).text.includes(`${session.marker} page 3`), 'Installed filing lost source page content');

@@ -538,6 +538,9 @@ public final class IncomingDocUtil {
         mutateIncomingDocument(queueId, directory, filename, false, mutation);
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "Both path builders validate queue/directory/filename components and canonical containment in INCOMINGDOCUMENT_DIR; "
+                    + "the mutation lease revalidates source containment in the selected queue directory before filesystem access")
     private static void mutateIncomingDocument(String queueId, String directory, String filename,
                                                boolean removesSource, IncomingMutation mutation) throws Exception {
         File base = new File(getIncomingDocumentFilePath(queueId, directory));
@@ -545,8 +548,16 @@ public final class IncomingDocUtil {
         try (IncomingDocumentMutationLock.Lease lease = IncomingDocumentMutationLock.acquire(source, base)) {
             // All five page-edit/delete entry points use the same lock as filing.
             // Their work stays synchronous: a lease cannot outlive a mutation worker.
-            mutation.run();
-            if (removesSource) lease.sourceRemoved();
+            BoundedPdfTask.SynchronousAdmission admitted;
+            try {
+                admitted = BoundedPdfTask.acquireSynchronousAdmission();
+            } catch (BoundedPdfTask.BusyException busy) {
+                throw new PageEditAdmissionBusyException(busy);
+            }
+            try (BoundedPdfTask.SynchronousAdmission capacity = admitted) {
+                mutation.run();
+                if (removesSource) lease.sourceRemoved();
+            }
         }
     }
 
@@ -1269,6 +1280,35 @@ public final class IncomingDocUtil {
         return entryMode;
     }
 
+    /** Source-lease or shared-parser admission timed out before mutation; no edit was accepted. */
+    public static final class PageEditAdmissionBusyException extends IOException {
+        private static final long serialVersionUID = 1L;
+        private PageEditAdmissionBusyException(BoundedPdfTask.BusyException cause) { super(cause); }
+    }
+
+    /** HTTP edits pin the viewed bytes while waiting for the same lease used by filing. */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Validated queue path builders and mutation lease enforce canonical queue containment")
+    public static void doPagesAction(String pdfAction, String queueIdStr, String pdfDir, String pdfName,
+                                     String pdfPageNumber, String pdfExtractPageNumber, Locale locale,
+                                     String sourceRevision) throws Exception {
+        if (pdfAction == null || pdfAction.trim().isEmpty()) return;
+        File directory = new File(getIncomingDocumentFilePath(queueIdStr, pdfDir));
+        File source = new File(getIncomingDocumentFilePathName(queueIdStr, pdfDir, pdfName));
+        IncomingDocumentMutationLock.Lease admitted;
+        try {
+            admitted = IncomingDocumentMutationLock.acquire(source, directory);
+        } catch (BoundedPdfTask.BusyException busy) {
+            // This particular refusal is before the dispatcher and all mutation work.
+            throw new PageEditAdmissionBusyException(busy);
+        }
+        try (IncomingDocumentMutationLock.Lease lease = admitted) {
+            StoredDocumentRevision.requireMatch(lease.source().toPath(), sourceRevision);
+            // The synchronous mutators re-enter this lease; no waiter can change the source
+            // between the revision check and the completed edit.
+            doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, locale);
+        }
+    }
+
     /**
      * Dispatches a PDF page manipulation action based on the action name string.
      * Supports single-page rotation, all-page rotation, page deletion, PDF deletion,
@@ -1308,7 +1348,7 @@ public final class IncomingDocUtil {
             }
             try {
                 rotatePage(queueIdStr, pdfDir, pdfName, pdfPageNumber, degree);
-            } catch (BoundedPdfTask.BusyException busy) {
+            } catch (BoundedPdfTask.BusyException | PageEditAdmissionBusyException busy) {
                 throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1329,7 +1369,7 @@ public final class IncomingDocUtil {
             }
             try {
                 rotateAlPages(queueIdStr, pdfDir, pdfName, degree);
-            } catch (BoundedPdfTask.BusyException busy) {
+            } catch (BoundedPdfTask.BusyException | PageEditAdmissionBusyException busy) {
                 throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1341,7 +1381,7 @@ public final class IncomingDocUtil {
         if (pdfAction.equals("DeletePage")) {
             try {
                 deletePage(queueIdStr, pdfDir, pdfName, pdfPageNumber);
-            } catch (BoundedPdfTask.BusyException busy) {
+            } catch (BoundedPdfTask.BusyException | PageEditAdmissionBusyException busy) {
                 throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1352,7 +1392,7 @@ public final class IncomingDocUtil {
         if (pdfAction.equals("DeletePDF")) {
             try {
                 DeletePDF(queueIdStr, pdfDir, pdfName);
-            } catch (BoundedPdfTask.BusyException busy) {
+            } catch (BoundedPdfTask.BusyException | PageEditAdmissionBusyException busy) {
                 throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1363,7 +1403,7 @@ public final class IncomingDocUtil {
         if (pdfAction.equals("ExtractPagePDF")) {
             try {
                 extractPage(queueIdStr, pdfDir, pdfName, pdfExtractPageNumber);
-            } catch (BoundedPdfTask.BusyException busy) {
+            } catch (BoundedPdfTask.BusyException | PageEditAdmissionBusyException busy) {
                 throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);

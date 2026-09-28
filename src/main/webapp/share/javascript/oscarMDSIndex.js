@@ -190,11 +190,12 @@ function getCsrfToken() {
  * token input exists in the DOM) required by CSRFGuard.
  * @param {string} url - The URL to POST to
  * @param {string|Object|URLSearchParams} data - Form data as a URL-encoded string, a key-value object, or URLSearchParams instance
+ * @param {string} [pinnedCsrfToken] - Explicit token for an immutable queued operation
  * @returns {Promise<Response>}
  */
-function postForm(url, data) {
+function postForm(url, data, pinnedCsrfToken) {
     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-    var csrfToken = csrfEl ? csrfEl.value : '';
+    var csrfToken = pinnedCsrfToken === undefined ? (csrfEl ? csrfEl.value : '') : pinnedCsrfToken;
     return fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
@@ -585,74 +586,132 @@ function sendMRP(ele) {
     }
 }
 
-function rotate180(id) {
-    jQuery("#rotate180btn_" + id).prop('disabled', true);
-    const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
-    const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
+const quickDocumentMutations = new Map();
 
-    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate180&document=" + id)
-        .then(response => response.text())
-        .then(data => {
-            jQuery("#rotate180btn_" + id).prop('disabled', false);
-            if (displayDocumentAs == "PDF") {
-                showPDF(id, contextpath);
-            } else {
-                CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
-            }
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-function rotate90(id) {
-    jQuery("#rotate90btn_" + id).prop('disabled', true);
-    const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
-    const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
-
-    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate90&document=" + id)
-        .then(response => response.text())
-        .then(data => {
-            jQuery("#rotate90btn_" + id).prop('disabled', false);
-            if (displayDocumentAs == "PDF") {
-                showPDF(id, contextpath);
-            } else {
-                CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
-            }
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-function removeFirstPage(id) {
-    jQuery("#removeFirstPagebtn_" + id).prop('disabled', true);
-    if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
-        ShowSpin(true);
-        const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
-        const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
-
-        postForm(contextpath + "/documentManager/SplitDocument", "method=removeFirstPage&document=" + id)
-            .then(response => response.text())
-            .then(data => {
-                if (displayDocumentAs == "PDF") {
-                    showPDF(id, contextpath);
-                } else {
-                    CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+function quickDocumentMutation(id, method) {
+    id = String(id);
+    if (!/^[1-9][0-9]{0,9}$/.test(id) || Number(id) > 2147483647
+            || !['rotate90', 'rotate180', 'removeFirstPage'].includes(method)) return false;
+    let entry = quickDocumentMutations.get(id);
+    if (entry) entry.bind();
+    if (entry && entry.controller.isLocked()) return false;
+    if (method === 'removeFirstPage' && !confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) return false;
+    if (!entry) {
+        const buttons = ['rotate90btn_', 'rotate180btn_', 'removeFirstPagebtn_']
+            .map(prefix => document.getElementById(prefix + id)).filter(Boolean);
+        if (!buttons.length) return false;
+        const messages = window.CarlosDocumentMutationMessages;
+        const container = document.createElement('div');
+        container.id = 'document-mutation-status-' + id;
+        const status = document.createElement('span');
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = messages.cancel;
+        cancel.hidden = true;
+        container.appendChild(status);
+        container.appendChild(cancel);
+        buttons[0].parentNode.appendChild(container);
+        entry = {buttons, baseline: [], controller: null, state: 'idle'};
+        entry.bind = () => {
+            const current = ['rotate90btn_', 'rotate180btn_', 'removeFirstPagebtn_']
+                .map(prefix => document.getElementById(prefix + id)).filter(Boolean);
+            if (current.length === entry.buttons.length && current.every((button, index) => button === entry.buttons[index])) return;
+            // Inbox AJAX refreshes can replace a row while its operation is still
+            // pending. Rebind the visible controls without discarding acceptance state.
+            entry.buttons = current;
+            entry.baseline = current.map(button => button.disabled);
+            if (current.length) current[0].parentNode.appendChild(container);
+            if (entry.state !== 'idle') current.forEach(button => {button.disabled = true;});
+        };
+        function message(key, alert) {
+            status.textContent = messages[key];
+            status.setAttribute('role', alert ? 'alert' : 'status');
+        }
+        entry.controller = window.CarlosDocumentMutation.create({
+            beforeSend: () => {
+                entry.localRefusal = null;
+                if (typeof entry.csrfToken !== 'string' || !entry.csrfToken.length || getCsrfToken() !== entry.csrfToken) return false;
+                const observed = document.getElementById('sourceRevision_' + id);
+                if (!/^[0-9a-f]{64}$/.test(entry.sourceRevision || '') || !observed) {
+                    entry.localRefusal = 'sourceUnavailable'; return false;
                 }
-                const numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
-                jQuery("#numPages_" + id).text("" + numPages);
-
-                if (numPages <= 1) {
-                    jQuery("#numPages_" + id).removeClass("multiPage");
-                    jQuery("#removeFirstPagebtn_" + id).remove();
+                if (observed.value !== entry.sourceRevision) {
+                    entry.localRefusal = 'sourceChanged'; return false;
                 }
-                HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
-            });
+                return true;
+            },
+            send: async body => {
+                const response = await postForm(contextpath + '/documentManager/SplitDocument', body, entry.csrfToken);
+                const data = await response.json();
+                return {status: response.status, data, retryAfter: response.headers.get('Retry-After')};
+            },
+            isSuccess: data => data.document === Number(id) && Number.isSafeInteger(data.pageCount) && data.pageCount > 0
+                && typeof data.sourceRevision === 'string' && /^[0-9a-f]{64}$/.test(data.sourceRevision),
+            onState: state => {
+                entry.state = state;
+                entry.bind();
+                const locked = state !== 'idle';
+                entry.buttons.forEach((button, index) => {button.disabled = locked || entry.baseline[index];});
+                cancel.hidden = state !== 'waiting';
+                if (state === 'pending') message('pending', false);
+            },
+            onWaiting: () => message('waiting', false),
+            onCancelled: () => message('cancelled', false),
+            onRejected: data => message(data && data.sourceChanged ? 'sourceChanged' : entry.localRefusal || 'rejected', true),
+            onUncertain: () => message('uncertain', true),
+            onSuccess: data => {
+                const observed = document.getElementById('sourceRevision_' + id);
+                // A replaced row may already describe a later edit by another
+                // session. Do not overwrite its newer revision or page count.
+                if (!observed || (observed.value !== entry.sourceRevision && observed.value !== data.sourceRevision)) {
+                    message('sourceChanged', true);
+                    return;
+                }
+                observed.value = data.sourceRevision;
+                // Trust the committed server count, never a decrement based on stale tab state.
+                const count = document.getElementById('numPages_' + id);
+                if (count) {
+                    count.textContent = String(data.pageCount);
+                    if (data.pageCount <= 1) count.classList.remove('multiPage');
+                }
+                const total = document.getElementById('totalPage_' + id);
+                const current = document.getElementById('curPage_' + id);
+                const viewed = document.getElementById('viewedPage_' + id);
+                if (total) total.value = String(data.pageCount);
+                if (current) current.value = '1';
+                if (viewed) viewed.textContent = '1';
+                const remove = document.getElementById('removeFirstPagebtn_' + id);
+                if (remove && data.pageCount <= 1) remove.remove();
+                hidePrev(id);
+                if (data.pageCount > 1) showNext(id); else hideNext(id);
+                const display = document.getElementById('displayDocumentAs_' + id);
+                if (display && display.value === 'PDF') showPDF(id, contextpath);
+                else {
+                    const image = document.getElementById('docImg_' + id);
+                    if (image) CarlosDocumentImages.load(image, contextpath + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + id + '&curPage=1&rand=' + Date.now());
+                }
+                message('saved', false);
+            }
+        });
+        cancel.addEventListener('click', () => entry.controller.cancelWaiting());
+        window.addEventListener('pagehide', () => entry.controller.hide());
+        window.addEventListener('pageshow', () => entry.controller.show());
+        quickDocumentMutations.set(id, entry);
     }
+    entry.baseline = entry.buttons.map(button => button.disabled);
+    // Pin the page/session token once for the entire immutable operation. A later
+    // AJAX refresh must not authorize the old intent under another logged-in user.
+    entry.csrfToken = getCsrfToken();
+    entry.sourceRevision = document.getElementById('sourceRevision_' + id)?.value || '';
+    entry.localRefusal = null;
+    return entry.controller.start('method=' + method + '&document=' + id + '&sourceRevision=' + encodeURIComponent(entry.sourceRevision));
 }
+
+function rotate180(id) { return quickDocumentMutation(id, 'rotate180'); }
+function rotate90(id) { return quickDocumentMutation(id, 'rotate90'); }
+function removeFirstPage(id) { return quickDocumentMutation(id, 'removeFirstPage'); }
 
 function split(id) {
     const loc = contextpath + "/oscarMDS/ViewSplit?document=" + id;

@@ -422,6 +422,8 @@ public class DocumentPreview2Action extends ActionSupport {
 
         try {
             response.setContentType("application/pdf");
+            // resolve enforces opaque-token provider/session/expiry binding and canonical application-temp containment.
+            // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- pdfPath is the exact server-issued file returned by that capability check, never a client path
             try (InputStream inputStream = Files.newInputStream(pdfPath);
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {

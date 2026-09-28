@@ -56,6 +56,7 @@ class IncomingDocumentMutationLockUnitTest {
         restore("INCOMINGDOCUMENT_DIR", previousRoot);
         restore("INCOMINGDOCUMENT_RECYCLEBIN", previousRecycle);
         assertThat(IncomingDocumentMutationLock.registeredSources()).isZero();
+        assertThat(IncomingDocumentMutationLock.waitingRequestCount()).isZero();
     }
 
     private void restore(String name, String value) {
@@ -77,6 +78,54 @@ class IncomingDocumentMutationLockUnitTest {
         while (IncomingDocumentMutationLock.queuedWaiters(file) < count) {
             if (System.nanoTime() > deadline) throw new AssertionError("Mutation waiter never queued");
             Thread.yield();
+        }
+    }
+
+    @Test
+    void globalWaiterOverflowRefusesBeforeWorkButAllowsOwnerReentryAndUnrelatedFiles() throws Exception {
+        File busy = pdf("saturated.pdf"), otherBusy = pdf("other-busy.pdf"), available = pdf("available.pdf");
+        byte[] before = Files.readAllBytes(busy.toPath());
+        int limit = IncomingDocumentMutationLock.maxWaitingRequests();
+        assertThat(limit).isBetween(8, 32);
+        var queuedWorkers = Executors.newFixedThreadPool(limit);
+        var waiters = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+        var owner = IncomingDocumentMutationLock.acquire(busy, queue);
+        try (var otherOwner = IncomingDocumentMutationLock.acquire(otherBusy, queue)) {
+            for (int i = 0; i < limit; i++) {
+                waiters.add(queuedWorkers.submit(() -> {
+                    try (var admitted = IncomingDocumentMutationLock.acquire(busy, queue)) {
+                        assertThat(Files.readAllBytes(admitted.source().toPath())).isEqualTo(before);
+                    }
+                    return null;
+                }));
+            }
+            awaitWaiters(busy, limit);
+            assertThat(IncomingDocumentMutationLock.waitingRequestCount()).isEqualTo(limit);
+            // The limit is global, including a different contended path. The request must
+            // get a typed refusal now, rather than spend its five-second lock deadline.
+            workers.submit(() -> {
+                assertThatThrownBy(() -> IncomingDocumentMutationLock.acquire(otherBusy, queue, true, 5000))
+                        .isInstanceOf(BoundedPdfTask.BusyException.class);
+                return null;
+            }).get(2, TimeUnit.SECONDS);
+            try (var reentrant = IncomingDocumentMutationLock.acquire(busy, queue)) {
+                assertThat(reentrant.source()).isEqualTo(busy.getCanonicalFile());
+                assertThat(IncomingDocumentMutationLock.waitingRequestCount()).isEqualTo(limit);
+            }
+            workers.submit(() -> {
+                try (var independent = IncomingDocumentMutationLock.acquire(available, queue)) {
+                    assertThat(independent.source()).isEqualTo(available.getCanonicalFile());
+                }
+                return null;
+            }).get(2, TimeUnit.SECONDS);
+            owner.close();
+            for (var waiter : waiters) waiter.get(10, TimeUnit.SECONDS);
+            assertThat(IncomingDocumentMutationLock.waitingRequestCount()).isZero();
+            assertThat(Files.readAllBytes(busy.toPath())).isEqualTo(before);
+        } finally {
+            owner.close();
+            queuedWorkers.shutdownNow();
+            assertThat(queuedWorkers.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
         }
     }
 
@@ -263,6 +312,7 @@ class IncomingDocumentMutationLockUnitTest {
             waiter.join(10000);
             assertThat(waiter.isAlive()).isFalse();
             assertThat(observed).isTrue();
+            assertThat(IncomingDocumentMutationLock.waitingRequestCount()).isZero();
             assertThat(IncomingDocumentMutationLock.registeredSources()).isEqualTo(1);
         } finally { waiter.interrupt(); waiter.join(10000); }
         assertThat(Files.readAllBytes(source.toPath())).isEqualTo(original);
@@ -279,6 +329,7 @@ class IncomingDocumentMutationLockUnitTest {
                 return null;
             });
             refused.get(10, TimeUnit.SECONDS);
+            assertThat(IncomingDocumentMutationLock.waitingRequestCount()).isZero();
             assertThat(IncomingDocumentMutationLock.registeredSources()).isEqualTo(1);
         }
         assertThat(Files.readAllBytes(source.toPath())).isEqualTo(original);

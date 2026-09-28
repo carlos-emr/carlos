@@ -26,6 +26,45 @@ class IncomingDocumentCapacityResponseUnitTest {
     }
 
     @Test
+    void preDispatchWaitRetainsExactPostSnapshotAndUsesFixedNativeEndpoint() throws Exception {
+        var request = request();
+        request.setParameter("sourceRevision", "a".repeat(64));
+        request.setParameter("CSRF-TOKEN", "token");
+        request.setParameter("pdfExtractPageNumber", "2,4");
+        request.setParameter("flagproviders", "10", "20");
+        var response = new MockHttpServletResponse();
+        var writer = new StringWriter();
+        IncomingDocumentCapacityResponse.pageEditBusy(request, response, writer, "1", "Fax", "2");
+        var html = Jsoup.parse(writer.toString());
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(html.select("form").attr("action")).isEqualTo("/carlos/documentManager/ViewIncomingDocs");
+        assertThat(html.select("form").attr("data-accepted")).isEqualTo("false");
+        assertThat(html.select("input[name=sourceRevision]").val()).isEqualTo("a".repeat(64));
+        assertThat(html.select("input[name=CSRF-TOKEN]").val()).isEqualTo("token");
+        assertThat(html.select("input[name=pdfAction]").val()).isEqualTo("DeletePage");
+        assertThat(html.select("input[name=flagproviders]").eachAttr("value")).containsExactly("10", "20");
+        assertThat(html.select("a").attr("href")).doesNotContain("pdfAction", "sourceRevision");
+        assertThat(html.select("a").attr("id")).isEqualTo("incoming-page-edit-cancel");
+        assertThat(html.select("script").attr("src")).isEqualTo("/carlos/js/incomingDocumentPageEditWait.js");
+    }
+
+    @Test
+    void staleNativeSelectionOffersOnlyManualReadOnlyRefresh() throws Exception {
+        var request = request();
+        request.setParameter("queueId", "1");
+        request.setParameter("pdfDir", "Fax");
+        request.setParameter("sourceRevision", "a".repeat(64));
+        var response = new MockHttpServletResponse();
+        IncomingDocumentCapacityResponse.filingSourceChanged(request, response);
+        var html = Jsoup.parse(response.getContentAsString());
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(html.select("form,input,script")).isEmpty();
+        assertThat(html.select("a").attr("href")).isEqualTo("/carlos/documentManager/ViewIncomingDocs?queueId=1&pdfDir=Fax&pdfNo=1&pdfPageNumber=1");
+        assertThat(html.select("p[role=alert]").text()).isNotBlank();
+        assertThat(response.getContentAsString()).doesNotContain("sourceRevision", "DeletePage");
+    }
+
+    @Test
     void pageCountWaitAfterPostTargetsOnlySafeGetAndEncodesHtml() throws Exception {
         var request = request();
         var response = new MockHttpServletResponse();
@@ -58,6 +97,7 @@ class IncomingDocumentCapacityResponseUnitTest {
         request.setParameter("documentDescription", "<img src=x onerror='bad()'> & \"quoted\"");
         request.addParameter("flagproviders", "10", "20");
         request.setParameter("CSRF-TOKEN", "private-token");
+        request.setParameter("sourceRevision", "a".repeat(64));
         var response = new MockHttpServletResponse();
         IncomingDocumentCapacityResponse.filingBusy(request, response);
         var html = Jsoup.parse(response.getContentAsString());
@@ -66,6 +106,7 @@ class IncomingDocumentCapacityResponseUnitTest {
         assertThat(html.select("input[name=documentDescription]").val()).isEqualTo(request.getParameter("documentDescription"));
         assertThat(html.select("input[name=flagproviders]").eachAttr("value")).containsExactly("10", "20");
         assertThat(html.select("input[name=CSRF-TOKEN]").val()).isEqualTo("private-token");
+        assertThat(html.select("input[name=sourceRevision]").val()).isEqualTo("a".repeat(64));
         assertThat(html.select("script,img")).isEmpty();
     }
 

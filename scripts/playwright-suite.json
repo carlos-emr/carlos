@@ -513,6 +513,22 @@
       ]
     },
     {
+      "name": "stored-document-mutations",
+      "script": "scripts/stored-document-mutations-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ]
+    },
+    {
       "name": "incoming-pdf-extraction",
       "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
       "tiers": [
@@ -524,7 +540,9 @@
       ],
       "timeoutSec": 420,
       "env": [
-        "INCOMINGDOCUMENT_DIR"
+        "INCOMINGDOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
       ]
     },
     {
@@ -632,6 +650,18 @@
         "ECHART_NAV_TIMEOUT_MS",
         "ECHART_NAV_SCREENSHOT_DIR"
       ]
+    },
+    {
+      "name": "lab-results-table",
+      "script": "scripts/lab-results-table-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
     },
     {
       "name": "echart-new-patient-notes",
@@ -1457,7 +1487,8 @@
         "GRAPH_DEMOGRAPHIC_NO",
         "GRAPH_MEASUREMENT_TYPE",
         "GRAPH_PATH",
-        "PLAYWRIGHT_TIMEOUT"
+        "PLAYWRIGHT_TIMEOUT",
+        "CARLOS_LOG_JOURNAL_UNIT"
       ]
     },
     {
@@ -1831,7 +1862,8 @@
       "env": [
         "RX_EXPECTED_BUILD_TAG",
         "RX_FAX_DEMOGRAPHIC_NO",
-        "RX_FAX_PROVIDER_NO"
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_DOCUMENT_DIR"
       ]
     },
     {
@@ -1847,7 +1879,8 @@
       "timeoutSec": 300,
       "env": [
         "RX_FAX_DEMOGRAPHIC_NO",
-        "RX_FAX_PROVIDER_NO"
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_DOCUMENT_DIR"
       ]
     },
     {

@@ -372,7 +372,10 @@ only its own published copy. Cleanup failures are logged and require inspection;
 they do not justify deleting another document or resubmitting an uncertain filing.
 
 Sessions in one CARLOS JVM wait fairly when editing or filing the same incoming
-file. Other files remain independent. This source coordination does not span
+file. The server bounds waiting requests so a busy document cannot occupy every
+request thread; additional callers receive an explicitly unaccepted capacity
+response and wait in the browser before retrying the same request. Uncontended
+files remain available even when the waiting queue is full. This source coordination does not span
 multiple application JVMs sharing one incoming queue. Capacity refusals explicitly
 confirmed as unaccepted can retry automatically; an uncertain or partial filing
 requires checking the patient's documents before another submission.
@@ -544,6 +547,43 @@ compliance decision, and the decisions marked **DECIDE THIS**:
 /usr/share/doc/carlos-emr-drugref/README.Debian
 man carlos-ctl
 ```
+
+## Stored-document page operation recovery
+
+Splitting, rotating, and removing a first page prepare a closed PDF in an
+owner-only `.document-pages-*` directory inside `DOCUMENT_DIR`. This requires
+the document filesystem to support POSIX permissions, hard links, and atomic
+replacement. A split is published as `split-<random UUID>.pdf`; its database
+document number remains the identifier used by the application. Do not infer
+document counts or database identities from filenames.
+
+The application deletes its private staging after a confirmed success or a
+confirmed rollback. Database and filesystem publication are separate commits.
+An uncertain commit or failed rollback retains the private directory and logs
+its location. A `recovery.txt` file, when writable, identifies the destination;
+`original.pdf` preserves pre-edit bytes for replacements and `published.pdf`
+preserves the edited bytes. A split keeps its completed `prepared.pdf`.
+
+**Exclude `.document-pages-*` from generic scratch/age-based cleanup.** A
+retained directory can contain clinical recovery evidence, including after a
+process crash before `recovery.txt` was written. Do not delete it, restore its
+original automatically, or repeat the submission. An operator must preserve
+the directory, confirm the current destination inode/content and corresponding
+document, patient, queue, and provider-routing rows, then reconcile the outcome
+before removing the recovery copy. Perform recovery with affected document
+work paused; never overwrite a file that now belongs to another operation.
+
+Only an explicit pre-acceptance capacity response permits automatic retry.
+All uncertain responses keep the browser's page selection visible and prevent
+duplicate submission. Cache-invalidation failures refuse quick page edits
+before replacing the source; render workers cannot republish old pages while
+the edit owns its source lease.
+
+Page edits carry the SHA-256 revision observed by the viewer. If another user
+changes that document first, the application refuses the old selection before
+changing the file or database. Reload and review the current pages before
+submitting a new selection. Retrying an old selection against a newly fetched
+revision can target different clinical content and must not be automated.
 
 ## Other installation methods
 

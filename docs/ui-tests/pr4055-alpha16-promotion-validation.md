@@ -213,7 +213,19 @@ rule execution remain in scope.
   or skips, covering incoming-document concurrency/authorization/publication,
   eForm import and capacity continuations, approval scope and fax preparation.
   The final capacity-receipt expiry correction subsequently passed 88 affected
-  Java cases. The complete rebuilt application and installed runs remain pending.
+  Java cases. The final full Java/JSP/Javadoc/WAR build at `52de6c6b13`
+  reported 15,383 tests, zero failures/errors, and three host Selenium skips.
+  All three skipped Selenium cases subsequently passed against the installed VM.
+  The CLI source path was configured; the earlier disclosure-source assertion
+  was corrected to verify the shared response helper before this passing run.
+- Iteration 7 fresh JaCoCo audit: promotion coverage 3,055/3,318 changed
+  executable lines (92.1%), review fixes 949/1,040 (91.2%), and the latest
+  concurrency changes 526/574 (91.6%). Only documentation-only
+  `package-info.java` is unmapped.
+- All three iteration 7 Debian packages built and passed 9,882 installed-payload
+  hash checks. The attested public CLI ownership/payload and application health
+  checks passed, as did all 45 upgrade-preservation assertions. Installed
+  Playwright validation is in progress; these results do not stand in for it.
 - Iteration 7 full Node suite: 1,605 passed, zero failures/skips, with the
   pinned CLI checkout configured and one file at a time. The final preview
   clearing and constant-regex fax-guard changes then passed 45 focused cases.
@@ -375,13 +387,65 @@ controller-reserved suffix and disable polling on their synthetic accounts.
 Pending request/click observers drain before cleanup; stamp signal handling uses
 the same deferred-cleanup contract. All 48 focused fixture regressions passed.
 
+Iteration 7 installed pagination reached the split-view capacity checks and
+then exposed a real layout defect: a rotated full-resolution canvas overlapped
+the preceding page and prevented a normal selection click. The run failed;
+its layout correction and regression rerun are pending. No forced browser
+click is used to hide this interaction failure. Reviewing that path also found
+that split creation could commit a document before a routing-class cast failed,
+then return an empty HTTP 200 while the browser had already discarded the page
+selection. The correction is being expanded to cover explicit acceptance,
+transactional routing, bounded PDF preparation, atomic file publication, source
+mutation serialization, and visible preservation of unconfirmed selections.
+These additional changes still require their final Java and installed-browser runs.
+The review also found that a queued page number can identify different content
+after another user removes a page. Stored-document edits now carry the content
+revision observed by the viewer, checked under the source lease and immediately
+before publication. A stale selection receives an explicit unaccepted conflict
+and retains its selection for review; it is never silently applied to newer
+pages. Retries pin the originating CSRF token and revision. Independent-session
+browser coverage has been added for this case. All 71 focused controller tests
+passed, including pagehide before dispatch, replaced rows, changed sessions,
+known-unaccepted retries and uncertain outcomes. The five locale files pass
+key and encoding consistency checks. The complete iteration 8 script
+suite subsequently passed 1,762 tests with zero failures or skips, including
+the final incoming wait-page recovery fixtures. The full Java build and
+installed validation remain pending for these source changes.
+
+The stored-document Java/PDF/database and view-access group passed 249 tests.
+The incoming revision/admission group passed 216 tests after correcting a
+symlink-negative fixture that attempted to hash its forbidden target during
+setup. Incoming page mutations now share fair PDF admission with document
+reads; the permit remains held until the synchronous mutation actually ends.
+Only explicitly pre-mutation source/parser admission refusals produce the native
+automatic waiting page. Revision conflicts require a read-only refresh, and
+later or uncertain failures never trigger automatic mutation replay. The
+installed incoming check now includes five injected native refusals followed by
+one real rotation, stale page-edit rejection and stale filing rejection. These
+new installed cases remain pending package build and VM execution.
+
+
+The incoming workflow subsequently passed native PDF/image recovery after five
+injected refusals, extraction/rotation/deletion, collision preservation, CSRF and
+read-only authorization checks. Its filing phase exposed a fixture omission:
+the synthetic patient lacked admission to the test provider's program domain.
+The fixture now creates an owned admission in the provider's program domain,
+without bypassing that access boundary. The complete installed iteration 7
+incoming check subsequently passed, including five filing capacity refusals,
+an uncertain-response lock, a single real filing and exact owned-fixture cleanup.
+Its native-PDF and program-fixture helpers passed 22 focused Node regressions. Native
+PDF byte verification now reads the actual authorized destination independently
+of Chromium's generated viewer document, and expected injected-error filtering
+ignores only client-side URL fragments while retaining exact endpoint identity.
+
 Full browser, corpus and isolated ON-import/BC-profile results
 will be recorded after their respective runs. Missing validation fixtures are
 prepared with private baselines and ownership journals, without treating a
 fixture-dependent skip as a pass.
 
-The continued multi-user review added corrections awaiting the next complete
-application build and installed validation. Simultaneous eForm imports now use
+The continued multi-user review added corrections included in the iteration 7
+application build, with installed browser validation still in progress.
+Simultaneous eForm imports now use
 separate staging directories and atomically publish complete images without
 replacing another import's image. Incoming-document page counting shares bounded
 PDF admission. Filing and page edits serialize per source; terminal removal

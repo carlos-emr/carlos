@@ -15,8 +15,7 @@ package io.github.carlos_emr.carlos.mds.gate;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
-import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -40,7 +39,6 @@ import org.apache.struts2.ServletActionContext;
 public final class ViewSplit2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
 
     @Override
     public String execute() {
@@ -65,7 +63,7 @@ public final class ViewSplit2Action extends ActionSupport {
             return NONE;
         }
         try {
-            DocumentPatientLink.requireAccess(loggedInInfo, documentNo, securityInfoManager, ctlDocumentDao);
+            IncomingDocumentCapacityResponse.requireStoredDocumentReadAccess(securityInfoManager, loggedInInfo, documentNo);
         } catch (SecurityException e) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             throw e;

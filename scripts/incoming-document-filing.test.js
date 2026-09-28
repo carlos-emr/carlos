@@ -15,7 +15,7 @@ const accepted = () => response(200, {success: true, accepted: true, documentNo:
 function viewer() {
   const handlers = {}, events = {}, timers = [], requests = [], navigations = [], attributes = {};
   const inputs = [{name: 'description', value: 'owned value', disabled: false}, {name: 'unchanged', value: 'x', disabled: true}];
-  const fields = [['method', 'addIncomingDocument'], ['documentDescription', 'owned value'], ['flagproviders', '1'], ['flagproviders', '2'], ['CSRF-TOKEN', 'token']];
+  const fields = [['method', 'addIncomingDocument'], ['documentDescription', 'owned value'], ['flagproviders', '1'], ['flagproviders', '2'], ['CSRF-TOKEN', 'token'], ['sourceRevision', 'a'.repeat(64)]];
   const form = {action: 'https://local/carlos/documentManager/ManageDocument', dataset: {waitMessage: 'waiting', unconfirmedMessage: 'check chart', savingMessage: 'saving'}, elements: inputs,
     addEventListener(name, cb) {handlers[name] = cb;}, setAttribute(name, value) {attributes[name] = value;}};
   const status = {textContent: ''};
@@ -163,4 +163,33 @@ test('navigation rejects invalid optional patient/mode and nonnumeric queues', a
     assert.equal(v.navigations.length, 0);
     assert.equal(v.status.textContent, 'check chart');
   }
+});
+
+
+test('stale incoming source stops after busy waits and preserves frozen revision and form without replay', async () => {
+  const v = viewer(); const done = v.submit();
+  const originalBody = v.requests[0].options.body;
+  assert.equal(new URLSearchParams(originalBody).get('sourceRevision'), 'a'.repeat(64));
+  v.requests[0].resolve(busy()); await flush();
+  v.fields.find(([key]) => key === 'sourceRevision')[1] = 'b'.repeat(64);
+  v.timers[0].cb(); await flush();
+  assert.equal(v.requests[1].options.body, originalBody);
+  v.requests[1].resolve(response(409, {success: false, accepted: false, retryable: false, sourceChanged: true, error: 'Refresh the changed document.'}));
+  await done;
+  assert.equal(v.status.textContent, 'Refresh the changed document.');
+  assert.equal(v.inputs[0].disabled, false);
+  assert.equal(v.inputs[1].disabled, true);
+  assert.equal(v.inputs[0].value, 'owned value');
+  assert.equal(v.requests.length, 2);
+  assert.equal(v.timers.length, 1);
+  assert.equal(v.navigations.length, 0);
+});
+
+test('untyped conflict has unknown acceptance and remains locked without replay', async () => {
+  const v = viewer(); const done = v.submit();
+  v.requests[0].resolve(response(409, {success: false, accepted: false, retryable: false}));
+  await done; await v.submit();
+  assert.equal(v.status.textContent, 'check chart');
+  assert(v.inputs.every(input => input.disabled));
+  assert.equal(v.requests.length, 1);
 });

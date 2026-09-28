@@ -376,6 +376,8 @@ async function readManagerTemplateBackgrounds(context, fid) {
     try {
       // DOMParser keeps the editor response and stored template inert. The
       // textarea value is HTML-decoded by the browser before parsing the form.
+      // The callback is a fixed local function; HTML is a serialized argument parsed as inert DOM, never executable source.
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
       const snapshot = await parserPage.evaluate(storedBackgroundSnapshot, editorHtml);
       return expectedBackgrounds(snapshot);
     } finally {

@@ -1033,7 +1033,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     @DisplayName("Rejects incoming source symlinks that escape the incoming directory")
     void shouldThrowSecurityException_whenIncomingDocumentSourceEscapesIncomingDirectoryViaSymlink() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
-        Path outsideDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "incoming-outside-");
+        Path outsideDir = Files.createTempDirectory(tempDir, "incoming-outside-");
         Path outsideFile = Files.writeString(outsideDir.resolve("victim.pdf"), "victim-content");
         Path symlink = incomingDir.resolve("link.pdf");
         try {
@@ -1191,15 +1191,17 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void shouldReportUnconfirmedWhenPersistenceThrowsAfterMove(boolean contract) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,false", "true,true", "false,true"})
+    void shouldReportUnconfirmedWhenPersistenceThrowsAfterMove(boolean contract, boolean revisionFailure) throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Path sourceFile = createIncomingSource(incomingDir, "persistence.pdf", "source-content");
         setupSuccessfulAddIncomingRequest("persistence.pdf");
         if (contract) request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
         try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
             edocUtil.when(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class)))
-                    .thenThrow(new IllegalStateException("private persistence failure"));
+                    .thenThrow(revisionFailure
+                            ? new io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.ConflictException()
+                            : new IllegalStateException("private persistence failure"));
             assertThat(action.addIncomingDocument()).isEqualTo("none");
         }
         assertThat(sourceFile).doesNotExist();
@@ -1296,11 +1298,32 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "duplicate", "changed", "malformed"})
+    void shouldRefuseUnobservedIncomingVersionBeforeParsingOrFiling(String reason) throws Exception {
+        Path directory = configureIncomingDocumentDirectories();
+        Path source = createIncomingSource(directory, "revision.pdf", "original-content");
+        setupSuccessfulAddIncomingRequest("revision.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        if ("missing".equals(reason)) request.removeParameter("sourceRevision");
+        if ("duplicate".equals(reason)) request.addParameter("sourceRevision", request.getParameter("sourceRevision"));
+        if ("malformed".equals(reason)) request.setParameter("sourceRevision", "A".repeat(64));
+        if ("changed".equals(reason)) Files.writeString(source, "changed-content");
+        byte[] before = Files.readAllBytes(source);
+        assertThat(action.addIncomingDocument()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("\"accepted\":false", "\"sourceChanged\":true", "\"retryable\":false");
+        assertThat(action.pageCountRequests).isZero();
+        assertThat(Files.readAllBytes(source)).isEqualTo(before);
+        assertThat(listStoredDocuments()).isEmpty();
+        verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
+    }
+
     private Path createIncomingSource(Path incomingDir, String fileName, String content) throws IOException {
         return Files.writeString(incomingDir.resolve(fileName), content);
     }
 
-    private void setupSuccessfulAddIncomingRequest(String pdfName) {
+    private void setupSuccessfulAddIncomingRequest(String pdfName) throws IOException {
         request.setMethod("POST");
         request.getSession().setAttribute("user", "999998");
         Provider provider = new Provider();
@@ -1311,6 +1334,18 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("queueId", "1");
         request.setParameter("pdfDir", "Fax");
         request.setParameter("pdfName", pdfName);
+        String configuredIncoming = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        if (configuredIncoming != null && !pdfName.contains("/") && !pdfName.contains("\\")) {
+            Path observedSource = Path.of(configuredIncoming).resolve("1/Fax").resolve(pdfName);
+            if (Files.isSymbolicLink(observedSource)) {
+                // The negative path-containment case must reach the production security gate;
+                // never read an external target merely to prepare its submitted revision.
+                request.setParameter("sourceRevision", "0".repeat(64));
+            } else if (Files.isRegularFile(observedSource, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                request.setParameter("sourceRevision",
+                        io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.sha256(observedSource));
+            }
+        }
         request.setParameter("demog", "100");
         request.setParameter("observationDate", "2026-05-26");
         request.setParameter("documentDescription", "Incoming document");

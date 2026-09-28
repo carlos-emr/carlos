@@ -22,6 +22,9 @@ public final class IncomingDocumentCapacityResponse {
 
     private IncomingDocumentCapacityResponse() { }
 
+    @SuppressFBWarnings(value = "SERVLET_HEADER",
+            justification = "Exact client-supplied version selects JSON versus HTML response representation only; "
+                    + "patient/queue authorization, path validation and filing acceptance do not trust this header")
     public static boolean usesContract(HttpServletRequest request) {
         return CONTRACT_VERSION.equals(request.getHeader(CONTRACT_HEADER));
     }
@@ -76,6 +79,38 @@ public final class IncomingDocumentCapacityResponse {
         if (hasActiveQueue) throw new SecurityException("You do not have access to the source document queue.");
     }
 
+    /** Authorize stored-view metadata and revision bytes without requiring edit permission. */
+    public static void requireStoredDocumentReadAccess(io.github.carlos_emr.carlos.managers.SecurityInfoManager security,
+                                                       io.github.carlos_emr.carlos.utility.LoggedInInfo info, int documentNo) {
+        if (info == null || !security.hasPrivilege(info, "_edoc", "r", (String) null)) {
+            throw new SecurityException("Document read access is required");
+        }
+        requireRefileSourceAccess(security, info, documentNo);
+        Set<Integer> linkedPatients = new java.util.HashSet<>();
+        for (io.github.carlos_emr.carlos.commn.model.CtlDocument link :
+                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class)
+                        .findByDocumentNoAndModule(documentNo, "demographic")) {
+            Integer patient = link.getId().getModuleId();
+            if (patient != null && patient > 0) linkedPatients.add(patient);
+        }
+        for (io.github.carlos_emr.carlos.commn.model.PatientLabRouting route :
+                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class)
+                        .findDocByDemographic(documentNo)) {
+            Integer patient = route.getDemographicNo();
+            // ctl_document patients were checked by the shared source gate. Also
+            // cover valid patient routing while a document is still unfiled.
+            if (patient != null && patient > 0 && linkedPatients.add(patient)
+                    && !security.isAllowedAccessToPatientRecord(info, patient)) {
+                throw new SecurityException("Unauthorized access to patient record");
+            }
+        }
+        for (Integer patient : linkedPatients) {
+            if (!security.hasPrivilege(info, "_edoc", "r", patient.toString())) {
+                throw new SecurityException("Patient document read access denied");
+            }
+        }
+    }
+
     private static String positiveOrOne(String value) {
         try { return String.valueOf(Math.max(1, Integer.parseInt(value))); }
         catch (NumberFormatException ignored) { return "1"; }
@@ -126,6 +161,56 @@ public final class IncomingDocumentCapacityResponse {
         }
         out.write("<a href=\"" + Encode.forHtmlAttribute(retry) + "\">"
                 + Encode.forHtml(messages.getString("global.btnContinue")) + "</a></body></html>");
+    }
+
+    /** Only used for an explicit pre-dispatch source-lease refusal. */
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "All posted names/values and fixed-context URLs are OWASP attribute encoded")
+    public static void pageEditBusy(HttpServletRequest request, HttpServletResponse response, Writer out,
+                                    String queue, String directory, String documentIndex) throws IOException {
+        busyHeaders(response);
+        response.setContentType("text/html;charset=UTF-8");
+        String refresh = readOnlyUrl(request, queue, directory, documentIndex, "1");
+        ResourceBundle messages = ResourceBundle.getBundle("oscarResources", request.getLocale());
+        out.write("<!DOCTYPE html><html><body><p role=\"status\">" + Encode.forHtml(waitingMessage(request))
+                + "</p><form id=\"incoming-page-edit-wait\" data-accepted=\"false\" method=\"post\" action=\""
+                + Encode.forHtmlAttribute(request.getContextPath() + "/documentManager/ViewIncomingDocs") + "\">");
+        for (Map.Entry<String, String[]> field : request.getParameterMap().entrySet()) {
+            for (String value : field.getValue()) out.write("<input type=\"hidden\" name=\""
+                    + Encode.forHtmlAttribute(field.getKey()) + "\" value=\"" + Encode.forHtmlAttribute(value) + "\">");
+        }
+        out.write("</form><a id=\"incoming-page-edit-cancel\" href=\"" + Encode.forHtmlAttribute(refresh) + "\">"
+                + Encode.forHtml(messages.getString("global.btnContinue")) + "</a><script src=\""
+                + Encode.forHtmlAttribute(request.getContextPath() + "/js/incomingDocumentPageEditWait.js")
+                + "\"></script></body></html>");
+    }
+
+    /** A stale selection must be explicitly refreshed, never silently given a new revision. */
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Localized messages and validated read-only URL are OWASP encoded")
+    public static void pageSourceChanged(HttpServletRequest request, HttpServletResponse response, Writer out,
+                                         String queue, String directory, String documentIndex) throws IOException {
+        String refresh = readOnlyUrl(request, queue, directory, documentIndex, "1");
+        ResourceBundle messages = ResourceBundle.getBundle("oscarResources", request.getLocale());
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentType("text/html;charset=UTF-8");
+        out.write("<!DOCTYPE html><html><body><p role=\"alert\">"
+                + Encode.forHtml(messages.getString("documentMutation.sourceChanged")) + "</p><a href=\""
+                + Encode.forHtmlAttribute(refresh) + "\">" + Encode.forHtml(messages.getString("global.btnContinue"))
+                + "</a></body></html>");
+    }
+
+    public static void filingSourceChanged(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setHeader("Cache-Control", "no-store");
+        if (usesContract(request)) {
+            response.setContentType("application/json;charset=UTF-8");
+            JSON.writeValue(response.getWriter(), Map.of("success", false, "accepted", false,
+                    "retryable", false, "sourceChanged", true, "error",
+                    ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("documentMutation.sourceChanged")));
+        } else {
+            pageSourceChanged(request, response, response.getWriter(), request.getParameter("queueId"),
+                    request.getParameter("pdfDir"), request.getParameter("pdfNo"));
+        }
     }
 
     /** Called only before a source move, database write, audit or routing mutation. */

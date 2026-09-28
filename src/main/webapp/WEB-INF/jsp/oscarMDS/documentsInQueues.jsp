@@ -141,7 +141,8 @@
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
     <script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
-    <script type="text/javascript"
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
+<script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 
 
@@ -306,64 +307,16 @@
         }
 
         function removeFirstPage(id) {
-            jQuery("#removeFirstPagebtn_" + id).attr('disabled', 'disabled');
-            ShowSpin(true);
-
-            if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
-                var displayDocumentAs = $('displayDocumentAs_' + id).value;
-
-                CarlosAjax.request(contextpath + "/documentManager/SplitDocument", {
-                    method: 'post', parameters: "method=removeFirstPage&document=" + id, onSuccess: function (data) {
-                        if (displayDocumentAs == "PDF") {
-                            showPDF(id, contextpath);
-                        } else {
-                            CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
-                        }
-                        var numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
-                        jQuery("#numPages_" + id).text("" + numPages);
-
-                        if (numPages <= 1) {
-                            jQuery("#numPages_" + id).removeClass("multiPage");
-                            jQuery("#removeFirstPagebtn_" + id).remove();
-                        }
-                        jQuery("#removeFirstPagebtn_" + id).removeAttr('disabled');
-                        HideSpin();
-                    }
-                });
-            }
+            return quickDocumentMutation(id, 'removeFirstPage');
         }
 
 
         function rotate180(id) {
-            jQuery("#rotate180btn_" + id).attr('disabled', 'disabled');
-            var displayDocumentAs = $('displayDocumentAs_' + id).value;
-
-            CarlosAjax.request(contextpath + "/documentManager/SplitDocument", {
-                method: 'post', parameters: "method=rotate180&document=" + id, onSuccess: function (data) {
-                    jQuery("#rotate180btn_" + id).removeAttr('disabled');
-                    if (displayDocumentAs == "PDF") {
-                        showPDF(id, contextpath);
-                    } else {
-                        CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
-                    }
-                }
-            });
+            return quickDocumentMutation(id, 'rotate180');
         }
 
         function rotate90(id) {
-            jQuery("#rotate90btn_" + id).attr('disabled', 'disabled');
-            var displayDocumentAs = $('displayDocumentAs_' + id).value;
-
-            CarlosAjax.request(contextpath + "/documentManager/SplitDocument", {
-                method: 'post', parameters: "method=rotate90&document=" + id, onSuccess: function (data) {
-                    jQuery("#rotate90btn_" + id).removeAttr('disabled');
-                    if (displayDocumentAs == "PDF") {
-                        showPDF(id, contextpath);
-                    } else {
-                        CarlosDocumentImages.load(document.getElementById("docImg_" + id), contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
-                    }
-                }
-            });
+            return quickDocumentMutation(id, 'rotate90');
         }
 
         function split(id, demoName) {

@@ -121,6 +121,28 @@ public final class BoundedPdfTask {
         }
     }
 
+    /**
+     * Shares the parser budget with synchronous mutations. The caller holds this lease
+     * until its actual work completes; there is deliberately no background execution deadline.
+     * Callers must not start another bounded parse while holding this non-reentrant permit.
+     */
+    public static SynchronousAdmission acquireSynchronousAdmission() throws IOException {
+        return acquireSynchronousAdmission(TimeUnit.SECONDS.toMillis(ADMISSION_TIMEOUT_SECONDS));
+    }
+
+    static SynchronousAdmission acquireSynchronousAdmission(long admissionTimeoutMillis) throws IOException {
+        acquireWorkerPermit(admissionTimeoutMillis);
+        return new SynchronousAdmission();
+    }
+
+    public static final class SynchronousAdmission implements AutoCloseable {
+        private final java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
+        private SynchronousAdmission() { }
+        @Override public void close() {
+            if (released.compareAndSet(false, true)) PARSE_PERMITS.release();
+        }
+    }
+
     private BoundedPdfTask() {
     }
 

@@ -803,7 +803,17 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum int the 1-based page number of the cache entries to delete
      */
     public static void deleteCacheVersion(Document d, int pageNum) {
+        try {
+            deleteCacheVersionChecked(d, pageNum);
+        } catch (IOException failure) {
+            MiscUtils.getLogger().error("Failed to invalidate document page cache", failure);
+        }
+    }
+
+    /** Page mutations must surface failed cache invalidation instead of showing stale clinical pages. */
+    public static void deleteCacheVersionChecked(Document d, int pageNum) throws IOException {
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        IOException failure = null;
         for (int dpi : ALLOWED_RENDER_DPI) {
             Path cached = PathValidationUtils.validateGeneratedChildPath(
                     PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
@@ -813,9 +823,11 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 Files.delete(cached);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSafe.sanitizeObject(cached.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                if (failure == null) failure = e;
+                else failure.addSuppressed(e);
             }
         }
+        if (failure != null) throw failure;
     }
 
     /**
@@ -938,13 +950,15 @@ public class ManageDocument2Action extends ActionSupport {
     // createCacheVersion2, so the containment guard has to be declared on this method too --
     // both paths below are resolved through PathValidationUtils before anything is opened.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private byte[] renderPageToCache(Document d, Integer pageNum, int dpi) {
+    private byte[] renderPageToCache(Document d, Integer pageNum, int dpi) throws BoundedPdfTask.BusyException {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
         Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
         Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        try (io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.Lease lease =
+                     io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.acquireForRender(pdfPath.toFile(), documentDir);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
@@ -986,6 +1000,8 @@ public class ManageDocument2Action extends ActionSupport {
             }
 
             return baos.toByteArray();
+        } catch (BoundedPdfTask.BusyException busy) {
+            throw busy;
         } catch (Exception e) {
             log.error("Error decoding pdf file {}", LogSafe.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             return EMPTY_IMAGE;
@@ -1456,6 +1472,9 @@ public class ManageDocument2Action extends ActionSupport {
                 .toFile();
         try (IncomingDocumentMutationLock.Lease mutation = IncomingDocumentMutationLock.acquire(requestedSourceFile, incomingDir)) {
             File sourceFile = mutation.source();
+            String[] revisions = request.getParameterValues("sourceRevision");
+            String observedRevision = revisions != null && revisions.length == 1 ? revisions[0] : null;
+            io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.requireMatch(sourceFile.toPath(), observedRevision);
             if (!sourceFile.isFile()) {
                 log.warn("Incoming document source is not a regular file");
                 throw new SecurityException("Incoming document source must be a regular file");
@@ -1513,6 +1532,7 @@ public class ManageDocument2Action extends ActionSupport {
             requireIncomingPatientAccess(loggedInInfo, incomingPatientNo);
             IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager, loggedInInfo, queueId1);
 
+            io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.requireMatch(sourceFile.toPath(), observedRevision);
             for (int counter = 0; counter < MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS; counter++) {
                 String candidateFileName = incomingDestinationCandidate(originalSanitized, counter);
                 destFile = PathValidationUtils.validatePath(candidateFileName, saveDir);
@@ -1572,6 +1592,9 @@ public class ManageDocument2Action extends ActionSupport {
                 IncomingDocumentCapacityResponse.filingUnconfirmed(request, response);
                 return NONE;
             }
+        } catch (io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.ConflictException changed) {
+            IncomingDocumentCapacityResponse.filingSourceChanged(request, response);
+            return NONE;
         } catch (java.nio.file.NoSuchFileException removed) {
             IncomingDocumentCapacityResponse.filingSourceUnavailable(request, response);
             return NONE;

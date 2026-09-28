@@ -208,7 +208,19 @@
     }
 
     try {
-        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale);
+        String[] observedRevisions = request.getParameterValues("sourceRevision");
+        String observedRevision = observedRevisions != null && observedRevisions.length == 1 ? observedRevisions[0] : null;
+        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale, observedRevision);
+    } catch (io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.ConflictException | java.nio.file.NoSuchFileException changed) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageSourceChanged(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
+    } catch (IncomingDocUtil.PageEditAdmissionBusyException busy) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageEditBusy(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
     } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
         errorMessage = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale())
                 .getString("dms.incomingDocs.editNotApplied");
@@ -246,9 +258,13 @@
 
     int tabIndex = 0;
     int numOfPage = 0;
+    String sourceRevision = "";
     if (!pdfName.isEmpty()) {
-        try {
+        try (io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.Lease viewLease =
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.acquire(
+                    new File(IncomingDocUtil.getIncomingDocumentFilePathName(queueIdStr, pdfDir, pdfName)), new File(pdfDirectory))) {
             numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
+            sourceRevision = io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.sha256(viewLease.source().toPath());
         } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
             // This JSP also follows successful POST mutations. Retry a constructed read-only
             // GET, never reload the current request and risk replaying a page edit or filing.
@@ -923,6 +939,7 @@
                     <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfAction" value="">
                     <input type="hidden" name="pdfPageNumber" value="1">
                     <input type="hidden" name="pdfExtractPageNumber" value="">
@@ -1082,6 +1099,7 @@
                         <input type="hidden" name="method" value="addIncomingDocument"/>
                         <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queueId" value="<carlos:encode value='<%= queueIdStr %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queue" value="1">

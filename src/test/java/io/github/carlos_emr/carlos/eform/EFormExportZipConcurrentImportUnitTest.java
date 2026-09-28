@@ -242,10 +242,11 @@ class EFormExportZipConcurrentImportUnitTest {
     void unusableSharedStagingParentFailsBeforeAnyImagePublication() throws Exception {
         Path occupied = images.resolve("extractFolder");
         Files.writeString(occupied, "EXISTING-FILE");
+        ByteArrayInputStream archive = new ByteArrayInputStream(zip(Map.of("new.png", "UNPUBLISHED")));
         try (MockedStatic<ImageUpload2Action> imageFolder = mockStatic(ImageUpload2Action.class)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
-            assertThatThrownBy(() -> new EFormExportZip().importForm(
-                    new ByteArrayInputStream(zip(Map.of("new.png", "UNPUBLISHED")))))
+            EFormExportZip importer = new EFormExportZip();
+            assertThatThrownBy(() -> importer.importForm(archive))
                     .isInstanceOf(IOException.class);
         }
         assertThat(Files.readString(occupied)).isEqualTo("EXISTING-FILE");
@@ -297,12 +298,14 @@ class EFormExportZipConcurrentImportUnitTest {
         entries.put("fixture/eform.properties", "form.name=Owned\nform.htmlFilename=form.html\n");
         entries.put("fixture/form.html", "<img src='unpublished.png'>");
         entries.put("fixture/unpublished.png", "FULL-PRIVATE-ASSET");
+        ByteArrayInputStream archive = new ByteArrayInputStream(zip(entries));
         try (MockedStatic<ImageUpload2Action> imageFolder = mockStatic(ImageUpload2Action.class);
              MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class);
              MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             files.when(() -> Files.createLink(eq(destination), any(Path.class))).thenThrow(failure);
-            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(zip(entries))))
+            EFormExportZip importer = new EFormExportZip();
+            assertThatThrownBy(() -> importer.importForm(archive))
                     .isInstanceOf(IOException.class);
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
         }

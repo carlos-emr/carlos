@@ -86,7 +86,7 @@
                     if (inactive || !await wait(response, attempt++)) break;
                     continue;
                 }
-                if (response.status === 422 && data && data.success === false && data.accepted === false && data.retryable === false) {
+                if ((response.status === 422 || (response.status === 409 && data && data.sourceChanged === true)) && data && data.success === false && data.accepted === false && data.retryable === false) {
                     sent = false;
                     message(typeof data.error === 'string' ? data.error : 'The document could not be read. Review it before retrying.');
                     unlock();

@@ -31,10 +31,23 @@
         // History restoration must never replay a POST whose acceptance is unknown.
         status.textContent = submitted ? form.dataset.uncertainMessage : form.dataset.cancelledMessage;
     });
+    function retryDelay() {
+        // This spreads scheduling only; it never generates an approval or security token.
+        // Keep waiting usable if an older/restricted browser cannot provide random bytes.
+        let jitter = Date.now() % 3000;
+        try {
+            const sample = new Uint32Array(1);
+            window.crypto.getRandomValues(sample);
+            jitter = sample[0] % 3000;
+        } catch (unavailable) {
+            // Arrival-time phase still varies the delay without disabling automatic waiting.
+        }
+        return 2000 + jitter;
+    }
     // The server emits this page only for a typed pre-admission refusal. Each later
     // busy page may wait again; network failures and other server responses cannot.
     timer = window.setTimeout(() => {
         timer = null;
         if (!submitted) form.requestSubmit();
-    }, 2000 + Math.floor(Math.random() * 3000));
+    }, retryDelay());
 })();

@@ -2886,7 +2886,8 @@ input[id^='acklabel_']{
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
-    <script type="text/javascript"
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
+<script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 
 </body>

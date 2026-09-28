@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -153,7 +154,7 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             // this is an ordinary outcome, not a failure of the eForm. Reporting it as "could not
             // be downloaded" sent the clinician looking for a problem with the document.
             // Fax2Action and DocumentPreview2Action already say this; say it here too.
-            logger.info("eForm download approval expired or did not match: fdid={}", fdidValue);
+            logger.info("eForm download approval expired or did not match: fdid={}", LogSafe.sanitizeObject(fdidValue));
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(
                     request, APPROVAL_EXPIRED_MESSAGE_KEY, APPROVAL_EXPIRED_MESSAGE_FALLBACK));
@@ -192,7 +193,7 @@ public class DownloadEFormPdf2Action extends ActionSupport {
                         fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.DOWNLOAD,
                         approval, "true".equals(request.getParameter("autoClose")));
             }
-            logger.error("eForm download render failed: fdid={} type={}", fdidValue, e.getClass().getName());
+            logger.error("eForm download render failed: fdid={} type={}", LogSafe.sanitizeObject(fdidValue), e.getClass().getName());
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(
                     request, PDF_DOWNLOAD_FAILURE_MESSAGE_KEY, PDF_DOWNLOAD_FAILURE_MESSAGE_FALLBACK));
@@ -214,7 +215,7 @@ public class DownloadEFormPdf2Action extends ActionSupport {
         try {
             java.nio.file.Files.deleteIfExists(rendered.path());
         } catch (java.io.IOException e) {
-            logger.warn("Could not delete the temporary eForm download render: fdid={}", fdidValue);
+            logger.warn("Could not delete the temporary eForm download render: fdid={}", LogSafe.sanitizeObject(fdidValue));
         }
     }
 

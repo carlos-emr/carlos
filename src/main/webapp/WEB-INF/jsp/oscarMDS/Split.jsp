@@ -22,6 +22,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -59,12 +60,14 @@
     <script>
         var ctx = "${ pageContext.servletContext.contextPath }";
     </script>
-    <script type="text/javascript"
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
+<script type="text/javascript"
             src="${ pageContext.servletContext.contextPath }/share/javascript/sorter.js"></script>
 
 <script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
 </head>
 <body>
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
 
 <div id="mastercontainer">
@@ -101,6 +104,12 @@
                     String demoName = request.getParameter("demoName");
                     DocumentDao docdao = SpringUtils.getBean(DocumentDao.class);
                     Document thisDocument = docdao.getDocument(documentId);
+                    String splitSourceRevision = "";
+                    try {
+                        splitSourceRevision = io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.forDocumentFile(thisDocument.getDocfilename());
+                    } catch (java.io.IOException | SecurityException unavailableRevision) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Split source revision could not be observed; selection requires refresh");
+                    }
 
                     for (int i = 1; i <= thisDocument.getNumberofpages(); i++) {
                 %>
@@ -117,6 +126,8 @@
 </div>
 
 <input type="hidden" id="document_no" value="<carlos:encode value='<%= documentId != null ? documentId : "" %>' context="htmlAttribute"/>"/>
+<input type="hidden" id="splitSourceRevision" value="<carlos:encode value='<%= splitSourceRevision %>' context="htmlAttribute"/>"/>
+<% if (splitSourceRevision.isEmpty()) { %><p role="alert"><fmt:message key="documentMutation.sourceUnavailable"/></p><% } %>
 <input type="hidden" id="queueID" value="${carlos:forHtmlAttribute(param.queueID)}"/>
 <input type="hidden" id="demoName" value="<carlos:encode value='<%= demoName != null ? demoName : "" %>' context="htmlAttribute"/>"/>
 </body>

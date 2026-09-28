@@ -3,17 +3,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {validateFilingRequest, cleanupFiling} = require('./lib/incoming-filing-capacity-check');
-const owned = {name: 'FAKE-PW123.pdf', patient: '123', description: 'FAKE-PW123 incoming filing'};
+const owned = {name: 'FAKE-PW123.pdf', patient: '123', description: 'FAKE-PW123 incoming filing', revision: 'a'.repeat(64)};
 function request(extra = {}, header = 'bounded-v1', method = 'POST') {
   const body = new URLSearchParams({method: 'addIncomingDocument', pdfName: owned.name, demog: owned.patient,
-    documentDescription: owned.description, queueId: '1', pdfDir: 'File', 'CSRF-TOKEN': 'secret', ...extra});
+    documentDescription: owned.description, queueId: '1', pdfDir: 'File', 'CSRF-TOKEN': 'secret', sourceRevision: owned.revision, ...extra});
   return {postData: () => body.toString(), method: () => method, headers: () => ({'x-carlos-incoming-filing': header})};
 }
 test('owned request guard preserves the exact encoded form body', () => {
   const req = request(); assert.equal(validateFilingRequest(req, owned), req.postData());
 });
 for (const [key, value] of Object.entries({method: 'addDocument', pdfName: 'other.pdf', demog: '124',
-  documentDescription: 'other', queueId: '2', pdfDir: 'Fax', 'CSRF-TOKEN': ''})) {
+  documentDescription: 'other', queueId: '2', pdfDir: 'Fax', 'CSRF-TOKEN': '', sourceRevision: 'b'.repeat(64)})) {
   test(`filing guard refuses changed ${key} before transmission`, () => {
     assert.throws(() => validateFilingRequest(request({[key]: value}), owned));
   });
@@ -23,6 +23,8 @@ test('filing guard refuses duplicate targets and missing contract', () => {
   assert.throws(() => validateFilingRequest(duplicate, owned));
   assert.throws(() => validateFilingRequest(request({}, '', 'POST'), owned));
   assert.throws(() => validateFilingRequest(request({}, 'bounded-v1', 'GET'), owned));
+  assert.throws(() => validateFilingRequest({...req, postData: () => req.postData() + '&sourceRevision=' + owned.revision}, owned));
+  assert.throws(() => validateFilingRequest(request({sourceRevision: ''}), owned));
 });
 test('cleanup refuses changed patient ownership before reading or deleting child rows', () => {
   let touched = false;

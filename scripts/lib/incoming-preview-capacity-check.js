@@ -2,6 +2,31 @@
 'use strict';
 const {assert} = require('./playwright-harness');
 
+function capacityTarget(value) {
+  try {const url = new URL(value);url.hash = '';return url.href;} catch (_) {return null;}
+}
+function expectedCapacityConsole(entry, targets) {
+  return entry.type === 'error' && targets.has(capacityTarget(entry.location?.url))
+    && /^Failed to load resource:.*503/.test(entry.text || '');
+}
+
+/** Verify server bytes separately from Chromium's native PDF viewer document. */
+async function recoveredPreviewBytes(context, response, mode) {
+  if (mode !== 'Pdf') return response.body();
+  // DevTools may expose the PDF viewer's generated HTML as the navigation body.
+  // Read the same authorized, read-only destination without the viewer, refusing
+  // redirects or an HTML login/error page even when the UI navigation was 200.
+  const raw = await context.request.get(response.url(), {timeout: 120000, maxRedirects: 0});
+  try {
+    assert(raw.status() === 200 && /^application\/pdf(?:;|$)/i.test(raw.headers()['content-type'] || ''),
+      'recovered PDF destination did not return a successful PDF');
+    const bytes = await raw.body();
+    assert(bytes.length > 100 && bytes.subarray(0, 5).toString() === '%PDF-'
+      && /%%EOF\s*$/.test(bytes.subarray(-1024).toString()), 'recovered PDF destination returned an incomplete PDF');
+    return bytes;
+  } finally { await raw.dispose(); }
+}
+
 /** Exercise both native incoming-preview modes using the workflow's owned PDF. */
 async function checkIncomingPreviewCapacity(session, page, ownedName) {
   const pattern = '**/documentManager/ManageDocument?*';
@@ -23,7 +48,7 @@ async function checkIncomingPreviewCapacity(session, page, ownedName) {
     assert(route.request().method() === 'GET', 'incoming preview retry attempted a mutation');
     attempts++;
     if (attempts > 5) return route.continue();
-    targets.add(route.request().url());
+    targets.add(capacityTarget(route.request().url()));
     return route.fulfill({status: 503, contentType: 'text/html', headers: {'Retry-After': '1', 'Cache-Control': 'no-store'}, body: busyHtml});
   };
   await page.route(pattern, routeHandler);
@@ -39,7 +64,7 @@ async function checkIncomingPreviewCapacity(session, page, ownedName) {
         'incoming capacity wait must be accessible inside the preview');
       const response = await ready;
       let timer;
-      const bytes = await Promise.race([response.body(), new Promise((_, reject) => {
+      const bytes = await Promise.race([recoveredPreviewBytes(session.context, response, mode), new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error(`${mode} preview body did not finish`)), 120000);
       })]).finally(() => clearTimeout(timer));
       assert(bytes.length > 100, `${mode} recovered to an empty preview`);
@@ -48,9 +73,8 @@ async function checkIncomingPreviewCapacity(session, page, ownedName) {
       else assert(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), 'recovered image body is not PNG');
     }
     // Only responses deliberately injected and subsequently recovered are expected.
-    session.recorder.badResponses = session.recorder.badResponses.filter(entry => !(entry.status === 503 && targets.has(entry.url)));
-    session.recorder.consoleIssues = session.recorder.consoleIssues.filter(entry => !(targets.has(entry.location?.url)
-      && /Failed to load resource:.*503/.test(entry.text)));
+    session.recorder.badResponses = session.recorder.badResponses.filter(entry => !(entry.status === 503 && targets.has(capacityTarget(entry.url))));
+    session.recorder.consoleIssues = session.recorder.consoleIssues.filter(entry => !expectedCapacityConsole(entry, targets));
   } finally { await page.unroute(pattern, routeHandler); }
 }
-module.exports = {checkIncomingPreviewCapacity};
+module.exports = {checkIncomingPreviewCapacity, recoveredPreviewBytes, capacityTarget, expectedCapacityConsole};
