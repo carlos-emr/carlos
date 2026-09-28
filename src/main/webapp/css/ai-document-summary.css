@@ -1,0 +1,19 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+.document-summary-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Keep the clinical content together as a compact note rather than a stack of large cards. */
+.document-summary-points .card {
+    border: 0;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 0;
+    margin-bottom: .65rem !important;
+}
+.document-summary-points .card-body {
+    padding: .25rem 0 .5rem;
+}
+.document-summary-points .card-text {
+    margin-bottom: .25rem;
+}
