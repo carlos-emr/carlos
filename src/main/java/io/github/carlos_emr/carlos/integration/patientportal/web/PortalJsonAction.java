@@ -114,8 +114,8 @@ public abstract class PortalJsonAction extends ActionSupport {
         // BeanCreationException may carry configured values in its own message or a nested cause,
         // and so could a configuration message, so neither is logged as it stands. The log names
         // only the patient_portal.* settings the configuration message mentions.
-        logger.error("patient portal configuration is invalid; check deployment settings: {}",
-                settingsNamedBy(exception));
+        String settings = settingsNamedBy(exception);
+        logger.error("patient portal configuration is invalid; check deployment settings: {}", settings);
         return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
                 "portal_configuration_invalid",
                 "The patient portal connection is not configured correctly. Contact an administrator.");
@@ -164,7 +164,8 @@ public abstract class PortalJsonAction extends ActionSupport {
     /** Jakarta's HttpServletResponse predates RFC 6585 and has no constant for this. */
     private static final int TOO_MANY_REQUESTS = 429;
     private static final int MAX_CAUSE_DEPTH = 16;
-    private static final Pattern SETTING_KEY = Pattern.compile("patient_portal(?:\\.[a-z_]+)+");
+    /** A single character class, not a repeated group, so no input can recurse the matcher deeply. */
+    private static final Pattern SETTING_KEY = Pattern.compile("patient_portal\\.[a-z_.]*[a-z_]");
     private static final String NO_DETAIL = "no detail";
     private static final String MISSING_PRIVILEGE = "missing required sec object (%s)";
 
