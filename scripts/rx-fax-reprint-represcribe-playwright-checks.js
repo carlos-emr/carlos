@@ -254,7 +254,8 @@ function createdScriptNos() {
 }
 
 function prescriptionSnapshot(scriptNo) {
-  const row = sql(`SELECT COALESCE(digital_signature_id,''), COALESCE(date_prescribed,''), COALESCE(provider_no,'') FROM prescription WHERE script_no=${scriptNo};`).trim();
+  // Preserve an empty leading signature column; trim() shifts the remaining fields.
+  const row = sql(`SELECT COALESCE(digital_signature_id,''), COALESCE(date_prescribed,''), COALESCE(provider_no,'') FROM prescription WHERE script_no=${scriptNo};`).replace(/\r?\n$/, '');
   const [signatureId, datePrescribed, prescriber] = row.split('\t');
   return { signatureId: signatureId || '', datePrescribed: datePrescribed || '', prescriber: prescriber || '' };
 }

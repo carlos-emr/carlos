@@ -1075,6 +1075,11 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(archive.getByteSize()).isEqualTo((long) RFC822_BYTES.length);
         assertThat(archive.getRetentionPolicy()).isEqualTo(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
         assertThat(archive.getStorageType()).isEqualTo(OutboundEmailArchive.STORAGE_TYPE_EDOC);
+        // From the field default: the entity has no sendStatus setter, so the send lifecycle
+        // can only be moved through its guarded record* transitions.
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
+        assertThat(archive.getSendAttemptedAt()).isNull();
+        assertThat(archive.getSentAt()).isNull();
         assertThat(archive.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
     }
 
@@ -1386,6 +1391,176 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    // --- send lifecycle ---------------------------------------------------------------------
+
+    @Test
+    @DisplayName("should stamp the attempt timestamp when dispatch begins")
+    void shouldStampAttemptTimestamp_whenDispatchBegins() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_ATTEMPTED);
+        assertThat(archive.getSendAttemptedAt()).isNotNull();
+        assertThat(archive.getSentAt()).isNull();
+        verify(outboundEmailArchiveDao).merge(archive);
+    }
+
+    @Test
+    @DisplayName("should keep the first attempt stamp when the attempt marker is repeated")
+    void shouldKeepFirstAttemptStamp_whenAttemptMarkerIsRepeated() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        java.util.Date firstAttemptedAt = archive.getSendAttemptedAt();
+        assertThat(firstAttemptedAt).isNotNull();
+        // Stands in for a different actor repeating the marker: the entity must keep the first.
+        archive.setLastUpdateUser("999001");
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_ATTEMPTED);
+        assertThat(archive.getSendAttemptedAt()).isSameAs(firstAttemptedAt);
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
+    }
+
+    @Test
+    @DisplayName("should record acceptance without claiming the recipient received it")
+    void shouldRecordAcceptance_whenTransportTookCustody() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+
+        // ACCEPTED, never "DELIVERED": SMTP hand-off is all CARLOS can observe.
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isNotNull();
+        assertThat(archive.getSendAttemptedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should record a transport refusal without a sent timestamp")
+    void shouldRecordFailure_whenTransportRefusedTheArtifact() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_FAILED);
+        assertThat(archive.getSentAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep a recorded acceptance when a later failure is reported")
+    void shouldKeepAcceptance_whenLaterFailureIsReported() {
+        // A post-acceptance bookkeeping fault must never rewrite the record into "not sent":
+        // the message is already with the transport and a clinician must not resend it.
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        java.util.Date acceptedAt = archive.getSentAt();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isEqualTo(acceptedAt);
+    }
+
+    @Test
+    @DisplayName("should keep a recorded acceptance when a late attempt marker arrives")
+    void shouldKeepAcceptance_whenLateAttemptMarkerArrives() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        java.util.Date attemptedAt = archive.getSendAttemptedAt();
+        // Backfilled by ACCEPTED, since no attempt marker was written. Without this the
+        // identity check below would hold trivially on null.
+        assertThat(attemptedAt).isNotNull();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSendAttemptedAt()).isSameAs(attemptedAt);
+    }
+
+    @Test
+    @DisplayName("should keep a recorded failure when a later outcome contradicts it")
+    void shouldKeepFailure_whenLaterOutcomeContradictsIt() {
+        // One archive is one dispatch. A second outcome cannot update the first, only contradict
+        // it, so the first observation stands in both directions.
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        stubArchiveLookup(archive);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.FAILED);
+        java.util.Date attemptedAt = archive.getSendAttemptedAt();
+        assertThat(attemptedAt).isNotNull();
+
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        service.recordSendOutcome(loggedInInfo, 888, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_SEND_FAILED);
+        assertThat(archive.getSentAt()).isNull();
+        assertThat(archive.getSendAttemptedAt()).isSameAs(attemptedAt);
+    }
+
+    @Test
+    @DisplayName("should do nothing when archiving never produced a row")
+    void shouldDoNothing_whenArchiveIdIsNull() {
+        assertThat(service.recordSendOutcome(loggedInInfo, null,
+                OutboundEmailArchiveService.SendOutcome.ATTEMPTED)).isNull();
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+    }
+
+    @Test
+    @DisplayName("should refuse to advance the lifecycle without eDoc write rights")
+    void shouldRefuseLifecycleChange_whenEdocWriteRightIsMissing() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.recordSendOutcome(loggedInInfo, 888,
+                OutboundEmailArchiveService.SendOutcome.ACCEPTED))
+                .isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+    }
+
+    @Test
+    @DisplayName("should refuse to advance the lifecycle of a deleted archive")
+    void shouldRefuseLifecycleChange_whenArchiveIsDeleted() {
+        // A controlled deletion can land while a slow transport is still in flight. The late
+        // outcome must not rewrite the tombstone or replace the deleter's audit stamp.
+        OutboundEmailArchive archive = archiveForDeletion();
+        archive.markDeleted("999001", "duplicate send");
+        stubArchiveLookup(archive);
+
+        assertThatThrownBy(() -> service.recordSendOutcome(loggedInInfo, 888,
+                OutboundEmailArchiveService.SendOutcome.ACCEPTED))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(archive.getSendStatus()).isNotEqualTo(OutboundEmailArchive.SEND_STATUS_ACCEPTED);
+        assertThat(archive.getSentAt()).isNull();
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
+        verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+    }
+
+    @Test
+    @DisplayName("should refuse every lifecycle mutator on a deleted entity")
+    void shouldRefuseLifecycleMutators_whenEntityIsDeleted() {
+        // The service refuses first, so its test passes through either guard. This pins the
+        // entity's own, which is what protects a caller that reaches the mutators directly.
+        OutboundEmailArchive archive = archiveForDeletion();
+        archive.markDeleted("999001", "duplicate send");
+
+        assertThatThrownBy(() -> archive.recordSendAttempt(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> archive.recordSendAccepted(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> archive.recordSendFailure(PROVIDER_NO)).isInstanceOf(IllegalStateException.class);
+
+        assertThat(archive.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
+        assertThat(archive.getLastUpdateUser()).isEqualTo("999001");
     }
 
     /**

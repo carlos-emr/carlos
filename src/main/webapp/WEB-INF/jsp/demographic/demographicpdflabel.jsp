@@ -76,6 +76,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -135,7 +136,7 @@
             nurse = demographicCust.getNurse();
             alert = demographicCust.getAlert();
             midwife = demographicCust.getMidwife();
-            notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+            notes = DemographicXml.userNotesText(demographicCust.getNotes());
             notes = notes == null ? "" : notes;
         }
 
@@ -166,11 +167,11 @@
                 rdohip = "";
                 family_doc = "";
             } else {
-                rd = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rd");
+                rd = DemographicXml.referralDoctor(d.getFamilyDoctor());
                 rd = rd != null ? rd : "";
-                rdohip = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rdohip");
+                rdohip = DemographicXml.referralDoctorOhip(d.getFamilyDoctor());
                 rdohip = rdohip != null ? rdohip : "";
-                family_doc = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "family_doc");
+                family_doc = DemographicXml.familyDoc(d.getFamilyDoctor());
                 family_doc = family_doc != null ? family_doc : "";
             }
             //----------------------------REFERRAL DOCTOR --------------end-----------

@@ -99,7 +99,7 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
                 List.of(new EmailAttachment("source.txt", source.toString(), DocumentType.DOC, 101)),
                 new CapturingJavaMailSender());
         try {
-            sender.prepareMessageBytes();
+            sender.prepareArtifactBytes();
             try (var paths = Files.list(tempDir)) {
                 List<Path> snapshots = paths.filter(path -> path.toString().endsWith(".snapshot")).toList();
                 assertThat(snapshots).hasSize(1);
@@ -107,7 +107,7 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
                         java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
             }
         } finally {
-            sender.discardPreparedMessage();
+            sender.discardPrepared();
         }
     }
 
@@ -126,8 +126,8 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
                 new String[]{"patient@example.test"}, "Limit", "Body",
                 List.of(new EmailAttachment("large.bin", source.toString(), DocumentType.DOC, 101)), mailSender);
 
-        assertThatThrownBy(sender::prepareMessageBytes).isInstanceOf(EmailSendingException.class)
-                .hasRootCauseMessage("Prepared SMTP message exceeds the 50 MiB archive limit");
+        assertThatThrownBy(sender::prepareArtifactBytes).isInstanceOf(EmailSendingException.class)
+                .hasRootCauseMessage("Prepared email exceeds the archive size limit");
 
         assertThat(mailSender.getSentMessageBytes()).isNull();
         assertThat(sender.getPreparedAttachments()).isEmpty();
@@ -154,12 +154,12 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
                 List.of(attachment),
                 mailSender);
 
-        byte[] archivedMessageBytes = sender.prepareMessageBytes();
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
         assertThat(sender.getPreparedAttachments()).hasSize(1);
         long preparedByteSize = sender.getPreparedAttachments().get(0).getByteSize();
         String preparedSha256Hash = sender.getPreparedAttachments().get(0).getSha256Hash();
         Files.write(attachmentPath, changedAttachmentBytes);
-        sender.sendPreparedMessage();
+        sender.sendPrepared();
 
         assertThat(preparedByteSize).isEqualTo((long) originalAttachmentBytes.length);
         assertThat(preparedSha256Hash).isEqualTo(sha256Hex(originalAttachmentBytes));
@@ -183,11 +183,11 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
                 "Body text",
                 List.of(attachment),
                 mailSender);
-        sender.prepareMessageBytes();
+        sender.prepareArtifactBytes();
         assertThat(sender.getPreparedAttachments()).hasSize(1);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
 
-        assertThatThrownBy(sender::sendPreparedMessage)
+        assertThatThrownBy(sender::sendPrepared)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_email)");
         assertThat(mailSender.getSentMessageBytes()).isNull();
@@ -206,7 +206,7 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
                 List.of(),
                 new CapturingJavaMailSender());
 
-        assertThatThrownBy(sender::sendPreparedMessage)
+        assertThatThrownBy(sender::sendPrepared)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("SMTP message must be prepared before sending");
     }
@@ -247,7 +247,7 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
     void shouldRejectPreparation_whenSmtpConfigurationIsInvalid(String json) {
         SMTPEmailSender sender = senderWithConfigJson(json);
 
-        assertThatThrownBy(sender::prepareMessageBytes)
+        assertThatThrownBy(sender::prepareArtifactBytes)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Invalid credentials configured for");
     }

@@ -368,8 +368,13 @@
 
 
 <script type="text/javascript">
+    // Standalone fragments such as eForm Management load their own jQuery.
+    // Keep the shell instance with its validation/DataTables plugins, and restore
+    // it before opening the next fragment so navigation order cannot disable them.
+    var carlosAdminJQuery = window.jQuery;
     $(document).ready(function () {
         $("a.contentLink").click(function (e) {
+            window.jQuery = window.$ = carlosAdminJQuery;
             var href = $(this).attr("href");
             e.preventDefault();
             // Only AJAX-load a real URL. Several controls reachable from this

@@ -40,7 +40,9 @@ on:
       - release/*
 
 concurrency:
-  group: sonarcloud-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  # Promotion branches emit both push and pull_request events for the same commit.
+  # Keep those analyses independent so cancellation cannot leave a failed sibling check.
+  group: sonarcloud-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -194,10 +196,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_BRANCH: ${{ github.ref_name }}
         run: |
           docker exec \
             -e GITHUB_TOKEN="$GITHUB_TOKEN" \
             -e SONAR_TOKEN="$SONAR_TOKEN" \
+            -e SONAR_BRANCH="$SONAR_BRANCH" \
             carlos-tomcat-dev bash -c "
               echo '========================================='
               echo 'Running SonarCloud Analysis (Branch)'
@@ -207,6 +211,7 @@ jobs:
                 -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
+                \"-Dsonar.branch.name=\$SONAR_BRANCH\" \
                             "
 
       - name: Build and analyze (Pull Request)

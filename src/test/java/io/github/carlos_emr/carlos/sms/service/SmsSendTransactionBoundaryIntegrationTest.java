@@ -22,6 +22,8 @@ import org.springframework.transaction.annotation.AnnotationTransactionAttribute
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -59,7 +61,7 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
             }
         };
         SmsSendService service = (SmsSendService) transactional(new SmsSendService(new SmsSendValidator(),
-                command -> SmsConsentDecisionDto.permit(), new SmsProviderClientResolver(List.of(provider)), recorder,
+                command -> SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z")), new SmsProviderClientResolver(List.of(provider)), recorder,
                 type -> true, new SmsDefaultProviderResolver(() -> "STUB")));
         try {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();

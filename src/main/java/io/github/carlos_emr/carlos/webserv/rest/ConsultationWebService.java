@@ -188,6 +188,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return rp;
     }
 
+    /**
+     * Loads a stored request for a positive ID, or initializes a new request for
+     * the supplied demographic for a nonpositive ID. Includes form choice lists.
+     *
+     * @param requestId existing request ID, or a nonpositive ID for a new request
+     * @param demographicId patient identifier used when initializing a new request
+     * @param datesAsTimestamp whether date values should serialize as timestamps
+     * @return the request details and form choices
+     * @throws WebApplicationException with HTTP 404 if a positive ID is not found
+     */
     @GET
     @Path("/getRequest")
     @Produces(MediaType.APPLICATION_JSON)
@@ -195,7 +205,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
         if (requestId > 0) {
-            request = requestConverter.getAsTransferObject(getLoggedInInfo(), consultationManager.getRequest(getLoggedInInfo(), requestId));
+            ConsultationRequest stored = getRequiredRequest(requestId);
+            request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
             request.setDemographicId(demographicId);
@@ -230,6 +241,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
 
         return request;
+    }
+
+    private ConsultationRequest getRequiredRequest(Integer requestId) {
+        ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+        if (stored == null) {
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
+                    .entity("Consultation request not found").build());
+        }
+        return stored;
     }
 
     @GET
@@ -318,7 +338,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
         assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
-        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, consultationManager.getRequest(loggedInInfo, data.getId()));
+        ConsultationRequest stored = consultationManager.getRequest(loggedInInfo, data.getId());
+        if (stored == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("Consultation request not found").build();
+        }
+        ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, stored);
 
         request.setProfessionalSpecialist(data.getProfessionalSpecialist() == null ? null : consultationManager.getProfessionalSpecialist(data.getProfessionalSpecialist().getId()));
         consultationManager.saveConsultationRequest(loggedInInfo, request);

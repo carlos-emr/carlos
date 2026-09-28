@@ -285,6 +285,9 @@ async function openEchart(page) {
   await page.goto(appUrl('/encounter/IncomingEncounter', search), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('textarea[name="caseNote_note"]').first().waitFor({ state: 'attached', timeout: 30000 });
   await page.locator('#printOps').waitFor({ state: 'attached', timeout: 30000 });
+  // The editor HTML can arrive before its same-user lock takeover POST finishes.
+  // Wait for that initialization before invoking autosave directly in this check.
+  await page.waitForLoadState('networkidle', { timeout: 30000 });
 }
 
 /**

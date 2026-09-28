@@ -233,7 +233,7 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
             assertThat(emailSenders.constructed()).hasSize(1);
             org.mockito.InOrder lifecycle = inOrder(emailLogDao, emailSenders.constructed().get(0));
             lifecycle.verify(emailLogDao).persist(any(EmailLog.class));
-            lifecycle.verify(emailSenders.constructed().get(0)).send();
+            lifecycle.verify(emailSenders.constructed().get(0)).sendPrepared();
             lifecycle.verify(emailLogDao).transitionEmailStatus(
                     nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
                     eq(""), any(Date.class));
@@ -257,15 +257,15 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<EmailSender> ignored = mockConstruction(
                 EmailSender.class,
                 (sender, context) -> doThrow(new EmailSendingException("transport failed"))
-                        .when(sender).send())) {
+                        .when(sender).sendPrepared())) {
             result = emailManager.sendEmail(loggedInInfo, emailData);
         }
 
         assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
-        assertThat(result.getErrorMessage()).isEqualTo("transport failed");
+        assertThat(result.getErrorMessage()).isEqualTo("Failed to send email (uncategorized delivery failure)");
         verify(emailLogDao).transitionEmailStatus(
                 nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
-                eq("transport failed"), any(Date.class));
+                eq("Failed to send email (uncategorized delivery failure)"), any(Date.class));
     }
 
     @Test
@@ -276,13 +276,13 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
         doThrow(new IllegalStateException("database unavailable"))
                 .when(emailLogDao).transitionEmailStatus(
                         nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
-                        eq("transport failed"), any(Date.class));
+                        eq("Failed to send email (uncategorized delivery failure)"), any(Date.class));
 
         EmailSendResult result;
         try (MockedConstruction<EmailSender> ignored = mockConstruction(
                 EmailSender.class,
                 (sender, context) -> doThrow(new EmailSendingException("transport failed"))
-                        .when(sender).send())) {
+                        .when(sender).sendPrepared())) {
             result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
         }
 
@@ -307,7 +307,7 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
                 EmailSender.class,
                 (sender, context) -> doThrow(new EmailSendingException(
                         "transport timed out", new java.io.IOException("timeout"), true))
-                        .when(sender).send())) {
+                        .when(sender).sendPrepared())) {
             result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
         }
 
@@ -589,7 +589,7 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
             assertThat(result.isTransportAccepted()).isTrue();
             assertThat(result.isTransportOutcomeRecorded()).isTrue();
             assertThat(result.isFollowUpRequired()).isTrue();
-            verify(ignored.constructed().get(0)).send();
+            verify(ignored.constructed().get(0)).sendPrepared();
         } catch (EmailSendingException e) {
             throw new AssertionError(e);
         }

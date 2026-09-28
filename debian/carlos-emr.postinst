@@ -26,8 +26,95 @@ STATE=/var/lib/carlos-emr
 # the EMR: a shell variable would not survive the run, and the exposure has to
 # outlast it (a reboot, or an aborted apt transaction, would otherwise bring the
 # internet-facing EMR up with a password published in the source repository).
-# Cleared automatically by the next successful bootstrap-admin.
+# Cleared by a successful configure or finish-install after bootstrap-admin.
 SEED_SENTINEL="${STATE}/.seed-credential-live"
+
+# Durable record that database provisioning is OWED. Every provisioning step
+# below is non-fatal unless credential containment itself fails. An unreachable
+# database must not
+# leave dpkg half-configured and block the rest of the apt transaction — but
+# the consequence, reported by an alpha tester, is that apt exits 0 over a host
+# with no clinical schema, with the diagnosis only on a stderr stream a
+# graphical or quiet front end never showed. This marker outlives the run so
+# the failure is still there to be found: `carlos-ctl check` reports it first,
+# the debconf error at the end of this script announces it to interactive front
+# ends, and carlos-emr-provision.service finishes the job at the next boot.
+# It carries what the install asked for, so the resumed run makes the same
+# decisions this one would have.
+INCOMPLETE_MARKER="${STATE}/.install-incomplete"
+
+# Keep an in-memory failure flag too: a full/read-only filesystem may prevent
+# writing the marker, but must not suppress the notice or abort dpkg configure.
+INSTALL_INCOMPLETE=0
+mark_incomplete() {
+    INSTALL_INCOMPLETE=1
+    marker_tmp=""
+    if mkdir -p "${STATE}" && marker_tmp="$(mktemp "${INCOMPLETE_MARKER}.XXXXXX")" &&
+        {
+            printf 'reason=%s\n' "$1" &&
+            printf 'reset_admin=%s\n' "${RESET_ADMIN:-true}" &&
+            printf 'demo_data=%s\n' "${DEMO_DATA:-false}" &&
+            printf 'at=%s\n' "$(date -Is 2>/dev/null || true)"
+        } > "${marker_tmp}" && chmod 0644 "${marker_tmp}" &&
+        mv -f "${marker_tmp}" "${INCOMPLETE_MARKER}"; then
+        echo "carlos-emr: recorded the unfinished install in ${INCOMPLETE_MARKER}." >&2
+    else
+        [ -z "${marker_tmp}" ] || rm -f "${marker_tmp}" || true
+        echo "carlos-emr: WARNING: could not persist ${INCOMPLETE_MARKER}; automatic retry is not assured." >&2
+    fi
+    echo "carlos-emr: finish it with:  sudo carlos-ctl finish-install" >&2
+}
+
+# The SAME lock carlos-ctl finish-install takes (provision.LOCK). This script
+# runs the identical provisioning verbs, so serializing only finish-install
+# against finish-install left the real race open: an unattended upgrade or a
+# dpkg-reconfigure can overlap the boot-time provisioner, and both would then
+# call bootstrap-admin -- which writes initial-admin.txt before it updates
+# `security`, so the file left on disk could name the other run's password --
+# and race the marker and the service state as well.
+#
+# Held on fd 9 for the remainder of the script (closed when it exits). Waits
+# rather than refuses, because the other holder is normally seconds from done;
+# a wait that times out records the install as unfinished and skips
+# provisioning, which is the same non-fatal contract as every other step here.
+# flock(1) is util-linux and always present in practice; without it this
+# behaves exactly as it did before the lock existed.
+PROVISION_LOCK="${STATE}/.finish-install.lock"
+acquire_provision_lock() {
+    # A host without flock(1) is the ONE deliberate fallthrough: it provisions
+    # exactly as it did before this lock existed. Failing to create the state
+    # directory or open the lock file is NOT that case -- it means the lock
+    # cannot be taken at all, so provisioning must be deferred rather than run
+    # unserialized beside another run.
+    command -v flock >/dev/null 2>&1 || return 0
+    if ! mkdir -p "${STATE}" 2>/dev/null || ! exec 9>"${PROVISION_LOCK}" 2>/dev/null; then
+        echo "carlos-emr: could not open ${PROVISION_LOCK} (is /var writable?); this" >&2
+        echo "carlos-emr: configure did NOT provision the database, because it cannot" >&2
+        echo "carlos-emr: rule out another provisioning run in the same database." >&2
+        return 1
+    fi
+    if flock -w 300 9; then
+        return 0
+    fi
+    echo "carlos-emr: another CARLOS provisioning run (carlos-ctl finish-install, or the" >&2
+    echo "carlos-emr: boot-time carlos-emr-provision.service) held the provisioning lock for" >&2
+    echo "carlos-emr: five minutes; this configure did NOT provision the database." >&2
+    return 1
+}
+
+clear_incomplete() {
+    # Only a run that actually PROVISIONED may declare that nothing is owed.
+    # MIGRATION_OK=0 without a mark_incomplete above means this configure
+    # deliberately did no provisioning at all -- the OSCAR 19 import gate is
+    # that case -- and deleting the marker a previous failed configure left
+    # would throw away the only thing that triggers recovery, at boot or by
+    # hand, while still reporting the install as finished.
+    if [ "${INSTALL_INCOMPLETE}" = 0 ] && [ "${MIGRATION_OK:-1}" = 1 ]; then
+        if ! rm -f "${INCOMPLETE_MARKER}"; then
+            mark_incomplete "the completed provisioning state could not be recorded"
+        fi
+    fi
+}
 
 # deb-systemd-invoke rather than systemctl: it honours /usr/sbin/policy-rc.d,
 # which is how an image build or a chroot says "configure this package but do
@@ -40,6 +127,51 @@ sd_invoke() {
         return 0
     fi
     deb-systemd-invoke "$@"
+}
+
+# NGINX has bound the front-door listeners the rendered configuration asks for
+# — CARLOS_BIND_IP on 80 and 443. Polled briefly: nginx binds them a moment
+# after the reload signal is delivered, and asking too early would restart a
+# front door that was about to come up on its own. An IPv6 literal shows
+# bracketed in ss.
+#
+# -p, and the nginx match on it, are the point: "something is listening there"
+# is the question that reported a healthy front door on the tester's broken
+# host, and another daemon holding both ports would read exactly the same. The
+# postinst runs as root, so the owner column is populated.
+front_door_listening() {
+    # Match Settings: use the last value, without surrounding space/brackets.
+    bind_ip="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
+    [ -n "${bind_ip}" ] || bind_ip=0.0.0.0
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        # The master can briefly bind sockets during a reload that later
+        # fails. Only workers can serve them; refresh PIDs on every poll.
+        # Capture each command before any pipeline, so a failed visibility
+        # probe is distinct from a successful probe finding no listeners.
+        sockets="$(ss -ltnpH 2>/dev/null)" || return 2
+        if processes="$(ps -C nginx -o pid=,args= 2>&1)"; then
+            :
+        else
+            probe_rc=$?
+            # procps returns 1 with no output when there are no nginx PIDs.
+            [ "${probe_rc}" = 1 ] && [ -z "${processes}" ] || return 2
+        fi
+        worker_pids="$(printf '%s\n' "${processes}" | awk '
+            NF == 4 && $1 ~ /^[0-9]+$/ && $2 == "nginx:" && $3 == "worker" && $4 == "process" {
+                printf "%s%s", separator, $1; separator="|"
+            }')"
+        if [ -n "${worker_pids}" ] && printf '%s\n' "${sockets}" \
+            | grep -E "\\(\"nginx\",pid=(${worker_pids}),fd=[0-9]+\\)" \
+            | awk -v ip="${bind_ip}" \
+            '/\("nginx",pid=[0-9]+,fd=[0-9]+\)/ {
+             if ($4 == ip ":80" || $4 == "[" ip "]:80") a=1
+             if ($4 == ip ":443" || $4 == "[" ip "]:443") b=1
+             } END {exit !(a && b)}'; then
+            return 0
+        fi
+        sleep 0.2
+    done
+    return 1
 }
 
 # Clear carlos-emr.service's start rate-limit counter before a package-driven
@@ -60,6 +192,50 @@ sd_reset_start_limit() {
         return 0
     fi
     systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
+}
+
+# An OSCAR 19 import in progress owns this database until it says
+# otherwise: it runs with the service stopped, and its row-parity
+# gate rejects the rows the application's startup listener writes.
+# An unattended upgrade landing mid-import would run Flyway
+# against a half-copied schema and then START the webapp into it,
+# costing the clinic a multi-hour rollback. The state file is the
+# same predicate --resume uses. Parsed, not grepped, and it must
+# match the tool's own definition of "a run is in progress" in
+# both directions:
+#   * P7 records a "verify" phase when it STARTS, so the mere
+#     presence of the key read a failed or interrupted
+#     verification as a finished import. Only
+#     phases.verify.status == "done" clears the gate.
+#   * a lone "stage" phase is NOT a run. `o19-preflight` calls
+#     run_p1, which marks "stage" unconditionally, so a clinic
+#     that merely ASSESSED a migration and declined it is left
+#     with that ledger for ever. Gating on it would keep the EMR
+#     stopped after every later upgrade, and the --resume this
+#     block prints is itself refused in that state
+#     ("a staged dump alone is not a run"). carlos-ctl excludes
+#     {"stage"} in five places; so does this.
+# An unreadable, half-written or structurally wrong ledger fails
+# closed (python3 is a hard Depends -- carlos-ctl is written in
+# it), as does an empty "phases" -- a real run writes the ledger
+# before P0 and only marks its first phase afterwards.
+# Consulted TWICE -- by configure (no Flyway, no start) and by the abort-*
+# paths (no restart) -- so the two can never disagree about what "a run
+# is in progress" means; the platform check lifts and evals this body.
+o19_import_in_progress() {
+    # The predicate is the SHIPPED guard, /usr/lib/carlos-emr/carlos-emr-o19-guard,
+    # which carlos-emr.service also runs as its ExecCondition= on every start
+    # (a reboot mid-import included) -- one file, so the two cannot drift.
+    # It exits 1 when an import is in progress. The guard is unpacked before
+    # any of this runs (configure, and the abort-* paths of an upgrade of
+    # this package), so its absence is a broken unpack: fail CLOSED and say
+    # so, rather than start the EMR into what may be a half-copied schema.
+    if [ ! -x /usr/lib/carlos-emr/carlos-emr-o19-guard ]; then
+        echo "carlos-emr: /usr/lib/carlos-emr/carlos-emr-o19-guard is missing; treating an" >&2
+        echo "carlos-emr: OSCAR 19 import as possibly in progress (fail closed)" >&2
+        return 0
+    fi
+    ! /usr/lib/carlos-emr/carlos-emr-o19-guard 2>/dev/null
 }
 
 # Install a generated file ONCE. These carry credentials and site decisions, so
@@ -444,6 +620,24 @@ case "$1" in
             rm -f "${ENV_FILE}.tmp"
         }
         set_env_key CARLOS_SERVER_NAME "${SERVER_NAME}"
+        # ss reports a bound IPv6 literal bracketed AND canonicalised, so the
+        # equally valid 0:0:0:0:0:0:0:1 comes back as ::1 and a textual proof
+        # would declare a healthy front door missing. Canonicalise the answer
+        # once, here, so the env file every later shell and Python read shares
+        # carries the spelling those proofs will see. python3 is a hard
+        # dependency (carlos-ctl is written in it); if it cannot parse the
+        # value, keep what the operator wrote so carlos-ctl rejects it with
+        # an actionable error before rendering; the failed apply is recorded.
+        BIND_IP="$(printf '%s' "${BIND_IP}" | python3 -c '
+import ipaddress, sys
+raw = sys.stdin.read().strip()
+if raw.startswith("[") and raw.endswith("]"):
+    raw = raw[1:-1]
+try:
+    sys.stdout.write(ipaddress.ip_address(raw).compressed)
+except ValueError:
+    sys.stdout.write(raw)
+' 2>/dev/null || printf '%s' "${BIND_IP}")"
         set_env_key CARLOS_BIND_IP "${BIND_IP}"
         # The single debconf heap answer round-trips through CARLOS_JAVA_XMX
         # only (the config script seeds the question from Xmx), so Xms has no
@@ -538,8 +732,17 @@ case "$1" in
             done
         fi
 
+        # The provisioning lock, taken here rather than further down: the
+        # oscar -> carlos rename below MOVES the clinical tables, and a
+        # concurrent finish-install reading or provisioning the old name while
+        # this configure renames it is exactly what the lock exists to stop.
+        # Everything from here to the end of provisioning is what
+        # finish-install also does. Released when this script exits.
+        PROVISION_LOCK_HELD=1
+        acquire_provision_lock || PROVISION_LOCK_HELD=0
+
         DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
-        if [ ! -e "${DB_NAME_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${DB_NAME_SENTINEL}" ]; then
             CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"
             # Eligible when the old stock default may still be in effect. Two
             # shapes (review finding): an upgrade from before the boundary
@@ -678,16 +881,29 @@ case "$1" in
         fi
 
         # --- render, provision, migrate -------------------------------------
+        # Under the lock taken above: init-config rewrites carlos.properties
+        # and reloads nginx, and doing that beside the run that owns the lock
+        # would hand it a concurrently rewritten configuration.
+        #
         # Guarded: init-config exits non-zero when nginx cannot be tested or
         # reloaded — including for reasons OUTSIDE this package (another
         # vhost's broken config). Front-door trouble is loud but must never
         # leave the package half-configured and block the apt transaction;
         # the same tolerance the nginx section below has always had.
-        carlos-ctl init-config || {
-            echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
-            echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
-            echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
-        }
+        # The site symlink goes in further down, with the certificates, so the
+        # front door is not this run's to prove yet. Say so explicitly: run by
+        # hand later, a missing symlink is a real fault and init-config must
+        # not report success over it.
+        [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
+        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
+            carlos-ctl init-config || {
+                echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
+                echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
+                echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
+                mark_incomplete "the configuration could not be applied"
+            }
+        fi
+        unset CARLOS_CONFIGURE_FIRST_RUN
 
         # (The mariadb start + wait that used to sit here is hoisted above
         # the db-name migration check — see the comment there.)
@@ -703,7 +919,26 @@ case "$1" in
         # inherited variable of this name would otherwise disable the unit on a
         # perfectly healthy install.
         SEED_CREDENTIAL_LIVE=0
-        if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+        # The predicate is o19_import_in_progress() above; db-migrate and
+        # the service start both read MIGRATION_OK. The lock comes first: with
+        # another provisioning run in the database, nothing below may run.
+        if [ "${PROVISION_LOCK_HELD}" = 0 ]; then
+            MIGRATION_OK=0
+            mark_incomplete "another provisioning run held the provisioning lock"
+        elif o19_import_in_progress; then
+            MIGRATION_OK=0
+            echo "carlos-emr: an OSCAR 19 import is in progress (see" >&2
+            echo "carlos-emr:   /var/lib/carlos-emr/o19-import/report.txt)." >&2
+            echo "carlos-emr: NOT migrating the schema and NOT starting the service:" >&2
+            echo "carlos-emr: both would corrupt the import. Finish it with" >&2
+            echo "carlos-emr:   sudo carlos-ctl import-o19 ... --resume" >&2
+            echo "carlos-emr: then run: sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
+            echo "carlos-emr: If that import never reached the data copy (a dry run or an" >&2
+            echo "carlos-emr: abandoned assessment), retire the workspace and re-run this upgrade:" >&2
+            echo "carlos-emr:   sudo carlos-ctl import-o19 --cleanup" >&2
+            echo "carlos-emr: Once the copy has started --cleanup refuses; finish with --resume," >&2
+            echo "carlos-emr: or restore the pre-import snapshot." >&2
+        elif mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
             # mariadb-server was already running when this package's drop-in
             # was unpacked, so it is still on distribution defaults — STRICT
             # sql_mode and no binary log, neither of which this deployment can
@@ -714,6 +949,7 @@ case "$1" in
                 echo "carlos-emr: (STRICT sql_mode and/or no binary log). The application may" >&2
                 echo "carlos-emr: misbehave and point-in-time recovery is unavailable until" >&2
                 echo "carlos-emr: 'carlos-ctl db-apply-settings' succeeds." >&2
+                mark_incomplete "the database settings could not be applied"
             }
             # Handled like the migration below rather than left to set -e: an
             # unhandled abort here marks the package failed-to-configure,
@@ -727,6 +963,7 @@ case "$1" in
                 echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
                 echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
                 echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
+                mark_incomplete "the database accounts could not be provisioned"
             fi
             # Apply the schema. On a fresh database this creates everything; on
             # an existing one Flyway applies only what is pending and refuses
@@ -741,6 +978,7 @@ case "$1" in
                 echo "carlos-emr: anyway would loop through two-minute failed deployments." >&2
                 echo "carlos-emr: run 'carlos-ctl db-info' to see the state, fix the cause, then:" >&2
                 echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
+                mark_incomplete "the database schema migration failed"
             fi
             if [ "${RESET_ADMIN}" = true ]; then
                 # Fail CLOSED. If the seeded 'carlosdoc' credential cannot be
@@ -765,11 +1003,46 @@ case "$1" in
                     # next configure would happily START the service while it
                     # stayed disabled, so the EMR would silently fail to come
                     # back at the following reboot.
-                    if [ -e "${SEED_SENTINEL}" ]; then
-                        rm -f "${SEED_SENTINEL}"
-                        deb-systemd-helper enable carlos-emr.service >/dev/null 2>&1 || true
-                        echo "carlos-emr: the seeded administrator credential has been replaced; the" >&2
-                        echo "carlos-emr: service unit has been re-enabled." >&2
+                    # The sentinel is written best-effort and then VERIFIED, so
+                    # containment has three shapes: sentinel present, unit masked
+                    # (what a failed sentinel write falls back to), or unit merely
+                    # disabled (the write failed, the disable succeeded). Keying
+                    # this on the sentinel alone left that third case disabled
+                    # forever: this configure would start the service once and the
+                    # next reboot would not.
+                    unit_state=""
+                    if [ -d /run/systemd/system ]; then
+                        unit_state="$(systemctl is-enabled carlos-emr.service 2>/dev/null || true)"
+                    elif [ "$(readlink /etc/systemd/system/carlos-emr.service 2>/dev/null)" = /dev/null ]; then
+                        # No running systemd to ask (a chroot or golden-image
+                        # build), but the containment above may still have
+                        # masked or disabled the unit through
+                        # deb-systemd-helper -- and a mask is a symlink to
+                        # /dev/null, which is readable either way. Without this
+                        # the retry would clear the marker and ship an image
+                        # whose EMR is masked for its first real boot.
+                        unit_state=masked
+                    else
+                        helper_rc=0
+                        deb-systemd-helper is-enabled carlos-emr.service >/dev/null 2>&1 || helper_rc=$?
+                        [ "${helper_rc}" != 1 ] || unit_state=disabled
+                    fi
+                    if [ -e "${SEED_SENTINEL}" ] || [ "${unit_state}" = masked ] ||
+                        [ "${unit_state}" = disabled ]; then
+                        # `enable` fails outright on a masked unit, so lift the
+                        # mask first or the EMR never comes back at all.
+                        if [ "${unit_state}" = masked ]; then
+                            deb-systemd-helper unmask carlos-emr.service >/dev/null 2>&1 || true
+                        fi
+                        if deb-systemd-helper enable carlos-emr.service &&
+                            { [ ! -d /run/systemd/system ] || systemctl is-enabled --quiet carlos-emr.service; } &&
+                            rm -f "${SEED_SENTINEL}"; then
+                            echo "carlos-emr: the seeded administrator credential has been replaced; the" >&2
+                            echo "carlos-emr: service unit has been re-enabled." >&2
+                        else
+                            MIGRATION_OK=0
+                            mark_incomplete "the credential guard could not be cleared or the service re-enabled"
+                        fi
                     fi
                 elif [ "${MIGRATION_OK}" = 1 ]; then
                     # Only treat this as "the published credential is live" when
@@ -781,6 +1054,7 @@ case "$1" in
                     # seeded credential years ago.
                     MIGRATION_OK=0
                     SEED_CREDENTIAL_LIVE=1
+                    mark_incomplete "the seeded administrator credential could not be replaced"
                     echo "carlos-emr: the seeded 'carlosdoc' password could NOT be replaced — the" >&2
                     echo "carlos-emr: account still carries the credential PUBLISHED in the CARLOS" >&2
                     echo "carlos-emr: source repository (see the notice at the end of setup)." >&2
@@ -805,16 +1079,25 @@ case "$1" in
                 carlos-ctl demo-data || {
                     echo "carlos-emr: WARNING: the demonstration dataset was NOT loaded (see" >&2
                     echo "carlos-emr: above). Fix the cause, then run 'sudo carlos-ctl demo-data'." >&2
+                    mark_incomplete "the requested demonstration dataset could not be loaded"
                 }
             fi
         else
             MIGRATION_OK=0
             echo "carlos-emr: could not reach MariaDB as root over the unix socket." >&2
-            echo "carlos-emr: finish setup by hand once it is running:" >&2
-            echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
-                echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
-            echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
+            echo "carlos-emr: database provisioning could not run; existing data was not checked." >&2
+            echo "carlos-emr: the EMR has not been started by this configure run." >&2
+            mark_incomplete "MariaDB was not reachable while the package was configured"
         fi
+
+        # Everything provisioned: drop any marker a previous failed configure
+        # left behind, so the boot-time completion and `carlos-ctl check` stop
+        # reporting a problem that this run has just fixed.
+        if [ -e "${SEED_SENTINEL}" ] && [ "${SEED_CREDENTIAL_LIVE}" = 0 ]; then
+            MIGRATION_OK=0
+            mark_incomplete "the seeded credential guard still requires recovery"
+        fi
+        clear_incomplete
 
         # --- TLS ------------------------------------------------------------
         # A certificate failure is fatal to the front door (nginx refuses to
@@ -863,6 +1146,48 @@ case "$1" in
                 # is the live Let's Encrypt one and must not be touched.
                 if [ ! -s "${CONF_DIR}/tls/fullchain.pem" ]; then
                     /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed
+                    # The issuance itself is NOT attempted here. It needs
+                    # public DNS for this name and port 80 reachable from
+                    # the internet, neither of which is knowable during
+                    # dpkg configure, and certbot failing (or worse,
+                    # blocking) inside a maintainer script would break the
+                    # install for a certificate the operator can request in
+                    # one command. So say the command, with the address
+                    # they already gave debconf — the answer was otherwise
+                    # collected and silently discarded.
+                    #
+                    # Re-tested rather than assumed: cert_failed only WARNS
+                    # (it must not abort the configure), so reaching this
+                    # point does not mean a pair exists. Announcing "a
+                    # placeholder is in place" straight after "generation
+                    # FAILED" would contradict the line above it — and the
+                    # acme advice is worse than useless without one, since
+                    # certbot's HTTP-01 challenge is served by an nginx
+                    # that will not start until the pair exists.
+                    # BOTH halves: carlos-emr-cert installs the pair with
+                    # two separate `mv -f` calls (fullchain, then privkey)
+                    # under `set -euo pipefail`, so any failure at or after
+                    # the second one -- including fix_perms' chown on a
+                    # privkey that is not there -- leaves fullchain present
+                    # and privkey missing. Testing fullchain alone then
+                    # announces "a self-signed placeholder is in place"
+                    # directly under "certificate generation FAILED", and
+                    # nginx will not start on half a pair either.
+                    if [ ! -s "${CONF_DIR}/tls/fullchain.pem" ] \
+                       || [ ! -s "${CONF_DIR}/tls/privkey.pem" ]; then
+                        echo "carlos-emr: TLS mode is 'acme' but no certificate could be placed;" >&2
+                        echo "carlos-emr: fix that first ('carlos-ctl cert selfsigned'), because" >&2
+                        echo "carlos-emr: certbot's challenge is served by nginx, which will not" >&2
+                        echo "carlos-emr: start without one. Then run 'carlos-ctl cert acme'." >&2
+                    elif [ -n "${ACME_EMAIL}" ]; then
+                        echo "carlos-emr: TLS mode is 'acme' and a self-signed placeholder is in place." >&2
+                        echo "carlos-emr: Once ${SERVER_NAME} resolves publicly and port 80 is reachable, run:" >&2
+                        echo "carlos-emr:   sudo carlos-ctl cert acme ${ACME_EMAIL}" >&2
+                    else
+                        echo "carlos-emr: TLS mode is 'acme' but no contact e-mail was given;" >&2
+                        echo "carlos-emr: a self-signed placeholder is in place. Run:" >&2
+                        echo "carlos-emr:   sudo carlos-ctl cert acme <admin-email>" >&2
+                    fi
                 fi
                 ;;
         esac
@@ -880,14 +1205,54 @@ case "$1" in
         fi
         if nginx -t >/dev/null 2>&1; then
             if [ -d /run/systemd/system ]; then
-                sd_invoke reload nginx.service 2>/dev/null || sd_invoke restart nginx.service || \
-                    echo "carlos-emr: WARNING: nginx did not reload — the front door may be serving stale configuration (systemctl status nginx)" >&2
+                # A successful `reload` proves nothing: it only delivers a
+                # signal, and the master then fails to bind the NEW listen
+                # sockets whenever the old ones block them. On every fresh
+                # install the distribution's nginx is already up on
+                # 0.0.0.0:80 with its default site, and a wildcard listener
+                # in LISTEN state makes bind(127.0.0.1:80) fail with
+                # EADDRINUSE — nginx logs an [emerg], keeps serving the OLD
+                # configuration, and reports success. A tester's install
+                # "succeeded" with nothing answering on 443. So prove the
+                # configured listeners are bound and restart when they are
+                # not (a restart closes every old socket before binding
+                # anew). carlos-ctl init-config does the same.
+                if ! sd_invoke reload nginx.service 2>/dev/null; then
+                    echo "carlos-emr: WARNING: nginx reload failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
+                    mark_incomplete "nginx could not reload the rendered front-door configuration"
+                elif front_door_listening; then
+                    :
+                else
+                    probe_rc=$?
+                    if [ "${probe_rc}" = 2 ]; then
+                        echo "carlos-emr: WARNING: cannot verify nginx listeners: ss or ps probe failed; nginx was not restarted" >&2
+                        mark_incomplete "nginx listener verification failed (ss or ps probe error)"
+                    elif ! sd_invoke restart nginx.service; then
+                        echo "carlos-emr: WARNING: nginx restart failed (systemctl status nginx; journalctl -u nginx)" >&2
+                        mark_incomplete "nginx could not restart the rendered front-door configuration"
+                    elif front_door_listening; then
+                        :
+                    else
+                        probe_rc=$?
+                        if [ "${probe_rc}" = 2 ]; then
+                            echo "carlos-emr: WARNING: cannot verify nginx listeners after restart: ss or ps probe failed" >&2
+                            mark_incomplete "nginx listener verification failed after restart (ss or ps probe error)"
+                        else
+                            echo "carlos-emr: WARNING: nginx is not listening on the configured front-door address — it may be serving stale configuration (systemctl status nginx; journalctl -u nginx)" >&2
+                            mark_incomplete "nginx did not bind the configured front-door listeners"
+                        fi
+                    fi
+                fi
             fi
         else
             echo "carlos-emr: the nginx configuration test FAILED; the front door was not reloaded." >&2
             # Re-run purely to SHOW the failure detail; the || true keeps this
             # diagnostic from aborting configure a second time.
             nginx -t || true
+            # This runs after clear_incomplete(), so without recording it an
+            # invalid site or certificate would leave the front door down with
+            # no marker and nothing for finish-install to retry.
+            mark_incomplete "the nginx configuration test failed"
         fi
         ;;
 
@@ -904,10 +1269,17 @@ case "$1" in
         # caused by an unrelated package — would undo the fail-closed and bring
         # the EMR up with the source-published administrator password live. The
         # timers carry no such exposure and are always restored.
+        # The same holds for an OSCAR 19 import in progress: it runs with the
+        # service stopped, and a restart from here would land the startup
+        # listener's rows in a half-copied schema (o19_import_in_progress).
         if [ -d /run/systemd/system ]; then
             if [ -e "${SEED_SENTINEL}" ]; then
                 echo "carlos-emr: not restarting the application — the seeded administrator" >&2
                 echo "carlos-emr: credential is still live (run 'carlos-ctl bootstrap-admin')." >&2
+            elif o19_import_in_progress; then
+                echo "carlos-emr: not restarting the application — an OSCAR 19 import is in" >&2
+                echo "carlos-emr: progress; started now, the EMR would write into a half-copied" >&2
+                echo "carlos-emr: schema. Finish it: sudo carlos-ctl import-o19 ... --resume" >&2
             else
                 sd_reset_start_limit
                 deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
@@ -943,18 +1315,41 @@ if [ "$1" = configure ] && [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
     # VERIFY rather than assert: this is the one invariant the whole branch
     # exists to establish, and a silent failure here means the operator believes
     # a reboot is safe when it is not.
-    if [ -d /run/systemd/system ] && systemctl is-enabled --quiet carlos-emr.service 2>/dev/null; then
-        echo "carlos-emr: *** COULD NOT DISABLE carlos-emr.service ***" >&2
-        echo "carlos-emr: the seeded 'carlosdoc' credential (published in the CARLOS source" >&2
-        echo "carlos-emr: repository) is still live AND the unit will start at the next boot." >&2
-        echo "carlos-emr: run this NOW:  sudo systemctl disable --now carlos-emr" >&2
-    else
-        echo "carlos-emr: the service has been STOPPED and DISABLED: the seeded 'carlosdoc'" >&2
-        echo "carlos-emr: credential (published in the CARLOS source repository) could not be" >&2
-        echo "carlos-emr: replaced, so the EMR must not come up with it live — including on a" >&2
-        echo "carlos-emr: reboot. Replace the credential and the unit is re-enabled for you:" >&2
-        echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl start carlos-emr" >&2
+    containment_failed=0
+    if [ ! -f "${SEED_SENTINEL}" ]; then
+        echo "carlos-emr: ERROR: could not persist the seeded credential guard." >&2
+        # The sentinel is what actually blocks a start: carlos-emr.service
+        # carries ConditionPathExists=! on it precisely because `disable` does
+        # not stop a queued or hand-typed `systemctl start`. With /var refusing
+        # the sentinel, masking is the only guard left that lives outside it --
+        # the same fallback carlos-ctl finish-install takes, so the two paths
+        # cannot leave a host in different states. A later successful
+        # finish-install (or configure) unmasks the unit once the credential
+        # has actually been replaced.
+        deb-systemd-helper mask carlos-emr.service >/dev/null 2>&1 || true
+        echo "carlos-emr: carlos-emr.service has been MASKED instead; it is unmasked" >&2
+        echo "carlos-emr: for you once the credential is replaced." >&2
+        containment_failed=1
     fi
+    if [ -d /run/systemd/system ]; then
+        enabled_state="$(systemctl is-enabled carlos-emr.service 2>/dev/null || true)"
+        active_state="$(systemctl is-active carlos-emr.service 2>/dev/null || true)"
+        case "${enabled_state}" in disabled|masked) ;; *) containment_failed=1 ;; esac
+        case "${active_state}" in inactive|failed) ;; *) containment_failed=1 ;; esac
+    else
+        enabled_rc=0
+        deb-systemd-helper is-enabled carlos-emr.service >/dev/null 2>&1 || enabled_rc=$?
+        [ "${enabled_rc}" = 1 ] || containment_failed=1
+    fi
+    if [ "${containment_failed}" = 1 ]; then
+        echo "carlos-emr: ERROR: could not verify that carlos-emr.service is stopped and protected at boot." >&2
+        echo "carlos-emr: the published administrator credential may still be live. Check this NOW:" >&2
+        echo "carlos-emr:   sudo systemctl disable --now carlos-emr" >&2
+        exit 1
+    fi
+    echo "carlos-emr: the service is disabled and the credential guard is in place." >&2
+    echo "carlos-emr: replace the seeded administrator credential and complete setup with:" >&2
+    echo "carlos-emr:   sudo carlos-ctl finish-install" >&2
 fi
 
 # Everything below runs AFTER the debhelper snippets, so the units exist and
@@ -969,10 +1364,9 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # deb-systemd-invoke has no reload verb, so call systemctl directly (as the
     # renderer's postinst already does). Best-effort; never fail configure.
     systemctl --system daemon-reload >/dev/null 2>&1 || true
-    if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
-        # Already stopped, disabled and reported by the block above; the only
-        # thing left to do here is NOT start the service.
-        :
+    if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ] || [ -e "${SEED_SENTINEL}" ]; then
+        echo "carlos-emr: NOT starting the service — the seeded credential guard requires recovery." >&2
+        echo "carlos-emr: run 'sudo carlos-ctl finish-install' (see above)." >&2
     elif [ "${MIGRATION_OK:-1}" = 0 ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
@@ -993,14 +1387,21 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # writes: a raw read would hand curl --resolve a quoted host/addr and
         # every healthy install would sit out the whole loop before wrongly
         # reporting the front door dead. Same idiom as the XMS/XMX reads above.
-        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | tail -1)"
         PROBE_NAME="${PROBE_NAME:-localhost}"
         # Probe the address nginx actually listens on: with a non-default
         # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
         # healthy install used to sit through the whole five-minute loop and
         # then blame the application.
-        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
-        case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
+        # LAST assignment, matching env_get and systemd EnvironmentFile: an
+        # operator who appends an override gets nginx rendered for that
+        # address, and probing the first one would blame the application for
+        # an address nothing was ever meant to answer on.
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | tail -1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^\[\(.*\)\]$/\1/')"
+        case "${PROBE_IP}" in
+            ""|0.0.0.0) PROBE_IP=127.0.0.1 ;;
+            ::) PROBE_IP=::1 ;;
+        esac
         i=0
         while [ "${i}" -lt 60 ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
@@ -1040,6 +1441,24 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         db_input high carlos-emr/initial-credentials || true
         db_go || true
     fi
+fi
+
+# The one outcome an operator must not be able to miss. Everything above
+# reports a failed provisioning step on stderr and lets the transaction
+# succeed, which is right for dpkg and wrong for the person installing: apt
+# prints "done", and a graphical front end never showed them a stderr stream at
+# all. Raise a critical debconf error for interactive front ends as well as
+# the stderr diagnosis. Unattended installs must inspect the marker and run
+# carlos-ctl check; noninteractive front ends cannot guarantee a visible alert.
+# Outside the systemd guard above on purpose: an image or chroot build that
+# provisioned nothing needs the same notice.
+if [ "$1" = configure ] && { [ "${INSTALL_INCOMPLETE}" = 1 ] || [ -e "${INCOMPLETE_MARKER}" ]; }; then
+    # 'seen false' first: debconf shows a note once and then skips it, so a
+    # second failed attempt — the one an operator is most likely to be watching
+    # for — would otherwise pass in silence.
+    db_fset carlos-emr/install-incomplete seen false || true
+    db_input critical carlos-emr/install-incomplete || true
+    db_go || true
 fi
 
 exit 0

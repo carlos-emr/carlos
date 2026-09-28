@@ -1,3 +1,151 @@
+carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
+
+  * Adopting a legacy OSCAR 19 / OpenO database now actually works. `db-baseline`
+    stamps the history at the full genesis, which ASSERTS that common V1 and the
+    province V1.0.1/V1.0.2 are already satisfied -- but Flyway's baseline command
+    only writes that history row, it never executes V1__baseline_schema.sql. On a
+    datadir that forked before those columns existed the assertion was false and
+    nothing caught it: db-migrate reported success, db-validate passed (it
+    compares the history against the WAR, not the live schema against either),
+    and the install failed at the first login with "Unknown column
+    's1_0.mfaSecret'". db-baseline now reconciles the live schema up to the
+    genesis DDL carried in the deployed WAR first, with CREATE TABLE IF NOT
+    EXISTS and ALTER TABLE ... ADD COLUMN IF NOT EXISTS, so the pass is a no-op
+    on anything already present and safe to repeat.
+  * db-baseline also prepares the adopted DATA for the forward migrations, which
+    previously stopped twice on a real clinic import. Rows colliding with the one
+    seed statement in V1.0.5 that is missing INSERT IGNORE are copied aside and
+    cleared so the migration can lay down its canonical icd10 rows (V1.0.5 ships
+    in published tags, so its checksum is unchanged). Legacy OHIP/MCEDT billing
+    filenames that violate the UNIQUE indexes added by V1.0.11/V1.0.12 are
+    suffixed rather than deleted -- they are genuinely distinct submissions
+    sharing a filename that does not encode the year -- with the value actually
+    submitted to the Ministry preserved in a carlos_adopt_backup_* table.
+    Reject suffixes too wide for a legacy column during planning, and guard
+    the UPDATE against truncation while permitting an exactly fitting suffix.
+  * db-baseline no longer refuses when the installer's own db-migrate populated
+    flyway_schema_history before the legacy dump replaced the tables. That
+    history is renamed aside rather than dropped when no BASELINE marker exists
+    and genesis tables or columns are missing. A BASELINE history is also parked
+    if it records successful Ontario V1.0.11/V1.0.12 index creation but a required
+    billing UNIQUE constraint is absent. Genesis gaps alone preserve older
+    adoptions; equivalent renamed indexes count and metadata failures abort.
+    Province compatibility is checked before any planning or stamping, including
+    --stamp-only; opposite or mixed province schemas fail.
+  * New db-baseline options: --dry-run prints the whole plan and changes nothing,
+    --stamp-only keeps the previous bare-stamp behaviour. Both appear in the
+    top-level help. The adoption runbook uses OpenSSL's interactive passphrase
+    prompt and keeps the encrypted source archive when removing plaintext.
+  * The billing disambiguation pins each row's `timestamp`. Both billing tables
+    declare it ON UPDATE current_timestamp(), so rewriting the filename would
+    otherwise replace the clinic's record of when it submitted with the adoption
+    date -- and on billing_on_filename that column is the ORDER BY the ranking
+    itself depends on. Nothing backs that column up, so it is preserved in place.
+  * Adoption pins the session sql_mode to empty before reconciling. Seven genesis
+    columns default to '0000-00-00', which a sql_mode carrying NO_ZERO_DATE or
+    TRADITIONAL rejects part way through the pass; the packaged drop-in already
+    sets sql_mode="" but is only read at server start.
+  * A legacy reference row whose code differs from the one the migration will
+    replace it with is now MOVED rather than dropped, where dropping it would
+    lose the code. icd10.id carries no meaning -- dxresearch stores the code
+    string with no foreign key to it, and no application query selects by id --
+    so a code that exists nowhere else is kept by re-homing its row to a fresh
+    id above both the live maximum and every key the seed writes, with
+    AUTO_INCREMENT pushed past them. A code that also lives outside the
+    collision range, or among the canonical replacements, survives the
+    migration anyway and its row is replaced as before. Each move is reported
+    individually (14902->15972) and the original id is recorded in the backup
+    table; there is nothing left for the operator to reconcile.
+  * Reference-row moves require an exact backup of every column, preserving
+    the original-id audit trail when a backup from another import remains.
+    Code-survival checks use MariaDB's collation so case, trailing spaces and
+    batch escaping cannot introduce duplicate lookup results. Reserve the
+    auto-increment range before moving rows so interrupted runs can resume.
+    Include codes restored by INSERT IGNORE at vacant keys when deciding
+    which displaced rows need moving, avoiding duplicate code lookups.
+  * A seed collision is only cleared for a migration Flyway will actually run.
+    Re-running db-baseline against a database that had already been adopted and
+    migrated deleted the 1070 canonical icd10 rows V1.0.5 had laid down, and the
+    db-migrate that followed had nothing pending to restore them -- while
+    db-validate still passed, because it compares the history against the WAR
+    rather than the data. Found by a full install-and-adopt rehearsal in a
+    container, not by review.
+  * The duplicate re-check that gates the UNIQUE indexes now fails the run when
+    the query cannot be answered, instead of reading an unanswerable query as
+    zero and stamping anyway. Seed rows are only cleared when the live primary
+    key really is the single leading integer column the parsed key comes from,
+    the backup copy names its columns rather than binding by position, and a
+    legacy row whose code differs from the canonical replacement is reported
+    before anything is deleted.
+  * Summarize expected existing-index/column notes during schema creation instead
+    of showing them as duplicate-key/column warnings. Preserve all other warnings
+    and migration errors; published migration SQL and checksums are unchanged.
+    Test the logging boundary against the WAR's Flyway API during package builds.
+  * An installation that could not provision its database no longer looks like
+    a successful one. Every database step in the package's configuration is
+    deliberately non-fatal -- a database that is unreachable must not leave
+    dpkg half-configured and block the other CARLOS packages, or anything else
+    in the same apt transaction -- so the diagnosis went to stderr and apt
+    still reported success. On a front end that never showed that stderr, the
+    result was a host that looked installed and had no clinical schema at all,
+    with nothing that ever retried: a reboot left it exactly as broken.
+    Reported by an alpha tester whose install ended with no tables in the
+    clinical database.
+  * The installer now records what it could not do in
+    /var/lib/carlos-emr/.install-incomplete and raises a critical debconf error
+    for interactive front ends. Unattended installs must check the recorded
+    state and command output.
+  * A new "carlos-ctl finish-install" resumes provisioning where the installer
+    stopped -- the MariaDB settings, the least-privilege accounts, the schema,
+    the seeded administrator credential and the demonstration dataset if the
+    install asked for one -- and then starts the EMR. It is idempotent, and it
+    fails closed the same way the installer does if the published carlosdoc
+    credential cannot be replaced. It also reports a drug reference database
+    that the same failure left unseeded, and names the command that loads it.
+  * Recovery now checks every required/requested step, retains incomplete state
+    on failure, verifies credential containment and re-enablement, and identifies
+    DrugRef datasets without a seed-completion marker. Marker I/O failures are
+    reported explicitly; they do not silently turn failure into completion.
+    Add behavioral failure/retry tests and clearer administrator instructions.
+  * carlos-emr-provision.service runs that once at each boot, ordered before
+    carlos-emr.service, so an install interrupted by a database that went away
+    completes by itself. It is skipped outright when there is no marker, and it
+    refuses to migrate a schema that already has tables: an upgrade migration
+    stays an operator decision taken after a verified backup.
+  * Only one recovery runs at a time. The boot-time provisioner and an operator
+    could previously both pass the schema checks and both generate an
+    administrator credential, leaving the saved credentials file naming the
+    other run's password; finish-install now holds an exclusive lock for the
+    life of the run and refuses a second one. When the credential guard file
+    itself cannot be written -- a full or read-only /var -- the unit is masked
+    rather than only disabled, because disabling does not stop a manual start;
+    a later successful recovery unmasks it. A failure before the credential has
+    been replaced now says so, rather than leaving an operator to assume the
+    published password is already gone.
+  * The package's own configure joins that lock too, with flock(1). Only
+    serializing recovery against recovery left the real race open: an
+    unattended upgrade or a dpkg-reconfigure can overlap the boot-time
+    provisioner. A configure that cannot take the lock within five minutes
+    provisions nothing and records the install as unfinished, and a boot-time
+    recovery that finds the lock held leaves the work to whoever holds it
+    rather than failing its unit.
+  * The DrugRef package's configure takes that lock too: db-users provisions
+    both packages' accounts and rewrites both properties files with the
+    passwords it generates, so an overlapping run could leave the database
+    holding one generated password and a properties file naming the other.
+  * A credential guard that had to fall back to masking the unit is now also
+    detected on a host with no running systemd -- a chroot or golden-image
+    build -- so a retry there cannot clear the recovery marker and ship an
+    image whose EMR is masked for its first real boot.
+  * "carlos-ctl check" reports an unfinished install first, before the dozen
+    unrelated-looking failures it causes, and names the command that fixes it.
+    Its table count no longer reports a query that FAILED as a database with no
+    tables, and DrugRef not answering on loopback while the EMR is stopped is
+    now reported as what it is -- DrugRef shares that application server --
+    instead of pointing at the DrugRef deployment.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 13 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
 
   * Saving a provider's encounter-note template (Administration > Provider
@@ -64,6 +212,14 @@ carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
     removed one by one as the print proceeds, and the log line carries no
     name. The spurious "failed to delete temporary print PDF" warning on
     every chart print is gone with it.
+  * Experimental OSCAR 19 clinic migration: `carlos-ctl import-o19` imports an
+    OSCAR 19 backup into a stock initial deploy (manifest-driven ETL, an
+    archive schema for everything CARLOS no longer models, documents restore
+    with blocking reconciliation, roles and privilege reconciliation, and a
+    reviewed properties fragment), and `carlos-ctl o19-preflight` runs the
+    go/no-go feasibility check on its own. Both are experimental: a
+    migration's output needs a technical review before clinical use. See
+    docs/o19-import-deb.md.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 00:00:00 +0000
 
@@ -188,6 +344,7 @@ carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
     the page. With the firewall no longer reading that note as a
     script attack, the application's own output encoding is what keeps a
     stored "</textarea><script>" from running on the next open of that view.
+
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 06 Sep 2026 00:00:00 +0000
 
 carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium

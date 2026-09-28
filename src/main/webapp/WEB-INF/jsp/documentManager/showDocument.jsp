@@ -95,7 +95,7 @@
         - Ticklers: io.github.carlos_emr.carlos.managers.TicklerManager
         - Macros: Jackson ObjectMapper for JSON parsing
         - Security: OWASP Encoder, SecurityInfoManager
-        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js (jQuery UI removed)
+        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js, jQuery UI dialog/autocomplete
 
     @since 2003 (Macro and Tickler improvements 2026-02)
 --%>
@@ -130,6 +130,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
@@ -245,6 +246,18 @@
     String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    boolean faxEnabled = FaxManager.isEnabled()
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null);
+    // Exact match, matching AnnotateDocument2Action's own test. contains("pdf") also matched
+    // "application/pdfx", so the button was offered for documents the action then refused.
+    boolean docIsPdf = "application/pdf".equalsIgnoreCase(
+        org.apache.commons.lang3.StringUtils.trimToEmpty(curdoc.getContentType()));
+    // Annotation composes and files a NEW document, so it needs _edoc write. Without this the
+    // button was live for a read-only user and the click ended on the security error page.
+    boolean canAnnotate = docIsPdf
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null);
+
     Set<Integer> docFiledQueues = new HashSet<>();
 
     request.setAttribute("mrpProviderName", mrpProviderName);
@@ -269,7 +282,6 @@
     DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     String strDate = nearFuture.format(dtFormatter);
 
-    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
     if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
@@ -302,6 +314,9 @@
         </script>
         <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%-- Forward loads its dialog by AJAX; scripts in that response are not loaded. --%>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>/js/carlosAutocomplete.js"></script>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
 
@@ -488,6 +503,18 @@
                onClick="window.close()">
         <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
                onClick="popup(700,960,'<%=url2%>','file download')">
+        <%if (faxEnabled) {%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="faxBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnFax"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.faxPdfOnlyTooltip"/>" disabled<%}%>
+               <%if (docIsPdf) {%>onClick="popup(800,850,'${pageContext.servletContext.contextPath}/documentManager/FaxDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','faxDoc')"<%}%>>
+        <%}%>
+        <%-- Annotate opens the markup viewer. Saving there files a NEW document rather than
+             editing this one, so the received record is never altered. PDF only. --%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="annotateBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnAnnotate"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.annotatePdfOnlyTooltip"/>" disabled<%} else if (!canAnnotate) {%>title="<fmt:message key="showDocument.annotateNoRightsTooltip"/>" disabled<%}%>
+               <%if (canAnnotate) {%>onClick="popup(900,1000,'${pageContext.servletContext.contextPath}/documentManager/AnnotateDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','annotateDoc')"<%}%>>
         <%
             String btnDisabled = "disabled";
             if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
@@ -556,7 +583,7 @@
     <table class="docTable">
         <tr>
             <td class="pdfPreviewColumn" style="vertical-align: top;">
-                <div style="text-align: right;font-weight: bold">
+                <div class="document-pagination" style="text-align: right; font-weight: bold; position: sticky; top: 0; background: white; z-index: 1;">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
                     <a id="firstP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
                        onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
@@ -574,16 +601,6 @@
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
-                <div style="text-align: right;font-weight: bold">
-                    <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></a>
-                    <%} %>
-                </div>
             </td>
 
             <td class="pdfAssignmentToolsColumn" style="vertical-align: top;">

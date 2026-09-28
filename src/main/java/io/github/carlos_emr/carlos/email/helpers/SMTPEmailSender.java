@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.FilterOutputStream;
+import io.github.carlos_emr.carlos.email.core.BoundedEmailOutputStream;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +22,10 @@ import jakarta.mail.internet.MimeMessage;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
+import io.github.carlos_emr.carlos.email.core.OutboundEmailTransport;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -68,13 +72,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
  * @since 2026-01-24
  */
-public class SMTPEmailSender {
+public class SMTPEmailSender implements OutboundEmailTransport {
     static final long MAX_PREPARED_MESSAGE_BYTES = 50L * 1024L * 1024L;
     static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
     static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
+    private static final String RFC822_CONTENT_TYPE = "message/rfc822";
 
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
@@ -171,8 +176,8 @@ public class SMTPEmailSender {
      * @throws SecurityException if the user lacks required _email write privilege
      */
     public void send() throws EmailSendingException {
-        prepareMessageBytes();
-        sendPreparedMessage();
+        prepareArtifactBytes();
+        sendPrepared();
     }
 
     /**
@@ -180,17 +185,19 @@ public class SMTPEmailSender {
      *
      * <p>Attachments are read once into the prepared MIME message and their archive
      * metadata is recorded from that same byte snapshot. Callers must archive the
-     * returned RFC 822 bytes before invoking {@link #sendPreparedMessage()}.</p>
+     * returned RFC 822 bytes before invoking {@link #sendPrepared()}.</p>
      *
      * @return finalized RFC 822 message bytes suitable for outbound archive storage
      * @throws EmailSendingException if message construction, attachment reading, or serialization fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
      * @since 2026-07-20
      */
-    public byte[] prepareMessageBytes() throws EmailSendingException {
+    public byte[] prepareArtifactBytes() throws EmailSendingException {
         assertEmailWritePrivilege();
 
-        discardPreparedMessage();
+        if (preparedMessage != null) {
+            throw new EmailSendingException("SMTP message has already been prepared");
+        }
         List<Path> attachmentSnapshotPaths = new ArrayList<>();
         try {
             javaMailSender = createTLSMailSender(emailConfig);
@@ -203,7 +210,7 @@ public class SMTPEmailSender {
             List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments, attachmentSnapshotPaths);
             message.saveChanges();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            message.writeTo(new LimitedOutputStream(outputStream, MAX_PREPARED_MESSAGE_BYTES));
+            message.writeTo(new BoundedEmailOutputStream(outputStream, MAX_PREPARED_MESSAGE_BYTES));
             preparedAttachments = attachmentSnapshots;
             preparedAttachmentSnapshots = List.copyOf(attachmentSnapshotPaths);
             preparedMessage = message;
@@ -218,13 +225,13 @@ public class SMTPEmailSender {
     }
 
     /**
-     * Sends the message previously finalized by {@link #prepareMessageBytes()}.
+     * Sends the message previously finalized by {@link #prepareArtifactBytes()}.
      *
      * @throws EmailSendingException if the message has not been prepared or transport delivery fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
      * @since 2026-07-20
      */
-    public void sendPreparedMessage() throws EmailSendingException {
+    public void sendPrepared() throws EmailSendingException {
         try {
             assertEmailWritePrivilege();
             if (preparedMessage == null) {
@@ -243,7 +250,7 @@ public class SMTPEmailSender {
             throw new EmailSendingException(
                     "SMTP transport did not confirm whether the message was accepted.", e, true);
         } finally {
-            discardPreparedMessage();
+            discardPrepared();
         }
     }
 
@@ -263,7 +270,7 @@ public class SMTPEmailSender {
     /**
      * Releases any attachment snapshots held by a prepared message that will not be sent.
      */
-    public void discardPreparedMessage() {
+    public void discardPrepared() {
         deleteAttachmentSnapshots(preparedAttachmentSnapshots);
         preparedAttachmentSnapshots = List.of();
         preparedAttachments = List.of();
@@ -278,6 +285,60 @@ public class SMTPEmailSender {
      */
     public List<PreparedAttachment> getPreparedAttachments() {
         return preparedAttachments;
+    }
+
+    // --- OutboundEmailTransport ---------------------------------------------------------------
+    // send(), prepareArtifactBytes(), sendPrepared() and discardPrepared() above are the
+    // interface methods directly; they carry no SMTP-specific aliases. Two public names for one
+    // operation would let a caller -- or a mock -- bind to the name the archive path does not
+    // use, which is the same class of silent divergence this interface exists to remove.
+
+    @Override
+    public String getArchiveArtifactType() {
+        return OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822;
+    }
+
+    @Override
+    public String getArchiveContentType() {
+        return RFC822_CONTENT_TYPE;
+    }
+
+    @Override
+    public String getArchiveFileName(EmailLog emailLog) {
+        return "outbound-email-" + (emailLog != null ? emailLog.getId() : null) + ".eml";
+    }
+
+    /**
+     * Derives archive attachment metadata from the MIME parts captured while preparing the
+     * message, so the recorded hash and size describe the bytes actually attached rather than a
+     * re-read of the source file, which could have changed underneath us.
+     */
+    @Override
+    public List<OutboundEmailArchiveAttachmentDto> describePreparedAttachments() throws EmailSendingException {
+        if (preparedMessage == null) {
+            throw new EmailSendingException("SMTP message must be prepared before describing its attachments");
+        }
+        List<PreparedAttachment> snapshots = getPreparedAttachments();
+        if (snapshots == null || snapshots.isEmpty()) {
+            return List.of();
+        }
+
+        List<OutboundEmailArchiveAttachmentDto> attachmentDtos = new ArrayList<>();
+        for (PreparedAttachment preparedAttachment : snapshots) {
+            if (preparedAttachment == null || preparedAttachment.getAttachment() == null) {
+                throw new EmailSendingException("Prepared attachment is required for archive metadata");
+            }
+            EmailAttachment attachment = preparedAttachment.getAttachment();
+            OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
+            attachmentDto.setFileName(attachment.getFileName());
+            attachmentDto.setContentType(preparedAttachment.getContentType());
+            attachmentDto.setSha256Hash(preparedAttachment.getSha256Hash());
+            attachmentDto.setByteSize(preparedAttachment.getByteSize());
+            attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
+            attachmentDto.setSourceDocumentId(attachment.getDocumentId());
+            attachmentDtos.add(attachmentDto);
+        }
+        return attachmentDtos;
     }
 
     private void assertEmailWritePrivilege() {
@@ -448,7 +509,7 @@ public class SMTPEmailSender {
             // Register before copying so any checked or unchecked preparation failure cleans up.
             attachmentSnapshotPaths.add(attachmentSnapshot);
             try (InputStream source = Files.newInputStream(attachmentPath);
-                    OutputStream target = new LimitedOutputStream(Files.newOutputStream(attachmentSnapshot),
+                    OutputStream target = new BoundedEmailOutputStream(Files.newOutputStream(attachmentSnapshot),
                             remainingAttachmentBytes)) {
                 // Preserve the managed file's owner-only permissions: replacing it copies source permissions.
                 source.transferTo(target);
@@ -460,37 +521,6 @@ public class SMTPEmailSender {
             attachmentSnapshots.add(new PreparedAttachment(attachment, contentType, sha256Hash, byteSize));
         }
         return List.copyOf(attachmentSnapshots);
-    }
-
-    /** Bounds both attachment snapshots and the final MIME serialization before transport. */
-    private static final class LimitedOutputStream extends FilterOutputStream {
-        private long remaining;
-
-        private LimitedOutputStream(OutputStream output, long limit) {
-            super(output);
-            remaining = limit;
-        }
-
-        @Override
-        public void write(int value) throws IOException {
-            requireCapacity(1);
-            out.write(value);
-            remaining--;
-        }
-
-        @Override
-        public void write(byte[] bytes, int offset, int length) throws IOException {
-            java.util.Objects.checkFromIndexSize(offset, length, bytes.length);
-            requireCapacity(length);
-            out.write(bytes, offset, length);
-            remaining -= length;
-        }
-
-        private void requireCapacity(int length) throws IOException {
-            if (length > remaining) {
-                throw new IOException("Prepared SMTP message exceeds the 50 MiB archive limit");
-            }
-        }
     }
 
     private void deleteAttachmentSnapshots(List<Path> snapshotPaths) {

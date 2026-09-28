@@ -219,9 +219,14 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action",
                     "_tickler", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmFormRHPrevention2Action", "_form", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action", "_form", "w"),
             // --- schedule ---
             Arguments.of("io.github.carlos_emr.carlos.schedule.web.ScheduleDateSave2Action",
                     "_appointment", "w"),
+            // --- document manager ---
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
+                    "_edoc", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
@@ -257,6 +262,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // BC supplementary billing: view permits GET; edit/delete require POST.
+        // Covered by SupServiceCodeAssoc2ActionUnitTest.
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",
         // Rx: only method=updateDB mutates (it rebuilds the DrugRef database) and rejects
         // GET; the read-only status methods stay reachable by GET. Covered in detail by
         // RxUpdateDrugref2ActionUnitTest.
@@ -350,6 +358,12 @@ class MutatorActionGetRejectionContractUnitTest {
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
+        // Opens the annotation viewer. Requires _edoc write because reaching it is the
+        // first step of authoring a new document, but it only renders a page; the
+        // mutation lives in SaveAnnotatedDocument2Action.
+        "io.github.carlos_emr.carlos.documentManager.actions.AnnotateDocument2Action",
+        // Returns word bounding boxes for snap-to-text highlighting. Read-only.
+        "io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action",
         "io.github.carlos_emr.carlos.report.gate.ViewReport2Action"
     );
 

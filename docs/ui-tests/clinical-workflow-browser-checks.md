@@ -7,11 +7,20 @@ every other check there.
 
 | Check | Covers | The check next to it |
 |---|---|---|
-| `appointment-lifecycle` | Edit, advance status from the day sheet, cancel, delete an appointment (+ the `appointmentArchive` row) | `schedule-quick-search-appointment` and `echart-new-patient-notes` cover **booking**; nothing covered what happens to a booking afterwards |
+| `appointment-lifecycle` | Appointment HTML label preview/print, edit, validate the Update & Receipt PDF, advance status from the day sheet, cancel, delete an appointment (+ the `appointmentArchive` row) | `schedule-quick-search-appointment` and `echart-new-patient-notes` cover **booking**; nothing covered what happens to a booking afterwards |
 | `messenger-inbox-actions` | Mark read / unread, search and clear, archive, unarchive, and the archived box | `messenger` covers composing, sending from the messenger and the chart, and that **opening** a message marks it read |
 | `lab-acknowledge` | Acknowledge a result (`oscarMDS/UpdateStatus`), the lab PDF, cumulative values | `lab-macro-tickler` covers raising a tickler from a lab macro |
 | `prevention-recall-report` | Run the prevention recall report over a seeded patient set and assert a patient who is due comes back as due | `prevention-brand-picker` covers recording an immunization on one chart |
 | `measurement-validation` | A bad vital is **refused** and writes nothing; a good one through the same form still saves | `echart-vitals-bmi` covers the happy path on the same popup |
+
+The appointment lifecycle check requires `pdftotext` (`poppler-utils`) to inspect
+printed contents. For labels it enters through the appointment Label link, checks
+screen-only controls, and verifies both nonzero and calibrated zero top offsets.
+New installations default to a 24px top offset; existing `label.top` configuration
+is preserved for clinics with calibrated label stock. For receipts it checks the
+receipt loaded by the browser under the application CSP, its same-origin PDF link,
+and the PDF patient, appointment ID, date and time. Missing PDF tooling fails the
+check rather than silently skipping its content assertions.
 
 ## The rule these follow: reach it the way a user reaches it
 
@@ -124,10 +133,17 @@ saves. Without the second half, a save that is broken for every input would pass
 
 ## Conventions
 
-These use `scripts/eform-local-playwright-utils.js`, which is the suite's shared
+These use `scripts/eform-local-playwright-utils.js`, which was the suite's shared
 harness despite the eForm name: `validateBaseUrl`, `gotoApp`, `login`, `wirePage`,
-the recorder, `assertNoPageErrors`, `buildFailureDetails`. Two things about it are
-worth knowing before writing another check:
+the recorder, `assertNoPageErrors`, `buildFailureDetails`. Those names all still
+work, but the harness itself now lives in **`scripts/lib/playwright-harness.js`**
+(with the JavaScript-path helpers in `scripts/lib/playwright-ui.js`), and a new
+check should require those directly. The new harness adds `runCheck` (the signal
+handler and the PASS/FAIL/SKIP contract), `createSqlRunner` (the `sql()` helper
+below, done once), `readConfig`, and `wireStrictPage`, which fails a check on the
+JavaScript signals the old `wirePage` only collected. See
+[playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
+Two things about the original are still worth knowing before writing another check:
 
 - **`wirePage(page, label, recorder, dialogHandler)` takes the dialog handler.**
   There is one dialog listener per page and the fourth argument decides what it
@@ -141,7 +157,9 @@ worth knowing before writing another check:
 
 Each check keeps its own `sql()` helper over a 0600 defaults file, as the other
 data-asserting checks in the suite do, so the MySQL password never reaches a command
-line.
+line. New checks should use `createSqlRunner()` from the harness instead: it is the
+same 0600 option file, and it also unescapes `mysql -B` output, so the caveat above
+is handled once rather than in each of the 35 private copies.
 
 ## Adding a sixth
 

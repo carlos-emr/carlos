@@ -166,23 +166,29 @@ public final class LoginCheckLogin {
         if (ipFound(ip)) bWAN = false;
 
         GregorianCalendar now = new GregorianCalendar();
-        // Wait for singleton LoginList to initialize
-        while (llist == null) {
-            llist = LoginList.getLoginListInstance();
-        }
-        String sTemp = null;
+        LoginList lockList = lockList();
 
         // Clean up expired block entries and check block status for WAN clients only
-        if (bWAN && !llist.isEmpty()) {
-            // Remove timed-out block entries
-            for (Enumeration e = llist.keys(); e.hasMoreElements(); ) {
-                sTemp = (String) e.nextElement();
-                linfo = (LoginInfoBean) llist.get(sTemp);
-                if (linfo.getTimeOutStatus(now)) llist.remove(sTemp);
-            }
+        if (bWAN) {
+            // Same shared monitor as the username path: the per-request synchronized modifier
+            // serializes nothing, so the sweep and the status read have to be one step or a
+            // concurrent failure can slip an entry in between them.
+            synchronized (lockList) {
+                // Remove timed-out block entries
+                for (Enumeration e = lockList.keys(); e.hasMoreElements(); ) {
+                    String tracked = (String) e.nextElement();
+                    LoginInfoBean trackedEntry = (LoginInfoBean) lockList.get(tracked);
+                    if (trackedEntry != null && trackedEntry.getTimeOutStatus(now)) {
+                        lockList.remove(tracked);
+                    }
+                }
 
-            // Check if this IP is blocked (status == 0 means blocked)
-            if (llist.get(ip) != null && ((LoginInfoBean) llist.get(ip)).getStatus() == 0) bBlock = true;
+                // Check if this IP is blocked (status == 0 means blocked)
+                LoginInfoBean entry = (LoginInfoBean) lockList.get(ip);
+                if (entry != null && entry.getStatus() == 0) {
+                    bBlock = true;
+                }
+            }
         }
 
         return bBlock;
@@ -196,6 +202,12 @@ public final class LoginCheckLogin {
      *
      * <p>Username-based locking is more effective against distributed brute force
      * attacks where attackers use multiple IPs to target a single account.
+     *
+     * <p>Expired entries are dropped here, which is what bounds a username lockout to
+     * {@code login_max_duration}. Callers return as soon as this reports a block, so
+     * {@link #updateLockList} never runs for a blocked username and cannot expire the entry
+     * on its behalf; without the sweep below only an administrator using {@code UnLock2Action}
+     * could release the account.
      *
      * @param ip String the client IP address (used for LAN detection)
      * @param userName String the username attempting to log in
@@ -213,15 +225,53 @@ public final class LoginCheckLogin {
         // Check if IP is on local network (LAN clients bypass brute force protection)
         if (ipFound(ip)) bWAN = false;
 
+        GregorianCalendar now = new GregorianCalendar();
+        // Login2Action builds a LoginCheckLogin per request, so the synchronized modifier on
+        // updateLockList() serializes nothing across requests; the shared LoginList is the only
+        // usable monitor. The sweep and the status read have to be one step, or a concurrent
+        // failure can insert a replacement entry in between that this thread then removes,
+        // restarting the attempt counter and letting an attacker stay under the threshold.
+        // The local holds a stable reference so the monitor cannot be the reassignable field.
+        LoginList lockList = lockList();
+        synchronized (lockList) {
+            // Sweep every timed-out entry, not just this username's: with login_lock=true
+            // nothing else evicts the shared list, so entries for usernames that are never
+            // retried would otherwise accumulate for the life of the process. This mirrors
+            // what the IP path already does in isBlock(String).
+            for (Enumeration e = lockList.keys(); e.hasMoreElements(); ) {
+                String tracked = (String) e.nextElement();
+                LoginInfoBean trackedEntry = (LoginInfoBean) lockList.get(tracked);
+                if (trackedEntry != null && trackedEntry.getTimeOutStatus(now)) {
+                    lockList.remove(tracked);
+                }
+            }
+
+            // Check if this username is blocked (status == 0 means blocked); an elapsed
+            // tracking window is already gone, so the next failure opens a fresh one.
+            LoginInfoBean entry = (LoginInfoBean) lockList.get(userName);
+            if (entry != null && entry.getStatus() == 0) {
+                bBlock = true;
+            }
+        }
+
+        return bBlock;
+    }
+
+    /**
+     * Resolves the application-scoped lock list, caching it in {@link #llist}.
+     *
+     * <p>The block checks resolve it lazily, but the forced-password-reset submit path in
+     * {@code Login2Action} records a failed attempt without ever calling {@code isBlock}, so the
+     * update paths cannot assume the field is already populated.
+     *
+     * @return the shared LoginList singleton, never null
+     */
+    private LoginList lockList() {
         // Wait for singleton LoginList to initialize
         while (llist == null) {
             llist = LoginList.getLoginListInstance();
         }
-
-        // Check if this username is blocked (status == 0 means blocked)
-        if (llist.get(userName) != null && ((LoginInfoBean) llist.get(userName)).getStatus() == 0) bBlock = true;
-
-        return bBlock;
+        return llist;
     }
 
     /**
@@ -312,6 +362,12 @@ public final class LoginCheckLogin {
      */
     public synchronized void updateLoginList(String ip, String userName) {
         Properties p = CarlosProperties.getInstance();
+        // Resolve the LAN exemption here rather than relying on a preceding isBlock: the
+        // forced-password-reset submit path in Login2Action records a failure on a fresh
+        // LoginCheckLogin, where bWAN is still at its WAN default. Without this a LAN client
+        // failing that form would be tracked, and could be locked out, despite the exemption.
+        if (ipFound(ip)) bWAN = false;
+
         // Choose blocking strategy based on configuration
         if (!p.getProperty("login_lock", "").trim().equals("true")) {
             updateLoginList(ip);
@@ -337,20 +393,34 @@ public final class LoginCheckLogin {
      */
     public synchronized void updateLoginList(String ip) {
         Properties p = CarlosProperties.getInstance();
+        // Resolve the LAN exemption from the address so this overload is correct even when no
+        // block check has run on this instance yet.
+        if (ipFound(ip)) bWAN = false;
+
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
+            // Reachable without a preceding isBlock on the forced-password-reset path, where a
+            // fresh LoginCheckLogin has not resolved the singleton yet.
+            LoginList lockList = lockList();
             GregorianCalendar now = new GregorianCalendar();
-            // Create new tracking entry if first failure from this IP
-            if (llist.get(ip) == null) {
-                linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+            // Same monitor as the sweep in isBlock(String): the lookup, increment and write-back
+            // have to be one step, or concurrent failures read the same count and one increment
+            // is lost, letting an attacker exceed login_max_failed_times.
+            synchronized (lockList) {
+                // Create new tracking entry if first failure from this IP
+                if (lockList.get(ip) == null) {
+                    linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+                }
+                // Update existing tracking entry
+                else {
+                    linfo = (LoginInfoBean) lockList.get(ip);
+                    linfo.updateLoginInfoBean(now, 1);
+                }
+                lockList.put(ip, linfo);
             }
-            // Update existing tracking entry
-            else {
-                linfo = (LoginInfoBean) llist.get(ip);
-                linfo.updateLoginInfoBean(now, 1);
-            }
-            llist.put(ip, linfo);
-            MiscUtils.getLogger().debug(ip + "  status: " + ((LoginInfoBean) llist.get(ip)).getStatus() + " times: " + linfo.getTimes() + " time: ");
+            // Read through the entry this thread just wrote: re-reading the shared list here can
+            // race with an expiry sweep that has since removed it.
+            MiscUtils.getLogger().debug("{}  status: {} times: {} time: ", ip, linfo.getStatus(), linfo.getTimes());
         }
     }
 
@@ -367,7 +437,9 @@ public final class LoginCheckLogin {
      * <p>Username-based blocking is more effective against distributed attacks where
      * attackers use multiple IPs to target a single account.
      *
-     * <p>LAN clients (bWAN == false) are never tracked or blocked.
+     * <p>LAN clients (bWAN == false) are never tracked or blocked. This method takes no address,
+     * so it cannot resolve that itself: {@link #updateLoginList(String, String)} establishes the
+     * LAN/WAN scope before dispatching here.
      *
      * @param userName String the username that failed authentication
      * @see LoginInfoBean#updateLoginInfoBean for attempt tracking logic
@@ -377,17 +449,26 @@ public final class LoginCheckLogin {
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
             GregorianCalendar now = new GregorianCalendar();
-            // Create new tracking entry if first failure for this username
-            if (llist.get(userName) == null) {
-                linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+            // Same monitor as the expiry sweep in isBlock(String, String). The lookup, increment
+            // and write-back have to be one step: concurrent failures otherwise read the same
+            // count and one increment is lost, and an entry expired between the lookup and the
+            // write would be silently resurrected.
+            LoginList lockList = lockList();
+            synchronized (lockList) {
+                // Create new tracking entry if first failure for this username
+                if (lockList.get(userName) == null) {
+                    linfo = new LoginInfoBean(now, Integer.parseInt(p.getProperty("login_max_failed_times")), Integer.parseInt(p.getProperty("login_max_duration")));
+                }
+                // Update existing tracking entry
+                else {
+                    linfo = (LoginInfoBean) lockList.get(userName);
+                    linfo.updateLoginInfoBean(now, 1);
+                }
+                lockList.put(userName, linfo);
             }
-            // Update existing tracking entry
-            else {
-                linfo = (LoginInfoBean) llist.get(userName);
-                linfo.updateLoginInfoBean(now, 1);
-            }
-            llist.put(userName, linfo);
-            MiscUtils.getLogger().debug(userName + "  status: " + ((LoginInfoBean) llist.get(userName)).getStatus() + " times: " + linfo.getTimes() + " time: ");
+            // Read through the entry this thread just wrote: re-reading the shared list here
+            // can race with an expiry sweep that has since removed it.
+            MiscUtils.getLogger().debug("{}  status: {} times: {} time: ", userName, linfo.getStatus(), linfo.getTimes());
         }
     }
 

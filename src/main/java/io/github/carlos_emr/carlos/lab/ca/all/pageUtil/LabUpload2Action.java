@@ -102,8 +102,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
     protected static Logger logger = MiscUtils.getLogger();
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -201,7 +199,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                             ? Utilities.savePdfFile(verified, fileName)
                             : Utilities.saveFile(verified, fileName);
                 }
-                File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+                if (filePath == null) {
+                    // saveFile/savePdfFile return null when the write failed. Thrown rather than
+                    // returned so the failure reaches respond() as a 500, which is what honours
+                    // use_http_response_code.
+                    throw new IOException("Lab file save returned no path");
+                }
+                File file = PathValidationUtils.validateExistingDocumentPath(filePath);
+                filePath = file.getPath();
 
                 // The signature covered the staged bytes, not this second copy, and the
                 // Utilities save helpers log an IOException and still return the path. Without
@@ -312,6 +317,13 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * the receiver's own private key is unavailable: that is a receiver fault (DB outage, missing
      * oscarKeys row), and reporting it as a sender rejection would stop senders from retrying.
      */
+    // ECB_MODE / CIPHER_INTEGRITY: the payload cipher below is the one the external lab
+    // senders encrypt with, and this receiver only decrypts. Substituting an authenticated
+    // mode here unilaterally would reject every message those senders produce, so the
+    // migration to a versioned AES-GCM format is coordinated in issue #3413 (which names a
+    // local replacement as an explicit non-goal). The finding is accepted and tracked there,
+    // not dismissed: remove this suppression together with the legacy format.
+    @SuppressFBWarnings(value = {"ECB_MODE", "CIPHER_INTEGRITY"}, justification = "legacy lab upload transport format dictated by external senders; decrypt-only receiver, authenticated-encryption migration tracked in issue #3413")
     public static InputStream decryptMessage(InputStream is, String skey, PublicKey pkey) {
 
         // retrieve the servers private key

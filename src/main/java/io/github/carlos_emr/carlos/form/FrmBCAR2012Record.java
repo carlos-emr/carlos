@@ -37,7 +37,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 
 
 public class FrmBCAR2012Record extends FrmRecord {
@@ -71,7 +71,7 @@ public class FrmBCAR2012Record extends FrmRecord {
             props.setProperty("pg1_formDate", simpleDateFormat.format(dateToday));
             props.setProperty("pg2_formDate", simpleDateFormat.format(dateToday));
             props.setProperty("pg3_formDate", simpleDateFormat.format(dateToday));
-            String rd = SxmlMisc.getXmlContent(demographic.getFamilyDoctor(), "rd");
+            String rd = DemographicXml.referralDoctor(demographic.getFamilyDoctor());
             rd = rd != null ? rd : "";
             props.setProperty("pg1_famPhy", rd);
 

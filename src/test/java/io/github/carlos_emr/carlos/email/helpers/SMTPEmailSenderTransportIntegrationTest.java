@@ -95,19 +95,19 @@ class SMTPEmailSenderTransportIntegrationTest {
             SMTPEmailSender sender = new LocalSMTPEmailSender(caller, config,
                     new String[]{"recipient@example.test"}, "Synthetic archive transport test",
                     "First line\r\n.dot-stuffed line\r\nFinal line", List.of());
-            byte[] archived = sender.prepareMessageBytes();
+            byte[] archived = sender.prepareArtifactBytes();
 
             if (dropAcknowledgement) {
-                assertThatThrownBy(sender::sendPreparedMessage).isInstanceOfSatisfying(
+                assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
                         EmailSendingException.class,
                         failure -> assertThat(failure.isDeliveryOutcomeUncertain()).isTrue());
             } else {
-                sender.sendPreparedMessage();
+                sender.sendPrepared();
             }
 
             assertThat(received.get(10, TimeUnit.SECONDS)).isEqualTo(archived);
             assertThat(sender.getPreparedAttachments()).isEmpty();
-            assertThatThrownBy(sender::sendPreparedMessage).isInstanceOf(EmailSendingException.class)
+            assertThatThrownBy(sender::sendPrepared).isInstanceOf(EmailSendingException.class)
                     .hasMessageContaining("must be prepared");
         }
     }

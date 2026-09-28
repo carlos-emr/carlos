@@ -28,15 +28,12 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.CarlosProperties;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
@@ -44,8 +41,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.HashMap;
 
 import org.apache.struts2.ActionSupport;
@@ -69,9 +64,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Integration with patient demographic and appointment data</li>
  * </ul>
  *
- * <p>Security: Requires the "_demographic" security privilege with read access.
- * All patient data access is logged through the LoggedInInfo framework for
- * HIPAA/PIPEDA compliance.</p>
+ * <p>Security: Requires "_demographic" read access for the requested patient
+ * before loading printer preferences or generating the report.</p>
  *
  * <p>Label templates are configurable via CarlosProperties:</p>
  * <ul>
@@ -86,7 +80,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * </ul>
  *
  * @see io.github.carlos_emr.carlos.commn.model.UserProperty
- * @see io.github.carlos_emr.OscarDocumentCreator
+ * @see DemographicLabelPdf
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
  * @since 2026-01-24
  */
@@ -96,14 +90,6 @@ public class PrintDemoLabel2Action extends ActionSupport {
 
     private static Logger logger = MiscUtils.getLogger();
     private final transient SecurityInfoManager securityInfoManager;
-
-    /**
-     * Constructor for PrintDemoLabel2Action.
-     *
-     * <p>Initializes the action with Spring-injected dependencies.
-     * The HttpServletRequest and HttpServletResponse are obtained from ServletActionContext
-     * following the Struts2 2Action pattern.</p>
-     */
     public PrintDemoLabel2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
@@ -121,7 +107,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
      *   <li>Retrieves provider-specific printer settings from UserProperty</li>
      *   <li>Determines the appropriate label template (MRP or appointment provider)</li>
      *   <li>Loads the label template XML from configured path or default classpath resource</li>
-     *   <li>Generates PDF using OscarDocumentCreator with patient demographic data</li>
+     *   <li>Generates PDF using JasperReports with authorized patient demographic data</li>
      *   <li>Streams the PDF to the response output with appropriate headers</li>
      *   <li>Optionally injects JavaScript for automatic/silent printing</li>
      * </ol>
@@ -156,48 +142,39 @@ public class PrintDemoLabel2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     // FindSecBugs CRLF_INJECTION_LOGS: logged labelPath comes from CarlosProperties (pdfLabelMRP / pdfLabelApptProvider) or a user.home-derived default; trusted server config, not request input.
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN", "CRLF_INJECTION_LOGS"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input; logged labelPath is from trusted CARLOS properties/config, no attacker-controlled CR/LF")
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        String demographicNo = DemographicLabelAccess.authorizeRead(loggedInInfo,
+                request.getParameter("demographic_no"), response, securityInfoManager);
+        if (demographicNo == null) {
+            return NONE;
         }
 
-        //patient
-        String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
-        if (classpath == null)
-            classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
-
-        System.setProperty("jasper.reports.compile.class.path", classpath);
         String curUser_no = loggedInInfo.getLoggedInProviderNo();
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop;
         String defaultPrinterName = "";
-        Boolean silentPrint = false;
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_LABEL);
         if (prop != null) {
             defaultPrinterName = prop.getValue();
         }
         prop = propertyDao.getProp(curUser_no, UserProperty.DEFAULT_PRINTER_PDF_LABEL_SILENT_PRINT);
-        if (prop != null) {
-            if (prop.getValue().equalsIgnoreCase("yes")) {
-                silentPrint = true;
-            }
-        }
+        boolean silentPrint = prop != null && "yes".equalsIgnoreCase(prop.getValue());
         String exportPdfJavascript = null;
 
         if (defaultPrinterName != null && !defaultPrinterName.isEmpty()) {
             exportPdfJavascript = "var params = this.getPrintParams();"
                     + "params.pageHandling=params.constants.handling.none;"
-                    + "params.printerName='" + defaultPrinterName + "';";
-            if (silentPrint == true) {
+                    + "params.printerName='" + io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(defaultPrinterName) + "';";
+            if (silentPrint) {
                 exportPdfJavascript += "params.interactive=params.constants.interactionLevel.silent;";
             }
             exportPdfJavascript += "this.print(params);";
         }
-        HashMap<String, String> parameters = new HashMap<String, String>();
-        parameters.put("demo", request.getParameter("demographic_no"));
+        HashMap<String, Object> parameters = new HashMap<>();
+        parameters.put("demo", demographicNo);
 
         Integer apptNo = null;
         try {
@@ -214,7 +191,6 @@ public class PrintDemoLabel2Action extends ActionSupport {
             labelPath = apptProviderLabelPath;
         }
 
-        ServletOutputStream sos = null;
         InputStream ins = null;
 
 
@@ -235,69 +211,9 @@ public class PrintDemoLabel2Action extends ActionSupport {
             }
         }
 
-        try {
-            sos = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-
-        response.setHeader("Content-disposition", getHeader(response).toString());
-        OscarDocumentCreator osc = new OscarDocumentCreator();
-        try {
-            try (InputStream templateStream = ins;
-                 Connection connection = LegacyJdbcQuery.getConnection()) {
-                osc.fillDocumentStream(parameters, sos, "pdf", templateStream, connection, exportPdfJavascript);
-            }
-        } catch (IOException | SQLException e) {
-            MiscUtils.getLogger().error("Error generating demographic label PDF", e);
-            if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                } catch (IOException sendErrorException) {
-                    MiscUtils.getLogger().error("Error sending demographic label PDF failure response", sendErrorException);
-                }
-            }
-        }
-
-        // Action writes PDF bytes directly to response.getOutputStream() above, so return
-        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
-        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
-        // and the global exception result would render errorpage.jsp on top of the PDF bytes
-        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        DemographicLabelPdf.write(response, parameters, ins, exportPdfJavascript);
+        // The response is complete; do not append a Struts result page.
         return NONE;
     }
 
-    /**
-     * Constructs the HTTP Content-Disposition header value for the PDF label response.
-     *
-     * <p>This method builds the Content-Disposition header to instruct the browser to
-     * display the PDF inline (within the browser) rather than prompting for download.
-     * It also sets cache control headers to prevent caching of the PDF document.</p>
-     *
-     * <p>The method sets the following response headers:</p>
-     * <ul>
-     *   <li><code>Cache-Control: max-age=0</code> - Prevents browser caching</li>
-     *   <li><code>Expires: 0</code> - Sets expiration to epoch (prevents caching)</li>
-     *   <li><code>Content-Type: application/pdf</code> - Identifies content as PDF</li>
-     * </ul>
-     *
-     * <p>The generated filename is always "label_.pdf". This appears to be a potential
-     * issue as the underscore suggests a missing identifier (demographic_no or timestamp)
-     * should be included in the filename.</p>
-     *
-     * @param response HttpServletResponse the HTTP response object to configure headers on
-     * @return StringBuilder the Content-Disposition header value in format "inline; filename=label_.pdf"
-     */
-    private StringBuilder getHeader(HttpServletResponse response) {
-        StringBuilder strHeader = new StringBuilder();
-        strHeader.append("label_");
-        strHeader.append(".pdf");
-        response.setHeader("Cache-Control", "max-age=0");
-        response.setDateHeader("Expires", 0);
-        response.setContentType("application/pdf");
-        StringBuilder sbContentDispValue = new StringBuilder();
-        sbContentDispValue.append("inline; filename="); //inline - display
-        sbContentDispValue.append(strHeader);
-        return sbContentDispValue;
-    }
 }

@@ -15,6 +15,8 @@
 /*
  * Browser check for what the front desk does to an appointment AFTER it exists:
  * edit it, advance its status from the day sheet, cancel it, delete it.
+ * Also verifies excessive durations are refused on add and edit with actionable
+ * feedback, no database change, and successful saving after correction (#3702).
  *
  * schedule-quick-search-appointment covers booking from the quick-search widget
  * and echart-new-patient-notes books from a day-sheet slot, so the booking half
@@ -47,6 +49,9 @@
  *   APPOINTMENT_PROVIDER_NO=999998   provider whose day sheet is driven
  *   APPOINTMENT_DAYS_AHEAD=400       how far out to book, to stay clear of demo data
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * Requires pdftotext (poppler-utils) to inspect the printed HTML labels and to
+ * validate the printed receipt contents.
  *
  * Cleanup: one appointment is booked, its reason and notes carry a unique
  * PW_APPT_<millis> marker, and every appointment / appointmentArchive row with
@@ -233,6 +238,37 @@ async function openDaySheet(page) {
   }
 }
 
+/** Reject an excessive duration before any appointment write, then allow correction. */
+async function checkInvalidDuration(popup, button, label) {
+  const before = JSON.stringify(stampedAppointments());
+  const duration = popup.locator('#duration');
+  const original = await duration.inputValue();
+  const writes = [];
+  const recordWrite = (request) => {
+    if (request.method() === 'POST'
+        && /\/appointment\/(AddRecord|UpdateRecord)$/.test(new URL(request.url()).pathname)) {
+      writes.push(request.url());
+    }
+  };
+  popup.on('request', recordWrite);
+  try {
+    await duration.fill('7500');
+    await button.click();
+    await popup.locator('#jsAlertBanner').waitFor({ state: 'visible', timeout: 10000 });
+    const message = (await popup.locator('#jsAlertText').innerText()).trim();
+    assert(writes.length === 0, `${label}: invalid duration submitted an appointment write`);
+    assert(JSON.stringify(stampedAppointments()) === before,
+      `${label}: invalid duration changed the appointment rows`);
+    assert(/start time/i.test(message) && /duration/i.test(message)
+      && /same day/i.test(message) && !/!{2,}/.test(message),
+      `${label}: duration feedback must explain the same-day constraint without repeated exclamation marks; got ${JSON.stringify(message)}`);
+    pass(`${label}: duration 7500 refused with actionable feedback and no write`);
+  } finally {
+    popup.off('request', recordWrite);
+    if (!popup.isClosed()) await duration.fill(original);
+  }
+}
+
 /** Books the appointment this check then operates on, from an empty slot link. */
 async function bookFromSlot(context, daySheet) {
   // Scoped to the target provider's COLUMN, not just the first slot on the sheet.
@@ -292,6 +328,10 @@ async function bookFromSlot(context, daySheet) {
     `booking form start_time was not prefilled from the slot, got ${slotStart}`);
   await popup.locator('#reason').fill(bookedReason);
   await popup.locator('textarea[name="notes"]').fill(bookedNotes);
+  const intendedDuration = Number(await popup.locator('#duration').inputValue());
+  assert(Number.isInteger(intendedDuration) && intendedDuration > 0,
+    'the selected slot must provide a positive duration');
+  await checkInvalidDuration(popup, popup.locator('#addButton'), 'add appointment');
 
   const [response] = await Promise.all([
     popup.waitForResponse((r) => r.request().method() === 'POST'
@@ -314,6 +354,12 @@ async function bookFromSlot(context, daySheet) {
     `booked appointment landed on provider ${row2.provider}, expected the ${providerNo} column that was clicked`);
   assert(row2.startTime.startsWith(slotStart.slice(0, 5)),
     `booked appointment start_time ${row2.startTime} did not match the clicked slot ${slotStart}`);
+  const startMinutes = Number(slotStart.slice(0, 2)) * 60 + Number(slotStart.slice(3, 5));
+  const endMinutes = Number(row2.endTime.slice(0, 2)) * 60 + Number(row2.endTime.slice(3, 5));
+  // The schedule stores an inclusive final minute (15 minutes at 08:00 ends at
+  // 08:14). Check the saved value, so recovery cannot leave the rejected end time.
+  assert(endMinutes - startMinutes === intendedDuration - 1,
+    `corrected duration ${intendedDuration} saved end_time ${row2.endTime} for start ${slotStart}`);
   await popup.close().catch(() => {});
   return row2;
 }
@@ -336,6 +382,69 @@ async function openEditPopup(context, daySheet, appointmentNo, dialogHandler = n
   return popup;
 }
 
+/** Print labels through the appointment's Label link, not a constructed URL. */
+async function checkAppointmentLabels(context, daySheet, appointmentNo) {
+  const edit = await openEditPopup(context, daySheet, appointmentNo);
+  await edit.evaluate(() => {
+    const originalOpen = window.open;
+    window.open = function (url, name, features) {
+      window.__labelWindowFeatures = features;
+      return originalOpen.call(this, url, name, features);
+    };
+  });
+  const [labels] = await Promise.all([
+    context.waitForEvent('page', { timeout: 45000 }),
+    edit.locator('a[onclick*="ViewDemographicLabelPrintSetting"]').click(),
+  ]);
+  wirePage(labels, 'appointment-labels', recorder);
+  await labels.waitForLoadState('domcontentloaded');
+  await assertNotErrorPage(labels, 'appointment label settings');
+  const features = await edit.evaluate(() => window.__labelWindowFeatures);
+  assert(/resizable=yes/.test(features), 'label popup must be resizable');
+  assert(Number(/width=(\d+)/.exec(features)?.[1]) >= 900
+    && Number(/height=(\d+)/.exec(features)?.[1]) >= 750, 'label popup is too small for its settings');
+  const preview = labels.locator('input[type="submit"]');
+  assert(await preview.inputValue() === 'Preview/Print', 'label preview action has redundant wording');
+  // Exercise explicit offsets independently of installation defaults. Existing
+  // clinics may deliberately use zero to match calibrated label stock.
+  for (const top of [24, 0]) {
+    await labels.locator('input[name="top"]').fill(String(top));
+    await labels.locator('input[name="left"]').fill('32');
+    for (let n = 1; n <= 5; n++) {
+      await labels.locator(`input[name="label${n}checkbox"]`).setChecked(n === 5);
+    }
+    await labels.locator('input[name="label5no"]').fill('1');
+    await Promise.all([
+      labels.waitForURL(/ViewDemographicPrintDemographic/, { timeout: 45000 }),
+      preview.click(),
+    ]);
+    await assertNotErrorPage(labels, 'appointment label preview');
+    const block = labels.locator('.label-block');
+    assert(await block.count() === 1, 'label count/selection was not preserved');
+    const position = await block.evaluate((element) => ({ top: element.offsetTop, left: element.offsetLeft }));
+    assert(position.top === top && position.left === 32, 'label preview ignored the selected offsets');
+    const controls = labels.locator('.print-controls input[type="button"]');
+    assert(await controls.count() === 2, 'label preview needs Print and Back controls');
+    assert(await controls.nth(0).isVisible() && await controls.nth(1).isVisible(), 'screen controls are hidden');
+    const patient = sqlRows(`SELECT first_name, last_name FROM demographic WHERE demographic_no=${demographicNo}`)[0];
+    await labels.emulateMedia({ media: 'print' });
+    assert(!await controls.nth(0).isVisible() && !await controls.nth(1).isVisible(), 'Print/Back controls must not appear on paper');
+    assert(await block.isVisible(), 'print styles also hid the patient label');
+    const pdf = await labels.pdf({ format: 'Letter', margin: { top: 0, right: 0, bottom: 0, left: 0 } });
+    const text = execFileSync('pdftotext', ['-layout', '-', '-'], { input: pdf, encoding: 'utf8', timeout: 15000 });
+    assert(patient.every((name) => text.includes(name)), 'printed label is missing the patient');
+    assert(!/\bPrint\b|\bBack\b/.test(text), 'printed PDF contains screen controls');
+    await labels.emulateMedia({ media: 'screen' });
+    await Promise.all([
+      labels.waitForURL(/ViewDemographicLabelPrintSetting/, { timeout: 45000 }),
+      controls.nth(1).click(),
+    ]);
+  }
+  await labels.close();
+  await edit.close();
+  pass('appointment labels print patient data without controls and preserve calibrated offsets');
+}
+
 async function submitEdit(popup) {
   const [response] = await Promise.all([
     popup.waitForResponse((r) => r.request().method() === 'POST'
@@ -347,16 +456,79 @@ async function submitEdit(popup) {
   await assertNotErrorPage(popup, 'appointment update confirmation');
 }
 
+/** Exercise the real Update & Receipt popup, including its embedded PDF request. */
+async function submitEditWithReceipt(context, popup, appointmentNo) {
+  const receiptPromise = context.waitForEvent('page', { timeout: 45000 });
+  // Register before the click: the receipt window is reserved synchronously and
+  // navigated after UpdateRecord succeeds. Fetching the URL separately would miss
+  // CSP blocking the browser's actual embedding request.
+  const pdfPromise = context.waitForEvent('response', {
+    predicate: (response) => /\/printAppointmentReceiptAction$/.test(new URL(response.url()).pathname)
+      && new URL(response.url()).searchParams.get('appointment_no') === String(appointmentNo),
+    timeout: 45000,
+  });
+  receiptPromise.catch(() => {});
+  pdfPromise.catch(() => {});
+  const [update, receipt] = await Promise.all([
+    popup.waitForResponse((response) => response.request().method() === 'POST'
+      && /\/appointment\/UpdateRecord$/.test(new URL(response.url()).pathname), { timeout: 45000 }),
+    receiptPromise.then((page) => {
+      wirePage(page, 'appointment-receipt', recorder);
+      return page;
+    }),
+    popup.locator('#printReceiptButton').click(),
+  ]);
+  assert(update.status() === 200, `Update & Receipt returned HTTP ${update.status()}`);
+  await receipt.waitForURL(/\/appointment\/printappointment/, { timeout: 45000 });
+  await assertNotErrorPage(receipt, 'appointment receipt');
+  const frame = receipt.locator('iframe#apptpdf');
+  await frame.waitFor({ state: 'visible', timeout: 10000 });
+  const frameUrl = new URL(await frame.getAttribute('src'), receipt.url());
+  assert(frameUrl.origin === new URL(config.baseUrl).origin, 'receipt PDF must stay on the application origin');
+  assert(frameUrl.searchParams.get('appointment_no') === String(appointmentNo), 'receipt targets a different appointment');
+  assert(await frame.getAttribute('title'), 'receipt iframe needs an accessible title');
+  const bounds = await frame.boundingBox();
+  assert(bounds && bounds.width >= 200 && bounds.height >= 200, 'receipt viewer has no usable dimensions');
+  const link = receipt.locator('#appointmentReceiptPdf');
+  assert(await link.isVisible(), 'receipt needs a visible PDF link for browsers without an embedded PDF viewer');
+  assert(new URL(await link.getAttribute('href'), receipt.url()).href === frameUrl.href,
+    'receipt PDF link and viewer point to different receipts');
+  const response = await pdfPromise;
+  assert(response.status() === 200, `embedded receipt PDF returned HTTP ${response.status()}`);
+  assert(/application\/pdf/i.test(response.headers()['content-type'] || ''), 'receipt response is not PDF');
+  // Chromium exposes its internal PDF viewer HTML through response.body().
+  // Keep the actual iframe HTTP assertions above, then fetch the same resource
+  // with this authenticated browser context to inspect the original PDF bytes.
+  const pdf = await context.request.get(frameUrl.href);
+  assert(pdf.status() === 200 && /application\/pdf/i.test(pdf.headers()['content-type'] || ''),
+    'receipt PDF content request failed');
+  const bytes = await pdf.body();
+  assert(bytes.subarray(0, 5).toString() === '%PDF-', 'receipt response has no PDF signature');
+  const text = execFileSync('pdftotext', ['-layout', '-', '-'], {
+    input: bytes, encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024,
+  });
+  const row = stampedAppointments().find((entry) => entry.id === String(appointmentNo));
+  assert(row, 'receipt appointment disappeared');
+  const [patient] = sqlRows(`SELECT first_name, last_name FROM demographic WHERE demographic_no=${demographicNo}`);
+  for (const expected of [targetDate, row.startTime.slice(0, 5), ...patient]) {
+    assert(text.includes(expected), `receipt is missing expected appointment content: ${expected}`);
+  }
+  assert(text.split(/\W+/).includes(String(appointmentNo)), 'receipt contains no matching appointment ID');
+  await receipt.close();
+  pass('Update & Receipt displayed its PDF under the application CSP with correct patient, date, time and appointment ID');
+}
+
 async function editAppointment(context, daySheet, appointmentNo) {
   const popup = await openEditPopup(context, daySheet, appointmentNo);
   const prefilled = await popup.locator('#reason').inputValue();
   assert(prefilled === bookedReason,
     `edit popup prefilled reason ${prefilled}, expected the booked ${bookedReason}`);
 
+  await checkInvalidDuration(popup, popup.locator('#updateButton'), 'edit appointment');
   await popup.locator('#reason').fill(editedReason);
   await popup.locator('textarea[name="notes"]').fill(editedNotes);
   await popup.locator('#duration').fill('30');
-  await submitEdit(popup);
+  await submitEditWithReceipt(context, popup, appointmentNo);
   await popup.close().catch(() => {});
 
   const row = await waitFor(() => {
@@ -474,7 +646,7 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
     `appointmentArchive has no row for deleted appointment ${appointmentNo}: ${JSON.stringify(archived)}`);
 }
 
-(async () => {
+async function main() {
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -504,6 +676,8 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
 
     const booked = await bookFromSlot(context, daySheet);
     pass(`booked appointment ${booked.id} from a day-sheet slot for demographic ${demographicNo}`);
+
+    await checkAppointmentLabels(context, daySheet, booked.id);
 
     const edited = await editAppointment(context, daySheet, booked.id);
     pass(`edit persisted reason, notes and the recomputed end_time (${edited.startTime}-${edited.endTime})`);
@@ -536,4 +710,13 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
       cleanupMysqlDefaults();
     }
   }
-})();
+
+}
+if (require.main === module) main().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exitCode = 1;
+});
+// Shared UI fixture: importing this module does not book or delete anything.
+module.exports = { config, recorder, targetDate, target, stamp, bookedReason, bookedNotes,
+  initMysqlDefaults, cleanupMysqlDefaults, cleanupRows, sql, stampedAppointments, stampedArchiveRows,
+  openDaySheet, bookFromSlot, openEditPopup };
