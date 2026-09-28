@@ -431,7 +431,14 @@ tests. The translations now use Unicode escapes, and the integration fixture
 temporarily binds the real DAO and restores the previous cache. Its real database
 and filesystem rollback assertions remain intact. CI also identified the missing
 resource-bundle declaration in the splitter; that declaration is now explicit.
-The full rerun and installed browser checks are pending these corrections.
+The full rerun passed 15,469 Java tests with zero failures or errors and the same
+three host-side Selenium skips; JSP compilation, Javadoc and WAR packaging passed.
+A final many-session review then found that eForm render admission bounded active
+browsers but not waiting servlet threads, potentially starving renderer callbacks.
+Admission now permits four waiting callers and returns the existing safe capacity
+response to excess sessions. Five concurrency regressions cover overflow, fairness,
+recovery, interruption and permit cleanup. The final build and installed browser
+checks remain pending this additional correction.
 
 
 The incoming workflow subsequently passed native PDF/image recovery after five

@@ -387,6 +387,11 @@ removing an artifact or retrying; these directories are not automatically reaped
 
 ### eForm rendering waits
 
+Each application JVM permits two active browser renders and four waiting render
+requests. Additional sessions receive an unaccepted capacity response and wait in
+the browser before retrying. Keeping the server queue small leaves request threads
+available for active renderers to load the form and its resources.
+
 Download and archive continuations retry the already-saved eForm; they do not
 repeat its clinical save. An omission approval keeps its original two-minute
 lifetime while capacity is unavailable. A one-use capacity receipt remains valid
