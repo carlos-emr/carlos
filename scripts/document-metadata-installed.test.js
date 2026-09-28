@@ -2,7 +2,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {metadataEnabled, recorderSnapshot, reconcileFault, actionIntent} = require('./lib/document-metadata-installed');
+const {isOwnedUnlinkAnchor, metadataEnabled, recorderSnapshot, reconcileFault, actionIntent} = require('./lib/document-metadata-installed');
 const identity = {document: '42', patient: '77', provider: '999998'};
 function ledger(mode = 'rejected500') {
   const intent = actionIntent('queue', identity, 'https://owned.invalid/inboxManage', 'pin');
@@ -48,4 +48,27 @@ test('queue and unlink keep exact document/provider/session scope and contain no
   const unlink = actionIntent('unlink', identity, 'https://owned.invalid/manage', 'pin');
   assert.equal(new URLSearchParams(unlink.body).get('providerNo'), identity.provider);
   assert(Object.isFrozen(queue)); assert(Object.isFrozen(unlink));
+});
+
+test('unlink anchor checks decimal identities with the original exact literal handler contract', () => {
+  for (const value of ["removeLink('DOC','42','999998',this);return false;",
+      "  removeLink('DOC',  '42',\t'999998', this);return false;  "]) {
+    assert.equal(isOwnedUnlinkAnchor(value, '42', '999998'), true);
+  }
+  assert.equal(isOwnedUnlinkAnchor("removeLink('DOC','42','009',this);return false;", '42', '009'), true);
+});
+test('unlink anchor refuses other identities, appended code and malformed handlers', () => {
+  const valid = "removeLink('DOC','42','999998',this);return false;";
+  for (const value of [null, undefined, 42, valid.replace("'42'", "'43'"),
+      valid.replace("'999998'", "'999999'"), valid.replace("'42'", "'042'"),
+      valid.replace("'DOC'", "'doc'"), valid.replace('return false;', ''),
+      valid + 'alert(1);', 'alert(1);' + valid, valid.replace('this', 'other')]) {
+    assert.equal(isOwnedUnlinkAnchor(value, '42', '999998'), false);
+  }
+});
+test('unlink identities are compared literally and never interpreted as regular expressions', () => {
+  const value = "removeLink('DOC','42','999998',this);return false;";
+  for (const identity of ['.*', '(a+)+$', '42|43', "42');alert(1);//"])
+    assert.equal(isOwnedUnlinkAnchor(value, identity, '999998'), false);
+  assert.equal(isOwnedUnlinkAnchor(value, '42', '99999.'), false);
 });

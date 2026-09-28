@@ -192,3 +192,58 @@ test('real DOM freeze normalizes legacy identity and saved=false exactly as prod
   fields.find(([name]) => name === 'doc_no')[1] = '43';
   await assert.rejects(freezeMetadataIntent(page, {document: '42', patient: '77', provider: '999998'}, frozen.endpoint), /identity differs/);
 });
+
+for (const date of ['2020/09/28', '2020/9/8', '2020-09-28', '2020-9-8']) {
+  test('frozen date matches actual Save validation for ' + date + ' without changing the displayed form', async () => {
+    const vm = require('node:vm'), fs = require('node:fs'), path = require('node:path');
+    const {freezeMetadataIntent, validateRequest} = require('./lib/document-metadata-check');
+    const fields = [['method', 'documentUpdate'], ['documentId', '42'], ['demog', '77'],
+      ['documentDescription', 'Owned revised'], ['docType', 'Consult'], ['saved', 'true'], ['observationDate', date]];
+    const control = {value: date, focus() {throw new Error('Unexpected invalid date');}};
+    const form = {elements: {observationDate: control}, querySelector: () => null};
+    const document = {getElementById: () => form, querySelector: () => ({value: 'owned-token'})};
+    const page = {evaluate: async (fn, id) => vm.runInNewContext('(' + fn.toString() + ')(id)', {
+      id, URLSearchParams, window: {document},
+      FormData: class {[Symbol.iterator]() {return fields[Symbol.iterator]();}},
+    })};
+    const intent = await freezeMetadataIntent(page, {document: '42', patient: '77', provider: '999998'}, 'https://owned.invalid/ManageDocument');
+    assert.equal(control.value, date); assert.equal(fields.at(-1)[1], date);
+    const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/oscarMDSIndex.js'), 'utf8');
+    const start = source.indexOf('function checkObservationDate('), end = source.indexOf('\n/**', start);
+    assert(start >= 0 && end > start);
+    const actualSaveValidation = vm.runInNewContext(source.slice(start, end) + ';checkObservationDate', {
+      document, Date, alert: () => {throw new Error('Unexpected date rejection');},
+    });
+    assert.equal(actualSaveValidation('forms_42'), true);
+    const actual = new URLSearchParams(intent.body);
+    actual.set('observationDate', control.value);
+    const request = {method: () => 'POST', url: () => intent.endpoint, postData: () => actual.toString(),
+      headers: () => ({'csrf-token': intent.token})};
+    assert.doesNotThrow(() => validateRequest(request, intent));
+    actual.set('observationDate', '2020-09-29');
+    assert.throws(() => validateRequest(request, intent), /frozen body/);
+    assert(Object.isFrozen(intent));
+  });
+}
+
+test('date freeze rejects duplicate date controls and never broadly canonicalizes other fields', async () => {
+  const vm = require('node:vm');
+  const {freezeMetadataIntent} = require('./lib/document-metadata-check');
+  const fields = [['method', 'documentUpdateAjax'], ['documentId', '42'], ['demog', '77'],
+    ['documentDescription', 'Owned / description'], ['docType', 'Consult'],
+    ['observationDate', '2020/09/28'], ['observationDate', '2020/09/29']];
+  const page = {evaluate: async (fn, id) => vm.runInNewContext('(' + fn.toString() + ')(id)', {
+    id, URLSearchParams, window: {document: {getElementById: () => ({querySelector: () => null}),
+      querySelector: () => ({value: 'owned-token'})}},
+    FormData: class {[Symbol.iterator]() {return fields[Symbol.iterator]();}},
+  })};
+  const identity = {document: '42', patient: '77', provider: '999998'}, endpoint = 'https://owned.invalid/ManageDocument';
+  await assert.rejects(freezeMetadataIntent(page, identity, endpoint), /Ambiguous metadata observation date/);
+  fields.pop();
+  const intent = await freezeMetadataIntent(page, identity, endpoint);
+  assert.equal(new URLSearchParams(intent.body).get('documentDescription'), 'Owned / description');
+  assert.equal(intent.description, 'Owned / description');
+  fields.at(-1)[1] = '2020/09/28/unexpected';
+  const malformed = await freezeMetadataIntent(page, identity, endpoint);
+  assert.equal(new URLSearchParams(malformed.body).get('observationDate'), '2020/09/28/unexpected');
+});

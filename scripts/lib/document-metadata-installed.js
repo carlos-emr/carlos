@@ -9,6 +9,11 @@ function metadataEnabled(value = process.env.STORED_DOCUMENT_METADATA) {
   assert(value === undefined || value === 'false' || value === 'true', 'STORED_DOCUMENT_METADATA must be true or false');
   return value === 'true';
 }
+function isOwnedUnlinkAnchor(onclick, document, provider) {
+  if (typeof onclick !== 'string') return false;
+  const match = /^removeLink\('DOC',\s*'([0-9]+)',\s*'([0-9]+)',\s*this\);return false;$/.exec(onclick.trim());
+  return match !== null && match[1] === String(document) && match[2] === String(provider);
+}
 function recorderSnapshot(recorder) {
   return Object.fromEntries(['badResponses', 'requestFailures', 'consoleIssues'].map(key => [key, new Set(recorder[key])]));
 }
@@ -213,8 +218,8 @@ async function runInstalledMetadata(session, fixture, schema) {
         const intent = actionIntent('unlink', identity, manage, token), current = transport(intent, mode);
         const anchor = page.locator('#forms_' + id + ' a[onclick*="removeLink("]');
         assert.equal(await anchor.count(), 1);
-        const expected = new RegExp("^removeLink\\('DOC',\\s*'" + id + "',\\s*'" + identity.provider + "',\\s*this\\);return false;$");
-        assert(expected.test((await anchor.getAttribute('onclick')).trim()), 'Unlink anchor is not the exact owned provider');
+        assert(isOwnedUnlinkAnchor(await anchor.getAttribute('onclick'), id, identity.provider),
+          'Unlink anchor is not the exact owned provider');
         bind(page, manage, current);
         const ledger = mode === 'real' ? null : faultLedger(page, session.recorder, label, intent, current, mode);
         try {
@@ -248,4 +253,4 @@ async function runInstalledMetadata(session, fixture, schema) {
     if (guardFailure) throw guardFailure;
   }
 }
-module.exports = {metadataEnabled, recorderSnapshot, reconcileFault, actionIntent, runInstalledMetadata};
+module.exports = {isOwnedUnlinkAnchor, metadataEnabled, recorderSnapshot, reconcileFault, actionIntent, runInstalledMetadata};

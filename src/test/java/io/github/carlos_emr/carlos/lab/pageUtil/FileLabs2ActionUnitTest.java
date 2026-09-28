@@ -75,6 +75,29 @@ class FileLabs2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).doesNotContain("PRIVATE");
     }
 
+    @Test void successfulBatchUsesJsonMediaTypeAndSerializedCanonicalReferences() throws Exception {
+        request.setParameter("flaggedLabs", "{\"files\":[\"42:DOC\",\"43:DOC\"]}");
+        filing.when(() -> CommonLabResultData.fileLabs(any(), eq(info))).thenReturn(true);
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
+        assertThat(result().path("files").get(0).asText()).isEqualTo("42:DOC");
+        assertThat(result().path("files").get(1).asText()).isEqualTo("43:DOC");
+        assertThat(result().path("success").asBoolean()).isTrue();
+    }
+
+    @Test void rejectedFilingNeverReflectsHtmlExceptionDetailsIntoTheJsonResponse() throws Exception {
+        filing.when(() -> CommonLabResultData.fileLabs(any(), eq(info))).thenThrow(
+                new IllegalArgumentException("</script><img src=x onerror=alert(1)>"));
+        action.fileLabAjax();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(result().path("error").asText()).isEqualTo("Filing was refused");
+        assertThat(result().path("accepted").asBoolean()).isFalse();
+        assertThat(response.getContentAsString()).doesNotContain("<", "onerror", "script");
+    }
+
     @Test void falseServiceResultIsVisibleAndConservativelyAccepted() throws Exception {
         filing.when(() -> CommonLabResultData.fileLabs(any(), eq(info))).thenReturn(false);
         action.fileLabAjax();

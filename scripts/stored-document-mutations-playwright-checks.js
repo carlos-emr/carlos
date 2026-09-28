@@ -14,6 +14,7 @@ const {runWorkflow} = require('./lib/workflow-session');
 const {prepareIncomingFilingProgram} = require('./lib/incoming-filing-program-fixture');
 const {createStoredDocumentFixture} = require('./lib/stored-document-mutation-fixture');
 const {withStoredCapacityCheck} = require('./lib/stored-document-capacity-check');
+const {observeStoredPreviewCapacity} = require('./lib/stored-preview-capacity-check');
 const {preflightMetadataSchema} = require('./lib/document-metadata-check');
 const {metadataEnabled, runInstalledMetadata} = require('./lib/document-metadata-installed');
 const {preflightMetadataPatient, createMetadataPatientFixture} = require('./lib/document-metadata-patient-fixture');
@@ -95,10 +96,12 @@ async function workflow(s) {
   const mutations = createMutationTracker(fixture);
   const id = fixture.sourceId, context = s.context;
   const endpoint = new URL('documentManager/SplitDocument', String(s.config.baseUrl).replace(/\/?$/, '/')).href;
-  const pending = new Set(), ownedPages = new Set();
+  const pending = new Set(), ownedPages = new Set(), previewChecks = new Map();
   let expected = null, guardFailure = false;
-  const wire = page => {
+  const wire = (page, label = 'stored-document-mutations') => {
     ownedPages.add(page);
+    previewChecks.set(page, observeStoredPreviewCapacity({page, label, recorder: s.recorder, documentId: id,
+      endpoint: new URL('documentManager/ManageDocument', String(s.config.baseUrl).replace(/\/?$/, '/')).href}));
     page.setDefaultTimeout(120000);
     page.on('request', request => {
       if (/\/(SplitDocument|ManageDocument)(?:\?|$)/.test(request.url())) pending.add(request);
@@ -145,6 +148,26 @@ async function workflow(s) {
           'Stored capacity retry lost its frozen CSRF token');
       }};
   }
+  async function waitSplitPreviews(page, count) {
+    h.assert(await page.locator('#picker img.page').count() === count, 'Split preview page count differs from the owned PDF');
+    for (let index = 0; index < count; index++) {
+      await page.locator('#picker img.page').nth(index).scrollIntoViewIfNeeded();
+      await page.waitForFunction(({index, documentId}) => {
+        const image = document.querySelectorAll('#picker img.page')[index];
+        if (!image || !image.complete || !image.naturalWidth
+          || image.getAttribute('data-document-image-state') !== 'loaded') return false;
+        const url = new URL(image.getAttribute('data-document-image-src'), location.href);
+        return url.searchParams.get('doc_no') === documentId && url.searchParams.get('curPage') === String(index + 1);
+      }, {index, documentId: id});
+    }
+    await page.waitForLoadState('networkidle');
+    const decoded = await page.locator('#picker img.page').evaluateAll(images => images.map(image => ({
+      url: image.getAttribute('data-document-image-src'), loaded: image.complete && image.naturalWidth > 0
+        && image.getAttribute('data-document-image-state') === 'loaded',
+    })));
+    h.assert(decoded.length === count && decoded.every(image => image.loaded), 'Split thumbnail lost its decoded image');
+    await previewChecks.get(page).finish(decoded.map(image => image.url));
+  }
   let viewer, splitter, staleContext, staleSplitter, staleRevision;
   try {
     viewer = await context.newPage();
@@ -155,6 +178,8 @@ async function workflow(s) {
         const image = document.getElementById('docImg_' + number);
         return image && image.complete && image.naturalWidth > 0 && image.getAttribute('data-document-image-state') === 'loaded';
       }, id);
+      await viewer.waitForLoadState('networkidle');
+      await previewChecks.get(viewer).finish([await viewer.locator(`#docImg_${id}`).getAttribute('data-document-image-src')]);
     }
     h.assert(await viewer.locator(`#displayDocumentAs_${id}`).inputValue() === 'Image', 'Stored mutation fixture requires the normal image preview mode');
     await waitImage();
@@ -244,7 +269,7 @@ async function workflow(s) {
     });
     await s.step('an independent session selects a page before another session edits the source', async () => {
       staleContext = await h.newContext(context.browser(), s.config);
-      staleContext.on('page', page => {wire(page); h.wireStrictPage(page, 'stored-document-stale-session', s.recorder);});
+      staleContext.on('page', page => {wire(page, 'stored-document-stale-session'); h.wireStrictPage(page, 'stored-document-stale-session', s.recorder);});
       await installGuards(staleContext);
       await h.login(staleContext, s.config, s.recorder);
       const originalCookies = (await context.cookies(String(s.config.baseUrl))).filter(cookie => cookie.name === 'JSESSIONID');
@@ -256,6 +281,7 @@ async function workflow(s) {
       await staleSplitter.goto(new URL(`oscarMDS/ViewSplit?document=${id}&queueID=1&demoName=`,
         String(s.config.baseUrl).replace(/\/?$/, '/')).href);
       await staleSplitter.waitForLoadState('networkidle');
+      await waitSplitPreviews(staleSplitter, 3);
       staleRevision = await staleSplitter.locator('#splitSourceRevision').inputValue();
       h.assert(staleRevision === createHash('sha256').update(fs.readFileSync(fixture.sourceFile)).digest('hex'), 'Second session did not load the original revision');
       await staleSplitter.locator('#picker li').nth(1).locator('div').first().click();
@@ -307,6 +333,7 @@ async function workflow(s) {
       const popup = context.waitForEvent('page'); popup.catch(() => {});
       await viewer.locator('input[onclick^="split("]').click();
       splitter = await popup; await splitter.waitForLoadState('networkidle');
+      await waitSplitPreviews(splitter, 2);
       const page = splitter.locator('#picker li').nth(0);
       await page.locator('div').first().click(); await splitter.locator('#tool_add').click();
       expected = {method: ['split'], document: [id], queueID: ['1'], page: ['1,0'],
@@ -352,6 +379,7 @@ async function workflow(s) {
     const deadline = Date.now() + 120000;
     while (pending.size && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
     h.assert(pending.size === 0, 'Stored document requests did not drain; preserve fixture for recovery');
+    for (const check of previewChecks.values()) check.close();
     for (const page of ownedPages) if (!page.isClosed()) await page.close();
     context.off('page', wire);
     if (staleContext) await staleContext.close();

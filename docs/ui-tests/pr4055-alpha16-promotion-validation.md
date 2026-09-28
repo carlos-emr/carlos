@@ -6,13 +6,17 @@ promotion branch `claude/promote-2026-08-to-main-0yklth`, initially
 completed validation and explicit remaining release requirements; a passing
 source test is not evidence of a passing installed workflow.
 
-The current installed baseline is iteration 8 (`bc87e43531`): all three Debian
-packages passed 9,896 payload checks, 45 upgrade checks and three installed
-Selenium checks. Installed Playwright checks passed for document pagination,
-the encounter navigation modules and the lab-results table. Follow-up source
-changes below still require a new build and installed validation; this is not
-yet a completed promotion sign-off. The iteration 9 full Node regression run
-passed all 1,854 tests with no failures or skips.
+The current installed baseline is iteration 9 (`8b7441042f`): all three Debian
+packages passed 9,904 payload checks, 45 upgrade checks and three installed
+Selenium checks. Its full Java/JSP/Javadoc/WAR build passed 15,690 reported tests,
+with no failures or errors; the three host Selenium skips subsequently passed
+on the installed VM. The corresponding full Node suite passed 2,021 tests with
+no failures or skips. The latest follow-up Node run passes all 2,069 tests without
+failures or skips, including the corrected preview and corpus checks. Final Java,
+installed workflow and CI validation remain; this is not a completed promotion
+sign-off. Earlier
+installed Playwright checks passed for document pagination, encounter navigation
+modules and the lab-results table.
 The corrected installed incoming-document check then passed all 13 workflow
 steps, including real extraction/rotation/deletion, stale-edit refusal and five
 filing capacity refusals followed by exactly one accepted filing.
@@ -31,6 +35,28 @@ POSTs. The follow-up checks that policy before work, after capacity admission
 and inside the publication transaction. Separate installed phases must prove
 both the default refusal and enabled-policy mutations; the test environment
 flag only declares the expected policy and never changes configuration.
+
+The installed renderer capacity experiment passed with three independent login
+sessions: two occupied the real renderer slots while the third waited about
+30 seconds, received an explicit capacity refusal, and succeeded on its single
+manual retry. All three produced PDFs. The experiment verified balanced renderer
+session cleanup, deleted only its owned fixtures, and restored the original
+configuration, services and fax baseline. This demonstrates bounded waiting and
+recoverable overload; it is not a load-capacity claim for an arbitrary user count.
+
+The enabled-policy run subsequently passed real rotations, then failed its strict
+browser check on a transient thumbnail capacity refusal in the second session.
+The preview UI already retries these read-only requests. The harness now waits
+for decoded thumbnails and reconciles only exact owned GET refusals followed by
+successful PNG responses; generic errors and incomplete recovery still fail.
+All 127 focused preview, capacity and mutation harness tests pass. The complete
+enabled-policy workflow still requires an installed rerun. Its original
+configuration and fax baseline were verified intact after the host reboot.
+
+The final package dependency is rebuilt from the exact DrugRef release pin
+`1941e1426a52c2a129c96ec4d32a0f3499974739`. All 69 DrugRef tests pass without skips,
+and the resulting WAR's complete class inventory matches the tested output.
+Final Debian packaging and installed DrugRef update verification remain pending.
 
 Additional authorization fixes check the persisted document's program, active
 queues and all linked or DOC-routed patients before edit, annotation or fax
@@ -59,8 +85,11 @@ Queue completion now rechecks source access after obtaining the same document
 lock and checks every affected queue before changing any link. The browser
 requires an explicit confirmed outcome before navigating. A known refusal can
 be retried separately from already-saved metadata; an uncertain mutation is
-preserved for reconciliation and is never automatically replayed. Installed
-validation of these changes remains pending.
+preserved for reconciliation and is never automatically replayed. The installed
+metadata phase passed real saves from two independent sessions, DOC routing
+deduplication, queue-only manual retry and confirmed provider unlinking. Its nine
+steps also covered injected server errors, unexpected HTML and transport loss
+before forwarding, with fixture cleanup required for the final pass.
 
 The same review found lab filing removing document queue links by numeric ID
 without checking the report type. Lab IDs and document IDs are separate
@@ -91,8 +120,21 @@ installed VM passed real rollback, competing-writer waiting, reference refusal
 and uncertain acknowledgment cases. It first exposed a MariaDB warning that
 rolled back but allowed a success receipt; warnings now raise an explicit error
 after rollback. Both runs remain recorded. The 170 focused lifecycle tests and
-full final Node suite of 2,021 tests passed with no failures or skips. These are
-harness and source results; the actual installed metadata workflow is pending.
+full Node suite of 2,021 tests passed with no failures or skips. The subsequent
+installed metadata run exposed two harness issues: the real schema catalog
+exceeded Node's default SQL-output buffer, and the expected request froze a slash
+date before the production Save handler normalized it. The SQL runner now uses
+a bounded 8 MiB buffer and distinguishes overflow from timeout. Request checks
+mirror only the production date normalization and still reject any later body
+change. The corrected installed phase passed all nine steps with no skips.
+
+The corpus harness also now requires a confirmed production import and exactly
+one new, exact-name form ID for each original ZIP. Private durable receipts bind
+the ZIP digest to that ID before the next import; interrupted or uncertain imports
+are not replayed. Existing names, ambiguous IDs and unexpected rendering outcomes
+fail the run. Actual 166-package import/render validation remains pending; authored
+input requirements and explicit PDF withholding are reported separately from PDF
+success.
 
 ## Review scope
 

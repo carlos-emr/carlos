@@ -133,6 +133,7 @@ public class FileLabs2Action extends ActionSupport {
         if (!success) result.put("error", accepted ? "Filing outcome is unconfirmed; do not submit again" : "Filing was refused");
         response.setStatus(status); response.setContentType("application/json;charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
+        // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/json response serialized by Jackson; numeric IDs, validated filing references and fixed status/error fields, never HTML
         try { response.getOutputStream().write(result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)); }
         catch (IOException failure) {
             MiscUtils.getLogger().error("Could not report inbox filing outcome", failure);

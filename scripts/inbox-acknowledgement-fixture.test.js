@@ -32,14 +32,22 @@ function environment({unassigned = false, ignoredRestore = false} = {}) {
 const config = {testUser: 'review-user', mysql: {}};
 const view = chain => ({evaluate: async () => chain});
 
-test('restores acknowledged older versions and deletes only pretracked missing routes', async () => {
+test('restores acknowledged older versions and deletes only pretracked missing routes', async t => {
+  // A marker may contain a later lab's digits without routing that lab.
+  t.mock.method(require('node:crypto'), 'randomUUID', () => '00000102-0000-4000-8000-000000000000');
   const env = environment();
   const fixture = createInboxAcknowledgementFixture(config, () => env.sql);
   await fixture.prepare(view('100,101,102'), 'HL7:101');
   env.rows().forEach(row => { row[2] = '41'; row[3] = ''; row[4] = '32303236'; });
   fixture.cleanup();
   assert.deepEqual(env.rows(), [['7', '100', '4E', 'NULL', 'NULL']]);
-  assert.ok(env.writes.every(query => !query.includes('102')));
+  assert.equal(env.writes.length, 3);
+  assert.match(env.writes[0], /VALUES \('101',101,'N',/);
+  assert.match(env.writes[1], /^DELETE FROM providerLabRouting WHERE id=8 AND /);
+  assert.match(env.writes[2], /WHERE id=7 AND lab_no=100 AND /);
+  for (const query of env.writes.slice(1)) {
+    assert.match(query, /AND lab_no IN \(100,101\)$/);
+  }
   assert.equal(env.disposed(), true);
 });
 

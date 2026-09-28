@@ -208,6 +208,14 @@ async function freezeMetadataIntent(page, identity, endpoint) {
     fields.set('method', 'documentUpdateAjax');
     fields.set('documentId', id);
     if (fields.has('saved')) fields.set('saved', 'false'); // Production clears it before FormData.
+    // Actual Save/Save & Next run checkObservationDate before serializing.
+    // Freeze its narrow slash-date transformation without changing the live form
+    // or accepting any later change to the request's exact body.
+    const dates = fields.getAll('observationDate');
+    if (dates.length > 1) throw new Error('Ambiguous metadata observation date');
+    if (dates.length === 1 && /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dates[0])) {
+      fields.set('observationDate', dates[0].replace('/', '-').replace('/', '-'));
+    }
     const token = (form.querySelector('input[name="CSRF-TOKEN"]') || window.document.querySelector('input[name="CSRF-TOKEN"]'))?.value;
     return {body: fields.toString(), token, description: fields.get('documentDescription'), classification: fields.get('docType')};
   }, document);
