@@ -28,7 +28,7 @@
  * needs a disposable database: TEST_PASSWORD, TEST_PIN and MYSQL_PASSWORD.
  *   npm run test:echart-prevention-row-links-playwright
  */
-const { assert, sqlString } = require('./lib/playwright-harness');
+const { assert, assertNotErrorPage, sqlString } = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { NOTE_TEXTAREA } = require('./echart-note-editor-playwright-checks');
 
@@ -173,8 +173,37 @@ async function workflow(s) {
     await editor.close();
   });
 
+  await s.step('keyboard Enter on the heading link opens the patient list and preserves the unsaved note', async () => {
+    // The native anchor owns both keyboard and pointer activation. Exercise
+    // the real Enter event path, including its popup refresh registration.
+    const headingLink = chart.locator('#preventions .nav-menu-title h3 > a[onclick*="ViewPreventionIndex"]').first();
+    await headingLink.focus();
+    assert(await headingLink.evaluate(link => document.activeElement === link),
+      'The Preventions heading link cannot receive keyboard focus');
+    const [index] = await Promise.all([
+      chart.waitForEvent('popup'),
+      headingLink.press('Enter'),
+    ]);
+    await index.waitForURL(url => url.pathname.endsWith('/prevention/ViewPreventionIndex')
+      && url.searchParams.get('demographic_no') === patient);
+    await index.waitForLoadState('domcontentloaded');
+    await assertNotErrorPage(index, 'Keyboard-opened prevention list');
+    const opened = new URL(index.url());
+    assert(opened.pathname.endsWith('/prevention/ViewPreventionIndex')
+      && opened.searchParams.get('demographic_no') === patient,
+    'Keyboard activation did not open the full prevention list for the chart patient');
+    await index.locator(`[onclick*="ViewAddPreventionData?id=${id}&"]`).first().waitFor({ state: 'visible' });
+    const refresh = chart.waitForResponse(response => response.url().includes('/encounter/displayPrevention'));
+    await index.close();
+    assert((await refresh).ok(), 'Closing the keyboard-opened list did not refresh the prevention panel');
+    assert(await chart.evaluate(() => window.pwPreventionMarker) === marker,
+      'Keyboard heading activation replaced the chart');
+    assert((await chart.locator(NOTE_TEXTAREA).first().inputValue()).includes(`${marker} unsaved`),
+      'Keyboard heading activation lost the unsaved encounter note');
+  });
+
   for (const [label, selector] of [
-    ['heading', '#preventions .nav-menu-title h3[onclick*="ViewPreventionIndex"]'],
+    ['heading', '#preventions .nav-menu-title h3 > a[onclick*="ViewPreventionIndex"]'],
     ['plus', '#preventions .nav-menu-add-button a[onclick*="ViewPreventionIndex"]'],
   ]) {
     await s.step(`${label} list edits refresh only the prevention panel and preserve the unsaved note`, async () => {
@@ -248,7 +277,7 @@ async function workflow(s) {
     assert(/^[1-9]\d*$/.test(childId) && Number(childId) > Number(id), 'Merged older record was not created');
     async function closeListToRefresh() {
       const index = await s.popup(chart,
-        chart.locator('#preventions .nav-menu-title h3[onclick*="ViewPreventionIndex"]').first(), 'prevention-merged-list');
+        chart.locator('#preventions .nav-menu-title h3 > a[onclick*="ViewPreventionIndex"]').first(), 'prevention-merged-list');
       await index.locator(`[onclick*="ViewAddPreventionData?id=${childId}&"]`).first().waitFor({ state: 'visible' });
       const refresh = chart.waitForResponse(response => response.url().includes('/encounter/displayPrevention'));
       await index.close();

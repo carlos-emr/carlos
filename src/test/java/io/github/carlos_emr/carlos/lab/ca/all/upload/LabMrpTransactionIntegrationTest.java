@@ -34,6 +34,7 @@ class LabMrpTransactionIntegrationTest extends CarlosTestBase {
     private TransactionTemplate tx;
     private MockedConstruction<ForwardingRules> forwarding;
     private ProviderLabRouting router;
+    private boolean addForwardingRecipient;
 
     @BeforeEach
     void setUp() {
@@ -43,12 +44,15 @@ class LabMrpTransactionIntegrationTest extends CarlosTestBase {
         tx.executeWithoutResult(status -> em.createNativeQuery(
                 "CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate());
         forwarding = mockConstruction(ForwardingRules.class, (mock, context) -> {
-            when(mock.getStatus(anyString())).thenReturn("N");
-            when(mock.getProviders(anyString())).thenAnswer(call -> {
+            when(mock.getStatus(anyString(), anyString())).thenReturn("N");
+            when(mock.getProviders(anyString(), anyString())).thenAnswer(call -> {
                 var recipients = new ArrayList<ArrayList<String>>();
                 String provider = call.getArgument(0);
                 if (provider.equals("OLD-MRP")) recipients.add(new ArrayList<>(List.of("FORWARD")));
                 if (provider.equals("FORWARD")) recipients.add(new ArrayList<>(List.of("OLD-MRP")));
+                if (provider.equals("FORWARD") && addForwardingRecipient) {
+                    recipients.add(new ArrayList<>(List.of("NEW-FORWARD")));
+                }
                 return recipients;
             });
         });
@@ -98,6 +102,39 @@ class LabMrpTransactionIntegrationTest extends CarlosTestBase {
             assertThat(row.getStatus()).isEqualTo("A");
             assertThat(row.getComment()).isEqualTo("clinical acknowledgement");
         });
+    }
+
+    @Test
+    void shouldAddNewForwardingRecipient_whenAcknowledgedMrpIsMatchedAgain() {
+        router.reconcileMrpRouting(REPORT, "HL7", 101, "OLD-MRP");
+        tx.executeWithoutResult(status -> {
+            var row = routes.findByLabNoAndLabTypeAndProviderNo(REPORT, "HL7", "OLD-MRP").getFirst();
+            row.setStatus("A");
+            routes.merge(row);
+        });
+        addForwardingRecipient = true;
+
+        assertThat(router.reconcileMrpRouting(REPORT, "HL7", 101, "OLD-MRP")).isFalse();
+        assertThat(providers()).containsExactly("FORWARD", "NEW-FORWARD", "OLD-MRP");
+        tx.executeWithoutResult(status -> {
+            assertThat(routes.findByLabNoAndLabTypeAndProviderNo(REPORT, "HL7", "OLD-MRP").getFirst().getStatus())
+                    .isEqualTo("A");
+            assertThat(routes.findByLabNoAndLabTypeAndProviderNo(REPORT, "HL7", "NEW-FORWARD").getFirst().getMrpDemographicNo())
+                    .isEqualTo(101);
+        });
+        router.reconcileMrpRouting(REPORT, "HL7", 202, "NEW-MRP");
+        assertThat(providers()).containsExactly("NEW-MRP");
+    }
+
+    @Test
+    void shouldTrackNewForwardingAsAutomatic_whenMrpAlreadyHasIndependentAccess() {
+        router.routeMagic(REPORT, "OLD-MRP", "HL7");
+        addForwardingRecipient = true;
+
+        assertThat(router.reconcileMrpRouting(REPORT, "HL7", 101, "OLD-MRP")).isFalse();
+        assertThat(providers()).containsExactly("FORWARD", "NEW-FORWARD", "OLD-MRP");
+        router.reconcileMrpRouting(REPORT, "HL7", 202, "NEW-MRP");
+        assertThat(providers()).containsExactly("FORWARD", "NEW-MRP", "OLD-MRP");
     }
 
     @Test

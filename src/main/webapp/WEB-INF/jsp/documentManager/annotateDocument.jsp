@@ -65,7 +65,7 @@
     // Read by csrf-token.jspf, which emits a nonce only when the including page sets this.
     request.setAttribute("cspNonce", cspNonce);
     response.setHeader("Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data:; script-src 'self' 'nonce-" + cspNonce
+            "default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'nonce-" + cspNonce
                     + "'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
     String ctx = request.getContextPath();
 %>
@@ -157,6 +157,7 @@
 <fmt:message key="faxAnnotateViewer.label.signatureHere" var="annotatesignatureHere"/>
 <fmt:message key="faxAnnotateViewer.link.openSaved" var="annotateopenSaved"/>
 <fmt:message key="faxAnnotateViewer.status.pageLoadFailed" var="annotatepageLoadFailed"/>
+<fmt:message key="faxAnnotateViewer.status.documentServerBusy" var="annotatedocumentServerBusy"/>
 <fmt:message key="faxAnnotateViewer.alert.saveUnconfirmed" var="annotatesaveUnconfirmed"/>
 <script nonce="<%=cspNonce%>">
     // Server-resolved configuration for documentAnnotate.js. Every value here is either a
@@ -176,6 +177,7 @@
             promptEditText: '<carlos:encode value="${annotatepromptEditText}" context="javaScript"/>',
             signatureHere: '<carlos:encode value="${annotatesignatureHere}" context="javaScript"/>',
             openSaved: '<carlos:encode value="${annotateopenSaved}" context="javaScript"/>',
+            documentServerBusy: '<carlos:encode value="${annotatedocumentServerBusy}" context="javaScript"/>',
             pageLoadFailed: '<carlos:encode value="${annotatepageLoadFailed}" context="javaScript"/>',
             saveUnconfirmed: '<carlos:encode value="${annotatesaveUnconfirmed}" context="javaScript"/>'
         }

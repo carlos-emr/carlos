@@ -60,7 +60,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @Tag("unit")
 @Tag("dashboard")
 @DisplayName("ExcludeDemographicHandler unit tests")
+@org.junit.jupiter.api.parallel.Isolated
 class ExcludeDemographicHandlerUnitTest {
+
+    private static Object originalDao;
 
     private static MockedStatic<SpringUtils> springUtilsMock;
     private static DemographicExtDao mockDao;
@@ -91,11 +94,15 @@ class ExcludeDemographicHandlerUnitTest {
         // Use reflection to ensure the mock is injected regardless of load order.
         Field daoField = ExcludeDemographicHandler.class.getDeclaredField("demographicExtDao");
         daoField.setAccessible(true);
+        originalDao = daoField.get(null);
         daoField.set(null, mockDao);
     }
 
     @AfterAll
-    static void tearDownAfterAll() {
+    static void tearDownAfterAll() throws Exception {
+        Field daoField = ExcludeDemographicHandler.class.getDeclaredField("demographicExtDao");
+        daoField.setAccessible(true);
+        daoField.set(null, originalDao);
         if (springUtilsMock != null) {
             springUtilsMock.close();
         }
