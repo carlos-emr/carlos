@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException.Reason;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -114,6 +115,12 @@ public class PortalInviteDeliveryService {
             "Staff confirmed the invitation email did not arrive; it was revoked.";
     static final String EMAIL_ABANDONED_BY_STAFF =
             "Staff stopped this delivery; the invitation email was never sent.";
+
+    // Each staff decision is audited as AUDIT_ACTION_PREFIX + the decision's request value, or + WITHDRAW_STALE
+    // for a stuck attempt withdrawn on the way to a new invitation.
+    static final String AUDIT_ACTION_PREFIX = "PortalInviteDeliveryService.recover.";
+    static final String AUDIT_CONTENT = "PortalInviteDelivery";
+    static final String WITHDRAW_STALE = "withdrawStale";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -216,7 +223,7 @@ public class PortalInviteDeliveryService {
         PortalInviteContact contact = PortalInviteContact.from(patient);
         EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
         requireConsent(user, email);
-        withdrawStaleAttempts(patient, staff, request.withdrawStale());
+        withdrawStaleAttempts(user, patient, staff, request.withdrawStale());
         Optional<PatientPortalInviteDto> pending = pendingInvite(patient.getDemographicNo(), staff);
         if (pending.isPresent()) {
             if (!request.confirmReplace()) {
@@ -238,7 +245,7 @@ public class PortalInviteDeliveryService {
         PortalInviteContact contact = PortalInviteContact.from(patient);
         EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
         requireConsent(user, email);
-        withdrawStaleAttempts(patient, staff, request.withdrawStale());
+        withdrawStaleAttempts(user, patient, staff, request.withdrawStale());
         boolean pending = portal.listInvites(patient.getDemographicNo(), staff).stream()
                 .anyMatch(invite -> invite.id() == inviteId && STATUS_PENDING.equals(invite.status()));
         if (!pending) {
@@ -268,7 +275,7 @@ public class PortalInviteDeliveryService {
         if (!isRecoverable(row)) {
             throw new PortalInviteException(Reason.RECOVERY_TOO_EARLY);
         }
-        return switch (decision) {
+        PatientPortalInviteDelivery resolved = switch (decision) {
             case ABANDON -> abandonByStaff(row, patient, staff);
             case CONFIRM_SENT -> {
                 PatientPortalInviteDelivery sent =
@@ -279,6 +286,8 @@ public class PortalInviteDeliveryService {
             }
             case CONFIRM_NOT_SENT -> confirmNotSent(row, staff);
         };
+        audit(user, resolved, decision.requestValue());
+        return resolved;
     }
 
     /** @return the patient's recent attempts, newest first; read from CARLOS, so available offline */
@@ -601,7 +610,8 @@ public class PortalInviteDeliveryService {
      * @throws PortalInviteException {@link Reason#STALE_ATTEMPT_EXISTS} when one exists and
      *     {@code withdraw} is false
      */
-    private void withdrawStaleAttempts(Demographic patient, PatientPortalStaffContext staff, boolean withdraw) {
+    private void withdrawStaleAttempts(LoggedInInfo user, Demographic patient, PatientPortalStaffContext staff,
+            boolean withdraw) {
         List<PatientPortalInviteDelivery> stale = unfinishedFor(patient.getDemographicNo()).stream()
                 .filter(row -> decisionsFor(row.getState()).contains(Decision.ABANDON))
                 .filter(this::onCurrentConnection)
@@ -613,7 +623,7 @@ public class PortalInviteDeliveryService {
         if (!withdraw) {
             throw new PortalInviteException(Reason.STALE_ATTEMPT_EXISTS);
         }
-        stale.forEach(row -> abandonByStaff(row, patient, staff));
+        stale.forEach(row -> audit(user, abandonByStaff(row, patient, staff), WITHDRAW_STALE));
     }
 
     private List<PatientPortalInviteDelivery> unfinishedFor(int demographicNo) {
@@ -858,6 +868,21 @@ public class PortalInviteDeliveryService {
         } catch (RuntimeException exception) {
             logger.warn("patient portal invitation code could not be cleared from the outbox: {}",
                     exception.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Records a staff decision in CARLOS's audit log. Best effort: the decision is already durable on the
+     * attempt, and a failure here must not report it as failed. The entry names the attempt, the patient,
+     * and the state and outcome codes the decision left, never the invitation code.
+     */
+    private void audit(LoggedInInfo user, PatientPortalInviteDelivery row, String decision) {
+        try {
+            LogAction.addLog(user, AUDIT_ACTION_PREFIX + decision, AUDIT_CONTENT, String.valueOf(row.getId()),
+                    String.valueOf(row.getDemographicNo()), "state=" + row.getState() + "&outcome=" + row.getOutcome());
+        } catch (RuntimeException auditFailure) {
+            logger.warn("patient portal invitation audit entry was not written; deliveryId={}; causeType={}",
+                    row.getId(), auditFailure.getClass().getSimpleName());
         }
     }
 

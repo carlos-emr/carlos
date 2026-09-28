@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService.Decision;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService.InviteRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException.Reason;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -75,6 +76,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -960,7 +962,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should warn that the earlier invitation may be gone when staff stop a resend the portal activated")
+        @DisplayName("should warn the earlier invitation may be gone when staff stop a resend the portal activated")
         void shouldRecordUnconfirmed_whenStaffStopAnActivatedResend() {
             PatientPortalInviteDelivery row = queuedResend();
             when(portal.listInvites(anyInt(), any()))
@@ -1012,6 +1014,64 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
             injectDependency(row, "supersededInviteId", 9L);
             return row;
+        }
+    }
+
+    @Nested
+    @DisplayName("auditing staff decisions")
+    class Audit {
+
+        @ParameterizedTest
+        @CsvSource({
+                "ABANDON, QUEUED, state=ABANDONED&outcome=ABANDONED_BY_STAFF",
+                "CONFIRM_SENT, SEND_UNCERTAIN, state=SENT&outcome=CONFIRMED_SENT",
+                "CONFIRM_NOT_SENT, SEND_UNCERTAIN, state=REVOKED&outcome=CONFIRMED_NOT_SENT"})
+        @DisplayName("should audit each decision with the attempt, the patient and the codes it left")
+        void shouldAuditTheDecision_withTheCodesItLeft(Decision decision, State from, String data) {
+            PatientPortalInviteDelivery row = storedRow(from, Duration.ofMinutes(16));
+
+            service.recover(user, patient(), row.getId(), decision, staff);
+
+            logActionMock.verify(() -> LogAction.addLog(user,
+                    "PortalInviteDeliveryService.recover." + decision.requestValue(), "PortalInviteDelivery",
+                    String.valueOf(row.getId()), String.valueOf(PATIENT), data));
+        }
+
+        @Test
+        @DisplayName("should audit a stuck attempt withdrawn on the way to a new invitation")
+        void shouldAuditTheWithdrawal_ofAStuckAttempt() {
+            PatientPortalInviteDelivery stuck = storedRow(State.QUEUED, Duration.ofMinutes(16));
+
+            service.invite(user, patient(), staff, new InviteRequest(Channel.EMAIL, false, false, null, true));
+
+            logActionMock.verify(() -> LogAction.addLog(user, "PortalInviteDeliveryService.recover.withdrawStale",
+                    "PortalInviteDelivery", String.valueOf(stuck.getId()), String.valueOf(PATIENT),
+                    "state=ABANDONED&outcome=ABANDONED_BY_STAFF"));
+        }
+
+        @Test
+        @DisplayName("should write no audit entry for a decision that was refused")
+        void shouldNotAudit_whenTheDecisionIsRefused() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(14));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_SENT, staff))
+                    .isInstanceOf(PortalInviteException.class);
+
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should keep a decision when its audit entry cannot be written")
+        void shouldKeepTheDecision_whenTheAuditFails() {
+            logActionMock.when(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(),
+                    anyString(), anyString(), anyString())).thenThrow(new IllegalStateException("audit unavailable"));
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.CONFIRM_SENT, staff);
+
+            assertThat(resolved.getState()).isEqualTo(State.SENT);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.CONFIRMED_SENT);
         }
     }
 
