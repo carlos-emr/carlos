@@ -43,7 +43,7 @@ Use the narrowest control that preserves useful coverage:
 3. Disable exact built-in rules in Semgrep Cloud only when a CARLOS rule fully replaces their coverage. `.semgrep/README.md` lists the rules intended for policy disablement.
 4. For isolated already-safe findings from still-useful built-in rules, use rule-specific `nosemgrep: <rule-id>` comments at the finding site.
 
-Semgrep CI honors `nosemgrep` by treating those findings as ignored, but Semgrep still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py semgrep.sarif` before uploading the Semgrep Cloud SARIF. This removes only explicitly suppressed results from the GitHub upload; unsuppressed Semgrep Pro findings still appear in Code Scanning.
+Semgrep honors `nosemgrep` by treating those findings as ignored, but still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py` separately on both `semgrep.sarif` and `semgrep-carlos.sarif` before their uploads. This removes only explicitly suppressed results; unsuppressed Cloud and CARLOS findings still appear in Code Scanning. Both filters also run when an earlier scan fails but produces a report.
 
 Do not use broad `.semgrepignore` entries, blanket rule disables, or bare `nosemgrep` comments to clear PR noise unless a narrower option is impossible and the rationale is documented.
 

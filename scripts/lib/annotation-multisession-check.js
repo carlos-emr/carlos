@@ -3,7 +3,11 @@
 const fs = require('node:fs');
 const h = require('./playwright-harness');
 
-/** Two separately authenticated providers, owned patient/document fixtures, no persisted edits. */
+/**
+ * Two separately authenticated providers, owned patient/document fixtures, no persisted edits.
+ * An active UI-only fax account must be available to the cloned provider roles so the
+ * FaxDocument denial reaches patient authorization. No fax send is performed here.
+ */
 async function checkAnnotationSessions(browser, config, fixtureFile) {
   const fixture = JSON.parse(fs.readFileSync(fixtureFile, 'utf8'));
   for (const key of ['allowedDocumentId', 'deniedDocumentId', 'deniedDemographicNo', 'providerNo']) {
@@ -77,15 +81,19 @@ async function checkAnnotationSessions(browser, config, fixtureFile) {
     h.assert(peakTotal <= 4 * count, 'Concurrent viewers exceeded their combined request budget');
 
     // The first provider has warmed the denied patient's rendered-page cache. A second
-    // provider's chart restriction must still precede every image/text/viewer read.
+    // provider's chart restriction must still precede image/text reads, Split metadata,
+    // annotation opening and fax staging. The active UI-only fax account prerequisite
+    // prevents the earlier no-account refusal from hiding a missing patient guard.
     const forbidden = [
-      `/documentManager/ManageDocument?method=showPage&doc_no=${fixture.deniedDocumentId}&page=1&dpi=96`,
-      `/documentManager/DocumentTextBoxes?docId=${fixture.deniedDocumentId}&page=1`,
-      `/documentManager/AnnotateDocument?docId=${fixture.deniedDocumentId}`,
+      ['cached image', `/documentManager/ManageDocument?method=showPage&doc_no=${fixture.deniedDocumentId}&page=1&dpi=96`],
+      ['text boxes', `/documentManager/DocumentTextBoxes?docId=${fixture.deniedDocumentId}&page=1`],
+      ['annotation viewer', `/documentManager/AnnotateDocument?docId=${fixture.deniedDocumentId}`],
+      ['Split viewer', `/oscarMDS/ViewSplit?document=${fixture.deniedDocumentId}&queueID=0&demoName=`],
+      ['fax handoff', `/documentManager/FaxDocument?docId=${fixture.deniedDocumentId}`],
     ];
-    for (const endpoint of forbidden) {
-      const response = await contexts[1].request.get(h.appUrl(config.baseUrl, endpoint));
-      h.assert(response.status() === 403, 'Another provider could read the denied patient through an annotation endpoint');
+    for (const [label, endpoint] of forbidden) {
+      const response = await contexts[1].request.get(h.appUrl(config.baseUrl, endpoint), {maxRedirects: 0});
+      h.assert(response.status() === 403, `Denied patient ${label} must return 403 directly; received ${response.status()}`);
       await response.body();
     }
     // Unsaved annotations belong to their own page and session; nothing is filed here.

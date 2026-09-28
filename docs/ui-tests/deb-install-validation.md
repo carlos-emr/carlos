@@ -1818,10 +1818,13 @@ fixture containing `user`, `password`, `pin`, `providerNo`, `allowedDocumentId`,
 provider-specific deny on the denied patient's chart. `ANNOTATION_SESSION_COUNT` selects two
 through eight separately authenticated contexts in one browser (default two), alternating the two
 providers. The check scrolls viewers concurrently, verifies four requests per viewer and distinct
-session cookies, and verifies that the restricted provider cannot read the other patient's warmed
-image cache, text boxes or viewer. Unsaved marks stay isolated. This subcheck never saves or sends
-documents. Its navigation/render waits are bounded at 120 seconds for queued work. Keep credentials
-out of logs and remove owned fixture rows/files through their recorded cleanup journal.
+session cookies, and verifies five direct patient-access refusals: warmed image cache, text boxes,
+annotation viewer, Split viewer and fax handoff. Provide an active UI-only fax account available
+to the cloned provider roles; otherwise the earlier no-account refusal cannot exercise the fax
+patient guard. Unsaved marks stay isolated. This subcheck never saves or sends documents, and its
+fax request must stop at HTTP 403 before staging. Its navigation/render waits are bounded at
+120 seconds for queued work. Keep credentials out of logs and remove owned fixture rows/files
+through their recorded cleanup journal.
 
 Legacy inbox, document pagination and Split previews use the same capacity-aware GET policy.
 Each window admits at most four image requests through response-body consumption and decoding;

@@ -117,24 +117,24 @@ the same 300-file limit. No CodeRabbit approval is claimed.
   sharing a warm image cache, multiple patient links, worker saturation and recovery.
 
 The continued many-user audit also found incoming-document previews bypassing
-the bounded renderer and writing shared PNG cache files in place. Pending
+the bounded renderer and writing shared PNG cache files in place. The
 iteration 5 changes place their PDF work under bounded admission, stage complete
 cache files before atomic publication, and make capacity-refused iframe GETs
 wait automatically. PDF extraction uses owned temporary files so a late worker
 cannot write a timed-out servlet response. Genuine corrupt/missing-page errors
-remain errors; no mutation POST is retried. These changes and the legacy image
-loader still require source and installed regression runs.
+remain errors; no mutation POST is retried. Source regressions and the full
+Java/JSP/WAR build passed; installed checks for these changes remain pending.
 
 The same all-patient-link check now covers the fax handoff, direct document
 staging, staged preview/page-count reads and final queueing. A restriction added
 after staging must revoke the pending claim before persistence. Split checks
 access before its JSP reads metadata. The focused Java regression run passed
-254 tests with no failures or skips; the full Java/JSP/WAR rerun remains pending.
+254 tests with no failures or skips, followed by a successful full Java/JSP/WAR run.
 
 The browser target audit found 23 standalone validators accepting DNS names
 that merely began like private IPv4 addresses. They now require actual four-octet
 private addresses or explicit remote-target opt-in. The complete script unit
-suite passed 1,463 tests with no failures/skips after the preview and guard
+suite passed 1,466 tests with no failures/skips after the preview and guard
 changes. Real private addresses, credential rejection and remote opt-in remain
 covered. The heading's popup handler now belongs to its native link; installed
 mouse and keyboard verification remains required for that change.
@@ -172,10 +172,13 @@ rule execution remain in scope.
   reported, zero failures/errors; the three Chromium Selenium checks skipped
   in that host run subsequently passed on the installed VM. The last favorite regressions separately passed
   54 tests before the complete rerun.
-- Latest full Java/JSP/WAR run at application revision `196650218a`: 15,195
+- Earlier full Java/JSP/WAR run at application revision `196650218a`: 15,195
   reported, zero failures/errors and three host-only Selenium skips. The expanded
   document-route suite subsequently passed all 51 tests. Installed reruns remain
-  required for this revision.
+  required for later changes.
+- Latest full Java/JSP/WAR run at application revision `1c3d143308`: 15,245
+  reported, zero failures/errors and three host-only Selenium skips. The
+  installed Selenium checks will run again against its Debian packages.
 - JSP compilation: 985 JSPs, zero errors. Javadoc: completed, 34 warnings, no
   errors. Build logs, WAR SHA-256 and package payload hashes establish provenance;
   the WAR manifest does not embed a full Git SHA.
@@ -184,11 +187,18 @@ rule execution remain in scope.
   `package-info.java`. Annotation changes after the expanded route tests:
   109/120 covered (90.8%), with no unmapped files. Additional vacancy lifecycle/context, inbox
   fallback-date and favorite privilege regressions passed 66 tests with no skips.
-- Latest full Node suite: 1,386 passed, zero failures/skips, one test file at a time,
+- Iteration 5 JaCoCo audit: 2,510/2,723 changed executable Java lines covered
+  (92.2%) across the promotion; only documentation-only `package-info.java` is
+  unmapped. Review fixes cover 404/445 lines (90.8%), with no unmapped files.
+  The latest capacity/access changes cover 135/148 lines (91.2%).
+- Earlier full Node suite: 1,386 passed, zero failures/skips, one test file at a time,
   with the pinned CLI checkout configured. This includes sustained annotation
   waiting, cancellation, safe-save retries, history navigation, browser cleanup
   failures and physical/inline document verification. The 23 focused annotation
   regressions also passed. Prior complete 1,363- and 1,372-case runs passed.
+- Latest full Node suite: 1,466 passed, zero failures/skips, one test file at a
+  time. This includes the incoming-preview correction for an explicitly empty
+  `pdfDir` at the valid queue root, and filtering only suppressed SARIF findings.
 - Packaging contracts/subprocesses: 38 passed.
 - Manifest generator and loaders: 249 passed. Full manifest regeneration
   matched the acquired upstream archive at `a7900d569d3faf741993e5e1da8c14021bbefede`.
@@ -304,7 +314,9 @@ cold annotation page-load failure. A subsequent two-session prototype with brows
 source overrides passed, but is not installed-package proof. The waiting and
 authorization corrections were built into all three iteration 4 packages.
 Their package/upgrade checks and the separate eight-session browser check passed;
-the complete annotation run still needs its active-account fixture. The legacy preview audit has additional changes awaiting the next build.
+the complete annotation run still needs its active-account fixture. The legacy
+preview changes passed source regressions and are being packaged for the next
+installed run.
 
 At pushed revision `f8d7aea6cd`, CI completed with 43 successful checks, six skips
 and one neutral result. Sonar's quality gate passed with new reliability rated B;
@@ -335,9 +347,15 @@ The two subsequent missing-label findings were fixed and cleared by the next
 scan. That scan flagged a repeated custom-name ID across mutually exclusive
 JSP branches; the unnecessary ID on the hidden input was removed, preserving
 the visible control's label association; the subsequent scan cleared it. The
-heading handler is now being moved onto its existing native link, which already
+heading handler now belongs to its existing native link, which already
 fills the heading's clickable area. Mouse and keyboard regressions and a new
 scan remain required for that change.
+The latest Semgrep OSS report retained one explicitly suppressed fax-preview
+finding because the workflow filtered suppressed Cloud results but omitted the
+local report. Independent review confirmed both possible stream paths enforce
+containment and authorization. The workflow now applies its existing filter to
+both reports, preserving unsuppressed findings and scanner failures; no path
+rule or application check was disabled.
 Transactional self-calls in the billing services intentionally share an
 existing transaction with the same REQUIRED propagation; they do not require
 an independent proxy boundary. Other critical classifications were primarily
