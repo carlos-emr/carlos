@@ -33,7 +33,8 @@ import java.util.function.Function;
  * optional here, so an unconfigured invitation workflow never stops the rest of the portal
  * integration; the workflow refuses to send until they are set.
  *
- * @param publicBaseUrl the patient-facing portal origin, or {@code null} when unset
+ * @param publicBaseUrl the patient-facing portal URL: an origin, optionally followed by the path the portal's
+ *     patient pages are served under; {@code null} when unset
  * @param senderEmail the sender address of an active CARLOS email account, or {@code null} when unset
  * @since 2026-09-22
  */
@@ -55,7 +56,17 @@ public record PortalInviteSettings(String publicBaseUrl, String senderEmail) {
 
     /** Reads the settings from {@code carlos.properties}. */
     public static PortalInviteSettings fromCarlosProperties() {
-        return fromProperties(key -> CarlosProperties.getInstance().getProperty(key));
+        return fromProperties(PortalInviteSettings::rawProperty);
+    }
+
+    /**
+     * Reads a value as written, as {@code PatientPortalSettings.rawProperty} does. {@code getProperty}
+     * discards a value beginning with the deprecated {@code oscar.} namespace, as a sender address such as
+     * {@code oscar.clinic@example.org} does, so invitations would be refused as unconfigured; it also warns
+     * for every unset key, and both settings are optional here.
+     */
+    private static String rawProperty(String key) {
+        return (String) CarlosProperties.getInstance().get(key);
     }
 
     static PortalInviteSettings fromProperties(Function<String, String> lookup) {

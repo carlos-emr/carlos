@@ -128,15 +128,12 @@ class PortalJsonUnitTest {
         void shouldReturnNull_whenFieldIsAbsentOrNull() {
             assertThat(PortalJson.text(node("{}"), "x")).isNull();
             assertThat(PortalJson.text(node("{\"x\":null}"), "x")).isNull();
-            assertThat(PortalJson.optionalLong(node("{}"), "x")).isNull();
-            assertThat(PortalJson.optionalInt(node("{\"x\":null}"), "x")).isNull();
         }
 
         @Test
         @DisplayName("should read a present optional value")
         void shouldReadValue_whenPresent() {
             assertThat(PortalJson.text(node("{\"x\":\"v\"}"), "x")).isEqualTo("v");
-            assertThat(PortalJson.optionalInt(node("{\"x\":5}"), "x")).isEqualTo(5);
         }
     }
 

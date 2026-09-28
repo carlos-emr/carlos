@@ -32,10 +32,10 @@ import java.util.Locale;
 /**
  * Field readers shared by the portal response types.
  *
- * <p>Two kinds of reader live here, and the distinction is the point:
+ * <p>Three kinds of reader live here, and the distinction is the point:
  *
  * <ul>
- *   <li><b>Optional readers</b> ({@link #text}, {@link #optionalLong}, {@link #optionalInt}) return
+ *   <li><b>Optional readers</b> ({@link #text}) return
  *       {@code null} when a field is absent or JSON null. Use these only where an endpoint genuinely
  *       may omit the field.
  *   <li><b>Nullable readers</b> ({@link #nullableText}, {@link #nullableLong}, {@link
@@ -117,11 +117,6 @@ final class PortalJson {
         return value;
     }
 
-    static Long optionalLong(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : requiredLong(node, field);
-    }
-
     /** A declared nullable long: the member must exist, although its value may be JSON null. */
     static Long nullableLong(JsonNode node, String field) {
         JsonNode value = declared(node, field);
@@ -135,11 +130,6 @@ final class PortalJson {
             throw new PortalContractException(String.format(Locale.ROOT, OUT_OF_RANGE, field));
         }
         return value;
-    }
-
-    static Integer optionalInt(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : requiredInt(node, field);
     }
 
     /** A declared nullable int: the member must exist, although its value may be JSON null. */

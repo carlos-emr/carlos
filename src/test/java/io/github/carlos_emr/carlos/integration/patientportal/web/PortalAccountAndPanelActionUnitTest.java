@@ -252,7 +252,8 @@ class PortalAccountAndPanelActionUnitTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"moved\naway", "moved\u0000away", "moved\u202Eyawa", "moved\u200Baway",
-                "moved\u2028away", "moved\tSTATUS=ok"})
+                "moved\u2028away", "moved\tSTATUS=ok", "moved\uFEFFaway", "moved\u2066away\u2069",
+                "moved\uDB40\uDC41away"})
         @DisplayName("should refuse a reason with line breaks, control or formatting characters")
         void shouldRefuseDisable_whenTheReasonHasHiddenCharacters(String reason) throws Exception {
             request.setParameter("method", "access");
@@ -282,6 +283,28 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             verify(patientPortalService)
                     .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("Déménagé — 患者の依頼"), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                // Persian "wants", whose letters a zero-width non-joiner keeps apart
+                "\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u062F",
+                // An emoji sequence joined by a zero-width joiner: woman, health worker
+                "moved away \uD83D\uDC69\u200D\u2695\uFE0F",
+                // A soft hyphen marking where a long word may break
+                "re\u00ADlocated"})
+        @DisplayName("should accept the formatting characters the portal keeps for ordinary text")
+        void shouldDisableAccount_whenTheReasonNeedsAJoinerOrSoftHyphen(String reason) throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", reason);
+            when(patientPortalService.setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), anyString(), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            verify(patientPortalService).setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq(reason), any());
         }
 
         @Test
@@ -536,6 +559,7 @@ class PortalAccountAndPanelActionUnitTest {
             row.setOutcome(PatientPortalInviteDelivery.Outcome.SEND_UNCONFIRMED);
             when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
             when(invites.isRecoverable(row)).thenReturn(true);
+            when(invites.isOnCurrentConnection(row)).thenReturn(true);
 
             panelWithDeliveries().execute();
 

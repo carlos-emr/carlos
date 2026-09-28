@@ -86,7 +86,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         OPT_IN("email.consent.status.optIn"),
         /** Patient has explicitly opted out of email communication */
         OPT_OUT("email.consent.status.optOut"),
-        /** Consent tracking is configured but no consent row exists */
+        /** Explicit consent is not established; a documented confirmation is required */
         UNKNOWN("email.consent.status.unknown"),
         /** Email consent tracking is not configured with an active consent type */
         NOT_CONFIGURED("email.consent.status.notConfigured");
@@ -167,6 +167,57 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     private EmailStatus status;
 
     private String errorMessage;
+
+    /** Durable portal lifecycle; SMTP acceptance and portal publication are separate operations. */
+    public enum PortalDeliveryState {
+        PREPARING, READY, SENDING, SENT, PUBLISHED, REVOKE_PENDING, REVOKED
+    }
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private PortalDeliveryState portalDeliveryState;
+    @Column(length = 64)
+    private String portalSourceReference;
+    private Long portalSecretId;
+    @Column(length = 512)
+    private String portalOrigin;
+    @Column(length = 64)
+    private String portalClinicId;
+
+    public PortalDeliveryState getPortalDeliveryState() { return portalDeliveryState; }
+
+    /**
+     * True when portal password delivery for this email is not finished: the password is neither
+     * published nor revoked, or the transport status was never recorded. Such an email belongs on
+     * the recovery page, never back in the resend flow.
+     */
+    public boolean isPortalDeliveryUnresolved() {
+        if (portalDeliveryState == null) {
+            return false;
+        }
+        if (status == EmailStatus.PENDING) {
+            return true;
+        }
+        // A published password for a failed email, or a revoked one for a delivered email, is a
+        // contradiction staff must see, not a finished delivery.
+        if (portalDeliveryState == PortalDeliveryState.PUBLISHED) {
+            return status == EmailStatus.FAILED;
+        }
+        if (portalDeliveryState == PortalDeliveryState.REVOKED) {
+            return status == EmailStatus.SUCCESS;
+        }
+        return true;
+    }
+    public void setPortalDeliveryState(PortalDeliveryState value) { portalDeliveryState = value; }
+    public String getPortalSourceReference() { return portalSourceReference; }
+    public void setPortalSourceReference(String value) { portalSourceReference = value; }
+    public Long getPortalSecretId() { return portalSecretId; }
+    public void setPortalSecretId(Long value) { portalSecretId = value; }
+    public String getPortalOrigin() { return portalOrigin; }
+    public void setPortalOrigin(String value) { portalOrigin = value; }
+    public String getPortalClinicId() { return portalClinicId; }
+    public void setPortalClinicId(String value) { portalClinicId = value; }
+
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date timestamp = new Date();

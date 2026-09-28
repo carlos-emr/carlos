@@ -105,9 +105,7 @@ public record PatientPortalSettings(
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
-    private static final String PLAINTEXT_MESSAGE =
-            "%s must begin with a lowercase https:// ; refusing to send the portal token over"
-                    + " plaintext";
+    private static final String PLAINTEXT_MESSAGE = "%s must begin with a lowercase https://";
     private static final String MALFORMED_MESSAGE = "%s is not a valid URL";
     private static final String NO_HOST_MESSAGE = "%s must name a host";
     private static final String PORT_MESSAGE = "%s must use a port between 1 and 65535";
@@ -147,7 +145,7 @@ public record PatientPortalSettings(
      * @throws PatientPortalConfigurationException if the portal is unconfigured or misconfigured
      */
     public static PatientPortalSettings fromCarlosProperties() {
-        return fromProperties(key -> CarlosProperties.getInstance().getProperty(key));
+        return fromProperties(PatientPortalSettings::rawProperty);
     }
 
     /**
@@ -155,7 +153,17 @@ public record PatientPortalSettings(
      * validation so they produce a configuration error instead of looking like an absent portal.
      */
     public static boolean isConfigured() {
-        return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
+        return isConfigured(PatientPortalSettings::rawProperty);
+    }
+
+    /**
+     * Reads a value as written, bypassing {@code CarlosProperties.getProperty}. That method logs a
+     * WARN for every unset key, and it drops, and logs verbatim, any value beginning with a
+     * deprecated {@code oscar.} namespace: a random service token could begin that way and land in
+     * the log. Every portal key has its own default or is required, so nothing is lost.
+     */
+    private static String rawProperty(String key) {
+        return (String) CarlosProperties.getInstance().get(key);
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
@@ -343,7 +351,14 @@ public record PatientPortalSettings(
      * the query string.
      */
     private static String validatedBaseUrl(String configured) {
-        return validatedHttpsUrl(configured, BASE_URL_KEY);
+        String origin = validatedHttpsUrl(configured, BASE_URL_KEY);
+        // Checked here, not in validatedHttpsUrl: patient_portal.public_base_url shares that
+        // validator and may carry the prefix the portal's patient pages are served under.
+        if (!URI.create(origin).getRawPath().isEmpty()) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, PATH_MESSAGE, BASE_URL_KEY));
+        }
+        return origin;
     }
 
     /**
@@ -375,11 +390,6 @@ public record PatientPortalSettings(
         if (uri.getUserInfo() != null) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, USER_INFO_MESSAGE, key));
-        }
-        String path = uri.getRawPath();
-        if (path != null && !path.chars().allMatch(c -> c == '/')) {
-            throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, PATH_MESSAGE, BASE_URL_KEY));
         }
         if (uri.getQuery() != null || uri.getFragment() != null) {
             throw new PatientPortalConfigurationException(

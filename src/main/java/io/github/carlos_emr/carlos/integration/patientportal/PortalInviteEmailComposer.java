@@ -80,7 +80,7 @@ class PortalInviteEmailComposer {
      * Builds the outbox request with an empty body.
      *
      * @throws PortalInviteException {@link Reason#NOT_CONFIGURED} when the activation URL or sender is
-     *     not set, or the sender has no active email account
+     *     not set, or {@link Reason#SENDER_UNAVAILABLE} when the sender has no active email account
      */
     // The empty password fields mark the email as unencrypted; they are not credentials.
     @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
@@ -91,7 +91,8 @@ class PortalInviteEmailComposer {
         }
         EmailConfig sender = emailConfigs.findActiveEmailConfig(settings.senderEmail());
         if (sender == null) {
-            throw new PortalInviteException(Reason.NOT_CONFIGURED);
+            // Both settings are set, so asking for them again would send the administrator to the wrong place.
+            throw new PortalInviteException(Reason.SENDER_UNAVAILABLE);
         }
         EmailData email = new EmailData();
         email.setSenderConfigId(sender.getId());

@@ -132,7 +132,10 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         PREPARE_UNCONFIRMED,
         /** The portal refused to activate the code, so the email was never sent. */
         COMMIT_REFUSED,
-        /** The portal did not confirm activating the code, so the email was never sent. */
+        /**
+         * The portal did not confirm activating the code, or CARLOS could not record that it had, so the
+         * email was never sent. For a resend, activation retires the earlier code, which may be gone too.
+         */
         COMMIT_UNCONFIRMED,
         /**
          * The send stopped before the portal was asked to activate the code: consent blocked it, or

@@ -215,7 +215,7 @@ class PortalBoundaryRegressionUnitTest {
     @ValueSource(strings = {
             "{\"id\":1,\"clinic_id\":\"other-clinic\",\"demographic_no\":123,\"status\":\"pending\",\"issued_count\":1}",
             "{\"id\":1,\"clinic_id\":\"clinic\",\"demographic_no\":456,\"status\":\"pending\",\"issued_count\":1}"})
-    void rejectsInvitationWithWrongResponseScope(String invite) {
+    void shouldRejectInvitation_whenResponseScopeIsWrong(String invite) {
         assertThatThrownBy(() -> service("[" + invite + "]").listInvites(123, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }

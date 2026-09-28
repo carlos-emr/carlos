@@ -29,8 +29,12 @@ test('warns that an unconfirmed replacement may have taken the old code with it'
   const page = logic({'deliveries.replacementMayBeLost': 'The earlier one may not work.'});
   const resend = {state: 'abandoned', outcome: 'commit_unconfirmed', supersededInviteId: 7};
   const first = {state: 'abandoned', outcome: 'commit_unconfirmed', supersededInviteId: null};
+  // Stopped by staff while queued: the server records commit_unconfirmed unless the portal showed the
+  // replacement was never activated, and only then abandoned_by_staff.
+  const stoppedBeforeActivation = {state: 'abandoned', outcome: 'abandoned_by_staff', supersededInviteId: 7};
   assert.ok(page.describe(resend).includes('The earlier one may not work.'));
   assert.ok(!page.describe(first).includes('The earlier one may not work.'));
+  assert.ok(!page.describe(stoppedBeforeActivation).includes('The earlier one may not work.'));
 });
 
 test('shows a known refusal in the page language, and any other as the server worded it', () => {
@@ -55,6 +59,15 @@ test('calls only a delivered invitation good news', () => {
   assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'commit_refused'}), false);
   assert.equal(page.isGoodNews({state: 'send_uncertain', outcome: 'send_unconfirmed'}), false);
   assert.equal(page.isGoodNews(undefined), true, 'a request that returns no delivery, such as a revoke');
+});
+
+test('says why an unfinished attempt offers no decision: still settling, or another portal connection', () => {
+  const page = logic({
+    'deliveries.waiting': 'Wait 15 minutes.',
+    'refusal.portal_connection_changed': 'Restore that connection.'
+  });
+  assert.equal(page.waitingFor({finished: false, onCurrentConnection: true}), 'Wait 15 minutes.');
+  assert.equal(page.waitingFor({finished: false, onCurrentConnection: false}), 'Restore that connection.');
 });
 
 test('offers withdrawing a stuck attempt once, never again on the retry', () => {

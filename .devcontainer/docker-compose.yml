@@ -19,6 +19,10 @@ services:
       - gemini-config:/root/.gemini
       - ..:/workspace
       - ../.devcontainer/db/db_data/:/db-data/
+      # Opt-in SSH commit signing (develop requires signed commits). With no key inside,
+      # setup-commit-signing does nothing. If the host folder is missing Docker creates it
+      # owned by root, so create it yourself first (see README "Commit Signing").
+      - ${HOME}/.carlos-signing:/root/.carlos-signing:ro
     env_file:
       - ./development/config/shared/local.env
     environment:

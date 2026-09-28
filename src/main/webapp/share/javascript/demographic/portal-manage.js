@@ -61,7 +61,8 @@
             }
             if (delivery.outcome === 'commit_unconfirmed' && delivery.supersededInviteId) {
                 // The portal retires the old code as it activates a replacement, so an unconfirmed
-                // replacement may have taken the old code with it.
+                // replacement may have taken the old code with it. A queued replacement staff stop is
+                // recorded this way too unless the portal shows it was never activated.
                 parts.push(text('deliveries.replacementMayBeLost'));
             }
             return parts;
@@ -83,13 +84,22 @@
             return !delivery || (delivery.state === 'sent' && delivery.outcome !== 'chart_note_failed');
         }
 
+        /**
+         * Why an unfinished attempt offers no decision yet: it may still be running, or it was made on another
+         * portal connection, whose code only that connection can withdraw.
+         */
+        function waitingFor(delivery) {
+            return text(delivery.onCurrentConnection === false ? 'refusal.portal_connection_changed'
+                : 'deliveries.waiting');
+        }
+
         /** Whether to offer withdrawing a stuck earlier attempt: asked once, never on the retry itself. */
         function offersWithdrawal(body, params) {
             return Boolean(body && body.reason === 'stale_attempt_exists' && !params.withdrawStale);
         }
 
         return {message: message, text: text, describe: describe, refusal: refusal, isGoodNews: isGoodNews,
-            offersWithdrawal: offersWithdrawal};
+            offersWithdrawal: offersWithdrawal, waitingFor: waitingFor};
     }
 
     if (typeof module !== 'undefined' && module.exports) {
@@ -384,7 +394,9 @@
             var actions = row.insertCell();
             if (invite.status === 'pending' && can.invite) {
                 actions.appendChild(button(text('invites.resend'), 'secondary', function () {
-                    act('/demographic/portalInvite', inviteParams({method: 'resend', inviteId: invite.inviteId}));
+                    // A resend retires this code once the new email is sent, as a replacing invitation does.
+                    act('/demographic/portalInvite', inviteParams({method: 'resend', inviteId: invite.inviteId}),
+                        text('invites.confirmReplace'));
                 }, true));
             }
             if ((invite.status === 'pending' || invite.status === 'prepared') && can.revoke) {
@@ -432,7 +444,7 @@
                     });
                     item.appendChild(actions);
                 } else if (!delivery.finished) {
-                    item.appendChild(element('div', 'portal-muted', text('deliveries.waiting')));
+                    item.appendChild(element('div', 'portal-muted', logic.waitingFor(delivery)));
                 }
             }
             list.appendChild(item);

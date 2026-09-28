@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Channel;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
@@ -69,7 +70,6 @@ public class PortalInvite2Action extends PortalJsonAction {
     static final String METHOD_RESEND = "resend";
     static final String METHOD_RECOVER = "recover";
     static final String METHOD_REVOKE = "revoke";
-    private static final int MAX_OVERRIDE_REASON_LENGTH = 255;
     static final String EMAIL_OBJECT = "_email";
     static final String DOCUMENT_OBJECT = "_edoc";
 
@@ -179,7 +179,8 @@ public class PortalInvite2Action extends PortalJsonAction {
             return badRequest(response, "unsupported invitation channel");
         }
         String overrideReason = request.getParameter("consentOverrideReason");
-        if (overrideReason != null && overrideReason.length() > MAX_OVERRIDE_REASON_LENGTH) {
+        // Measured as EmailData stores it, trimmed, so the limit is the email's and surrounding spaces don't count.
+        if (overrideReason != null && overrideReason.trim().length() > EmailData.CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
             return badRequest(response, "the consent override reason is too long");
         }
         PortalInviteDeliveryService invites = inviteDeliveryService();

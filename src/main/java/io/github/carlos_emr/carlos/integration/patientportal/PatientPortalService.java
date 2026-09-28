@@ -703,10 +703,10 @@ public class PatientPortalService implements Closeable {
         try {
             response = exchange.send(buildRequest(method, path, jsonBody, staff));
         } catch (PortalResponseTooLargeException exception) {
-            throw PatientPortalException.ofMalformedResponse(exception.statusCode(), template,
+            throw unreadableBody(exception.statusCode(), template,
                     new PortalContractException("portal response exceeds size limit", exception));
         } catch (PortalResponseDecodingException exception) {
-            throw PatientPortalException.ofMalformedResponse(exception.statusCode(), template,
+            throw unreadableBody(exception.statusCode(), template,
                     new PortalContractException("portal response is not valid UTF-8", exception));
         } catch (IOException exception) {
             throw PatientPortalException.ofTransportFailure(template, exception);
@@ -716,6 +716,27 @@ public class PatientPortalService implements Closeable {
                     response.statusCode(), template, safeDetail(response.body()));
         }
         return new Parsed(parsed(response, template), response.statusCode());
+    }
+
+    /**
+     * Classifies a response whose body could not be read.
+     *
+     * <p>An error status still says what happened: a proxy's oversized or Latin-1 HTML page for a
+     * {@code 429} is throttling, not a contract change, and it must not be reported as "may or may
+     * not have been applied". Only a success status with an unreadable body leaves the outcome
+     * unknown.
+     */
+    private static PatientPortalException unreadableBody(
+            int statusCode, String template, PortalContractException cause) {
+        if (!PatientPortalHttpResponse.isSuccess(statusCode)) {
+            PatientPortalException failure =
+                    PatientPortalException.ofStatus(statusCode, template, null);
+            // Keep why the body was unreadable: an oversized or non-UTF-8 error page points at
+            // a proxy rather than at the portal.
+            failure.initCause(cause);
+            return failure;
+        }
+        return PatientPortalException.ofMalformedResponse(statusCode, template, cause);
     }
 
     /**

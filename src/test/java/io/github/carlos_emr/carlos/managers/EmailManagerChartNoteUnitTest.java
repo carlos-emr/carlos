@@ -84,6 +84,7 @@ class EmailManagerChartNoteUnitTest extends CarlosUnitTestBase {
         injectDependency(doctor, "id", 3);
         when(caseManagementManager.getSecRoleByRoleName("doctor")).thenReturn(doctor);
         when(caseManagementManager.saveNoteSimpleReturnID(any(CaseManagementNote.class))).thenReturn(81L);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123))).thenReturn(true);
 
         Demographic patient = new Demographic();
         patient.setDemographicNo(123);
@@ -144,6 +145,19 @@ class EmailManagerChartNoteUnitTest extends CarlosUnitTestBase {
     void shouldRefuse_withoutEmailReadPrivilege() {
         assertThatThrownBy(() -> emailManager.addEmailNote(loggedInInfo, emailLog, "any text"))
                 .hasMessage("missing required sec object (_email)");
+        verifyNoInteractions(caseManagementManager);
+    }
+
+    @Test
+    @DisplayName("should refuse a caller who may not open the patient's record before writing anything")
+    void shouldRefuse_withoutAccessToThePatientRecord() {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_email"), anyString(),
+                nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123))).thenReturn(false);
+
+        assertThatThrownBy(() -> emailManager.addEmailNote(loggedInInfo, emailLog, "any text"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
         verifyNoInteractions(caseManagementManager);
     }
 }

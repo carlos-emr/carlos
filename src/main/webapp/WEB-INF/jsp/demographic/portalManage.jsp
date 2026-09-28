@@ -191,7 +191,7 @@
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- refusals, by reason code --%>
-        <c:forTokens var="key" delims="," items="refusal.channel_unavailable,refusal.delivery_not_found,refusal.incomplete_date_of_birth,refusal.invalid_email,refusal.invite_already_used,refusal.invite_not_configured,refusal.invite_not_pending,refusal.missing_email,refusal.missing_health_card,refusal.patient_not_found,refusal.pending_invite_exists,refusal.portal_connection_changed,refusal.recovery_not_allowed,refusal.recovery_too_early,refusal.stale_attempt_exists,refusal.state_changed">
+        <c:forTokens var="key" delims="," items="refusal.channel_unavailable,refusal.delivery_not_found,refusal.incomplete_date_of_birth,refusal.invalid_email,refusal.invite_already_used,refusal.invite_not_configured,refusal.invite_not_pending,refusal.invite_sender_unavailable,refusal.missing_email,refusal.missing_health_card,refusal.patient_not_found,refusal.pending_invite_exists,refusal.portal_connection_changed,refusal.recovery_not_allowed,refusal.recovery_too_early,refusal.stale_attempt_exists,refusal.state_changed">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
     </ul>
