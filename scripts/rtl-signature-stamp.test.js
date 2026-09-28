@@ -222,3 +222,21 @@ test('the upgrade migration applies the same form_html edit as the updates/ scri
   }
   assert.ok(flyway.includes(`NOT LIKE '%id="user_ohip_no"%'`), 'migration is not idempotent');
 });
+
+test('the stamp and closing-salutation lookups only request configured AP keys', () => {
+  // efmformapconfig_lookup reports a key apconfig.xml does not define as a "could not be filled
+  // in" banner; the dead legacy "stamp_name" key put that banner on every Stamp click.
+  const source = fs.readFileSync(EDIT_CONTROL_2_JS, 'utf8');
+  const apconfig = fs.readFileSync(path.join(__dirname,
+    '../src/main/resources/oscar/eform/apconfig.xml'), 'utf8');
+  const configured = new Set(Array.from(apconfig.matchAll(/<ap-name>([^<]+)<\/ap-name>/g), (m) => m[1].trim()));
+  for (const name of ['stamp', '_ClosingSalutation']) {
+    const mapping = source.match(new RegExp(`name: "${name}",\\s*values: \\[([^\\]]*)\\]`));
+    assert.ok(mapping, `${name} mapping not found in editControl2.js`);
+    const keys = Array.from(mapping[1].matchAll(/"([^"]+)"/g), (m) => m[1]);
+    assert.ok(keys.length > 0, `${name} mapping lists no keys`);
+    for (const key of keys) {
+      assert.ok(configured.has(key), `${name} requests AP key "${key}", which apconfig.xml does not define`);
+    }
+  }
+});
