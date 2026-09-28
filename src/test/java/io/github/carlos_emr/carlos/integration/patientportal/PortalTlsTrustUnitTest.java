@@ -32,6 +32,7 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -45,7 +46,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.X509ExtendedTrustManager;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -64,6 +66,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.api.parallel.Resources;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * What stops a fake portal from collecting the service token and a patient's identity.
@@ -440,19 +444,47 @@ class PortalTlsTrustUnitTest {
     class PinDecision {
 
         /** Stands in for a chain the platform already trusts — a proxy CA, or the real portal. */
-        private X509TrustManager accepting() {
-            return new X509TrustManager() {
-                @Override
-                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+        private X509ExtendedTrustManager accepting() {
+            return new StubPlatform();
+        }
 
-                @Override
-                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+        /** Invokes one of the three server-check overloads, as JSSE or a caller would. */
+        private void checkServer(PortalCertificatePinning pinning, String overload, X509Certificate... chain)
+                throws CertificateException {
+            switch (overload) {
+                case "socket" -> pinning.checkServerTrusted(chain, "RSA", (Socket) null);
+                case "engine" -> pinning.checkServerTrusted(chain, "RSA", (SSLEngine) null);
+                default -> pinning.checkServerTrusted(chain, "RSA");
+            }
+        }
 
-                @Override
-                public X509Certificate[] getAcceptedIssuers() {
-                    return new X509Certificate[0];
-                }
-            };
+        /**
+         * JSSE calls the socket- or engine-aware overload during a real handshake. Each of them must
+         * reach the platform check that receives the handshake, and each must still require the pin;
+         * an overload that skipped either would be a way round the other.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"chain", "socket", "engine"})
+        @DisplayName("should run platform validation and the pin on every server-check overload")
+        void shouldValidateAndPin_onEveryServerCheckOverload(String overload) throws Exception {
+            Identity portal = identity("portal.example", "127.0.0.1");
+            Identity somebodyElse = identity("portal.example", "127.0.0.1");
+            String pin = PortalCertificatePinning.pinFor(portal.certificate());
+
+            assertThatThrownBy(() -> checkServer(
+                            PortalCertificatePinning.over(new StubPlatform(overload), Set.of(pin)),
+                            overload, portal.certificate()))
+                    .isInstanceOf(CertificateException.class)
+                    .hasMessage("expired (" + overload + ")");
+            assertThatThrownBy(() -> checkServer(
+                            PortalCertificatePinning.over(accepting(), Set.of(pin)),
+                            overload, somebodyElse.certificate()))
+                    .isInstanceOf(CertificateException.class)
+                    .hasMessageContaining("did not match any pin");
+            assertThatCode(() -> checkServer(
+                            PortalCertificatePinning.over(accepting(), Set.of(pin)),
+                            overload, portal.certificate()))
+                    .doesNotThrowAnyException();
         }
 
         @Test
@@ -546,22 +578,7 @@ class PortalTlsTrustUnitTest {
         @DisplayName("should let a validation failure through even when the pin matches")
         void shouldRefuse_whenTheDelegateRejectsAMatchingLeaf() throws Exception {
             Identity portal = identity("portal.example", "127.0.0.1");
-            X509TrustManager rejecting =
-                    new X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
-
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] chain, String authType)
-                                throws CertificateException {
-                            throw new CertificateException("expired");
-                        }
-
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[0];
-                        }
-                    };
+            X509ExtendedTrustManager rejecting = new StubPlatform("chain", "socket", "engine");
             PortalCertificatePinning pinning =
                     PortalCertificatePinning.over(
                             rejecting,
@@ -573,6 +590,56 @@ class PortalTlsTrustUnitTest {
                                             new X509Certificate[] {portal.certificate()}, "RSA"))
                     .isInstanceOf(CertificateException.class)
                     .hasMessageContaining("expired");
+        }
+    }
+
+    /**
+     * A platform trust manager stand-in that fails the named server-check overloads with
+     * "expired (overload)" and passes every other check.
+     */
+    private static final class StubPlatform extends X509ExtendedTrustManager {
+        private final Set<String> failing;
+
+        StubPlatform(String... failing) {
+            this.failing = Set.of(failing);
+        }
+
+        private void check(String overload) throws CertificateException {
+            if (failing.contains(overload)) {
+                throw new CertificateException("expired (" + overload + ")");
+            }
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType)
+                throws CertificateException {
+            check("chain");
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket)
+                throws CertificateException {
+            check("socket");
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
+                throws CertificateException {
+            check("engine");
+        }
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket) {}
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine) {}
+
+        @Override
+        public X509Certificate[] getAcceptedIssuers() {
+            return new X509Certificate[0];
         }
     }
 }

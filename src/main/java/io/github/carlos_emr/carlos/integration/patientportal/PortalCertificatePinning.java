@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import java.net.Socket;
 import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -29,8 +30,10 @@ import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.Set;
+import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
 
 /**
@@ -49,6 +52,12 @@ import javax.net.ssl.X509TrustManager;
  * chain validation in exchange for the pin. The delegate call below is what prevents that, and
  * {@code PortalTlsTrustUnitTest} fails if it is removed.
  *
+ * <p><b>It is an {@link X509ExtendedTrustManager} so the handshake reaches the delegate.</b> JSSE
+ * calls the socket- and engine-aware overloads, and those forward the handshake itself to the
+ * platform trust manager: its endpoint-identity and algorithm-constraint checks, and any stapled
+ * OCSP response it is configured to use. A plain {@link X509TrustManager} would instead be wrapped
+ * by JSSE, and the platform check would only ever see the bare chain.
+ *
  * <p><b>Only the leaf is pinned.</b> The {@code chain} argument is supplied by the peer, not by the
  * validator, so a pin match anywhere in it proves nothing about the key that terminated the
  * handshake: the portal's real certificate is public, and an interceptor is free to append a copy
@@ -66,7 +75,7 @@ import javax.net.ssl.X509TrustManager;
  *
  * @since 2026-08-20
  */
-final class PortalCertificatePinning implements X509TrustManager {
+final class PortalCertificatePinning extends X509ExtendedTrustManager {
 
     static final String PIN_PREFIX = "sha256/";
 
@@ -76,10 +85,10 @@ final class PortalCertificatePinning implements X509TrustManager {
     private static final String BAD_PIN =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
 
-    private final X509TrustManager delegate;
+    private final X509ExtendedTrustManager delegate;
     private final Set<String> pins;
 
-    private PortalCertificatePinning(X509TrustManager delegate, Set<String> pins) {
+    private PortalCertificatePinning(X509ExtendedTrustManager delegate, Set<String> pins) {
         this.delegate = delegate;
         this.pins = pins;
     }
@@ -103,7 +112,7 @@ final class PortalCertificatePinning implements X509TrustManager {
      *
      * @param pins one or more {@code sha256/…} pins; must not be empty
      */
-    static PortalCertificatePinning over(X509TrustManager delegate, Set<String> pins) {
+    static PortalCertificatePinning over(X509ExtendedTrustManager delegate, Set<String> pins) {
         if (pins == null || pins.isEmpty()) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, BAD_PIN, PatientPortalSettings.CERTIFICATE_PINS_KEY));
@@ -133,18 +142,18 @@ final class PortalCertificatePinning implements X509TrustManager {
     }
 
     /** The JVM's own trust manager, so the standard checks are kept rather than replaced. */
-    private static X509TrustManager platformTrustManager() {
+    private static X509ExtendedTrustManager platformTrustManager() {
         try {
             TrustManagerFactory factory =
                     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             factory.init((KeyStore) null);
             for (TrustManager candidate : factory.getTrustManagers()) {
-                if (candidate instanceof X509TrustManager manager) {
+                if (candidate instanceof X509ExtendedTrustManager manager) {
                     return manager;
                 }
             }
             throw new PatientPortalConfigurationException(
-                    "no platform X509 trust manager is available");
+                    "no platform X509 extended trust manager is available");
         } catch (java.security.GeneralSecurityException exception) {
             throw new PatientPortalConfigurationException(
                     "could not initialise the platform trust manager", exception);
@@ -170,11 +179,28 @@ final class PortalCertificatePinning implements X509TrustManager {
     }
 
     @Override
-    public void checkServerTrusted(X509Certificate[] chain, String authType)
+    public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket)
             throws CertificateException {
         // Standard validation first. Never remove this in favour of the pin check alone.
-        delegate.checkServerTrusted(chain, authType);
+        delegate.checkServerTrusted(chain, authType, socket);
+        requirePinnedLeaf(chain);
+    }
 
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
+            throws CertificateException {
+        delegate.checkServerTrusted(chain, authType, engine);
+        requirePinnedLeaf(chain);
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType)
+            throws CertificateException {
+        delegate.checkServerTrusted(chain, authType);
+        requirePinnedLeaf(chain);
+    }
+
+    private void requirePinnedLeaf(X509Certificate[] chain) throws CertificateException {
         if (chain == null || chain.length == 0) {
             throw new CertificateException(NO_CERTIFICATE);
         }
@@ -192,6 +218,18 @@ final class PortalCertificatePinning implements X509TrustManager {
                             PatientPortalSettings.CERTIFICATE_PINS_KEY,
                             presented));
         }
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket)
+            throws CertificateException {
+        delegate.checkClientTrusted(chain, authType, socket);
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
+            throws CertificateException {
+        delegate.checkClientTrusted(chain, authType, engine);
     }
 
     @Override

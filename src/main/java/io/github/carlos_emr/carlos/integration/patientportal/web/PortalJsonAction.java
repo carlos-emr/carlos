@@ -306,11 +306,6 @@ public abstract class PortalJsonAction extends ActionSupport {
         return failure(response, HttpServletResponse.SC_BAD_REQUEST, "bad_request", message);
     }
 
-    String conflict(HttpServletResponse response, String reason, String message)
-            throws IOException {
-        return failure(response, HttpServletResponse.SC_CONFLICT, reason, message);
-    }
-
     private String failure(
             HttpServletResponse response, int status, String reason, String message)
             throws IOException {

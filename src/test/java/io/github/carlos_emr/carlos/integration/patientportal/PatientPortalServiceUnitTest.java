@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +38,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The authenticated envelope every portal call shares.
@@ -54,6 +57,12 @@ class PatientPortalServiceUnitTest {
     private static final String INVITE_PATH = "/internal/carlos/patients/123/invites";
 
     private PatientPortalService service() {
+        // Request-building tests do not need a real pooled client that every test must remember to
+        // close. The exchange is never called here.
+        return service(request -> new PatientPortalHttpResponse(200, "{}"));
+    }
+
+    private PatientPortalService service(PatientPortalHttpExchange exchange) {
         PatientPortalSettings settings =
                 PatientPortalSettings.fromProperties(
                         Map.of(
@@ -67,10 +76,7 @@ class PatientPortalServiceUnitTest {
                                 PortalTestKeys.PRIVATE_KEY,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
                                 PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN));
-        // Request-building tests do not need a real pooled client that every test must remember to
-        // close. The exchange is never called here.
-        return new PatientPortalService(
-                settings, request -> new PatientPortalHttpResponse(200, "{}"));
+        return new PatientPortalService(settings, exchange);
     }
 
     private PatientPortalStaffContext staff() {
@@ -288,6 +294,36 @@ class PatientPortalServiceUnitTest {
         void shouldMapNotFound_toAmbiguousKind() {
             assertThat(PatientPortalException.kindForStatus(404))
                     .isEqualTo(Kind.NOT_FOUND_OR_UNAUTHENTICATED);
+        }
+
+        /**
+         * A proxy's error page can be larger than the body cap or not UTF-8. Its status still says
+         * what happened, and "may or may not have been applied" would send staff chasing a contract
+         * change during what is really throttling or an outage.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"too large", "not UTF-8"})
+        @DisplayName("should classify an unreadable error body by its status")
+        void shouldMapUnreadableErrorBody_byItsStatus(String failure) {
+            PatientPortalException throttled = catchThrowableOfType(
+                    () -> service(request -> { throw unreadable(failure, 429); })
+                            .listInvites(123, staff()),
+                    PatientPortalException.class);
+            PatientPortalException unknownOutcome = catchThrowableOfType(
+                    () -> service(request -> { throw unreadable(failure, 200); })
+                            .listInvites(123, staff()),
+                    PatientPortalException.class);
+
+            assertThat(throttled.kind()).isEqualTo(Kind.THROTTLED);
+            assertThat(throttled.statusCode()).isEqualTo(429);
+            assertThat(unknownOutcome.kind()).isEqualTo(Kind.MALFORMED_RESPONSE);
+            assertThat(unknownOutcome.statusCode()).isEqualTo(200);
+        }
+
+        private java.io.IOException unreadable(String failure, int statusCode) {
+            return "too large".equals(failure)
+                    ? new PortalResponseTooLargeException(statusCode)
+                    : new PortalResponseDecodingException(statusCode);
         }
     }
 

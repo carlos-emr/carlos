@@ -61,8 +61,8 @@ It took `V1.0.31` because `V1.0.29` and `V1.0.30` were held by open PRs (#3763, 
 #3681) when it was written; whichever of those merges after it must renumber above the
 then-current high-water mark.
 
-`V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` and `_admin.portal`
-security objects used by the patient portal client and grants them to `admin` only.
+`V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` security objects
+used by the patient portal client and grants them to `admin` only.
 Versions up to `V1.0.40` are not free: `release/2026.08` holds them and they arrive with that
 forward-merge.
 

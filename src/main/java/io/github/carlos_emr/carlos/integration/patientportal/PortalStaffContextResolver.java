@@ -25,8 +25,10 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Derives the portal permissions a logged-in provider actually holds.
@@ -67,9 +69,6 @@ import java.util.Set;
  */
 public class PortalStaffContextResolver {
 
-    /** Configure the CARLOS-to-portal connection. Not a portal permission. */
-    public static final String OBJECT_ADMIN = "_admin.portal";
-
     public static final String OBJECT_INVITE = "_portal.invite";
     public static final String OBJECT_ACCOUNT = "_portal.account";
     public static final String OBJECT_ACCOUNT_UNLOCK = "_portal.account.unlock";
@@ -89,8 +88,7 @@ public class PortalStaffContextResolver {
                     OBJECT_CONTACT_REVIEW,
                     PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW);
 
-    private static final String NO_PRIVILEGE =
-            "provider holds no patient portal privilege; refusing to build a portal identity";
+    private static final String NO_PRIVILEGE = "missing required sec object (%s r)";
     private static final String NO_SCOPE = "a patient portal permission scope is required";
     private static final String UNSUPPORTED_OBJECT =
             "portal permission scope contains an unsupported security object";
@@ -153,7 +151,9 @@ public class PortalStaffContextResolver {
             }
         }
         if (granted.isEmpty()) {
-            throw new SecurityException(NO_PRIVILEGE);
+            // Sorted so the message does not depend on the caller's set iteration order.
+            throw new SecurityException(
+                    String.format(Locale.ROOT, NO_PRIVILEGE, String.join(" or ", new TreeSet<>(objects))));
         }
         return new PatientPortalStaffContext(providerNo, displayName(loggedInInfo), granted);
     }
