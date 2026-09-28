@@ -1140,7 +1140,7 @@
                                 <% } /* Custom */ %>
 
                                 <tr>
-                                    <td colspan=2><fmt:message key="WriteScript.startDate"/>:</td>
+                                    <td colspan=2><label for="rxDate"><fmt:message key="WriteScript.startDate"/></label>:</td>
                                     <td colspan=2><input type="text" name="rxDate" id="rxDate"  value="<carlos:encode value='<%= thisForm.getRxDate() %>' context="htmlAttribute"/>"/></td>
                                     <!--<td >
                                           &nbsp;
@@ -1235,8 +1235,8 @@
                                                 frm.takeOther.style.display = '';
                                             }
                                         </script>
-                                        <fmt:message key="WriteScript.prn"/>
-                                        <input type="checkbox" name="prn" value="true" <%= thisForm.getPrn() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
+                                        <label for="prn"><fmt:message key="WriteScript.prn"/></label>
+                                        <input type="checkbox" id="prn" name="prn" value="true" <%= thisForm.getPrn() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
                                     </td>
                                     <!--<td>
                                             &nbsp;
@@ -1343,32 +1343,32 @@
                                             }
                                         </script>
                                         &nbsp;
-                                        <fmt:message key="WriteScript.noSubs"/>:
-                                        <input type="checkbox" name="nosubs" value="true" <%= thisForm.getNosubs() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
+                                        <label for="nosubs"><fmt:message key="WriteScript.noSubs"/></label>:
+                                        <input type="checkbox" id="nosubs" name="nosubs" value="true" <%= thisForm.getNosubs() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
                                         &nbsp;
-                                        <fmt:message key="WriteScript.msgLastRefillDate"/>:
-                                        <input type="text" name="lastRefillDate" onfocus="javascript:lastRefillDate.value='';" value="<carlos:encode value='<%= thisForm.getLastRefillDate() %>' context="htmlAttribute"/>"/>
+                                        <label for="lastRefillDate"><fmt:message key="WriteScript.msgLastRefillDate"/></label>:
+                                        <input type="text" id="lastRefillDate" name="lastRefillDate" onfocus="javascript:lastRefillDate.value='';" value="<carlos:encode value='<%= thisForm.getLastRefillDate() %>' context="htmlAttribute"/>"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
-                                        <fmt:message key="WriteScript.msgLongTermMedication"/>:
+                                        <label for="longTermFlag"><fmt:message key="WriteScript.msgLongTermMedication"/></label>:
                                         <input type="hidden" name="longTerm" value="<%= thisForm.getLongTerm() == null ? "" : thisForm.getLongTerm().toString() %>"/>
-                                        <input type="checkbox" name="longTermFlag" <%= Boolean.TRUE.equals(thisForm.getLongTerm()) ? "checked" : "" %> onchange="frm.elements['longTerm'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:message key="WriteScript.msgPastMedication"/>:
+                                        <input type="checkbox" id="longTermFlag" name="longTermFlag" <%= Boolean.TRUE.equals(thisForm.getLongTerm()) ? "checked" : "" %> onchange="frm.elements['longTerm'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
+                                        <label for="pastMedFlag"><fmt:message key="WriteScript.msgPastMedication"/></label>:
                                         <input type="hidden" name="pastMed" value="<%= thisForm.getPastMed() == null ? "" : thisForm.getPastMed().toString() %>"/>
-                                        <input type="checkbox" name="pastMedFlag" <%= Boolean.TRUE.equals(thisForm.getPastMed()) ? "checked" : "" %> onchange="frm.elements['pastMed'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:message key="WriteScript.msgPatientCompliance"/>:
-                                        <fmt:message key="WriteScript.msgYes"/>
-                                        <input type="checkbox" name="patientComplianceY" <%= Boolean.TRUE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('Y');"/>
-                                        <fmt:message key="WriteScript.msgNo"/>
-                                        <input type="checkbox" name="patientComplianceN" <%= Boolean.FALSE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('N');"/>
+                                        <input type="checkbox" id="pastMedFlag" name="pastMedFlag" <%= Boolean.TRUE.equals(thisForm.getPastMed()) ? "checked" : "" %> onchange="frm.elements['pastMed'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
+                                        <span id="patientComplianceLabel"><fmt:message key="WriteScript.msgPatientCompliance"/>:</span>
+                                        <label for="patientComplianceY"><fmt:message key="WriteScript.msgYes"/></label>
+                                        <input type="checkbox" aria-describedby="patientComplianceLabel" id="patientComplianceY" name="patientComplianceY" <%= Boolean.TRUE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('Y');"/>
+                                        <label for="patientComplianceN"><fmt:message key="WriteScript.msgNo"/></label>
+                                        <input type="checkbox" aria-describedby="patientComplianceLabel" id="patientComplianceN" name="patientComplianceN" <%= Boolean.FALSE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('N');"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
                                         <fmt:message key="WriteScript.special"/>: &nbsp; &nbsp; &nbsp; &nbsp;
-                                        <input type="checkbox" name="customInstr" value="true" <%= thisForm.getCustomInstr() ? "checked" : "" %>/><fmt:message key="WriteScript.msgCustomInstructions"/>
+                                        <input type="checkbox" id="customInstr" name="customInstr" value="true" <%= thisForm.getCustomInstr() ? "checked" : "" %>/><label for="customInstr"><fmt:message key="WriteScript.msgCustomInstructions"/></label>
                                         <script language=javascript>
                                             function cmdSpecial_click() {
                                                 var frm = document.forms.frm;
@@ -1432,14 +1432,14 @@
                                 </tr>
                                 <tr>
                                     <td colspan="5">
-                                        <fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
+                                        <label for="ocheck"><fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/></label>
                                         <input type="checkbox" id="ocheck"
                                                onclick="showHideOutsideProvider();"/> &nbsp;
                                         <span id="otext">
-							    <b><fmt:message key="WriteScript.msgName"/>:</b>
-                                            <input type="text" name="outsideProviderName" value="<carlos:encode value='<%= thisForm.getOutsideProviderName() %>' context="htmlAttribute"/>"/> &nbsp;
-							    <b><fmt:message key="WriteScript.msgOHIPNO"/>:</b>
-                                            <input type="text" name="outsideProviderOhip" value="<carlos:encode value='<%= thisForm.getOutsideProviderOhip() %>' context="htmlAttribute"/>"/>
+							    <b><label for="outsideProviderName"><fmt:message key="WriteScript.msgName"/></label>:</b>
+                                            <input type="text" id="outsideProviderName" name="outsideProviderName" value="<carlos:encode value='<%= thisForm.getOutsideProviderName() %>' context="htmlAttribute"/>"/> &nbsp;
+							    <b><label for="outsideProviderOhip"><fmt:message key="WriteScript.msgOHIPNO"/></label>:</b>
+                                            <input type="text" id="outsideProviderOhip" name="outsideProviderOhip" value="<carlos:encode value='<%= thisForm.getOutsideProviderOhip() %>' context="htmlAttribute"/>"/>
 							</span>
                                     </td>
                                 </tr>
