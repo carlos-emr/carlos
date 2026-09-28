@@ -60,30 +60,42 @@ receiver; see the verification note below.
   **Fixed:** the receiver now stages the decrypted message in an owner-only temporary file,
   verifies the signature, and only then persists it; the staged copy is always deleted. The
   stored copy is compared byte-for-byte with the verified staged copy before it is parsed,
-  because the storage helpers log a write failure and still return the path. Version 2
-  keeps this ordering.
+  so what is parsed is exactly what was verified; a storage helper that returns no path is
+  answered `500`. Version 2 keeps this ordering.
 - An unrecognized `service` produced an empty client-info list, and the subsequent element
-  access threw out of `execute()`. The `lab` Struts package maps `java.lang.Exception` to
-  `errorpage.jsp` (`struts-lab.xml`), and that result is a JSP forward, so the sender
-  received **HTTP 200 with an HTML error page** and read a misconfigured or retired service
-  as a successful delivery — failing silently in the direction that loses labs.
-  **Fixed:** unknown services, unusable stored keys, and undecryptable messages — a failed
-  key unwrap and a failed AES block alike — now share one non-specific `rejected` outcome
-  with status `400`, so a caller cannot probe which services are configured. A
-  receiver-side fault (the key lookup failing, or the receiver's own private key being
-  unavailable) is deliberately *not* folded into that outcome: it stays a `500`, so a sender
-  that treats `4xx` as permanent keeps retrying through a receiver outage. Version 2 keeps
-  this behavior. A signature failure remains `406`, so the legacy path still separates
+  access threw out of `execute()`. On older builds the `lab` package's `errorpage.jsp`
+  forward answered that with **HTTP 200 and an HTML error page**, so a sender read a
+  misconfigured or retired service as a successful delivery. Since the exception-mapping
+  interceptor (#3623) it is answered `500`, which tells the sender to retry a delivery
+  that can never succeed.
+  **Fixed:** an unknown or missing `service` and an undecryptable message — a failed key
+  unwrap and a failed AES block alike — now share one non-specific `rejected` outcome with
+  status `400`, so a caller cannot probe which services are configured. A receiver-side
+  fault is deliberately *not* folded into that outcome: the key lookup failing, a stored
+  sender key that cannot be parsed, the receiver's own private key being unavailable, or
+  the verified message failing to save all stay `500`, so a sender that treats `4xx` as
+  permanent keeps retrying through a receiver fault. Version 2 keeps this behavior. A signature failure remains `406`, so the legacy path still separates
   "undecryptable" from "unverified"; version 2 collapses them (see below).
 
 These two fixes are receiver-local. They change no request field, no response body, and no
 algorithm, and the accepted (`200`), duplicate (`409`), and signature-rejected (`406`)
 statuses are unchanged, so conforming senders are unaffected and the fixes did not need the
-coordination gates below. The only observable differences are on failure paths: an unknown
-service is `400` instead of a `200` error page, and an undecryptable message is `400`
-instead of `500` (failed key unwrap) or `406` (failed AES block). They do not
-close alerts 6904 or 5637, which track the ECB cipher itself and close only on removal of
-the legacy path.
+coordination gates below. The observable differences are on failure paths, with
+`use_http_response_code` set:
+
+| Case | Before | Now |
+|---|---|---|
+| Unknown or missing `service` | `500` (a `200` error page on builds before #3623) | `400` |
+| Failed key unwrap | `500` | `400` |
+| Failed AES block | `500` (`406` on builds whose storage helpers still returned a path after a failed write) | `400` |
+| Stored sender key cannot be parsed | `500` | `500` |
+| Signature does not verify | `406`, with the decrypted file left in `DOCUMENT_DIR` | `406`, with nothing stored |
+| Upload validation error, or no uploaded file | `200` | `400` |
+| Uploaded file outside the allowed temp directory | `200` | `403` |
+
+These fixes do not remove the ECB cipher itself. SpotBugs' finding for it is suppressed on
+`decryptMessage` with a pointer to #3413 (alert 6904 is closed); SonarCloud's (alert 5637)
+stays open until the legacy path is removed.
 
 ### Verification note
 
@@ -224,8 +236,8 @@ container upload limit.
   unwrap, signature verification, GCM authentication, or parsing failed. The existing
   `use_http_response_code` behavior is narrowed for version 2. Legacy codes are
   `200` accepted, `409` already delivered, `406` signature rejected, and `400` for an
-  unknown service or undecryptable message (measured as `200` via the error-page forward
-  before the receiver fix above). Version 2 keeps `200` and `409`, because
+  unknown service or undecryptable message (see the table above for what earlier builds
+  returned). Version 2 keeps `200` and `409`, because
   senders need to distinguish delivery from duplicate, and collapses every rejection —
   including the signature failure that the legacy path reports separately — onto one status.
   Confirm that status with the sender owners during approval and record it here.

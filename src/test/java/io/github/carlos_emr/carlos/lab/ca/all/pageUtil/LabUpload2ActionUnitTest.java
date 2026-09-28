@@ -273,9 +273,55 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should answer 500, not a sender rejection, when the stored sender key cannot be parsed")
+    void shouldAnswerServerError_whenStoredSenderKeyIsUnusable() throws Exception {
+        // A damaged publicKeys row is the receiver's data fault: the sender must retry, not drop the lab.
+        io.github.carlos_emr.carlos.commn.model.PublicKey unusable =
+                mock(io.github.carlos_emr.carlos.commn.model.PublicKey.class);
+        when(unusable.getBase64EncodedPublicKey()).thenReturn("bm90IGEga2V5");
+        when(publicKeyDao.find(SERVICE)).thenReturn(unusable);
+        SecretKey messageKey = newMessageKey();
+        upload(encrypt(messageKey, MESSAGE), wrap(messageKey), sign(senderKeys, MESSAGE));
+
+        executeUpload();
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+        utilities.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a missing service as the sender's error without looking it up")
+    void shouldRejectBlankService_withoutLookup() throws Exception {
+        SecretKey messageKey = newMessageKey();
+        upload(encrypt(messageKey, MESSAGE), wrap(messageKey), sign(senderKeys, MESSAGE));
+        request.setParameter("service", " ");
+
+        executeUpload();
+
+        assertRejected();
+        verify(publicKeyDao, never()).find(any());
+        utilities.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should answer 500 and parse nothing when saving the verified message returns no path")
+    void shouldAnswerServerError_whenSaveReturnsNoPath() throws Exception {
+        utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(null);
+        SecretKey messageKey = newMessageKey();
+        upload(encrypt(messageKey, MESSAGE), wrap(messageKey), sign(senderKeys, MESSAGE));
+
+        executeUpload();
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        verify(messageHandler, never()).parse(any(), any(), any(), anyInt(), any());
+        assertThat(leftoverStagingFiles()).isEmpty();
+    }
+
+    @Test
     @DisplayName("should not parse and should remove the stored copy when it differs from the verified bytes")
     void shouldNotParse_whenStoredCopyIsTruncated() throws Exception {
-        storeWith(100); // mirrors Utilities.saveFile logging an IOException and still returning the path
+        storeWith(100); // a stored copy that differs from the verified bytes, as a faulty save helper could leave
         SecretKey messageKey = newMessageKey();
         upload(encrypt(messageKey, MESSAGE), wrap(messageKey), sign(senderKeys, MESSAGE));
 

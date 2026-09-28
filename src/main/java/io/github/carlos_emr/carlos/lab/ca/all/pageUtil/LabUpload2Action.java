@@ -121,14 +121,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         Integer httpCode = 200;
 
         try {
-            // getClientInfo() returns an empty list when the service is unknown or its stored
-            // key cannot be parsed. Reading element 0 in that state threw out of execute(), and
-            // the lab package maps java.lang.Exception to errorpage.jsp — a JSP forward, which
-            // renders HTTP 200. Senders using use_http_response_code therefore read a
-            // misconfigured or retired service as a successful delivery and silently drop
-            // results. Reject it explicitly. The lookup sits inside this try so that a DAO
-            // outage is reported as a receiver fault (500, retryable) rather than as either a
-            // 200 error page or a sender-side rejection.
+            // An unknown or missing service is the sender's error: getClientInfo() returns an
+            // empty list and the upload is rejected (400). A failed lookup or a stored key that
+            // cannot be parsed is the receiver's fault: getClientInfo() throws, and the catch
+            // below answers 500 so the sender retries. The lookup sits inside this try so every
+            // receiver fault takes that path through respond().
             ArrayList<Object> clientInfo = getClientInfo(service);
             if (clientInfo.size() < 2) {
                 logger.warn("Rejected lab upload: no usable sender public key for the requested service");
@@ -208,9 +205,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 File file = PathValidationUtils.validateExistingDocumentPath(filePath);
                 filePath = file.getPath();
 
-                // The signature covered the staged bytes, not this second copy, and the
-                // Utilities save helpers log an IOException and still return the path. Without
-                // this check a disk-full or interrupted copy would be parsed as a verified lab.
+                // The signature covered the staged bytes, not this second copy. The save helpers
+                // return null on a failed write (handled above), but only this comparison proves
+                // that what will be parsed is exactly what was verified.
                 if (Files.mismatch(staged.toPath(), file.toPath()) != -1L) {
                     Files.deleteIfExists(file.toPath());
                     throw new IOException("stored lab upload does not match the verified staged copy");
@@ -248,7 +245,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     }
                 }
             } finally {
-                Files.deleteIfExists(staged.toPath());
+                deleteStaged(staged);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -348,11 +345,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
             // Decrypt the message using the secret key.
             // The bare "AES" transformation resolves to AES/ECB/PKCS5Padding under SunJCE,
-            // so this path has no ciphertext integrity. It is deliberately left unsuppressed:
-            // code scanning alerts 6904 and 5637 must stay open until the legacy format is
-            // removed, because the senders — not this receiver — dictate the wire format.
-            // Migration contract and sender coordination gates:
-            // docs/security/lab-upload-authenticated-encryption-migration.md
+            // so this path has no ciphertext integrity. The senders, not this receiver, dictate
+            // the wire format. SpotBugs' ECB_MODE/CIPHER_INTEGRITY findings are suppressed on
+            // this method with that reason; SonarCloud's (code scanning alert 5637) stays open
+            // until the legacy format is removed. Migration contract and sender coordination
+            // gates: docs/security/lab-upload-authenticated-encryption-migration.md
             SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
             Cipher msgCipher = Cipher.getInstance("AES");
             msgCipher.init(Cipher.DECRYPT_MODE, skeySpec);
@@ -398,40 +395,47 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
     }
 
+    /**
+     * Removes the staged cleartext. A failure is logged, not thrown: it must not replace the
+     * outcome already decided, but a leftover file holds PHI and needs an operator.
+     */
+    private static void deleteStaged(File staged) {
+        try {
+            Files.deleteIfExists(staged.toPath());
+        } catch (IOException | RuntimeException e) {
+            logger.error("Could not delete the staged lab upload; remove it from the temp directory ({})",
+                    e.getClass().getSimpleName());
+        }
+    }
+
     /*
-     * Retrieve the clients public key from the database
+     * Retrieve the sender's public key and message type for a service. An unknown or blank
+     * service yields an empty list, which the caller rejects as the sender's error. A lookup
+     * failure, or a stored key that cannot be parsed, throws: those are the receiver's faults.
      */
     public static ArrayList<Object> getClientInfo(String service) {
-
-        PublicKey Key = null;
-        String keyString = "";
-        String type = "";
-        byte[] publicKey;
         ArrayList<Object> info = new ArrayList<Object>();
+        if (service == null || service.isBlank()) {
+            return info;
+        }
 
-        // Outside the try on purpose: a DAO failure is a receiver fault and must propagate to
-        // the caller, not be flattened into the "unknown service" empty list.
+        // Not caught here: a DAO failure is a receiver fault and must reach the caller.
         PublicKeyDao publicKeyDao = (PublicKeyDao) SpringUtils.getBean(PublicKeyDao.class);
         io.github.carlos_emr.carlos.commn.model.PublicKey publicKeyObject = publicKeyDao.find(service);
+        if (publicKeyObject == null) {
+            return info;
+        }
 
         try {
-            if (publicKeyObject != null) {
-                keyString = publicKeyObject.getBase64EncodedPublicKey();
-                type = publicKeyObject.getType();
-            }
-
-            publicKey = Base64.decodeBase64(keyString);
+            byte[] publicKey = Base64.decodeBase64(publicKeyObject.getBase64EncodedPublicKey());
             X509EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(publicKey);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            Key = keyFactory.generatePublic(pubKeySpec);
-
-            info.add(Key);
-            info.add(type);
-
-        } catch (Exception e) {
-            logger.error("Could not parse the stored sender public key: ", e);
+            info.add(keyFactory.generatePublic(pubKeySpec));
+            info.add(publicKeyObject.getType());
+        } catch (GeneralSecurityException | RuntimeException e) {
+            throw new IllegalStateException("The stored public key for this service cannot be parsed", e);
         }
-        return (info);
+        return info;
     }
 
     /*
