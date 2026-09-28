@@ -79,6 +79,27 @@ class EmailComposePortalInviteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should name the patient whose portal page resends the invitation instead")
+    void shouldNameThePatient_forAPortalInvitation() {
+        when(emailLogDao.find((Object) 7)).thenReturn(emailLog(TransactionType.PORTAL_INVITE));
+
+        assertThatThrownBy(() -> emailComposeManager.prepareEmailForResend(loggedInInfo, 7))
+                .isInstanceOfSatisfying(EmailComposeManager.PortalInviteEmailException.class,
+                        exception -> assertThat(exception.demographicNo()).isEqualTo(123));
+    }
+
+    @Test
+    @DisplayName("should check the patient's record before saying the email is an invitation")
+    void shouldRefuseAccess_beforeNamingTheInvitation() {
+        when(emailLogDao.find((Object) 7)).thenReturn(emailLog(TransactionType.PORTAL_INVITE));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(false);
+
+        assertThatThrownBy(() -> emailComposeManager.prepareEmailForResend(loggedInInfo, 7))
+                .isInstanceOf(SecurityException.class)
+                .isNotInstanceOf(EmailComposeManager.PortalInviteEmailException.class);
+    }
+
+    @Test
     @DisplayName("should still reopen an ordinary patient email")
     void shouldAllowResend_forAnOrdinaryEmail() {
         when(emailLogDao.find((Object) 7)).thenReturn(emailLog(TransactionType.DIRECT));

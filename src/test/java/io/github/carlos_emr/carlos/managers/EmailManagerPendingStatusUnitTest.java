@@ -440,6 +440,72 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should never offer manual resolution of a portal invitation, which its own workflow resolves")
+    void shouldNotOfferResolution_forAPortalInvitation() {
+        EmailLog failed = portalInvitation(EmailStatus.FAILED);
+        EmailLog stalePending = portalInvitation(EmailStatus.PENDING);
+        stalePending.setTimestamp(new Date(
+                System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS - 60_000));
+
+        assertThat(emailManager.isManuallyResolvable(failed)).isFalse();
+        assertThat(emailManager.isManuallyResolvable(stalePending)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should refuse to resolve a portal invitation as not resolvable, whatever its age")
+    void shouldRefuseResolution_forAPortalInvitation() {
+        EmailLog stalePending = portalInvitation(EmailStatus.PENDING);
+        stalePending.setTimestamp(new Date(
+                System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS - 60_000));
+        EmailLog freshPending = portalInvitation(EmailStatus.PENDING);
+        freshPending.setTimestamp(new Date());
+        when(emailLogDao.find((Object) 42)).thenReturn(stalePending);
+        when(emailLogDao.find((Object) 43)).thenReturn(freshPending);
+
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.NOT_RESOLVABLE);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 43))
+                .isEqualTo(EmailManager.EmailResolutionResult.NOT_RESOLVABLE);
+        verify(emailLogDao, never()).transitionEmailStatus(
+                nullable(Integer.class), any(EmailStatus.class), eq(EmailStatus.RESOLVED),
+                nullable(String.class), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should point a portal invitation in the email list at the patient's portal page")
+    void shouldNamePortalPage_forAPortalInvitationInTheList() {
+        EmailLog invitation = portalInvitation(EmailStatus.SUCCESS);
+        EmailLog ordinary = new EmailLog(null, "", new String[] {"recipient@example.invalid"}, "Subject", "Body",
+                EmailStatus.FAILED);
+        ordinary.setDemographic(demographic);
+        ordinary.setProvider(provider);
+        when(emailLogDao.getEmailStatusByDateDemographicSenderStatus(any(), any(), nullable(String.class),
+                nullable(String.class), nullable(String.class))).thenReturn(List.of(invitation, ordinary));
+
+        List<EmailStatusResult> results = emailManager.getEmailStatusByDateDemographicSenderStatus(
+                loggedInInfo, "2026-07-16", "2026-07-16", null, null, null);
+
+        assertThat(results).hasSize(2);
+        EmailStatusResult invitationResult = results.stream()
+                .filter(result -> result.getStatus() == EmailStatus.SUCCESS).findFirst().orElseThrow();
+        EmailStatusResult ordinaryResult = results.stream()
+                .filter(result -> result.getStatus() == EmailStatus.FAILED).findFirst().orElseThrow();
+        assertThat(invitationResult.getPortalInviteDemographicNo()).isEqualTo(123);
+        assertThat(invitationResult.isResolvable()).isFalse();
+        assertThat(ordinaryResult.getPortalInviteDemographicNo()).isNull();
+        assertThat(ordinaryResult.isResolvable()).isTrue();
+    }
+
+    private EmailLog portalInvitation(EmailStatus status) {
+        EmailLog emailLog = new EmailLog(null, "", new String[] {"patient@example.invalid"},
+                "Your patient portal invitation", "Body", status);
+        emailLog.setDemographic(demographic);
+        emailLog.setProvider(provider);
+        emailLog.setTransactionType(TransactionType.PORTAL_INVITE);
+        return emailLog;
+    }
+
+    @Test
     @DisplayName("should report conflict when compare-and-set resolution loses a race")
     void shouldReportConflict_whenResolutionLosesRace() {
         EmailLog failed = mock(EmailLog.class);

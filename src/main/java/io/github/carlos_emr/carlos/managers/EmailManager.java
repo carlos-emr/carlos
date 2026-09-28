@@ -866,8 +866,9 @@ public class EmailManager {
         if (emailLog == null) {
             return EmailResolutionResult.NOT_FOUND;
         }
-        // Portal recovery owns these whatever their age, so "too recent" would be the wrong reason.
-        if (emailLog.isPortalDeliveryUnresolved()) {
+        // Portal recovery and the invitation workflow own these whatever their age, so "too recent"
+        // would be the wrong reason.
+        if (emailLog.isPortalDeliveryUnresolved() || isPortalInvite(emailLog)) {
             return EmailResolutionResult.NOT_RESOLVABLE;
         }
         if (EmailStatus.PENDING.equals(emailLog.getStatus()) && !isManuallyResolvable(emailLog)) {
@@ -905,6 +906,11 @@ public class EmailManager {
         if (emailLog.isPortalDeliveryUnresolved()) {
             return false;
         }
+        // The invitation workflow owns these in every state: its delivery record, not this row, says
+        // whether a live code is out. Resolving one here would leave that record open with the code live.
+        if (isPortalInvite(emailLog)) {
+            return false;
+        }
         if (EmailStatus.FAILED.equals(emailLog.getStatus())) {
             return true;
         }
@@ -912,6 +918,11 @@ public class EmailManager {
                 && emailLog.getTimestamp() != null
                 && emailLog.getTimestamp().getTime()
                         <= System.currentTimeMillis() - PENDING_RESOLUTION_MIN_AGE_MILLIS;
+    }
+
+    /** A patient portal invitation, which only the portal page resolves or resends. */
+    private static boolean isPortalInvite(EmailLog emailLog) {
+        return EmailLog.TransactionType.PORTAL_INVITE.equals(emailLog.getTransactionType());
     }
 
     /**
@@ -1498,6 +1509,9 @@ public class EmailManager {
             emailStatusResult.applyConsentSnapshot(result);
             emailStatusResult.setResolvable(isManuallyResolvable(result));
             emailStatusResult.setPortalPasswordPending(result.isPortalDeliveryUnresolved());
+            if (isPortalInvite(result) && demographic != null) {
+                emailStatusResult.setPortalInviteDemographicNo(demographic.getDemographicNo());
+            }
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

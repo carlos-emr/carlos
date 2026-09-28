@@ -78,6 +78,16 @@
                     </td>
                 </tr>
             </c:if>
+            <%-- A portal invitation's email is never reopened or resolved here: its code must not come back,
+                 and its delivery record would stay open. The patient's portal page does both. --%>
+            <c:if test="${not empty emailStatusResult.portalInviteDemographicNo}">
+                <tr>
+                    <th><fmt:message key="email.admin.label.portalInvite"/></th>
+                    <td>
+                        <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/demographic/portalManage?demographicNo=${carlos:forUriComponent(emailStatusResult.portalInviteDemographicNo)}"><fmt:message key="email.admin.portalInvite.manage"/></a>
+                    </td>
+                </tr>
+            </c:if>
         </table>
         
         <table class="table table-borderless">
@@ -98,7 +108,7 @@
                     <c:if test="${canResolveEmails and emailStatusResult.resolvable}">
                         <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> Resolve</button>
                     </c:if>
-                    <c:if test="${emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable}">
+                    <c:if test="${empty emailStatusResult.portalInviteDemographicNo and (emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable)}">
                         <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
                     </c:if>
                 </td>
