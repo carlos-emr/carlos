@@ -118,19 +118,26 @@ async function main() {
     throw new SkipCheck('MYSQL_PASSWORD is not set; this check asserts the installed catalogue rows');
   }
 
+  // createSqlRunner writes the MySQL credential to a temporary option file, so everything after
+  // it, the baseline queries included, sits inside the try whose finally disposes of it.
   const sql = createSqlRunner(config.mysql);
-  // Cleanup restores an EMPTY catalogue only. Any pre-existing install -- recorded by NVC
-  // bookkeeping or just present as legacy CVC rows -- is left exactly as the update leaves it.
-  const installedBefore = sql.value(`SELECT COUNT(*) FROM property WHERE name='cvc.updated'`) !== '0'
-    || sql.value(`SELECT (SELECT COUNT(*) FROM CVCImmunization) + (SELECT COUNT(*) FROM CVCMedication)
-        + (SELECT COUNT(*) FROM CVCMedicationLotNumber) + (SELECT COUNT(*) FROM CVCMedicationGTIN)`) !== '0';
-  const listsBefore = sql.rows(`SELECT name FROM LookupList WHERE name IN ('AnatomicalSite','RouteOfAdmin')`)
-    .map((row) => row[0]);
   const recorder = createRecorder();
   let browser;
   let installedByThisRun = false;
+  let listsBefore = [];
+  let lastLookupItemIdBefore = '0';
   const summary = {};
   try {
+    // Cleanup restores an EMPTY catalogue only. Any pre-existing install -- recorded by NVC
+    // bookkeeping or just present as legacy CVC rows -- is left exactly as the update leaves it.
+    const installedBefore = sql.value(`SELECT COUNT(*) FROM property WHERE name='cvc.updated'`) !== '0'
+      || sql.value(`SELECT (SELECT COUNT(*) FROM CVCImmunization) + (SELECT COUNT(*) FROM CVCMedication)
+          + (SELECT COUNT(*) FROM CVCMedicationLotNumber) + (SELECT COUNT(*) FROM CVCMedicationGTIN)`) !== '0';
+    listsBefore = sql.rows(`SELECT name FROM LookupList WHERE name IN ('AnatomicalSite','RouteOfAdmin')`)
+      .map((row) => row[0]);
+    // Items the update adds to a list that already existed are newer than this id.
+    lastLookupItemIdBefore = sql.value('SELECT COALESCE(MAX(id), 0) FROM LookupListItem');
+
     browser = await launchBrowser(config);
     const context = await newContext(browser, config);
     const schedule = await login(context, config, recorder);
@@ -231,14 +238,19 @@ async function main() {
     } finally {
       try {
         if (installedByThisRun && !keep) {
-          // Put a disposable install back the way it was found: no catalogue, and no
-          // lookup lists this run created. Pre-existing lists and installs are kept.
+          // Put a disposable install back the way it was found: no catalogue, no lookup lists
+          // this run created, and no NVC items this run added to a list that already existed.
+          // Pre-existing lists, their earlier items and clinic-added items are kept.
           const created = ['AnatomicalSite', 'RouteOfAdmin'].filter((name) => !listsBefore.includes(name));
           const createdList = created.map((name) => sqlString(name)).join(',');
+          const keptList = listsBefore.map((name) => sqlString(name)).join(',');
+          assert(/^\d+$/.test(lastLookupItemIdBefore), 'unexpected LookupListItem id baseline');
           sql.execute(`DELETE FROM CVCMedicationLotNumber; DELETE FROM CVCMedicationGTIN;
             DELETE FROM CVCMedication; DELETE FROM CVCImmunization;
             DELETE FROM property WHERE name IN ('cvc.updated','cvc.version','cvc.firstdate')
               AND (provider_no IS NULL OR provider_no='');
+            ${listsBefore.length ? `DELETE i FROM LookupListItem i JOIN LookupList l ON l.id=i.lookupListId
+              WHERE l.name IN (${keptList}) AND i.createdBy='NVC' AND i.id > ${lastLookupItemIdBefore};` : ''}
             ${created.length ? `DELETE i FROM LookupListItem i JOIN LookupList l ON l.id=i.lookupListId WHERE l.name IN (${createdList});
             DELETE FROM LookupList WHERE name IN (${createdList});` : ''}`);
         }

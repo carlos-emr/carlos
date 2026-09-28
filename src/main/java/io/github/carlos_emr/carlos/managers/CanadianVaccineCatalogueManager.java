@@ -215,14 +215,18 @@ public class CanadianVaccineCatalogueManager {
                 .setConnectTimeout(Timeout.ofSeconds(15))
                 .build();
 
-        // useSystemProperties() honours https.proxyHost/proxyPort and the JVM trust store, which
-        // clinic and hospital networks commonly require for outbound HTTPS. Redirects are not
-        // followed so the https-only rule above cannot be bypassed by a downgrade redirect; a
-        // moved endpoint surfaces as an HTTP 3xx and is fixed by setting cvc.url.
+        // useSystemProperties() honours https.proxyHost/proxyPort and the javax.net.ssl.* trust
+        // and key stores, which clinic and hospital networks commonly require for outbound HTTPS.
+        // It is set on both builders: the client's covers the proxy, but an explicitly supplied
+        // connection manager builds its own TLS strategy and only reads the JSSE properties when
+        // told to. Redirects are not followed so the https-only rule above cannot be bypassed by
+        // a downgrade redirect; a moved endpoint surfaces as an HTTP 3xx and is fixed by setting
+        // cvc.url.
         try (CloseableHttpClient client = HttpClients.custom()
                 .useSystemProperties()
                 .disableRedirectHandling()
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .useSystemProperties()
                         .setDefaultConnectionConfig(connectionConfig)
                         .build())
                 .setDefaultRequestConfig(requestConfig)
