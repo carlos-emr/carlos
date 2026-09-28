@@ -78,6 +78,17 @@ Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and c
 
 Schema installation uses `V1.0.25__add_sms_system_of_record.sql`, `V1.0.31__add_sms_security_objects.sql`, `V1.0.32__add_sms_consent.sql` and `V1.0.34__add_sms_config.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
 
+## Queue view
+
+Administration > SMS > SMS queue (`admin/SmsQueue`, `_admin.sms` read) is a read-only operational view of outbound SMS. For each SMS provider it shows the counts by status and four lists of at most 50 rows:
+
+- **Overdue queued:** `QUEUED` messages whose next attempt (or, when none is set, their creation) is more than five minutes in the past, oldest first. A growing list means due work is not draining.
+- **Stale sends:** `SENDING` messages whose last attempt is older than the worker's stale threshold (`SmsQueueProcessingService.DEFAULT_STALE_SENDING_TIMEOUT`, five minutes), oldest first. These are the rows the worker's stale recovery reconciles, up to one batch per run, and only while the scheduler runs and sending is on; with either off they stay listed. Their outcome is unknown, so they must not be resent by hand.
+- **Failed:** `FAILED` messages, counted by error code, newest first.
+- **Blocked by consent:** `CONSENT_BLOCKED` and `OPTOUT_BLOCKED` messages, counted by consent reason code, newest first.
+
+The rows come from projection queries in `SmsTransactionDao` that never load the message body, and `SmsQueueViewModelAssembler` turns them into view-model records: id, times, status, attempts, error or reason code, the demographic number (plain, not a link, and only for viewers who also have `_demographic` read, since it links the message to a patient) and the recipient's last four digits. No message text, full phone number, patient name or operator message reaches the page. The page also shows the scheduler setting (the saved one, or `sms.queue.scheduler.enabled` while nothing is saved) and, for this server only, whether the scheduler is running and when it last ran. `SmsQueueScheduler` keeps that last-run record in memory, so it starts empty after a restart and each server's page describes its own scheduler. Linking rows to the patient's SMS history is a follow-up.
+
 ## Security objects
 
 SMS has three security objects. A role's grant is a ladder, `x` > `w` > `u` > `r`, so a role granted `w` also passes an `r` check; `d` sits outside the ladder and only `d` or `x` satisfies it. `(roleUserGroup, objectName)` is the primary key of `secObjPrivilege`, so a role has one grant per object.
@@ -105,7 +116,7 @@ The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 a
 - The send action must set `SmsMessagePurpose` server-side, never from request data. `SYSTEM_TEST` skips patient consent whenever `sms.systemTest.enabled` is on, and nothing yet stops a system-test command from naming a real patient and phone number.
 - Compliance sign-off on the seeded SMS consent wording, phone-number and message-type consent scoping, and STOP-reply opt-out (issue #2674). Recording SMS consent needs no new UI once the consent type is activated: the patient record's consent section lists every active consent type.
 - Message-body encryption, retention and purge policy. Allowed system-test and inbound bodies still use clear database text; keep them synthetic. Hashes are correlation data, not anonymization.
-- Authorized, redacted UI/API DTOs and operational views for queue backlog, uncertain sends and failures. Do not expose JPA entities or internal send commands directly.
+- A staff-visible alert for terminal send failures: `LoggingSmsSendFailureListener` only logs today. The queue view (`admin/SmsQueue`) now covers queue backlog, uncertain sends and failures; any further UI or API must keep to redacted DTOs and never expose JPA entities or internal send commands.
 - Carrier-level integration tests and operational rollout validation, including how the chosen provider handles UCS-2 text within its limits.
 
 Record diagnostics are redacted. Full body retrieval goes through authorization and a committed audit record. These code boundaries do not replace database access controls or the production data policy above.

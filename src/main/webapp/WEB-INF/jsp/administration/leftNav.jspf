@@ -753,6 +753,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<div class="accordion-body">
 			<ul>
 				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ConfigureSms"><fmt:message key="admin.admin.configureSms"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/SmsQueue"><fmt:message key="admin.admin.smsQueue"/></a></li>
 			</ul>
 			</div>
 			</div>

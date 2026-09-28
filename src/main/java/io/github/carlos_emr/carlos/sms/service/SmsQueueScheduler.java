@@ -12,15 +12,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Drains the outbound SMS queue on a fixed delay in this server, when the Administration &gt; SMS setting (or,
+ * while nothing is saved, {@value #ENABLED_PROPERTY}) turns it on.
+ * <p>
+ * It also remembers, in memory, when its last run on this server started and how the last finished run ended,
+ * for the Administration &gt; SMS queue view. That record is per server and starts empty at every restart.
+ */
 @Service
 public class SmsQueueScheduler {
     private static final Logger LOGGER = MiscUtils.getLogger();
-    private static final String ENABLED_PROPERTY = "sms.queue.scheduler.enabled";
+    /** The property the scheduler follows while no Administration &gt; SMS setting is saved. */
+    public static final String ENABLED_PROPERTY = "sms.queue.scheduler.enabled";
     private static final String INTERVAL_SECONDS_PROPERTY = "sms.queue.scheduler.intervalSeconds";
     private static final String BATCH_SIZE_PROPERTY = "sms.queue.scheduler.batchSize";
     private static final long DEFAULT_INTERVAL_SECONDS = 60;
@@ -29,7 +40,33 @@ public class SmsQueueScheduler {
 
     private final SmsQueueProcessingService smsQueueWorker;
     private final SmsConfigService configService;
+    private final Clock clock;
+    private final AtomicInteger activeRuns = new AtomicInteger();
     private ScheduledExecutorService executorService;
+    // Written by the scheduler thread (or a direct runOnce caller) and read by the admin page's request thread.
+    private volatile Instant lastRunStartedAt;
+    private volatile CompletedRun lastCompletedRun;
+
+    /** How a queue run on this server ended. */
+    public enum RunOutcome {
+        /** The worker processed the due messages (possibly none). */
+        COMPLETED,
+        /** Sending is turned off in Administration &gt; SMS, so the run left the queue alone. */
+        SENDING_OFF,
+        /** The run threw; on the scheduler thread, {@code runSafely} logs the exception class. */
+        FAILED
+    }
+
+    /**
+     * The last queue run on this server that finished.
+     *
+     * @param startedAt  when it started
+     * @param finishedAt when it finished
+     * @param outcome    how it ended
+     * @param processed  messages the worker processed (sent or consent-blocked); 0 unless {@code COMPLETED}
+     */
+    public record CompletedRun(Instant startedAt, Instant finishedAt, RunOutcome outcome, int processed) {
+    }
 
     /** For tests: no stored settings, so the scheduler follows the property. */
     SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
@@ -38,8 +75,14 @@ public class SmsQueueScheduler {
 
     @Autowired
     public SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker, SmsConfigService configService) {
+        this(smsQueueWorker, configService, Clock.systemUTC());
+    }
+
+    /** For tests: a fixed clock makes the recorded run times predictable. */
+    SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker, SmsConfigService configService, Clock clock) {
         this.smsQueueWorker = smsQueueWorker;
         this.configService = configService;
+        this.clock = clock;
     }
 
     /** @return whether the scheduler is running in this server right now */
@@ -108,12 +151,45 @@ public class SmsQueueScheduler {
     /**
      * Drains one batch of due messages, unless SMS is turned off in Administration &gt; SMS: then queued
      * messages stay queued (not failed) and go out once it is turned back on.
+     * <p>
+     * Every call is recorded for the queue view: its start time at once, and its end time, outcome and
+     * processed count when it returns or throws.
      */
     public int runOnce() {
-        if (configService != null && !configService.sendingEnabled()) {
-            return 0;
+        Instant startedAt = clock.instant();
+        lastRunStartedAt = startedAt;
+        activeRuns.incrementAndGet();
+        RunOutcome outcome = RunOutcome.FAILED;
+        int processed = 0;
+        try {
+            if (configService != null && !configService.sendingEnabled()) {
+                outcome = RunOutcome.SENDING_OFF;
+                return 0;
+            }
+            processed = smsQueueWorker.processDueMessages(batchSize());
+            outcome = RunOutcome.COMPLETED;
+            return processed;
+        } finally {
+            // Publish the finished run before the in-progress count drops, so a reader that sees no run in
+            // progress also sees this run's result.
+            lastCompletedRun = new CompletedRun(startedAt, clock.instant(), outcome, processed);
+            activeRuns.decrementAndGet();
         }
-        return smsQueueWorker.processDueMessages(batchSize());
+    }
+
+    /** @return when the most recent queue run on this server started (it may still be going); empty before the first */
+    public Optional<Instant> lastRunStartedAt() {
+        return Optional.ofNullable(lastRunStartedAt);
+    }
+
+    /** @return the last queue run on this server that finished; empty before the first finishes */
+    public Optional<CompletedRun> lastCompletedRun() {
+        return Optional.ofNullable(lastCompletedRun);
+    }
+
+    /** @return whether a queue run is going on in this server right now */
+    public boolean isRunInProgress() {
+        return activeRuns.get() > 0;
     }
 
     private void runSafely() {
