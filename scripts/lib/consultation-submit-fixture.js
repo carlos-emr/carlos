@@ -34,7 +34,8 @@ function createConsultationSubmitFixture(sql, demographic, tempRoot) {
         if (!entry.isDirectory() || !/^tempPDF\d+$/.test(entry.name) || snapshot.has(entry.name)) continue;
         const directory = path.join(root, entry.name);
         for (const file of fs.readdirSync(directory, {withFileTypes: true})) {
-          if (!file.isFile() || !new RegExp(`^combinedPDF_${demographic}_\\d+\\.pdf$`).test(file.name)) continue;
+          const preview = /^combinedPDF_([1-9]\d*)_\d+\.pdf$/.exec(file.name);
+          if (!file.isFile() || !preview || preview[1] !== String(demographic)) continue;
           const filename = path.join(directory, file.name);
           const actual = crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
           if (actual === expected) files.set(filename, {hash: actual, inode: fs.lstatSync(filename).ino});
