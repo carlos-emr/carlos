@@ -50,6 +50,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public final class ApptStatusData {
 
+    /** getStr kind for the next status in the schedule click-through cycle. */
+    private static final String NEXT_STATUS = "nextstatus";
+
     CarlosProperties pros = CarlosProperties.getInstance();
     boolean statusEditable = pros.isAppointmentStatusEditingEnabled();
     String apptStatus = null;
@@ -106,7 +109,7 @@ public final class ApptStatusData {
         if ("h".equals(apptStatus)) {
             return "H";
         } else if (statusEditable)
-            return getStr("nextstatus");
+            return getStr(NEXT_STATUS);
         else
             return getStr(aStatus, aNextStatus);
     }
@@ -246,7 +249,7 @@ public final class ApptStatusData {
         // The status cycle walks active rows only; display metadata (icon, title, colour,
         // short letters) must also resolve a status that was deactivated after appointments
         // were booked with it, or the day sheet renders null metadata.
-        List<AppointmentStatus> apptStatuses = kind.equals("nextstatus")
+        List<AppointmentStatus> apptStatuses = kind.equals(NEXT_STATUS)
                 ? AppointmentStatusMgrImpl.getCachedActiveStatuses()
                 : AppointmentStatusMgrImpl.getCachedAllStatuses();
 
@@ -264,7 +267,7 @@ public final class ApptStatusData {
         while (i < apptStatuses.size()) {
             AppointmentStatus s = apptStatuses.get(i);
 
-            if (kind.equals("nextstatus")) {
+            if (kind.equals(NEXT_STATUS)) {
                 if (strStatus.equals("C")) {
                     i = 0;
                     s = apptStatuses.get(i);

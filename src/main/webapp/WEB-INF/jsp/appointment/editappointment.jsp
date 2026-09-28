@@ -1222,7 +1222,7 @@
     <table class="table table-sm">
                 <tr>
                     <td>
-                        <label for="apptStatusSelect"><fmt:message key="Appointment.formStatus"/>:</label>
+                        <label id="apptStatusLabel" for="apptStatusSelect"><fmt:message key="Appointment.formStatus"/>:</label>
                     </td>
                     <td>
                         <%
@@ -1246,9 +1246,9 @@
                         </select> <%
                     } else {
                         if (importedStatus == null || importedStatus.trim().equals("")) { %>
-              	<input type="text" class="form-control" name="status" id="apptStatusSelect" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" > <%
+              	<input type="text" class="form-control" name="status" aria-labelledby="apptStatusLabel" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" > <%
                     } else { %>
-                <input type="text" class="form-control" name="status" id="apptStatusSelect" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" >
+                <input type="text" class="form-control" name="status" aria-labelledby="apptStatusLabel" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" >
                 <input type="text"  class="form-control" TITLE="Imported Status" value="<carlos:encode value='<%= importedStatus %>' context="htmlAttribute"/>" readonly> <%
                             }
                         }
