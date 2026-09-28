@@ -191,6 +191,21 @@ public class EmailComposeSubmissionStateService {
             EmailComposeWorkingDirectory workingDirectory,
             boolean cancelOnly
     ) {
+        return store(session, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, context,
+                workingDirectory, cancelOnly, null, null);
+    }
+
+    private String store(
+            HttpSession session,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context,
+            EmailComposeWorkingDirectory workingDirectory,
+            boolean cancelOnly,
+            EmailComposeView view,
+            String viewId
+    ) {
         String sessionId = session.getId();
         String token = UUID.randomUUID().toString();
         long createdAtMillis = clock.millis();
@@ -201,7 +216,9 @@ public class EmailComposeSubmissionStateService {
                 createdAtMillis,
                 context == null ? EmailComposeSubmissionContext.direct("") : context,
                 workingDirectory,
-                cancelOnly);
+                cancelOnly,
+                view,
+                viewId);
 
         synchronized (lock) {
             ensureOpen();
@@ -289,6 +306,80 @@ public class EmailComposeSubmissionStateService {
                 emailAttachmentList, context, workingDirectory);
         return new EmailPdfPasswordSubmissionState(
                 emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken);
+    }
+
+    /**
+     * Generates a fresh passphrase and stores tokenized compose state together with the staged
+     * values the compose page renders, under a separate opaque view id (#3632).
+     *
+     * <p>The view id is what the compose page URL carries, so a refresh or a repeated GET can
+     * render the same prepared state again through {@link #findView} without regenerating
+     * attachments or consuming anything. The view lives exactly as long as its submission state:
+     * it disappears when the token is consumed by a send, trimmed, expired, or cleared with the
+     * session. Directory ownership transfers only on success; the caller must close it on
+     * failure.</p>
+     *
+     * @param request request whose session owns the state and locale selects the delivery instruction
+     * @param emailPdfPasswordService generator for the fresh random passphrase
+     * @param emailAttachmentList original attachment metadata to snapshot
+     * @param context trusted patient and transaction context
+     * @param workingDirectory caller-owned directory to transfer, or null
+     * @param view staged compose values to render on every view request
+     * @return the view id for the compose page URL, and the passphrase and token display values
+     * @throws IllegalStateException if generation fails or the state cannot be stored
+     * @since 2026-09-28
+     */
+    public PreparedEmailComposeView prepareComposeView(
+            HttpServletRequest request,
+            EmailPdfPasswordService emailPdfPasswordService,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context,
+            EmailComposeWorkingDirectory workingDirectory,
+            EmailComposeView view
+    ) {
+        String emailPDFPassword = emailPdfPasswordService.generatePassphrase();
+        String emailPDFPasswordClue = resolveEmailPdfPasswordDeliveryInstruction(request);
+        String viewId = UUID.randomUUID().toString();
+        String emailPDFPasswordToken = store(
+                request.getSession(), emailPDFPassword, emailPDFPasswordClue,
+                emailAttachmentList, context, workingDirectory, false, view, viewId);
+        return new PreparedEmailComposeView(viewId, new EmailPdfPasswordSubmissionState(
+                emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken));
+    }
+
+    /**
+     * Finds the prepared compose state behind a view id without consuming or changing it.
+     *
+     * <p>Safe to call on every GET: it removes nothing but expired entries, which any other access
+     * would also prune. The returned state is shared with the pending entry, so callers must treat
+     * it, including its attachment objects, as read-only.</p>
+     *
+     * @param request request whose session must own the view
+     * @param viewId opaque id from the compose page URL
+     * @return the submission token and state, or {@code null} when the view is unknown, belongs to
+     *         another session, or its token was already consumed, trimmed, or expired
+     * @since 2026-09-28
+     */
+    public EmailComposeViewState findView(HttpServletRequest request, String viewId) {
+        if (viewId == null || viewId.isBlank()) {
+            return null;
+        }
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+        String sessionId = session.getId();
+        synchronized (lock) {
+            pruneExpired(clock.millis());
+            for (Map.Entry<EmailComposeSubmissionStateKey, EmailComposeSubmissionState> entry : pendingStates.entrySet()) {
+                EmailComposeSubmissionState state = entry.getValue();
+                if (entry.getKey().sessionId().equals(sessionId) && !state.cancelOnly()
+                        && viewId.equals(state.viewId()) && state.view() != null) {
+                    return new EmailComposeViewState(entry.getKey().token(), state);
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -551,8 +642,24 @@ public class EmailComposeSubmissionStateService {
             long createdAtMillis,
             EmailComposeSubmissionContext context,
             EmailComposeWorkingDirectory workingDirectory,
-            boolean cancelOnly
+            boolean cancelOnly,
+            EmailComposeView view,
+            String viewId
     ) implements AutoCloseable {
+        /** Backward-compatible constructor for state that no compose page view renders. */
+        public EmailComposeSubmissionState(
+                String emailPDFPassword,
+                String emailPDFPasswordClue,
+                List<EmailAttachment> emailAttachmentList,
+                long createdAtMillis,
+                EmailComposeSubmissionContext context,
+                EmailComposeWorkingDirectory workingDirectory,
+                boolean cancelOnly
+        ) {
+            this(emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, createdAtMillis, context,
+                    workingDirectory, cancelOnly, null, null);
+        }
+
         /** Backward-compatible constructor for send-capable state with generated-file ownership. */
         public EmailComposeSubmissionState(
                 String emailPDFPassword,
@@ -654,6 +761,39 @@ public class EmailComposeSubmissionStateService {
             String emailPDFPassword,
             String emailPDFPasswordClue,
             String emailPDFPasswordToken
+    ) {
+    }
+
+    /**
+     * Compose values staged by the eForm save that are rendered, not recomputed, on every view
+     * request. Everything read-only (consent, recipients, sender accounts) is looked up again.
+     *
+     * @param fid validated eForm template id, or null
+     * @param message unified message field seed, already merged for the encryption state
+     */
+    public record EmailComposeView(
+            String fid,
+            String senderEmail,
+            String subjectEmail,
+            String message,
+            boolean emailEncrypted,
+            boolean emailAttachmentEncrypted,
+            boolean emailAutoSend,
+            String emailPatientChartOption
+    ) {
+    }
+
+    /** Result of {@link #prepareComposeView}: the id for the compose URL and the token values. */
+    public record PreparedEmailComposeView(
+            String viewId,
+            EmailPdfPasswordSubmissionState submission
+    ) {
+    }
+
+    /** Result of {@link #findView}: the pending token and its read-only state. */
+    public record EmailComposeViewState(
+            String emailPDFPasswordToken,
+            EmailComposeSubmissionState state
     ) {
     }
 }

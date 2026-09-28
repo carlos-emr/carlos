@@ -19,6 +19,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,10 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import jakarta.servlet.http.HttpSession;
+
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.nio.file.Files;
@@ -44,7 +49,11 @@ import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionState
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,6 +72,59 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(manager.prepareLabAttachments(any(), any(), any())).thenReturn(List.of());
         when(manager.prepareHRMAttachments(any(), any(), any())).thenReturn(List.of());
         when(manager.prepareFormAttachments(any(), any(), any(), anyInt(), any())).thenReturn(List.of());
+    }
+
+    /** Runs the prepare GET, asserts it redirected to a prepared view, and returns the view id. */
+    private static String prepare(MockedStatic<ServletActionContext> servletActionContext,
+            MockHttpServletRequest request, MockHttpServletResponse response) {
+        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new EmailCompose2Action().prepareComposeEFormMailer()).isEqualTo(ActionSupport.NONE);
+        String location = response.getRedirectedUrl();
+        assertThat(location).startsWith("/email/emailComposeAction?"
+                + EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM + "=");
+        return URLDecoder.decode(location.substring(location.indexOf('=') + 1), StandardCharsets.UTF_8);
+    }
+
+    /** Requests a prepared view in the given session through execute() and returns that request. */
+    private static MockHttpServletRequest view(MockedStatic<ServletActionContext> servletActionContext,
+            HttpSession session, String viewId, MockHttpServletResponse viewResponse, String expectedResult) {
+        MockHttpServletRequest viewRequest = new MockHttpServletRequest("GET", "/email/emailComposeAction");
+        viewRequest.setSession(session);
+        viewRequest.setParameter(EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM, viewId);
+        servletActionContext.when(ServletActionContext::getRequest).thenReturn(viewRequest);
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(viewResponse);
+        assertThat(new EmailCompose2Action().execute()).isEqualTo(expectedResult);
+        return viewRequest;
+    }
+
+    /** Registers compose collaborators for patient 123 with no attachments and returns them. */
+    private ComposeMocks registerComposeMocks() throws Exception {
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
+        EmailPdfPasswordService emailPdfPasswordService = mock(EmailPdfPasswordService.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        PdfPreviewCapabilityService pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
+        registerMock(DemographicManager.class, demographicManager);
+        registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
+        when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
+        when(emailComposeManager.getRecipients(any(), anyInt()))
+                .thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
+        stubEmptyAttachmentPreparation(emailComposeManager);
+        when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
+        return new ComposeMocks(emailComposeManager, emailPdfPasswordService, pdfPreviewCapabilityService);
+    }
+
+    private record ComposeMocks(EmailComposeManager emailComposeManager,
+            EmailPdfPasswordService emailPdfPasswordService,
+            PdfPreviewCapabilityService pdfPreviewCapabilityService) {
     }
 
     @BeforeEach
@@ -94,6 +156,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -113,14 +176,15 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
 
-            EmailCompose2Action action = new EmailCompose2Action();
+            String viewId = prepare(servletActionContext, request, response);
+            MockHttpServletRequest viewRequest = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
 
-            assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
-            assertThat(request.getAttribute("fid")).isNull();
-            assertThat(request.getAttribute("emailPDFPassword")).isEqualTo(EXAMPLE_GENERATED_VALUE);
+            assertThat(viewRequest.getAttribute("fid")).isNull();
+            assertThat(viewRequest.getAttribute("emailPDFPassword")).isEqualTo(EXAMPLE_GENERATED_VALUE);
             assertThat(request.getSession(false).getAttribute("emailPDFPassword")).isNull();
             assertThat(request.getSession(false).getAttribute("emailComposeSubmissionStates")).isNull();
-            String emailPDFPasswordToken = (String) request.getAttribute("emailPDFPasswordToken");
+            String emailPDFPasswordToken = (String) viewRequest.getAttribute("emailPDFPasswordToken");
             assertThat(emailPDFPasswordToken).isNotBlank();
             request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
             EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState =
@@ -232,6 +296,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -248,11 +313,11 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
 
-            EmailCompose2Action action = new EmailCompose2Action();
-
             try {
-                assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
-                assertThat(request.getAttribute("isEmailAutoSend")).isEqualTo(false);
+                String viewId = prepare(servletActionContext, request, response);
+                MockHttpServletRequest viewRequest = view(servletActionContext, request.getSession(), viewId,
+                        new MockHttpServletResponse(), "compose");
+                assertThat(viewRequest.getAttribute("isEmailAutoSend")).isEqualTo(false);
             } finally {
                 composeSubmissionStateService.clear(request.getSession().getId());
             }
@@ -270,6 +335,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -288,13 +354,17 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
 
-            EmailCompose2Action action = new EmailCompose2Action();
+            String viewId = prepare(servletActionContext, request, response);
+            MockHttpServletRequest viewRequest = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
 
-            assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
-            assertThat(request.getAttribute("emailPDFPassword")).isEqualTo(EXAMPLE_GENERATED_VALUE);
-            assertThat(request.getAttribute("emailPDFPasswordClue"))
+            assertThat(viewRequest.getAttribute("emailPDFPassword")).isEqualTo(EXAMPLE_GENERATED_VALUE);
+            assertThat(viewRequest.getAttribute("emailPDFPasswordClue"))
                     .isEqualTo(DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION);
-            String emailPDFPasswordToken = (String) request.getAttribute("emailPDFPasswordToken");
+            assertThat(viewRequest.getAttribute("fdid")).isEqualTo("456");
+            assertThat(viewRequest.getAttribute("openEFormAfterEmail")).isEqualTo(true);
+            assertThat(viewRequest.getAttribute("isEmailEncrypted")).isEqualTo(false);
+            String emailPDFPasswordToken = (String) viewRequest.getAttribute("emailPDFPasswordToken");
             assertThat(emailPDFPasswordToken).isNotBlank();
             request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
             EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState =
@@ -310,6 +380,188 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             composeState.close();
             verify(emailPdfPasswordService).generatePassphrase();
         }
+    }
+
+    @Test
+    @DisplayName("should render the same prepared compose on every view request without preparing again")
+    void shouldRenderSamePreparedCompose_whenViewRequestedRepeatedly() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("subjectEmail", "Staged subject");
+        request.getSession(false).setAttribute("isEmailEncrypted", false);
+        request.getSession(false).setAttribute("bodyEmail", "Staged body");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletResponse firstResponse = new MockHttpServletResponse();
+            MockHttpServletRequest first = view(servletActionContext, request.getSession(), viewId, firstResponse, "compose");
+            MockHttpServletRequest refresh = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            for (MockHttpServletRequest rendered : List.of(first, refresh)) {
+                assertThat(rendered.getAttribute("subjectEmail")).isEqualTo("Staged subject");
+                assertThat(rendered.getAttribute("message")).isEqualTo("Staged body");
+                assertThat(rendered.getAttribute("emailPDFPassword")).isEqualTo(EXAMPLE_GENERATED_VALUE);
+                assertThat(rendered.getAttribute("receiverName")).isEqualTo("Patient One");
+            }
+            assertThat(refresh.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                    .isEqualTo(first.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+            assertThat(firstResponse.getHeader("Cache-Control")).isEqualTo("no-store");
+            verify(mocks.emailComposeManager(), times(1)).prepareEFormAttachments(any(), any(), any(), any());
+            verify(mocks.emailComposeManager(), times(1)).prepareFormAttachments(any(), any(), any(), anyInt(), any());
+            verify(mocks.emailPdfPasswordService(), times(1)).generatePassphrase();
+
+            // Rendering consumed nothing: the token still submits exactly once.
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, (String) first.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+            try (EmailComposeSubmissionStateService.EmailComposeSubmissionState consumed =
+                         composeSubmissionStateService.consume(request)) {
+                assertThat(consumed).isNotNull();
+            }
+            assertThat(composeSubmissionStateService.consume(request)).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should leave a newly staged compose in the session when a view is rendered or expired")
+    void shouldLeaveStagedCompose_whenViewRequested() throws Exception {
+        registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            assertThat(request.getSession().getAttribute("demographicId")).isNull();
+            // Another eForm in the same session stages its own compose before this window refreshes.
+            request.getSession().setAttribute("demographicId", "789");
+            request.getSession().setAttribute("subjectEmail", "Second compose");
+
+            view(servletActionContext, request.getSession(), viewId, new MockHttpServletResponse(), "compose");
+            view(servletActionContext, request.getSession(), "unknown-view", new MockHttpServletResponse(), "eFormError");
+
+            assertThat(request.getSession().getAttribute("demographicId")).isEqualTo("789");
+            assertThat(request.getSession().getAttribute("subjectEmail")).isEqualTo("Second compose");
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should report the window as expired once its token has been sent")
+    void shouldShowExpired_whenViewTokenAlreadyConsumed() throws Exception {
+        registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest first = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, (String) first.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+            composeSubmissionStateService.consume(request).close();
+
+            MockHttpServletRequest afterSend = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "eFormError");
+
+            assertThat(afterSend.getAttribute("errorMessage"))
+                    .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            assertThat(afterSend.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM)).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should not render a prepared view in another session")
+    void shouldShowExpired_whenViewBelongsToAnotherSession() throws Exception {
+        registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+
+            MockHttpServletRequest otherSession = view(servletActionContext,
+                    new MockHttpServletRequest().getSession(true), viewId, new MockHttpServletResponse(), "eFormError");
+
+            assertThat(otherSession.getAttribute("emailPDFPassword")).isNull();
+            assertThat(otherSession.getAttribute("errorMessage"))
+                    .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should prepare a staged compose only once when the prepare request is repeated")
+    void shouldPrepareOnce_whenStagedComposeRequestedTwice() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest repeat = new MockHttpServletRequest("GET", "/email/compose");
+            repeat.setSession(request.getSession());
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(repeat);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+
+            assertThat(new EmailCompose2Action().prepareComposeEFormMailer()).isEqualTo("eFormError");
+            assertThat(repeat.getAttribute("errorMessage"))
+                    .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            verify(mocks.emailComposeManager(), times(1)).prepareEFormAttachments(any(), any(), any(), any());
+            verify(mocks.emailPdfPasswordService(), times(1)).generatePassphrase();
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should issue fresh preview capabilities on each view without changing the stored attachments")
+    void shouldIssueFreshPreviewTokens_whenViewRendered() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        AtomicReference<Path> ownedPdf = new AtomicReference<>();
+        when(mocks.emailComposeManager().prepareEFormAttachments(any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(3);
+                    Path owned = workingDirectory.adoptGeneratedPdf(Files.createTempFile("email-view-test-", ".pdf"));
+                    ownedPdf.set(owned);
+                    return new ArrayList<>(List.of(new EmailAttachment(
+                            "letter.pdf", owned.toString(), DocumentType.EFORM, 1)));
+                });
+        when(mocks.pdfPreviewCapabilityService().issue(any(), any(), any())).thenReturn("preview-1", "preview-2");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("attachEFormItSelf", true);
+        request.getSession(false).setAttribute("fdid", "456");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            verify(mocks.pdfPreviewCapabilityService(), never()).issue(any(), any(), any());
+
+            MockHttpServletRequest first = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+            MockHttpServletRequest refresh = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(attachments(first)).singleElement()
+                    .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-1"));
+            assertThat(attachments(refresh)).singleElement()
+                    .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-2"));
+            verify(mocks.pdfPreviewCapabilityService(), times(2)).issue(any(), any(), any());
+
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, (String) first.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+            try (EmailComposeSubmissionStateService.EmailComposeSubmissionState consumed =
+                         composeSubmissionStateService.consume(request)) {
+                assertThat(consumed.emailAttachmentList()).singleElement().satisfies(a -> {
+                    assertThat(a.getFilePath()).isEqualTo(ownedPdf.get().toString());
+                    assertThat(a.getPreviewToken()).isNull();
+                });
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<EmailAttachment> attachments(MockHttpServletRequest rendered) {
+        return (List<EmailAttachment>) rendered.getAttribute("emailAttachmentList");
     }
 
     @Test

@@ -110,7 +110,8 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
 
             EmailCompose2Action action = new EmailCompose2Action();
-            assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
+            assertThat(action.prepareComposeEFormMailer()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            assertThat(EmailComposeViewTestSupport.renderPreparedView(response)).isEqualTo("compose");
         }
 
         return request;

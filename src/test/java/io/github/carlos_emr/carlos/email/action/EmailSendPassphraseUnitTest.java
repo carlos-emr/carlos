@@ -341,7 +341,8 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
 
         EmailCompose2Action composeAction = new EmailCompose2Action();
 
-        assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo("compose");
+        assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(EmailComposeViewTestSupport.renderPreparedView(response)).isEqualTo("compose");
         String token = (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
         assertThat(token).isNotBlank();
         request.setParameter("senderConfigId", "1");

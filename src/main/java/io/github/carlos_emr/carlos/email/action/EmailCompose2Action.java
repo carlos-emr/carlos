@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.email.action;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,11 +12,16 @@ import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeView;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeViewState;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.PreparedEmailComposeView;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
@@ -56,10 +64,18 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * It supports PIPEDA/HIPAA compliance by enforcing patient consent for email communications and providing
  * password-protected PDF attachments with server-generated random passphrases.
  *
- * Session Management:
- * The action retrieves email composition parameters from the HTTP session (allowing for redirect-based
- * workflows) and transfers them to request attributes for JSP rendering. Session attributes are cleaned
- * up after transfer to prevent stale data accumulation.
+ * Request lifecycle (#3632):
+ * <ol>
+ *   <li><b>Prepare.</b> The eForm save stages the compose fields in the HTTP session and redirects
+ *       here. The first GET takes those fields out of the session in one step, generates the
+ *       attachment PDFs, stores the one-time submission state with the staged values under an opaque
+ *       view id, and redirects to {@code ?composeView=<id>}. It runs once per staged compose.</li>
+ *   <li><b>View.</b> A GET with {@code composeView} renders the stored state. It changes no session
+ *       attribute, generates no file and consumes nothing, so a refresh or a repeated request shows
+ *       the same compose screen. Consent, recipients and sender accounts are looked up again, and
+ *       preview capabilities are re-issued because they last two minutes. Once a send consumes the
+ *       submission token the view reports the window as expired, so going back cannot resend.</li>
+ * </ol>
  *
  * Security Considerations:
  * <ul>
@@ -68,6 +84,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *   <li>Generates random PDF passphrases without using patient demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
+ *   <li>A view id only resolves within the session that prepared it</li>
  * </ul>
  *
  * @see io.github.carlos_emr.carlos.managers.EmailComposeManager
@@ -98,6 +115,8 @@ public class EmailCompose2Action extends ActionSupport {
     public static final String EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE =
             "This email compose window could not be prepared. "
                     + "Please close other open email compose windows and try again.";
+    /** Query parameter carrying the opaque id of a prepared compose view. */
+    public static final String EMAIL_COMPOSE_VIEW_PARAM = "composeView";
     private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
 
     private static final String[] EMAIL_SESSION_KEYS = {
@@ -114,13 +133,11 @@ public class EmailCompose2Action extends ActionSupport {
 
 
     /**
-     * Executes the default action for email composition.
+     * Routes a compose GET: renders a prepared view when {@code composeView} is present, otherwise
+     * prepares the compose staged in the session and redirects to its view.
      *
-     * This method serves as the main entry point for the Struts2 action and delegates to
-     * prepareComposeEFormMailer() to handle the email composition preparation logic.
-     *
-     * @return String the Struts2 result name, either "compose" for successful preparation
-     *         or "eFormError" if PDF generation fails
+     * @return String "compose" for a rendered view, {@code NONE} after the prepare redirect, or
+     *         "eFormError" when the compose state is missing, expired or cannot be prepared
      * @see #prepareComposeEFormMailer()
      */
     public String execute() {
@@ -129,42 +146,40 @@ public class EmailCompose2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_email)");
         }
 
+        String viewId = request.getParameter(EMAIL_COMPOSE_VIEW_PARAM);
+        if (viewId != null) {
+            return renderPreparedCompose(viewId);
+        }
         return prepareComposeEFormMailer();
     }
 
     /**
-     * Prepares the email composition interface with patient information, attachments, and email settings.
+     * Prepares the compose staged in the session once, then redirects to a view that can be
+     * requested any number of times.
      *
-     * This method orchestrates the complete email composition preparation workflow:
+     * This method runs the state-changing half of the compose workflow:
      * <ol>
-     *   <li>Retrieves email composition parameters from HTTP session (survives redirects)</li>
+     *   <li>Takes the staged compose values out of the HTTP session in one step, so a duplicate
+     *       request finds nothing to prepare instead of generating the attachments twice</li>
      *   <li>Validates form ID (fid) parameter for numeric format to prevent injection</li>
-     *   <li>Retrieves patient email consent status and validates consent settings</li>
-     *   <li>Fetches patient demographic information for recipient name display</li>
-     *   <li>Retrieves and validates recipient email addresses (separates valid/invalid)</li>
-     *   <li>Loads available sender email account configurations</li>
-     *   <li>Prepares a server-assigned random PDF passphrase for optional PDF encryption</li>
      *   <li>Prepares all attachment types: eForms, eDocuments, labs, forms, HRM documents</li>
      *   <li>Sanitizes attachment filenames for security</li>
-     *   <li>Transfers session data to request attributes for JSP rendering</li>
-     *   <li>Cleans up session attributes to prevent stale data</li>
+     *   <li>Generates a server-assigned random PDF passphrase and stores the one-time submission
+     *       state together with the staged values under an opaque view id</li>
+     *   <li>Redirects to {@code ?composeView=<id>}, which {@link #execute()} renders</li>
      * </ol>
      *
-     * Session Attributes Retrieved:
+     * Session Attributes Consumed:
      * <ul>
      *   <li>attachEFormItSelf (Boolean) - whether to attach the eForm itself</li>
      *   <li>fdid (String) - form data ID for the eForm</li>
      *   <li>demographicId (String) - patient demographic identifier (required)</li>
-     *   <li>attachedDocuments (String[]) - array of document IDs to attach</li>
-     *   <li>attachedLabs (String[]) - array of lab result IDs to attach</li>
-     *   <li>attachedForms (String[]) - array of form IDs to attach</li>
-     *   <li>attachedEForms (String[]) - array of eForm IDs to attach</li>
-     *   <li>attachedHRMDocuments (String[]) - array of HRM document IDs to attach</li>
-     *   <li>senderEmail (String) - sender email address</li>
-     *   <li>subjectEmail (String) - email subject line</li>
-     *   <li>bodyEmail (String) - email message body</li>
-     *   <li>encryptedMessageEmail (String) - encrypted message content</li>
-     *   <li>emailPatientChartOption (String) - patient chart email option setting</li>
+     *   <li>attachedDocuments, attachedLabs, attachedForms, attachedEForms, attachedHRMDocuments
+     *       (String[]) - ids of the items to attach</li>
+     *   <li>senderEmail, subjectEmail, bodyEmail, encryptedMessageEmail, emailPatientChartOption
+     *       (String) - staged compose fields</li>
+     *   <li>isEmailEncrypted, isEmailAttachmentEncrypted, isEmailAutoSend, openEFormAfterEmail,
+     *       deleteEFormAfterEmail (Boolean) - staged compose options</li>
      * </ul>
      *
      * Request Parameters:
@@ -172,52 +187,21 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>fid (String, optional) - form identifier, validated for numeric format</li>
      * </ul>
      *
-     * Request Attributes Set:
-     * <ul>
-     *   <li>transactionType (TransactionType) - set to EFORM for transaction logging</li>
-     *   <li>emailConsentName (String) - patient consent form name</li>
-     *   <li>emailConsentStatus (String) - stable patient email-consent state code</li>
-     *   <li>emailConsentMessageKey (String) - resource key for the localized state label</li>
-     *   <li>receiverName (String) - formatted patient name for display</li>
-     *   <li>receiverEmailList (List) - list of valid recipient email addresses</li>
-     *   <li>invalidReceiverEmailList (List) - list of invalid email addresses</li>
-     *   <li>senderAccounts (List&lt;EmailConfig&gt;) - available sender account configurations</li>
-     *   <li>emailPDFPassword (String) - generated PDF passphrase shown with the encryption controls</li>
-     *   <li>emailPDFPasswordClue (String) - provider delivery instruction</li>
-     *   <li>emailPDFPasswordToken (String) - per-compose token used to consume prepared submission state</li>
-     *   <li>message (String) - unified message for encrypted or cleartext delivery</li>
-     *   <li>demographicId (String) - patient demographic identifier</li>
-     *   <li>fdid (String) - form data ID</li>
-     *   <li>fid (String) - validated form ID or null if invalid</li>
-     * </ul>
-     *
      * Server-Side State Stored:
      * <ul>
-     *   <li>tokenized prepared compose state keyed by session id and emailPDFPasswordToken</li>
-     * </ul>
-     *
-     * Security Features:
-     * <ul>
-     *   <li>Validates fid parameter with regex pattern to ensure numeric format only</li>
-     *   <li>Logs warnings for invalid fid values using OWASP-encoded output</li>
-     *   <li>Generates server-assigned random passphrases without patient identifiers</li>
-     *   <li>Sanitizes all attachment filenames to prevent path traversal attacks</li>
-     *   <li>Verifies patient email consent before allowing composition</li>
-     *   <li>Cleans up session attributes after transfer to prevent information leakage</li>
+     *   <li>tokenized prepared compose state and its view, keyed by session id</li>
      * </ul>
      *
      * Error Handling:
      * If compose session state is missing or invalid, the method returns the "eFormError" result
      * with a generic expired-state message. If PDF generation fails for any attachment (eForm,
-     * document, lab, form, HRM), it returns a generic, PHI-safe attachment message. If one-time
-     * compose token preparation fails because the cache is unavailable, it returns a generic
-     * unavailable-state message.
+     * document, lab, form, HRM), it closes the working directory and returns a generic, PHI-safe
+     * attachment message. If the one-time compose state cannot be stored because the cache is
+     * unavailable, it returns a generic unavailable-state message. The staged session values are
+     * gone in every case, as they were before this change.
      *
-     * @return String the Struts2 result name: "compose" for successful preparation,
-     *         "eFormError" if compose state is missing, attachment generation fails, or one-time
-     *         compose token preparation is unavailable
-     * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
-     * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
+     * @return String {@code NONE} after redirecting to the prepared view, or "eFormError" if compose
+     *         state is missing, attachment generation fails, or the compose state cannot be stored
      * @see io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService#generatePassphrase()
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#prepareEFormAttachments(LoggedInInfo, String, String[])
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#sanitizeAttachments(List)
@@ -227,24 +211,9 @@ public class EmailCompose2Action extends ActionSupport {
     public String prepareComposeEFormMailer() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        // Get email information from session (survives redirect)
-        HttpSession session = request.getSession();
-        Boolean attachEFormItSelfObj = (Boolean) session.getAttribute("attachEFormItSelf");
-        boolean attachEFormItSelf = attachEFormItSelfObj != null && attachEFormItSelfObj;
-        String fdid = attachEFormItSelf ? (String) session.getAttribute("fdid") : "";
-        String demographicId = (String) session.getAttribute(DEMOGRAPHIC_ID_KEY);
+        StagedCompose staged = takeStagedCompose(request.getSession());
+        String demographicId = staged.demographicId();
         String fid = request.getParameter("fid");
-        String[] attachedDocuments = (String[]) session.getAttribute("attachedDocuments");
-        String[] attachedLabs = (String[]) session.getAttribute("attachedLabs");
-        String[] attachedForms = (String[]) session.getAttribute("attachedForms");
-        String[] attachedEForms = (String[]) session.getAttribute("attachedEForms");
-        String[] attachedHRMDocuments = (String[]) session.getAttribute("attachedHRMDocuments");
-        String senderEmail = (String) session.getAttribute("senderEmail");
-        String subjectEmail = (String) session.getAttribute("subjectEmail");
-        String bodyEmail = (String) session.getAttribute("bodyEmail");
-        String encryptedMessageEmail = (String) session.getAttribute("encryptedMessageEmail");
-        String emailPatientChartOption = (String) session.getAttribute("emailPatientChartOption");
-        String emailFdid = (String) session.getAttribute("fdid");
 
         if (demographicId == null || demographicId.isBlank()) {
             return emailComposeError(request, EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
@@ -259,21 +228,12 @@ public class EmailCompose2Action extends ActionSupport {
             fid = null;
         }
 
-        // Don't clean up session attributes here - they are needed by the JSP
-        // Session cleanup is performed in this action immediately after transferring session data to request attributes.
-
         int demographicNo;
         try {
             demographicNo = Integer.parseInt(demographicId);
         } catch (NumberFormatException e) {
             return emailComposeError(request, EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
-        String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
-
-        String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
-        List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
-
-        List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
 
         EmailComposeWorkingDirectory workingDirectory;
         try {
@@ -286,45 +246,125 @@ public class EmailCompose2Action extends ActionSupport {
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(
-                    loggedInInfo, fdid, attachedEForms, workingDirectory));
+                    loggedInInfo, staged.attachEFormItSelf() ? staged.fdid() : "",
+                    staged.attachedEForms(), workingDirectory));
             emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(
-                    loggedInInfo, attachedDocuments, workingDirectory));
+                    loggedInInfo, staged.attachedDocuments(), workingDirectory));
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(
-                    loggedInInfo, attachedLabs, workingDirectory));
+                    loggedInInfo, staged.attachedLabs(), workingDirectory));
             emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(
-                    loggedInInfo, attachedHRMDocuments, workingDirectory));
+                    loggedInInfo, staged.attachedHRMDocuments(), workingDirectory));
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(
-                    request, response, attachedForms, demographicNo, workingDirectory));
+                    request, response, staged.attachedForms(), demographicNo, workingDirectory));
             emailComposeManager.sanitizeAttachments(emailAttachmentList);
-            for (EmailAttachment attachment : emailAttachmentList) {
-                attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
-                        request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
-            }
         } catch (PDFGenerationException | RuntimeException e) {
             workingDirectory.close();
             logger.error("Unable to prepare email attachments; causeType={}", e.getClass().getName());
             return emailComposeError(request, "This eForm and its attachments could not be prepared for email. Please reopen the compose window and try again.");
         }
 
-        EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
+        // The compose screen now has a single "Message" field (issue #3118). Seed it from the
+        // channel matching the encryption state. For encrypted drafts where both legacy channels
+        // contain content, the protected channel deliberately wins: there is no reliable way to
+        // distinguish a meaningful historical cleartext body from the fixed notice stored by the
+        // unified workflow.
+        // Fail closed when older entry points do not seed either session flag: only an explicit
+        // Boolean false may open the composer with message or attachment encryption disabled.
+        boolean isEmailEncrypted = !Boolean.FALSE.equals(staged.isEmailEncrypted());
+        boolean isEmailAttachmentEncrypted = !Boolean.FALSE.equals(staged.isEmailAttachmentEncrypted());
+        isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                isEmailEncrypted, staged.bodyEmail(), staged.encryptedMessageEmail());
+        EmailComposeView view = new EmailComposeView(
+                fid,
+                staged.senderEmail(),
+                staged.subjectEmail(),
+                EmailData.mergeMessage(isEmailEncrypted, staged.bodyEmail(), staged.encryptedMessageEmail()),
+                isEmailEncrypted,
+                isEmailAttachmentEncrypted,
+                shouldAutoSendEmail(staged.isEmailAutoSend(), isEmailEncrypted),
+                staged.emailPatientChartOption());
+
+        PreparedEmailComposeView prepared;
         try {
-            emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
+            prepared = emailComposeSubmissionStateService.prepareComposeView(
                     request,
                     emailPdfPasswordService,
                     emailAttachmentList,
                     EmailComposeSubmissionContext.eform(
                             demographicId,
-                            emailFdid,
-                            isTrue(session.getAttribute("openEFormAfterEmail")),
-                            isTrue(session.getAttribute("deleteEFormAfterEmail"))),
-                    workingDirectory);
+                            staged.fdid(),
+                            isTrue(staged.openEFormAfterEmail()),
+                            isTrue(staged.deleteEFormAfterEmail())),
+                    workingDirectory,
+                    view);
         } catch (RuntimeException e) {
             workingDirectory.close();
             logger.warn("Unable to prepare email compose submission state", e);
             return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
         }
 
-        // Set request attributes for JSP (from session and computed values)
+        redirectToComposeView(prepared.viewId());
+        return NONE;
+    }
+
+    /**
+     * Renders a prepared compose view without changing any state (#3632).
+     *
+     * <p>Nothing here touches the session: a missing view must not clear a compose that another
+     * window has just staged. Consent, recipients and sender accounts are read again so the page
+     * reflects the chart as it is now. Preview capabilities are re-issued for the files already
+     * generated, because a capability lasts two minutes and a refreshed page would otherwise show
+     * dead previews; that adds a short-lived cache entry and generates nothing.</p>
+     *
+     * Request Attributes Set:
+     * <ul>
+     *   <li>transactionType, emailConsentName, emailConsentStatus, emailConsentMessageKey</li>
+     *   <li>receiverName, receiverEmailList, invalidReceiverEmailList, senderAccounts</li>
+     *   <li>emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken</li>
+     *   <li>emailAttachmentList (display copies with fresh preview tokens)</li>
+     *   <li>senderEmail, subjectEmail, message, emailPatientChartOption, demographicId, fdid, fid</li>
+     *   <li>openEFormAfterEmail, deleteEFormAfterEmail, isEmailEncrypted,
+     *       isEmailAttachmentEncrypted, isEmailAutoSend</li>
+     * </ul>
+     *
+     * @param viewId opaque id from the compose URL
+     * @return "compose", or "eFormError" with the expired message when the view is unknown,
+     *         belongs to another session, was already sent, or its files are gone
+     */
+    // Package-private so tests can drive prepare then view directly, as they do prepareComposeEFormMailer().
+    String renderPreparedCompose(String viewId) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // The page carries the PDF password and a live submission token; never let a cache
+        // replay it after the token has been used.
+        response.setHeader("Cache-Control", "no-store");
+
+        EmailComposeViewState prepared = emailComposeSubmissionStateService.findView(request, viewId);
+        if (prepared == null) {
+            request.setAttribute("errorMessage", EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            return "eFormError";
+        }
+        EmailComposeSubmissionState state = prepared.state();
+        EmailComposeView view = state.view();
+        EmailComposeSubmissionContext context = state.context();
+        int demographicNo = Integer.parseInt(context.demographicId());
+
+        List<EmailAttachment> emailAttachmentList;
+        try {
+            emailAttachmentList = previewCopies(loggedInInfo, state.emailAttachmentList());
+        } catch (PDFGenerationException | RuntimeException e) {
+            // A prepared file can only disappear with its state (expiry, trim, or a send), so the
+            // window is as stale as an unknown view.
+            logger.warn("Prepared email compose attachments are no longer available; causeType={}",
+                    e.getClass().getName());
+            request.setAttribute("errorMessage", EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            return "eFormError";
+        }
+
+        String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
+        String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
+        List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
+        List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
+
         request.setAttribute("transactionType", TransactionType.EFORM);
         request.setAttribute("emailConsentName", emailConsent[0]);
         request.setAttribute("emailConsentStatus", emailConsent[1]);
@@ -333,42 +373,115 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);
         request.setAttribute("senderAccounts", senderAccounts);
-        request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
-        request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
+        request.setAttribute("emailPDFPassword", state.emailPDFPassword());
+        request.setAttribute("emailPDFPasswordClue", state.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);
-        request.setAttribute("senderEmail", senderEmail);
-        request.setAttribute("subjectEmail", subjectEmail);
-        // The compose screen now has a single "Message" field (issue #3118). Seed it from the
-        // channel matching the encryption state. For encrypted drafts where both legacy channels
-        // contain content, the protected channel deliberately wins: there is no reliable way to
-        // distinguish a meaningful historical cleartext body from the fixed notice stored by the
-        // unified workflow.
-        // Fail closed when older entry points do not seed either session flag: only an explicit
-        // Boolean false may open the composer with message or attachment encryption disabled.
-        boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
-        boolean isEmailAttachmentEncrypted =
-                !Boolean.FALSE.equals(session.getAttribute("isEmailAttachmentEncrypted"));
-        isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
-                isEmailEncrypted, bodyEmail, encryptedMessageEmail);
-        request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
-        request.setAttribute("emailPatientChartOption", emailPatientChartOption);
-        request.setAttribute(DEMOGRAPHIC_ID_KEY, demographicId);
-        request.setAttribute("fdid", emailFdid);
-        request.setAttribute("fid", fid);
-        request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
-        request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
-        request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
-        request.setAttribute(
-                "isEmailAutoSend",
-                shouldAutoSendEmail(session.getAttribute("isEmailAutoSend"), isEmailEncrypted));
-
-        cleanupEmailSessionAttributes(request);
+        request.setAttribute("senderEmail", view.senderEmail());
+        request.setAttribute("subjectEmail", view.subjectEmail());
+        request.setAttribute("message", view.message());
+        request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
+        request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());
+        request.setAttribute("fdid", context.fdid());
+        request.setAttribute("fid", view.fid());
+        request.setAttribute("openEFormAfterEmail", context.openEFormAfterEmail());
+        request.setAttribute("deleteEFormAfterEmail", context.deleteEFormAfterEmail());
+        request.setAttribute("isEmailEncrypted", view.emailEncrypted());
+        request.setAttribute("isEmailAttachmentEncrypted", view.emailAttachmentEncrypted());
+        request.setAttribute("isEmailAutoSend", view.emailAutoSend());
         request.setAttribute(
                 EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
-                emailPdfPasswordSubmissionState.emailPDFPasswordToken());
+                prepared.emailPDFPasswordToken());
 
         return "compose";
+    }
+
+    /** Copies the stored attachments for display, each with a fresh preview capability. */
+    private List<EmailAttachment> previewCopies(LoggedInInfo loggedInInfo, List<EmailAttachment> stored)
+            throws PDFGenerationException {
+        List<EmailAttachment> copies = new ArrayList<>(stored.size());
+        for (EmailAttachment attachment : stored) {
+            EmailAttachment copy = new EmailAttachment(
+                    attachment.getFileName(),
+                    attachment.getFilePath(),
+                    attachment.getDocumentType(),
+                    attachment.getDocumentId(),
+                    attachment.getFileSize());
+            copy.setPreviewToken(pdfPreviewCapabilityService.issue(
+                    request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
+            copies.add(copy);
+        }
+        return copies;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is this action's own same-origin route with a server-generated view id.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is this action's own same-origin route with a server-generated view id")
+    private void redirectToComposeView(String viewId) {
+        String path = request.getContextPath() + "/email/emailComposeAction?" + EMAIL_COMPOSE_VIEW_PARAM + "="
+                + URLEncoder.encode(viewId, StandardCharsets.UTF_8);
+        try {
+            response.sendRedirect(path);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to redirect to the prepared email compose view", e);
+        }
+    }
+
+    /**
+     * Snapshots the staged compose values and removes them from the session in one step.
+     *
+     * <p>Locking on the session object serializes two requests for the same staged compose where
+     * the container hands every request the same session object, as Tomcat does; the second then
+     * finds nothing to prepare. Without that guarantee the worst case is two preparations of the
+     * same compose, which is what every request did before.</p>
+     */
+    private static StagedCompose takeStagedCompose(HttpSession session) {
+        synchronized (session) {
+            StagedCompose staged = new StagedCompose(
+                    isTrue(session.getAttribute("attachEFormItSelf")),
+                    (String) session.getAttribute("fdid"),
+                    (String) session.getAttribute(DEMOGRAPHIC_ID_KEY),
+                    (String[]) session.getAttribute("attachedDocuments"),
+                    (String[]) session.getAttribute("attachedLabs"),
+                    (String[]) session.getAttribute("attachedForms"),
+                    (String[]) session.getAttribute("attachedEForms"),
+                    (String[]) session.getAttribute("attachedHRMDocuments"),
+                    (String) session.getAttribute("senderEmail"),
+                    (String) session.getAttribute("subjectEmail"),
+                    (String) session.getAttribute("bodyEmail"),
+                    (String) session.getAttribute("encryptedMessageEmail"),
+                    (String) session.getAttribute("emailPatientChartOption"),
+                    session.getAttribute("isEmailEncrypted"),
+                    session.getAttribute("isEmailAttachmentEncrypted"),
+                    session.getAttribute("isEmailAutoSend"),
+                    session.getAttribute("openEFormAfterEmail"),
+                    session.getAttribute("deleteEFormAfterEmail"));
+            for (String key : EMAIL_SESSION_KEYS) {
+                session.removeAttribute(key);
+            }
+            return staged;
+        }
+    }
+
+    /** The compose values AddEForm2Action stages in the session before redirecting here. */
+    private record StagedCompose(
+            boolean attachEFormItSelf,
+            String fdid,
+            String demographicId,
+            String[] attachedDocuments,
+            String[] attachedLabs,
+            String[] attachedForms,
+            String[] attachedEForms,
+            String[] attachedHRMDocuments,
+            String senderEmail,
+            String subjectEmail,
+            String bodyEmail,
+            String encryptedMessageEmail,
+            String emailPatientChartOption,
+            Object isEmailEncrypted,
+            Object isEmailAttachmentEncrypted,
+            Object isEmailAutoSend,
+            Object openEFormAfterEmail,
+            Object deleteEFormAfterEmail
+    ) {
     }
 
     private static boolean shouldAutoSendEmail(Object autoSendValue, Object encryptedValue) {
@@ -381,7 +494,8 @@ public class EmailCompose2Action extends ActionSupport {
 
     /**
      * Cleans up email-related session attributes.
-     * This method is called after transferring email composition data from session to request attributes, before rendering the compose screen.
+     * The prepare step takes these attributes itself; this remains for the other entry points
+     * that stage and abandon compose state, such as the Manage Emails resend flow.
      *
      * @param request the HTTP servlet request containing the session to clean up
      * @since 2025-01-18
