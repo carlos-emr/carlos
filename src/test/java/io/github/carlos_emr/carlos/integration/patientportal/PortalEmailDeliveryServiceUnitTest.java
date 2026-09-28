@@ -387,7 +387,21 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         assertThat(outcome.isTransportAccepted()).isTrue();
         assertThat(outcome.isFollowUpRequired()).isTrue();
         assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.SENT_AFTER_REVOCATION);
-        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKE_PENDING);
+        // Left unsettled in memory, so the compose page still offers recovery.
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENDING);
+        assertThat(operations).containsExactly("create", "encrypt", "send");
+    }
+
+    @Test void shouldReportPlainSuccess_whenRecoveryAlreadyPublishedThePasswordDuringTheSend() {
+        when(logs.transitionPortalDelivery(log, PortalDeliveryState.SENDING, PortalDeliveryState.SENT, 77L)).thenReturn(false);
+        EmailLog published = new EmailLog();
+        published.setPortalDeliveryState(PortalDeliveryState.PUBLISHED);
+        when(logs.find(45)).thenReturn(published);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
+        assertThat(outcome.isTransportAccepted()).isTrue();
+        assertThat(outcome.isFollowUpRequired()).isFalse();
+        assertThat(log.getErrorMessage()).isNotEqualTo(PortalEmailDeliveryService.PUBLISH_PENDING);
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
         assertThat(operations).containsExactly("create", "encrypt", "send");
     }
 
