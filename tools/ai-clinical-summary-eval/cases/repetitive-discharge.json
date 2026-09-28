@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "case_id": "repetitive-discharge",
+  "description": "Repeated inpatient notes contain typos, overlapping plans, and administrative metadata.",
+  "bundle": {
+    "patient_context": {"id": "eval-repetitive-discharge", "label": "Synthetic discharge record", "synthetic": true},
+    "sources": [
+      {"id": "ward-1", "patient_id": "eval-repetitive-discharge", "title": "Respiratory ward round", "date": "2026-01-09", "text": "Source note ID: fixture-ward-1. Presenting complaint: chest pain. Spontaneous pneumomediastinum remains stable and continues to improve. CXR shows no complications. Today the patient has no pain or shortness of breath. HR 82, BP 128/78, RR 16, temperature 36.8 C and SpO2 97% on air."},
+      {"id": "plan-1", "patient_id": "eval-repetitive-discharge", "title": "Discharge plan", "date": "2026-01-09", "text": "Plan: Stop regular paracetamol and ibuprofen because the patient is pain-free. Arrange repeat CXR in 48 hours. ischarge planning initiated with routine respiratory clinic follow-up."},
+      {"id": "nurse-1", "patient_id": "eval-repetitive-discharge", "title": "Nursing education", "date": "2026-01-09", "text": "Nurse provided atient education about signs of pneumomediastinum recurrence and when to seek urgent medical attention after discharge. Written materials provided."},
+      {"id": "nurse-2", "patient_id": "eval-repetitive-discharge", "title": "Nursing education addendum", "date": "2026-01-09", "text": "Patient education covered signs of pneumomediastinum recurrence and when to seek urgent medical attention after discharge. Written materials provided."},
+      {"id": "admin-1", "patient_id": "eval-repetitive-discharge", "title": "Imported fixture metadata", "date": "2026-01-09", "text": "Demographic number: 3003. Source admission ID: synthetic-admission. Recorded gender identity: Male. Type: Medicine Inpatients."}
+    ],
+    "fact_ledger": [
+      {"id": "ledger-status", "category": "Problem", "text": "Pneumomediastinum is stable and improving without CXR complications.", "source_ids": ["ward-1"]},
+      {"id": "ledger-symptoms", "category": "Symptoms", "text": "No pain and no shortness of breath today.", "source_ids": ["ward-1"]},
+      {"id": "ledger-stop-analgesics", "category": "Plan", "text": "Stop regular paracetamol and ibuprofen because the patient is pain-free.", "source_ids": ["plan-1"]},
+      {"id": "ledger-repeat-cxr", "category": "Plan", "text": "Repeat CXR in 48 hours.", "source_ids": ["plan-1"]},
+      {"id": "ledger-follow-up", "category": "Plan", "text": "Routine respiratory clinic follow-up is planned.", "source_ids": ["plan-1"]},
+      {"id": "ledger-education", "category": "Education", "text": "Advice about recurrence and when to seek urgent attention was provided.", "source_ids": ["nurse-1", "nurse-2"]}
+    ]
+  },
+  "expectations": {
+    "facts": [
+      {"id": "pneumomediastinum-status", "critical": true, "section_ids": ["clinical_overview", "active_problems"], "pattern_groups": [["pneumomediastinum"], ["stable|improv"], ["no complications|without (?:cxr )?complications"]], "required_source_ids": ["ward-1"]},
+      {"id": "symptoms-absent", "critical": true, "section_ids": ["clinical_overview", "results_observations"], "pattern_groups": [["no (?:chest )?pain|pain.free"], ["no shortness of breath|no dyspn|no sob"]], "required_source_ids": ["ward-1"]},
+      {"id": "observations", "critical": false, "section_ids": ["results_observations"], "pattern_groups": [["128/78"], ["97%|97 percent"], ["air"]], "required_source_ids": ["ward-1"]},
+      {"id": "stop-analgesics", "critical": true, "section_ids": ["plan_follow_up"], "pattern_groups": [["stop"], ["paracetamol"], ["ibuprofen"]], "required_source_ids": ["plan-1"]},
+      {"id": "repeat-cxr", "critical": true, "section_ids": ["plan_follow_up"], "pattern_groups": [["repeat (?:the )?cxr|repeat chest x.ray"], ["48 hours"]], "required_source_ids": ["plan-1"]},
+      {"id": "respiratory-follow-up", "critical": false, "section_ids": ["plan_follow_up"], "pattern_groups": [["respiratory|resp"], ["follow.up|clinic"]], "required_source_ids": ["plan-1"]},
+      {"id": "recurrence-education", "critical": false, "section_ids": ["plan_follow_up"], "pattern_groups": [["education|advi|instruction"], ["recurrence"], ["urgent|seek.*attention"]], "required_source_ids": ["nurse-1", "nurse-2"]}
+    ],
+    "forbidden_patterns": ["demographic number", "source admission id", "recorded gender identity", "medicine inpatients", "(?:^|\\s)atient education", "(?:^|\\s)ischarge planning"],
+    "excluded_source_ids": ["admin-1"],
+    "coverage": {
+      "ward-1": ["cited"],
+      "plan-1": ["cited"],
+      "nurse-1": ["cited"],
+      "nurse-2": ["cited"],
+      "admin-1": ["excluded", "reviewed_not_cited"]
+    }
+  }
+}

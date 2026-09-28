@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "campaign_id": "clinical-summary-ledger-optimization-2b-v1",
+  "model": "qwen3.5:2b",
+  "seeds": [42],
+  "repetitions": 1,
+  "timeout_seconds": 600,
+  "cases": [
+    "../cases/medication-conflict.json",
+    "../cases/single-source.json"
+  ],
+  "candidates": [
+    {
+      "id": "ledger-closed-list-10x180",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 16384,
+      "num_predict": 1024,
+      "input_mode": "sources_and_fact_ledger",
+      "prompt_suffix": "The host-supplied fact_ledger is the closed list of allowed clinical facts. Create claims for its facts and no others. Never create claims merely to fill sections. Copy each ledger row's source_ids exactly onto claims derived from that row. Split a ledger statement into separate claims when it joins a symptom and an explicit negative with a semicolon. Exception: keep a row whose category is Medication conflict as one conflict claim containing both sides and all its source_ids. Omit sections with no ledger-derived claims. Coverage is not clinical content: list each source once, mark it cited exactly when a claim cites it, otherwise reviewed_not_cited or excluded."
+    },
+    {
+      "id": "ledger-minimal-paraphrase-10x180",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 16384,
+      "num_predict": 1024,
+      "input_mode": "sources_and_fact_ledger",
+      "prompt_suffix": "Use fact_ledger as a closed whitelist. Preserve its wording with only minimal readability edits; do not derive any additional clinical claim from sources. Every claim must use exactly the source_ids from its ledger row. For a semicolon joining a symptom to an explicit negative, make two claims. For a Medication conflict row, make one claim containing both sides and all listed source_ids. Do not fill empty sections and never claim that information is missing, absent, unavailable, unknown, or undocumented. Account for each source exactly once in coverage after making the claims."
+    }
+  ]
+}

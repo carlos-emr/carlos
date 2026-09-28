@@ -1,0 +1,64 @@
+{
+  "patient_context": {
+    "id": "synthetic-001",
+    "label": "Synthetic patient 001",
+    "synthetic": true
+  },
+  "sources": [
+    {
+      "id": "note-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic visit note",
+      "date": "2026-09-01",
+      "text": "Synthetic patient 001 reports intermittent left knee pain for two weeks. No injury reported. Patient reports stopping amlodipine one week ago. Medication reconciliation remains pending."
+    },
+    {
+      "id": "meds-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic medication list",
+      "date": "2026-08-15",
+      "text": "Amlodipine 5 mg orally daily. Status: active. This list predates the visit note."
+    },
+    {
+      "id": "allergy-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic allergy record",
+      "date": "2026-08-15",
+      "text": "Penicillin: rash. Reaction date not recorded."
+    },
+    {
+      "id": "admin-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic scheduling note",
+      "date": "2026-08-30",
+      "text": "Appointment time confirmed. No clinical content."
+    }
+  ],
+  "fact_ledger": [
+    {
+      "id": "fact-1",
+      "category": "Symptoms",
+      "text": "Intermittent left knee pain for two weeks; no injury reported.",
+      "source_ids": [
+        "note-1"
+      ]
+    },
+    {
+      "id": "fact-2",
+      "category": "Medication conflict",
+      "text": "Amlodipine 5 mg daily is listed active; patient reports stopping it. Current use is unresolved.",
+      "source_ids": [
+        "meds-1",
+        "note-1"
+      ]
+    },
+    {
+      "id": "fact-3",
+      "category": "Allergies",
+      "text": "Penicillin rash; reaction date is absent.",
+      "source_ids": [
+        "allergy-1"
+      ]
+    }
+  ]
+}
