@@ -39,7 +39,6 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
-import java.io.File;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -53,6 +52,7 @@ import org.apache.logging.log4j.Logger;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -61,7 +61,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class Factory {
 
@@ -118,8 +117,10 @@ public final class Factory {
     /*
      * Create and return the message handler corresponding to the message type
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // PATH_TRAVERSAL_IN + IMPROPER_UNICODE: LAB_TYPES is admin-only config; case folding is not used for a security or authorization decision.
+    @SuppressFBWarnings(
+            value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"},
+            justification = "LAB_TYPES is admin-only config; case folding is not used for a security or authorization decision")
     public static MessageHandler getHandler(String type, String hl7Body) {
         Document doc = null;
         String msgType;

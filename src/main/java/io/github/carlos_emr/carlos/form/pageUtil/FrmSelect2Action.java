@@ -57,8 +57,34 @@ public class FrmSelect2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Applies the requested Select Forms mutation and returns the setup route so Struts
+     * re-renders the panel markup for the administration AJAX shell.
+     *
+     * <p>This route is POST-only because every supported {@code forward} value mutates
+     * encounter form display order. The separate {@code form/setupSelect} action owns the
+     * read-only GET rendering path, so non-POST requests are rejected with HTTP 405 and
+     * {@code Allow: POST} before the privilege check to prevent CSRF-bypassing mutations.
+     *
+     * @return {@link #SUCCESS} after applying the requested mutation, or {@link #NONE}
+     *         after sending HTTP 405 for a non-POST request
+     * @throws ServletException if the servlet container rejects the error response
+     * @throws IOException if writing the HTTP 405 response fails
+     */
     @Override
     public String execute() throws ServletException, IOException {
+        // Every branch below mutates encounter form display order, and CSRFGuard only
+        // validates non-GET methods — so a crafted GET such as
+        // /form/select?forward=delete&selectedDeleteTypes=... would hide forms for any
+        // signed-in administrator without a token. Reject before the privilege check so
+        // no mutation can fire. Rendering the panel is the separate form/setupSelect route;
+        // the only caller here is the POST form in formselect.jsp.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
             throw new SecurityException("missing required sec object (_form)");
         }

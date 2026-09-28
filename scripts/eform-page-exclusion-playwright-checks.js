@@ -15,6 +15,7 @@
  * rather than silently testing a stale copy.
  *
  * Run: npm run test:eform-page-exclusion-playwright   (no Tomcat, no database)
+ * Optional: CHROME_PATH=/path/to/chrome-or-chromium
  */
 const fs = require('fs');
 const path = require('path');
@@ -121,7 +122,12 @@ function check(label, actual, expected) {
         }
     }
 
-    const browser = await chromium.launch();
+    const chromePath = process.env.CHROME_PATH || '';
+    const launchOptions = { headless: true, args: ['--no-sandbox'] };
+    if (chromePath) {
+        launchOptions.executablePath = chromePath;
+    }
+    const browser = await chromium.launch(launchOptions);
     const page = await browser.newPage();
 
     // Selenium's executeScript wraps the body in a function, so the script ends in a bare `return`.

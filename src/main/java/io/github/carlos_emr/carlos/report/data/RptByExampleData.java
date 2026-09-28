@@ -30,64 +30,194 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
-import java.util.ArrayList;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.Properties;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * This classes main function FluReportGenerate collects a group of patients with flu in the last specified date
+ * Validates and executes Query-by-Example SQL for authorized report users.
+ * Queries run read-only with row and timeout limits, and every outcome is audited
+ * without recording the submitted SQL text.
  */
 public class RptByExampleData {
-    public static final String DIRECT_SQL_DISABLED_MESSAGE =
-            "Direct SQL execution has been disabled. Use curated report templates instead.";
+    public static final int MAX_ROWS = 1_000;
+    public static final int MAX_OUTPUT_CHARACTERS = 1_000_000;
+    public static final int QUERY_TIMEOUT_SECONDS = 15;
 
-    public ArrayList demoList = null;
-    public String sql = "";
-    public String results = null;
-    public String connect = null;
-    Properties oscarVariables = null;
+    @FunctionalInterface
+    interface ConnectionProvider {
+        Connection getConnection() throws SQLException;
+    }
+
+    public record QueryResult(String html, int rowCount, boolean truncated, boolean rowLimitReached,
+            long durationMillis) {
+    }
+
+    private static final class ExecutionProgress {
+        private int rowCount;
+
+        int rowCount() {
+            return rowCount;
+        }
+
+        void recordRows(int renderedRows) {
+            rowCount = renderedRows;
+        }
+    }
+
+    private final ConnectionProvider connectionProvider;
 
     public RptByExampleData() {
+        this(LegacyJdbcQuery::getConnection);
     }
 
-    public String exampleTextGenerate(String sql, Properties oscarVariables) {
-        return exampleReportGenerate(sql, oscarVariables);
+    RptByExampleData(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
     }
 
-    public String exampleReportGenerate(String sql, Properties oscarVariables) {
-        if (sql == null || sql.trim().isEmpty()) {
-            return "";
+    /**
+     * Validates and executes one bounded, read-only Query-by-Example submission.
+     * The outcome and elapsed time are audited in all cases; raw SQL text is not
+     * included in the audit event.
+     *
+     * @param sql request-submitted SQL; only one validated {@code SELECT} is permitted
+     * @param properties application properties used to resolve the allowed database schema
+     * @param providerNo requesting provider identifier used for audit metadata
+     * @return the encoded, size-bounded query result
+     * @throws QueryByExampleValidationException if the SQL fails structural validation
+     * @throws SQLTimeoutException if execution exceeds {@link #QUERY_TIMEOUT_SECONDS}
+     * @throws SQLException if the query or JDBC resource handling fails
+     * @throws RuntimeException if an unexpected validation, execution, or rendering failure occurs
+     */
+    @SuppressFBWarnings(
+            value = "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION",
+            justification = "Runtime failures are audited and handled by the action")
+    public QueryResult execute(String sql, Properties properties, String providerNo) throws SQLException {
+        long startedAt = System.nanoTime();
+        String outcome = "failed";
+        ExecutionProgress progress = new ExecutionProgress();
+        try {
+            LegacyJdbcQuery.TrustedSql trustedSql = QueryByExampleSqlValidator.validate(sql, properties);
+            RptResultStruct.StructuredResult structured = executeWithConnection(trustedSql, progress);
+            outcome = "success";
+            return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),
+                    structured.rowLimitReached(), elapsedMillis(startedAt));
+        } catch (QueryByExampleValidationException e) {
+            outcome = "rejected";
+            throw e;
+        } catch (SQLTimeoutException e) {
+            outcome = "timeout";
+            throw e;
+        } catch (SQLException e) {
+            logFailure(providerNo, sql, e.getSQLState(), e.getClass().getSimpleName());
+            throw e;
+        } catch (RuntimeException e) {
+            logFailure(providerNo, sql, null, e.getClass().getSimpleName());
+            throw e;
+        } finally {
+            audit(providerNo, sql, elapsedMillis(startedAt), progress.rowCount(), outcome);
         }
-
-        this.sql = sql;
-        this.oscarVariables = oscarVariables;
-
-        // Direct request-submitted SQL is deliberately not executed. A
-        // denylist-validated SELECT can still read tables/columns outside the
-        // user's reporting workflow, so this legacy endpoint now preserves the
-        // page contract while blocking the unsafe database boundary.
-        MiscUtils.getLogger().warn("Blocked direct Query-by-Example SQL execution; queryLength={}", sql.length());
-        results = DIRECT_SQL_DISABLED_MESSAGE;
-        return results;
     }
 
-    public static String replaceSQLString
-            (String oldString, String newString, String inputString) {
+    @SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "This narrow sink accepts only TrustedSql created by structural SELECT validation")
+    private static PreparedStatement prepareValidatedStatement(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql) throws SQLException {
+        // codeql[java/sql-injection] -- TrustedSql is created only after structural SELECT validation.
+        return connection.prepareStatement(trustedSql.sql(), ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
+    }
 
-        String outputString = "";
-        int i;
-        for (i = 0; i < inputString.length(); i++) {
-            if (!(inputString.regionMatches(true, i, oldString,
-                    0, oldString.length())))
-                outputString += inputString.charAt(i);
-            else {
-                outputString += newString;
-                i += oldString.length() - 1;
+    private RptResultStruct.StructuredResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql,
+            ExecutionProgress progress)
+            throws SQLException {
+        try (Connection connection = connectionProvider.getConnection()) {
+            return executeValidatedQuery(connection, trustedSql, progress);
+        }
+    }
+
+    private static RptResultStruct.StructuredResult executeValidatedQuery(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress) throws SQLException {
+        boolean originalReadOnly = connection.isReadOnly();
+        try {
+            connection.setReadOnly(true);
+        } catch (SQLException | RuntimeException setupFailure) {
+            restoreReadOnlyAfterFailure(connection, originalReadOnly, setupFailure);
+            throw setupFailure;
+        }
+        RptResultStruct.StructuredResult result;
+        try {
+            result = executeStatement(connection, trustedSql, progress);
+        } catch (SQLException | RuntimeException executionFailure) {
+            restoreReadOnlyAfterFailure(connection, originalReadOnly, executionFailure);
+            throw executionFailure;
+        }
+        connection.setReadOnly(originalReadOnly);
+        return result;
+    }
+
+    private static RptResultStruct.StructuredResult executeStatement(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress) throws SQLException {
+        try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
+            statement.setMaxRows(MAX_ROWS + 1);
+            statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            return readStatementResult(statement, progress);
+        }
+    }
+
+    private static RptResultStruct.StructuredResult readStatementResult(PreparedStatement statement,
+            ExecutionProgress progress)
+            throws SQLException {
+        try (ResultSet resultSet = statement.executeQuery()) {
+            RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
+                    resultSet, MAX_OUTPUT_CHARACTERS, MAX_ROWS);
+            progress.recordRows(structured.rowCount());
+            return structured;
+        }
+    }
+
+    private static void restoreReadOnlyAfterFailure(Connection connection, boolean originalReadOnly,
+            Exception executionFailure) {
+        try {
+            connection.setReadOnly(originalReadOnly);
+        } catch (SQLException | RuntimeException restoreFailure) {
+            if (restoreFailure != executionFailure) {
+                executionFailure.addSuppressed(restoreFailure);
             }
         }
-        return outputString;
     }
 
+    public static void audit(String providerNo, String sql, long durationMillis, int rowCount, String outcome) {
+        String query = sql == null ? "" : sql;
+        String queryHash = queryHash(query);
+        MiscUtils.getLogger().info(
+                "Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}",
+                providerNo, queryHash, query.length(), durationMillis, rowCount, outcome);
+    }
 
-};
+    private static long elapsedMillis(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000L;
+    }
+
+    private static void logFailure(String providerNo, String sql, String sqlState, String exceptionType) {
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn(
+                    "Query-by-Example failure provider={} queryHash={} sqlState={} exceptionType={}",
+                    providerNo, queryHash(sql), sqlState, exceptionType);
+        }
+    }
+
+    private static String queryHash(String sql) {
+        return DigestUtils.sha256Hex(sql == null ? "" : sql);
+    }
+}

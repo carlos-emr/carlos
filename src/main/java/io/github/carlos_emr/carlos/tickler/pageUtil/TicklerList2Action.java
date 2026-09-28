@@ -173,7 +173,7 @@ public class TicklerList2Action extends ActionSupport {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private CustomFilter buildFilterFromRequest(HttpServletRequest request) {
+    static CustomFilter buildFilterFromRequest(HttpServletRequest request) {
         CustomFilter filter = new CustomFilter();
 
         String status = getStringParam(request, "status", "A");
@@ -193,6 +193,11 @@ public class TicklerList2Action extends ActionSupport {
 
         String demographicNo = getStringParam(request, "demographicNo", "");
         filter.setDemographicNo(demographicNo);
+        // The patient view has no date controls. Include future recalls unless
+        // the caller supplies an explicit date filter below.
+        if (demographicNo.matches("\\d+")) {
+            filter.setEndDate(null);
+        }
 
         String client = getStringParam(request, "client", "");
         filter.setClient(client);
@@ -236,7 +241,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param colIndexStr String the DataTables column index from the request
      * @return String the CustomFilter sortColumn value
      */
-    private String mapColumnIndexToField(String colIndexStr) {
+    private static String mapColumnIndexToField(String colIndexStr) {
         switch (colIndexStr) {
             case "6":  return "priority";
             case "4":  // fall-through to default
@@ -397,7 +402,7 @@ public class TicklerList2Action extends ActionSupport {
      * @param defaultValue String the default value if parameter is missing
      * @return String the parameter value or default
      */
-    private String getStringParam(HttpServletRequest request, String name, String defaultValue) {
+    private static String getStringParam(HttpServletRequest request, String name, String defaultValue) {
         String val = request.getParameter(name);
         return (val != null) ? val.trim() : defaultValue;
     }

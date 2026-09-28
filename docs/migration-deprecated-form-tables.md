@@ -62,7 +62,7 @@ If any of these forms were actively used at your site:
    ```
    Or use `mysqldump`:
    ```bash
-   mysqldump -u root -p oscar formONAR formONAREnhancedRecord \
+   mysqldump -u root -p carlos formONAR formONAREnhancedRecord \
      formONAREnhancedRecordExt1 formONAREnhancedRecordExt2 > onar_backup.sql
    ```
 
@@ -77,7 +77,7 @@ If any of these forms were actively used at your site:
 After completing the pre-migration checklist:
 
 ```bash
-mysql -u root -p oscar < database/mysql/updates/update-2026-03-25-remove-deprecated-form-tables.sql
+mysql -u root -p carlos < database/mysql/updates/update-2026-03-25-remove-deprecated-form-tables.sql
 ```
 
 The script is idempotent (`DROP TABLE IF EXISTS`) and safe to run multiple times.

@@ -26,7 +26,7 @@
     Contains action mappings for diagnosis research, prevention/immunization, case management notes, and clinical decision support.
 -->
 <struts>
-    <package name="clinical" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="clinical" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -46,11 +46,12 @@
         <!--
             Decision-support JSPs (annual review + antenatal planner/checklist/risk)
             all live under /WEB-INF/jsp/decision/ and route through
-            ViewDecision2Action, which enforces _forms r on GET and _forms w +
-            POST when the request carries a "Save*" submit parameter. The save
-            logic remains embedded in the JSPs (scriptlet persistence to
-            DesAnnualReviewPlan / Desaprisk / XML config files) and is now
-            unreachable without POST + _forms w.
+            ViewDecision2Action, which enforces _form r on GET and _form w +
+            POST when the request carries a "Save*" submit parameter. Most
+            legacy save logic remains embedded in the JSPs. Antenatal risk-list
+            mutation is the exception: it uses the dedicated POST-only action
+            below, with configuration-admin authorization and validated atomic
+            XML persistence.
         -->
         <action name="decision/annualreview/annualreviewplanner" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
             <result name="success">/WEB-INF/jsp/decision/annualreview/annualreviewplanner.jsp</result>
@@ -75,6 +76,12 @@
         </action>
         <action name="decision/antenatal/obarriskedit_99_12" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
             <result name="success">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
+        </action>
+        <action name="decision/antenatal/SaveAntenatalRiskConfig" class="io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action">
+            <result name="success" type="redirectAction">
+                <param name="actionName">decision/antenatal/obarriskedit_99_12</param>
+            </result>
+            <result name="input">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
         </action>
 
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
@@ -113,7 +120,7 @@
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
-            <interceptor-ref name="defaultStack"/>
+            <interceptor-ref name="carlosDefaultStack"/>
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
         </action>
         <!--
@@ -134,6 +141,8 @@
         <action name="oscarResearch/oscarDxResearch/ViewQuickCodeList" class="io.github.carlos_emr.carlos.dxresearch.gate.ViewDxResearch2Action">
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/quickCodeList.jsp</result>
         </action>
+        <action name="cvc" class="io.github.carlos_emr.carlos.prevention.web.VaccineCatalogue2Action" method="execute"/>
+
         <action name="prevention/AddPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action">
             <result name="success">/WEB-INF/jsp/prevention/close.jsp</result>
             <result name="review">/WEB-INF/jsp/prevention/review.jsp</result>
@@ -176,7 +185,11 @@
         </action>
         <action name="OscarChartPrint" class="io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action"/>
         <action name="ClientImage" class="io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action" method="execute">
-            <interceptor-ref name="defaultStack">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/casemgmt/uploadimage.jsp</result>
+            <interceptor-ref name="carlosDefaultStack">
                 <param name="actionFileUpload.allowedTypes">image/jpeg,image/gif</param>
             </interceptor-ref>
             <result name="success">/WEB-INF/jsp/casemgmt/uploadimage.jsp</result>
