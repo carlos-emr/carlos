@@ -34,14 +34,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Duplicate live consent records must resolve deterministically and fail safe (#3845). */
 @DisplayName("ConsentDao duplicate records")
 @Tag("integration")
 @Tag("dao")
 @Tag("read")
-@Transactional
 class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
 
     @Autowired
@@ -63,10 +61,13 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
     }
 
     private Consent record(int demographicNo, boolean optout, boolean deleted, long editedAt) {
+        return record(emailType, demographicNo, optout, deleted, editedAt);
+    }
+
+    private Consent record(ConsentType type, int demographicNo, boolean optout, boolean deleted, long editedAt) {
         Consent consent = new Consent();
         consent.setDemographicNo(demographicNo);
-        consent.setConsentType(emailType);
-        consent.setConsentTypeId(emailType.getId());
+        consent.setConsentType(type);
         consent.setExplicit(true);
         consent.setOptout(optout);
         consent.setDeleted(deleted);
@@ -130,6 +131,32 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
                 .isEqualTo(optOutInsertedLast.getId());
         assertThat(consentDao.findByDemographicAndConsentType(508, "dup_test_email_consent").getId())
                 .isEqualTo(optOutInsertedFirst.getId());
+    }
+
+    @Test
+    @DisplayName("should ignore records of an inactive type in the lookup by type name")
+    void shouldExcludeInactiveTypes_whenLookingUpByTypeName() {
+        ConsentType inactive = new ConsentType();
+        inactive.setName("Retired DHIR consent");
+        inactive.setType("dup_test_inactive_consent");
+        inactive.setActive(false);
+        entityManager.persist(inactive);
+        record(inactive, 509, false, false, 1_000L);
+        flushAndClear();
+
+        assertThat(consentDao.findByDemographicAndConsentType(509, "dup_test_inactive_consent")).isNull();
+    }
+
+    @Test
+    @DisplayName("should return the live records newest first when reading them for update")
+    void shouldReturnLiveRecordsNewestFirst_whenReadingForUpdate() {
+        record(510, false, false, 1_000L);
+        record(510, true, true, 3_000L);
+        record(510, true, false, 2_000L);
+        flushAndClear();
+
+        assertThat(consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(510, emailType.getId()))
+                .extracting(consent -> consent.getEditDate().getTime()).containsExactly(2_000L, 1_000L);
     }
 
     @Test

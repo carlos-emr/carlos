@@ -48,9 +48,16 @@ public interface ConsentDao extends AbstractDao<Consent> {
     public List<Consent> findLiveByDemographicAndConsentTypeId(int demographic_no, int consentTypeId);
 
     /**
+     * As {@link #findLiveByDemographicAndConsentTypeId}, write-locking the rows until the
+     * transaction ends, so concurrent saves and clears of one patient's consent run one after
+     * another instead of overwriting each other. Call it within the caller's transaction: the
+     * locks are held until that transaction ends.
+     */
+    public List<Consent> findLiveByDemographicAndConsentTypeIdForUpdate(int demographic_no, int consentTypeId);
+
+    /**
      * @return the deciding live record, per {@link ConsentRecords#effective}, among the patient's
-     *     records of every consent type with this name. Neither DAO lookup checks the type's active
-     *     flag; the manager's lookups by id do. {@code null} when there is none.
+     *     records of every active consent type with this name. {@code null} when there is none.
      */
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType);
 

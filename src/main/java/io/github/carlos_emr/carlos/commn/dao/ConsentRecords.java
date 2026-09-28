@@ -59,10 +59,12 @@ public final class ConsentRecords {
         if (live == null || live.isEmpty()) {
             return null;
         }
-        return live.stream()
+        List<Consent> mostRecentFirst = new ArrayList<>(live);
+        mostRecentFirst.sort(MOST_RECENT_FIRST);
+        return mostRecentFirst.stream()
                 .filter(Consent::isOptout)
-                .min(MOST_RECENT_FIRST)
-                .orElseGet(() -> live.stream().min(MOST_RECENT_FIRST).orElse(null));
+                .findFirst()
+                .orElse(mostRecentFirst.get(0));
     }
 
     /**

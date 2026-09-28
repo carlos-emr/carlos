@@ -189,7 +189,7 @@ public interface PatientConsentManager {
      * Just in case someone clicks the "Clear" button in the demographic interface because they changed their mind or
      * entered the Opt-in or Opt-out consent by mistake.
      * It is assumed that a record of this should be kept. So this method soft-deletes every live record of the
-     * type, duplicates included, setting its edit date and author, and audit-logs the ids deleted.
+     * type, duplicates included, setting its edit date and author, and audit-logs each one.
      * A new entry will be inserted into the table should the user change their mind again.
      * Requires write privilege on the patient. An unknown or inactive consent type changes nothing.
      */
