@@ -232,8 +232,16 @@ async function main() {
     await newPage.locator('textarea[name="reasonForConsultation"]').fill(`REASON ${saved}`);
     await newPage.locator('textarea[name="clinicalInformation"]').fill(`CLINICAL ${saved}`);
     await chooseService(newPage, timeout);
-    await newPage.locator('input[name="submitSaveOnly"]').click({ timeout });
-    await newPage.waitForTimeout(4000);
+    // Wait for the save POST itself, not a guessed interval: on a slow CI host a fixed wait can
+    // expire before the row exists, and the SQL lookup below then fails for a reason that has
+    // nothing to do with what this check is testing.
+    await Promise.all([
+      newPage.waitForResponse(
+        (response) => CONSULT_POST.test(response.url()) && response.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      newPage.locator('input[name="submitSaveOnly"]').click({ timeout }),
+    ]);
 
     fixture.requestId = sqlNumber(sql.value(
       `SELECT requestId FROM consultationRequests WHERE demographicNo = ${fixture.demographicNo} `
@@ -244,12 +252,6 @@ async function main() {
     // --- reopen it the way the chart does, type over it, and press Print ---
     const editPage = await context.newPage();
     const previews = [];
-    editPage.on('response', async (response) => {
-      if (CONSULT_POST.test(response.url()) && response.request().method() === 'POST'
-        && (response.headers()['content-type'] || '').includes('json')) {
-        previews.push(await response.json().catch(() => null));
-      }
-    });
     await editPage.goto(
       `${config.baseUrl}/encounter/ViewRequest?de=${fixture.demographicNo}&requestId=${fixture.requestId}&appNo=0&teamVar=`,
       { waitUntil: 'domcontentloaded', timeout }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- every interpolated value is a validated integer and the base URL is validated
@@ -262,8 +264,16 @@ async function main() {
 
     await editPage.locator('textarea[name="reasonForConsultation"]').fill(`REASON ${typed}`);
     await editPage.locator('textarea[name="clinicalInformation"]').fill(`CLINICAL ${typed}`);
+    // Await the preview reply itself. Reading the body from the awaited response, rather than from
+    // an async 'response' listener, is what keeps this race-free: a listener that still has to run
+    // response.json() can lose to the assertion below, a race the old fixed wait papered over.
+    const previewArrived = editPage.waitForResponse(
+      (response) => CONSULT_POST.test(response.url()) && response.request().method() === 'POST'
+        && (response.headers()['content-type'] || '').includes('json'),
+      { timeout: 60000 },
+    );
     await printButton.click({ timeout });
-    await editPage.waitForTimeout(8000);
+    previews.push(await (await previewArrived).json().catch(() => null));
 
     assert(previews.length > 0 && previews[0],
       'pressing Print returned no preview, so the print path was never exercised');

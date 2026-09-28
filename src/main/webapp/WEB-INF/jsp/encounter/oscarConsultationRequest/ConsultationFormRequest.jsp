@@ -2906,12 +2906,15 @@ if (userAgent != null) {
                                                                 property="CONSULTATION_PATIENT_WILL_BOOK">
                                         <tr>
                                             <td class="consult-form-label"><label for="patientWillBook"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></label></td>
-                                            <td class="consult-form-value"><input type="checkbox" id="patientWillBook" name="patientWillBook" value="1" onclick="disableDateFields()" />
-                                                <%-- An unchecked checkbox posts nothing, and this one is only rendered when
-                                                     CONSULTATION_PATIENT_WILL_BOOK is on (it is off by default). This marker is
-                                                     what lets the print preview tell "the clinician unchecked it" from "this
-                                                     deployment never showed it", so a preview cannot clear a stored
-                                                     patient-will-book. See ConsultationPreviewOverlay. --%>
+                                            <td class="consult-form-value"><input type="checkbox" id="patientWillBook" name="patientWillBook" value="1" onclick="disableDateFields()" <%="1".equals(consultUtil.pwb) ? "checked" : ""%> />
+                                                <%-- The checked state must come from the stored record: an unchecked box posts
+                                                     nothing, so a box that rendered blank for an already-booked referral reads
+                                                     back as "unchecked" -- clearing pwb in the preview here, and in the database
+                                                     on save (EctConsultationFormRequest2Action defaults pWillBook to false).
+                                                     The marker below is the other half of that contract: this row is only
+                                                     rendered when CONSULTATION_PATIENT_WILL_BOOK is on (it is off by default),
+                                                     and the marker is what lets the print preview tell "the clinician unchecked
+                                                     it" from "this deployment never showed it". See ConsultationPreviewOverlay. --%>
                                                 <input type="hidden" name="patientWillBookRendered" value="1" /></td>
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
