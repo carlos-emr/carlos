@@ -14,7 +14,9 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -22,6 +24,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -32,6 +35,7 @@ import static org.assertj.core.api.Assertions.*;
 /** Real JPA transactions and production routing helpers, including the nested lab-routing transaction. */
 @Tag("integration")
 @Tag("document")
+@Isolated("Temporarily binds the legacy EDocUtil document DAO cache to the real integration bean")
 class SplitDocumentPersistenceIntegrationTest extends CarlosTestBase {
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired DocumentDao documents;
@@ -42,12 +46,26 @@ class SplitDocumentPersistenceIntegrationTest extends CarlosTestBase {
     @Autowired ProviderLabRoutingDao providers;
     @PersistenceContext(unitName = "entityManagerFactory") EntityManager entityManager;
     @TempDir Path directory;
+    private Field cachedDocumentDao;
+    private Object previousDocumentDao;
 
-    @BeforeEach void createMigrationOwnedRoutingLockTable() {
+    @BeforeEach void bindRealDocumentDaoAndCreateMigrationOwnedRoutingLockTable() throws Exception {
+        // SpringUtils context restoration cannot replace EDocUtil's already cached
+        // DAO. Earlier unit tests can leave a mock there whose persist assigns no
+        // ID. Keep the actual production helper and real JPA transaction in this
+        // regression, and restore the prior cache after each test.
+        cachedDocumentDao = EDocUtil.class.getDeclaredField("documentDao");
+        cachedDocumentDao.setAccessible(true);
+        previousDocumentDao = cachedDocumentDao.get(null);
+        cachedDocumentDao.set(null, documents);
         // This lock table is created by the production migration, not an entity
         // mapping, so Hibernate's test schema generation cannot create it.
         entityManager.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)")
                 .executeUpdate();
+    }
+
+    @AfterEach void restoreLegacyDocumentDao() throws Exception {
+        if (cachedDocumentDao != null) cachedDocumentDao.set(null, previousDocumentDao);
     }
 
     private TransactionTemplate isolatedTransaction() {

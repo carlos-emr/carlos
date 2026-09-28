@@ -424,6 +424,15 @@ installed incoming check now includes five injected native refusals followed by
 one real rotation, stale page-edit rejection and stale filing rejection. These
 new installed cases remain pending package build and VM execution.
 
+The first full iteration 8 Java run reported 15,469 tests, with two failures and
+three host-side Selenium skips. It caught untranslated source-encoding assumptions
+in the new locale values and a legacy static DAO cache left by preceding unit
+tests. The translations now use Unicode escapes, and the integration fixture
+temporarily binds the real DAO and restores the previous cache. Its real database
+and filesystem rollback assertions remain intact. CI also identified the missing
+resource-bundle declaration in the splitter; that declaration is now explicit.
+The full rerun and installed browser checks are pending these corrections.
+
 
 The incoming workflow subsequently passed native PDF/image recovery after five
 injected refusals, extraction/rotation/deletion, collision preservation, CSRF and
