@@ -53,8 +53,9 @@ path, query and UTF-8 body bytes that it hashes. Proxies must preserve the path,
 query, and body seen by the portal. Rewriting these values invalidates
 authentication; do not enable legacy authentication to work around a mismatch.
 
-`patient_portal.base_url` names the portal's origin only (`https://host[:port]`),
-and a path is rejected at startup. CARLOS calls `/internal/carlos/` at the root
+`patient_portal.base_url` names the portal's origin only (`https://host[:port]`).
+A path is rejected when the portal client is first used after a restart, because
+its settings are read lazily. CARLOS calls `/internal/carlos/` at the root
 of that origin even when patients reach the portal under a prefix. The portal's
 reference proxy answers `/<prefix>/internal/` with 404, and a proxy that strips a
 prefix would change the raw path the request hash binds.
