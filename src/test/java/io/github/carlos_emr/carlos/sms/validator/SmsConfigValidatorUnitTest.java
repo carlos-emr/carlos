@@ -72,7 +72,7 @@ class SmsConfigValidatorUnitTest {
     }
 
     @Test
-    @DisplayName("refuses a webhook secret longer than 256 characters, which would not fit once encrypted")
+    @DisplayName("refuses a webhook secret longer than 256 bytes, which would not fit once encrypted")
     void shouldRejectSettings_whenWebhookSecretIsTooLong() {
         SmsConfigUpdateDto update = new SmsConfigUpdateDto(
                 SmsProviderType.STUB, true, false, "", "x".repeat(257), false, Map.of());
@@ -92,5 +92,16 @@ class SmsConfigValidatorUnitTest {
         assertThat(validator.validate(update, INSTALLED)).containsExactly("sms.config.error.webhookSecretTooLong");
         assertThat(validator.validate(new SmsConfigUpdateDto(
                 SmsProviderType.STUB, true, false, "", "\u00E9".repeat(128), false, Map.of()), INSTALLED)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("refuses a new webhook secret together with removing the stored one, since saving would drop the new one")
+    void shouldRejectSettings_whenNewSecretAndClearAreBothGiven() {
+        SmsConfigUpdateDto update = new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "new-secret-value", true, Map.of());
+
+        assertThat(validator.validate(update, INSTALLED)).containsExactly("sms.config.error.clearAndNewSecret");
+        assertThat(validator.validate(new SmsConfigUpdateDto(
+                SmsProviderType.STUB, true, false, "", "", true, Map.of()), INSTALLED)).isEmpty();
     }
 }

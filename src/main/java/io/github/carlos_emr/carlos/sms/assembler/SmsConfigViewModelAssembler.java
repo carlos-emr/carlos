@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.sms.assembler;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
 import io.github.carlos_emr.carlos.sms.service.SmsDefaultProviderResolver;
@@ -51,7 +52,7 @@ import java.util.function.BooleanSupplier;
 public class SmsConfigViewModelAssembler {
     static final String SYSTEM_TEST_ENABLED_PROPERTY = "sms.systemTest.enabled";
     private static final Set<String> RESULT_CODES =
-            Set.of("saved", "testSent", "testBlocked", "testInvalid", "testFailed");
+            Set.of("saved", "testSent", "testQueued", "testBlocked", "testInvalid", "testFailed");
 
     private final SmsConfigService configService;
     private final SmsProviderClientResolver providerClients;
@@ -116,6 +117,48 @@ public class SmsConfigViewModelAssembler {
                 systemTestEnabled.getAsBoolean(),
                 resultCode != null && RESULT_CODES.contains(resultCode) ? "sms.config.result." + resultCode : "",
                 messageKeys
+        );
+    }
+
+    /**
+     * The page after a rejected save. It shows what the administrator submitted (provider, switches and sender
+     * number) instead of the stored settings, so correcting one field does not silently undo the others, such as
+     * a "sending off" switch. Secrets are never echoed back; their "stored" flags still describe what is saved.
+     *
+     * @param submitted the settings that failed validation
+     * @param errorKeys the validation message keys to show
+     * @return the page model
+     */
+    public SmsConfigViewModel assembleRejected(SmsConfigUpdateDto submitted, List<String> errorKeys) {
+        SmsConfigViewModel page = assemble(null, errorKeys);
+        if (submitted == null) {
+            return page;
+        }
+        // Only an installed provider can be re-selected; otherwise keep the one the page would show anyway.
+        String providerType = submitted.providerType() != null
+                && page.providerOptions().contains(submitted.providerType().name())
+                ? submitted.providerType().name()
+                : page.providerType();
+        Optional<SmsConfig> stored = configService.current();
+        List<SmsConfigViewModel.CredentialField> credentialFields = configService
+                .credentialFields(SmsProviderType.valueOf(providerType))
+                .stream()
+                .map(field -> new SmsConfigViewModel.CredentialField(
+                        field, stored.map(config -> config.hasCredential(field)).orElse(false)))
+                .toList();
+        return new SmsConfigViewModel(
+                providerType,
+                page.providerOptions(),
+                submitted.enabled(),
+                submitted.schedulerEnabled(),
+                page.schedulerRunning(),
+                submitted.senderNumber() == null ? "" : submitted.senderNumber(),
+                page.webhookSecretSet(),
+                credentialFields,
+                page.stored(),
+                page.systemTestEnabled(),
+                "",
+                page.errorKeys()
         );
     }
 }

@@ -200,7 +200,8 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("providerType", "VOIPMS");
         when(validator.validate(any(), any())).thenReturn(List.of("sms.config.error.providerNotInstalled"));
         SmsConfigViewModel model = mock(SmsConfigViewModel.class);
-        when(assembler.assemble(null, List.of("sms.config.error.providerNotInstalled"))).thenReturn(model);
+        when(assembler.assembleRejected(any(SmsConfigUpdateDto.class), eq(List.of("sms.config.error.providerNotInstalled"))))
+                .thenReturn(model);
 
         String result = action().execute();
 
@@ -236,6 +237,19 @@ class ConfigureSms2ActionUnitTest {
         action().execute();
 
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=testSent");
+    }
+
+    @Test
+    @DisplayName("the system test reports it was queued, not sent, when the send rate limit held it back")
+    void shouldReportTestQueued_whenSystemTestIsRateLimited() throws Exception {
+        allowWrite();
+        request.setParameter("method", "sendSystemTest");
+        request.setParameter("testNumber", "416-555-1212");
+        when(sendService.sendSystemTest("416-555-1212", "999998", 1001)).thenReturn(SmsSendResultDto.queued());
+
+        action().execute();
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=testQueued");
     }
 
     @Test

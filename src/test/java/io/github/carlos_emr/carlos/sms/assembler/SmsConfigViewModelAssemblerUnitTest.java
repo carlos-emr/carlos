@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.sms.service.SmsProviderClientResolver;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueScheduler;
 import io.github.carlos_emr.carlos.sms.service.StubSmsProviderClient;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsConfigViewModel;
+import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -136,6 +138,27 @@ class SmsConfigViewModelAssemblerUnitTest {
         assertThat(model.providerType()).isEqualTo("STUB");
         assertThat(model.errorKeys())
                 .containsExactly("sms.config.error.senderNumber", "sms.config.error.invalidPropertyProvider");
+    }
+
+    @Test
+    @DisplayName("after a rejected save, shows what was submitted rather than the stored settings, and no secret")
+    void shouldShowSubmittedValues_whenSaveWasRejected() {
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(true);
+        stored.setSenderNumber("+14165551212");
+        stored.setWebhookSecret("webhook-value-123");
+        when(configService.current()).thenReturn(Optional.of(stored));
+        SmsConfigUpdateDto submitted = new SmsConfigUpdateDto(
+                SmsProviderType.STUB, false, true, "not-a-number", "new-secret-value", false, Map.of());
+
+        SmsConfigViewModel model = assembler().assembleRejected(submitted, List.of("sms.config.error.senderNumber"));
+
+        assertThat(model)
+                .extracting(SmsConfigViewModel::enabled, SmsConfigViewModel::schedulerEnabled,
+                        SmsConfigViewModel::senderNumber, SmsConfigViewModel::webhookSecretSet,
+                        SmsConfigViewModel::resultKey, SmsConfigViewModel::errorKeys)
+                .containsExactly(false, true, "not-a-number", true, "", List.of("sms.config.error.senderNumber"));
+        assertThat(model.toString()).doesNotContain("new-secret-value").doesNotContain("webhook-value-123");
     }
 
     private SmsConfigViewModelAssembler assembler() {

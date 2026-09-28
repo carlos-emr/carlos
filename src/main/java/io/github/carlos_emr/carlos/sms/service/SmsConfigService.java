@@ -70,14 +70,17 @@ public class SmsConfigService {
     }
 
     /** @return whether CARLOS may send SMS: on while nothing is saved, otherwise the saved switch */
+    @Transactional(readOnly = true)
     public boolean sendingEnabled() {
         return current().map(SmsConfig::isEnabled).orElse(true);
     }
 
+    @Transactional(readOnly = true)
     public Optional<SmsProviderType> storedProvider() {
         return current().map(SmsConfig::getProviderType);
     }
 
+    @Transactional(readOnly = true)
     public Optional<Boolean> storedSchedulerEnabled() {
         return current().map(SmsConfig::isSchedulerEnabled);
     }
