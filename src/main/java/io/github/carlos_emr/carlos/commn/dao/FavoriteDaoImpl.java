@@ -134,4 +134,48 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
 
         return getSingleResultOrNull(query);
     }
+    /**
+     * Creation deduplication must include routing, dosing and dispensing metadata,
+     * not merely the visible favorite label/instructions. Null values match nulls;
+     * all values are bound parameters and property names are a closed list.
+     */
+    @Override
+    public Favorite findDuplicate(Favorite candidate) {
+        java.util.Map<String, Object> fields = new java.util.LinkedHashMap<>();
+        fields.put("providerNo", candidate.getProviderNo());
+        fields.put("name", candidate.getName());
+        fields.put("bn", candidate.getBn());
+        fields.put("gcnSeqno", candidate.getGcnSeqno());
+        fields.put("customName", candidate.getCustomName());
+        fields.put("takeMin", candidate.getTakeMin());
+        fields.put("takeMax", candidate.getTakeMax());
+        fields.put("frequencyCode", candidate.getFrequencyCode());
+        fields.put("duration", candidate.getDuration());
+        fields.put("durationUnit", candidate.getDurationUnit());
+        fields.put("quantity", candidate.getQuantity());
+        fields.put("repeat", candidate.getRepeat());
+        fields.put("nosubs", candidate.isNosubs());
+        fields.put("prn", candidate.isPrn());
+        fields.put("special", candidate.getSpecial());
+        fields.put("gn", candidate.getGn());
+        fields.put("atc", candidate.getAtc());
+        fields.put("regionalIdentifier", candidate.getRegionalIdentifier());
+        fields.put("unit", candidate.getUnit());
+        fields.put("unitName", candidate.getUnitName());
+        fields.put("method", candidate.getMethod());
+        fields.put("route", candidate.getRoute());
+        fields.put("drugForm", candidate.getDrugForm());
+        fields.put("customInstructions", candidate.isCustomInstructions());
+        fields.put("dosage", candidate.getDosage());
+        fields.put("dispenseInternal", candidate.isDispenseInternal());
+        StringBuilder hql = new StringBuilder("FROM Favorite f WHERE 1=1");
+        fields.forEach((field, value) -> hql.append(" AND f.").append(field)
+                .append(value == null ? " IS NULL" : " = :" + field));
+        Query query = entityManager.createQuery(hql.toString());
+        fields.forEach((field, value) -> {
+            if (value != null) query.setParameter(field, value);
+        });
+        return getSingleResultOrNull(query);
+    }
+
 }

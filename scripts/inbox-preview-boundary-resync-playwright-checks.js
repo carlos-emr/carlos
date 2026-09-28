@@ -39,9 +39,9 @@
  *     the next one -- inserted, never re-rendered around.
  *   - THE SCROLL POSITION HOLDS, and pages still remain to be loaded.
  *
- * NOT READ-ONLY, AND IT MUST RUN AFTER inboxhub-filters (see that check and
- * inbox-preview-acknowledge for why). It acknowledges exactly one lab. Run
- * against a disposable database.
+ * Acknowledges one lab and restores exact routing status, comment and timestamp
+ * for it and its older versions in finally. Newly inserted routes are removed
+ * by their recorded IDs, and restoration is verified. Use a disposable database.
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   INBOX_TIMEOUT_MS=60000        per-step allowance; preview cards are iframes
@@ -51,6 +51,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck, withExpectedDialogs,
 } = require('./lib/playwright-harness');
+const {createInboxAcknowledgementFixture} = require('./lib/inbox-acknowledgement-fixture');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const {
   enterPreviewMode, findAcknowledgeable, readStamps, settleList, shownCards, stampSurvivors,
@@ -88,12 +89,13 @@ function sameOrderAllowingInserts(expected, actual, slack) {
   return at === expected.length && inserted <= slack;
 }
 
-async function main() {
+async function main({throwIfCancelled = () => {}} = {}) {
   const config = readConfig();
   const timeout = Number(process.env.INBOX_TIMEOUT_MS || '60000');
 
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
+  const routingFixture = createInboxAcknowledgementFixture(config);
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
@@ -124,6 +126,9 @@ async function main() {
     if (!target) {
       throw new SkipCheck('no preview lab card among the first few offers an Acknowledge control; every lab on screen is already acknowledged');
     }
+
+    throwIfCancelled();
+    await routingFixture.prepare(target.frame, target.identity);
 
     const scrollBefore = await inbox.evaluate((index) => {
       const container = document.getElementById('inboxViewItems');
@@ -194,15 +199,66 @@ async function main() {
       `The preview list jumped from scrollTop ${scrollBefore} to ${scrollAfter}; the clinician lost their place in the list`);
     assert(stillPaging, 'hasMoreData turned false: the boundary re-sync must not end paging');
 
+    // Fail the next scroll fetch once, then retry through the visible control. A transient
+    // outage must not leave isFetchingData set forever or skip the failed page's results.
+    const failedPage = await inbox.evaluate(() => window.page);
+    const badStart = recorder.badResponses.length;
+    const consoleStart = recorder.consoleIssues.length;
+    const retryRequests = [];
+    const recordRetry = request => {
+      if (request.method() === 'POST' && VIEW_PATTERN.test(request.url())) {
+        retryRequests.push(pageOf(request.postData()));
+      }
+    };
+    inbox.on('request', recordRetry);
+    await inbox.route(VIEW_PATTERN, route => route.fulfill({
+      status: 503, contentType: 'text/plain', body: 'Synthetic paging outage',
+    }), { times: 1 });
+    await inbox.evaluate(() => {
+      const container = document.getElementById('inboxViewItems');
+      container.scrollTop = container.scrollHeight;
+      container.dispatchEvent(new Event('scroll'));
+    });
+    await inbox.locator('#ajaxErrorToast.show').waitFor({ timeout });
+    await inbox.waitForFunction(() => !window.isFetchingData, null, { timeout });
+    assert(await inbox.evaluate(expected => window.page === expected, failedPage),
+      'failed paging advanced past the missing results');
+    const retryResponse = inbox.waitForResponse(response => VIEW_PATTERN.test(response.url())
+      && response.request().method() === 'POST' && response.status() === 200, { timeout });
+    await inbox.locator('#retryInboxhubPage').click({ timeout });
+    await retryResponse;
+    await inbox.waitForFunction(expected => !window.isFetchingData && window.page === expected + 1,
+      failedPage, { timeout });
+    inbox.off('request', recordRetry);
+    assert(retryRequests.length === 2 && retryRequests.every(value => value === failedPage),
+      'failure/retry must request the same next page exactly twice without overlap');
+    const retriedCards = await shownCards(inbox);
+    assert(retriedCards.length > after.length && new Set(retriedCards).size === retriedCards.length,
+      'retry did not append distinct results from the failed page');
+    const expectedFailures = recorder.badResponses.slice(badStart);
+    assert(expectedFailures.length === 1 && expectedFailures[0].status === 503
+      && expectedFailures[0].method === 'POST' && VIEW_PATTERN.test(expectedFailures[0].url),
+    'paging failure probe observed an unexpected HTTP failure');
+    recorder.badResponses.splice(badStart, 1);
+    // Chromium emits a resource-load console diagnostic for the deliberately injected 503.
+    // Remove only that exact diagnostic; all other strict browser failures remain findings.
+    for (let i = recorder.consoleIssues.length - 1; i >= consoleStart; i--) {
+      const issue = recorder.consoleIssues[i];
+      if (issue.label === 'inbox' && VIEW_PATTERN.test(issue.location.url)
+        && /Failed to load resource.*503/.test(issue.text)) recorder.consoleIssues.splice(i, 1);
+    }
+
     assertStrictPage(recorder, ['inbox']);
 
     const merged = after.length - expected.length;
     console.log(`  acknowledged ${target.identity} in preview mode with ${loadedPages} page(s) loaded and more pending`);
     console.log(`  ${before.length} card(s) -> ${after.length}; one boundary request for page ${loadedPages}, no list re-fetch, `
       + `${stamped.length} surviving document(s) kept, ${merged} card(s) merged in, scrollTop held at ${scrollAfter}`);
-    return { acknowledged: target.identity, before: before.length, after: after.length, boundaryPage: loadedPages, kept: stamped.length, merged };
+    return { acknowledged: target.identity, before: before.length, after: after.length, boundaryPage: loadedPages,
+      kept: stamped.length, merged, retriedPage: failedPage };
   } finally {
-    await browser.close().catch(() => {});
+    try { await browser.close(); }
+    finally { routingFixture.cleanup(); }
   }
 }
 

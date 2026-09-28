@@ -97,6 +97,36 @@ class IncomingDocUtilUnitTest {
     }
 
     @Test
+    @DisplayName("Page-count admission refusal propagates instead of becoming a zero-page document")
+    void shouldPropagatePageCountCapacityRefusal() throws Exception {
+        Path directory = Files.createDirectories(incomingRoot.resolve("1").resolve("Fax"));
+        Files.writeString(directory.resolve("busy.pdf"), "not parsed before admission");
+        try (var bounded = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.class)) {
+            bounded.when(() -> io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.runWithin(
+                    org.mockito.Mockito.eq(30), org.mockito.Mockito.eq("incoming-document-pagecount"),
+                    org.mockito.Mockito.<java.util.concurrent.Callable<Integer>>any()))
+                    .thenThrow(new io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException());
+            assertThatThrownBy(() -> IncomingDocUtil.getNumOfPages("1", "Fax", "busy.pdf"))
+                    .isInstanceOf(io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException.class);
+        }
+    }
+
+    @Test
+    void shouldPropagatePageCountExecutionFailureInsteadOfZero() throws Exception {
+        java.nio.file.Path incoming = incomingRoot.resolve("1/Fax");
+        java.nio.file.Files.createDirectories(incoming);
+        java.nio.file.Files.writeString(incoming.resolve("failed.pdf"), "owned");
+
+        try (org.mockito.MockedStatic<io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask> tasks = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.class)) {
+            tasks.when(() -> io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.runWithin(org.mockito.ArgumentMatchers.eq(30),
+                    org.mockito.ArgumentMatchers.eq("incoming-document-pagecount"), org.mockito.Mockito.<java.util.concurrent.Callable<Integer>>any()))
+                    .thenThrow(new java.io.IOException("synthetic execution deadline"));
+            assertThatThrownBy(() -> IncomingDocUtil.getNumOfPages("1", "Fax", "failed.pdf"))
+                    .isInstanceOf(java.io.IOException.class).hasMessage("synthetic execution deadline");
+        }
+    }
+
+    @Test
     @DisplayName("should return an empty doc list when the queue directory does not exist yet")
     void shouldReturnEmptyDocList_whenQueueDirectoryDoesNotExist() {
         // A queue subdirectory is only created by the first upload or fax import; browsing
@@ -561,6 +591,27 @@ class IncomingDocUtilUnitTest {
 
         assertThat(source).doesNotExist();
         assertThat(recycleDirectory()).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("whole-document recycling preserves an older fax with the same incoming name")
+    void shouldPreserveOlderWholeDocument_whenIncomingNameIsReused() throws Exception {
+        File source = queuedPdf("fax.pdf", 2);
+        byte[] incomingBytes = Files.readAllBytes(source.toPath());
+        Path deleteDir = Path.of(IncomingDocUtil.getIncomingDocumentDeletedFilePath("1", "Fax"));
+        Files.createDirectories(deleteDir);
+        Path historical = deleteDir.resolve("fax.pdf");
+        Files.writeString(historical, "historical recycled document", StandardCharsets.UTF_8);
+
+        IncomingDocUtil.DeletePDF("1", "Fax", "fax.pdf");
+
+        assertThat(source).doesNotExist();
+        assertThat(Files.readString(historical, StandardCharsets.UTF_8)).isEqualTo("historical recycled document");
+        assertThat(Files.readAllBytes(deleteDir.resolve("fax-2.pdf"))).isEqualTo(incomingBytes);
+        try (Stream<Path> children = Files.list(deleteDir)) {
+            assertThat(children.map(path -> path.getFileName().toString()))
+                    .containsExactlyInAnyOrder("fax.pdf", "fax-2.pdf");
+        }
     }
 
     @Test

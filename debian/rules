@@ -185,6 +185,11 @@ override_dh_auto_install:
 	set -e; \
 	install -d $(STAGE)/$(SHAREDIR)/webapp/carlos; \
 	cd $(STAGE)/$(SHAREDIR)/webapp/carlos && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/carlos.war
+	# Explicit package-only resource transform; operator properties are untouched.
+	# Reject an older prebuilt WAR that cannot consume the new defaults resource.
+	test -f $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/jdbc-defaults.properties
+	install -m 0644 debian/assets/jdbc-defaults.properties \
+	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/jdbc-defaults.properties
 	# Ship the migration set outside the WAR too, so an operator can read and
 	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
@@ -357,9 +362,10 @@ override_dh_auto_install:
 ifeq ($(SKIP_DRUGREF),)
 	install -d debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2
 	cd debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2 && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/drugref2.war
-	# Pin Hibernate's dialect: autodetection runs a MySQL-8-only
-	# information_schema query that MariaDB rejects, and the whole context
-	# fails to deploy. See the comment inside the file.
+	# Exact, validated datasource transform; preserve private db_url/credentials.
+	python3 debian/apply-drugref-jdbc-default.py \
+	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/spring_config.xml
+	# Retain the explicit MariaDB dialect, independently of datasource metadata.
 	install -m 0644 debian/assets/drugref-hibernate.properties \
 	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/hibernate.properties
 	install -d debian/$(DPKG)/$(SHAREDIR)/schema/drugref

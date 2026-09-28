@@ -6,6 +6,9 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const {checkIncomingPreviewCapacity} = require('./lib/incoming-preview-capacity-check');
+const {checkIncomingFilingCapacity} = require('./lib/incoming-filing-capacity-check');
+const {createPageEditCleanupGuard, checkIncomingPageEditCapacity} = require('./lib/incoming-page-edit-capacity-check');
 
 function fixturePdf(marker) {
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>',
@@ -52,11 +55,15 @@ async function workflow(s) {
   const destination = path.join(directory, `${s.marker}E3.pdf`);
   const unrelated = path.join(directory, `T${name}`);
   const owned = [];
+  const pageEditGuard = createPageEditCleanupGuard({marker: s.marker, source, owned});
+  const filingGuard = createPageEditCleanupGuard({marker: s.marker, source, owned});
   const provider = h.sqlString(s.provider);
   const keys = ['incoming_document_default_queue', 'incoming_document_entry_mode', 'view_document_as'];
   const where = `provider_no=${provider} AND name IN(${keys.map(h.sqlString).join(',')})`;
   const preferences = s.sql.rows(`SELECT id,name,value,IF(value IS NULL,1,0) FROM property WHERE ${where} ORDER BY id`);
   s.cleanup(() => {
+    pageEditGuard.assertCleanup();
+    filingGuard.assertCleanup();
     for (const file of owned) if (fs.existsSync(file)) fs.unlinkSync(file);
     const ids = preferences.map(row => row[0]);
     h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid preference fixture identity');
@@ -101,6 +108,10 @@ async function workflow(s) {
   await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
   h.assert((await page.locator('fieldset legend').allTextContents()).some(text => text.includes(name)), 'Incoming queue did not open the owned PDF');
   const extract = () => page.locator('button[onclick^="extractPagePdf("]');
+  await s.step('native PDF and image previews wait through capacity overload and recover without replaying mutations', async () => {
+    await checkIncomingPreviewCapacity(s, page, name);
+    h.assert(fs.readFileSync(source).equals(original), 'Preview waiting changed the owned source PDF');
+  });
   await s.step('reap abandoned scratch files while preserving fresh work and unrelated hidden files', async () => {
     h.assert(!fs.existsSync(staleScratch), 'Queue access left an abandoned CARLOS scratch file');
     h.assert(fs.readFileSync(recentScratch).equals(original), 'Queue cleanup removed recent scratch work');
@@ -219,7 +230,8 @@ async function workflow(s) {
       const info = execFileSync('pdfinfo', ['-f', String(number), '-l', String(number), source], { encoding: 'utf8' });
       return Number(info.match(/(?:Page\s+\d+\s+rot|Page rot):\s+(\d+)/)?.[1]);
     };
-    await reloadAfter(() => page.locator('button[onclick^="rotatePdf("]').filter({ hasText: '+90' }).click());
+    await checkIncomingPageEditCapacity(s, page, name, source,
+      () => page.locator('button[onclick^="rotatePdf("]').filter({ hasText: '+90' }).click(), pageEditGuard);
     h.assert(rotation(1) === 90 && rotation(2) === 0, 'Single-page rotation changed the wrong pages');
     await reloadAfter(() => page.locator('button[onclick^="rotateAllPagePdf("]').filter({ hasText: '180' }).click());
     h.assert(rotation(1) === 270 && rotation(2) === 180, 'Whole-document rotation did not preserve relative page rotations');
@@ -228,10 +240,15 @@ async function workflow(s) {
       'Rotation discarded page content');
     h.assert(fs.readFileSync(unrelated).equals(original), 'Rotation changed an unrelated document');
   });
+  let stalePageForm;
   await s.step('delete a selected page and preserve the other page and extracted document', async () => {
     await page.locator('#SelectPageList').selectOption('1');
     await page.waitForLoadState('networkidle');
     const extracted = fs.readFileSync(destination);
+    stalePageForm = await page.locator('form[name="PdfInfoForm"]').evaluate(form => ({
+      action: form.action, fields: Object.fromEntries([...new FormData(form)].map(([key, value]) => [key, String(value)])),
+    }));
+    h.assert(/^[a-f0-9]{64}$/.test(stalePageForm.fields.sourceRevision), 'Page editor omitted its observed source revision');
     const dialogs = await h.withExpectedDialogs(page,
       () => reloadAfter(() => page.locator('button[onclick^="deletePagePdf("]').click()));
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Page deletion omitted its confirmation');
@@ -243,6 +260,24 @@ async function workflow(s) {
     await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
     h.assert(await page.locator('#SelectPageList option').count() === 2, 'Single remaining page did not reopen');
   });
+  await s.step('stale page edits cannot change content after another edit removes a page', async () => {
+    const current = fs.readFileSync(source), extracted = fs.readFileSync(destination);
+    for (const action of ['DeletePage', 'Rotate90', 'ExtractPagePDF']) {
+      const response = await s.context.request.post(stalePageForm.action, {
+        form: {...stalePageForm.fields, pdfAction: action, pdfPageNumber: '1', pdfExtractPageNumber: '1'},
+        headers: {Referer: page.url()}, maxRedirects: 0,
+      });
+      try {
+        h.assert(response.status() === 409, 'A stale incoming page edit was not explicitly refused');
+        const body = await response.text();
+        h.assert(!/name=["']sourceRevision["']/.test(body), 'Conflict response exposed a new token beside stale page intent');
+        h.assert(fs.readFileSync(source).equals(current) && fs.readFileSync(destination).equals(extracted)
+          && fs.readFileSync(unrelated).equals(original), 'A stale incoming page edit changed queued content');
+      } finally {await response.dispose();}
+    }
+  });
+  await s.step('preserve filing inputs on uncertain acceptance and wait through five refusals before one installed filing',
+    () => checkIncomingFilingCapacity(s, page, name, source, inspect, {staleRevision: stalePageForm.fields.sourceRevision, guard: filingGuard}));
 }
-if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: false });
+if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: true, openMaster: false });
 module.exports = { assertClassicPdfFinalized, fixturePdf, inspect, workflow };

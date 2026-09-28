@@ -214,6 +214,7 @@ public class RxPrescriptionData {
         prescription.setDrugForm(favorite.getDrugForm());
         prescription.setCustomInstr(favorite.getCustomInstr());
         prescription.setDosage(favorite.getDosage());
+        prescription.setDispenseInternal(Boolean.TRUE.equals(favorite.getDispenseInternal()));
 
         return prescription;
     }
@@ -529,7 +530,9 @@ public class RxPrescriptionData {
     }
 
     private Favorite toFavorite(io.github.carlos_emr.carlos.commn.model.Favorite f) {
-        return new Favorite(f.getId(), f.getProviderNo(), f.getName(), f.getBn(), f.getGcnSeqno(), f.getCustomName(), f.getTakeMin(), f.getTakeMax(), f.getFrequencyCode(), f.getDuration(), f.getDurationUnit(), f.getQuantity(), f.getRepeat(), f.isNosubs(), f.isPrn(), f.getSpecial(), f.getGn(), f.getAtc(), f.getRegionalIdentifier(), f.getUnit(), f.getUnitName(), f.getMethod(), f.getRoute(), f.getDrugForm(), f.isCustomInstructions(), f.getDosage());
+        Favorite favorite = new Favorite(f.getId(), f.getProviderNo(), f.getName(), f.getBn(), f.getGcnSeqno(), f.getCustomName(), f.getTakeMin(), f.getTakeMax(), f.getFrequencyCode(), f.getDuration(), f.getDurationUnit(), f.getQuantity(), f.getRepeat(), f.isNosubs(), f.isPrn(), f.getSpecial(), f.getGn(), f.getAtc(), f.getRegionalIdentifier(), f.getUnit(), f.getUnitName(), f.getMethod(), f.getRoute(), f.getDrugForm(), f.isCustomInstructions(), f.getDosage());
+        favorite.setDispenseInternal(f.isDispenseInternal());
+        return favorite;
     }
 
     public Favorite getFavorite(int favoriteId) {
@@ -2247,14 +2250,18 @@ public class RxPrescriptionData {
                 //if (getSpecial() == null || getSpecial().length() < 6) {
                 logger.warn("drug special appears to be null or empty (length={})", safeLength(special));
             }
-            String parsedSpecial = RxUtil.replace(special, "'", "");
-            //if (parsedSpecial == null || parsedSpecial.length() < 6) {
-            if (parsedSpecial == null || parsedSpecial.length() < 4) {
-                logger.warn("drug special after parsing appears to be null or empty (length={})", safeLength(parsedSpecial));
-            }
-
             FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);
-            io.github.carlos_emr.carlos.commn.model.Favorite favorite = dao.findByEverything(this.getProviderNo(), this.getFavoriteName(), this.getBN(), this.getGCN_SEQNO(), this.getCustomName(), this.getTakeMin(), this.getTakeMax(), this.getFrequencyCode(), this.getDuration(), this.getDurationUnit(), this.getQuantity(), this.getRepeat(), this.getNosubs(), this.getPrn(), parsedSpecial, this.getGN(), this.getUnitName(), this.getCustomInstr());
+            io.github.carlos_emr.carlos.commn.model.Favorite favorite;
+            // Deduplication is only for creation. An edit must retain its selected identity,
+            // even when its new fields happen to match another provider favorite.
+            if (this.getFavoriteId() == 0) {
+                favorite = dao.findDuplicate(syncFavorite(new io.github.carlos_emr.carlos.commn.model.Favorite()));
+            } else {
+                favorite = dao.find(this.getFavoriteId());
+                if (favorite == null) {
+                    throw new IllegalStateException("Prescription favorite is unavailable");
+                }
+            }
 
             if (this.getFavoriteId() == 0) {
 
@@ -2273,10 +2280,6 @@ public class RxPrescriptionData {
                 }
 
             } else {
-                if (favorite == null) {
-                    //we never found it..try by id
-                    favorite = dao.find(this.getFavoriteId());
-                }
                 favorite = syncFavorite(favorite);
                 dao.merge(favorite);
 
@@ -2312,6 +2315,7 @@ public class RxPrescriptionData {
             f.setDrugForm(this.getDrugForm());
             f.setCustomInstructions(this.getCustomInstr());
             f.setDosage(this.getDosage());
+            f.setDispenseInternal(Boolean.TRUE.equals(this.getDispenseInternal()));
             return f;
         }
 

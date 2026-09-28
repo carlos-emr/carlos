@@ -375,6 +375,73 @@ test('a timed-out query is reported as a timeout, not as a generic failure', () 
   }
 });
 
+test('SQL output above Node default stays bounded and preserves the full result', () => {
+  const {execFileSync} = require('node:child_process');
+  let calls = 0;
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'private-password'}, {
+    exec: (_file, _args, options) => {
+      calls++;
+      assert.equal(options.maxBuffer, 8 * 1024 * 1024);
+      assert.equal(options.timeout, 30000);
+      assert.deepEqual(options.stdio, ['ignore', 'pipe', 'pipe']);
+      return execFileSync(process.execPath, ['-e', 'process.stdout.write("x".repeat(2 * 1024 * 1024))'], options);
+    },
+  });
+  try {
+    const result = runner.value('SELECT owned_synthetic_catalog');
+    assert.equal(result.length, 2 * 1024 * 1024);
+    assert.equal(result, 'x'.repeat(2 * 1024 * 1024));
+    assert.equal(calls, 1);
+  } finally { runner.dispose(); }
+});
+
+for (const stream of ['stdout', 'stderr']) test('actual SQL child ' + stream + ' overflow fails once without exposing captured bytes', () => {
+  const {execFileSync} = require('node:child_process');
+  let calls = 0;
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'private-password'}, {
+    exec: (_file, _args, options) => {
+      calls++;
+      const code = 'process.' + stream + '.write("PRIVATE_ROW".repeat(1024 * 1024))';
+      return execFileSync(process.execPath, ['-e', code], options);
+    },
+  });
+  try {
+    assert.throws(() => runner.execute('SELECT PRIVATE_QUERY'), error => {
+      assert.match(error.message, /exceeded its 8MiB output limit/);
+      assert.doesNotMatch(error.message, /timed out|PRIVATE_ROW|PRIVATE_QUERY|private-password/);
+      assert.equal(error.cause, undefined);
+      assert.equal(error.stdout, undefined); assert.equal(error.stderr, undefined);
+      return true;
+    });
+    assert.equal(calls, 1, 'unknown child outcome must never be automatically replayed');
+  } finally { runner.dispose(); }
+});
+
+for (const code of ['ENOBUFS', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER']) test(code + ' takes precedence over SIGTERM and redacts exception details', () => {
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'secret'}, {
+    exec: () => {throw Object.assign(new Error('PRIVATE query and row'), {code, signal: 'SIGTERM',
+      stdout: 'PRIVATE row', stderr: 'PRIVATE diagnostic'});},
+  });
+  try {
+    assert.throws(() => runner.rows('PRIVATE QUERY'), error => {
+      assert.match(error.message, /8MiB output limit/); assert.doesNotMatch(error.message, /PRIVATE|timed out/);
+      assert.equal(error.cause, undefined); return true;
+    });
+  } finally { runner.dispose(); }
+});
+
+test('SIGTERM without a timeout code does not invent a 30s timeout', () => {
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'secret'}, {
+    exec: () => {throw Object.assign(new Error('PRIVATE interrupted query'), {signal: 'SIGTERM'});},
+  });
+  try {
+    assert.throws(() => runner.value('PRIVATE QUERY'), error => {
+      assert.match(error.message, /database query failed/); assert.doesNotMatch(error.message, /PRIVATE|timed out/);
+      return true;
+    });
+  } finally { runner.dispose(); }
+});
+
 /*
  * A control can navigate the SAME page instead of opening a popup (the
  * schedule's Search is a same-tab href under the caisi module), so the page a

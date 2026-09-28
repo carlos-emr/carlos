@@ -59,6 +59,17 @@ test('the deliberate missing-favorite response excludes only its exact 404 signa
   assert.equal(recorder.consoleIssues.length, 0);
 });
 
+test('the deliberate save failure excludes its asserted500 but keeps an unrelated404', () => {
+  const recorder = h.createRecorder();
+  const saveUrl = 'https://127.0.0.1/carlos/rx/updateFavorite2?method=ajaxEditFavorite';
+  recorder.badResponses.push({ url: saveUrl, status: 500, method: 'POST' });
+  recorder.consoleIssues.push({ location: { url: saveUrl }, type: 'error', text: 'Failed to load resource: 500 (Internal Server Error)' });
+  consumeExpectedFavoriteFailure(recorder, saveUrl, 0, 0, 500);
+  assert.equal(recorder.badResponses.length, 0);
+  recorder.badResponses.push({ url: saveUrl, status: 404, method: 'POST' });
+  assert.throws(() => h.assertStrictPage(recorder), /HTTP 404/);
+});
+
 test('unrelated console, HTTP and runtime errors remain failures during the negative control', () => {
   for (const kind of ['http', 'console', 'runtime']) {
     const recorder = expectedFailure();

@@ -43,7 +43,7 @@ Use the narrowest control that preserves useful coverage:
 3. Disable exact built-in rules in Semgrep Cloud only when a CARLOS rule fully replaces their coverage. `.semgrep/README.md` lists the rules intended for policy disablement.
 4. For isolated already-safe findings from still-useful built-in rules, use rule-specific `nosemgrep: <rule-id>` comments at the finding site.
 
-Semgrep CI honors `nosemgrep` by treating those findings as ignored, but Semgrep still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py semgrep.sarif` before uploading the Semgrep Cloud SARIF. This removes only explicitly suppressed results from the GitHub upload; unsuppressed Semgrep Pro findings still appear in Code Scanning.
+Semgrep honors `nosemgrep` by treating those findings as ignored, but still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py` separately on both `semgrep.sarif` and `semgrep-carlos.sarif` before their uploads. This removes only explicitly suppressed results; unsuppressed Cloud and CARLOS findings still appear in Code Scanning. Both filters also run when an earlier scan fails but produces a report.
 
 Do not use broad `.semgrepignore` entries, blanket rule disables, or bare `nosemgrep` comments to clear PR noise unless a narrower option is impossible and the rationale is documented.
 
@@ -145,6 +145,16 @@ Suppresses known false positives:
 > domain comparisons (status/flag/enum/MIME codes). They are dispositioned with per-site
 > `@SuppressFBWarnings` annotations carrying a justification, **plus an adjacent `//` comment** —
 > see [SpotBugs exclusions](#spotbugs) below.
+
+The incoming-document capacity page uses a method-local `XSS_SERVLET`
+suppression because its two dynamic values already use OWASP encoding for
+HTML text and quoted attributes. Its regression parses hostile context-path
+markup and verifies that it remains one inert script URL, without injected
+elements or event handlers. Preview reloads require exact `GET`; case-folded
+or mutating method names receive no preview reload script. The separate incoming
+page-edit waiting response is emitted only before mutation admission and preserves
+the original POST fields, CSRF token and source revision. An uncertain result or
+a revision conflict never uses that automatic retry path.
 
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 
