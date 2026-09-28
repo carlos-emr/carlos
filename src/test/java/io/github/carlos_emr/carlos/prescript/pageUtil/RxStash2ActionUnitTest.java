@@ -188,6 +188,8 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
     void shouldAllowGet_forLegacyEdit() throws Exception {
         request.setMethod("GET");
         request.setParameter("action", "edit");
+        request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
         RxStash2Action action = new RxStash2Action();
         action.setAction("edit");
         action.setStashId(0);
@@ -330,4 +332,80 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(bean.getStashIndex()).isZero();
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"edit", "delete"})
+    @DisplayName("should target the rendered legacy card after another window removes a preceding card")
+    void shouldUseStableCardIdentity_whenLegacyIndexShifts(String operation) throws Exception {
+        RxPrescriptionData.Prescription selected = bean.getStashItem(1);
+        RxPrescriptionData.Prescription third = staged(333333L, 0);
+        bean.getStashList().add(third);
+        request.setParameter("randomId", "222222");
+        request.setParameter("draftRevision", selected.getDraftRevision());
+        bean.removeStashItem(0);
+        RxStash2Action action = new RxStash2Action();
+        action.setAction(operation);
+        action.setStashId(1); // Stale position now points at the third card and must be ignored.
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        if ("edit".equals(operation)) {
+            assertThat(bean.getCurrentStashItem()).isSameAs(selected);
+            assertThat(bean.getStash()).containsExactly(selected, third);
+        } else {
+            assertThat(bean.getStash()).containsExactly(third);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"edit", "delete"})
+    @DisplayName("should refuse a legacy card identity after its numeric key is reused")
+    void shouldRefuseReusedKey_whenLegacyCardWasRemoved(String operation) throws Exception {
+        String previousRevision = bean.getStashItem(0).getDraftRevision();
+        bean.removeStashItem(0);
+        RxPrescriptionData.Prescription replacement = staged(111111L, 0);
+        bean.getStashList().add(replacement);
+        request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", previousRevision);
+        RxStash2Action action = new RxStash2Action();
+        action.setAction(operation);
+        action.setStashId(1);
+        int cursor = bean.getStashIndex();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+        assertThat(bean.getStashIndex()).isEqualTo(cursor);
+        assertThat(bean.getStash()).contains(replacement).hasSize(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"edit", "delete"})
+    @DisplayName("should refuse positional-only legacy forms instead of acting on an unknown card")
+    void shouldRefuseUnidentifiedCard_whenLegacyFormOnlySuppliesIndex(String operation) throws Exception {
+        RxStash2Action action = new RxStash2Action();
+        action.setAction(operation);
+        action.setStashId(0);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(bean.getStashIndex()).isEqualTo(1);
+        assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should clear the legacy deleted card's ReRx source only when no remaining card uses it")
+    void shouldSettleReRxSelection_whenLegacyCardIsDeleted(boolean anotherSourceCard) throws Exception {
+        bean.addReRxDrugIdList("55");
+        if (anotherSourceCard) bean.getStashList().add(staged(333333L, 55));
+        request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
+        RxStash2Action action = new RxStash2Action();
+        action.setAction("delete");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(bean.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                .doesNotContain(111111L);
+        assertThat(bean.getReRxDrugIdList().contains("55")).isEqualTo(anotherSourceCard);
+    }
+
 }

@@ -199,7 +199,7 @@
                     oscarLog('<fmt:message key="WriteScript.msgQuantity"/>');
                 } else {
                     oscarLog("else");
-                    frm.action.value = action;
+                    frm.elements["action"].value = action;
 
                     frm.submit();
                 }
@@ -847,6 +847,13 @@
         <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
     </form>
 
+    <form id="RxStashForm" name="RxStashForm" action="${pageContext.request.contextPath}/rx/stash" method="post" style="display:none">
+        <input type="hidden" name="action" value=""/>
+        <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
+        <input type="hidden" name="randomId"/>
+        <input type="hidden" name="draftRevision"/>
+    </form>
+
     <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
 
     <input type="hidden" name="action" id="action"/>
@@ -1457,20 +1464,16 @@
                                 ACETAMINOPHEN	inhibits	BENZODIAZEPINE, long acting &nbsp;&nbsp;&nbsp;&nbsp;SIGNIFICANCE = MINOR &nbsp;&nbsp;&nbsp;EVIDENCE = POOR
                                 </div>-->
                             <script language=javascript>
-                                function submitPending(stashId, action) { //calls stash action
+                                function submitPending(randomId, draftRevision, action) { //calls stash action
                                     var path = "${carlos:forJavaScript(ctx)}";
                                     oscarLog("path in submitPending:" + path);
-                                    var frm = document.getElementsByName("RxStashForm");
-                                    frm[0].elements["stashId"].value = stashId;
-                                    frm[0].elements["action"].value = action;
-                                    frm[0].submit();
+                                    var stashForm = document.forms["RxStashForm"];
+                                    stashForm.elements["randomId"].value = randomId;
+                                    stashForm.elements["draftRevision"].value = draftRevision;
+                                    stashForm.elements["action"].value = action;
+                                    stashForm.submit();
                                 }
                             </script>
-                            <form action="${pageContext.request.contextPath}/rx/stash" method="post">
-                                <input type="hidden" name="action" value="">
-                                <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
-                                <input type="hidden" name="stashId"/>
-                            </form>
                       </td>
                     </tr>
 
@@ -1517,22 +1520,22 @@
                                                     </c:otherwise>
                                                 </c:choose>
                                                 <td>
-                                                    <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
+                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         <fmt:message key="WriteScript.msgEdit"/>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${loopStatus.index}', 'delete');">
+                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
                                                         <fmt:message key="WriteScript.msgDelete"/>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
+                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         ${carlos:forHtml(rx.rxDisplay)}
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('${rx2.genericName}');">
+                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>
@@ -1625,6 +1628,7 @@
     </tr>
 
     </table>
+    </form>
     </body>
 </html>
 <%long end = System.currentTimeMillis() - start; %>

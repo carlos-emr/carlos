@@ -220,6 +220,15 @@
                 // CSRF/HTML error page) must not look like success by opening the drug search.
                 // A followed redirect (to the login or error page) is not a staged drug either.
                 if (!response || !response.ok || response.redirected) {
+                    // Finish an error response too: after dismissing the refusal the user may
+                    // navigate away, which otherwise aborts the unread fetch response.
+                    if (response) {
+                        try {
+                            await response.text();
+                        } catch (e) {
+                            // A truncated error page is still a refusal; report it and stay here.
+                        }
+                    }
                     alert(staticScriptReRxRefused + ' (HTTP ' + (response ? response.status : '?') + ')');
                     return;
                 }

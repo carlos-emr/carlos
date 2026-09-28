@@ -124,6 +124,24 @@ function consumeExpectedConflict(recorder, response, since, baseUrl, endpoint = 
   }
 }
 
+/** Removes only this workflow's prescriptions and their now-unreferenced signature artifacts. */
+function clearOwnedPrescriptionRows(sql, demographicNo, marker) {
+  h.assert(/^[1-9]\d*$/.test(String(demographicNo)) && /^FAKE-PW[a-f0-9]{16}$/.test(marker),
+    'Invalid prescription fixture identity');
+  h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${demographicNo}
+    AND last_name=${h.sqlString(marker)}`) === '1', 'Prescription fixture ownership changed');
+  sql.execute(`DELETE FROM prescription WHERE demographic_no=${demographicNo}
+    AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${demographicNo}
+      AND customName LIKE ${h.sqlString(`${marker}%`)});
+    DELETE FROM drugs WHERE demographic_no=${demographicNo} AND customName LIKE ${h.sqlString(`${marker}%`)}`);
+  // Save And Print may stamp a signature even when the browser test never draws one. Signature
+  // rows reference the synthetic patient; leaving them behind prevents its FK-protected cleanup.
+  // The patient is wholly owned by this workflow, and a still-referenced signature is retained.
+  sql.execute(`DELETE FROM DigitalSignature WHERE demographicId=${demographicNo}
+    AND moduleType='PRESCRIPTION' AND NOT EXISTS
+      (SELECT 1 FROM prescription WHERE digital_signature_id=DigitalSignature.id)`);
+}
+
 async function workflow(session) {
   const { sql, patient, provider, marker } = session;
   const second = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
@@ -131,10 +149,7 @@ async function workflow(session) {
     VALUES (${h.sqlString(marker)}, 'Second', '1975', '03', '04', 'M', 'AC', ${h.sqlString(provider)},
     'ON', 'ON', 'NR', NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(second), 'the second patient fixture was not created');
-  const clearDrugs = (demo) => sql.execute(`DELETE FROM prescription WHERE demographic_no=${demo}
-    AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${demo}
-      AND customName LIKE ${h.sqlString(`${marker}%`)});
-    DELETE FROM drugs WHERE demographic_no=${demo} AND customName LIKE ${h.sqlString(`${marker}%`)}`);
+  const clearDrugs = (demo) => clearOwnedPrescriptionRows(sql, demo, marker);
   session.cleanup(() => sql.execute(`DELETE FROM demographic WHERE demographic_no=${second}
     AND last_name=${h.sqlString(marker)}`));
   session.cleanup(() => clearDrugs(second));
@@ -468,4 +483,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-stash-patient-isolation', workflow);
-module.exports = { workflow, openRx, stageCustomDrug, consumeExpectedConflict };
+module.exports = { workflow, openRx, stageCustomDrug, consumeExpectedConflict, clearOwnedPrescriptionRows };

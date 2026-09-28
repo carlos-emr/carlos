@@ -46,7 +46,7 @@
 const h = require('./lib/playwright-harness');
 const { randomBytes } = require('node:crypto');
 const { runWorkflow } = require('./lib/workflow-session');
-const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
+const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
 
 /** A provider number no real login owns: the favourites table takes six characters. */
 const FOREIGN_PROVIDER = 'FAKEPW';
@@ -92,11 +92,9 @@ async function useFavorite(session, page, demographicNo, favoriteId) {
 async function workflow(session) {
   const { sql, patient, provider, marker, config } = session;
   session.cleanup(() => sql.execute(`DELETE FROM favorites WHERE favoritename LIKE ${h.sqlString(`${marker}%`)}`));
-  session.cleanup(() => sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient}
-    AND customName LIKE ${h.sqlString(`${marker}%`)}`));
-  session.cleanup(() => sql.execute(`DELETE FROM prescription WHERE demographic_no=${patient}
-    AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${patient}
-      AND customName LIKE ${h.sqlString(`${marker}%`)})`));
+  // Legacy Print can stamp the saved prescription; remove its owned, unreferenced signature
+  // artifacts as well as prescription/drug rows before the synthetic patient is deleted.
+  session.cleanup(() => clearOwnedPrescriptionRows(sql, patient, marker));
 
   await session.step('the Edit favourites side link opens the favourites page', async () => {
     const rx = await openRx(session, patient);
@@ -303,6 +301,12 @@ async function workflow(session) {
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await h.assertNotErrorPage(page, 'write-script page');
     await page.locator('form#frm textarea[name="customName"]').waitFor({ state: 'attached', timeout: 20000 });
+    h.assert(await page.locator('form#frm input[name="action"]').count() === 1,
+      'legacy editor contains multiple action fields; nested forms prevent Print from selecting its action');
+    h.assert(await page.locator('form#frm input[name="demographicNo"]').count() === 1,
+      'legacy editor contains multiple patient fields');
+    h.assert(await page.locator('form#RxStashForm[name="RxStashForm"]').count() === 1,
+      'legacy stash actions have no separate named form');
     const cardKey = await page.locator('form#frm input[name="randomId"]').inputValue();
     const revision = await page.locator('form#frm input[name="draftRevision"]').inputValue();
     h.assert(/^[0-9]+$/.test(cardKey) && revision.length > 0,
@@ -339,7 +343,11 @@ async function workflow(session) {
     const saved = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/writeScript')
       && response.request().method() === 'POST');
     await page.locator('input[onclick="submitForm(\'updateAndPrint\');"]').click();
-    h.assert((await saved).ok(), 'the current legacy editor was refused');
+    const savedResponse = await saved;
+    const submitted = new URLSearchParams(savedResponse.request().postData());
+    h.assert(JSON.stringify(submitted.getAll('action')) === JSON.stringify(['updateAndPrint']),
+      'legacy Print did not submit exactly one updateAndPrint action');
+    h.assert(savedResponse.ok(), `the current legacy editor was refused with HTTP ${savedResponse.status()}`);
     await page.locator('iframe#preview').waitFor({state: 'attached'});
     await h.assertNotErrorPage(page, 'saved legacy preview');
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
@@ -350,6 +358,62 @@ async function workflow(session) {
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(legacyName)}`) === '1', 'duplicate legacy Print created another medication');
     await page.close();
+  });
+
+  await session.step('legacy stash Edit and Delete keep their card identity after another window shifts positions', async () => {
+    const pad = await openRx(session, patient);
+    const first = await stageCustomDrug(pad, `${marker}-legacy-first`);
+    const target = await stageCustomDrug(pad, `${marker}-legacy-target`);
+    const last = await stageCustomDrug(pad, `${marker}-legacy-last`);
+    const editors = [];
+    for (let i = 0; i < 2; i += 1) {
+      const editor = await session.context.newPage();
+      await h.gotoApp(editor, config.baseUrl, `/rx/stash?parameterValue=setStashIndex&randomId=${target}&demographicNo=${patient}`);
+      await editor.locator('form#frm input[name="randomId"]').waitFor({state: 'attached'});
+      h.assert(await editor.locator('form#frm input[name="randomId"]').inputValue() === target,
+        'legacy editor opened a different card');
+      editors.push(editor);
+    }
+    // Both legacy lists retain their original positions while the modern pad removes an earlier
+    // card. An index-based legacy link would now target the following medication instead.
+    await pad.locator(`#set_${first} a[onclick^="removePrescribingDrug"]`).click();
+    await pad.locator(`#set_${first}`).waitFor({state: 'detached'});
+    const pendingLink = (editor, action) => editor.locator(
+      `a[href^="javascript:submitPending('${target}',"][href$=", '${action.toLowerCase()}');"]`).first();
+    const edited = editors[0].waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/stash')
+      && response.request().method() === 'POST');
+    await pendingLink(editors[0], 'Edit').click();
+    h.assert((await edited).ok(), 'legacy stable-card Edit was refused');
+    await editors[0].waitForLoadState('networkidle');
+    h.assert(await editors[0].locator('form#frm input[name="randomId"]').inputValue() === target,
+      'legacy Edit selected the following card after an earlier card disappeared');
+    h.assert(await editors[0].locator('form#frm textarea[name="customName"]').inputValue() === `${marker}-legacy-target`,
+      'legacy Edit displayed the wrong medication');
+    const deleted = editors[1].waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/stash')
+      && response.request().method() === 'POST');
+    await pendingLink(editors[1], 'Delete').click();
+    const deleteResponse = await deleted;
+    const deletedPayload = new URLSearchParams(deleteResponse.request().postData());
+    h.assert(deleteResponse.ok() && deletedPayload.get('randomId') === target
+      && deletedPayload.get('draftRevision') && !deletedPayload.has('stashId'),
+      'legacy Delete did not submit a stable card identity and revision');
+    await editors[1].waitForLoadState('networkidle');
+    const fresh = await openRx(session, patient);
+    h.assert(await fresh.locator(`#set_${first}`).count() === 0, 'removed first card reappeared');
+    h.assert(await fresh.locator(`#set_${target}`).count() === 0, 'legacy Delete retained the selected card');
+    h.assert(await fresh.locator(`#set_${last}`).count() === 1, 'legacy Delete removed the following card');
+    // A replay of the now-deleted row must report stale state, never fall back to its old index.
+    const replay = await session.context.request.post(`${String(config.baseUrl).replace(/\/$/, '')}/rx/stash`, {
+      headers: {'CSRF-TOKEN': deletedPayload.get('CSRF-TOKEN'), 'X-Requested-With': 'XMLHttpRequest'},
+      form: Object.fromEntries(deletedPayload), maxRedirects: 0,
+    });
+    h.assert(replay.status() === 409 && (await replay.json()).error === 'STALE_RX_STASH',
+      'replayed legacy Delete did not refuse the missing card');
+    const verify = await openRx(session, patient);
+    h.assert(await verify.locator(`#set_${last}`).count() === 1, 'replayed Delete removed another card');
+    await verify.locator(`#set_${last} a[onclick^="removePrescribingDrug"]`).click();
+    await verify.locator(`#set_${last}`).waitFor({state: 'detached'});
+    for (const page of [...editors, pad, fresh, verify]) await page.close();
   });
 
   // Exercise each distinct sidebar fragment on its actual page. Hold the initial stash read

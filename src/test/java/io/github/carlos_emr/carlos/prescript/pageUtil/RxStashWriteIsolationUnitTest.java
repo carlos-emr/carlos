@@ -737,7 +737,8 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
                 action.setAction(legacyAction);
                 action.setStashId(stashId);
 
-                assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(409);
                 assertThat(bean.getStashIndex()).isEqualTo(1);
                 assertThat(bean.getStashSize()).isEqualTo(2);
             }
@@ -793,6 +794,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should remove the card when action=delete names its patient")
         void shouldRemoveCard_whenLegacyDeleteNamesPatient() throws Exception {
+            when(stagedCard.getDraftRevision()).thenReturn("rendered-revision");
+            request.setParameter("randomId", "111111");
+            request.setParameter("draftRevision", "rendered-revision");
             namePatient();
             RxStash2Action action = new RxStash2Action();
             action.setAction("delete");
@@ -807,6 +811,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should still move the cursor through the fallback patient for action=edit")
         void shouldMoveCursor_whenLegacyEditNamesNoPatient() throws Exception {
+            when(stagedCard.getDraftRevision()).thenReturn("rendered-revision");
+            request.setParameter("randomId", "111111");
+            request.setParameter("draftRevision", "rendered-revision");
             RxStash2Action action = new RxStash2Action();
             action.setAction("edit");
             action.setStashId(0);

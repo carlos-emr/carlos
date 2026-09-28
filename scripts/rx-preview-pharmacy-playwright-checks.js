@@ -71,8 +71,10 @@ const config = {
 let requestedScriptId = String(process.env.PRESCRIPTION_SCRIPT_ID || '').trim();
 const demographicNo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
 if (requestedScriptId) {
-  assert(/^[0-9]{1,10}$/.test(requestedScriptId) && Number(requestedScriptId) > 0 && Number(requestedScriptId) <= 2147483647,
+  assert(/^[0-9]{1,10}$/.test(requestedScriptId) && Number(requestedScriptId) > 0,
     'PRESCRIPTION_SCRIPT_ID must be a positive integer prescription identifier');
+  assert(Number(requestedScriptId) <= 999999999,
+    'PRESCRIPTION_SCRIPT_ID exceeds the current Reprint route limit of 999999999; choose a supported fixture.');
   requestedScriptId = String(Number(requestedScriptId));
 }
 let scriptId = requestedScriptId || null;
@@ -104,7 +106,8 @@ function cleanupMysqlDefaults() {
  */
 function resolvePrescriptionScriptId() {
   const latestQuery = `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
-    + `WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo}`;
+    + `WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} `
+    + 'AND p.script_no BETWEEN 1 AND 999999999';
   if (requestedScriptId) {
     const owner = sql(`SELECT demographic_no FROM prescription WHERE script_no=${requestedScriptId}`);
     let reason;
@@ -125,7 +128,8 @@ function resolvePrescriptionScriptId() {
   }
   const selected = sql(latestQuery);
   assert(selected && selected !== 'NULL',
-    `No prescription with owned drug rows exists for demographic ${demographicNo}; create an owned fixture first.`);
+    `No prescription with owned drug rows supported by Reprint exists for demographic ${demographicNo} `
+    + '(script_no 1–999999999); create an owned fixture first.');
   return selected;
 }
 
@@ -417,7 +421,8 @@ async function assertPreviewRenders(hostFrame, label) {
     try {
       restorePharmacy(stagedLinkIds);
     } catch (restoreError) {
-      console.error(`WARN failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
+      console.error(`FAIL failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
+      process.exitCode = 1;
     }
     try {
       await cleanupOwnedWorkflow({

@@ -14,12 +14,23 @@ function section(source, start, end) {
   return source.slice(from, to);
 }
 const fixtureConfig = section(pharmacy, 'let requestedScriptId =', 'const mysqlHost');
-for (const value of ['abc', '0', '-1', '2147483648', '45 OR 1=1']) {
+for (const value of ['abc', '0', '-1', '45 OR 1=1']) {
   test(`malformed explicit prescription input is rejected before any database or browser use: ${value}`, () => {
     assert.throws(() => vm.runInNewContext(fixtureConfig,
       {process: {env: {PRESCRIPTION_SCRIPT_ID: value}}, assert}), /positive integer prescription identifier/);
   });
 }
+for (const value of ['1000000000', '2147483647', '2147483648']) {
+  test(`a numeric fixture outside the current Reprint route range fails before startup: ${value}`, () => {
+    assert.throws(() => vm.runInNewContext(fixtureConfig,
+      {process: {env: {PRESCRIPTION_SCRIPT_ID: value}}, assert}), /Reprint route limit of 999999999/);
+  });
+}
+test('the highest supported Reprint fixture remains valid', () => {
+  const context = {process: {env: {PRESCRIPTION_SCRIPT_ID: '999999999'}}, assert};
+  vm.runInNewContext(fixtureConfig + '\nthis.selectedFixture = scriptId;', context);
+  assert.equal(context.selectedFixture, '999999999');
+});
 test('explicit numeric fixture input is trimmed and normalized without changing its identity', () => {
   const context = {process: {env: {PRESCRIPTION_SCRIPT_ID: ' 00045 '}}, assert};
   vm.runInNewContext(fixtureConfig + '\nthis.selectedFixture = scriptId;', context);
@@ -38,11 +49,13 @@ function resolve(requestedScriptId, headers, drugs) {
       assert.match(query, /^SELECT MAX\(p.script_no\) FROM prescription p JOIN drugs d ON d.script_no=p.script_no WHERE /);
       const headerPatient = query.match(/p.demographic_no=(\d+)/);
       const drugPatient = query.match(/d.demographic_no=(\d+)/);
+      const range = query.match(/p.script_no BETWEEN (\d+) AND (\d+)/);
       // Evaluate the ownership predicates actually present in the query; omitting either must
       // make the mixed-owner fixture win and fail the expected result below.
       const candidates = drugs.filter(d => Object.hasOwn(headers, d.script)
         && (!headerPatient || headers[d.script] === Number(headerPatient[1]))
-        && (!drugPatient || d.patient === Number(drugPatient[1]))).map(d => d.script);
+        && (!drugPatient || d.patient === Number(drugPatient[1]))
+        && (!range || (d.script >= Number(range[1]) && d.script <= Number(range[2])))).map(d => d.script);
       return candidates.length ? String(Math.max(...candidates)) : 'NULL';
     },
   };
@@ -54,6 +67,13 @@ const drugs = [{script: 45, patient: 1}, {script: 200, patient: 1}, {script: 300
 test('explicit usable fixture is retained and automatic selection skips empty and mixed-owner scripts', () => {
   assert.equal(resolve('45', headers, drugs), '45');
   assert.equal(resolve('', headers, drugs), '45');
+});
+test('automatic fixtures skip unsupported high IDs and retain the highest supported ID', () => {
+  assert.equal(resolve('', {...headers, 1000000000: 1, 2147483647: 1},
+    [...drugs, {script: 1000000000, patient: 1}, {script: 2147483647, patient: 1}]), '45');
+  assert.equal(resolve('', {999999999: 1, 1000000000: 1},
+    [{script: 999999999, patient: 1}, {script: 1000000000, patient: 1}]), '999999999');
+  assert.throws(() => resolve('', {1000000000: 1}, [{script: 1000000000, patient: 1}]), /supported by Reprint/);
 });
 for (const [id, reason] of [['63', /no drug rows owned/], ['999', /does not identify an existing prescription/],
   ['200', /does not belong/], ['300', /no drug rows owned/]]) {
@@ -89,6 +109,34 @@ for (const invalid of [true, false]) {
     await vm.runInNewContext(pharmacyEntry, context);
     assert.equal(context.process.exitCode, 1);
     assert.deepEqual(events, ['defaults', 'resolve', ...(invalid ? [] : ['launch']), 'restore', 'owned cleanup', 'defaults cleanup']);
+  });
+}
+
+// Run the production finally block with an otherwise successful status. Restoration failures
+// must change the process result while browser/owned fixture/defaults cleanup still proceeds.
+const cleanupStart = pharmacy.lastIndexOf('  } finally {') + '  } finally {'.length;
+const cleanupEnd = pharmacy.lastIndexOf('\n  }\n})();');
+assert.ok(cleanupStart > 0 && cleanupEnd > cleanupStart);
+const teardown = `(async () => {${pharmacy.slice(cleanupStart, cleanupEnd)}\n})()`;
+for (const failRestore of [false, true]) {
+  test(`pharmacy restoration ${failRestore ? 'failure fails' : 'success preserves'} an otherwise successful run`, async () => {
+    const events = [];
+    const errors = [];
+    const context = {
+      stagedLinkIds: '12,13', browser: {}, foreignPatient: null, foreignMarker: 'fixture',
+      restorePharmacy(ids) {
+        assert.equal(ids, '12,13'); events.push('restore');
+        if (failRestore) throw new Error('fixture restoration unavailable');
+      },
+      cleanupOwnedWorkflow: async () => {events.push('owned cleanup');},
+      cleanupMysqlDefaults() {events.push('defaults cleanup');}, sql() {},
+      process: {exitCode: 0}, console: {error(message) {errors.push(message);}},
+    };
+    await vm.runInNewContext(teardown, context);
+    assert.equal(context.process.exitCode, failRestore ? 1 : 0);
+    assert.deepEqual(events, ['restore', 'owned cleanup', 'defaults cleanup']);
+    assert.equal(errors.length, failRestore ? 1 : 0);
+    if (failRestore) assert.match(errors[0], /^FAIL .*restore demographicPharmacy links/);
   });
 }
 

@@ -108,9 +108,8 @@ public final class RxStash2Action extends ActionSupport {
         }
 
         synchronized (bean) {
-            applyLegacyAction(bean);
+            return applyLegacyAction(bean);
         }
-        return SUCCESS;
     }
 
     /**
@@ -126,21 +125,34 @@ public final class RxStash2Action extends ActionSupport {
         return METHOD_DELETE_PRESCRIBE.equals(method) || legacyDelete;
     }
 
-    /** The legacy edit (move the cursor) or delete (remove the card) of the card at stashId. */
-    private void applyLegacyAction(RxSessionBean bean) {
-        if (this.getStashId() < 0 || this.getStashId() >= bean.getStashSize()) {
-            return;
+    /** Resolves the rendered card by identity, never its position in another window's current stash. */
+    private String applyLegacyAction(RxSessionBean bean) throws IOException {
+        if (!"edit".equals(this.getAction()) && !ACTION_DELETE.equals(this.getAction())) return SUCCESS;
+        String[] keys = request.getParameterValues("randomId");
+        String[] revisions = request.getParameterValues("draftRevision");
+        RxPrescriptionData.Prescription card = null;
+        if (keys != null && keys.length == 1 && keys[0] != null && keys[0].matches("[0-9]{1,9}")) {
+            card = bean.getStashItem2(Integer.parseInt(keys[0]));
         }
+        if (card == null || revisions == null || revisions.length != 1
+                || card.getDraftRevision() == null || !card.getDraftRevision().equals(revisions[0])) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"STALE_RX_STASH\"}");
+            return NONE;
+        }
+        int index = bean.getIndexFromRx((int) card.getRandomId());
         if ("edit".equals(this.getAction())) {
             request.setAttribute("BoxNoFillFirstLoad", "true");
-            bean.setStashIndex(this.getStashId());
-        }
-        if (ACTION_DELETE.equals(this.getAction())) {
-            bean.removeStashItem(this.getStashId());
-            if (bean.getStashIndex() >= bean.getStashSize()) {
-                bean.setStashIndex(bean.getStashSize() - 1);
+            bean.setStashIndex(index);
+        } else {
+            int sourceDrugId = card.getDrugReferenceId();
+            bean.removeStashItem(index);
+            if (sourceDrugId > 0 && !stagesSource(bean, sourceDrugId)) {
+                bean.getReRxDrugIdList().remove(String.valueOf(sourceDrugId));
             }
         }
+        return SUCCESS;
     }
 
     public String setStashIndex() {
