@@ -91,7 +91,7 @@ class SmsTransactionClaimLockingUnitTest {
                 SmsProviderType.STUB, new Date(System.currentTimeMillis() + 60_000), 10));
 
         assertThat(claimed).hasSize(1);
-        assertThat(lockingStatements()).singleElement().satisfies(sql -> assertThat(sql).endsWith(" for update skip locked"));
+        assertLocksTheOrderedCappedClaimQuery();
     }
 
     @Test
@@ -105,7 +105,7 @@ class SmsTransactionClaimLockingUnitTest {
                 SmsProviderType.STUB, new Date(now.getTime() - 60_000), now, 10));
 
         assertThat(claimed).hasSize(1);
-        assertThat(lockingStatements()).singleElement().satisfies(sql -> assertThat(sql).endsWith(" for update skip locked"));
+        assertLocksTheOrderedCappedClaimQuery();
     }
 
     private static SmsTransaction newOutboundAttempt() {
@@ -130,6 +130,17 @@ class SmsTransactionClaimLockingUnitTest {
             transaction.rollback();
             return claimed;
         }
+    }
+
+    /**
+     * The lock must sit on the claim query itself. Follow-on locking (a plain select, then a lock by id)
+     * would also end in SKIP LOCKED but is the read-then-lock pattern that fails on MariaDB with error 1020.
+     */
+    private void assertLocksTheOrderedCappedClaimQuery() {
+        assertThat(lockingStatements()).singleElement().satisfies(sql -> assertThat(sql)
+                .contains(" order by ")
+                .contains(" limit ")
+                .endsWith(" for update skip locked"));
     }
 
     private List<String> lockingStatements() {

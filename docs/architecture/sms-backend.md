@@ -28,7 +28,7 @@ All adapters implement `send(command, clientReferenceId)`. There is no overload 
 4. Only a definite provider rejection is eligible for a retry. An exception, null result or explicit uncertain result leaves the row `SENDING`, with an operator message explaining that its outcome is unknown.
 5. Stale `SENDING` rows are reconciled through provider status lookup. A confirmed result updates the row; a definitive not-found result permits a bounded retry. An unavailable lookup ends in a failure requiring manual review. A timeout is not evidence that nothing was sent. Do not manually resend without reconciling with the provider.
 
-Queue and stale-recovery claims lock with `FOR UPDATE SKIP LOCKED`. A worker skips rows that another worker holds, and those rows are handled by that worker or by the next run. Waiting instead could deadlock two concurrent workers on MariaDB (#3913). This needs MariaDB 10.6 or later; CARLOS requires 11.4.
+Queue and stale-recovery claims lock with `FOR UPDATE SKIP LOCKED`. A claim skips any row another transaction has locked (another claim, a direct send, a delivery callback), so it can come back empty while rows are still due; a later claim or run picks them up. Waiting instead could deadlock two concurrent workers on MariaDB (#3913). This needs MariaDB 10.6 or later; CARLOS requires 11.4.
 
 A direct-send response reflects the persisted result, including a delivery webhook that arrived before the adapter response was saved. Callback identifiers must match the stored outbound message and its authenticated SMS backend. Callbacks cannot introduce internal queue/consent states. Opaque provider identifiers are case-sensitive and must not be silently truncated.
 

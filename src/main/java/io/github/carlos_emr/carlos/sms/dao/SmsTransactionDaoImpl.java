@@ -165,9 +165,15 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
      * <p>{@code provider_type} leads both unique indexes, so MariaDB can reach the same row through a
      * different index in each of two concurrent claims. Those claims deadlocked InnoDB (#3913): one
      * waited for the row while holding the index record that the other's UPDATE needed. With SKIP
-     * LOCKED a claimer never waits on a row lock, so it cannot join a lock cycle. A row another worker
-     * holds is left to that worker, and one still due is picked up by the next run. Requires MariaDB
-     * 10.6 or later; CARLOS requires 11.4.
+     * LOCKED the claim's locking read no longer waits on a row lock; on MariaDB 11.8 the reproduction
+     * went from a deadlock in every round to none.
+     *
+     * <p>It skips rows locked by any transaction, not only another claim: a direct send, a delivery
+     * callback writing the row. Neither index returns due rows already in
+     * {@code created_at} order, so the scan locks every due row it examines, not only the first. A
+     * claim can therefore come back empty while rows are still due, which ends that provider's drain
+     * for the run; a later claim or run picks the rows up. Requires MariaDB 10.6 or later; CARLOS
+     * requires 11.4.
      */
     private void lockSkippingRowsHeldElsewhere(TypedQuery<SmsTransaction> query) {
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
