@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.email.core;
 import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 
 /**
  * Result of one synchronous email-send attempt.
@@ -29,14 +30,21 @@ public final class EmailSendResult {
     private final TransportOutcome transportOutcome;
     private final boolean transportOutcomeRecorded;
     private final boolean followUpRequired;
+    private final Refusal refusal;
 
     private EmailSendResult(EmailLog emailLog, TransportOutcome transportOutcome,
             boolean transportOutcomeRecorded, boolean followUpRequired) {
+        this(emailLog, transportOutcome, transportOutcomeRecorded, followUpRequired, Refusal.NONE);
+    }
+
+    private EmailSendResult(EmailLog emailLog, TransportOutcome transportOutcome,
+            boolean transportOutcomeRecorded, boolean followUpRequired, Refusal refusal) {
         this.emailLog = Objects.requireNonNull(emailLog, "emailLog must not be null");
         this.transportOutcome = Objects.requireNonNull(
                 transportOutcome, "transportOutcome must not be null");
         this.transportOutcomeRecorded = transportOutcomeRecorded;
         this.followUpRequired = followUpRequired;
+        this.refusal = refusal == null ? Refusal.NONE : refusal;
     }
 
     public static EmailSendResult accepted(EmailLog emailLog,
@@ -61,6 +69,16 @@ public final class EmailSendResult {
                 emailLog, TransportOutcome.FAILED, transportOutcomeRecorded, false);
     }
 
+    /**
+     * A definite failure where the mail server refused an address, so the sender can be told
+     * what to check. {@link Refusal#NONE} behaves exactly like {@link #failed(EmailLog, boolean)}.
+     */
+    public static EmailSendResult failed(EmailLog emailLog,
+            boolean transportOutcomeRecorded, Refusal refusal) {
+        return new EmailSendResult(
+                emailLog, TransportOutcome.FAILED, transportOutcomeRecorded, false, refusal);
+    }
+
     public static EmailSendResult unconfirmed(EmailLog emailLog) {
         return new EmailSendResult(emailLog, TransportOutcome.UNCONFIRMED, false, false);
     }
@@ -83,5 +101,13 @@ public final class EmailSendResult {
 
     public boolean isTransportOutcomeRecorded() {
         return transportOutcomeRecorded;
+    }
+
+    /**
+     * Which address the mail server refused on a failed send; {@link Refusal#NONE} for every
+     * accepted or unconfirmed send and for failures that were not a refusal.
+     */
+    public Refusal getRefusal() {
+        return refusal;
     }
 }

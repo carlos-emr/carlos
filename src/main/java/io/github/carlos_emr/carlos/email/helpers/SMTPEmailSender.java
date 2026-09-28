@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -24,6 +25,7 @@ import jakarta.mail.SendFailedException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
+import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -35,6 +37,7 @@ import io.github.carlos_emr.carlos.email.core.OutboundEmailTransport;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -84,6 +87,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
     /** Bounds the walk over per-recipient refusals when logging them. */
     private static final int MAX_LOGGED_REFUSALS = 64;
+    /** The command prefix Angus sends for the envelope sender ({@code SMTPTransport.mailFrom}). */
+    private static final String MAIL_FROM_COMMAND = "MAIL FROM:";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
@@ -251,8 +256,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         } catch (MailAuthenticationException | MailPreparationException e) {
             throw new EmailSendingException("SMTP failed before accepting the message.", e);
         } catch (Exception e) {
-            if (isDefinitelyUnsent(e)) {
-                throw new EmailSendingException("SMTP failed before accepting the message.", e);
+            Optional<Refusal> unsent = definitelyUnsent(e);
+            if (unsent.isPresent()) {
+                throw new EmailSendingException("SMTP failed before accepting the message.", e, unsent.get());
             }
             // A lost SMTP acknowledgement cannot prove non-delivery; do not invite a duplicate.
             throw new EmailSendingException(
@@ -262,29 +268,58 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         }
     }
 
-    private boolean isDefinitelyUnsent(Exception failure) {
+    /**
+     * Returns which address the server refused when the failure proves the message never left
+     * ({@link Refusal#NONE} for a failure at connect time), or empty when it cannot be shown.
+     */
+    private Optional<Refusal> definitelyUnsent(Exception failure) {
         if (!(failure instanceof org.springframework.mail.MailSendException sendFailure)) {
-            return false;
+            return Optional.empty();
         }
-        // This sender dispatches exactly one message, and only two shapes prove it never left:
+        // This sender dispatches exactly one message, and only three shapes prove it never left:
         // - connect time: Spring reports the same exception as both the top-level cause and that
         //   message's failure;
+        // - refused at MAIL FROM: see isRefusedAtSender;
         // - refused at RCPT TO: see isRefusedAtRecipients.
-        // Failures during DATA have no top-level cause and are not the RCPT-stage exception, and
+        // Failures during DATA have no top-level cause and are neither of the refusal shapes, and
         // closing an accepted connection has no failed message; both stay uncertain. Do not infer
         // the stage from a TLS/timeout exception type or from remote diagnostic text.
         Exception[] messageFailures = sendFailure.getMessageExceptions();
         if (messageFailures.length != 1) {
-            return false;
+            return Optional.empty();
         }
         if (sendFailure.getCause() != null && messageFailures[0] == sendFailure.getCause()) {
-            return true;
+            return Optional.of(Refusal.NONE);
+        }
+        if (isRefusedAtSender(messageFailures[0])) {
+            logSenderRefusal((SMTPSendFailedException) messageFailures[0]);
+            return Optional.of(Refusal.SENDER);
         }
         if (isRefusedAtRecipients(messageFailures[0])) {
             logRecipientRefusal((SendFailedException) messageFailures[0]);
-            return true;
+            return Optional.of(Refusal.RECIPIENT);
         }
-        return false;
+        return Optional.empty();
+    }
+
+    /**
+     * Recognises the server refusing the sending address at MAIL FROM, for example a relay that
+     * will not send for the clinic's domain. Angus sends MAIL FROM before any RCPT TO or DATA and
+     * on any reply other than 250 throws {@code SMTPSendFailedException} carrying the command it
+     * sent, so no part of the message has been transmitted, whether the reply was 5xx or 4xx.
+     *
+     * <p>The signal is CARLOS's own command, not the server's text. The same exception class is
+     * thrown at DATA, where acceptance cannot be ruled out, so matching on the class alone would
+     * be wrong. No address can have been sent to before RCPT TO; that is checked anyway so a
+     * message that may have gone out never reads as unsent.</p>
+     */
+    private static boolean isRefusedAtSender(Exception messageFailure) {
+        if (!(messageFailure instanceof SMTPSendFailedException refused)) {
+            return false;
+        }
+        String command = refused.getCommand();
+        return command != null && command.startsWith(MAIL_FROM_COMMAND)
+                && isEmpty(refused.getValidSentAddresses());
     }
 
     /**
@@ -332,6 +367,14 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         }
         logger.warn("SMTP server refused the message at RCPT TO; refusedRecipients={}, replyCodes={}",
                 refusedRecipients, replyCodes);
+    }
+
+    /**
+     * Logs the reply code for an operator telling a policy block (5xx) from a temporary refusal
+     * (4xx). Not the command or the server's text: both can carry an address.
+     */
+    private void logSenderRefusal(SMTPSendFailedException refused) {
+        logger.warn("SMTP server refused the sender at MAIL FROM; replyCode={}", refused.getReturnCode());
     }
 
     /**

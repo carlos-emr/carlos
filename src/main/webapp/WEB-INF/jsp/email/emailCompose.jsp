@@ -756,6 +756,16 @@
                             <fmt:message key="email.compose.msg.reviewErrorAndTryAgain"/><br><br>
                             <b><fmt:message key="email.compose.msg.errorMessage"/></b> <br>
                             ${carlos:forHtml(emailLog.errorMessage)}</p>
+                        <%-- Set only when the transport proved the server refused an address, so --%>
+                        <%-- the sender knows whether to fix the patient's address or call an admin. --%>
+                        <c:choose>
+                            <c:when test="${emailRefusal eq 'RECIPIENT'}">
+                                <p class="mb-0" id="recipientRefusedHint"><fmt:message key="email.compose.msg.recipientRefusedHint"/></p>
+                            </c:when>
+                            <c:when test="${emailRefusal eq 'SENDER'}">
+                                <p class="mb-0" id="senderRefusedHint"><fmt:message key="email.compose.msg.senderRefusedHint"/></p>
+                            </c:when>
+                        </c:choose>
                     </div>
                 </c:otherwise>
             </c:choose>

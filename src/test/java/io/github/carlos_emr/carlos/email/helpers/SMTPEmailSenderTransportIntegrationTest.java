@@ -26,6 +26,7 @@ import org.mockito.MockedStatic;
 import org.junit.jupiter.api.AfterEach;
 import static org.mockito.Mockito.mockStatic;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -119,7 +120,7 @@ class SMTPEmailSenderTransportIntegrationTest {
         try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             receiver.setSoTimeout(10_000);
             CompletableFuture<Boolean> dataReceived = new CompletableFuture<>();
-            Thread.ofPlatform().daemon(true).start(() -> refuseRecipient(receiver, dataReceived, refusal));
+            Thread.ofPlatform().daemon(true).start(() -> refuseCommand(receiver, dataReceived, "RCPT TO:<unknown", refusal));
             String[] recipients = alsoAcceptedRecipient
                     ? new String[]{"accepted@example.test", "unknown@example.test"}
                     : new String[]{"unknown@example.test"};
@@ -128,8 +129,36 @@ class SMTPEmailSenderTransportIntegrationTest {
             sender.prepareArtifactBytes();
 
             assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
-                    EmailSendingException.class,
-                    failure -> assertThat(failure.isDeliveryOutcomeUncertain()).isFalse());
+                    EmailSendingException.class, failure -> {
+                        assertThat(failure.isDeliveryOutcomeUncertain()).isFalse();
+                        assertThat(failure.getRefusal()).isEqualTo(Refusal.RECIPIENT);
+                    });
+            assertThat(dataReceived.get(10, TimeUnit.SECONDS)).isFalse();
+        }
+    }
+
+    /**
+     * Drives the real transport into a refusal at MAIL FROM, as from a relay that will not send
+     * for the sending address: permanent (553) or temporary (451). Angus stops before RCPT TO,
+     * so nothing reaches the receiver and the failure must be definite.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"553 5.7.1 Sender address rejected: not owned by user",
+            "451 4.3.0 Temporary sender lookup failure"})
+    void shouldReportDefiniteFailure_whenServerRefusesSender(String refusal) throws Exception {
+        try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            receiver.setSoTimeout(10_000);
+            CompletableFuture<Boolean> dataReceived = new CompletableFuture<>();
+            Thread.ofPlatform().daemon(true).start(() -> refuseCommand(receiver, dataReceived, "MAIL FROM:", refusal));
+            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
+                    new String[]{"recipient@example.test"}, "Synthetic refused sender", "Body", List.of());
+            sender.prepareArtifactBytes();
+
+            assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
+                    EmailSendingException.class, failure -> {
+                        assertThat(failure.isDeliveryOutcomeUncertain()).isFalse();
+                        assertThat(failure.getRefusal()).isEqualTo(Refusal.SENDER);
+                    });
             assertThat(dataReceived.get(10, TimeUnit.SECONDS)).isFalse();
         }
     }
@@ -145,8 +174,9 @@ class SMTPEmailSenderTransportIntegrationTest {
         return config;
     }
 
-    /** Answers {@code refusal} to RCPT TO for an address starting "unknown", accepts the rest, and records whether DATA arrived. */
-    private static void refuseRecipient(ServerSocket receiver, CompletableFuture<Boolean> dataReceived, String refusal) {
+    /** Answers {@code refusal} to any command starting {@code refusedCommand}, accepts the rest, and records whether DATA arrived. */
+    private static void refuseCommand(ServerSocket receiver, CompletableFuture<Boolean> dataReceived,
+            String refusedCommand, String refusal) {
         try (Socket connection = receiver.accept()) {
             connection.setSoTimeout(10_000);
             var output = connection.getOutputStream();
@@ -156,7 +186,7 @@ class SMTPEmailSenderTransportIntegrationTest {
             String line;
             while ((line = input.readLine()) != null) {
                 String reply;
-                if (line.startsWith("RCPT TO:<unknown")) {
+                if (line.startsWith(refusedCommand)) {
                     reply = refusal;
                 } else if (line.equals("DATA")) {
                     // Refuse at once so a regression fails fast instead of waiting out the I/O timeout.

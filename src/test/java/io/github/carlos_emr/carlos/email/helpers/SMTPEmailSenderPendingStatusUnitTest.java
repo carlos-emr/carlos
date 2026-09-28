@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -144,8 +145,10 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
                 null, null, new Address[] {new InternetAddress("patient@example.invalid")});
 
         assertThatThrownBy(senderFailingWith(refused)::send)
-                .isInstanceOfSatisfying(EmailSendingException.class,
-                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isFalse())
+                .isInstanceOfSatisfying(EmailSendingException.class, exception -> {
+                    assertThat(exception.isDeliveryOutcomeUncertain()).isFalse();
+                    assertThat(exception.getRefusal()).isEqualTo(Refusal.RECIPIENT);
+                })
                 .hasMessage("SMTP failed before accepting the message.");
     }
 
@@ -206,8 +209,49 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
                 null, null, new Address[] {new InternetAddress("refused@example.invalid")});
 
         assertThatThrownBy(senderFailingWith(afterData)::send)
-                .isInstanceOfSatisfying(EmailSendingException.class,
-                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isTrue());
+                .isInstanceOfSatisfying(EmailSendingException.class, exception -> {
+                    assertThat(exception.isDeliveryOutcomeUncertain()).isTrue();
+                    assertThat(exception.getRefusal()).isEqualTo(Refusal.NONE);
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {550, 553, 451})
+    @DisplayName("should classify a server refusing the sender at MAIL FROM as definitely unsent")
+    void shouldClassifySenderRefusal_asDefinitelyUnsent(int replyCode) throws Exception {
+        assertThatThrownBy(senderFailingWith(senderRefusal(replyCode))::send)
+                .isInstanceOfSatisfying(EmailSendingException.class, exception -> {
+                    assertThat(exception.isDeliveryOutcomeUncertain()).isFalse();
+                    assertThat(exception.getRefusal()).isEqualTo(Refusal.SENDER);
+                })
+                .hasMessage("SMTP failed before accepting the message.");
+    }
+
+    @Test
+    @DisplayName("should log the MAIL FROM reply code without the sender address or the server text")
+    void shouldLogSenderReplyCode_withoutAddressOrServerText() throws Exception {
+        try (LogCapture capture = LogCapture.forLogger(SMTPEmailSender.class)) {
+            assertThatThrownBy(senderFailingWith(senderRefusal(553))::send).isInstanceOf(EmailSendingException.class);
+
+            assertThat(capture.messages())
+                    .anySatisfy(message -> assertThat(message).contains("MAIL FROM").contains("replyCode=553"))
+                    .noneSatisfy(message -> assertThat(message)
+                            .containsAnyOf("clinic@example.invalid", "patient@example.invalid", "not permitted"));
+        }
+    }
+
+    @Test
+    @DisplayName("should keep a MAIL FROM refusal uncertain if it lists an address as sent to")
+    void shouldClassifySenderRefusalWithSentAddress_asUncertainOutcome() throws Exception {
+        // Angus cannot produce this before RCPT TO. Pinned so the guard is not removed as dead code.
+        SMTPSendFailedException claimsSent = new SMTPSendFailedException("MAIL FROM:<clinic@example.invalid>", 550,
+                "550 rejected", null, new Address[] {new InternetAddress("patient@example.invalid")}, null, null);
+
+        assertThatThrownBy(senderFailingWith(claimsSent)::send)
+                .isInstanceOfSatisfying(EmailSendingException.class, exception -> {
+                    assertThat(exception.isDeliveryOutcomeUncertain()).isTrue();
+                    assertThat(exception.getRefusal()).isEqualTo(Refusal.NONE);
+                });
     }
 
     @ParameterizedTest
@@ -242,8 +286,10 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     @DisplayName("should classify SMTP authentication failure as definitely unsent")
     void shouldClassifyAuthenticationFailure_asDefinitelyUnsent() {
         assertThatThrownBy(senderThrowing(new MailAuthenticationException("secret diagnostic"))::send)
-                .isInstanceOfSatisfying(EmailSendingException.class,
-                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isFalse())
+                .isInstanceOfSatisfying(EmailSendingException.class, exception -> {
+                    assertThat(exception.isDeliveryOutcomeUncertain()).isFalse();
+                    assertThat(exception.getRefusal()).isEqualTo(Refusal.NONE);
+                })
                 .hasMessage("SMTP failed before accepting the message.")
                 .hasMessageNotContaining("secret diagnostic");
     }
@@ -258,6 +304,16 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
         return replyCode >= 500
                 ? new SendFailedException("Invalid Addresses", perAddress, null, null, refused)
                 : new SendFailedException("Invalid Addresses", perAddress, null, refused, null);
+    }
+
+    /**
+     * The exception Angus's issueSendCommand throws for a non-250 reply to MAIL FROM: its own
+     * command, nothing sent, and every recipient listed as valid but unsent.
+     */
+    private static SMTPSendFailedException senderRefusal(int replyCode) throws Exception {
+        return new SMTPSendFailedException("MAIL FROM:<clinic@example.invalid>", replyCode,
+                replyCode + " 5.7.1 Sender address not permitted", null, null,
+                new Address[] {new InternetAddress("patient@example.invalid")}, null);
     }
 
     /**
