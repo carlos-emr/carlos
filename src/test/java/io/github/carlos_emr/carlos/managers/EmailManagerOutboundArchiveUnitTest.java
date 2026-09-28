@@ -741,6 +741,40 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should still report the refusal when the FAILED status cannot be recorded")
+    void shouldReportRefusal_whenFailedStatusCannotBeRecorded() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 52);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        doThrow(new IllegalStateException("status write failed"))
+                .when(emailLogDao).transitionEmailStatus(eq(52), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                "MAIL FROM:<clinic@example.test>", 553, "553 rejected", null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.SENDER))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.isTransportOutcomeRecorded()).isFalse();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.SENDER);
+        }
+    }
+
+    @Test
     @DisplayName("should carry a refused recipient through to the result")
     void shouldReportRecipientRefusal_whenServerRefusesRcptTo() {
         EmailConfig emailConfig = smtpEmailConfig();
@@ -773,8 +807,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should label a DATA-stage refusal as a refused message and report no refused address")
-    void shouldLabelMessageRefusal_whenServerRefusesAfterData() {
+    @DisplayName("should label a DATA-stage failure neutrally and report no refused address")
+    void shouldLabelMessageTransferFailure_whenServerFailsAfterData() {
         EmailConfig emailConfig = smtpEmailConfig();
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
         doAnswer(invocation -> {
@@ -801,7 +835,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
 
             assertThat(result.isDeliveryUnconfirmed()).isTrue();
             assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
-            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP message refused)");
+            // Neutral: the row stays PENDING, and the message may have been delivered.
+            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP message transfer failure)");
         }
     }
 

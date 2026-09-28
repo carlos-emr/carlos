@@ -292,8 +292,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
             return Optional.of(Refusal.NONE);
         }
         if (isRefusedAtSender(messageFailures[0])) {
-            logSenderRefusal((SMTPSendFailedException) messageFailures[0]);
-            return Optional.of(Refusal.SENDER);
+            SMTPSendFailedException refused = (SMTPSendFailedException) messageFailures[0];
+            logSenderRefusal(refused);
+            return Optional.of(refusesSenderAddress(refused.getReturnCode()) ? Refusal.SENDER : Refusal.NONE);
         }
         if (isRefusedAtRecipients(messageFailures[0])) {
             logRecipientRefusal((SendFailedException) messageFailures[0]);
@@ -303,15 +304,15 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     }
 
     /**
-     * Recognises the server refusing the sending address at MAIL FROM, for example a relay that
-     * will not send for the clinic's domain. Angus sends MAIL FROM before any RCPT TO or DATA and
-     * on any reply other than 250 throws {@code SMTPSendFailedException} carrying the command it
-     * sent, so no part of the message has been transmitted, whether the reply was 5xx or 4xx.
+     * Recognises a failed MAIL FROM, for example a relay that will not send for the clinic's
+     * domain. Angus sends MAIL FROM before any RCPT TO or DATA and on any reply other than 250,
+     * including a dropped connection it reads as code -1, throws {@code SMTPSendFailedException}
+     * carrying the command it sent, so no part of the message has been transmitted.
      *
      * <p>The signal is CARLOS's own command, not the server's text. The same exception class is
      * thrown at DATA, where acceptance cannot be ruled out, so matching on the class alone would
-     * be wrong. No address can have been sent to before RCPT TO; that is checked anyway so a
-     * message that may have gone out never reads as unsent.</p>
+     * be wrong. Angus never lists a sent address in this exception; the check keeps a future
+     * library change from turning a possibly delivered message into a definite failure.</p>
      */
     private static boolean isRefusedAtSender(Exception messageFailure) {
         if (!(messageFailure instanceof SMTPSendFailedException refused)) {
@@ -370,11 +371,21 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     }
 
     /**
+     * Whether a failed MAIL FROM is the server refusing the sending address, which staff can act
+     * on, rather than the server going away: 421 is "service closing" and -1 is Angus's code for
+     * a dropped connection or an unreadable reply. Those are still definite failures.
+     */
+    private static boolean refusesSenderAddress(int replyCode) {
+        return replyCode >= 400 && replyCode <= 599 && replyCode != 421;
+    }
+
+    /**
      * Logs the reply code for an operator telling a policy block (5xx) from a temporary refusal
-     * (4xx). Not the command or the server's text: both can carry an address.
+     * (4xx) or a dropped connection (-1). Not the command or the server's text: both can carry an
+     * address.
      */
     private void logSenderRefusal(SMTPSendFailedException refused) {
-        logger.warn("SMTP server refused the sender at MAIL FROM; replyCode={}", refused.getReturnCode());
+        logger.warn("SMTP server did not accept MAIL FROM; replyCode={}", refused.getReturnCode());
     }
 
     /**

@@ -227,6 +227,19 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
                 .hasMessage("SMTP failed before accepting the message.");
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {421, -1})
+    @DisplayName("should treat a closing server or dropped connection at MAIL FROM as unsent, not as a refused sender")
+    void shouldClassifyLostSenderExchange_asUnsentWithoutRefusal(int replyCode) throws Exception {
+        // 421 is "service closing"; -1 is Angus's code for EOF or an unreadable reply. DATA was
+        // never sent, so the failure is definite, but the sending address was not refused.
+        assertThatThrownBy(senderFailingWith(senderRefusal(replyCode))::send)
+                .isInstanceOfSatisfying(EmailSendingException.class, exception -> {
+                    assertThat(exception.isDeliveryOutcomeUncertain()).isFalse();
+                    assertThat(exception.getRefusal()).isEqualTo(Refusal.NONE);
+                });
+    }
+
     @Test
     @DisplayName("should log the MAIL FROM reply code without the sender address or the server text")
     void shouldLogSenderReplyCode_withoutAddressOrServerText() throws Exception {
@@ -243,7 +256,7 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep a MAIL FROM refusal uncertain if it lists an address as sent to")
     void shouldClassifySenderRefusalWithSentAddress_asUncertainOutcome() throws Exception {
-        // Angus cannot produce this before RCPT TO. Pinned so the guard is not removed as dead code.
+        // Angus never lists a sent address here today. Pinned so the guard is not removed as dead code.
         SMTPSendFailedException claimsSent = new SMTPSendFailedException("MAIL FROM:<clinic@example.invalid>", 550,
                 "550 rejected", null, new Address[] {new InternetAddress("patient@example.invalid")}, null, null);
 

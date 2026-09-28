@@ -409,10 +409,11 @@ public class EmailManager {
                 && EmailSendingException.Refusal.SENDER.equals(sendingFailure.getRefusal())) {
             return "SMTP sender refused";
         }
-        // Thrown for a refused MAIL FROM, DATA or end of message, never for RCPT TO. Without the
-        // sender classification above, it is a refusal of the message itself.
+        // Thrown for a failed MAIL FROM, DATA or end of message, never for RCPT TO, including a
+        // connection lost after the message was sent. Neutral on purpose: these rows are often
+        // PENDING, and "refused" would claim the message did not go out.
         if (failure instanceof org.eclipse.angus.mail.smtp.SMTPSendFailedException) {
-            return "SMTP message refused";
+            return "SMTP message transfer failure";
         }
         if (failure instanceof jakarta.mail.SendFailedException) {
             return "SMTP recipient failure";
