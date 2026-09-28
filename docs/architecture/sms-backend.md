@@ -68,7 +68,7 @@ A direct-send response reflects the persisted result, including a delivery webho
 
 Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and competing-transaction tests. Tests use synthetic data. There is no browser flow to validate until a UI/API entry point is implemented.
 
-Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.31__add_sms_security_objects.sql` and `V1.0.32__add_sms_consent.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+Schema installation uses `V1.0.25__add_sms_system_of_record.sql`, `V1.0.31__add_sms_security_objects.sql` and `V1.0.32__add_sms_consent.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
 
 ## Security objects
 
