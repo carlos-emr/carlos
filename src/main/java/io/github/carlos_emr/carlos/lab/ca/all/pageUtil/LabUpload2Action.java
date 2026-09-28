@@ -165,7 +165,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 // The upload stream is owned here so every exit, including a rejected envelope,
                 // closes it; decryptMessage() only wraps it.
-                try (InputStream encrypted = Files.newInputStream(importFile.toPath())) {
+                try (InputStream encrypted = PathValidationUtils.openValidatedUploadInputStream(importFile)) {
                     InputStream decrypted = decryptMessage(encrypted, key, clientKey);
                     if (decrypted == null) {
                         // decryptMessage() logs the cause and returns null; do not tell the
