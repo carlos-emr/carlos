@@ -176,9 +176,13 @@ rule execution remain in scope.
   reported, zero failures/errors and three host-only Selenium skips. The expanded
   document-route suite subsequently passed all 51 tests. Installed reruns remain
   required for later changes.
-- Latest full Java/JSP/WAR run at application revision `1c3d143308`: 15,245
+- Full Java/JSP/WAR run at application revision `1c3d143308`: 15,245
   reported, zero failures/errors and three host-only Selenium skips. The
   three installed Selenium checks subsequently passed against its Debian packages.
+- Latest full Java/JSP/WAR run at application revision `539e46847e`: 15,271
+  reported, zero failures/errors and three host-only Selenium skips, with fresh
+  coverage execution data. The focused JDBC/default-precedence and preview
+  regressions passed 107 tests before the full run. Installed reruns remain pending.
 - JSP compilation: 985 JSPs, zero errors. Javadoc: completed, 34 warnings, no
   errors. Build logs, WAR SHA-256 and package payload hashes establish provenance;
   the WAR manifest does not embed a full Git SHA.
@@ -191,15 +195,22 @@ rule execution remain in scope.
   (92.2%) across the promotion; only documentation-only `package-info.java` is
   unmapped. Review fixes cover 404/445 lines (90.8%), with no unmapped files.
   The latest capacity/access changes cover 135/148 lines (91.2%).
+- Iteration 6 fresh JaCoCo audit: promotion coverage 2,529/2,744 changed executable
+  lines (92.2%), review fixes 423/466 (90.8%), and the latest JDBC/preview changes
+  20/22 (90.9%). Only documentation-only `package-info.java` is unmapped.
 - Earlier full Node suite: 1,386 passed, zero failures/skips, one test file at a time,
   with the pinned CLI checkout configured. This includes sustained annotation
   waiting, cancellation, safe-save retries, history navigation, browser cleanup
   failures and physical/inline document verification. The 23 focused annotation
   regressions also passed. Prior complete 1,363- and 1,372-case runs passed.
-- Latest full Node suite: 1,466 passed, zero failures/skips, one test file at a
+- Iteration 5 full Node suite: 1,466 passed, zero failures/skips, one test file at a
   time. This includes the incoming-preview correction for an explicitly empty
   `pdfDir` at the valid queue root, and filtering only suppressed SARIF findings.
-- Packaging contracts/subprocesses: 38 passed.
+- Latest full Node suite: 1,495 passed, zero failures/skips, one test file at a
+  time. The expanded Rx fixture ownership, pre-transmission request guard and
+  pending-operation cleanup regressions are included.
+- Packaging contracts/subprocesses: 45 passed, including strict DrugRef XML
+  transformation, upstream drift/duplicate/decoy refusal and unchanged existing bytes.
 - Manifest generator and loaders: 249 passed. Full manifest regeneration
   matched the acquired upstream archive at `a7900d569d3faf741993e5e1da8c14021bbefede`.
   The evidence runner supplies only the archive commit provenance absent from
@@ -314,8 +325,21 @@ default metadata. Direct probes with each installed application's JDBC driver
 confirmed that `useInformationSchema=false` restores keyword discovery and
 preserves table/column/index metadata, scrollable results and generated-key
 values. This does not establish a clinical insert failure: generated keys also
-worked in the baseline direct-driver probe. A Debian-specific default and
-configuration-precedence regressions are being prepared for the next build.
+worked in the baseline direct-driver probe. The Debian-specific default preserves
+explicit URL and driver-property settings; real Spring/Connector regressions
+include DrugRef's valid existing URL edge case. All three iteration 6 packages
+were built from `539e46847e`; 9,866 payload files verified before installation.
+During construction the VM remained stopped, available memory stayed above
+11.29 GB, swap stayed unused, and storage reserves remained intact. Older reports
+were losslessly recompressed with verified tar bytes; temporarily archived compiled
+classes were restored and verified before installed testing.
+
+The Rx browser fixtures now select their owned synthetic sender, reject account
+and queued-job collisions, and validate the actual sender/destination before a
+fax POST reaches the application. All three checks accept a strictly validated
+controller-reserved suffix and disable polling on their synthetic accounts.
+Pending request/click observers drain before cleanup; stamp signal handling uses
+the same deferred-cleanup contract. All 48 focused fixture regressions passed.
 
 Full browser, corpus and isolated ON-import/BC-profile results
 will be recorded after their respective runs. Missing validation fixtures are
@@ -333,9 +357,11 @@ installed run.
 
 At pushed revision `38038eef66`, CI completed with 43 successful checks, six
 skips and one neutral result. Sonar's quality gate passed with new reliability
-rated A and zero open bug findings. Two new SpotBugs review annotations on the
-incoming-preview capacity response are being addressed; green workflow checks
-do not by themselves establish that every review thread is resolved.
+rated A and zero open bug findings. Two subsequently posted SpotBugs annotations
+on the incoming-preview capacity response were addressed in `539e46847e` and
+resolved with regression evidence: exact case-sensitive `GET` controls retries,
+and a hostile-context-path test verifies the existing context-specific HTML
+encoding. That revision's final CI and installed checks remain pending.
 
 ## Migration and publication requirements
 
