@@ -46,7 +46,7 @@ echo "cfg.dbname=$(sed -n 's/^CARLOS_DB_NAME=//p' /etc/carlos-emr/carlos-emr.env
 echo "cfg.consultSig=$(grep -E '^consultation_signature_enabled=' /etc/carlos-emr/carlos.properties)"
 echo "cfg.rxFax=$(grep -E '^rx_fax_enabled=' /etc/carlos-emr/carlos.properties)"
 echo "cfg.initialAdminTxt=$([ -e /etc/carlos-emr/initial-admin.txt ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do echo "sentinel.$s=$([ -e /var/lib/carlos-emr/$s ] && echo yes || echo no)"; done
+for s in .consult-signature-default-migrated .health-tracker-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do echo "sentinel.$s=$([ -e /var/lib/carlos-emr/$s ] && echo yes || echo no)"; done
 echo "docs.store=$(ls -d /var/lib/carlos-emr/CarlosDocument 2>/dev/null && echo ok || echo missing)"
 echo "docs.files=$(find /var/lib/carlos-emr/CarlosDocument -type f 2>/dev/null | wc -l)"
 echo "war.buildtag=$(grep -E '^build\.(version|job|number)=' /usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties 2>/dev/null | tr '\n' ' ')"
