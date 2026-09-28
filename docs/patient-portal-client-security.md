@@ -48,11 +48,16 @@ and rotation example is in `src/main/resources/carlos.properties`.
 
 The request hash is SHA-256 over four components: uppercase ASCII method, raw
 UTF-8 path, raw UTF-8 query (without `?`), and body bytes. Each component is prefixed
-by its length as an eight-byte big-endian integer. CARLOS encodes Unicode URL
-prefixes before signing and sends the same UTF-8 body bytes that it hashes.
-Proxies must preserve the path, query, and body seen by the portal. Rewriting
-these values invalidates authentication; do not enable legacy authentication
-to work around a mismatch.
+by its length as an eight-byte big-endian integer. CARLOS sends the same raw
+path, query and UTF-8 body bytes that it hashes. Proxies must preserve the path,
+query, and body seen by the portal. Rewriting these values invalidates
+authentication; do not enable legacy authentication to work around a mismatch.
+
+`patient_portal.base_url` names the portal's origin only (`https://host[:port]`),
+and a path is rejected at startup. CARLOS calls `/internal/carlos/` at the root
+of that origin even when patients reach the portal under a prefix. The portal's
+reference proxy answers `/<prefix>/internal/` with 404, and a proxy that strips a
+prefix would change the raw path the request hash binds.
 
 The transport allows four concurrent exchanges per client and has no request
 queue. `patient_portal.timeout.request.ms` defaults to 20000 and must be positive

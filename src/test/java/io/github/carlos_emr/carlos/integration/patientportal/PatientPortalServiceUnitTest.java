@@ -217,24 +217,25 @@ class PatientPortalServiceUnitTest {
         }
     }
 
+    /**
+     * The request on the wire must be exactly what the assertion hashes: the raw path and query
+     * as sent, and the UTF-8 body bytes. Encoding against the portal's own hash is pinned by
+     * {@code PortalStaffAssertionSignerUnitTest} over every contract vector; this test pins that
+     * the service sends the same bytes it signs.
+     */
     @Test
-    void shouldBindExactEntityBytes_andEncodedDeploymentPrefix() throws Exception {
-        var settings = new PatientPortalSettings("https://portal.example/porté", "maplecreek",
-                PortalSecret.of(TOKEN), PortalSecret.of(PortalTestKeys.PRIVATE_KEY), "primary",
-                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1),
-                java.time.Duration.ofSeconds(20), Set.of(PortalTestKeys.UNUSED_TLS_PIN));
-        var portal = new PatientPortalService(settings, request -> null);
+    void shouldBindExactEntityBytes_andEncodedQuery() throws Exception {
+        String target = "/internal/carlos/patients/123/portal-account/access?b=two%20words&a=%2F&a=1";
         String body = "{\"enabled\":false,\"reason\":\"café 李\"}";
-        ClassicHttpRequest request = portal.buildRequest("POST",
-                "/internal/carlos/patients/123/portal-account/access?b=two%20words&a=%2F&a=1", body, staff());
-        assertThat(request.getRequestUri()).startsWith("/port%C3%A9/");
-        try (var content = request.getEntity().getContent();
-                var fixture = getClass().getResourceAsStream("/patientportal/assertion-contract.json")) {
-            assertThat(content.readAllBytes()).isEqualTo(body.getBytes(StandardCharsets.UTF_8));
-            JsonNode expected = new ObjectMapper().readTree(fixture).get("vectors").get(1);
-            assertThat(assertionPayload(request).get("request_hash").asText())
-                    .isEqualTo(expected.get("request_hash").asText());
+        byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+        ClassicHttpRequest request = service().buildRequest("POST", target, body, staff());
+        assertThat(request.getRequestUri()).isEqualTo(target);
+        try (var content = request.getEntity().getContent()) {
+            assertThat(content.readAllBytes()).isEqualTo(bodyBytes);
         }
+        assertThat(assertionPayload(request).get("request_hash").asText())
+                .isEqualTo(PortalStaffAssertionSigner.requestHash("POST",
+                        java.net.URI.create("https://portal.clinic.example" + target), bodyBytes));
     }
 
     private JsonNode assertionPayload(ClassicHttpRequest request) throws Exception {

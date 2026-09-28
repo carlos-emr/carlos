@@ -33,6 +33,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Configuration contract for the CARLOS to patient-portal channel.
@@ -171,15 +173,14 @@ class PatientPortalSettingsUnitTest {
         }
 
         @Test
-        @DisplayName("should retain a path prefix for a portal mounted below its origin")
-        void shouldRetainPathPrefix_whenPortalUsesOne() {
+        @DisplayName("should accept an origin written with a port and repeated trailing slashes")
+        void shouldAcceptOrigin_whenWrittenWithPortAndSlashes() {
             Map<String, String> properties = validProperties();
-            properties.put(BASE_URL_KEY, "https://portal.clinic.example/patient-portal/");
+            properties.put(BASE_URL_KEY, "https://portal.clinic.example:8443//");
 
             PatientPortalSettings settings = PatientPortalSettings.fromProperties(properties);
 
-            assertThat(settings.baseUrl())
-                    .isEqualTo("https://portal.clinic.example/patient-portal");
+            assertThat(settings.baseUrl()).isEqualTo("https://portal.clinic.example:8443");
         }
 
         @Test
@@ -262,6 +263,32 @@ class PatientPortalSettingsUnitTest {
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(withQuery))
                     .isInstanceOf(PatientPortalConfigurationException.class);
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(withFragment))
+                    .isInstanceOf(PatientPortalConfigurationException.class);
+        }
+
+        /**
+         * The portal serves its internal API only at the root of its origin; its reference proxy
+         * answers {@code /<prefix>/internal/} with 404, and a stripping proxy would break the
+         * signature over the raw path. A prefixed base URL can never authenticate, so say so at
+         * startup instead of failing every call.
+         */
+        @ParameterizedTest
+        @ValueSource(strings = {
+            "https://portal.clinic.example/patient-portal",
+            "https://portal.clinic.example/patient-portal/",
+            "https://portal.clinic.example/internal/carlos",
+            "https://portal.clinic.example/port%C3%A9"
+        })
+        @DisplayName("should reject a base URL carrying a path")
+        void shouldReject_whenBaseUrlCarriesPath(String baseUrl) {
+            Map<String, String> properties = validProperties();
+            properties.put(BASE_URL_KEY, baseUrl);
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(BASE_URL_KEY)
+                    .hasMessageContaining("no path");
+            assertThatThrownBy(() -> construct(args -> args.baseUrl = baseUrl))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
