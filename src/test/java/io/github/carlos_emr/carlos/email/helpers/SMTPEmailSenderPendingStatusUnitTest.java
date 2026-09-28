@@ -164,7 +164,8 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep the outcome uncertain when a send failure names no refused address")
     void shouldClassifySendFailureWithoutInvalidAddresses_asUncertainOutcome() {
-        SendFailedException noAddresses = new SendFailedException("550 rejected after DATA");
+        // Angus's own shape: "No recipient addresses", thrown before MAIL FROM with no address lists.
+        SendFailedException noAddresses = new SendFailedException("No recipient addresses");
 
         assertThatThrownBy(senderFailingWith(noAddresses)::send)
                 .isInstanceOfSatisfying(EmailSendingException.class,
@@ -198,10 +199,25 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should keep a DATA-stage rejection uncertain even when it lists refused addresses")
+    @DisplayName("should keep an end-of-data rejection uncertain in the shape Angus throws with partial sends off")
+    void shouldClassifyEndOfDataRejection_asUncertainOutcome() throws Exception {
+        // issueSendCommand(".", 250) after a non-250 reply to the end of the content: no valid-sent
+        // and no invalid address, every recipient valid-but-unsent. That passes the address half of
+        // the refusal rule, so only the exact-class check keeps it uncertain. The content was sent,
+        // and the server may have accepted it.
+        SMTPSendFailedException afterData = new SMTPSendFailedException(".", 554, "554 rejected", null,
+                null, new Address[] {new InternetAddress("patient@example.invalid")}, null);
+
+        assertThatThrownBy(senderFailingWith(afterData)::send)
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isTrue());
+    }
+
+    @Test
+    @DisplayName("should keep an end-of-data rejection uncertain even when it lists refused addresses")
     void shouldClassifyDataStageRejection_asUncertainOutcome() throws Exception {
-        // The shape issueSendCommand builds after a partial RCPT and a non-250 reply to ".":
-        // no valid-sent address, invalid addresses present, but DATA was already sent.
+        // The same failure in the shape it takes with partial sends on (a refused recipient listed
+        // as invalid). Partial sends are pinned off, but the rule must not depend on that.
         SMTPSendFailedException afterData = new SMTPSendFailedException(".", 554, "554 rejected", null,
                 null, null, new Address[] {new InternetAddress("refused@example.invalid")});
 
@@ -222,6 +238,8 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
                             .contains("refusedRecipients=1").contains("replyCodes=[" + replyCode + "]"))
                     .noneSatisfy(message -> assertThat(message)
                             .containsAnyOf("patient@example.invalid", "User unknown"));
+            // An attached exception would print its message, the server text with the address, in the stack trace.
+            assertThat(capture.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
         }
     }
 
@@ -229,7 +247,8 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     @DisplayName("should keep an unexpected RCPT reply uncertain")
     void shouldClassifyBareAddressFailure_asUncertainOutcome() throws Exception {
         // Angus throws SMTPAddressFailedException itself, not inside a SendFailedException, for a
-        // reply code it does not recognise; the exact-class check must not accept the subclass.
+        // reply code it does not recognise. It carries no address lists, so this pins the
+        // no-address half of the rule; the end-of-data tests pin the exact-class half.
         SMTPAddressFailedException unexpected = new SMTPAddressFailedException(
                 new InternetAddress("patient@example.invalid"), "RCPT TO:<patient@example.invalid>", 600, "600 not an SMTP reply");
 
@@ -253,7 +272,8 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
         InternetAddress patient = new InternetAddress("patient@example.invalid");
         SMTPAddressFailedException perAddress = new SMTPAddressFailedException(patient, "RCPT TO:<patient@example.invalid>",
                 replyCode, replyCode + " User unknown");
-        // Angus lists a permanent (5xx) refusal as invalid and a temporary (4xx) one as valid-unsent.
+        // Angus lists most permanent (5xx) refusals as invalid (552 goes to valid-unsent) and a
+        // temporary (4xx) one as valid-unsent.
         Address[] refused = {patient};
         return replyCode >= 500
                 ? new SendFailedException("Invalid Addresses", perAddress, null, null, refused)
