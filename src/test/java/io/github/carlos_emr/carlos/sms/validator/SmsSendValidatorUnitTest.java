@@ -119,6 +119,15 @@ class SmsSendValidatorUnitTest {
     }
 
     @Test
+    @DisplayName("validation rejects a system test that names a demographic number that is not positive")
+    void shouldRejectCommand_whenSystemTestNamesInvalidPatient() {
+        assertThat(validator.validate(systemTest(0)).messages())
+                .containsExactly("A valid patient demographic number is required.");
+        assertThat(validator.validate(systemTest(-1)).messages())
+                .containsExactly("A valid patient demographic number is required.");
+    }
+
+    @Test
     @DisplayName("validation still requires a patient for patient messages")
     void shouldRejectCommand_whenPatientMessageHasNoPatient() {
         SmsSendValidator.Result result = validator.validate(

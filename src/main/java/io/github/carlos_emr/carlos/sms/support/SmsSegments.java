@@ -30,7 +30,8 @@ package io.github.carlos_emr.carlos.sms.support;
  * curly quotes and dashes, switches the whole body to UCS-2, where one segment holds 70 UTF-16 units
  * and an emoji takes two. Multipart messages lose room to the concatenation header: 153 units per
  * part in GSM-7 and 67 in UCS-2. Part counts are the usual ceiling estimate; a carrier may use one more
- * part when it avoids splitting an escaped extension character.
+ * part when it avoids splitting an escaped extension character (GSM-7) or an emoji's surrogate pair
+ * (UCS-2).
  * <p>
  * Used to keep a send within one segment (see {@code SmsSendValidator}) and suitable for a compose
  * screen's live counter.
