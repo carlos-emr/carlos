@@ -43,6 +43,9 @@
 #   CTL_A          the carlos-ctl release SPLIT_EMR's pin names
 #   CTL_B          a newer carlos-ctl (case 4/5); built from the same tree
 #                  with a higher version is enough
+#   PRESPLIT_DRUGREF / SPLIT_DRUGREF
+#                  optional matching carlos-emr-drugref archives for the fresh
+#                  pre-split install and the first split transaction
 #   SPLIT_EMR_2    optional: a higher-versioned split carlos-emr for case 3;
 #                  when unset one is derived from SPLIT_EMR by repacking it
 #                  under the next ~snapshot version (dpkg-deb -R/-b), which
@@ -105,6 +108,7 @@ hdr "0. fresh install of the pre-split carlos-emr ($(dpkg-deb -f "$PRESPLIT_EMR"
 apt-get update -qq
 preseed
 pre_pkgs=("$PRESPLIT_EMR"); [ -n "${TRANSITIONAL_PRESPLIT:-}" ] && pre_pkgs+=("$TRANSITIONAL_PRESPLIT")
+[ -n "${PRESPLIT_DRUGREF:-}" ] && pre_pkgs+=("$PRESPLIT_DRUGREF")
 if apt_install "$WORK/0-install.log" "${pre_pkgs[@]}"; then ok "pre-split carlos-emr installed"; else bad "pre-split install failed (see $WORK/0-install.log)"; tail -30 "$WORK/0-install.log"; fi
 wait_front && ok "front door 200 on the pre-split install" || bad "front door $(front) on the pre-split install"
 [ "$(dpkg -S /usr/sbin/carlos-ctl 2>/dev/null | cut -d: -f1)" = carlos-emr ] && ok "/usr/sbin/carlos-ctl belongs to the pre-split carlos-emr" || bad "/usr/sbin/carlos-ctl owner: $(dpkg -S /usr/sbin/carlos-ctl 2>/dev/null)"
@@ -114,6 +118,7 @@ presplit_ver="$(ver carlos-emr)"; flyway_before="$(flyway_count)"
 
 hdr "2. the new carlos-emr WITHOUT the carlos-ctl file is refused up front"
 split_pkgs=("$SPLIT_EMR"); [ -n "${TRANSITIONAL_SPLIT:-}" ] && split_pkgs+=("$TRANSITIONAL_SPLIT")
+[ -n "${SPLIT_DRUGREF:-}" ] && split_pkgs+=("$SPLIT_DRUGREF")
 if apt_install "$WORK/2-refused.log" "${split_pkgs[@]}"; then bad "apt installed the split carlos-emr without carlos-ctl"; else ok "apt refused the split carlos-emr without carlos-ctl (rc $(sed -n 's/^UPGRADE_RC=//p' "$WORK/2-refused.log"))"; fi
 grep -qiE "carlos-ctl" "$WORK/2-refused.log" && ok "the refusal names carlos-ctl" || bad "the refusal does not name carlos-ctl"
 [ "$(ver carlos-emr)" = "$presplit_ver" ] && ok "carlos-emr still $presplit_ver" || bad "carlos-emr changed to $(ver carlos-emr)"

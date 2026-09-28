@@ -417,7 +417,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -427,7 +427,7 @@
         "CONSULT_MISSING_STAMP_PROVIDER_NO",
         "CONSULT_SERVICE_ID",
         "CONSULT_STAMP_PROVIDER_NO",
-        "CONSULT_UNSIGNED_REQUEST_ID"
+        "CONSULT_APPLICATION_TEMP_DIR"
       ]
     },
     {
@@ -1198,7 +1198,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -1213,7 +1213,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -1228,7 +1228,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],

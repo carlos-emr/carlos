@@ -39,9 +39,9 @@
  *     the next one -- inserted, never re-rendered around.
  *   - THE SCROLL POSITION HOLDS, and pages still remain to be loaded.
  *
- * NOT READ-ONLY, AND IT MUST RUN AFTER inboxhub-filters (see that check and
- * inbox-preview-acknowledge for why). It acknowledges exactly one lab. Run
- * against a disposable database.
+ * Acknowledges one lab and restores exact routing status, comment and timestamp
+ * for it and its older versions in finally. Newly inserted routes are removed
+ * by their recorded IDs, and restoration is verified. Use a disposable database.
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   INBOX_TIMEOUT_MS=60000        per-step allowance; preview cards are iframes
@@ -51,6 +51,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck, withExpectedDialogs,
 } = require('./lib/playwright-harness');
+const {createInboxAcknowledgementFixture} = require('./lib/inbox-acknowledgement-fixture');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const {
   enterPreviewMode, findAcknowledgeable, readStamps, settleList, shownCards, stampSurvivors,
@@ -88,12 +89,13 @@ function sameOrderAllowingInserts(expected, actual, slack) {
   return at === expected.length && inserted <= slack;
 }
 
-async function main() {
+async function main({throwIfCancelled = () => {}} = {}) {
   const config = readConfig();
   const timeout = Number(process.env.INBOX_TIMEOUT_MS || '60000');
 
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
+  const routingFixture = createInboxAcknowledgementFixture(config);
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
@@ -124,6 +126,9 @@ async function main() {
     if (!target) {
       throw new SkipCheck('no preview lab card among the first few offers an Acknowledge control; every lab on screen is already acknowledged');
     }
+
+    throwIfCancelled();
+    await routingFixture.prepare(target.frame, target.identity);
 
     const scrollBefore = await inbox.evaluate((index) => {
       const container = document.getElementById('inboxViewItems');
@@ -252,7 +257,8 @@ async function main() {
     return { acknowledged: target.identity, before: before.length, after: after.length, boundaryPage: loadedPages,
       kept: stamped.length, merged, retriedPage: failedPage };
   } finally {
-    await browser.close().catch(() => {});
+    try { await browser.close(); }
+    finally { routingFixture.cleanup(); }
   }
 }
 

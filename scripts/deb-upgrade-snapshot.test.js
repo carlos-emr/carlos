@@ -19,7 +19,10 @@ if name=='mariadb':
     elif 'SHA2' in sql: print(os.environ.get('PASSWORD_DIGEST','a'*64) if 'password:' in sql else 'b'*64)
     elif 'forcePasswordReset' in sql: print('0')
     elif 'SELECT version' in sql: print('1.0.39')
-    elif 'SELECT HEX' in sql: print('example file.pdf'.encode().hex())
+    elif 'SELECT HEX' in sql:
+        body=os.environ.get('INLINE_BODY','')
+        eligible=bool(body.strip(''.join(chr(n) for n in range(33))))
+        print('example file.pdf'.encode().hex()+'\\t'+str(int(eligible)))
     elif 'WHERE success=0' in sql: print('0')
     elif 'SELECT CONCAT' in sql: print('NULL:1')
     elif 'COUNT(*)' in sql: print('1')
@@ -191,8 +194,24 @@ test('upgrade verifier checks the configured alternate document directory', t =>
   fixture.baseline();
   const result = fixture.run('deb-upgrade-verify.sh');
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.match(result.stdout, /no stored document lost its file/);
+  assert.match(result.stdout, /every stored document has a file or inline HTML/);
 });
+
+for (const [name, body, status] of [
+  ['inline HTML', '<p>Stored HTML</p>', 0],
+  ['empty inline HTML', '', 1],
+  ['Java-trim whitespace inline HTML', ' \t\r\n\x1f', 1],
+  ['nonbreaking-space inline HTML', '\u00a0', 0],
+]) {
+  test(`upgrade verifier handles a missing file with ${name}`, t => {
+    const fixture = setup(t); fixture.baseline();
+    fs.unlinkSync(path.join(fixture.env.CARLOS_STATE_DIR, 'CarlosDocument/carlos/document/example file.pdf'));
+    const result = fixture.run('deb-upgrade-verify.sh', { INLINE_BODY: body });
+    assert.equal(result.status, status, result.stdout + result.stderr);
+    assert.match(result.stdout, status === 0 ? /every stored document has a file or inline HTML/
+      : /missing without an inline HTML fallback/);
+  });
+}
 
 test('upgrade baseline rejects a relative document directory before querying the database', t => {
   const fixture = setup(t);
@@ -220,7 +239,7 @@ case "$0" in
   */dpkg-deb) printf '1.0\\n' ;;
   */dpkg-query) [[ "$*" == *Status-Status* ]] && printf installed || printf '1.0' ;;
   */dpkg) printf 'carlos-emr: /usr/sbin/carlos-ctl\\n' ;;
-  */apt-get) printf '%s\\n' "$*" >> "$COMMAND_LOG" ;;
+  */apt-get) printf '%s\\0' "$@" >> "$COMMAND_LOG" ;;
   */debconf-set-selections) cat >/dev/null ;;
 esac
 exit 0
@@ -231,11 +250,15 @@ exit 0
     }
     const result = spawnSync('bash', [matrix], { encoding: 'utf8', timeout: 10000,
       env: { ...fixture.env, WORK: path.join(fixture.root, 'work'), PRESPLIT_EMR: 'old.deb',
-        SPLIT_EMR: 'new.deb', CTL_A: 'ctl-a.deb', CTL_B: 'ctl-b.deb' } });
+        SPLIT_EMR: 'new.deb', CTL_A: 'ctl-a.deb', CTL_B: 'ctl-b.deb',
+        PRESPLIT_DRUGREF: 'old DrugRef.deb', SPLIT_DRUGREF: 'new DrugRef.deb' } });
     assert.ifError(result.error);
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stdout, expected);
     const transactions = fs.readFileSync(fixture.env.COMMAND_LOG, 'utf8');
+    const argumentsSeen = transactions.split('\0');
+    assert.ok(argumentsSeen.includes('old DrugRef.deb'));
+    if (phase === 'verification') assert.ok(argumentsSeen.includes('new DrugRef.deb'));
     assert.ok(!transactions.includes('ctl-b.deb') && !transactions.includes('purge'));
     if (phase === 'baseline') assert.ok(!transactions.includes('new.deb'));
   });

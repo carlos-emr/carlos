@@ -600,7 +600,8 @@ fi
 # Record pointers into the demo dataset:
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
-export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
+export CONSULT_STAMP_PROVIDER_NO=999998
+export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 # Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).
 # Read-only: it opens the Ontario bill form for this appointment and switches the bill
@@ -850,9 +851,19 @@ Notes on the contract:
   patient with no drug profile fails the check at staging rather than
   silently measuring the empty state. It stages in memory only: nothing is
   saved, so it seeds and cleans up nothing.
-- **`CONSULT_UNSIGNED_REQUEST_ID` is consumed.** The stamp-update scenario
-  signs that consultation, so a second back-to-back run needs the fixture
-  reset: `UPDATE consultationRequests SET signature_img=NULL WHERE requestId=3;`
+- **Consultation signature submission owns its test requests.** Its missing-stamp
+  create scenario supplies the unsigned request for update and preview. Cleanup
+  removes uniquely marked requests, dependent rows and their linked signatures;
+  existing consultations are untouched. Set `CONSULT_APPLICATION_TEMP_DIR` to
+  the installed JVM's `java.io.tmpdir/carlos-temp` to clean generated preview
+  PDFs by exact returned content and recorded file identity. It preserves
+  preexisting files and rejects files changed after capture.
+- **Inbox acknowledgement checks restore their review state.** Preview,
+  boundary-resync and rapid-review checks restore the original routing rows for
+  the acknowledged lab and older versions, verify status/comment/timestamp,
+  and remove only routes inserted by the test. They require `MYSQL_*` access
+  and results assigned to a real provider; unassigned provider-zero sources
+  are skipped before mutation because acknowledgement archives/deletes them.
 - `eform-consultation-acceptance` skips its stored image-layer template probe
   (with a `[skip]` note) unless `LIBRARY_EFORM_NAME` names a form that exists
   in the library; the main acceptance workflow runs regardless.
@@ -1235,6 +1246,11 @@ incomplete snapshot, failed health check, or nonzero `UPGRADE_RC` recorded in
 the upgrade log. PRE and POST must be different files. The split matrix stops
 when snapshot capture or verification fails, including errors before any
 assertions can be printed.
+For a genuinely fresh split-matrix install, supply `PRESPLIT_DRUGREF` and
+`SPLIT_DRUGREF` with the matching DrugRef package paths when the main package
+depends on them; the paths are included in the corresponding apt transactions.
+`TRANSITIONAL_PRESPLIT` and `TRANSITIONAL_SPLIT` independently select the matching
+renderer packages. Each variable accepts one archive path, including spaces.
 
 ```bash
 umask 077
@@ -1260,6 +1276,11 @@ For an application configured with a custom `DOCUMENT_DIR`, set `DOC_DIR` to
 that existing absolute directory; its default is
 `$CARLOS_STATE_DIR/CarlosDocument/carlos/document`. Snapshot file counts and
 missing-document checks both use this selected directory.
+Legacy HTML/link documents may store their body in `document.docxml` without a
+physical file. Verification accepts that fallback only when it is nonempty
+under the application's Java `String.trim()` rules; it queries only a boolean
+eligibility flag and never exports the stored HTML body. Documents with neither
+a file nor a usable inline body still fail verification.
 
 Current snapshots identify themselves as `baseline.format=2`. The existing
 `admin.hash` and `admin.pin` keys now contain SHA-256 digests of their credential

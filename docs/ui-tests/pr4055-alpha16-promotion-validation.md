@@ -142,10 +142,10 @@ rule execution remain in scope.
   (92.3%); the only unmapped file is documentation-only `package-info.java`.
   Review fixes: 159/176 (90.3%). Additional vacancy lifecycle/context, inbox
   fallback-date and favorite privilege regressions passed 66 tests with no skips.
-- Full Node suite after the installed-workflow fixes: 1,349 reported, no failures;
-  four CLI-dependent cases initially skipped because the source override was absent.
-  All four then passed in the 36-case CLI-dependent rerun with the pinned checkout.
-  Tests ran one file at a time; no cases remain unexecuted from that suite.
+- Latest full Node suite: 1,363 passed, zero failures/skips, one test file at a time,
+  with the pinned CLI checkout configured. This includes browser cleanup failures
+  and physical/inline document verification. The prior 1,349-case run and its
+  CLI-dependent rerun also passed.
 - Packaging contracts/subprocesses: 38 passed.
 - Manifest generator and loaders: 249 passed. Full manifest regeneration
   matched the acquired upstream archive at `a7900d569d3faf741993e5e1da8c14021bbefede`.
@@ -201,7 +201,28 @@ VM was stopped throughout compilation and package construction.
 - Legacy renderer refusal/dependency-veto/reconfiguration recovery passed,
   followed by a successful installed health check.
 
-Full browser, corpus, live MariaDB and isolated ON-import/BC-profile results
+The subsequent `2026.08.0~alpha16~pr4055.3` packages contain the application
+fixes at `a68b116161`. All 9,860 payload files and the installed CLI were
+verified, followed by successful application health checks. The WAR build
+compiled 985 JSPs without errors and passed 38 focused Java regressions.
+Build logs, WAR SHA-256, package checksums and installed payload hashes record
+provenance; the WAR manifest itself does not contain a full Git SHA.
+
+The installed delayed-sidebar and favorite-save checks both passed (112.8s and
+25.3s respectively), including held-response loading, all expected modules,
+13 favorite label associations, failed-save visibility and successful retry.
+The exact upgrade verifier passed 45 assertions against the private pre-install
+snapshot. Its first run exposed a verifier false positive for an inline HTML
+link with no physical file; corrected eligibility matches Java trimming, with
+ten live MariaDB edge cases passing. No placeholder file was fabricated.
+
+Three inbox acknowledgement checks now restore their exact original routing
+state. Consultation signature checks own their requests and remove only owned
+requests, signatures and verified preview files. Cleanup failures remain test
+failures. The full script suite covers lost replies, ignored database writes and
+changed files.
+
+Full browser, corpus and isolated ON-import/BC-profile results
 will be recorded after their respective runs. Missing validation fixtures are
 prepared with private baselines and ownership journals, without treating a
 fixture-dependent skip as a pass.

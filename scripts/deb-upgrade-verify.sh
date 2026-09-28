@@ -112,7 +112,11 @@ for k in cfg.carlos-emr.env.sha cfg.carlos.properties.sha cfg.backup.env.sha cfg
 for k in rows.demographic rows.appointment rows.prescription rows.drugs rows.allergies rows.consultationRequests rows.casemgmt_note rows.preventions rows.hl7TextMessage rows.document rows.tickler; do [ "$(g "$PRE" $k)" = "$(g "$POST" $k)" ] && ok "$k preserved ($(g "$POST" $k))" || bad "$k changed: $(g "$PRE" $k) -> $(g "$POST" $k)"; done
 # The document store may legitimately GROW on upgrade (a12 ships synthetic HRM
 # fixture files); what must not happen is a stored document losing its file.
-if ! db_query 'SELECT HEX(docfilename) FROM document' > "$DOC_LIST"; then
+# Legacy HTML/link documents store their body in docxml rather than a file.
+# Java String.trim() removes only U+0000..U+0020. Match those UTF-8 bytes in HEX
+# so tabs/newlines and SQL modes cannot change the fallback eligibility check;
+# return only the boolean, never the stored clinical HTML body.
+if ! db_query "SELECT HEX(docfilename), CASE WHEN docxml IS NOT NULL AND HEX(docxml) NOT REGEXP '^(0[0-9A-F]|1[0-9A-F]|20)*$' THEN 1 ELSE 0 END FROM document" > "$DOC_LIST"; then
   echo 'ERROR: document inventory query failed; missing-file count is unknown.' >&2
   exit 2
 fi
@@ -126,16 +130,19 @@ if len(entries) != int(sys.argv[3]):
     sys.exit('Document inventory row count changed since the snapshot')
 for line in entries:
     try:
-        name = bytes.fromhex(line).decode('utf-8')
+        encoded_name, inline = line.split('\t')
+        if inline not in ('0', '1'):
+            raise ValueError('Invalid inline-body flag')
+        name = bytes.fromhex(encoded_name).decode('utf-8')
         candidate = (root / name).resolve()
-        valid = bool(name) and candidate.is_relative_to(root) and candidate.is_file()
+        valid = bool(name) and candidate.is_relative_to(root) and (inline == '1' or candidate.is_file())
     except (ValueError, UnicodeError, OSError):
         valid = False
     missing += not valid
 print(missing)
 PY
 ) || { echo 'ERROR: document inventory validation failed.' >&2; exit 2; }
-[ "$missing" = 0 ] && ok "no stored document lost its file (store $(g "$PRE" docs.files) -> $(g "$POST" docs.files) files)" || bad "$missing document file(s) missing after upgrade"
+[ "$missing" = 0 ] && ok "every stored document has a file or inline HTML (store $(g "$PRE" docs.files) -> $(g "$POST" docs.files) files)" || bad "$missing document file(s) missing without an inline HTML fallback after upgrade"
 echo "$(g "$POST" war.buildtag)" | grep -qF "$EXPECT_TAG" && ok "build tag carries the new version and deb stamp" || bad "build tag: $(g "$POST" war.buildtag)"
 [ "$(g "$POST" http.front)" = 200 ] && ok "front door 200" || bad "front door $(g "$POST" http.front)"
 if [ "$EXPECT_SPLIT" = 1 ]; then
