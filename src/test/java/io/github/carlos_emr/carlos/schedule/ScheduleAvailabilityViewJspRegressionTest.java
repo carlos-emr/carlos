@@ -228,9 +228,10 @@ class ScheduleAvailabilityViewJspRegressionTest {
 
     /**
      * The grid is always built from {@code curProvider_no}, so the selector must name that
-     * provider on both branches. With no explicitly selected option the browser falls back to
-     * the first entry, labelling this provider's schedule with a different, real provider —
-     * and under multisite, where the group loop is skipped, the selector renders empty.
+     * provider on both branches. Before this was fixed, a provider number with no provider row
+     * got no option: the browser fell back to the first entry, labelling this provider's schedule
+     * with a different, real provider, and under multisite, where the group loop is skipped, the
+     * selector had no options at all.
      */
     @Test
     @DisplayName("provider selector should mark a selected option whether or not the provider row resolves")

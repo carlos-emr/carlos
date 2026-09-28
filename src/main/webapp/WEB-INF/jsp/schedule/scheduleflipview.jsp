@@ -28,6 +28,35 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Provider availability ("flip") view: one provider's schedule for 31 days from a
+             start date, as a grid of dates by time slots, with the appointments booked in
+             each slot. Opened from the schedule and from the waiting-list booking popup.
+
+    Features:
+    - Grid scrolls on screen with sticky date and time headers; print releases the scroll cap
+      and repeats the header row on every sheet (css/scheduleavailability.css)
+    - Provider selector that always names the provider the grid was built for, even when no
+      provider row matches the requested number
+    - Previous/next month navigation and a site column when multisite is enabled
+    - Slot colours from the schedule template, checked against a CSS colour allow-list
+
+    Parameters:
+    - provider_no      (String, optional) — provider to show; falls back to the session
+                                             preference, then the logged-in provider; 400 if
+                                             it is missing or not a valid provider number
+    - startDate        (String, optional) — first date shown (yyyy-MM-dd), default today;
+                                             400 if it is not a valid date
+    - originalpage     (String, optional) — "waitingList" returns to the waiting list,
+                                             otherwise to the schedule
+    - demographic_no   (String, optional) — patient to carry into a booking
+    - demographic_name (String, optional) — that patient's display name
+
+    Session: LOGGED_IN_PROVIDER_PREFERENCE (ProviderPreference) supplies the day's start and
+             end hour, the slot length and the provider's group.
+
+    @since 2002-11-08
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
@@ -340,7 +369,8 @@
                 int headingHour = headingMinutes / 60;
                 int headingMinute = headingMinutes % 60;
             %>
-            <th scope="col"><%=String.format(Locale.ROOT, "%02d:%02d", headingHour, headingMinute)%></th>
+            <%-- <wbr> lets a narrow printed column break the label as "08:" over "00". --%>
+            <th scope="col"><%=String.format(Locale.ROOT, "%02d:", headingHour)%><wbr><%=String.format(Locale.ROOT, "%02d", headingMinute)%></th>
             <% } %>
         </tr>
         </thead>

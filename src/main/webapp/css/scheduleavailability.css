@@ -192,11 +192,57 @@ body.availability-page {
    unchanged, that cap clips the schedule to roughly one viewport, so release it here.
    Sticky offsets resolve against the viewport rather than the page and would pin the
    headers to the first sheet, so they are dropped in favour of a repeating thead. */
+@page {
+    size: landscape;
+}
+
 @media print {
     .availability-grid-wrapper {
         border: 0;
         max-height: none;
         overflow: visible;
+    }
+
+    /* The screen minimums (max-content table, 48px slots, 145px date column) make a month of
+       slots far wider than a sheet, so the right-hand columns would be cut off at the paper edge.
+       A fixed layout at the page width shares the sheet between the time columns whatever the
+       slot length, with set widths for the date and site columns. */
+    #availabilityGrid {
+        font-size: 0.55rem;
+        min-width: 0;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    #availabilityGrid th,
+    #availabilityGrid td,
+    #availabilityGrid .availability-date,
+    #availabilityGrid .availability-site {
+        height: auto;
+        min-width: 0;
+    }
+
+    #availabilityGrid .availability-date {
+        padding: 0 0.2rem;
+        white-space: normal;
+        width: 9%;
+    }
+
+    #availabilityGrid .availability-site {
+        width: 6%;
+    }
+
+    /* The time labels break after the colon (a <wbr> in the page), stacking "08:" over "00". */
+    #availabilityGrid thead th {
+        height: auto;
+        line-height: 1.1;
+    }
+
+    .availability-slot {
+        align-items: center;
+        flex-direction: column;
+        min-height: 0;
+        padding: 0;
     }
 
     #availabilityGrid thead th,
@@ -210,7 +256,6 @@ body.availability-page {
 
     #availabilityGrid tbody tr {
         break-inside: avoid;
-        page-break-inside: avoid;
     }
 
     .availability-page-header nav,
