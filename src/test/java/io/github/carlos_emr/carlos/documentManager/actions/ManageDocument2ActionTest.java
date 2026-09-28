@@ -536,7 +536,8 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({ "viewIncomingDocPageAsPdf,GET", "viewIncomingDocPageAsImage,GET",
-            "viewIncomingDocPageAsPdf,POST", "viewIncomingDocPageAsImage,POST" })
+            "viewIncomingDocPageAsPdf,POST", "viewIncomingDocPageAsImage,POST",
+            "viewIncomingDocPageAsPdf,get", "viewIncomingDocPageAsImage,GeT" })
     void shouldWaitOnlyForUnacceptedIncomingGet_whenParserCapacityIsFull(String method, String httpMethod) throws Exception {
         createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
         authorizeIncomingPreview("scan.pdf");
@@ -554,6 +555,27 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
             } else {
                 assertThat(response.getContentAsString()).doesNotContain("<script", "incomingDocumentCapacityWait");
             }
+        }
+    }
+
+    @Test
+    void shouldEncodeIncomingCapacityScriptAttribute_whenContextContainsMarkup() throws Exception {
+        createIncomingPdf(new org.apache.pdfbox.pdmodel.common.PDRectangle(120, 160));
+        authorizeIncomingPreview("scan.pdf");
+        request.setMethod("GET");
+        request.setParameter("method", "viewIncomingDocPageAsPdf");
+        request.setContextPath("/carlos\"><script>alert(1)</script><img onerror=\"alert(2)");
+        try (MockedStatic<BoundedPdfTask> workers = mockStatic(BoundedPdfTask.class)) {
+            workers.when(() -> BoundedPdfTask.runWithin(anyInt(), anyString(), any()))
+                    .thenThrow(new BoundedPdfTask.BusyException());
+            action.execute();
+            assertThat(response.getStatus()).isEqualTo(503);
+            org.jsoup.nodes.Document html = org.jsoup.Jsoup.parse(response.getContentAsString());
+            assertThat(html.select("script")).hasSize(1);
+            assertThat(html.selectFirst("script").attr("src"))
+                    .isEqualTo(request.getContextPath() + "/js/incomingDocumentCapacityWait.js");
+            assertThat(html.selectFirst("script").data()).isEmpty();
+            assertThat(html.select("img, [onerror]")).isEmpty();
         }
     }
 

@@ -146,6 +146,13 @@ Suppresses known false positives:
 > `@SuppressFBWarnings` annotations carrying a justification, **plus an adjacent `//` comment** —
 > see [SpotBugs exclusions](#spotbugs) below.
 
+The incoming-document capacity page uses a method-local `XSS_SERVLET`
+suppression because its two dynamic values already use OWASP encoding for
+HTML text and quoted attributes. Its regression parses hostile context-path
+markup and verifies that it remains one inert script URL, without injected
+elements or event handlers. Automatic capacity retries require exact `GET`;
+case-folded or mutating method names receive no reload script.
+
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 
 - SpotBugs Maven Plugin: 4.10.2.0 — held here deliberately; 4.10.4.x requires Maven >= 3.8.9,

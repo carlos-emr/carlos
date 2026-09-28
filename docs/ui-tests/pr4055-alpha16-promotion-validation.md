@@ -178,7 +178,7 @@ rule execution remain in scope.
   required for later changes.
 - Latest full Java/JSP/WAR run at application revision `1c3d143308`: 15,245
   reported, zero failures/errors and three host-only Selenium skips. The
-  installed Selenium checks will run again against its Debian packages.
+  three installed Selenium checks subsequently passed against its Debian packages.
 - JSP compilation: 985 JSPs, zero errors. Javadoc: completed, 34 warnings, no
   errors. Build logs, WAR SHA-256 and package payload hashes establish provenance;
   the WAR manifest does not embed a full Git SHA.
@@ -304,6 +304,19 @@ requests, signatures and verified preview files. Cleanup failures remain test
 failures. The full script suite covers lost replies, ignored database writes and
 changed files.
 
+Iteration 5 packages (`2026.08.0~alpha16~pr4055.5`, application revision
+`1c3d143308`, packaging revision `38038eef66`) passed all 9,865 installed
+payload hashes, public CLI ownership verification, application health, all
+45 upgrade assertions and all three installed Java Selenium checks. Startup
+inspection exposed a Connector/J metadata query incompatible with MariaDB's
+`INFORMATION_SCHEMA.KEYWORDS`: Hibernate logged an error and fell back to
+default metadata. Direct probes with each installed application's JDBC driver
+confirmed that `useInformationSchema=false` restores keyword discovery and
+preserves table/column/index metadata, scrollable results and generated-key
+values. This does not establish a clinical insert failure: generated keys also
+worked in the baseline direct-driver probe. A Debian-specific default and
+configuration-precedence regressions are being prepared for the next build.
+
 Full browser, corpus and isolated ON-import/BC-profile results
 will be recorded after their respective runs. Missing validation fixtures are
 prepared with private baselines and ownership journals, without treating a
@@ -318,10 +331,11 @@ the complete annotation run still needs its active-account fixture. The legacy
 preview changes passed source regressions and are being packaged for the next
 installed run.
 
-At pushed revision `f8d7aea6cd`, CI completed with 43 successful checks, six skips
-and one neutral result. Sonar's quality gate passed with new reliability rated B;
-the duplicate favorite-control ID finding was cleared. These results precede
-the new annotation changes and do not establish their final CI status.
+At pushed revision `38038eef66`, CI completed with 43 successful checks, six
+skips and one neutral result. Sonar's quality gate passed with new reliability
+rated A and zero open bug findings. Two new SpotBugs review annotations on the
+incoming-preview capacity response are being addressed; green workflow checks
+do not by themselves establish that every review thread is resolved.
 
 ## Migration and publication requirements
 
@@ -348,8 +362,8 @@ scan. That scan flagged a repeated custom-name ID across mutually exclusive
 JSP branches; the unnecessary ID on the hidden input was removed, preserving
 the visible control's label association; the subsequent scan cleared it. The
 heading handler now belongs to its existing native link, which already
-fills the heading's clickable area. Mouse and keyboard regressions and a new
-scan remain required for that change.
+fills the heading's clickable area. The new scan cleared the bug and reports
+reliability A; installed mouse and keyboard reruns remain required.
 The latest Semgrep OSS report retained one explicitly suppressed fax-preview
 finding because the workflow filtered suppressed Cloud results but omitted the
 local report. Independent review confirmed both possible stream paths enforce

@@ -40,7 +40,25 @@ GitHub release
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
 published WAR's application payload, with the Debian build identity stamped
-in carlos-build.properties.
+in carlos-build.properties and the explicit package-only jdbc-defaults.properties
+resource described below. All other EMR WAR entries remain unchanged.
+
+The Debian MariaDB default appends useInformationSchema=false to the JDBC URL
+only when no explicit (including URL-encoded) useInformationSchema option exists.
+Connector/J's default MySQL keyword query references
+INFORMATION_SCHEMA.KEYWORDS.RESERVED, which MariaDB does not provide; Hibernate
+otherwise boots using incomplete fallback metadata. This setting keeps JDBC
+metadata enabled using Connector/J's alternate metadata implementation. The
+ordinary WAR's jdbc-defaults.properties is empty and keeps normal driver defaults.
+Existing /etc/carlos-emr/carlos.properties is preserved: an explicit
+ db_default_use_information_schema=true
+changes the optional default, while
+ db_default_use_information_schema=
+(empty) disables it. Existing explicit URL options and explicit driver connection
+properties retain their normal precedence. The timezone behavior is unchanged.
+Restart the EMR after an operator change. JVM -D properties do not override these
+Spring placeholders. An older operator file without this key receives the package
+default on upgrade without having its URL or credentials rewritten for this fix.
 
 Fetching them from a shell (a server has no browser; from WSL this is far
 easier than copying files across): on the release page, right-click each

@@ -77,7 +77,8 @@ Each of these is much easier to fix now than mid-install:
 Every CARLOS [GitHub release](https://github.com/carlos-emr/carlos/releases)
 carries the `.deb` files, their `.sha256` checksums, and build-provenance
 attestations (the `carlos-emr` package deploys the published WAR's application
-payload, with its Debian build identity stamped in `carlos-build.properties`;
+payload, with its Debian build identity stamped in `carlos-build.properties`
+and the explicit MariaDB metadata default in `jdbc-defaults.properties`;
 the `carlos-ctl` package is the release of
 [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) the CARLOS
 release pins, re-attached as is). Download all four, verify, install:

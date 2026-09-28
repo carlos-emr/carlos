@@ -1822,8 +1822,10 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /** Only an explicit unaccepted GET receives automatic iframe retry; mutations never reload. */
+    // FindSecBugs cannot model the context-specific OWASP encoders at this HTML sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Only the resource message and context-relative script URL are dynamic; OWASP Encode escapes them for HTML text and quoted HTML attribute contexts respectively")
     private void sendIncomingPreviewBusy(BoundedPdfTask.BusyException busy) throws IOException {
-        if (!"GET".equalsIgnoreCase(request.getMethod())) {
+        if (!"GET".equals(request.getMethod())) {
             sendRenderBusy(busy);
             return;
         }
