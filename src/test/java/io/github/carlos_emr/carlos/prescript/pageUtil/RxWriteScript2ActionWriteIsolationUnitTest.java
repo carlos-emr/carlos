@@ -391,6 +391,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             request.setParameter("draftRevision_2", selected.getDraftRevision());
             request.setParameter("draftRevision_3", other.getDraftRevision());
             action.setAction("updateAndPrint");
+            action.setRxDate("2026-09-28");
             action.setGCN_SEQNO("0");
             action.setCustomName("Updated medication");
             action.setSpecial("take one tablet daily");
@@ -937,6 +938,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         submitDraftRevision("1");
         submitDraftRevision("2");
         action.setAction("updateAndPrint");
+        action.setRxDate("2026-09-28");
         action.setGCN_SEQNO("0");
         action.setCustomName("updated first");
         action.setSpecial("take one tablet daily");
@@ -1059,6 +1061,119 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(card.getDrugReasonCode()).isNull();
             verify(coding.constructed().getFirst()).isCodeAvailable("icd9", "invalid-code");
             verify(action, never()).persistStash(any(), any());
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "2026-02-30", "not-a-date", "2026-09-28junk", "0000-00-00", "0000-01-01", "1582-10-10"})
+    @DisplayName("should reject invalid legacy prescription dates before changing a draft or inserting a header")
+    void shouldRejectLegacySave_whenPrescriptionDateIsMissingOrMalformed(String date) throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "original");
+        java.util.Date originalDate = new java.util.Date(0);
+        card.setRxDate(originalDate);
+        bean.getStashList().add(card);
+        bean.setStashIndex(-1);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "1");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        submitDraftRevision("1");
+        action.setAction("updateAndPrint");
+        action.setRxDate(date);
+        action.setCustomName("must not replace draft");
+        action = spy(action);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
+            assertThat(action.execute()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).contains("INVALID_RX_DRAFT");
+            assertThat(card.getBrandName()).isEqualTo("original");
+            assertThat(card.getRxDate()).isSameAs(originalDate);
+            assertThat(bean.getStashIndex()).isEqualTo(-1);
+            assertThat(data.constructed()).isEmpty();
+            verify(action, never()).persistStash(any(), any());
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"2024-02-29,2024-02-29", "1900-01-01,1900-01-01", "2026-09-28,"})
+    @DisplayName("should accept valid full legacy dates and preserve an optional blank written date")
+    void shouldAcceptLegacyDates_whenCalendarValuesAreValid(String rxDate, String writtenDate) throws Exception {
+        when(stagedCard.getRandomId()).thenReturn(1L);
+        when(stagedCard.getDraftRevision()).thenReturn("current-revision");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "1");
+        request.setParameter("draftRevision", "current-revision");
+        action.setAction("update");
+        action.setRxDate(rxDate);
+        action.setWrittenDate(writtenDate);
+        action.setGCN_SEQNO("0");
+        action.setCustomName("Custom drug");
+        action.setSpecial("take one tablet daily");
+        action.setUnit("tab");
+        action.setDosage("1");
+
+        assertThat(action.execute()).isEqualTo("refresh");
+        verify(stagedCard).setRxDate(io.github.carlos_emr.carlos.prescript.util.RxUtil.StringToDate(rxDate, "yyyy-MM-dd"));
+        verify(stagedCard).setWrittenDate(writtenDate == null ? null
+                : io.github.carlos_emr.carlos.prescript.util.RxUtil.StringToDate(writtenDate, "yyyy-MM-dd"));
+    }
+
+    @Test
+    @DisplayName("should reject an impossible submitted written date before touching the draft")
+    void shouldRejectLegacyUpdate_whenWrittenDateIsMalformed() throws Exception {
+        when(stagedCard.getRandomId()).thenReturn(1L);
+        when(stagedCard.getDraftRevision()).thenReturn("current-revision");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "1");
+        request.setParameter("draftRevision", "current-revision");
+        action.setAction("update");
+        action.setRxDate("2026-09-28");
+        action.setWrittenDate("2025-02-29");
+
+        assertThat(action.execute()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(stagedCard, never()).setRxDate(any());
+        verify(stagedCard, never()).setWrittenDate(any());
+    }
+
+    @Test
+    @DisplayName("should persist required prescription dates through the real legacy drug save")
+    void shouldPersistLegacyDates_whenValidEditorFormIsSubmitted() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "original");
+        bean.getStashList().add(card);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "1");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        submitDraftRevision("1");
+        action.setAction("updateAndPrint");
+        action.setGCN_SEQNO("0");
+        action.setCustomName("Custom drug");
+        action.setRxDate("2026-09-28");
+        action.setWrittenDate("2026-09-28");
+        action.setDuration("30");
+        action.setDurationUnit("D");
+        action.setQuantity("30");
+        action.setSpecial("take one tablet daily");
+        action.setUnit("tab");
+        action.setDosage("1");
+        var drugDao = mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, drugDao);
+        doAnswer(invocation -> {
+            io.github.carlos_emr.carlos.commn.model.Drug drug = invocation.getArgument(0);
+            assertThat(drug.getRxDate()).isNotNull();
+            assertThat(drug.getEndDate()).isAfter(drug.getRxDate());
+            assertThat(drug.getWrittenDate()).isEqualTo(drug.getRxDate());
+            drug.setId(77);
+            return null;
+        }).when(drugDao).persist(any());
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(mockLoggedInInfo, bean)).thenReturn("9001"))) {
+            assertThat(action.execute()).isEqualTo("viewScript");
+            verify(drugDao).persist(any());
+            assertThat(card.getDrugId()).isEqualTo(77);
+            assertThat(card.getScript_no()).isEqualTo("9001");
         }
     }
 

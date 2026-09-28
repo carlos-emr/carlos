@@ -236,6 +236,16 @@ public final class RxWriteScript2Action extends ActionSupport {
             if ("updateAndPrint".equals(this.getAction()) && !validateRenderedStash(bean)) {
                 return NONE;
             }
+            Date submittedRxDate;
+            Date submittedWrittenDate;
+            try {
+                // rx_date/end_date are required database dates. Refuse a blank or malformed
+                // legacy form before changing the shared draft or inserting a prescription header.
+                submittedRxDate = parseLegacyDate(this.getRxDate(), true);
+                submittedWrittenDate = parseLegacyDate(this.getWrittenDate(), false);
+            } catch (IllegalArgumentException e) {
+                return reportInvalidDraft();
+            }
             // Another window may have moved the shared cursor since this form was rendered.
             bean.setStashIndex(bean.getIndexFromRx((int) rx.getRandomId()));
 
@@ -251,8 +261,8 @@ public final class RxWriteScript2Action extends ActionSupport {
 				rx.setCustomName(this.getCustomName());
             }
 
-            rx.setRxDate(RxUtil.StringToDate(this.getRxDate(), "yyyy-MM-dd"));
-            rx.setWrittenDate(RxUtil.StringToDate(this.getWrittenDate(), "yyyy-MM-dd"));
+            rx.setRxDate(submittedRxDate);
+            rx.setWrittenDate(submittedWrittenDate);
             rx.setTakeMin(this.getTakeMinFloat());
             rx.setTakeMax(this.getTakeMaxFloat());
             rx.setFrequencyCode(this.getFrequencyCode());
@@ -322,6 +332,29 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
         }
         return fwd;
+    }
+
+    private static Date parseLegacyDate(String value, boolean required) {
+        if (value == null || value.isBlank()) {
+            if (required) throw new IllegalArgumentException("Prescription date is required");
+            return null;
+        }
+        String normalized = value.trim();
+        if (!normalized.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+            throw new IllegalArgumentException("Invalid prescription date");
+        }
+        try {
+            java.time.LocalDate.parse(normalized); // Reject impossible dates; legacy parsing is lenient.
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid prescription date", e);
+        }
+        Date date = RxUtil.StringToDate(normalized, "yyyy-MM-dd");
+        // LocalDate uses the proleptic Gregorian calendar; the legacy Date parser does not.
+        // Reject era/cutover normalization instead of silently changing the submitted date.
+        if (date == null || !normalized.equals(RxUtil.DateToString(date, "yyyy-MM-dd"))) {
+            throw new IllegalArgumentException("Invalid prescription date");
+        }
+        return date;
     }
 
     /**

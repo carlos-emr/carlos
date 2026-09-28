@@ -333,7 +333,12 @@
             }
 
             function useQtyMax() {
-                frm.quantity.value = frm.sugQtyMax.value;
+                var maximum = calcQuantity();
+                if (!Number.isFinite(maximum)) {
+                    alert('The value entered is invalid.');
+                    return;
+                }
+                frm.quantity.value = maximum;
 
                 writeScriptDisplay();
             }
@@ -578,6 +583,8 @@
                 } else if (pc == "N") {
                     if (frm.patientComplianceN.checked) frm.patientComplianceY.checked = false;
                 }
+                frm.elements['patientCompliance'].value = frm.patientComplianceY.checked ? 'true'
+                    : frm.patientComplianceN.checked ? 'false' : '';
                 writeScriptDisplay();
             }
 
@@ -726,9 +733,31 @@
                 return true;
             }
 
+            function restoreEditorSelect(select, value) {
+                select.value = value;
+                if (select.value !== value) {
+                    select.add(new Option(value, value));
+                    select.value = value;
+                }
+            }
+
+            function refreshSuggestedQuantity() {
+                var index = frm.frequencyCode.selectedIndex;
+                var duration = calculateDuration(frm.durationUnit.value, frm.duration.value);
+                var minimum = Math.ceil(Number(frm.takeMin.value) * freqMin[index] * duration);
+                var maximum = Math.ceil(Number(frm.takeMax.value) * freqMax[index] * duration);
+                if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
+                    frm.sugQtyMin.value = minimum;
+                    frm.sugQtyMax.value = maximum;
+                    setQuantity();
+                }
+            }
+
             function pageLoad() {
                 frm = document.forms.frm;
-                calcQty();
+                // Rendering an existing prescription must not recalculate its quantity or rewrite
+                // its instructions. Dosing controls explicitly invoke calcQty when edited.
+                refreshSuggestedQuantity();
                 var txtQty = frm.quantity;
                 if (txtQty.restrict) alert("YES");
                 txtQty.restrict = "0-9";
@@ -737,8 +766,9 @@
             }
 
             function prepareOutsideProvider() {
-                if (frm.outsideProviderName.value.length > 0) document.getElementById('ocheck').checked = true;
-                showHideOutsideProvider();
+                var checked = frm.outsideProviderName.value.length > 0 || frm.outsideProviderOhip.value.length > 0;
+                document.getElementById('ocheck').checked = checked;
+                document.getElementById('otext').style.display = checked ? '' : 'none';
             }
 
             function showHideOutsideProvider() {
@@ -924,6 +954,7 @@
                 thisForm.setSpecial(rx.getSpecial());
                 thisForm.setLongTerm(rx.getLongTerm());
                 thisForm.setPastMed(rx.getPastMed());
+                thisForm.setShortTerm(rx.getShortTerm());
                 thisForm.setDispenseInternal(rx.getDispenseInternal());
                 thisForm.setPatientCompliance(rx.getPatientCompliance());
                 thisForm.setAtcCode(rx.getAtcCode());
@@ -995,10 +1026,13 @@
     <%-- Carries the window's patient: the per-patient Rx bean is resolved from it, and a save that
          does not name its patient is refused (#3875). --%>
     <input type="hidden" name="demographicNo" id="demographicNo" value="<%= bean.getDemographicNo() %>"/>
-    <input type="hidden" name="GCN_SEQNO" id="GCN_SEQNO"/>
-    <input type="hidden" name="atcCode" id="atcCode"/>
-    <input type="hidden" name="regionalIdentifier" id="regionalIdentifier"/>
-    <input type="hidden" name="dosage" id="dosage"/>
+    <input type="hidden" name="dispenseInternal" value="<%= thisForm.getDispenseInternal() %>"/>
+    <input type="hidden" name="shortTerm" value="<%= thisForm.getShortTerm() %>"/>
+    <input type="hidden" name="patientCompliance" value="<%= thisForm.getPatientCompliance() == null ? "" : thisForm.getPatientCompliance().toString() %>"/>
+    <input type="hidden" name="GCN_SEQNO" id="GCN_SEQNO" value="<carlos:encode value='<%= thisForm.getGCN_SEQNO() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="atcCode" id="atcCode" value="<carlos:encode value='<%= thisForm.getAtcCode() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="regionalIdentifier" id="regionalIdentifier" value="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="dosage" id="dosage" value="<carlos:encode value='<%= thisForm.getDosage() %>' context="htmlAttribute"/>"/>
 
 
     <table border="0" cellpadding="0" cellspacing="0" <% /*style="border-collapse: collapse"*/%> bordercolor="#111111"
@@ -1045,8 +1079,8 @@
                                         <fmt:message key="WriteScript.genericNameText"/>:
                                     </td>
                                     <td colspan=2>
-                                        <input type="hidden" name="genericName" id="genericName"/>
-                                        <b><%= thisForm.getGenericName() %>
+                                        <input type="hidden" name="genericName" id="genericName" value="<carlos:encode value='<%= thisForm.getGenericName() %>' context="htmlAttribute"/>"/>
+                                        <b><carlos:encode value="<%= thisForm.getGenericName() %>" context="html"/>
                                         </b>
                                         <%if (compString != null) {%>
                                         <a href="javascript: function myFunction() {return false; }"
@@ -1069,8 +1103,8 @@
                                         <fmt:message key="WriteScript.brandNameText"/>:
                                     </td>
                                     <td colspan=2>
-                                        <input type="hidden" name="brandName" id="brandName"/>
-                                        <b title="<%=thisForm.getRegionalIdentifier()%>"><%= thisForm.getBrandName() %>
+                                        <input type="hidden" name="brandName" id="brandName" value="<carlos:encode value='<%= thisForm.getBrandName() %>' context="htmlAttribute"/>"/>
+                                        <b title="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"><carlos:encode value="<%= thisForm.getBrandName() %>" context="html"/>
                                         </b>
                                         <oscar:oscarPropertiesCheck property="SHOW_ODB_LINK" value="yes">
                                             <!--a href="javascript: function myFunction() {return false; }" onclick="javascript:popup(700,630,'http://216.176.50.202/formulary/SearchServlet?searchType=singleQuery&phrase=exact&keywords=<%=regionalIdentifier%>','ODBInfo')">ODB info</a-->
@@ -1091,7 +1125,7 @@
                                     <td colspan=2 valign="top">Custom Drug:</td>
                                     <td colspan=2><textarea name="customName" cols="50"
                                                                  rows="3"
-                                                            onchange="javascript:writeScriptDisplay();"></textarea></td>
+                                                            onchange="javascript:writeScriptDisplay();"><carlos:encode value='<%= thisForm.getCustomName() %>' context="html"/></textarea></td>
                                     <td valign=top rowspan=8>
                                         <div style="z-index: 0;"><select size=20 name="selSpecial"
                                                                          ondblclick="javascript:cmdSpecial_click();">
@@ -1107,7 +1141,7 @@
 
                                 <tr>
                                     <td colspan=2><fmt:message key="WriteScript.startDate"/>:</td>
-                                    <td colspan=2><input type="text" name="rxDate" id="rxDate" /></td>
+                                    <td colspan=2><input type="text" name="rxDate" id="rxDate"  value="<carlos:encode value='<%= thisForm.getRxDate() %>' context="htmlAttribute"/>"/></td>
                                     <!--<td >
                                           &nbsp;
                                         </td>-->
@@ -1176,8 +1210,8 @@
                                             <%= freq[i].getFreqCode() %>
                                         </option>
                                         <%}%>
-                                    </select> <input type="hidden" name="takeMin" id="takeMin"/>
-                                        <input type="hidden" name="takeMax" id="takeMax"/>
+                                    </select> <input type="hidden" name="takeMin" id="takeMin" value="<carlos:encode value='<%= thisForm.getTakeMin() %>' context="htmlAttribute"/>"/>
+                                        <input type="hidden" name="takeMax" id="takeMax" value="<carlos:encode value='<%= thisForm.getTakeMax() %>' context="htmlAttribute"/>"/>
                                         <script language=javascript>
                                             var frm = document.forms.frm;
 
@@ -1193,7 +1227,7 @@
                                             }
 
                                             if (frm.takeOther.value == '0.25') {
-                                                frm.takeOther.value == '1/4';
+                                                frm.takeOther.value = '1/4';
                                             }
                                             frm.take.value = frm.takeOther.value;
                                             if (frm.take.value != frm.takeOther.value) {
@@ -1202,7 +1236,7 @@
                                             }
                                         </script>
                                         <fmt:message key="WriteScript.prn"/>
-                                        <input type="checkbox" name="prn" onchange="javascript:writeScriptDisplay();"/>
+                                        <input type="checkbox" name="prn" value="true" <%= thisForm.getPrn() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
                                     </td>
                                     <!--<td>
                                             &nbsp;
@@ -1230,7 +1264,7 @@
                                             <option value="D"><fmt:message key="WriteScript.msgDays"/></option>
                                             <option value="W"><fmt:message key="WriteScript.msgWeeks"/></option>
                                             <option value="M"><fmt:message key="WriteScript.msgMonths"/></option>
-                                        </select> <input type="hidden" name="duration" id="duration"/>
+                                        </select> <input type="hidden" name="duration" id="duration" value="<carlos:encode value='<%= thisForm.getDuration() %>' context="htmlAttribute"/>"/>
                                         <script language=javascript>
                                             frm.txtDuration.value = frm.duration.value;
 
@@ -1254,13 +1288,13 @@
                                                                        size="8"
                                                                        onchange="javascript:if( chkQty(this.value) ) {writeScriptDisplay(); customQty(this.value);}"
                                                                        onkeypress="return validNum(event);"
-                                                                       onkeyup="customQty(this.value);"/> <input
+                                                                       onkeyup="customQty(this.value);" value="<carlos:encode value='<%= thisForm.getQuantity() %>' context="htmlAttribute"/>"/> <input
                                             type=button
                                             value="<<" onclick=" javascript:useQtyMax();"/>
                                         (<fmt:message key="WriteScript.msgCalculated"/>:&nbsp;<span id="lblSugQty"
                                                                                                      style="font-weight: bold"></span>&nbsp;
                                         )&nbsp;<input type="text" name="unitName" size="5"
-                                                          onchange="javascript:writeScriptDisplay();"/> <input
+                                                          onchange="javascript:writeScriptDisplay();" value="<carlos:encode value='<%= thisForm.getUnitName() %>' context="htmlAttribute"/>"/> <input
                                                 type=hidden name="sugQtyMin"/> <input type=hidden
                                                                                       name="sugQtyMax"/>
                                         <script language="javascript">
@@ -1298,7 +1332,7 @@
                                         <option value="Other"><fmt:message key="WriteScript.msgOther"/></option>
                                     </select> <input type=text name="txtRepeat" size="5"
                                                      onchange="calcQty();" style="display: none"/>
-                                        <input type="hidden" name="repeat" id="repeat"/>
+                                        <input type="hidden" name="repeat" id="repeat" value="<carlos:encode value='<%= String.valueOf(thisForm.getRepeat()) %>' context="htmlAttribute"/>"/>
                                         <script language=javascript>
                                             frm.txtRepeat.value = frm.repeat.value;
 
@@ -1310,29 +1344,31 @@
                                         </script>
                                         &nbsp;
                                         <fmt:message key="WriteScript.noSubs"/>:
-                                        <input type="checkbox" name="nosubs" onchange="javascript:writeScriptDisplay();"/>
+                                        <input type="checkbox" name="nosubs" value="true" <%= thisForm.getNosubs() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
                                         &nbsp;
                                         <fmt:message key="WriteScript.msgLastRefillDate"/>:
-                                        <input type="text" name="lastRefillDate" onfocus="javascript:lastRefillDate.value='';"/>
+                                        <input type="text" name="lastRefillDate" onfocus="javascript:lastRefillDate.value='';" value="<carlos:encode value='<%= thisForm.getLastRefillDate() %>' context="htmlAttribute"/>"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
                                         <fmt:message key="WriteScript.msgLongTermMedication"/>:
-                                        <input type="checkbox" name="longTerm" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
+                                        <input type="hidden" name="longTerm" value="<%= thisForm.getLongTerm() == null ? "" : thisForm.getLongTerm().toString() %>"/>
+                                        <input type="checkbox" name="longTermFlag" <%= Boolean.TRUE.equals(thisForm.getLongTerm()) ? "checked" : "" %> onchange="frm.elements['longTerm'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPastMedication"/>:
-                                        <input type="checkbox" name="pastMed" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
+                                        <input type="hidden" name="pastMed" value="<%= thisForm.getPastMed() == null ? "" : thisForm.getPastMed().toString() %>"/>
+                                        <input type="checkbox" name="pastMedFlag" <%= Boolean.TRUE.equals(thisForm.getPastMed()) ? "checked" : "" %> onchange="frm.elements['pastMed'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPatientCompliance"/>:
                                         <fmt:message key="WriteScript.msgYes"/>
-                                        <input type="checkbox" name="patientComplianceY" onchange="javascript:checkPatientCompliance('Y');"/>
+                                        <input type="checkbox" name="patientComplianceY" <%= Boolean.TRUE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('Y');"/>
                                         <fmt:message key="WriteScript.msgNo"/>
-                                        <input type="checkbox" name="patientComplianceN" onchange="javascript:checkPatientCompliance('N');"/>
+                                        <input type="checkbox" name="patientComplianceN" <%= Boolean.FALSE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('N');"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
                                         <fmt:message key="WriteScript.special"/>: &nbsp; &nbsp; &nbsp; &nbsp;
-                                        <input type="checkbox" name="customInstr"/><fmt:message key="WriteScript.msgCustomInstructions"/>
+                                        <input type="checkbox" name="customInstr" value="true" <%= thisForm.getCustomInstr() ? "checked" : "" %>/><fmt:message key="WriteScript.msgCustomInstructions"/>
                                         <script language=javascript>
                                             function cmdSpecial_click() {
                                                 var frm = document.forms.frm;
@@ -1347,7 +1383,7 @@
                                         <table width=100% border=1>
                                             <tr>
                                                 <td valign=top><textarea name="special" cols="50"
-                                                                         rows="5"></textarea> <input type=button value="RD"
+                                                                         rows="5"><carlos:encode value='<%= thisForm.getSpecial() %>' context="html"/></textarea> <input type=button value="RD"
                                                                                                 title="Redraw"
                                                                                                 onclick="javascript:first = false; writeScriptDisplay(); clearWarning(); fillWarnings();"/>
                                                     <div id="warningDiv" style="display: none;">
@@ -1401,16 +1437,16 @@
                                                onclick="showHideOutsideProvider();"/> &nbsp;
                                         <span id="otext">
 							    <b><fmt:message key="WriteScript.msgName"/>:</b>
-                                            <input type="text" name="outsideProviderName"/> &nbsp;
+                                            <input type="text" name="outsideProviderName" value="<carlos:encode value='<%= thisForm.getOutsideProviderName() %>' context="htmlAttribute"/>"/> &nbsp;
 							    <b><fmt:message key="WriteScript.msgOHIPNO"/>:</b>
-                                            <input type="text" name="outsideProviderOhip"/>
+                                            <input type="text" name="outsideProviderOhip" value="<carlos:encode value='<%= thisForm.getOutsideProviderOhip() %>' context="htmlAttribute"/>"/>
 							</span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan="5">
                                       <label for="writtenDate"> <fmt:message key="WriteScript.msgRxWrittenDate"/>: </label>
-                                            <input type="text" name="writtenDate" id="writtenDate" />
+                                            <input type="text" name="writtenDate" id="writtenDate"  value="<carlos:encode value='<%= thisForm.getWrittenDate() %>' context="htmlAttribute"/>"/>
                                     </td>
                                 </tr>
                             </table>
@@ -1586,7 +1622,6 @@
                         //out.write("calcQtyflag=false;");
                   }
 
-                if (isEmpty(quan)){ quan = "null"; }
                 %>
 
                 function customQty(quan) {
@@ -1597,8 +1632,14 @@
                     }
                 }
 
-                customQty(<%=quan%>);
-                writeScriptDisplay();
+                // Preserve stored values, including historical options no longer in current lists.
+                restoreEditorSelect(frm.elements['method'], '<carlos:encode value='<%= thisForm.getMethod() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['unit'], '<carlos:encode value='<%= thisForm.getUnit() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['route'], '<carlos:encode value='<%= thisForm.getRoute() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['frequencyCode'], '<carlos:encode value='<%= thisForm.getFrequencyCode() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['durationUnit'], '<carlos:encode value='<%= thisForm.getDurationUnit() %>' context="javaScriptBlock"/>');
+                customQty('<carlos:encode value='<%= quan %>' context="javaScriptBlock"/>');
+                // Keep the stored instructions verbatim until a dosing control is edited.
                 <oscar:oscarPropertiesCheck property="RENAL_DOSING_DS" value="yes">
 
                 function getRenalDosingInformation(origRequest) {

@@ -316,9 +316,59 @@ async function workflow(session) {
     h.assert(await page.evaluate(() => frm === document.forms.frm && typeof frm.quantity === 'object'),
       'the write-script page did not bind its form');
     const legacyName = `${marker}-legacy-save`;
-    await page.locator('form#frm textarea[name="customName"]').fill(legacyName);
-    await page.locator('form#frm input[name="quantity"]').fill('30');
-    await page.locator('form#frm textarea[name="special"]').fill('Take one tablet daily');
+    const field = name => page.locator(`form#frm [name="${name}"]`);
+    h.assert(await field('GCN_SEQNO').inputValue() === '0', 'custom editor lost its drug identity');
+    const rxDate = await field('rxDate').inputValue();
+    const writtenDate = await field('writtenDate').inputValue();
+    h.assert(/^\d{4}-\d{2}-\d{2}$/.test(rxDate) && /^\d{4}-\d{2}-\d{2}$/.test(writtenDate),
+      'the editor did not render the prepared prescription dates');
+    // Exercise the actual controls, then Update and reload before Print. The old migration
+    // discarded every prepared value on rendering, silently replacing doses/flags/directions.
+    await field('customInstr').check();
+    await field('customName').fill(legacyName);
+    const frequencies = await field('frequencyCode').locator('option').evaluateAll(options => options.map(option => option.value));
+    const frequency = frequencies.includes('BID') ? 'BID' : frequencies.find(value => value && value !== 'OID');
+    h.assert(frequency, 'the fixture has no nonempty dosing frequency');
+    await field('frequencyCode').selectOption(frequency);
+    await field('method').selectOption('Apply');
+    await field('take').selectOption('1-2');
+    await field('unit').selectOption('mL');
+    await field('route').selectOption('TOP');
+    await field('cmbDuration').selectOption('2');
+    await field('durationUnit').selectOption('W');
+    await field('cmbRepeat').selectOption('3');
+    await field('quantity').fill('37');
+    await field('unitName').fill(`mL's <&>`);
+    await field('prn').check();
+    await field('nosubs').check();
+    await field('longTermFlag').check();
+    await field('patientComplianceN').check();
+    await page.locator('#ocheck').check();
+    await field('outsideProviderName').fill(`Dr O'Fixture <&>`);
+    await field('outsideProviderOhip').fill('123456');
+    const instructions = 'Use 1-2 mL <literal &> per the written schedule.\nKeep this wording.';
+    await field('special').fill(instructions);
+    // Automatic instruction mode must also preserve wording on initial rendering; rewriting
+    // belongs to an explicit dosing edit, not the Update response's onload handler.
+    await field('customInstr').uncheck();
+    const updated = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/writeScript')
+      && response.request().method() === 'POST');
+    await page.locator('input[onclick="submitForm(\'update\');"]').click();
+    h.assert((await updated).ok(), 'legacy Update refused valid clinical fields');
+    await page.waitForLoadState('networkidle');
+    const expectedFields = {GCN_SEQNO: '0', customName: legacyName, rxDate, writtenDate, method: 'Apply',
+      unit: 'mL', route: 'TOP', frequencyCode: frequency, duration: '2', durationUnit: 'W', repeat: '3',
+      quantity: '37', unitName: `mL's <&>`, special: instructions, longTerm: 'true',
+      patientCompliance: 'false', outsideProviderName: `Dr O'Fixture <&>`, outsideProviderOhip: '123456'};
+    for (const [name, expected] of Object.entries(expectedFields)) {
+      h.assert(await field(name).inputValue() === expected, `legacy Update lost or rewrote ${name}`);
+    }
+    h.assert(Number(await field('takeMin').inputValue()) === 1 && Number(await field('takeMax').inputValue()) === 2,
+      'legacy Update lost the selected dose range');
+    h.assert(await field('prn').isChecked() && await field('nosubs').isChecked()
+      && await field('longTermFlag').isChecked() && await field('patientComplianceN').isChecked()
+      && !await field('patientComplianceY').isChecked() && !await field('customInstr').isChecked(),
+      'legacy Update lost the clinical flags');
     const payload = await page.locator('form#frm').evaluate(form => Object.fromEntries(new FormData(form)));
     payload.action = 'updateAndPrint';
     h.assert(payload['CSRF-TOKEN'], 'the legacy editor has no CSRF token');
@@ -352,6 +402,14 @@ async function workflow(session) {
     await h.assertNotErrorPage(page, 'saved legacy preview');
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(legacyName)}`) === '1', 'legacy Print did not save exactly one medication');
+    const clinical = sql.rows(`SELECT rx_date,written_date,takemin,takemax,freqcode,duration,durunit,
+      quantity,unit,unitName,method,route,\`repeat\`,prn,nosubs,long_term,patient_compliance,
+      outside_provider_name,outside_provider_ohip,special FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(legacyName)}`);
+    const expectedClinical = [rxDate, writtenDate, '1', '2', frequency, '2', 'W', '37', 'mL', `mL's <&>`,
+      'Apply', 'TOP', '3', '1', '1', '1', '0', `Dr O'Fixture <&>`, '123456', instructions];
+    h.assert(clinical.length === 1 && JSON.stringify(clinical[0]) === JSON.stringify(expectedClinical),
+      'legacy Print changed the clinical fields between the editor and persisted medication');
     const duplicate = await postCapturedEditor();
     h.assert(duplicate.status() === 409 && (await duplicate.json()).error === 'STALE_RX_STASH',
       'duplicate legacy Print was accepted');
