@@ -553,6 +553,25 @@ case "$1" in
             : > "${CONSULT_SIG_SENTINEL}"
         fi
 
+        # One-time migration (2026.08): the Health Tracker nav entry shipped
+        # behind health_tracker=false, so every packaged install copied that
+        # into the persistent /etc override and never showed the tracker, which
+        # OSCAR 19 lists first in the encounter Measurements module (reported by
+        # alpha testers). The stock default is now true. Same contract as the
+        # consultation-signature flip above: rewrite ONLY the exact old stock
+        # line, ONLY on upgrade, ONLY once; the sentinel is written on fresh
+        # installs too so a false the operator sets later is never flipped back.
+        HEALTH_TRACKER_SENTINEL="${STATE}/.health-tracker-default-migrated"
+        if [ ! -e "${HEALTH_TRACKER_SENTINEL}" ]; then
+            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
+                && grep -qx 'health_tracker=false' "${PROPERTIES}"; then
+                sed -i 's/^health_tracker=false$/health_tracker=true/' "${PROPERTIES}"
+                echo "carlos-emr: enabled the Health Tracker nav entry (migrated the old stock default off -> on; set health_tracker=false in ${PROPERTIES} to hide it)"
+            fi
+            mkdir -p "${STATE}"
+            : > "${HEALTH_TRACKER_SENTINEL}"
+        fi
+
         # Normalise the legacy yes/no spellings of the same key to true/false.
         # Until this release the two buttons that start a consultation fax were
         # rendered by a tag that compared the raw string against the literal
