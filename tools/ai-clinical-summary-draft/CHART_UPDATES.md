@@ -146,3 +146,9 @@ For the real CARLOS/MariaDB walkthrough with three existing NHS synthetic charts
 see [the repeatable integration check](browser/NHS_LIVE_CHECK.md). Its fixed
 proposal gateway tests the application workflow without model credentials;
 those results do not measure AI extraction quality.
+
+The [September 28 CARLOS/MariaDB results](quality/2026-09-28/chart-update-integration.md)
+cover NHSSYN001–003, signed history, reminders, source links, access auditing and
+replay protection. The run found and fixed the read-only transaction that rejected
+access-audit inserts. All three patient walkthroughs and 73 focused Java tests
+passed; the proposal source was a fixed fixture gateway, with no model inference.

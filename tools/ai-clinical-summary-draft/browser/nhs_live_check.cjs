@@ -121,9 +121,11 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       details.checks.push('mobile layout');
       results.patients.push(details);
       console.log(`${fixture.fixture}: ${details.checks.length} checks passed`);
-      await page.close();
-      await chart.close();
-      await masterPage.close();
+      // CARLOS reuses named Search/E-Chart windows. Close the search popup too,
+      // so the next patient's opener produces a new, observable window.
+      for (const candidate of context.pages()) {
+        if (candidate !== schedule) await candidate.close();
+      }
     }
     results.passed = true;
   } catch (error) {
