@@ -83,15 +83,6 @@ public final class PortalSecret {
     }
 
     /**
-     * Wraps a credential that the portal may legitimately omit.
-     *
-     * @return the wrapped value, or {@code null} when {@code value} is null or blank
-     */
-    static PortalSecret ofNullable(String value) {
-        return value == null || value.isBlank() ? null : new PortalSecret(value);
-    }
-
-    /**
      * Returns the raw credential.
      *
      * <p>Every call site is a place a credential leaves containment. Use it only where the value is

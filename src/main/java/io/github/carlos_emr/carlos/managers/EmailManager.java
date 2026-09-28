@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -14,9 +15,11 @@ import java.util.Collections;
 import java.util.Date;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
@@ -57,6 +60,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
+import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,6 +107,7 @@ public class EmailManager {
     private static final String SEND_FAILURE_MESSAGE = "Failed to send email";
     /** What an archived copy shows in place of a value the sender asked the archive not to keep. */
     static final String ARCHIVE_REDACTION = "[redacted]";
+    private static final String SENDER_CONFIG_FAILURE_MESSAGE = "The email sender could not be set up from its configuration";
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
@@ -111,7 +117,7 @@ public class EmailManager {
 
     private final Logger logger = MiscUtils.getLogger();
     /** Keep recovery controls away from sends that may still be executing in another request. */
-    static final long PENDING_RESOLUTION_MIN_AGE_MILLIS = 15L * 60L * 1000L;
+    public static final long PENDING_RESOLUTION_MIN_AGE_MILLIS = 15L * 60L * 1000L;
 
     public enum EmailResolutionResult {
         RESOLVED,
@@ -138,6 +144,8 @@ public class EmailManager {
     @Autowired
     private ProviderManager2 providerManager;
     private final SecurityInfoManager securityInfoManager;
+    @Autowired
+    private PortalEmailDeliveryService portalEmailDelivery;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
@@ -240,6 +248,12 @@ public class EmailManager {
             }
 
             sanitizeEmailFields(emailData);
+            boolean portalPassword = emailData.getIsEncrypted()
+                    && PortalEmailDeliveryService.isEnabled();
+            if (portalPassword) {
+                emailData.setPassword("");
+                emailData.setPasswordClue("");
+            }
             EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
             if (emailConfig == null) {
                 logger.warn("Email send failed before transport: sender configuration is missing or inactive; senderConfigId={}",
@@ -260,10 +274,44 @@ public class EmailManager {
                 return EmailSendResult.failed(emailLog, true);
             }
 
+            if (portalPassword) {
+                // The portal path archives and dispatches exactly like a normal send; only the
+                // password handling around the transport step differs.
+                AtomicReference<Integer> archiveId = new AtomicReference<>();
+                EmailSendResult portalResult;
+                try {
+                    portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
+                            () -> encryptEmail(emailData),
+                            () -> archiveId.set(sendWithArchive(loggedInInfo,
+                                    createSenderBeforeTransport(loggedInInfo, emailLog, emailData), emailLog,
+                                    emailData.getArchiveRedactions(), dispatchGate)));
+                } catch (SecurityException e) {
+                    // sendWithArchive records a refusal it raises itself; a refusal before
+                    // transport (portal authorization) still leaves the row PENDING.
+                    if (EmailStatus.PENDING.equals(emailLog.getStatus())) {
+                        recordAuthorizationFailure(emailLog, e);
+                    }
+                    throw e;
+                }
+                if (portalResult.isTransportAccepted()) {
+                    // Keep the portal's "publish pending" note: the outbox shows it with SUCCESS.
+                    var completed = completeAcceptedSend(loggedInInfo, emailLog,
+                            portalResult.isFollowUpRequired() ? emailLog.getErrorMessage() : "");
+                    recordArchiveSendOutcome(loggedInInfo, archiveId.get(), SendOutcome.ACCEPTED);
+                    return EmailSendResult.accepted(completed.getEmailLog(), completed.isTransportOutcomeRecorded(),
+                            completed.isFollowUpRequired() || portalResult.isFollowUpRequired());
+                }
+                return completeFailedSend(loggedInInfo, emailLog,
+                        new EmailSendingException(emailLog.getErrorMessage(), null, portalResult.isDeliveryUnconfirmed()));
+            }
+
             try {
                 if (emailData.getIsEncrypted()) {
                     encryptEmail(emailData);
                 }
+                // After encryption and before the sender is built, so the signature covers the
+                // exact bytes that are archived and dispatched.
+                signAttachments(emailData);
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
                 Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog,
                         emailData.getArchiveRedactions(), dispatchGate);
@@ -282,6 +330,22 @@ public class EmailManager {
             }
             emailData.setPassword("");
             emailData.setPasswordClue("");
+        }
+    }
+
+    /**
+     * Builds the sender for the portal path. It runs after the portal state has moved to SENDING,
+     * so a construction fault is reported as a definite failure: the transport was never reached,
+     * and classifying it as uncertain would make staff reconcile a send that cannot have happened.
+     */
+    private EmailSender createSenderBeforeTransport(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailData emailData)
+            throws EmailSendingException {
+        try {
+            return emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
+        } catch (SecurityException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new EmailSendingException(SENDER_CONFIG_FAILURE_MESSAGE, e);
         }
     }
 
@@ -567,11 +631,19 @@ public class EmailManager {
     }
 
     private EmailSendResult completeAcceptedSend(LoggedInInfo loggedInInfo, EmailLog emailLog) {
+        return completeAcceptedSend(loggedInInfo, emailLog, "");
+    }
+
+    /**
+     * @param outcomeNote stored with SUCCESS; empty unless the accepted send still needs staff
+     *                    attention, such as a portal password that is not yet published
+     */
+    private EmailSendResult completeAcceptedSend(LoggedInInfo loggedInInfo, EmailLog emailLog, String outcomeNote) {
         boolean outcomeRecorded;
         boolean followUpRequired = false;
         try {
             emailLog = updateEmailStatus(
-                    loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+                    loggedInInfo, emailLog, EmailStatus.SUCCESS, outcomeNote);
             outcomeRecorded = EmailStatus.SUCCESS.equals(emailLog.getStatus());
         } catch (RuntimeException statusUpdateFailure) {
             // Transport has already accepted the message. Propagating a 500 would invite the
@@ -794,6 +866,10 @@ public class EmailManager {
         if (emailLog == null) {
             return EmailResolutionResult.NOT_FOUND;
         }
+        // Portal recovery owns these whatever their age, so "too recent" would be the wrong reason.
+        if (emailLog.isPortalDeliveryUnresolved()) {
+            return EmailResolutionResult.NOT_RESOLVABLE;
+        }
         if (EmailStatus.PENDING.equals(emailLog.getStatus()) && !isManuallyResolvable(emailLog)) {
             return EmailResolutionResult.PENDING_TOO_RECENT;
         }
@@ -822,6 +898,11 @@ public class EmailManager {
      */
     public boolean isManuallyResolvable(EmailLog emailLog) {
         if (emailLog == null) {
+            return false;
+        }
+        // Portal recovery owns these: resolving one by hand could turn a known failure into an
+        // unknown outcome and invite publishing a password for an email that was never sent.
+        if (emailLog.isPortalDeliveryUnresolved()) {
             return false;
         }
         if (EmailStatus.FAILED.equals(emailLog.getStatus())) {
@@ -1136,7 +1217,8 @@ public class EmailManager {
         if (consentResult.getStatus() == EmailConsentStatus.NOT_CONFIGURED) {
             return "Email blocked: patient email consent is not configured.";
         }
-        return "Email blocked: patient email consent is unknown and no override reason was provided.";
+        // Covers both no consent record and an implied one: neither establishes explicit consent.
+        return "Email blocked: explicit email consent is not on record and no confirmation reason was provided.";
     }
 
     /**
@@ -1198,6 +1280,12 @@ public class EmailManager {
      * @throws EmailSendingException if PDF encryption fails
      */
     void encryptEmail(EmailData emailData) throws EmailSendingException {
+        // Fail closed: an empty password produces a PDF anyone can open. The compose action blanks
+        // the password when portal delivery owns it, so a disagreement about that setting between
+        // the two reads must stop the send rather than encrypt with nothing.
+        if (emailData.getPassword() == null || emailData.getPassword().isBlank()) {
+            throw new EmailSendingException("Email encryption requires a password");
+        }
         ensureWorkingDirectory(emailData);
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
@@ -1280,6 +1368,74 @@ public class EmailManager {
         }
     }
 
+    /**
+     * Cryptographically signs outgoing PDF attachments when PDF signing is configured.
+     *
+     * <p>Runs after optional password encryption, so the signature covers the exact bytes sent
+     * to the patient. Each signed PDF is adopted into the send's working directory, which owns
+     * its cleanup. The compose flow always supplies that directory and {@code sendEmailInternal}
+     * decides who closes it; only a caller that builds {@code EmailData} directly arrives
+     * without one, and then it is created here, never closed here.</p>
+     *
+     * <p>Every attachment on {@code emailData} is expected to be a signable PDF. Signing is
+     * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
+     * send is aborted rather than delivering a partially signed or unsigned set.</p>
+     *
+     * @param emailData EmailData containing the final attachment list
+     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    void signAttachments(EmailData emailData) throws EmailSendingException {
+        List<EmailAttachment> attachments = emailData.getAttachments();
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        PDFSigningConfig signingConfig = PDFSigningConfig.fromCarlosProperties();
+        if (!signingConfig.isEnabled()) {
+            return;
+        }
+
+        ensureWorkingDirectory(emailData);
+        // An encrypted PDF can only be modified with its owner password.
+        String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
+        for (EmailAttachment attachment : attachments) {
+            Path signedPDFPath = null;
+            try {
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
+                attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
+            } catch (IOException | RuntimeException e) {
+                // Any RuntimeException, not a chosen few: one that escaped would skip
+                // completeFailedSend and strand the EmailLog at PENDING behind a 500.
+                deleteUnadoptedSignedPdf(signedPDFPath);
+                // The cause chain is what tells an operator whether the keystore, its password or
+                // the certificate is at fault. It names server paths, never the attachment: the
+                // attachment's own file name can identify a patient, so it is left out.
+                logger.error("Failed to sign an email PDF attachment", e);
+                throw new EmailSendingException("Failed to sign email PDF attachment", e);
+            }
+        }
+    }
+
+    /**
+     * Removes a signed PDF that the working directory never took ownership of. It holds the
+     * patient's document and nothing else would ever delete it.
+     */
+    private void deleteUnadoptedSignedPdf(Path signedPDFPath) {
+        // signPDF only ever returns a temp file it created, so anything else here is a bug and
+        // is left alone rather than deleted.
+        if (signedPDFPath == null || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(signedPDFPath);
+        } catch (IOException | RuntimeException cleanupFailure) {
+            logger.warn("Signed email PDF could not be removed after a failed send: {}",
+                    cleanupFailure.getClass().getSimpleName());
+        }
+    }
+
     private static void ensureWorkingDirectory(EmailData emailData) throws EmailSendingException {
         if (emailData.getWorkingDirectory() != null) {
             return;
@@ -1341,6 +1497,7 @@ public class EmailManager {
                     result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResult.applyConsentSnapshot(result);
             emailStatusResult.setResolvable(isManuallyResolvable(result));
+            emailStatusResult.setPortalPasswordPending(result.isPortalDeliveryUnresolved());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

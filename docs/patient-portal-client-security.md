@@ -53,17 +53,20 @@ path, query and UTF-8 body bytes that it hashes. Proxies must preserve the path,
 query, and body seen by the portal. Rewriting these values invalidates
 authentication; do not enable legacy authentication to work around a mismatch.
 
-`patient_portal.base_url` names the portal's origin only (`https://host[:port]`),
-and a path is rejected at startup. CARLOS calls `/internal/carlos/` at the root
+`patient_portal.base_url` names the portal's origin only (`https://host[:port]`).
+A path is rejected when the portal client is first used after a restart, because
+its settings are read lazily. CARLOS calls `/internal/carlos/` at the root
 of that origin even when patients reach the portal under a prefix. The portal's
 reference proxy answers `/<prefix>/internal/` with 404, and a proxy that strips a
 prefix would change the raw path the request hash binds.
 
 The transport allows four concurrent exchanges per client and has no request
 queue. `patient_portal.timeout.request.ms` defaults to 20000 and must be positive
-and below 60000. It bounds the caller's wait through connection establishment and
-body reading, in addition to the connect/read inactivity timeouts. On expiration
-or interruption, CARLOS cancels the underlying HTTP request. A worker that does
+and at most 59000: the 60-second assertion lifetime, less one second because the
+assertion's times are rounded down to whole seconds. It bounds the caller's wait
+through connection establishment and body reading, in addition to the
+connect/read inactivity timeouts. On expiration or interruption, CARLOS cancels
+the underlying HTTP request. A worker that does
 not respond to cancellation retains its slot until it actually exits, preventing
 unbounded replacement threads. A timed-out mutation may already have applied;
 check current state before retrying.
@@ -77,9 +80,9 @@ email privilege the rest of CARLOS requires to create or close an outbox row. Se
 `_edoc` write, because every sent email is archived as a patient document. Both are checked before the
 portal is asked for anything, and the page shows only the controls the user's rights allow.
 
-`V1.0.31` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
+`V1.0.43` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
 only non-admin role the baseline grants `_email`. Unlocking a portal account stays with `admin`, where
-`V1.0.30` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
+`V1.0.41` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
 in Administration > Security lets them see and revoke invitations, but not send one or resolve an
 unfinished delivery.
 

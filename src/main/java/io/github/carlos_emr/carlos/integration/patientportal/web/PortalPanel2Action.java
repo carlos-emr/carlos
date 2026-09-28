@@ -149,7 +149,8 @@ public class PortalPanel2Action extends PortalJsonAction {
                         SecurityInfoManager.READ,
                         String.valueOf(demographicNo));
         if (!mayReadInvites && !mayReadAccount) {
-            throw new SecurityException("missing required sec object (_portal.account)");
+            throw new SecurityException(
+                    "missing required sec object (_portal.account r or _portal.invite r)");
         }
 
         PatientPortalService portal = portalService();

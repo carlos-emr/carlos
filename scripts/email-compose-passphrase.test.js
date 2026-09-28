@@ -85,7 +85,7 @@ test('an unavailable cleartext compose state does not open a disabled confirmati
   const first = source.indexOf('    document.addEventListener("DOMContentLoaded"');
   const ready = source.slice(first, source.indexOf('    document.addEventListener("keydown"', first));
   const events = [];
-  vm.runInNewContext(ready, {
+  vm.runInNewContext(ready.replace('${portalDeliveryNeedsRecovery}', 'false'), {
     document: { addEventListener: (name, fn) => fn(), querySelectorAll: () => [],
       getElementById: id => id === 'disableEncryptionModal' ? null : { value: 'true' } },
     applyEncryptionState: () => events.push('state'), convertAttachmentSize() {},
