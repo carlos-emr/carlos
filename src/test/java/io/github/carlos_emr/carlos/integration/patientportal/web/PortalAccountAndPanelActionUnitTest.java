@@ -288,11 +288,11 @@ class PortalAccountAndPanelActionUnitTest {
         @ParameterizedTest
         @ValueSource(strings = {
                 // Persian "wants", whose letters a zero-width non-joiner keeps apart
-                "می‌خواهد",
+                "\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u062F",
                 // An emoji sequence joined by a zero-width joiner: woman, health worker
-                "moved away 👩‍⚕️",
+                "moved away \uD83D\uDC69\u200D\u2695\uFE0F",
                 // A soft hyphen marking where a long word may break
-                "re­located"})
+                "re\u00ADlocated"})
         @DisplayName("should accept the formatting characters the portal keeps for ordinary text")
         void shouldDisableAccount_whenTheReasonNeedsAJoinerOrSoftHyphen(String reason) throws Exception {
             request.setParameter("method", "access");
