@@ -28,12 +28,14 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
@@ -146,6 +148,8 @@ public class EmailManager {
     private final SecurityInfoManager securityInfoManager;
     @Autowired
     private PortalEmailDeliveryService portalEmailDelivery;
+    @Autowired
+    private PatientPortalInviteDeliveryDao inviteDeliveries;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
@@ -871,9 +875,9 @@ public class EmailManager {
         if (emailLog == null) {
             return EmailResolutionResult.NOT_FOUND;
         }
-        // Portal recovery and the invitation workflow own these whatever their age, so "too recent"
+        // Portal recovery and an open invitation delivery own these whatever their age, so "too recent"
         // would be the wrong reason.
-        if (emailLog.isPortalDeliveryUnresolved() || isPortalInvite(emailLog)) {
+        if (emailLog.isPortalDeliveryUnresolved() || isOwnedByOpenInvite(emailLog)) {
             return EmailResolutionResult.NOT_RESOLVABLE;
         }
         if (EmailStatus.PENDING.equals(emailLog.getStatus()) && !isManuallyResolvable(emailLog)) {
@@ -911,9 +915,9 @@ public class EmailManager {
         if (emailLog.isPortalDeliveryUnresolved()) {
             return false;
         }
-        // The invitation workflow owns these in every state: its delivery record, not this row, says
-        // whether a live code is out. Resolving one here would leave that record open with the code live.
-        if (isPortalInvite(emailLog)) {
+        // While an invitation's delivery is open, its record, not this row, says whether a live code is out,
+        // and staff resolve it on the portal page. Resolving the row here would leave the code live.
+        if (isOwnedByOpenInvite(emailLog)) {
             return false;
         }
         if (EmailStatus.FAILED.equals(emailLog.getStatus())) {
@@ -925,9 +929,22 @@ public class EmailManager {
                         <= System.currentTimeMillis() - PENDING_RESOLUTION_MIN_AGE_MILLIS;
     }
 
-    /** A patient portal invitation, which only the portal page resolves or resends. */
+    /** A patient portal invitation, which only the portal page resends. */
     private static boolean isPortalInvite(EmailLog emailLog) {
         return EmailLog.TransactionType.PORTAL_INVITE.equals(emailLog.getTransactionType());
+    }
+
+    /**
+     * A patient portal invitation whose delivery has not finished. Once it has, or when no delivery names
+     * the row, the row is resolvable like any other: a status write that failed after the send (see
+     * {@code completeAcceptedSend}) leaves it PENDING with nothing else able to clear it.
+     */
+    private boolean isOwnedByOpenInvite(EmailLog emailLog) {
+        if (!isPortalInvite(emailLog) || emailLog.getId() == null) {
+            return false;
+        }
+        PatientPortalInviteDelivery delivery = inviteDeliveries.findByEmailLogId(emailLog.getId());
+        return delivery != null && !delivery.getState().isTerminal();
     }
 
     /**

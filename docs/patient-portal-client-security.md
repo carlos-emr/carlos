@@ -141,9 +141,10 @@ permanent patient document, never holds it: the service names the code in
 exact bytes sent. If the code cannot be found verbatim in the prepared message, the send is refused
 before the portal activates anything. Reopening a portal invitation in the email compose window is refused outright, so the
 message history cannot hand the credential to a reader who holds email access but no portal rights.
-Manage Emails and the chart's email viewer send staff to the patient's portal page instead, and Manage
-Emails never resolves an invitation's outbox row by hand: its delivery record, not that row, says
-whether a code is live. A
+Manage Emails and the chart's email viewer send staff to the patient's portal page instead. While an
+invitation's delivery is open, Manage Emails does not resolve its outbox row by hand: the delivery
+record, not that row, says whether a code is live. Once the delivery has finished, the row resolves like
+any other, which clears one left pending by a status write that failed after the send. A
 patient who never received their email gets a resend, which issues a new code; CARLOS never re-sends the
 stored one. The email passes through the same consent gate as every patient email: `OPT_IN`, or
 `UNKNOWN` with a documented override reason. Text-message invitations are reserved until CARLOS has

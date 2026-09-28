@@ -78,8 +78,9 @@
                     </td>
                 </tr>
             </c:if>
-            <%-- A portal invitation's email is never reopened or resolved here: its code must not come back,
-                 and its delivery record would stay open. The patient's portal page does both. --%>
+            <%-- A portal invitation's email is never reopened here: its code must not come back, and the
+                 patient's portal page resends it. It is resolvable here only once its delivery has finished
+                 (EmailManager.isManuallyResolvable); until then the portal page resolves it. --%>
             <c:if test="${not empty emailStatusResult.portalInviteDemographicNo}">
                 <tr>
                     <th><fmt:message key="email.admin.label.portalInvite"/></th>

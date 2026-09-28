@@ -174,6 +174,17 @@ class PatientPortalInviteDeliveryDaoIntegrationTest extends CarlosTestBase {
                 .extracting(PatientPortalInviteDelivery::getId).containsExactly(third, second, first);
     }
 
+    @Test
+    @DisplayName("should find the attempt that sent an outbox row, or nothing when none did")
+    void shouldFindTheAttempt_byItsEmailLogId() {
+        Long queued = deliveries.claim(attempt(PATIENT)).getId();
+        deliveries.advance(queued, State.PREPARING, State.QUEUED, row -> row.setEmailLogId(987654));
+        deliveries.claim(attempt(PATIENT));
+
+        assertThat(deliveries.findByEmailLogId(987654).getId()).isEqualTo(queued);
+        assertThat(deliveries.findByEmailLogId(987655)).isNull();
+    }
+
     private static PatientPortalInviteDelivery attempt(int demographicNo) {
         return new PatientPortalInviteDelivery("inv-" + UUID.randomUUID(), demographicNo, "maplecreek",
                 "https://portal.example", Channel.EMAIL, null, "999998");

@@ -67,4 +67,7 @@ public interface PatientPortalInviteDeliveryDao extends AbstractDao<PatientPorta
 
     /** @return every attempt for a patient that has not finished, oldest first */
     List<PatientPortalInviteDelivery> findUnfinishedByDemographic(int demographicNo);
+
+    /** @return the attempt that sent this outbox row, or {@code null} when no attempt names it */
+    PatientPortalInviteDelivery findByEmailLogId(int emailLogId);
 }
