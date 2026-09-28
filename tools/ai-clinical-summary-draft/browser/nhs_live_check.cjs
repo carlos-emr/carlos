@@ -67,9 +67,17 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(await page.locator('form[action$="GenerateAiChartUpdates"]').count(), 1, 'Review must offer proposal generation');
       assert(auditCount() > auditsBefore, 'Opening the review must persist its access audit');
       const details = { fixture: fixture.fixture, documentId: doc, checks: ['login', 'search', 'eChart', 'summary review link', 'access audit persisted'] };
+      const missingCsrf = await page.request.post(`${config.baseUrl}/documentManager/GenerateAiChartUpdates`,
+        { form: { documentId: String(doc) } });
+      assert.equal(missingCsrf.status(), 403, 'Missing CSRF token must reject generation');
+      const getMutation = await page.request.get(`${config.baseUrl}/documentManager/ApplyAiChartUpdate?documentId=${doc}`);
+      assert.equal(getMutation.status(), 405, 'GET must never apply an update');
+      assert.equal(count(), receiptsBefore);
+      details.checks.push('real CSRF rejection', 'GET mutation rejection');
       const generate = page.getByRole('button', { name: /Generate/ });
       await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 650000 }), generate.click()]);
       assert.equal(await page.locator('.alert-danger').count(), 0, 'Proposal generation must succeed');
+      assert.equal(new URL(page.url()).pathname, '/carlos/documentManager/AiChartUpdates', 'Generation must redirect to GET');
       const proposals = page.locator('article.proposal');
       assert(await proposals.count() >= 3, 'This walkthrough expects at least three source-backed proposals');
       assert.equal(count(), receiptsBefore, 'Generation must not write chart updates');
@@ -79,9 +87,21 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(createHash('sha256').update(source).digest('hex'), fixture.sourceSha256);
       for (const evidence of await proposals.locator('blockquote').allTextContents()) assert(source.includes(evidence));
       details.checks.push('generation without writes', 'exact source evidence');
+      const csrf = page.locator('input[name="CSRF-TOKEN"]').first();
+      const firstKey = await proposals.locator('input[name="proposalKey"]').first().inputValue();
+      const forgedReview = await page.request.post(`${config.baseUrl}/documentManager/DismissAiChartUpdate`,
+        { form: { documentId: String(doc), 'CSRF-TOKEN': await csrf.inputValue(), reviewToken: 'forged', proposalKey: firstKey } });
+      assert((await forgedReview.text()).includes('This review expired or was replaced'), 'Forged review token must be rejected');
+      assert.equal(count(), receiptsBefore);
+      details.checks.push('review token rejection');
       await page.screenshot({ path: path.join(output, `${fixture.fixture}-review.png`), fullPage: true });
       const reminder = proposals.filter({ has: page.locator('input[name="dueDate"]') }).first();
       assert.equal(await reminder.count(), 1);
+      const historyDraft = proposals.filter({ has: page.locator('select[name="destination"]') }).first();
+      const editedHistory = 'Synthetic workflow check: ' + await historyDraft.locator('textarea').inputValue();
+      await historyDraft.locator('textarea').fill(editedHistory);
+      await historyDraft.locator('select[name="destination"]').selectOption('MedHistory');
+      await historyDraft.locator('input[name="confirmed"]').check();
       await reminder.locator('input[name="dueDate"]').fill('2026-10-05');
       await reminder.locator('select[name="assignee"]').selectOption('999998');
       const edited = 'Synthetic workflow check: ' + await reminder.locator('textarea').inputValue();
@@ -99,6 +119,13 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(Number(sql.value(`SELECT COUNT(*) FROM tickler_link l JOIN clinical_chart_update_receipt r ON r.target_id=l.tickler_no AND r.kind='tickler' WHERE r.demographic_no=${patient} AND r.document_no=${doc} AND l.table_name='DOC' AND l.table_id=${doc}`)), 1);
       details.checks.push('edited reminder persisted', 'reminder source link');
       const history = proposals.filter({ has: page.locator('select[name="destination"]') }).first();
+      assert.equal(await history.locator('textarea').inputValue(), editedHistory, 'Saving a reminder must preserve other edits');
+      assert.equal(await history.locator('select[name="destination"]').inputValue(), 'MedHistory');
+      assert.equal(await history.locator('input[name="confirmed"]').isChecked(), false, 'Approval must be renewed after refresh');
+      await page.reload();
+      assert.equal(await history.locator('textarea').inputValue(), editedHistory);
+      assert.equal(count(), Math.max(1, receiptsBefore), 'Refreshing must not repeat a save');
+      details.checks.push('other edits retained', 'approval reset', 'refresh-safe GET');
       await history.locator('select[name="destination"]').selectOption('MedHistory');
       await history.locator('input[name="confirmed"]').check();
       await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), history.getByRole('button', { name: /Accept/ }).click()]);

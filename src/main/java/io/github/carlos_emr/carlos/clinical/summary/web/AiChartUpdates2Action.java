@@ -90,14 +90,15 @@ public final class AiChartUpdates2Action extends ActionSupport {
             var snapshot = context.load(user, document);
             if ("generate".equals(operation)) {
                 LogAction.addLogSynchronous(user, "ChartUpdates.generate", "documentId=" + document);
-                var proposals = (generator == null ? new ChartUpdateProposals() : generator).generate(snapshot.source());
+                var engine = generator == null ? new ChartUpdateProposals() : generator;
+                var proposals = engine.generate(snapshot.source());
                 var after = context.load(user, document);
                 if (!snapshot.fingerprint().equals(after.fingerprint())) {
                     throw new IllegalStateException("The source or chart changed during generation. Generate proposals again.");
                 }
                 synchronized (session) {
                     session.setAttribute(ChartUpdateReview.SESSION_KEY,
-                            new ChartUpdateReview(user.getLoggedInProviderNo(), after, proposals));
+                            new ChartUpdateReview(user.getLoggedInProviderNo(), after, proposals, engine.displayName()));
                 }
             }
             synchronized (session) {

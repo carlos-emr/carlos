@@ -27,7 +27,7 @@ ticklers. Review the normal chart when needed.
 
 ## Enable only in an approved test environment
 
-Apply `database/mysql/migration/common/V1.0.29__reviewed_chart_update_receipts.sql`
+Apply `database/mysql/migration/common/V1.0.33__reviewed_chart_update_receipts.sql`
 through the normal schema migration process first. Its version is draft and must
 be reconciled with other pending migrations before merging. Existing published
 migrations are unchanged. The new receipt table stores identifiers and hashes,

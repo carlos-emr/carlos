@@ -51,6 +51,7 @@ public final class ChartUpdateProposals {
 
     public ChartUpdateProposals() { this(ClinicalSummaryAgents.configuredChartUpdates()); }
     public ChartUpdateProposals(ClinicalSummaryAgent agent) { this.agent = agent; }
+    public String displayName() { return agent.displayName(); }
 
     public List<Proposal> generate(String source) throws ClinicalSummaryGenerationException {
         if (source == null || source.isBlank()) throw new IllegalArgumentException("Readable source required");

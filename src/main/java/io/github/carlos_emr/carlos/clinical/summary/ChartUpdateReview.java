@@ -36,6 +36,7 @@ public final class ChartUpdateReview implements Serializable {
     private final int document;
     private final int patient;
     private final String sourceHash;
+    private final String agentName;
     private final long expiresAt = Instant.now().plusSeconds(900).getEpochSecond();
     private final Map<String, ChartUpdateProposals.Proposal> proposals = new LinkedHashMap<>();
     private final Map<String, String> outcomes = new LinkedHashMap<>();
@@ -53,7 +54,13 @@ public final class ChartUpdateReview implements Serializable {
     }
 
     public ChartUpdateReview(String provider, ChartUpdateContext.Snapshot snapshot, List<ChartUpdateProposals.Proposal> candidates) {
+        this(provider, snapshot, candidates, "");
+    }
+
+    public ChartUpdateReview(String provider, ChartUpdateContext.Snapshot snapshot,
+            List<ChartUpdateProposals.Proposal> candidates, String agentName) {
         this.provider = provider;
+        this.agentName = agentName;
         document = snapshot.documentId();
         patient = snapshot.patientId();
         sourceHash = snapshot.sourceHash();
@@ -75,6 +82,7 @@ public final class ChartUpdateReview implements Serializable {
     public int getDocument() { return document; }
     public int getPatient() { return patient; }
     public String getSourceHash() { return sourceHash; }
+    public String getAgentName() { return agentName; }
     public String getFingerprint() { return fingerprint; }
     public Map<String, ChartUpdateProposals.Proposal> getProposals() {
         return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(proposals));

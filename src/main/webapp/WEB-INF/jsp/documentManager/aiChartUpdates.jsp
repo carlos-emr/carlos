@@ -27,6 +27,7 @@
     <c:choose>
     <c:when test="${not empty chartUpdateReview}">
         <h2 class="h5"><fmt:message key="chartUpdates.proposals"/> (<carlos:encode value="${chartUpdateRows.size()}"/>)</h2>
+        <c:if test="${not empty chartUpdateReview.agentName}"><p class="small"><fmt:message key="chartUpdates.agent"/>: <carlos:encode value="${chartUpdateReview.agentName}"/></p></c:if>
         <p role="status"><fmt:message key="chartUpdates.remaining"><fmt:param value="${chartUpdateRemaining}"/></fmt:message></p>
         <c:if test="${chartUpdateRemaining == 0 and not empty chartUpdateRows}"><p class="alert alert-success"><fmt:message key="chartUpdates.complete"/></p></c:if>
         <c:if test="${empty chartUpdateRows}"><p><fmt:message key="chartUpdates.none"/></p></c:if>
