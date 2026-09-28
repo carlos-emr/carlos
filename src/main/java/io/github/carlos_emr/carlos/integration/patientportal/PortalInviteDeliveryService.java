@@ -113,7 +113,7 @@ public class PortalInviteDeliveryService {
     static final String EMAIL_CONFIRMED_NOT_SENT =
             "Staff confirmed the invitation email did not arrive; it was revoked.";
     static final String EMAIL_ABANDONED_BY_STAFF =
-            "Staff stopped this delivery before the invitation was activated.";
+            "Staff stopped this delivery; the invitation email was never sent.";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -411,6 +411,9 @@ public class PortalInviteDeliveryService {
         @Override
         public void beforeDispatch(EmailLog emailLog) throws EmailSendingException {
             Integer emailLogId = emailLog.getId();
+            // Set once the portal has answered the commit. From then on the code is live, and for a resend
+            // the earlier one is retired, so a failure to record that here must never read as a refusal.
+            boolean activated = false;
             try {
                 if (deliveries.advance(deliveryId, State.PREPARED, State.QUEUED,
                         r -> r.setEmailLogId(emailLogId)) == null) {
@@ -424,11 +427,13 @@ public class PortalInviteDeliveryService {
                     deliveries.advance(deliveryId, State.QUEUED, State.QUEUED, r -> r.setOutcome(outcome));
                     throw new EmailSendingException(NOT_SENT_BEFORE_COMMIT);
                 }
+                activated = true;
                 Date expiresAt = committed.expiresAt() == null ? null : Date.from(committed.expiresAt());
                 if (deliveries.advance(deliveryId, State.QUEUED, State.COMMITTED, r -> {
                     r.setExpiresAt(expiresAt);
                     r.setOutcome(null);
                 }) == null) {
+                    recordUnrecordedActivation();
                     throw new EmailSendingException(NOT_SENT_BEFORE_COMMIT);
                 }
             } catch (RuntimeException exception) {
@@ -436,7 +441,25 @@ public class PortalInviteDeliveryService {
                 // any other exception would be recorded as an unconfirmed send. Nothing was sent here, so
                 // it is converted.
                 logger.warn("patient portal invite commit gate failed: {}", exception.getClass().getSimpleName());
+                if (activated) {
+                    recordUnrecordedActivation();
+                }
                 throw new EmailSendingException(NOT_SENT_BEFORE_COMMIT);
+            }
+        }
+
+        /**
+         * Marks the attempt as activated on the portal but not recorded here, so settling it says the
+         * commit is unconfirmed rather than refused. Best effort: the write that just failed may fail
+         * again, and settling reads an attempt left with no outcome the same way.
+         */
+        private void recordUnrecordedActivation() {
+            try {
+                deliveries.advance(deliveryId, State.QUEUED, State.QUEUED,
+                        r -> r.setOutcome(Outcome.COMMIT_UNCONFIRMED));
+            } catch (RuntimeException exception) {
+                logger.warn("patient portal invite activation could not be recorded: {}",
+                        exception.getClass().getSimpleName());
             }
         }
 
@@ -486,11 +509,21 @@ public class PortalInviteDeliveryService {
             }
             // The gate never ran: consent blocked the email, or building, archiving or redacting it failed.
             case PREPARED -> abandon(deliveryId, State.PREPARED, Outcome.SEND_BLOCKED, inviteId, staff, demographicNo);
-            // The gate stopped before or at the commit. Withdraw the token; nothing reached the patient.
-            case QUEUED -> abandon(deliveryId, State.QUEUED, row.getOutcome() == null
-                    ? Outcome.COMMIT_REFUSED : row.getOutcome(), inviteId, staff, demographicNo);
+            // The gate stopped at the commit, or after it without recording it. Withdraw the token; nothing
+            // reached the patient.
+            case QUEUED -> abandon(deliveryId, State.QUEUED, stoppedAtCommit(row), inviteId, staff, demographicNo);
             default -> row;
         };
+    }
+
+    /**
+     * Why the gate stopped an attempt it had queued. With no outcome recorded, the gate failed without
+     * saying whether the portal had activated the code, so the commit is unconfirmed, never refused: the
+     * portal retires a resend's earlier code as it activates the new one, and only "unconfirmed" warns
+     * staff of that.
+     */
+    private static Outcome stoppedAtCommit(PatientPortalInviteDelivery row) {
+        return row.getOutcome() == null ? Outcome.COMMIT_UNCONFIRMED : row.getOutcome();
     }
 
     /**
@@ -522,8 +555,11 @@ public class PortalInviteDeliveryService {
             return;
         }
         forgetCode(row.getEmailLogId());
-        if (row.getState() == State.PREPARED || row.getState() == State.QUEUED) {
-            abandon(deliveryId, row.getState(), Outcome.SEND_BLOCKED, inviteId, staff, demographicNo);
+        if (row.getState() == State.PREPARED) {
+            abandon(deliveryId, State.PREPARED, Outcome.SEND_BLOCKED, inviteId, staff, demographicNo);
+        } else if (row.getState() == State.QUEUED) {
+            // Only the gate queues an attempt, so the portal was asked to commit it.
+            abandon(deliveryId, State.QUEUED, stoppedAtCommit(row), inviteId, staff, demographicNo);
         } else if (row.getState() == State.COMMITTED) {
             // The token is live and the send's fate is unknown. Never revoke on uncertainty.
             deliveries.advance(deliveryId, State.COMMITTED, State.SEND_UNCERTAIN,
@@ -596,8 +632,16 @@ public class PortalInviteDeliveryService {
         if (inviteId == null && row.getState() == State.PREPARING) {
             inviteId = findLostPreparation(row, patient, staff);
         }
+        Outcome outcome = Outcome.ABANDONED_BY_STAFF;
+        if (row.getState() == State.QUEUED && row.getSupersededInviteId() != null && inviteId != null
+                && !stillPrepared(row.getDemographicNo(), inviteId, staff)) {
+            // A queued resend may have been activated without CARLOS recording it (a crash between the
+            // two), and activating it retired the earlier code. Its own code is still withdrawn, since the
+            // email never left, but the attempt says so, and the page warns that the earlier one may be gone.
+            outcome = Outcome.COMMIT_UNCONFIRMED;
+        }
         PatientPortalInviteDelivery abandoned = tryAbandon(row.getId(), row.getState(),
-                Outcome.ABANDONED_BY_STAFF, inviteId, staff, row.getDemographicNo());
+                outcome, inviteId, staff, row.getDemographicNo());
         if (abandoned == null) {
             // A colleague resolved it first, perhaps by withdrawing it too; their decision stands.
             throw new PortalInviteException(Reason.STATE_CHANGED);
@@ -609,6 +653,22 @@ public class PortalInviteDeliveryService {
                     EMAIL_ABANDONED_BY_STAFF, Date.from(clock.instant()));
         }
         return abandoned;
+    }
+
+    /**
+     * Whether the portal still holds the invitation as prepared: never activated, so the invitation it was
+     * to replace was not retired. Read-only, and asked before the invitation is withdrawn.
+     *
+     * @return {@code false} when it was activated, or the portal cannot say
+     */
+    private boolean stillPrepared(int demographicNo, long inviteId, PatientPortalStaffContext staff) {
+        try {
+            return portal.listInvites(demographicNo, staff).stream()
+                    .anyMatch(invite -> invite.id() == inviteId && STATUS_PREPARED.equals(invite.status()));
+        } catch (PatientPortalException exception) {
+            logger.warn("patient portal invitation status could not be read: kind={}", exception.kind());
+            return false;
+        }
     }
 
     /**

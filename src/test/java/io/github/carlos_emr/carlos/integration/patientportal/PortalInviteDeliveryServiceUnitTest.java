@@ -887,6 +887,135 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("an activation CARLOS could not record")
+    class UnrecordedActivation {
+
+        @Test
+        @DisplayName("should record a resend the portal activated but CARLOS could not record as unconfirmed")
+        void shouldRecordUnconfirmed_whenTheActivationCannotBeRecorded() {
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(9L, "pending")));
+            when(deliveries.advance(anyLong(), eq(State.QUEUED), eq(State.COMMITTED), any()))
+                    .thenThrow(new IllegalStateException("lock wait timeout"));
+
+            PatientPortalInviteDelivery row = service.resend(user, patient(), 9L, staff, emailRequest());
+
+            assertThat(events).contains("commit").doesNotContain("send");
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            // Never "refused": activating the replacement retired the earlier code, which staff must hear.
+            assertThat(row.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
+            assertThat(row.getSupersededInviteId()).isEqualTo(9L);
+            // The new code never left CARLOS, so withdrawing it takes nothing from the patient.
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+
+        @Test
+        @DisplayName("should still read the attempt as unconfirmed when nothing about the activation was recorded")
+        void shouldRecordUnconfirmed_whenNoWriteAfterTheCommitSucceeds() {
+            when(deliveries.advance(anyLong(), eq(State.QUEUED), eq(State.COMMITTED), any()))
+                    .thenThrow(new IllegalStateException("connection pool exhausted"));
+            when(deliveries.advance(anyLong(), eq(State.QUEUED), eq(State.QUEUED), any()))
+                    .thenThrow(new IllegalStateException("connection pool exhausted"));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(events).contains("commit").doesNotContain("send");
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
+        }
+
+        @Test
+        @DisplayName("should read a gate that failed without saying why as unconfirmed, not refused")
+        void shouldReadAMissingOutcome_asUnconfirmed() {
+            when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any()))
+                    .thenThrow(new IllegalStateException("response handler failed"));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(events).doesNotContain("send");
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
+        }
+
+        @Test
+        @DisplayName("should keep why the gate stopped when the send then throws")
+        void shouldKeepTheGatesOutcome_whenTheSendThrowsAfterIt() {
+            when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/commit", null));
+            when(emailManager.sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class)))
+                    .thenAnswer(invocation -> {
+                        EmailManager.DispatchGate gate = invocation.getArgument(2);
+                        try {
+                            gate.beforeDispatch(emailLog());
+                        } catch (EmailSendingException refused) {
+                            throw new IllegalStateException("outbox row could not be marked failed");
+                        }
+                        return EmailSendResult.accepted(emailLog(), true);
+                    });
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(IllegalStateException.class);
+
+            assertThat(onlyRow().getState()).isEqualTo(State.ABANDONED);
+            assertThat(onlyRow().getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
+        }
+
+        @Test
+        @DisplayName("should warn that the earlier invitation may be gone when staff stop a resend the portal activated")
+        void shouldRecordUnconfirmed_whenStaffStopAnActivatedResend() {
+            PatientPortalInviteDelivery row = queuedResend();
+            when(portal.listInvites(anyInt(), any()))
+                    .thenReturn(List.of(invite(INVITE, "pending"), invite(9L, "superseded")));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+
+            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
+            // Asked before withdrawing: afterwards the portal would show the code revoked either way.
+            InOrder order = inOrder(portal);
+            order.verify(portal).listInvites(PATIENT, staff);
+            order.verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+
+        @Test
+        @DisplayName("should record a plain stop when the portal shows the resend was never activated")
+        void shouldRecordAbandonedByStaff_whenTheResendWasNeverActivated() {
+            PatientPortalInviteDelivery row = queuedResend();
+            when(portal.listInvites(anyInt(), any()))
+                    .thenReturn(List.of(invite(INVITE, "prepared"), invite(9L, "pending")));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+
+            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+
+        @Test
+        @DisplayName("should warn, and still stop the resend, when the portal cannot say whether it was activated")
+        void shouldRecordUnconfirmed_whenTheStatusCannotBeRead() {
+            PatientPortalInviteDelivery row = queuedResend();
+            when(portal.listInvites(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/invites", null));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+
+            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+
+        /** A resend left queued, as a crash between the portal's commit and CARLOS recording it leaves one. */
+        private PatientPortalInviteDelivery queuedResend() {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            injectDependency(row, "supersededInviteId", 9L);
+            return row;
+        }
+    }
+
+    @Nested
     @DisplayName("withdrawing a lost preparation")
     class LostPreparation {
 

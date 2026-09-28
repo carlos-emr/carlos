@@ -61,7 +61,8 @@
             }
             if (delivery.outcome === 'commit_unconfirmed' && delivery.supersededInviteId) {
                 // The portal retires the old code as it activates a replacement, so an unconfirmed
-                // replacement may have taken the old code with it.
+                // replacement may have taken the old code with it. A queued replacement staff stop is
+                // recorded this way too unless the portal shows it was never activated.
                 parts.push(text('deliveries.replacementMayBeLost'));
             }
             return parts;
