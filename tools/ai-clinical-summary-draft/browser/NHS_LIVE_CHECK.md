@@ -77,7 +77,7 @@ node tools/ai-clinical-summary-draft/browser/nhs_live_check.cjs
 ```
 
 The approved reminders use October 5, 2026 and development provider `999998` as
-explicit test inputs. They are not inferred clinical recommendations. Use fresh
-fixture documents in a fresh database copy for a new run: the check refuses
-pre-existing approval receipts. Screenshots and the result identify only these
+explicit test inputs. They are not inferred clinical recommendations. Use a fresh database copy for an initial save test. Repeating the check on the
+same fixture verifies that the existing approvals replay without duplicate rows;
+the result records how many approval receipts existed before each patient run. Screenshots and the result identify only these
 verified synthetic fixtures. Keep login storage and database credentials private.
