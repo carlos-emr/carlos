@@ -119,6 +119,42 @@ test('upgrade verifier accepts an unchanged install with snapshot paths containi
   assert.match(result.stdout, /PIN digest unchanged/);
 });
 
+test('upgrade verifier accepts the one-time OSCAR feature-defaults migration', t => {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, 'rx_fax_enabled=false\nonare_labreqver=07\nALLOW_UPDATE_DOCUMENT_CONTENT= false\nother=kept\n');
+  fixture.baseline();
+  fs.writeFileSync(props, 'rx_fax_enabled=true\nonare_labreqver=10\nALLOW_UPDATE_DOCUMENT_CONTENT= true\nother=kept\n');
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, '.oscar-feature-defaults-migrated'), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /changed only by the one-time stock-default migrations/);
+  assert.match(result.stdout, /old stock onare_labreqver=07 was migrated to onare_labreqver=10/);
+  assert.match(result.stdout, /OSCAR feature-defaults migration sentinel written/);
+});
+
+for (const [name, after, sentinel, error] of [
+  ['an unsanctioned change to a migrated key', 'rx_fax_enabled=false\nonare_labreqver=07\nother=changed\n', false,
+    /FAIL cfg.carlos.properties.sha changed/],
+  ['a migration that skipped its sentinel', 'rx_fax_enabled=true\nonare_labreqver=10\nother=kept\n', false,
+    /FAIL OSCAR feature-defaults migration sentinel missing/],
+  ['a rewrite after the migration already ran', 'rx_fax_enabled=true\nonare_labreqver=10\nother=kept\n', 'pre',
+    /FAIL cfg.carlos.properties.sha changed/],
+]) {
+  test(`upgrade verifier rejects ${name}`, t => {
+    const fixture = setup(t);
+    const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+    const marker = path.join(fixture.env.CARLOS_STATE_DIR, '.oscar-feature-defaults-migrated');
+    fs.writeFileSync(props, 'rx_fax_enabled=false\nonare_labreqver=07\nother=kept\n');
+    if (sentinel === 'pre') fs.writeFileSync(marker, '');
+    fixture.baseline();
+    fs.writeFileSync(props, after);
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, error);
+  });
+}
+
 for (const [name, overrides, error, status] of [
   ['failed post snapshot', { FAIL_QUERY: 'COUNT(*) FROM appointment' }, /post-upgrade baseline failed/, 2],
   ['failed document inventory', { FAIL_QUERY: 'SELECT HEX' }, /document inventory query failed/, 2],

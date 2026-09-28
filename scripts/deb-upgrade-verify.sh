@@ -161,15 +161,21 @@ if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
   [ "$ht_post" = health_tracker=true ] && ok "the old stock health_tracker=false was migrated to true" || bad "health_tracker was not migrated: '$ht_post'"
   [ "$(g "$POST" sentinel..health-tracker-default-migrated)" = yes ] && ok "health-tracker migration sentinel written" || bad "health-tracker migration sentinel missing after upgrade"
 fi
+# Like the health_tracker check above, the migration is only asserted when the
+# PRE snapshot carries at least one old stock line it should have rewritten.
 if [ "$od_sentinel_pre" != yes ]; then
+  od_expected=0
   for pair in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
     old_line=${pair%%|*}; new_line=${pair#*|}; k=${old_line%%=*}
     if [ "$(g "$PRE" "cfg.oscarDefault.$k" 2>/dev/null || true)" = "$old_line" ]; then
+      od_expected=1
       post=$(g "$POST" "cfg.oscarDefault.$k" 2>/dev/null || true)
       [ "$post" = "$new_line" ] && ok "the old stock $old_line was migrated to $new_line" || bad "$k was not migrated: '$post'"
     fi
   done
-  [ "$(g "$POST" sentinel..oscar-feature-defaults-migrated)" = yes ] && ok "OSCAR feature-defaults migration sentinel written" || bad "OSCAR feature-defaults migration sentinel missing after upgrade"
+  if [ "$od_expected" = 1 ]; then
+    [ "$(g "$POST" sentinel..oscar-feature-defaults-migrated)" = yes ] && ok "OSCAR feature-defaults migration sentinel written" || bad "OSCAR feature-defaults migration sentinel missing after upgrade"
+  fi
 fi
 for k in rows.demographic rows.appointment rows.prescription rows.drugs rows.allergies rows.consultationRequests rows.casemgmt_note rows.preventions rows.hl7TextMessage rows.document rows.tickler; do [ "$(g "$PRE" $k)" = "$(g "$POST" $k)" ] && ok "$k preserved ($(g "$POST" $k))" || bad "$k changed: $(g "$PRE" $k) -> $(g "$POST" $k)"; done
 # The document store may legitimately GROW on upgrade (a12 ships synthetic HRM

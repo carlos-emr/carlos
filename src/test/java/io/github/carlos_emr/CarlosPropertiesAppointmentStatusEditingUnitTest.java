@@ -26,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -35,10 +36,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Pins {@link CarlosProperties#isAppointmentStatusEditingEnabled()}: appointment status editing
  * is on unless {@code ENABLE_EDIT_APPT_STATUS} is explicitly set to a non-active value.
  *
+ * <p>{@link Isolated}: the tests mutate the process-wide {@link CarlosProperties} singleton,
+ * and Surefire runs test classes in parallel.</p>
+ *
  * @since 2026-09-28
  */
 @DisplayName("CarlosProperties appointment status editing default")
 @Tag("unit")
+@Isolated
 class CarlosPropertiesAppointmentStatusEditingUnitTest {
 
     private static final String KEY = "ENABLE_EDIT_APPT_STATUS";

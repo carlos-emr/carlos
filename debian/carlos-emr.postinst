@@ -581,7 +581,9 @@ case "$1" in
         # defaults now match the OSCAR installer. Same contract as the flips
         # above: rewrite ONLY the exact old stock line of each key, ONLY on
         # upgrade, ONLY once; the sentinel is written on fresh installs too so a
-        # value the operator sets later is never flipped back. Keys that were
+        # value the operator sets later is never flipped back. A key defined
+        # more than once is skipped entirely (the later definition is the
+        # operator's override). Keys that were
         # commented out in the old stock file (invoice_due_date,
         # privateConsentEnabled) need no rewrite: the WAR's classpath default
         # applies under the /etc override. Keep this list in step with
@@ -591,6 +593,13 @@ case "$1" in
             if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ]; then
                 while IFS='|' read -r old_line new_line; do
                     [ -n "${old_line}" ] || continue
+                    # Only a key defined exactly once is the untouched stock
+                    # line. A second definition (an appended override, even
+                    # an identical one) is the operator's, and java.util.
+                    # Properties honours the last one, so leave the key alone.
+                    key="${old_line%%=*}"
+                    defs="$(grep -c "^${key}[[:space:]]*[=:]" "${PROPERTIES}" || true)"
+                    [ "${defs}" = 1 ] || continue
                     if grep -qxF "${old_line}" "${PROPERTIES}"; then
                         sed -i "s/^${old_line}\$/${new_line}/" "${PROPERTIES}"
                         echo "carlos-emr: ${old_line} -> ${new_line} (migrated the old stock default; edit ${PROPERTIES} to change it back)"

@@ -85,7 +85,9 @@ OSCAR_DEFAULT_MIGRATIONS=(new_flowsheet_enabled workflow_enhance rx_fax_enabled 
 value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.healthTracker "$value"
 migrated_keys_re="^(health_tracker$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}"))="
 for k in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
-    value=$(grep -E "^$k=" "$CARLOS_ETC_DIR/carlos.properties" || true); emit "cfg.oscarDefault.$k" "$value"
+    # A key the operator redefined appears more than once; join the lines so
+    # the snapshot stays one record per key.
+    value=$(grep -E "^$k=" "$CARLOS_ETC_DIR/carlos.properties" | paste -sd';' - || true); emit "cfg.oscarDefault.$k" "$value"
 done
 value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
