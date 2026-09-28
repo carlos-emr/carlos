@@ -52,7 +52,13 @@ public final class ViewCompleteMedRec2Action extends ActionSupport {
 
         // completeMedRec.jsp records a measurement for the patient the request names
         // (demographicNo); authorise a write on that patient, not only the module (#3908).
-        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_measurement", "w");
+        String rawPatient = request.getParameter("demographicNo");
+        int patient = io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver.requestedDemographicNo(request);
+        if (rawPatient == null || !rawPatient.matches("[0-9]{1,10}") || patient <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, patient, "_measurement", "w");
 
         return SUCCESS;
     }

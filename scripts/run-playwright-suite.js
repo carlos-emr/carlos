@@ -95,7 +95,12 @@ function selectChecks(checks, options) {
   for (const name of [...options.only, ...options.skip]) {
     if (!names.has(name)) throw new Error(`Unknown check name: ${name}; use --list for exact names`);
   }
-  let selected = checks;
+  // A manual check is destructive to the shared credential (the packaged
+  // install's first login changes the administrator password) and needs
+  // input the harness contract does not carry; it runs only when asked for
+  // by name, never as part of a tier or of the whole-suite default.
+  // --list still shows it, marked, so the name is discoverable.
+  let selected = checks.filter((check) => !check.manual || options.list || options.only.includes(check.name));
   if (options.tiers.length) {
     selected = selected.filter((check) => check.tiers.some((tier) => options.tiers.includes(tier)));
   }
@@ -336,7 +341,7 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
   }
   if (options.list) {
     for (const check of selected) {
-      out.log(`${check.name.padEnd(42)} ${check.tiers.join(',')}`);
+      out.log(`${check.name.padEnd(42)} ${check.tiers.join(',')}${check.manual ? ' (manual: runs only with --only)' : ''}`);
     }
     return EXIT_PASS;
   }

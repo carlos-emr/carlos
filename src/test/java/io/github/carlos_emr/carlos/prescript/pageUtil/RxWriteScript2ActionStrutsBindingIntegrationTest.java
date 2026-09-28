@@ -132,15 +132,17 @@ class RxWriteScript2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase
     @Test
     @DisplayName("should pass one patient number on when searchDrug receives demographicNo twice")
     void shouldExposeSinglePatient_whenSearchDrugReceivesRepeatedDemographicNo() throws Exception {
-        // inactiveDate is not dispatched without a drug id, so the plain search path runs; its
-        // DrugRef lookup fails fast offline and is caught by the action.
-        BindingResult result = bindThroughStruts("rx-searchdrug-binding-test", Map.of(
-                "searchString", new String[]{"zz"},
-                "demographicNo", new String[]{"1001", "1001"}));
+        try (var drugData = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.prescript.data.RxDrugData.class)) {
+            BindingResult result = bindThroughStruts("rx-searchdrug-binding-test", Map.of(
+                    "searchString", new String[]{"zz"},
+                    "demographicNo", new String[]{"1001", "1001"}));
 
-        assertThat(result.failure()).isNull();
-        assertThat(result.action().hasFieldErrors()).isFalse();
-        assertThat(mockRequest.getAttribute("demoNo")).isEqualTo("1001");
+            assertThat(result.failure()).isNull();
+            assertThat(result.action().hasFieldErrors()).isFalse();
+            assertThat(mockRequest.getAttribute("demoNo")).isEqualTo("1001");
+            assertThat(drugData.constructed()).hasSize(1);
+        }
     }
 
     private record BindingResult(org.apache.struts2.ActionSupport action, String code, Exception failure) {

@@ -366,7 +366,6 @@ public class RxUtil {
     public static String findDuration(RxPrescriptionData.Prescription rx) {//calculate duration based on quantity, takemax, takemin, frequency, durationUnit.
         //get frequency, takemax, takemin, durationUnit by parsing special.
         instrucParser(rx);
-        MiscUtils.getLogger().debug("after  instrucParser, quantity=" + rx.getQuantity());
         String qStr = rx.getQuantity();
         if (rx.getUnitName() == null) {
             qStr = qStr.trim();
@@ -580,9 +579,6 @@ public class RxUtil {
         }
 
         p("route", route);
-        if (route.equals("")) {
-            MiscUtils.getLogger().debug("route is not set");
-        }
 
         //find frequency
         for (String s : frequences) {
@@ -719,7 +715,6 @@ public class RxUtil {
 
         //match the pattern when there is no space between number and durationUnit.
         if (durationUnitSpec.equals("")) {
-            MiscUtils.getLogger().debug("no space between duration and duration unit.");
             for (String s : durUnits2) {
                 String instructionToCheck = checkInstructionStr(instructions);
                 Pattern p = Pattern.compile(s);
@@ -730,15 +725,12 @@ public class RxUtil {
                     p("instructionToCheck=" + instructionToCheck);
                     p(s);
                     String str1 = instructionToCheck.substring(m.start(), m.end());
-                    MiscUtils.getLogger().debug("str1=" + str1);
                     //get numUnit out
                     Pattern p1 = Pattern.compile("[0-9]+");
                     Matcher m1 = p1.matcher(str1);
                     if (m1.find()) {
                         duration = str1.substring(m1.start(), m1.end());
                         durationUnitSpec = (str1.substring(m1.end())).trim();
-                        MiscUtils.getLogger().debug("duration=" + duration);
-                        MiscUtils.getLogger().debug("durationUnitSpec=" + durationUnitSpec);
                         break;
                     }
                 }
@@ -812,12 +804,10 @@ public class RxUtil {
         double nPerDay = 0d; //number of drugs per day
         double nDays = 0d; //number of days per duration unit
 
-        MiscUtils.getLogger().debug("in instrucParser, unitName=" + rx.getUnitName());
         boolean isUnitNameUsed = true;
         if (rx.getUnitName() == null || rx.getUnitName().trim().length() == 0) isUnitNameUsed = false;
         else if (rx.getUnitName().equalsIgnoreCase("null")) isUnitNameUsed = false;
         else isUnitNameUsed = true;
-        MiscUtils.getLogger().debug("isUnitNameUsed=" + isUnitNameUsed);
         //if duration is 0 or null or length==0, it means duration is not specified by user
         //if quantity, frequency, durationUnit are valid values, isUnitNameUsed==false
         //yes, calculate duration based on quantity because duration is not specified
@@ -846,11 +836,9 @@ public class RxUtil {
             if (!isUnitNameUsed && !durationUnit.equals("") && !takeMin.equals("0") && !takeMax.equals("0") && !frequency.equals("")) {
                 nPerDay = findNPerDay(frequency);
                 nDays = findNDays(durationUnit);
-                MiscUtils.getLogger().debug("in instrucParser duration=" + duration);
                 //quantity=takeMax * nDays * duration * nPerDay
                 double quantityD = (Double.parseDouble(takeMax)) * nPerDay * nDays * (Double.parseDouble(duration));
                 quantity = (int) quantityD;
-                MiscUtils.getLogger().debug("in instrucParser, else=" + quantity + "-- " + takeMax + " --" + nPerDay + "-- " + nDays + "-- " + duration);
             }
 
         }
@@ -866,7 +854,6 @@ public class RxUtil {
         rx.setFrequencyCode(frequency);
         rx.setDurationUnit(durationUnit);
         rx.setPrn(prn);
-        MiscUtils.getLogger().debug("in instrucParser, quantity=" + quantity + "; unitName=" + rx.getUnitName());
         if (!isUnitNameUsed && quantity != 0) {
             rx.setQuantity(Integer.toString(quantity));
         }
@@ -893,7 +880,6 @@ public class RxUtil {
         hm.put("quantity", rx.getQuantity());
         hm.put("policyViolations", policyViolations);
 
-        MiscUtils.getLogger().debug("in parse instruction: " + hm);
         return;
     }
 
@@ -1284,12 +1270,10 @@ public class RxUtil {
             regex5 = regex5.trim();
             special = special.replace(regex5, "");
         }
-        MiscUtils.getLogger().debug("before trimming mitte=" + special);
         String regex6 = "Mitte:\\s*[0-9]+\\s*\\w+";
         p = Pattern.compile(regex6);
         m = p.matcher(special);
         special = m.replaceAll("");
-        MiscUtils.getLogger().debug("after trimming mitte special=" + special);
         //assume drug name is before method and drug name is the first part of the instruction.
         String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
         //rx_enhance changes the behavior by not deleting anything up to the words Take, apply..
@@ -1321,26 +1305,15 @@ public class RxUtil {
 
     }
 
+    /**
+     * Retains compatibility with legacy diagnostic callers without logging clinical data.
+     *
+     * @param bean prescription session; its clinical contents are not inspected
+     * @deprecated prescription contents must not be written to application logs
+     */
+    @Deprecated
     public static void printStashContent(RxSessionBean bean) {
-        p("***drugs in present stash, stash size", "" + bean.getStashSize());
-        for (int j = 0; j < bean.getStashSize(); j++) {
-            try {
-                RxPrescriptionData.Prescription rxTemp = bean.getStashItem(j);
-                p("stash index", "" + j);
-                p("randomId", "" + rxTemp.getRandomId());
-                p("generic name", rxTemp.getGenericName());
-                p("special", rxTemp.getSpecial());
-                p("quantity", rxTemp.getQuantity());
-                p("repeat=" + rxTemp.getRepeat());
-                p("atccode", rxTemp.getAtcCode());
-                p("regional identifier", rxTemp.getRegionalIdentifier());
-                p("---");
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-            }
-        }
-        p("***done***");
-
+        // Deliberate compatibility no-op: staged prescriptions contain clinical information.
     }
 
     public static void setDefaultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx) {
@@ -1357,7 +1330,7 @@ public class RxUtil {
     }
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
-        String qStr = d.getQuantity();
+        String qStr = d.getQuantity() == null ? "" : d.getQuantity();
         Pattern p1 = Pattern.compile("\\d+");
         Matcher m1 = p1.matcher(qStr);
         if (m1.find()) {
@@ -1366,13 +1339,12 @@ public class RxUtil {
             //get the quantity unit
             String qUnit = qStr.replace(qNum, "").trim();
             if (qUnit != null && qUnit.length() > 0) {
-                MiscUtils.getLogger().debug("changing unitName in setResultSpecialQuantityRepeat ");
                 rx.setUnitName(qUnit);
             }
         }
         rx.setUnitName(d.getUnitName());
 
-        rx.setRepeat(d.getRepeat());
+        rx.setRepeat(d.getRepeat() == null ? 0 : d.getRepeat());
         rx.setSpecial(d.getSpecial());
         rx.setSpecial(trimSpecial(rx));
     }
@@ -1388,7 +1360,6 @@ public class RxUtil {
             retList.add(hm);
         }
 
-        MiscUtils.getLogger().debug("in drugsTableQuery, retList=" + retList);
         return retList;
     }
 
@@ -1453,7 +1424,7 @@ public class RxUtil {
                     retList.add(h);
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
             }
             retList = commonUniqueMedHistory(retList);
         }
@@ -1463,7 +1434,6 @@ public class RxUtil {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static List<HashMap<String, String>> commonUniqueMedHistory(List<HashMap<String, String>> l) {
-        MiscUtils.getLogger().debug("in commonUniqueMedHistory l=" + l);
 
         if (l != null && l.size() > 0) {
             HashMap<HashMap, Integer> elementCount = new HashMap<HashMap, Integer>();
@@ -1489,9 +1459,8 @@ public class RxUtil {
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
             }
-            MiscUtils.getLogger().debug("in commonUniqueMedHistory retList=" + retList);
             return retList;
         } else return l;
     }
@@ -1499,27 +1468,20 @@ public class RxUtil {
     private static String removeQuantityMitteRepeat(String s) {
         Pattern p;
         Matcher m;
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat s=" + s);
         String regex2 = "Repeats:\\s*[0-9]*\\.?[0-9]*\\s*";
         p = Pattern.compile(regex2);
         m = p.matcher(s);
         s = m.replaceAll("");
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat regex=" + regex2);
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat after remove repeat s=" + s);
 
         String regex1 = "Qty:\\s*[0-9]*\\.?[0-9]*\\s*\\w*";
         p = Pattern.compile(regex1);
         m = p.matcher(s);
         s = m.replaceAll("");
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat regex=" + regex1);
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat after remove quantity =" + s);
 
         String regex6 = "Mitte:\\s*[0-9]*\\.?[0-9]*\\s*\\w*";
         p = Pattern.compile(regex6);
         m = p.matcher(s);
         s = m.replaceAll("");
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat regex=" + regex6);
-        MiscUtils.getLogger().debug("in removeQuantityMitteRepeat after remove mitte =" + s);
         s = s.trim();
         return s;
     }
@@ -1585,7 +1547,6 @@ public class RxUtil {
 
         if (lastId != null) {
             int compareId = lastId.intValue();
-            MiscUtils.getLogger().debug("compareId: " + compareId);
             if (drugId > compareId) {
                 lastPrescribed = true;
             } else {
@@ -1627,7 +1588,6 @@ public class RxUtil {
                 discontinuedLatest = true;
             } else {
                 discontinuedLatest = false;
-                MiscUtils.getLogger().debug("not last drug ");
             }
         } else {
             discontinuedLatest = false;
@@ -1657,7 +1617,7 @@ public class RxUtil {
                         unique = false;
                     }
                 } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
+                    logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
                 }
             }
         } else {
@@ -1674,7 +1634,7 @@ public class RxUtil {
                         unique = false;
                     }
                 } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
+                    logger.error("Prescription utility operation failed ({})", e.getClass().getSimpleName());
                 }
             }
         }
@@ -1714,7 +1674,6 @@ public class RxUtil {
 
     // External drug interaction service removed - local MediSpan used via DrugrefUtil
 
-    private static final Logger log2 = MiscUtils.getLogger();
 
     // MyDrugRef callWebserviceLite method removed - no longer needed
 
@@ -1732,12 +1691,27 @@ public class RxUtil {
         return ret;
     }
 
+    /**
+     * Retains the legacy diagnostic API without recording potentially clinical values.
+     *
+     * @param str legacy diagnostic label
+     * @param s legacy diagnostic value
+     * @deprecated clinical debug values must not be written to application logs
+     */
+    @Deprecated
     public static void p(String str, String s) {
-        MiscUtils.getLogger().debug(str + "=" + s);
+        // Deliberate compatibility no-op: callers may supply clinical information.
     }
 
+    /**
+     * Retains the legacy diagnostic API without recording potentially clinical text.
+     *
+     * @param str legacy diagnostic text
+     * @deprecated clinical debug text must not be written to application logs
+     */
+    @Deprecated
     public static void p(String str) {
-        MiscUtils.getLogger().debug(str);
+        // Deliberate compatibility no-op: callers may supply clinical information.
     }
 
     public static final java.util.Date combineDateTime(final java.util.Date date,

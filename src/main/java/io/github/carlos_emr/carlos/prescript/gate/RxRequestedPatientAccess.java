@@ -173,6 +173,16 @@ public final class RxRequestedPatientAccess {
         return RxSessionBeanResolver.activate(request, demographicNo, providerNo);
     }
 
+    /**
+     * Resolves the view's patient workspace only when the caller holds the requested privilege
+     * and may open that patient's record. Unlike {@link #resolveForRead}, access refusal returns
+     * {@code null}, allowing JSPs to omit an unauthorised section independently.
+     *
+     * @param request the current view request
+     * @param objectName the section's security object
+     * @param privilege the required privilege
+     * @return the authorised workspace, or {@code null} if absent or inaccessible
+     */
     public static RxSessionBean resolveAuthorised(HttpServletRequest request, String objectName, String privilege) {
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
         if (bean == null) {

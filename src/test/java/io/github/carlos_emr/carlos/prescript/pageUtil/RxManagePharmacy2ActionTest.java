@@ -137,7 +137,7 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
         mockRequest.setParameter("pharmId", "7");
         mockRequest.setParameter("preferredOrder", "1");
         mockRequest.setParameter("demographicNo", "42");
-        authorisePatient(42, false, true);
+        authorisePatient(42, true, false, true);
 
         action.execute();
 
@@ -240,7 +240,7 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     void shouldRefusePatientLookup_whenPatientReadOrRecordAccessDenied(boolean rxRead, boolean recordAccess) throws Exception {
         mockRequest.setParameter("method", "getPharmacyFromDemographic");
         mockRequest.setParameter("demographicNo", "42");
-        authorisePatient(42, rxRead, recordAccess);
+        authorisePatient(42, rxRead, false, recordAccess);
 
         action.execute();
 
@@ -260,8 +260,12 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     }
 
     private void authorisePatient(int demographicNo, boolean rxWrite, boolean recordAccess) {
+        authorisePatient(demographicNo, rxWrite, rxWrite, recordAccess);
+    }
+
+    private void authorisePatient(int demographicNo, boolean rxRead, boolean rxWrite, boolean recordAccess) {
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", demographicNo)).thenReturn(rxWrite);
-        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", demographicNo)).thenReturn(rxWrite);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", demographicNo)).thenReturn(rxRead);
         when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, demographicNo))
                 .thenReturn(recordAccess);
     }

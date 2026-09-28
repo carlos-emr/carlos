@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import jakarta.servlet.ServletRequestEvent;
 import jakarta.servlet.ServletRequestListener;
 
-/** Releases Rx workspace leases when the container finishes a request, including error paths. */
+/** Releases Rx workspace leases when the container finishes a request, including error paths.
+ * @since 2026-09-24
+ */
 public final class RxSessionBeanRequestListener implements ServletRequestListener {
     @Override
     public void requestDestroyed(ServletRequestEvent event) {

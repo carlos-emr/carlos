@@ -23,7 +23,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * View gate for {@code rx/SideLinksNoEditFavorites2.jsp} (formerly reachable at
- * {@code /rx/SideLinksNoEditFavorites2.jsp}). Enforces {@code _allergy} {@code r}
+ * {@code /rx/SideLinksNoEditFavorites2.jsp}). Enforces {@code _rx} {@code r}
  * privilege before forwarding to the JSP at its {@code /WEB-INF/jsp/rx/}
  * location. Part of the oscarRx -> rx rebrand migration.
  *
@@ -34,7 +34,7 @@ public final class ViewSideLinksNoEditFavorites22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Admits the request to its view only with global {@code _allergy} read and, when the request names a
+     * Admits the request to its view only with global {@code _rx} read and, when the request names a
      * patient ({@code demographicNo} / {@code demographic_no}), the same privilege for that patient plus access to
      * the patient's record ({@link RxRequestedPatientAccess#require}). A malformed or conflicting patient is refused.
      *
@@ -46,11 +46,11 @@ public final class ViewSideLinksNoEditFavorites22Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new SecurityException("missing required sec object (_allergy)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
         // The JSP renders the patient the request names; authorise that patient too (#3875).
-        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_allergy", "r");
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
 
         return SUCCESS;
     }

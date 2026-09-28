@@ -84,6 +84,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { browserErrorClass } = require('./browser-error-class');
+const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
 
 // Node keeps the brackets on an IPv6 URL hostname ('http://[::1]/' -> '[::1]'), so a bare '::1'
 // entry in a host set would never match. Strip them before every comparison.
@@ -129,8 +130,6 @@ const FIXTURE_FAX_NUMBER = `555${runSuffix}`;
 // pharmacy destination through an active fax gateway account. fax_config.faxNumber/faxReply are
 // varchar(10), so '416' + the 7-digit run suffix, as in rx-fax-signature-stamp. This check never
 // clicks Fax, so the account never sends anything; it exists only for the page's fax state.
-const FIXTURE_SENDER_FAX_NUMBER = `416${runSuffix}`;
-let stagedFaxConfig = null;
 const customDrugName = `PW RX REPRINT ${Date.now()}${runSuffix}`;
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
@@ -283,6 +282,8 @@ function prescriptionCount() {
 
 // Restored by cleanupFixtures(): [{ recordId, wasNull }].
 const seededPharmacyFaxes = [];
+let seededSender = null;
+const senderDb = { value: query => sql(query).trim(), execute: query => sql(query) };
 
 /**
  * Give the patient's active pharmacies a destination fax number.
@@ -325,26 +326,6 @@ function seedPharmacyFax() {
   return rows.length > 0;
 }
 
-/**
- * An active SRFax gateway account for this run, reusing one already on this run's number. A clean
- * install ships only the inactive, blank default fax_config row, so without this ViewScript2 has no
- * usable sender and renders hasFaxNumber=false whatever the pharmacy fixture holds.
- */
-function stageFaxConfig() {
-  checkPhase = 'fax-account-fixture';
-  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${FIXTURE_SENDER_FAX_NUMBER}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
-  if (/^\d+$/.test(existing)) {
-    stagedFaxConfig = { id: existing, created: false };
-    return;
-  }
-  const id = sql(
-    `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
-    + `VALUES ('SRFAX', 1, '${FIXTURE_SENDER_FAX_NUMBER}', '${FIXTURE_SENDER_FAX_NUMBER}', 'Playwright Reprint', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
-  ).trim();
-  stagedFaxConfig = { id, created: /^\d+$/.test(id) };
-  visited.push({ label: 'fax-config', created: stagedFaxConfig.created });
-}
-
 // --- cleanup -----------------------------------------------------------------
 
 /**
@@ -369,12 +350,10 @@ function cleanupFixtures() {
     attempt('drugs', () => sql(`DELETE FROM drugs WHERE script_no IN (${list});`));
     attempt('prescription', () => sql(`DELETE FROM prescription WHERE script_no IN (${list});`));
   }
-  if (stagedFaxConfig && stagedFaxConfig.created) {
-    const { id } = stagedFaxConfig;
-    stagedFaxConfig = null;
-    attempt('fax_config', () => sql(
-      `DELETE FROM fax_config WHERE id=${id} AND faxNumber='${FIXTURE_SENDER_FAX_NUMBER}';`));
-  }
+  attempt('fax sender', () => {
+    cleanupRxFaxAccount(senderDb, seededSender);
+    seededSender = null;
+  });
   while (seededPharmacyFaxes.length) {
     const { recordId, wasNull } = seededPharmacyFaxes.pop();
     attempt(`pharmacy-fax ${recordId}`, () => sql(
@@ -749,7 +728,8 @@ async function runChecks(context) {
   try {
     await checkBuildStamp(context);
 
-    stageFaxConfig();
+    // A valid destination alone cannot enable Fax without an active sender account.
+    seededSender = stageRxFaxAccount(senderDb, `416${runSuffix}`);
     if (!seedPharmacyFax()) {
       findings.push({
         label: 'pharmacy-fax', type: 'no-active-pharmacy',

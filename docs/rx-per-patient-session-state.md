@@ -92,6 +92,16 @@ POST). Pages that post with `fetch` (for example `ViewScript2.jsp`) put `demogra
   and a much larger change. It can be layered on later; the per-patient keying here is its
   prerequisite, not a conflict.
 
+## Concurrent saves
+
+Each rendered card carries an opaque draft revision independent of its numeric UI key. A save
+validates the full card set and every revision under the patient workspace lock before changing
+any fields. Persistence consumes the revisions before writing, so a second submission of the
+same form cannot create another prescription. A newly staged card also has a new revision,
+even if it reuses a removed card's numeric key. Stale forms receive HTTP 409 (`STALE_RX_STASH`).
+The successful Save and Print response returns the new revisions to that window, so its Edit Rx
+flow can continue while other windows retain stale revisions. Failed saves require a reload.
+
 ## Known limits
 
 * Two windows open for the *same* patient share that patient's stash (by design: it is what lets

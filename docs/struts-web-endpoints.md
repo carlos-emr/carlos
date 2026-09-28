@@ -122,6 +122,13 @@ Current example:
 
 ## Testing Expectations
 
+Run `bash scripts/validate_struts_actions.sh` after changing action mappings.
+It follows the includes from `struts.xml`, checks fully qualified Java source
+paths and named Spring `@Component` actions (including `SPRING_BEAN_NAME`
+constants), and fails if the action inventory is empty or a dependency is
+missing. It does not load application classes or fetch XML DTDs. Its fixture
+regressions run with `node --test scripts/struts-action-validator.test.js`.
+
 For new routed pages, add focused tests that cover:
 
 - successful render for an authorized request

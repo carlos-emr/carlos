@@ -73,6 +73,11 @@ public final class RxUseFavorite2Action extends ActionSupport {
     @SuppressWarnings("java:S2445")
     public String execute()
             throws IOException, ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         // Staging a favourite changes the patient's stash: POST-only (#3908). SearchDrug3's
         // useFav2 posts it.
         if (!"POST".equals(request.getMethod())) {
@@ -85,10 +90,6 @@ public final class RxUseFavorite2Action extends ActionSupport {
             return useFav2();
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
 
 
         // Setup variables
@@ -104,11 +105,11 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
         // Favourites are provider-owned: only the caller's own may be staged (400/404/403 otherwise),
         // so another provider's dosing and instruction text cannot be copied by guessing ids (#3908).
-        RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());
-        if (fav == null) {
-            return NONE;
-        }
         try {
+            RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());
+            if (fav == null) {
+                return NONE;
+            }
             synchronized (bean) {
                 RxPrescriptionData rxData =
                         new RxPrescriptionData();
@@ -143,6 +144,11 @@ public final class RxUseFavorite2Action extends ActionSupport {
     @SuppressWarnings("java:S2445")
     public String useFav2()
             throws IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         // Staging a favourite changes the patient's stash: POST-only (#3908). SearchDrug3's
         // useFav2 posts it.
         if (!"POST".equals(request.getMethod())) {
@@ -151,10 +157,6 @@ public final class RxUseFavorite2Action extends ActionSupport {
             return NONE;
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
 
         // Setup variables
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
@@ -168,11 +170,11 @@ public final class RxUseFavorite2Action extends ActionSupport {
         }
 
         // Only the caller's own favourite may be staged; see execute() (#3908).
-        RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, request.getParameter("favoriteId"));
-        if (fav == null) {
-            return NONE;
-        }
         try {
+            RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, request.getParameter("favoriteId"));
+            if (fav == null) {
+                return NONE;
+            }
             synchronized (bean) {
                 String randomId = request.getParameter("randomId");
 
@@ -208,8 +210,6 @@ public final class RxUseFavorite2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return NONE;
         }
-
-        RxUtil.printStashContent(bean);
 
         return "useFav2";
     }

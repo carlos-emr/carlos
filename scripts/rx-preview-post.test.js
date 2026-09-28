@@ -104,3 +104,22 @@ for (const responseText of ['<html>legacy result</html>', '{}', 'null', '{"scrip
     assert.deepEqual(alerts, ['review the saved prescription']);
   });
 }
+
+test('successful save refreshes only this window’s draft versions before Edit Rx', () => {
+  const field = { value: 'old-version' };
+  const previews = [];
+  vm.runInNewContext(`${savedPreviewSource}\nopenSavedPrescriptionPreview({ responseText });`, {
+    responseText: JSON.stringify({ scriptId: '789', draftRevisions: { '123': 'new-version' } }),
+    document: { getElementById: id => {
+      assert.equal(id, 'drugForm');
+      return { elements: { namedItem: name => {
+        assert.equal(name, 'draftRevision_123');
+        return field;
+      } } };
+    } },
+    popForm2: (...args) => previews.push(args),
+    alert: () => assert.fail('valid saved identity was refused'),
+  });
+  assert.equal(field.value, 'new-version');
+  assert.deepEqual(previews, [['789', true]]);
+});

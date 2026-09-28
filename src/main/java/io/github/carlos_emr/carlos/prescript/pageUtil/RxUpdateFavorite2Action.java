@@ -66,11 +66,11 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
-        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
-            return NONE;
-        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
             throw new SecurityException("missing required sec object (_rx)");
+        }
+        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
+            return NONE;
         }
 
         if ("ajaxEditFavorite".equals(request.getParameter("method"))) {
@@ -116,11 +116,11 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of "true"/"false" form flags; not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of true/false form flags; not a security or authorization decision")
     public String ajaxEditFavorite() throws IOException {
-        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
-            return NONE;
-        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
             throw new SecurityException("missing required sec object (_rx)");
+        }
+        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
+            return NONE;
         }
 
         Integer repeatCount = RxFavoriteAccess.parseRepeat(request.getParameter("repeat"));
@@ -146,15 +146,17 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setSpecial(request.getParameter("special"));
         fav.setCustomInstr("true".equalsIgnoreCase(request.getParameter("customInstr")));
 
-        if (request.getParameter("dispenseInternal") != null && request.getParameter("dispenseInternal").length() > 0) {
-            fav.setDispenseInternal(true);
+        // The editor has no dispensing control. Omission preserves the saved flag;
+        // clients explicitly sending false must be able to clear it.
+        if (request.getParameter("dispenseInternal") != null) {
+            fav.setDispenseInternal("true".equalsIgnoreCase(request.getParameter("dispenseInternal")));
         }
 
         fav.Save();
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
 
         return NONE;
     }
-
 
     private String favoriteId = null;
     private String favoriteName = null;

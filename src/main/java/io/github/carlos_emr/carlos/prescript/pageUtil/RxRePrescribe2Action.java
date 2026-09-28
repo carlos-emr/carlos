@@ -68,7 +68,6 @@ public final class RxRePrescribe2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
     private static final String PRIVILEGE_READ = "r";
     private static final String PRIVILEGE_WRITE = "w";
 
@@ -148,7 +147,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
             p = list.get(idx);
-            beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, p));
+            // Preserve every persisted line, including the same drug with different instructions.
+            beanRX.getStashList().add(p);
+            beanRX.setStashIndex(beanRX.getStashSize() - 1);
             auditStr.append(p.getAuditString() + "\n");
         }
 
@@ -224,7 +225,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
             p = list.get(idx);
-            beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, p));
+            // Preserve every persisted line, including the same drug with different instructions.
+            beanRX.getStashList().add(p);
+            beanRX.setStashIndex(beanRX.getStashSize() - 1);
             auditStr.append(p.getAuditString() + "\n");
         }
         // p("auditStr "+auditStr.toString());
@@ -474,6 +477,18 @@ public String saveDigitalSignature() throws IOException {
     return NONE;
 }
 
+    /** Render the authorised patient's prescribing workspace without replacing its draft. */
+    public String viewPrescribing() throws IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
+        if (bean == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        return SUCCESS;
+    }
+
     /** Validate the source before loading any saved drug or changing the patient's draft. */
     private Integer requestedDrugId() throws IOException {
         String value = request.getParameter("drugId");
@@ -524,7 +539,6 @@ public String saveDigitalSignature() throws IOException {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
-        StringBuilder auditStr = new StringBuilder();
 
         Integer drugId = requestedDrugId();
         if (drugId == null) {
@@ -533,7 +547,11 @@ public String saveDigitalSignature() throws IOException {
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
             // get original drug
-            RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            RxPrescriptionData.Prescription oldRx = rxData.getPrescriptionIfPresent(drugId);
+            if (oldRx == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
             if (!isOwnedByBeanPatient(oldRx, bean)) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
@@ -553,13 +571,9 @@ public String saveDigitalSignature() throws IOException {
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
-            List<RxPrescriptionData.Prescription> listReRx = new ArrayList<Prescription>();
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
-            stageReRxCopy(loggedInInfo, bean, rx, drugId, listReRx);
+            stageReRxCopy(loggedInInfo, bean, rx, drugId, new ArrayList<>());
 
-            auditStr.append(rx.getAuditString() + "\n");
-
-            // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error staging prescription ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

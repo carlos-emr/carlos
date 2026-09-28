@@ -150,9 +150,11 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
 
         assertThat(ajaxEdit()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(response.getStatus()).isEqualTo(200);
-        verify(favoriteDao).findByEverything(eq(PROVIDER_NO), eq("renamed"), any(), any(), any(), anyFloat(),
-                anyFloat(), any(), any(), any(), any(), eq(2), anyBoolean(), eq(true), any(), any(), any(), anyBoolean());
+        assertThat(response.getStatus()).isEqualTo(204);
+        verify(favoriteDao).merge(stored);
+        assertThat(stored.getName()).isEqualTo("renamed");
+        assertThat(stored.getRepeat()).isEqualTo(2);
+        assertThat(stored.isPrn()).isTrue();
     }
 
     @Test

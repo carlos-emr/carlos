@@ -35,6 +35,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -117,7 +118,7 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectBlankSurnameSearchWithoutCallingPatientLookup() {
+    void shouldRejectBlankSurname_withoutCallingPatientLookup() {
         when(mockRequest.getParameter("surname")).thenReturn("   ");
 
         String result = action.execute();
@@ -130,7 +131,7 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPopulateSearchResultsForMatchingSurname() {
+    void shouldPopulateSearchResults_forMatchingSurname() {
         Demographic first = new Demographic();
         first.setDemographicNo(101);
         first.setFirstName("Alice");
@@ -163,7 +164,28 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExposeEmptyResultsForNoMatches() {
+    void shouldUseCurrentManager_whenSpringContextChanges() {
+        rxPatientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", "")).thenCallRealMethod();
+        when(mockRequest.getParameter("surname")).thenReturn("Smith");
+        when(mockDemographicManager.searchDemographic(mockLoggedInInfo, "Smith,")).thenReturn(List.of());
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        var replacement = org.mockito.Mockito.mock(DemographicManager.class);
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(303);
+        when(replacement.searchDemographic(mockLoggedInInfo, "Smith,")).thenReturn(List.of(patient));
+        registerMock(DemographicManager.class, replacement);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        RxPatientData.Patient[] results =
+                (RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS);
+        assertThat(results).hasSize(1);
+        assertThat(results[0].getDemographicNo()).isEqualTo(303);
+        org.mockito.Mockito.verify(replacement).searchDemographic(mockLoggedInInfo, "Smith,");
+    }
+
+    @Test
+    void shouldExposeEmptyResults_forNoMatches() {
         when(mockRequest.getParameter("surname")).thenReturn("NoMatches");
         rxPatientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "NoMatches", ""))
                 .thenReturn(new RxPatientData.Patient[0]);
@@ -179,7 +201,7 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldThrowWhenDemographicReadPrivilegeDenied() {
+    void shouldThrow_whenDemographicReadPrivilegeDenied() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
                 .thenReturn(false);
 

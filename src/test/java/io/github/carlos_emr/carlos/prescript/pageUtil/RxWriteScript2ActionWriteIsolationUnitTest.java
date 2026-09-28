@@ -173,6 +173,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         bean.getStashList().add(draft(1, "first"));
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("drugName_1", "First medication");
+        submitDraftRevision("1");
         request.addHeader("Accept", "application/json");
         action = spy(action);
         doAnswer(invocation -> {
@@ -200,7 +201,9 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         bean.getStashList().add(second);
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("drugName_1", "First medication");
+        submitDraftRevision("1");
         request.setParameter("drugName_12", "Second medication");
+        submitDraftRevision("12");
         action = spy(action);
         doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
 
@@ -226,8 +229,11 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             RxSessionBeanResolver.register(request.getSession(), concurrentBean);
             request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
             request.setParameter("drugName_111111", "First medication");
+        submitDraftRevision("111111");
             request.setParameter("drugName_222222", "Second medication");
+        submitDraftRevision("222222");
             request.setParameter("drugName_333333", "Third medication");
+        submitDraftRevision("333333");
             action = spy(action);
             doAnswer(invocation -> {
                 assertThat(concurrentBean.getStash()).containsExactly(first, second, third);
@@ -262,6 +268,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         bean.addReRxDrugIdList("55");
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("drugName_1", "submitted change");
+        submitDraftRevision("1");
         request.setParameter("instructions_1", "submitted new instruction");
         RxSessionBean otherPatient = new RxSessionBean();
         otherPatient.setDemographicNo(2002);
@@ -303,7 +310,9 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         // A stale extra field cannot bring the acknowledged-close card back.
         request.setParameter("drugName_1", "closed stale form card");
+        submitDraftRevision("1");
         request.setParameter("drugName_0002", "current remaining");
+        submitDraftRevision("0002");
         action = spy(action);
         doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
 
@@ -430,6 +439,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         RxReprintWorkspace.store(request.getSession(), prior, "previous");
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("drugName_1", "First medication");
+        submitDraftRevision("1");
         action = spy(action);
         doAnswer(invocation -> {
             RxReprintWorkspace.store(request.getSession(), newer, "newer");
@@ -546,6 +556,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("parameterValue", "updateSaveAllDrugs");
         request.setParameter("drugName_abc", "MALFORMED");
+        submitDraftRevision("abc");
 
         String result = action.execute();
 
@@ -677,6 +688,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setParameter("parameterValue", "updateSaveAllDrugs");
         request.setParameter("drugName_999999", "STALE CARD");
+        submitDraftRevision("999999");
         when(stagedCard.getRandomId()).thenReturn(111111L);
 
         String result = action.execute();
@@ -745,4 +757,69 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isNull();
         verifyNoInteractions(mockRxManager);
     }
+
+    private void submitDraftRevision(String key) {
+        RxSessionBean current = RxSessionBeanResolver.find(request.getSession(), DEMOGRAPHIC_NO);
+        for (RxPrescriptionData.Prescription card : current.getStash()) {
+            if (Long.toString(card.getRandomId()).equals(key.replaceFirst("^0+(?!$)", ""))) {
+                request.setParameter("draftRevision_" + key, card.getDraftRevision());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a repeated save before writing another prescription")
+    void shouldRefuseDuplicateSave_whenSameDraftIsSubmittedTwice() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = spy(draft(1, "first"));
+        bean.getStashList().add(card);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "First medication");
+        submitDraftRevision("1");
+        doReturn(true).when(card).Save("9001");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(mockLoggedInInfo, bean)).thenReturn("9001"))) {
+            assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+            response.reset();
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+            assertThat(data.constructed()).hasSize(1);
+            verify(data.constructed().getFirst()).saveScript(mockLoggedInInfo, bean);
+            verify(card).Save("9001");
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a stale form when a removed numeric card key is reused")
+    void shouldRefuseReusedKey_whenRenderedDraftWasRemoved() throws Exception {
+        bean.clearStash();
+        bean.getStashList().add(draft(1, "original"));
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "Stale submitted name");
+        submitDraftRevision("1");
+        bean.removeStashItem(0);
+        RxPrescriptionData.Prescription replacement = draft(1, "replacement");
+        bean.getStashList().add(replacement);
+        action = spy(action);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(replacement.getBrandName()).isEqualTo("replacement");
+        verify(action, never()).persistStash(any(), any());
+    }
+
+    @Test
+    @DisplayName("should return not found when the long-term drug was deleted")
+    void shouldReturnNotFound_whenLongTermDrugIsMissing() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("ltDrugId", "77");
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, dao);
+        assertThat(action.updateLongTermStatus()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(404);
+        verify(dao).find(77);
+        verifyNoInteractions(mockRxManager);
+    }
+
 }

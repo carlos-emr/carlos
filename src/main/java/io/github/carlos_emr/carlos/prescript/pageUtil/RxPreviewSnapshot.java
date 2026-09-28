@@ -20,7 +20,9 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/** A request-local saved prescription, independent of mutable session staging/reprint state. */
+/** A request-local saved prescription, independent of mutable session staging/reprint state.
+ * @since 2026-09-24
+ */
 public record RxPreviewSnapshot(RxSessionBean bean, String scriptId, String comment) {
     public static final String REQUEST_ATTRIBUTE = RxPreviewSnapshot.class.getName();
 

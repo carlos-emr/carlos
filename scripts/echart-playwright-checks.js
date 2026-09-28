@@ -28,6 +28,7 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
@@ -111,7 +112,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -613,7 +618,7 @@ function isExpectedNoteLockDialog(issue) {
       console.log(`Non-blocking browser diagnostics: ${JSON.stringify(consoleIssues, null, 2)}`);
     }
   } finally {
-    await browser.close();
+    await closeBrowserWithChartCleanup(browser, baseUrl);
   }
 })().catch((error) => {
   console.error('FAIL eChart Playwright check');

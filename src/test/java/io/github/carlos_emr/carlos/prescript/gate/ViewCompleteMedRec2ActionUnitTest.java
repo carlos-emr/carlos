@@ -126,4 +126,16 @@ class ViewCompleteMedRec2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_measurement)");
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-1", "abc", "2147483648", " 42 "})
+    @DisplayName("should refuse reconciliation without a positive explicit demographicNo")
+    void shouldRefuseReconciliation_whenExactPatientParameterIsInvalid(String patient) throws Exception {
+        request.removeParameter("demographicNo");
+        if (patient != null) request.setParameter("demographicNo", patient);
+        request.setParameter("demographic_no", String.valueOf(DEMOGRAPHIC_NO));
+        assertThat(new ViewCompleteMedRec2Action().execute()).isEqualTo(ActionSupport.NONE);
+    }
+
 }

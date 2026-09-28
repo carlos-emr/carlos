@@ -1343,6 +1343,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         // window must not shift a cached index onto another drug partway through this save.
         synchronized (bean) {
             result = updateSaveAllDrugsLocked(bean, loggedInInfo);
+            if ("refresh".equals(result)) {
+                Map<String, String> revisions = new HashMap<>();
+                for (RxPrescriptionData.Prescription card : bean.getStash()) {
+                    revisions.put(Long.toString(card.getRandomId()), card.getDraftRevision());
+                }
+                request.setAttribute("draftRevisions", revisions);
+            }
         }
         if ("refresh".equals(result)) {
             // Acquire the session mutex only after releasing the bean monitor: opening Rx takes
@@ -1353,7 +1360,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                 // The separate print request must carry the script saved by THIS request. Reading
                 // the live stash or latest reprint afterward can select another window's script.
                 response.setContentType("application/json");
-                objectMapper.writeValue(response.getWriter(), Map.of("scriptId", request.getAttribute("scriptId")));
+                objectMapper.writeValue(response.getWriter(), Map.of("scriptId", request.getAttribute("scriptId"),
+                        "draftRevisions", request.getAttribute("draftRevisions")));
                 return NONE;
             }
         }
@@ -1652,7 +1660,15 @@ public final class RxWriteScript2Action extends ActionSupport {
         for (String key : submittedKeys) {
             try {
                 int index = bean.getIndexFromRx(Integer.parseInt(key));
-                if (index >= 0) submittedIndexes.add(index);
+                if (index >= 0) {
+                    RxPrescriptionData.Prescription card = bean.getStashItem(index);
+                    String[] revisions = request.getParameterValues("draftRevision_" + key);
+                    if (revisions == null || revisions.length != 1
+                            || !card.getDraftRevision().equals(revisions[0])) {
+                        return refuseStaleStash();
+                    }
+                    submittedIndexes.add(index);
+                }
             } catch (NumberFormatException _) {
                 // Malformed or stale keys cannot name a current card.
             }
@@ -1662,12 +1678,16 @@ public final class RxWriteScript2Action extends ActionSupport {
             return false;
         }
         if (submittedIndexes.size() != bean.getStashSize()) {
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"STALE_RX_STASH\"}");
-            return false;
+            return refuseStaleStash();
         }
         return true;
+    }
+
+    private boolean refuseStaleStash() throws IOException {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"STALE_RX_STASH\"}");
+        return false;
     }
 
     /**
@@ -1705,7 +1725,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
 
             RxPrescriptionData rxData = new RxPrescriptionData();
-            RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            RxPrescriptionData.Prescription oldRx = rxData.getPrescriptionIfPresent(drugId);
             if (oldRx == null) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return NONE;
@@ -1790,6 +1810,11 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     private String persistStashLocked(LoggedInInfo loggedInInfo, RxSessionBean bean) {
+        // Consume every rendered card version before any database write. A duplicate submission
+        // or a retry after a partial failure must reload the draft rather than save it again.
+        for (RxPrescriptionData.Prescription card : bean.getStash()) {
+            card.advanceDraftRevision();
+        }
         RxPrescriptionData.Prescription rx = null;
         RxPrescriptionData prescription = new RxPrescriptionData();
         String scriptId = prescription.saveScript(loggedInInfo, bean);

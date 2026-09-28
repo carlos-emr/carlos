@@ -272,10 +272,12 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
+        <fmt:message key="SearchDrug.js.favoriteLoadFailed" var="msg_favoriteLoadFailed"/>
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
+                favoriteLoadFailed: '${carlos:forJavaScript(msg_favoriteLoadFailed)}',
                 handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
                 confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
                 medRecCompleted: '${carlos:forJavaScript(msg_medRecCompleted)}',
@@ -1581,9 +1583,11 @@ function renderRxStage() {
         var url= ctx + "/rx/useFavorite";
         data += "&parameterValue=useFav2";
         CarlosAjax.updater({success: 'rxText'},url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
-            onSuccess: function(transport) {
-                skipParseInstr = true;
-                renderRxStage();
+            onComplete: function(transport) {
+                if (transport.status >= 200 && transport.status < 300) {
+                    skipParseInstr = true;
+                    renderRxStage();
+                }
             },
             onFailure: reportRefusedRequest
         });
@@ -1801,6 +1805,15 @@ function openSavedPrescriptionPreview(transport) {
     if (!saved || !/^[1-9]\d*$/.test(String(saved.scriptId))) {
         alert(jsMsg.previewUnavailable);
         return;
+    }
+    // Only the window whose save succeeded receives the new card versions. Another window's
+    // stale form remains invalid; Edit Rx in this window can submit its acknowledged version.
+    if (saved.draftRevisions) {
+        Object.keys(saved.draftRevisions).forEach(function(key) {
+            if (!/^[0-9]+$/.test(key)) return;
+            var field = document.getElementById('drugForm').elements.namedItem('draftRevision_' + key);
+            if (field) field.value = saved.draftRevisions[key];
+        });
     }
     popForm2(saved.scriptId, true);
 }

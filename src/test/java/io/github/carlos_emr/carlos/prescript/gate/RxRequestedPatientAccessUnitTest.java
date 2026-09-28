@@ -88,9 +88,9 @@ class RxRequestedPatientAccessUnitTest extends CarlosUnitTestBase {
                 Arguments.of(ViewPrint2Action.class, "_rx", "r"),
                 Arguments.of(ViewPrintDrugProfile22Action.class, "_rx", "r"),
                 Arguments.of(ViewShowPreviousPrints2Action.class, "_rx", "r"),
-                Arguments.of(ViewSideLinksEditFavorites22Action.class, "_allergy", "r"),
-                Arguments.of(ViewSideLinksNoEditFavorites22Action.class, "_allergy", "r"),
-                Arguments.of(ViewSideLinksNoEditFavorites2Action.class, "_allergy", "r"),
+                Arguments.of(ViewSideLinksEditFavorites22Action.class, "_rx", "r"),
+                Arguments.of(ViewSideLinksNoEditFavorites22Action.class, "_rx", "r"),
+                Arguments.of(ViewSideLinksNoEditFavorites2Action.class, "_rx", "r"),
                 Arguments.of(ViewStaticScript2Action.class, "_rx", "r"),
                 Arguments.of(ViewUpdateInteractingDrugs2Action.class, "_rx", "r"),
                 Arguments.of(ViewViewPharmacy2Action.class, "_rx", "r"));

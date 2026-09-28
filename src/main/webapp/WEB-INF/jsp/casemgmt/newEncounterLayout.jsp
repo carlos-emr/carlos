@@ -33,6 +33,12 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%-- The same negotiation the header and note fragments perform, so this page's own
+     <fmt:message> text, the header include and the html lang attribute all answer the
+     browser's Accept-Language with one policy (see LocaleUtils.resolveBundleLocale). --%>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="java.util.Enumeration" %>
@@ -72,7 +78,10 @@
     pageContext.setAttribute("cppPreferences", cppPreferences, PageContext.PAGE_SCOPE);
 %>
 <!DOCTYPE html>
-<html>
+<%-- lang is the negotiated chart language: assistive technology reads the page in the right
+     language (WCAG 3.1.1), and a field report of a chart "in the wrong language" can name
+     which language the server actually chose for that load (see newEncounterHeader.jsp). --%>
+<html lang="<%= SafeEncode.forHtmlAttribute(LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>">
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
@@ -258,24 +267,7 @@
             function popColumn(url, div, params, navBar, navBarObj) {
                 params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
 
-                CarlosAjax.request(url, {
-                    method: 'post',
-                    postBody: params,
-                    evalScripts: true,
-                    onSuccess: function (transport) {
-                        $(div).update(transport.responseText);
-
-                        if ($("leftColLoader") != null)
-                            Element.remove("leftColLoader");
-
-                        if ($("rightColLoader") != null)
-                            Element.remove("rightColLoader");
-                    },
-                    onFailure: function (transport) {
-                        var el = document.getElementById(div);
-                        if (el) el.textContent = div + " Error: " + transport.status;
-                    }
-                });
+                return requestNavbarColumn(url, div, params, navBar);
             };
 
             function addLeftNavDiv(name) {

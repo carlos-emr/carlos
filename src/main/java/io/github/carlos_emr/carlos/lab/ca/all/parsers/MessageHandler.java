@@ -47,6 +47,16 @@ import ca.uhn.hl7v2.HL7Exception;
  * <p>
  * The results for the majority of the methods should be retrieved from the
  * 'msg' object
+ * <p>
+ * <b>Line breaks.</b> Many handlers translate the HL7 {@code \.br\} escape into a
+ * literal {@code <br />} inside the text they return (results, comments, and
+ * sometimes other fields). That marker is a shared contract: the lab PDF, the
+ * upload splitter and the demographic export all parse it. Views must therefore
+ * never print the returned text raw, and must not plain-HTML-encode it either
+ * (that shows a visible {@code <br />}); render it with
+ * {@code SafeEncode.forHtmlContentWithBreakMarkers} (tag context
+ * {@code htmlWithBreakMarkers}), which encodes the text and turns only the
+ * markers into line breaks.
  */
 public interface MessageHandler {
 
@@ -161,6 +171,44 @@ public interface MessageHandler {
      * @return String the obx value
      */
     public String getOBXValueType(int i, int j);
+
+    /**
+     * Whether the jth OBX segment of the ith OBR group carries an embedded
+     * document rather than a result value: HL7 value type {@code ED}
+     * (encapsulated data, typically a base64 PDF or image in OBX-5).
+     *
+     * <p>Detection is by the declared value type (OBX-2), never by inspecting
+     * the result text. A long ordinary result made only of base64-alphabet
+     * characters is still a result; an {@code ED} segment is a document even
+     * when its payload is short. Consumers such as the OMD CDS export use this
+     * to route documents to {@code Reports} instead of {@code LaboratoryResults}.
+     * Handlers whose value type is not HL7-derived (for example IHA's
+     * {@code "NA"}) are unaffected.</p>
+     *
+     * <p>Adapted from the embedded-content detection added to the lab parsers
+     * in open-osp/Open-O f54daef859 (Colcamex Resources Inc.). Upstream decides
+     * per message ("every OBX is ED"); CARLOS decides per OBX so a message
+     * mixing a PDF with discrete results exports both correctly.</p>
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return {@code true} when OBX-2 is {@code ED}
+     * @since 2026-09-26
+     */
+    default boolean isOBXEmbeddedDocument(int i, int j) {
+        String valueType = getOBXValueType(i, j);
+        return valueType != null && "ED".equals(valueType.trim());
+    }
+
+    /**
+     * Encoding of the returned embedded-document payload (HL7 ED.4), when exposed by the parser.
+     * A means unencoded text, Base64 and Hex explicitly identify encoded octets. An absent
+     * value retains the legacy signature-based fallback for handlers without this metadata.
+     */
+    default String getOBXDocumentEncoding(int i, int j) {
+        return null;
+    }
+
 
 
     /**

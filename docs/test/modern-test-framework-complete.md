@@ -110,10 +110,8 @@ that matter when a test misbehaves:
         <reuseForks>true</reuseForks>
         <perCoreThreadCount>false</perCoreThreadCount>
         <includes>
-            <include>**/test/**/*Test.java</include>
-            <include>**/*IntegrationTest.java</include>
-            <include>**/*UnitTest.java</include>
-            <!-- ...plus per-slice and legacy-name includes; see pom.xml -->
+            <include>**/*Test.java</include>
+            <include>**/*Tests.java</include>
         </includes>
         <argLine>
            @{argLine}                          <!-- carries the JaCoCo agent -->
@@ -130,9 +128,10 @@ that matter when a test misbehaves:
 </plugin>
 ```
 
-Note that the `<includes>` list is an allowlist, not a convention: a test class
-whose name and package match none of those patterns is silently never run. Name
-new tests `*UnitTest` / `*IntegrationTest`, or put them under a `test/` package.
+Surefire discovers `*Test` and `*Tests` classes in every package, including
+legacy test names. New tests should use the more descriptive `*UnitTest` or
+`*IntegrationTest` suffix. The alpha16 promotion review removed narrower
+package-specific patterns that had silently omitted existing regressions.
 
 ## Core Components
 

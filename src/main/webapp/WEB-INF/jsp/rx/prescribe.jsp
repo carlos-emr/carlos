@@ -280,6 +280,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
         <label style="width:101px;flex-shrink:0;" title="<carlos:encode value='<%= ATC %>' context="htmlAttribute"/>" >${i18nName}:</label>
         <input type="hidden" name="atcCode" value="<carlos:encode value='<%= ATCcode %>' context="htmlAttribute"/>" />
+        <input type="hidden" name="draftRevision_<%=rand%>" value="<carlos:encode value='<%= rx.getDraftRevision() %>' context="htmlAttribute"/>"/>
         <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"<%} else{%> value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"  onchange="changeDrugName('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>');" <%}%> TITLE="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
     </div>
 

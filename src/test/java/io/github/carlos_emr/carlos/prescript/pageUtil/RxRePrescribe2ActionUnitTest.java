@@ -195,6 +195,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         RxPrescriptionData.Prescription source = new RxPrescriptionData.Prescription(5, "999998", 1);
         try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) -> {
             when(mock.getPrescription(5)).thenReturn(source);
+            when(mock.getPrescriptionIfPresent(5)).thenReturn(source);
             when(mock.newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Prescription.class)))
                     .thenThrow(new IllegalStateException("simulated staging failure"));
         })) {
@@ -321,7 +322,9 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         try (var _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) -> {
                     when(mock.getPrescription(5)).thenReturn(ownSource);
+            when(mock.getPrescriptionIfPresent(5)).thenReturn(ownSource);
                     when(mock.getPrescription(6)).thenReturn(otherPatientsDrug);
+            when(mock.getPrescriptionIfPresent(6)).thenReturn(otherPatientsDrug);
                     // Staging preloads interactions from the patient's current ATC codes.
                     when(mock.getCurrentATCCodesByPatient(org.mockito.ArgumentMatchers.anyInt()))
                             .thenReturn(new java.util.Vector<>());
@@ -416,7 +419,9 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         try (var _ = org.mockito.Mockito.mockConstruction(
                 RxPrescriptionData.class, (mock, context) -> {
                     when(mock.getPrescription(5)).thenReturn(first);
+            when(mock.getPrescriptionIfPresent(5)).thenReturn(first);
                     when(mock.getPrescription(7)).thenReturn(second);
+            when(mock.getPrescriptionIfPresent(7)).thenReturn(second);
                     when(mock.getCurrentATCCodesByPatient(org.mockito.ArgumentMatchers.anyInt()))
                             .thenReturn(new java.util.Vector<>());
                     when(mock.newPrescription(anyString(), org.mockito.ArgumentMatchers.anyInt(),
@@ -473,6 +478,7 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
     private static org.mockito.MockedConstruction<RxPrescriptionData> stagingData(RxPrescriptionData.Prescription source) {
         return org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) -> {
             when(mock.getPrescription(source.getDrugId())).thenReturn(source);
+            when(mock.getPrescriptionIfPresent(source.getDrugId())).thenReturn(source);
             when(mock.getCurrentATCCodesByPatient(org.mockito.ArgumentMatchers.anyInt())).thenReturn(new java.util.Vector<>());
             when(mock.newPrescription(anyString(), org.mockito.ArgumentMatchers.anyInt(),
                     any(RxPrescriptionData.Prescription.class))).thenAnswer(invocation -> {
@@ -987,4 +993,56 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(RxReprintWorkspace.isReprinting(request.getSession(), 1)).isFalse();
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"reprint", "reprint2"})
+    @DisplayName("should preserve both saved lines when the same drug has different instructions")
+    void shouldPreserveDuplicateSavedDrugs_whenReprinting(String method) throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("demographicNo", "1");
+        request.setParameter("scriptNo", "12");
+        request.setParameter("method", method);
+        action.setDrugList("12");
+        var first = org.mockito.Mockito.spy(new RxPrescriptionData.Prescription(5, "999998", 1));
+        var second = org.mockito.Mockito.spy(new RxPrescriptionData.Prescription(6, "999998", 1));
+        for (var drug : java.util.List.of(first, second)) {
+            drug.setBrandName("Same product");
+            drug.setGCN_SEQNO("123");
+            drug.setScript_no("12");
+            org.mockito.Mockito.doReturn(true).when(drug).Print(mockLoggedInInfo);
+        }
+        first.setSpecial("Take twice daily");
+        second.setSpecial("Then take once daily");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.getPrescriptionsByScriptNo(12, 1)).thenReturn(java.util.List.of(first, second)));
+             var audit = mockStatic(LogAction.class)) {
+            action.execute();
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(RxReprintWorkspace.find(request.getSession(), 1).bean().getStash()).containsExactly(first, second);
+        }
+    }
+
+    @Test
+    @DisplayName("should report a deleted history drug without changing the patient's draft")
+    void shouldReturnNotFound_whenHistoryDrugWasDeleted() throws Exception {
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugId", "27");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
+            assertThat(action.saveReRxDrugIdToStash()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(404);
+            verify(data.constructed().getFirst()).getPrescriptionIfPresent(27);
+            verify(data.constructed().getFirst(), never()).newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Prescription.class));
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve the requested patient workspace when opening the prescribing view")
+    void shouldPreserveNamedDraft_whenOpeningPrescribingView() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("demographicNo", "1");
+        RxSessionBean expected = RxSessionBeanResolver.find(request.getSession(), 1);
+        assertThat(action.viewPrescribing()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(RxSessionBeanResolver.resolve(request)).isSameAs(expected);
+    }
+
 }

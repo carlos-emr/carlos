@@ -49,6 +49,7 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const { checkPreviewCapacity } = require('./eform-preview-capacity-playwright');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -543,6 +544,8 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     const directPage = await openSavedEformDirect(context, fdid);
     await assertSavedFormState(directPage, savedValue, fdid, 'saved-render-direct-route');
     await directPage.close();
+
+    await checkPreviewCapacity(context, { appUrl, fdid, demographicNo });
 
     const patientListPopup = await openSavedEformFromPatientList(context, formName);
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);

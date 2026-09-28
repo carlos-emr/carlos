@@ -141,6 +141,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
 
+        <fmt:message var="staticScriptRequestError" key="global.msgSomethingWrong"/>
         <fmt:message key="StaticScript.js.reRxRefused" var="msg_reRxRefused"/>
         <script language="javascript">
             /**
@@ -166,7 +167,7 @@
             var staticScriptReRxRefused = '<carlos:encode value="${msg_reRxRefused}" context="javaScriptBlock"/>';
             var staticScriptDemographicNo = encodeURIComponent('<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptBlock"/>');
 
-            function addFavorite2(drugId, brandName) {
+            async function addFavorite2(drugId, brandName) {
                 var favoriteName = window.prompt('Please enter a name for the Favorite:', brandName);
 
                 if (favoriteName !== null && favoriteName.length > 0) {
@@ -174,17 +175,22 @@
                     oscarLog(url);
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
-                    staticScriptCsrfToken().then(function (csrfToken) {
+                    return staticScriptCsrfToken().then(function (csrfToken) {
                         return fetch(url, {
                             method: 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                             credentials: 'same-origin',
                             body: data
                         });
+                    }).then(function(response) {
+                        if (!response.ok || response.redirected) throw new Error('Favourite was not saved');
+                        return response.text();
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
                         window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>' + "&demographicNo=" + staticScriptDemographicNo;
+                    }).catch(function() {
+                        alert('${carlos:forJavaScript(staticScriptRequestError)}');
                     });
                 }
             }

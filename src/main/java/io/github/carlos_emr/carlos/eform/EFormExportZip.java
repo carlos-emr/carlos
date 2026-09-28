@@ -42,7 +42,8 @@ import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 
 import java.io.*;
-import java.text.SimpleDateFormat;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
@@ -181,21 +182,13 @@ public class EFormExportZip {
         _log.info("Importing eforms");
 
         File imageDir = ImageUpload2Action.getImageFolder();
-        File imageExtractDir = PathValidationUtils.validateGeneratedChildPath("extractFolder", imageDir); //do not delete this as two people may be importing at once
-        //create if exists
-        if (!imageExtractDir.exists() && !imageExtractDir.mkdir()) {
-            errors.add("Error: Cannot create temporary folder for unzipping eform contents.  Check system logs");
-            Exception e = new Exception("Error: Cannot create temporary folder for unzipping eform contents.  New folder: " + imageExtractDir.getAbsolutePath());
-            _log.error("Could not unzip folder, cannot create temp folder.", e);
-        }
-        //create temp folder to extract files
-        SimpleDateFormat format = new SimpleDateFormat("yyyyMMddkkmmssS"); //to ensure it does not repeat
-        File imageTempFolderDir = PathValidationUtils.validateGeneratedChildPath("extract" + format.format(new Date()), imageExtractDir);
-        if (!imageTempFolderDir.exists() && !imageTempFolderDir.mkdir()) {
-            errors.add("Error: Cannot create temporary folder for unzipping eform contents.  Check system logs");
-            Exception e = new Exception("Error: Cannot create temporary folder for unzipping eform contents.  New folder: " + imageTempFolderDir.getAbsolutePath());
-            _log.error("Could not unzip folder, cannot create temp folder.", e);
-        }
+        File imageExtractDir = PathValidationUtils.validateGeneratedChildPath("extractFolder", imageDir);
+        // The parent is shared and retained; each import exclusively owns its
+        // child. Millisecond timestamps can collide across simultaneous users,
+        // causing one import to read or delete another import's staged files.
+        Files.createDirectories(imageExtractDir.toPath());
+        File imageTempFolderDir = PathValidationUtils.validateExistingPath(
+                Files.createTempDirectory(imageExtractDir.toPath(), "extract-").toFile(), imageExtractDir);
 
         Hashtable<String, EForm> eformTable = new Hashtable<String, EForm>(); //stores eforms constructed from eform.properties, no HTML
         Hashtable<String, EForm> eformTableFailed = new Hashtable<String, EForm>();  //stores eforms that are constructed from eform.properties that alredy exist and do not need to be imported
@@ -271,17 +264,19 @@ public class EFormExportZip {
                 } else {
                     File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
                     File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
-                    try (FileInputStream fis = new FileInputStream(extractedTempFile)) {
-                        if (imageFile.exists()) {
-                            // Honour the "skipping image" message: do not overwrite an existing image.
-                            errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
-                            _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
-                        } else {
-                            try (OutputStream os = new FileOutputStream(imageFile)) {
-                                inputToOutput(fis, os);
-                            }
-                            _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
-                        }
+                    try {
+                        // The fully extracted, closed asset already lives on this filesystem.
+                        // Publish its complete inode atomically without replacing another import's
+                        // image. Streaming into CREATE_NEW exposed partial bytes and left broken
+                        // public assets after copy/close failures; later imports would skip them.
+                        // Cleanup unlinks only our private staging name, preserving this public link.
+                        Files.createLink(imageFile.toPath(), extractedTempFile.toPath());
+                        _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
+                    } catch (FileAlreadyExistsException e) {
+                        errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+                        _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
+                    } catch (UnsupportedOperationException e) {
+                        throw new IOException("The eForm image filesystem does not support safe atomic asset publication.", e);
                     }
                 }
             }
