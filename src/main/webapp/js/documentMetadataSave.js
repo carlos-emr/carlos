@@ -5,6 +5,9 @@
     if (root.CarlosDocumentMetadata) return;
     const operations = new Map();
     let departed = false;
+    // Bumped on every pagehide so a bfcache restore cannot revive an operation
+    // whose request was in flight, or whose outcome was shown, before departure.
+    let epoch = 0;
     const positiveId = value => /^[1-9][0-9]*$/.test(String(value)) && Number.isSafeInteger(Number(value));
     const byId = id => document.getElementById(id);
     const message = name => (root.CarlosDocumentMutationMessages || {})[name] || {
@@ -52,7 +55,7 @@
         if (label) label.style.display = 'none';
     }
     function current(entry) {
-        return !departed && entry.form.isConnected !== false && byId(entry.form.id) === entry.form
+        return !departed && entry.epoch === epoch && entry.form.isConnected !== false && byId(entry.form.id) === entry.form
             && csrf(entry.form) === entry.token && fingerprint(entry.form) === entry.fingerprint
             && (!entry.requestForm || (entry.requestForm.isConnected !== false && byId(entry.requestForm.id) === entry.requestForm && fingerprint(entry.requestForm) === entry.requestFingerprint))
             && (!entry.anchor || (entry.anchor.isConnected !== false && entry.anchor.parentNode === entry.parent));
@@ -70,7 +73,7 @@
         const existing = operations.get(id);
         if (existing && ['pending', 'uncertain', 'queuePending', 'queueUncertain', 'queueRejected'].includes(existing.state)) { show(existing, existing.state); return null; }
         if (metadata) clearSaved(id);
-        const entry = {id, form, token: csrf(form), controls: new Map(), metadata, anchor, parent: anchor && anchor.parentNode};
+        const entry = {id, form, token: csrf(form), controls: new Map(), metadata, anchor, parent: anchor && anchor.parentNode, epoch};
         operations.set(id, entry);
         if (!entry.token || departed || documentId(form) !== id) { show(entry, 'rejected'); return null; }
         return entry;
@@ -219,8 +222,14 @@
     }
     root.addEventListener('pagehide', function () {
         departed = true;
+        epoch += 1;
         for (const entry of operations.values()) if (entry.state === 'pending' || entry.state === 'queuePending') show(entry, entry.metadataAccepted ? 'queueUncertain' : 'uncertain');
     });
-    // A bfcache restore is not evidence that a request was rejected.
+    // A bfcache restore is not evidence that a request was rejected: operations from
+    // before departure keep their uncertain state (epoch no longer matches), but the
+    // restored page must accept new, unrelated actions instead of refusing them all.
+    root.addEventListener('pageshow', function (event) {
+        if (event && event.persisted) departed = false;
+    });
     root.CarlosDocumentMetadata = {save, unlink, acknowledge, file};
 }(window));

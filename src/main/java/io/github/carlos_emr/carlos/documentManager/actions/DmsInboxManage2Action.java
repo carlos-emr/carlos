@@ -528,7 +528,8 @@ public class DmsInboxManage2Action extends ActionSupport {
                 labdocs.add(labMap.get(labNums.get(j)));
             }
         }
-        logger.debug("labdocs.size()=" + labdocs.size());
+        // An int count cannot carry CR/LF; the taint rule cannot model that.
+        logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         /* find all data for the index.jsp page */
         Hashtable patientDocs = new Hashtable();
@@ -629,7 +630,8 @@ public class DmsInboxManage2Action extends ActionSupport {
         List<String> normals = ab_NormalDoc.get("normal");
         List<String> abnormals = ab_NormalDoc.get("abnormal");
 
-        logger.debug("labdocs.size()=" + labdocs.size());
+        // An int count cannot carry CR/LF; the taint rule cannot model that.
+        logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         // set attributes
         request.setAttribute("pageNum", page);
