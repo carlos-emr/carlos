@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -10,6 +11,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.event.SmsSendFailedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -73,7 +75,7 @@ class JpaSmsTransactionServiceUnitTest {
         SmsTransaction transaction = recorder.recordOutboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB,
-                SmsConsentDecisionDto.permit()
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"))
         );
 
         ArgumentCaptor<SmsTransaction> captor = ArgumentCaptor.forClass(SmsTransaction.class);
@@ -90,6 +92,99 @@ class JpaSmsTransactionServiceUnitTest {
     }
 
     @Test
+    @DisplayName("recordOutboundAttempt persists nothing for a permitted send that names no consent state")
+    void shouldPersistNothing_whenPermittedDecisionHasNoConsentStatus() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsSendCommand command = SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998");
+
+        SmsConsentDecisionDto permitWithoutConsentState = SmsConsentDecisionDto.permitted(null, null, null);
+
+        assertThatThrownBy(() -> recorder.recordOutboundAttempt(
+                command, SmsProviderType.STUB, permitWithoutConsentState))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(smsTransactionDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("recordOutboundAttempt stores the consent record a permitted send relied on")
+    void shouldStoreConsentSnapshot_whenRecordingPermittedOutboundAttempt() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+
+        SmsTransaction transaction = recorder.recordOutboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB,
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt)
+        );
+
+        assertThat(transaction)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getConsentStatus,
+                        SmsTransaction::getConsentId,
+                        SmsTransaction::getConsentLastUpdateDate
+                )
+                .containsExactly(SmsStatus.QUEUED, SmsConsentStatus.OPT_IN, 4321, Date.from(editedAt));
+    }
+
+    @Test
+    @DisplayName("recordConsentDecision rewrites the snapshot of a claimed row without changing its status")
+    void shouldRewriteConsentSnapshot_whenRecordingDispatchDecision() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction current = claimedRowWithConsentSnapshot(42L, 3L);
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+        Instant reconsentedAt = Instant.parse("2026-09-10T09:00:00Z");
+
+        SmsTransaction recorded = recorder.recordConsentDecision(
+                claimed, SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 9, reconsentedAt));
+
+        assertThat(recorded).isSameAs(current);
+        assertThat(current)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getConsentId,
+                        SmsTransaction::getConsentLastUpdateDate
+                )
+                .containsExactly(SmsStatus.SENDING, 9, Date.from(reconsentedAt));
+    }
+
+    @Test
+    @DisplayName("recordConsentDecision refuses to report success when the row changed under the claim")
+    void shouldRejectSnapshotRewrite_whenRowChangedUnderClaim() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        SmsTransaction current = claimedRowWithConsentSnapshot(42L, 4L);
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+        SmsConsentDecisionDto decision = SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 9, Instant.parse("2026-09-10T09:00:00Z"));
+
+        assertThatThrownBy(() -> recorder.recordConsentDecision(claimed, decision))
+                .isInstanceOf(SmsTransactionClaimConflictException.class);
+
+        assertThat(current.getConsentId()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("recordConsentDecision refuses to report success when the claimed row no longer exists")
+    void shouldRejectSnapshotRewrite_whenClaimedRowIsMissing() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = claimedRowWithConsentSnapshot(42L, 3L);
+        when(smsTransactionDao.find(42L)).thenReturn(null);
+        SmsConsentDecisionDto decision = SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 9, Instant.parse("2026-09-10T09:00:00Z"));
+
+        try (LogCapture logs = LogCapture.forLogger(JpaSmsTransactionService.class)) {
+            assertThatThrownBy(() -> recorder.recordConsentDecision(claimed, decision))
+                    .isInstanceOf(SmsTransactionClaimConflictException.class);
+
+            // The worker stays silent on a claim conflict, so the recorder must say why the write was dropped.
+            assertThat(logs.messages()).anySatisfy(message -> assertThat(message).contains("42"));
+        }
+    }
+
+    @Test
     @DisplayName("markConsentBlocked merges the blocked transaction state")
     void shouldMergeTransaction_whenConsentIsBlocked() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
@@ -100,14 +195,14 @@ class JpaSmsTransactionServiceUnitTest {
 
         recorder.markConsentBlocked(transaction, SmsConsentDecisionDto.blocked(
                 SmsStatus.CONSENT_BLOCKED,
-                "CONSENT_MODEL_PENDING",
-                "SMS consent integration is pending"
+                "SMS_CONSENT_UNKNOWN",
+                "No SMS consent is recorded for this patient."
         ));
 
         verify(smsTransactionDao).merge(transaction);
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getConsentReasonCode)
-                .containsExactly(SmsStatus.CONSENT_BLOCKED, "CONSENT_MODEL_PENDING");
+                .containsExactly(SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN");
     }
 
     @Test
@@ -527,6 +622,19 @@ class JpaSmsTransactionServiceUnitTest {
         );
     }
 
+    private static SmsTransaction claimedRowWithConsentSnapshot(long id, long version) {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(transaction, id);
+        assignVersion(transaction, version);
+        transaction.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 5, Instant.parse("2026-09-01T14:30:00Z")));
+        transaction.markSending(Date.from(Instant.parse("2026-09-10T09:05:00Z")));
+        return transaction;
+    }
+
     private static void assignId(SmsTransaction transaction, long id) {
         try {
             Field idField = SmsTransaction.class.getDeclaredField("id");
@@ -535,6 +643,16 @@ class JpaSmsTransactionServiceUnitTest {
             transaction.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(id));
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Unable to assign SMS transaction id for test", e);
+        }
+    }
+
+    private static void assignVersion(SmsTransaction transaction, long version) {
+        try {
+            Field versionField = SmsTransaction.class.getDeclaredField("version");
+            versionField.setAccessible(true);
+            versionField.set(transaction, version);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Unable to assign SMS transaction version for test", e);
         }
     }
 }
