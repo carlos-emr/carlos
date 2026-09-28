@@ -88,7 +88,6 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
@@ -150,8 +149,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final transient SecurityInfoManager securityInfoManager;
     private static final Logger logger = MiscUtils.getLogger();
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
@@ -181,25 +179,87 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
-    ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-    AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-    DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-    DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
-    DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-    ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-    PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
-    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-    PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-    ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-    MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
-    IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
-    DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
+    private final transient ProgramManager programManager;
+    private final transient AdmissionManager admissionManager;
+    private final transient AdmissionDao admissionDao;
+    private final transient CaseManagementManager caseManagementManager;
+    private final transient DrugDao drugDao;
+    private final transient DrugReasonDao drugReasonDao;
+    private final transient DemographicArchiveDao demoArchiveDao;
+    private final transient ProviderDataDao providerDataDao;
+    private final transient PartialDateDao partialDateDao;
+    private final transient DemographicExtDao demographicExtDao;
+    private final transient OscarAppointmentDao appointmentDao;
+    private final transient PatientLabRoutingDao patientLabRoutingDao;
+    private final transient ProviderLabRoutingDao providerLabRoutingDao;
+    private final transient MeasurementsExtDao measurementsExtDao;
+    private final transient DemographicContactDao contactDao;
 
-    private final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
+    private final transient NioFileManager nioFileManager;
 
+    /**
+     * Creates the import action with dependencies supplied by Struts Spring constructor injection.
+     *
+     * @param securityInfoManager manager used to authorize demographic import access
+     * @param programManager manager used to load program metadata during imports
+     * @param admissionManager manager used to load and update admissions
+     * @param admissionDao DAO used for admission persistence
+     * @param caseManagementManager manager used for case-management import records
+     * @param drugDao DAO used to persist imported medication records
+     * @param drugReasonDao DAO used to persist imported medication reasons
+     * @param demoArchiveDao DAO used to persist demographic archive records
+     * @param providerDataDao DAO used to load provider data during imports
+     * @param partialDateDao DAO used to persist partial-date values
+     * @param demographicExtDao DAO used to persist demographic extension values
+     * @param appointmentDao DAO used to persist imported appointments
+     * @param patientLabRoutingDao DAO used to route imported patient lab records
+     * @param providerLabRoutingDao DAO used to route imported provider lab records
+     * @param measurementsExtDao DAO used to persist imported measurement extensions
+     * @param contactDao DAO used to persist imported demographic contacts
+     * @param nioFileManager manager used to resolve configured import file locations
+     * @since 2026-06-01
+     */
+    @SuppressWarnings("java:S107")
+    public ImportDemographicDataAction42Action(
+            SecurityInfoManager securityInfoManager,
+            ProgramManager programManager,
+            AdmissionManager admissionManager,
+            AdmissionDao admissionDao,
+            CaseManagementManager caseManagementManager,
+            DrugDao drugDao,
+            DrugReasonDao drugReasonDao,
+            DemographicArchiveDao demoArchiveDao,
+            ProviderDataDao providerDataDao,
+            PartialDateDao partialDateDao,
+            DemographicExtDao demographicExtDao,
+            OscarAppointmentDao appointmentDao,
+            PatientLabRoutingDao patientLabRoutingDao,
+            ProviderLabRoutingDao providerLabRoutingDao,
+            MeasurementsExtDao measurementsExtDao,
+            DemographicContactDao contactDao,
+            NioFileManager nioFileManager) {
+        this.securityInfoManager = securityInfoManager;
+        this.programManager = programManager;
+        this.admissionManager = admissionManager;
+        this.admissionDao = admissionDao;
+        this.caseManagementManager = caseManagementManager;
+        this.drugDao = drugDao;
+        this.drugReasonDao = drugReasonDao;
+        this.demoArchiveDao = demoArchiveDao;
+        this.providerDataDao = providerDataDao;
+        this.partialDateDao = partialDateDao;
+        this.demographicExtDao = demographicExtDao;
+        this.appointmentDao = appointmentDao;
+        this.patientLabRoutingDao = patientLabRoutingDao;
+        this.providerLabRoutingDao = providerLabRoutingDao;
+        this.measurementsExtDao = measurementsExtDao;
+        this.contactDao = contactDao;
+        this.nioFileManager = nioFileManager;
+    }
+
+    public ImportDemographicDataAction42Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ProgramManager.class), SpringUtils.getBean(AdmissionManager.class), SpringUtils.getBean(AdmissionDao.class), SpringUtils.getBean(CaseManagementManager.class), SpringUtils.getBean(DrugDao.class), SpringUtils.getBean(DrugReasonDao.class), SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(ProviderDataDao.class), SpringUtils.getBean(PartialDateDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(OscarAppointmentDao.class), SpringUtils.getBean(PatientLabRoutingDao.class), SpringUtils.getBean(ProviderLabRoutingDao.class), SpringUtils.getBean(MeasurementsExtDao.class), SpringUtils.getBean(DemographicContactDao.class), SpringUtils.getBean(NioFileManager.class));
+    }
     private LabUploadWs labUpload = new LabUploadWs();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -374,7 +434,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         request.setAttribute("importlog", importLog.getPath());
         resetProviderBean(request);
         generateResponse(response, warnings, importLog.getPath());
-        return SUCCESS;
+        return NONE;
     }
 
     private static final ObjectMapper jsonMapper = new ObjectMapper();
@@ -3295,7 +3355,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             return null;
         }
 
-        String fileName = new File(normalizedPath).getName();
+        String fileName = extractReportFileName(normalizedPath);
         File currentDir = PathValidationUtils.resolveConfiguredDirectory(currentDirectory, "import current directory");
 
         List<File> candidates = new ArrayList<>();
@@ -3315,6 +3375,24 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
 
         return null;
+    }
+
+    private String extractReportFileName(String normalizedPath) {
+        int end = normalizedPath.length();
+        while (end > 0 && isReportPathSeparator(normalizedPath.charAt(end - 1))) {
+            end--;
+        }
+        if (end == 0) {
+            return "";
+        }
+
+        int lastForwardSlash = normalizedPath.lastIndexOf('/', end - 1);
+        int lastBackslash = normalizedPath.lastIndexOf('\\', end - 1);
+        return normalizedPath.substring(Math.max(lastForwardSlash, lastBackslash) + 1, end);
+    }
+
+    private boolean isReportPathSeparator(char value) {
+        return value == '/' || value == '\\';
     }
 
     /**
@@ -3394,14 +3472,20 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             return false;
         }
 
-        File f = new File(normalizedPath);
-        // Covers Unix and most Windows absolute cases
-        if (f.isAbsolute()) {
+        if (normalizedPath.indexOf('\0') >= 0) {
+            logger.warn("Rejecting invalid report path from XML");
             return true;
         }
 
-        // Explicit drive-letter pattern for extra defensive checking
-        return normalizedPath.matches("^[A-Za-z]:[/\\\\].*");
+        return normalizedPath.startsWith("/") || normalizedPath.startsWith("\\")
+                || hasWindowsDriveLetterAbsolutePrefix(normalizedPath);
+    }
+
+    private boolean hasWindowsDriveLetterAbsolutePrefix(String normalizedPath) {
+        return normalizedPath.length() >= 3
+                && Character.isLetter(normalizedPath.charAt(0))
+                && normalizedPath.charAt(1) == ':'
+                && isReportPathSeparator(normalizedPath.charAt(2));
     }
 
     private File makeImportLog(ArrayList<String[]> demo, String dir) throws IOException {
@@ -3446,7 +3530,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
 
         File importLog = PathValidationUtils.validateGeneratedChildPath("ImportEvent-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".log", PathValidationUtils.resolveConfiguredDirectory(dir, "import log directory"));
-        try (BufferedWriter out = new BufferedWriter(new FileWriter(importLog))) {
+        try (BufferedWriter out = Files.newBufferedWriter(importLog.toPath(), StandardCharsets.UTF_8)) {
             int tableWidth = 0;
             for (int i = 0; i < keyword.length; i++) {
                 for (int j = 0; j < keyword[i].length; j++) {
@@ -4573,7 +4657,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                     InputStream stream = new ByteArrayInputStream(observationMsg.replace("\r", "\r\n").getBytes(StandardCharsets.UTF_8));
                     String filePath = Utilities.saveFile(stream, filename);
-                    File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+                    if (filePath == null) {
+                        // Utilities.saveFile returns null when the write failed and the partial file
+                        // was removed; surface it through the enclosing import-error handling.
+                        throw new IllegalStateException("Unable to save lab file for demographic import");
+                    }
+                    File file = PathValidationUtils.validateExistingDocumentPath(filePath);
 
                     localFileIs = new FileInputStream(file);
 
@@ -4654,7 +4743,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         providerLabRoutingQueue.add(new ProviderLabRoutingModel(reviewer, labNo, status, reviewerComment, reviewDate, "HL7"));
                     }
 
-                    providerLabRoutingDao.batchPersist(providerLabRoutingQueue);
+                    providerLabRoutingDao.batchPersistWithIndependentCommits(providerLabRoutingQueue);
 
                     List<MeasurementsExt> measurementsExtsToSave = new ArrayList<>();
                     for (int x = 0; x < reportResults.length; x++) {
@@ -4721,7 +4810,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         }
                     }
 
-                    measurementsExtDao.batchPersist(measurementsExtsToSave, 50);
+                    measurementsExtDao.batchPersistWithIndependentCommits(measurementsExtsToSave, 50);
 
                     String labInfo = getLabDline(labResult, 0);
                     if (StringUtils.filled(labInfo)) {

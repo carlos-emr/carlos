@@ -54,6 +54,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @Tag("unit")
 @Tag("fast")
+@Tag("utility")
+@Tag("security")
 @DisplayName("PDFEncryptionUtil")
 class PDFEncryptionUtilUnitTest {
 

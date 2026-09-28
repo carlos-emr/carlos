@@ -21,6 +21,21 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -42,6 +57,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.io.File;
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -49,6 +65,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -79,7 +96,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     private ImportDemographicDataAction42Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
         replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
         replaceSpringUtilsBean(ProviderDao.class, mockProviderDao);
@@ -98,7 +115,24 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockEctProgramManager.getDefaultProgramId(TEST_PROVIDER)).thenReturn(0);
         when(mockProviderDao.getActiveProviders()).thenReturn(List.of());
 
-        action = new ImportDemographicDataAction42Action();
+        action = new ImportDemographicDataAction42Action(
+                mockSecurityInfoManager,
+                mock(ProgramManager.class),
+                mock(AdmissionManager.class),
+                mock(AdmissionDao.class),
+                mock(CaseManagementManager.class),
+                mock(DrugDao.class),
+                mock(DrugReasonDao.class),
+                mock(DemographicArchiveDao.class),
+                mock(ProviderDataDao.class),
+                mock(PartialDateDao.class),
+                mock(DemographicExtDao.class),
+                mock(OscarAppointmentDao.class),
+                mock(PatientLabRoutingDao.class),
+                mock(ProviderLabRoutingDao.class),
+                mock(MeasurementsExtDao.class),
+                mock(DemographicContactDao.class),
+                mockNioFileManager);
     }
 
     @Test
@@ -192,10 +226,54 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         @SuppressWarnings("unchecked")
         List<String> warnings = (List<String>) getMockRequest().getAttribute("warnings");
         assertThat(warnings).contains(NO_VALID_XML_WARNING);
         assertThat(getMockRequest().getAttribute("importlog")).isNotNull();
+        assertThat(getMockResponse().getContentType()).contains("application/json");
+        assertThat(getMockResponse().getContentAsString())
+                .contains(NO_VALID_XML_WARNING)
+                .contains("importLog");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/tmp/report.pdf", "C:/reports/report.pdf", "C:\\reports\\report.pdf"})
+    @DisplayName("should identify absolute report paths without constructing File objects")
+    void shouldIdentifyAbsoluteReportPaths_withoutConstructingFileObjects(String path) throws Exception {
+        assertThat(invokeIsAbsoluteReportPath(path)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should allow relative report paths")
+    void shouldAllowRelativeReportPaths_whenPathIsRelative() throws Exception {
+        assertThat(invokeIsAbsoluteReportPath("reports/result.pdf")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should reject report paths containing null characters")
+    void shouldRejectReportPath_whenPathContainsNullCharacter() throws Exception {
+        assertThat(invokeIsAbsoluteReportPath("reports/result.pdf\0")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should extract report file name from platform-neutral separators")
+    void shouldExtractReportFileName_fromPlatformNeutralSeparators() throws Exception {
+        assertThat(invokeExtractReportFileName("nested/result.pdf")).isEqualTo("result.pdf");
+        assertThat(invokeExtractReportFileName("nested\\result.pdf")).isEqualTo("result.pdf");
+        assertThat(invokeExtractReportFileName("nested/result.pdf/")).isEqualTo("result.pdf");
+        assertThat(invokeExtractReportFileName("result.pdf")).isEqualTo("result.pdf");
+    }
+
+    private boolean invokeIsAbsoluteReportPath(String path) throws Exception {
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod("isAbsoluteReportPath", String.class);
+        method.setAccessible(true);
+        return (Boolean) method.invoke(action, path);
+    }
+
+    private String invokeExtractReportFileName(String path) throws Exception {
+        Method method = ImportDemographicDataAction42Action.class.getDeclaredMethod("extractReportFileName", String.class);
+        method.setAccessible(true);
+        return (String) method.invoke(action, path);
     }
 }

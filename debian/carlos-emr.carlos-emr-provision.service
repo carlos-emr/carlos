@@ -1,0 +1,37 @@
+[Unit]
+Description=Finish an interrupted CARLOS EMR installation
+Documentation=man:carlos-ctl(8)
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+# Provisioning happens in carlos-emr.postinst, and every step of it is
+# non-fatal so that a database problem cannot leave dpkg half-configured and
+# block the rest of an apt transaction. This unit is the other half of that
+# bargain: the postinst records what it could not do, and this finishes it at
+# the next boot instead of leaving a host that looks installed, has no schema,
+# and never recovers on its own.
+#
+# ConditionPathExists makes the ordinary boot free: with no marker the unit is
+# skipped before carlos-ctl is even executed.
+ConditionPathExists=/var/lib/carlos-emr/.install-incomplete
+Wants=mariadb.service
+After=mariadb.service network-online.target
+# Ordering only, not a requirement: an EMR whose provisioning cannot be
+# completed must still start if the operator has since fixed the schema by
+# hand, and a failure here must never keep the boot from finishing.
+Before=carlos-emr.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+# --boot is the guarded mode: it does nothing without the marker, and it
+# refuses to migrate a schema that already has tables — an upgrade migration
+# is a decision an operator takes after a verified backup, never one a boot
+# takes unattended.
+ExecStart=/usr/lib/carlos-emr/carlos-ctl finish-install --boot
+# Creating the schema on a small VM takes minutes, and it runs before the EMR;
+# the default 90s would kill it part-way through a migration.
+TimeoutStartSec=1800
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

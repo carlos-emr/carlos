@@ -1,0 +1,35 @@
+#!/bin/sh
+# postrm for carlos-emr-drugref.
+set -e
+
+CONF_DIR=/etc/carlos-emr
+STATE=/var/lib/carlos-emr
+
+case "$1" in
+    remove|purge)
+        rm -f "${CONF_DIR}/tomcat/Catalina/localhost/drugref2.xml"
+        rm -f "${STATE}/drugref2.properties"
+        # Tomcat keeps a deployed context alive until it is told otherwise.
+        if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
+            deb-systemd-invoke restart carlos-emr.service || true
+        fi
+        if [ "$1" = purge ]; then
+            rm -f "${CONF_DIR}/drugref2.properties"
+            # The drug reference dataset is left in place: it is not patient
+            # data, but it takes a while to load and a site may have updated
+            # it. Removing it is a deliberate act.
+            echo "carlos-emr-drugref: the 'drugref2' database was NOT dropped." >&2
+            echo "carlos-emr-drugref: to remove it:  sudo mariadb -e 'DROP DATABASE drugref2'" >&2
+        fi
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

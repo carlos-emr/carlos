@@ -37,6 +37,7 @@ import java.nio.file.Path;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
@@ -50,12 +51,22 @@ public interface FaxDocumentManager {
 
     //	@Autowired
     //	private FormsManager formsManager;
-    /*
+    /**
      * Returns a temporary path to a PDF version of the given eformId.
+     *
+     * @return readable temporary PDF path; never {@code null}
+     * @throws PDFGenerationException when the eForm cannot be rendered to a PDF — the message
+     *         carries the renderer's diagnosis and is safe to surface to the user
      */
-    public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId);
+    public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId) throws PDFGenerationException;
 
-    public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer);
+    /**
+     * Returns a temporary path to a PDF version of the given form.
+     *
+     * @return readable temporary PDF path; never {@code null}
+     * @throws PDFGenerationException when the form-to-PDF conversion produces no document
+     */
+    public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) throws PDFGenerationException;
 
     /**
      * Create a new cover page with the clinic heading with the

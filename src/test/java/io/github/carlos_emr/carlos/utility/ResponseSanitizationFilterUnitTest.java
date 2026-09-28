@@ -42,13 +42,14 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -131,6 +132,44 @@ class ResponseSanitizationFilterUnitTest {
                     assertThat(event.getMessage().getFormattedMessage())
                             .contains("Unrecognized response.sanitization.enabled value")
                             .contains("\\r\\n");
+                });
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("web-service buffer size parsing")
+    class WebServiceBufferParsing {
+
+        @Test
+        @DisplayName("should use the configured value when a positive integer is provided")
+        void shouldUseConfiguredValue_whenPositiveIntegerProvided() {
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("131072")).isEqualTo(131072);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("  262144 ")).isEqualTo(262144);
+        }
+
+        @Test
+        @DisplayName("should fall back to the default when value is absent or blank")
+        void shouldFallBackToDefault_whenAbsentOrBlank() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            assertThat(ResponseSanitizationFilter.parseBufferBytes(null)).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("")).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("   ")).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("should warn and fall back to the default when value is non-positive or non-numeric")
+        void shouldWarnAndFallBackToDefault_whenNonPositiveOrNonNumeric() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("0")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("-1")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("abc")).isEqualTo(expected);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Unrecognized response.sanitization.ws.buffer.bytes value");
                 });
             }
         }
@@ -839,8 +878,8 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should throw when captured response cannot reset buffer before replay")
-        void shouldThrow_whenCapturedResponseCannotResetBufferBeforeReplay() {
+        @DisplayName("should append captured body instead of throwing when reset races into a commit")
+        void shouldAppendCapturedBody_whenResetBufferRacesIntoCommit() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
             MockHttpServletResponse response = new ResetBufferFailingResponse();
             String body = "<html><body>ok</body></html>";
@@ -852,9 +891,221 @@ class ResponseSanitizationFilterUnitTest {
                 res.getWriter().write(body);
             };
 
-            assertThatThrownBy(() -> filter.doFilter(request, response, chain))
-                    .isInstanceOf(IOException.class)
-                    .hasMessageContaining("Cannot reset buffer before replaying captured response");
+            // This used to throw IOException("Cannot reset buffer before replaying captured
+            // response"), converting an already-inspected-safe page into a container 500.
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString()).isEqualTo(body);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("already committed mid-chain");
+                });
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // doFilter() — forward interactions: replay after a mid-chain commit,
+    // resetBuffer()/reset() capture clearing, passthrough close shielding.
+    // Tomcat 11's suspendWrappedResponseAfterForward default finishes the raw
+    // response when a forward returns (pinned off in the context descriptors);
+    // these pin the filter-side behaviors that keep any such premature commit
+    // from manufacturing a 500 or replaying stale content.
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("forward and replay resilience")
+    class ForwardAndReplayResilience {
+
+        @Test
+        @DisplayName("should append captured writer body when the response was committed before replay")
+        void shouldAppendCapturedBody_whenResponseCommittedBeforeReplay() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>forwarded page</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(body);
+                // Simulate a dispatcher forward finishing the REAL response behind the
+                // wrapper's back before the filter gets to replay.
+                response.setCommitted(true);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString()).isEqualTo(body);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("already committed mid-chain");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should append captured 4xx stream body when the response was committed before replay")
+        void shouldAppendCapturedErrorStreamBody_whenResponseCommittedBeforeReplay() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reject.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>rejected: file was empty</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+                response.setCommitted(true);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // The 4xx status AND its body both survive — this exact shape used to
+            // come back as a raw 500 with an empty body.
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(body);
+        }
+
+        @Test
+        @DisplayName("should discard captured writer output when resetBuffer is called")
+        void shouldDiscardCapturedWriterOutput_whenResetBufferCalled() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/fwd.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String fresh = "<html><body>forward target</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write("STALE pre-forward prefix");
+                // RequestDispatcher.forward() clears uncommitted output before invoking
+                // its target; the capture must be cleared with it.
+                res.resetBuffer();
+                res.getWriter().write(fresh);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).isEqualTo(fresh);
+            assertThat(response.getContentAsString()).doesNotContain("STALE");
+        }
+
+        @Test
+        @DisplayName("should discard captured 4xx stream output when resetBuffer is called")
+        void shouldDiscardCapturedStreamOutput_whenResetBufferCalled() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/fwd400.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String fresh = "<html><body>rejection detail</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write("STALE pre-forward prefix".getBytes(StandardCharsets.UTF_8));
+                res.resetBuffer();
+                res.getOutputStream().write(fresh.getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(fresh);
+        }
+
+        @Test
+        @DisplayName("should discard a tainted writer body instead of throwing when the response was committed")
+        void shouldDiscardTaintedBody_whenWriterResponseCommittedBeforeReplacement() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/boom.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTrace = "java.lang.IllegalStateException: boom\n"
+                    + "\tat io.github.carlos_emr.carlos.Boom.render(Boom.java:1)\n";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTrace);
+                // Something outside the wrapper commits the real response.
+                response.setCommitted(true);
+            };
+
+            // Before the guard this escaped doFilter as IOException("Cannot send sanitized error
+            // after response commit") -- a container 500 manufactured after the fact.
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                // The stack trace must NOT reach the client, and no exception may escape.
+                assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+                assertThat(response.getContentAsString()).doesNotContain("Boom.java");
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Tainted response body could not be replaced")
+                            .contains("DISCARDED");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should discard a tainted output-stream body instead of throwing when the response was committed")
+        void shouldDiscardTaintedBody_whenOutputStreamResponseCommittedBeforeReplacement() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/boom");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTrace = "java.lang.IllegalStateException: boom\n"
+                    + "\tat io.github.carlos_emr.carlos.Boom.render(Boom.java:1)\n";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                // Status first, so the wrapper opens the CAPTURING output stream, not passthrough.
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write(stackTrace.getBytes(StandardCharsets.UTF_8));
+                response.setCommitted(true);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+            assertThat(response.getContentAsString()).doesNotContain("Boom.java");
+        }
+
+        @Test
+        @DisplayName("should shield the passthrough stream so a mid-chain close cannot seal the response")
+        void shouldShieldPassthroughStream_fromMidChainClose() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/stream.pdf");
+            CloseRecordingResponse response = new CloseRecordingResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/pdf");
+                ServletOutputStream os = res.getOutputStream();
+                os.write("BODY-A".getBytes(StandardCharsets.UTF_8));
+                // A dispatcher forward's classic end-of-forward close cascades down the
+                // wrapper chain to this stream. It must degrade to a flush...
+                os.close();
+                // ...so that later writers in the chain still reach the client.
+                os.write("BODY-B".getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.realCloseCount).isZero();
+            assertThat(response.getContentAsString()).isEqualTo("BODY-ABODY-B");
+            // The shield must not FLUSH on close either. In Tomcat, OutputBuffer.flush() is
+            // doFlush(true): it commits the response and never assigns a Content-Length, while
+            // OutputBuffer.close() is what sets Content-Length from the buffered bytes. A
+            // close-degraded-to-flush would therefore commit every forwarded page early,
+            // forfeiting its Content-Length and — the part that matters — permanently disabling
+            // doFilter's late-error branch, which is guarded on !isCommitted() and is what still
+            // replaces a stack trace that escaped capture. MockHttpServletResponse marks itself
+            // committed on flush, so an uncommitted response here is the proof.
+            assertThat(response.isCommitted()).isFalse();
         }
     }
 
@@ -1016,6 +1267,77 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(sanitized)
                     .doesNotContain("NullPointerException")
                     .doesNotContain("io.github.carlos_emr")
+                    .contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should enlarge the response buffer for a /ws request")
+        void shouldEnlargeResponseBuffer_forWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = wsRequest("GET");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize())
+                    .isGreaterThanOrEqualTo(ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES)
+                    .isGreaterThan(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should not enlarge the response buffer for a non-/ws request")
+        void shouldNotEnlargeResponseBuffer_forNonWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize()).isEqualTo(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should sanitize a /ws 500 partial body that would otherwise exceed the default buffer and commit")
+        void shouldSanitizePartialBody_whenLargerThanDefaultBufferOnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            // MockHttpServletResponse commits once written content exceeds its buffer size, like a
+            // real container: its ResponseServletOutputStream.write(int) calls
+            // setCommittedIfBufferSizeExceeded(), and bulk writes route through that per-byte path.
+            // So without the /ws buffer enlargement this partial body (> default buffer) commits and
+            // becomes unrecoverable (the #2994 leak) and this test fails; with it, the body stays
+            // uncommitted and the existing pass-through sanitization replaces it. (Hence this is a
+            // true regression test, not a false positive.)
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+            StringBuilder sb = new StringBuilder(
+                    "{\"appointmentNo\":1234,\"demographic\":{\"firstName\":\"Jane\",\"phone\":\"250-555-0143\"");
+            while (sb.length() <= defaultBuffer * 2) {
+                sb.append(",\"note\":\"Jane Doe clinical note padding\"");
+            }
+            String partialPhiJson = sb.toString();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                // Stream opened while status is still 200 (pass-through), partial body written,
+                // then a mid-serialization failure flips the status to 500.
+                httpRes.setContentType("application/json");
+                res.getOutputStream().write(partialPhiJson.getBytes(StandardCharsets.UTF_8));
+                httpRes.setStatus(500);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String body = response.getContentAsString();
+            assertThat(body)
+                    .doesNotContain("Jane")
+                    .doesNotContain("250-555-0143")
                     .contains("Reference ID:");
         }
     }
@@ -1372,6 +1694,52 @@ class ResponseSanitizationFilterUnitTest {
         @Override
         public void resetBuffer() {
             throw new IllegalStateException("already committed");
+        }
+    }
+
+    /**
+     * Records whether {@code close()} ever reaches the real response stream, so the
+     * close-shield tests can assert that a mid-chain close is degraded to a flush.
+     */
+    private static class CloseRecordingResponse extends MockHttpServletResponse {
+
+        int realCloseCount;
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            ServletOutputStream real = super.getOutputStream();
+            return new ServletOutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    real.write(b);
+                }
+
+                @Override
+                public void write(byte[] b, int off, int len) throws IOException {
+                    real.write(b, off, len);
+                }
+
+                @Override
+                public void flush() throws IOException {
+                    real.flush();
+                }
+
+                @Override
+                public void close() throws IOException {
+                    realCloseCount++;
+                    real.close();
+                }
+
+                @Override
+                public boolean isReady() {
+                    return real.isReady();
+                }
+
+                @Override
+                public void setWriteListener(WriteListener writeListener) {
+                    real.setWriteListener(writeListener);
+                }
+            };
         }
     }
 }

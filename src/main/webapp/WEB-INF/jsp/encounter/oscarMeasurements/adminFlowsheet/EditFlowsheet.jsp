@@ -278,12 +278,7 @@
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Fav and touch icons -->
-    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="ico/apple-touch-icon-144-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="ico/apple-touch-icon-114-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="ico/apple-touch-icon-72-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
-    <link rel="shortcut icon" href="ico/favicon.png">
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
 
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
 
@@ -357,6 +352,21 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script>
+        function appendCsrfToken(form) {
+            var csrfElement = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrfElement && csrfElement.value) {
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfElement.value;
+                form.appendChild(csrfInput);
+                return true;
+            } else {
+                alert('The security token is unavailable. Reload this page and try again.');
+                return false;
+            }
+        }
+
         function submitFlowsheetCustom(params) {
             var form = document.createElement('form');
             form.method = 'post';
@@ -369,6 +379,9 @@
                     input.value = params[key];
                     form.appendChild(input);
                 }
+            }
+            if (!appendCsrfToken(form)) {
+                return;
             }
             document.body.appendChild(form);
             form.submit();

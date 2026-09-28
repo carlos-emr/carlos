@@ -35,6 +35,8 @@ import java.util.List;
 
 import jakarta.persistence.Query;
 
+import org.hibernate.Hibernate;
+
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
@@ -218,7 +220,22 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
         @SuppressWarnings("unchecked")
         List<Prevention> results = query.getResultList();
+        initializePreventionExts(results);
         return results;
+    }
+
+    /**
+     * Initializes the lazy {@code preventionExts} collection while the DAO transaction is
+     * still open. The native query above cannot express a fetch join, and the manager layer
+     * returns these entities detached to consumers that iterate the extensions
+     * ({@code PreventionManagerImpl#getImmunizationsByDemographic}, the FHIR Immunization
+     * mapper). {@code @BatchSize} on the mapping keeps this to one SELECT per 25 preventions.
+     */
+    private void initializePreventionExts(List<Prevention> preventions) {
+        for (Prevention prevention : preventions) {
+            // Low-level DAO code intentionally uses Hibernate.initialize; no CARLOS wrapper exists.
+            Hibernate.initialize(prevention.getPreventionExts());
+        }
     }
 
     @NativeSql("preventions")
@@ -234,7 +251,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     /**
      * Returns lightweight prevention/immunization list DTOs for a demographic, ordered by
-     * prevention date descending. Eliminates the EAGER-loaded {@code PreventionExt} collection.
+     * prevention date descending. Projects columns only, so no Prevention entity (and no
+     * {@code PreventionExt} collection) is materialized.
      *
      * @param demographicId Integer the patient demographic identifier
      * @return List&lt;PreventionListItemDTO&gt; ordered by preventionDate descending; empty if none found

@@ -29,7 +29,10 @@
  * from the admin library, and verifies that:
  *   1. the eForm still renders in the popup without an error page
  *   2. the background image resolves through displayImage
- *   3. /previewDocs?method=renderEFormPDF returns a real PDF for the imported form
+ *   3. the downloaded PDF retains both authored pages and right-edge content
+ *   4. pagination preserves percentage-positioned field coordinates
+ *
+ * Requires pdftotext from poppler-utils to inspect the actual PDF content and positions.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/eform-render-playwright-checks.js
@@ -47,7 +50,9 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
+const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -71,6 +76,9 @@ function assert(condition, message) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
@@ -136,10 +144,16 @@ function formPrint() {
 <body onload="">
 <form method="post" action="" name="FormName" id="FormName">
 <!-- malformed -- comment-->
-<div id="page1" style="page-break-after:always;position:relative;">
+<div id="page1" style="page-break-after:always;position:relative;width:650px;">
 <img id="BGImage1" src="\${oscar_image_path}${bgImageName}" style="position:relative;left:0;top:0;width:750px;height:140px;">
 <input name="patient_nameL" id="patient_nameL" type="text" value="TemplateSeed" class="noborder" style="position:absolute;left:40px;top:32px;width:220px;height:22px;" oscarDB="patient_nameL">
 <input name="subject" id="subject" type="text" class="noborder" style="position:absolute;left:40px;top:72px;width:220px;height:22px;">
+<span style="position:absolute;left:50%;top:108px;font:12px Arial;">PERCENTFIELD</span>
+<span style="position:absolute;left:680px;top:108px;font:12px Arial;">RIGHTEDGE</span>
+</div>
+<div id="page2" style="page-break-after:always;position:relative;width:500px;">
+<img id="BGImage2" src="\${oscar_image_path}${bgImageName}" style="width:500px;height:160px;">
+<span style="position:absolute;left:20px;top:30px;font:12px Arial;">SECONDPAGE</span>
 </div>
 <div class="DoNotPrint" id="BottomButtons" style="position:absolute;top:180px;left:0;">
   <input value="Submit" name="SubmitButton" id="SubmitButton" type="submit" onclick="releaseDirtyFlag();">
@@ -209,10 +223,16 @@ async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   if (await page.locator('#pin').count()) {
     await page.locator('#pin').fill(testPin);
+  }
+  assert(await page.locator('#username').inputValue() === testUser, 'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === testPassword, 'login password field changed before submit');
+  if (await page.locator('#pin').count()) {
+    assert(await page.locator('#pin').inputValue() === testPin, 'login PIN field changed before submit');
   }
   await Promise.all([
     page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
@@ -345,8 +365,9 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   const timestamp = Date.now();
   const importedFormName = `Playwright Render Pipeline ${timestamp}`;
   const importedFormSubject = `Render pipeline ${timestamp}`;
-  const renderedPdfPath = path.join(screenshotDir, `eform-render-pipeline-${timestamp}.pdf`);
-  const screenshotPath = path.join(screenshotDir, `eform-render-pipeline-${timestamp}.png`);
+  const artifactBaseName = `eform-render-pipeline-${timestamp}`;
+  const renderedPdfPath = buildArtifactPath(screenshotDir, artifactBaseName, '.pdf');
+  const screenshotPath = buildArtifactPath(screenshotDir, artifactBaseName);
   let importedFid = null;
   let managerPage = null;
 
@@ -398,11 +419,21 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     await popup.locator('#remoteDownloadButton').click();
     const download = await downloadPromise;
 
-    fs.mkdirSync(screenshotDir, { recursive: true });
     await download.saveAs(renderedPdfPath);
     const pdfBytes = fs.readFileSync(renderedPdfPath);
     assert(pdfBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Downloaded payload was not a PDF');
     assert(pdfBytes.length > 500, `Downloaded PDF payload was unexpectedly small (${pdfBytes.length} bytes)`);
+
+    // Requires poppler-utils. Inspect the produced PDF, not just the DOM or generated CSS:
+    // clipping a narrow page div used to silently remove the right edge of a wider background.
+    const bbox = execFileSync('pdftotext', ['-bbox', renderedPdfPath, '-'], { encoding: 'utf8' });
+    const pages = [...bbox.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map(match => match[1]);
+    assert(pages.length === 2, `Expected two authored pages without blank spill pages, got ${pages.length}`);
+    assert(pages[0].includes('>RIGHTEDGE<'), 'The first PDF page silently clipped its right-edge content');
+    assert(pages[1].includes('>SECONDPAGE<'), 'The second authored page was omitted or shifted');
+    const percentField = pages[0].match(/<word\b[^>]*xMin="([0-9.]+)"[^>]*>PERCENTFIELD<\/word>/);
+    assert(percentField && Math.abs(Number(percentField[1]) - 243.75) < 0.1,
+      'PDF pagination changed the authored container width and moved its percentage-positioned field');
 
     await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const postDownloadState = await popup.evaluate(() => ({
@@ -413,10 +444,16 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     assert(!postDownloadState.warningMessage, `Unexpected warning after remote download: ${postDownloadState.warningMessage}`);
     assert(!postDownloadState.errorMessage, `Unexpected error after remote download: ${postDownloadState.errorMessage}`);
 
-    await popup.screenshot({ path: screenshotPath, fullPage: true });
+    await popup.screenshot({ path: screenshotPath, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
     const fatalBadResponses = badResponses.filter((response) => !(response.label === 'eform-popup' && response.url.includes('/oscar/eform/displayImage?imagefile=')));
     const fatalConsoleIssues = consoleIssues.filter((issue) => issue.type !== 'dialog' &&
+      // Chromium requests the ORIGIN-ROOT /favicon.ico for any page with no <link rel="icon">, and
+      // eForm pages are raw stored HTML that never declares one. The 404 comes from the Tomcat ROOT
+      // context, not the application. Already whitelisted for HTTP responses in
+      // isExpectedMissingAsset(); the console leg was missed, which failed this check on a run whose
+      // every substantive assertion — including a real PDF download — had passed.
+      !/\/favicon\.ico$/.test(issue.location && issue.location.url ? issue.location.url : '') &&
       !(issue.label && issue.label.startsWith('image:') && /\$ is not defined/.test(issue.text)) &&
       !(issue.label === 'eform-upload' && /checkFormAndDisable is not defined/.test(issue.text)) &&
       !(issue.label === 'eform-popup' && /Failed to load resource/.test(issue.text) && /\/oscar\/eform\/displayImage\?imagefile=/.test(issue.location && issue.location.url ? issue.location.url : '')));

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: GPL-2.0-or-later
+  Copyright (C) 2026 CARLOS Contributors
+
+  Default context settings for every application in the CARLOS Tomcat
+  instance. Per-application settings live in conf/Catalina/localhost/.
+-->
+<Context>
+    <WatchedResource>WEB-INF/web.xml</WatchedResource>
+    <WatchedResource>WEB-INF/tomcat-web.xml</WatchedResource>
+    <WatchedResource>${catalina.base}/conf/web.xml</WatchedResource>
+
+    <!--
+      SameSite=Lax on the session cookie, so a cross-site POST cannot ride an
+      authenticated clinician session. Defence in depth beside the
+      application's own CSRFGuard. Lax rather than Strict because the EMR's
+      login redirects and popup windows must keep the session across top-level
+      navigations.
+    -->
+    <CookieProcessor sameSiteCookies="lax"/>
+
+    <!--
+      Empty pathname disables session serialisation to disk across restarts.
+      A persisted session file holds authenticated PHI context in a file that
+      survives the process, gets backed up, and is readable by anything that
+      later gains the `carlos` uid. Clinicians re-authenticate after a restart
+      instead — the correct trade for this application.
+    -->
+    <Manager pathname=""/>
+</Context>

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.CarlosProperties;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -147,7 +148,18 @@ class PathValidationUtilsUnitTest {
         void shouldNormalizeFilename_usingLegacyRules() {
             String result = PathValidationUtils.validateFileName("my report..<script>-final.pdf");
 
-            assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
+            assertThat(result).isEqualTo("my_report.script-final.pdf");
+        }
+
+        @Test
+        @DisplayName("should preserve hyphens so eForm image references keep resolving")
+        void shouldPreserveHyphens_whenNormalizingFilename() {
+            // There is no database record of eForm image names (EFormUtil.listImages() is a
+            // directory scan), so the on-disk name is the contract. Deleting hyphens renamed
+            // uploads like Req-Form-Ultrasound-2026-1.png and permanently broke the form that
+            // referenced them, while the same file kept its name when imported via ZIP.
+            assertThat(PathValidationUtils.validateFileName("Req-Form-Ultrasound-2026-1.png"))
+                    .isEqualTo("Req-Form-Ultrasound-2026-1.png");
         }
 
         @Test
@@ -296,7 +308,11 @@ class PathValidationUtilsUnitTest {
 
         @ParameterizedTest
         @DisplayName("should reject missing or empty filename")
-        @ValueSource(strings = {"", "   ", "---"})
+        // "<<<>>>" stands in for the former "---" case: hyphens are now kept (they are part of real
+        // eForm image names), so a hyphen-only name normalizes to itself rather than to empty. The
+        // behaviour under test is "nothing survives normalization", which needs characters that are
+        // still stripped.
+        @ValueSource(strings = {"", "   ", "<<<>>>"})
         void shouldRejectFilename_whenMissingOrEmpty(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
@@ -576,6 +592,176 @@ class PathValidationUtilsUnitTest {
     }
 
     // ========================================================================
+    // EXISTING DOCUMENT PATH VALIDATION
+    // ========================================================================
+
+    @Nested
+    @DisplayName("Existing Document Path Validation Tests")
+    class ExistingDocumentPathValidationTests {
+
+        private String previousDocumentDir;
+
+        @BeforeEach
+        void stashDocumentDir() {
+            previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        }
+
+        @AfterEach
+        void restoreDocumentDir() {
+            if (previousDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+            }
+        }
+
+        @Test
+        @DisplayName("should return canonical DOCUMENT_DIR when configured")
+        void shouldReturnCanonicalDocumentDirectory_whenConfigured() throws IOException {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
+
+            assertThat(PathValidationUtils.getRequiredDocumentDirectory())
+                    .isEqualTo(tempDir.toFile().getCanonicalFile());
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject blank DOCUMENT_DIR values")
+        @ValueSource(strings = {"", "   "})
+        void shouldRejectDocumentDirectory_whenBlank(String documentDir) {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir);
+
+            assertThatThrownBy(PathValidationUtils::getRequiredDocumentDirectory)
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("DOCUMENT_DIR not configured");
+        }
+
+        @Test
+        @DisplayName("should reject missing DOCUMENT_DIR")
+        void shouldRejectDocumentDirectory_whenMissing() {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+
+            assertThatThrownBy(PathValidationUtils::getRequiredDocumentDirectory)
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("DOCUMENT_DIR not configured");
+        }
+
+        @Test
+        @DisplayName("should reject DOCUMENT_DIR that is not a directory")
+        void shouldRejectDocumentDirectory_whenNotADirectory() throws IOException {
+            Path regularFile = Files.createTempFile(tempDir, "document-dir", ".txt");
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", regularFile.toString());
+
+            assertThatThrownBy(PathValidationUtils::getRequiredDocumentDirectory)
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("DOCUMENT_DIR is not an existing directory");
+        }
+
+        @Test
+        @DisplayName("should accept existing document path inside DOCUMENT_DIR")
+        void shouldAcceptExistingDocumentPath_whenInsideDocumentDirectory() throws IOException {
+            Path document = Files.writeString(tempDir.resolve("lab.hl7"), "MSH");
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
+
+            assertThat(PathValidationUtils.validateExistingDocumentPath(document.toString()).getCanonicalFile())
+                    .isEqualTo(document.toFile().getCanonicalFile());
+        }
+
+        @Test
+        @DisplayName("should reject existing document path outside DOCUMENT_DIR")
+        void shouldRejectExistingDocumentPath_whenOutsideDocumentDirectory() throws IOException {
+            Path outside = Files.createTempFile("outside-document-dir", ".hl7");
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
+
+            String outsidePath = outside.toString();
+
+            try {
+                assertThatThrownBy(() -> PathValidationUtils.validateExistingDocumentPath(outsidePath))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessageContaining("Invalid file path");
+            } finally {
+                Files.deleteIfExists(outside);
+            }
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject blank existing path values")
+        @ValueSource(strings = {"", "   "})
+        void shouldRejectExistingPath_whenBlank(String filePath) {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
+
+            assertThatThrownBy(() -> PathValidationUtils.validateExistingDocumentPath(filePath))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("File path is null or empty");
+        }
+    }
+
+    // ========================================================================
+    // CONFIGURED AND GENERATED PATH VALIDATION
+    // ========================================================================
+
+    @Nested
+    @DisplayName("Configured and Generated Path Validation Tests")
+    class ConfiguredAndGeneratedPathValidationTests {
+
+        @Test
+        @DisplayName("should resolve configured directory to canonical path")
+        void shouldResolveConfiguredDirectory_toCanonicalPath() throws IOException {
+            File resolved = PathValidationUtils.resolveConfiguredDirectory(tempDir.resolve(".").toString(), "test dir");
+
+            assertThat(resolved).isEqualTo(tempDir.toFile().getCanonicalFile());
+        }
+
+        @Test
+        @DisplayName("should reject configured directory that is a file")
+        void shouldRejectConfiguredDirectory_thatIsFile() throws IOException {
+            Path file = Files.writeString(tempDir.resolve("not-a-directory.txt"), "content");
+            String filePath = file.toString();
+
+            assertThatThrownBy(() -> PathValidationUtils.resolveConfiguredDirectory(filePath, "test dir"))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Configured path is not a directory");
+        }
+
+        @Test
+        @DisplayName("should validate generated child path inside allowed directory")
+        void shouldValidateGeneratedChildPath_insideAllowedDirectory() throws IOException {
+            File child = PathValidationUtils.validateGeneratedChildPath("LabUpload.result.123", allowedDir);
+
+            assertThat(child.getCanonicalFile())
+                    .hasParent(allowedDir.getCanonicalFile())
+                    .hasName("LabUpload.result.123");
+        }
+
+        @ParameterizedTest
+        @DisplayName("should reject generated child path components with traversal syntax")
+        @ValueSource(strings = {"../evil.txt", "nested/evil.txt", "nested\\evil.txt", ".", ".."})
+        void shouldRejectGeneratedChildPath_withTraversalSyntax(String generatedName) {
+            assertThatThrownBy(() -> PathValidationUtils.validateGeneratedChildPath(generatedName, allowedDir))
+                    .isInstanceOf(FileValidationException.class)
+                    .hasMessageContaining(PathValidationUtils.PATH_COMPONENT_FILENAME_MESSAGE);
+        }
+
+        @Test
+        @DisplayName("should validate configured file")
+        void shouldValidateConfigured_file() throws IOException {
+            Path file = Files.writeString(tempDir.resolve("message_config.xml"), "<root/>");
+
+            assertThat(PathValidationUtils.validateConfiguredFile(file.toString(), "config").getCanonicalFile())
+                    .isEqualTo(file.toFile().getCanonicalFile());
+        }
+
+        @Test
+        @DisplayName("should reject configured file that is a directory")
+        void shouldRejectConfiguredFile_thatIsDirectory() {
+            String directoryPath = tempDir.toString();
+
+            assertThatThrownBy(() -> PathValidationUtils.validateConfiguredFile(directoryPath, "config"))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Configured path is not a file");
+        }
+    }
+
+    // ========================================================================
     // TEMP FILE VALIDATION
     // ========================================================================
 
@@ -654,6 +840,92 @@ class PathValidationUtilsUnitTest {
                     "Test requires /etc/hostname to exist (Linux-specific)");
 
             assertThat(PathValidationUtils.isInAllowedTempDirectory(outsideFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should report null file as not in an application temp directory")
+        void shouldReturnFalse_whenApplicationTempFileIsNull() {
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should report a file under the CARLOS-owned temp root as an application temp file")
+        void shouldReturnTrue_whenFileIsUnderCarlosOwnedTempRoot() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path appRoot = Files.createDirectories(
+                    Path.of(systemTempDir, PathValidationUtils.APPLICATION_TEMP_ROOT_NAME, "app-temp-positive-"));
+            File appFile = Files.createTempFile(appRoot, "generated-", ".pdf").toFile();
+            appFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(appFile)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should report a file under the renderer temp root as an application temp file")
+        void shouldReturnTrue_whenFileIsUnderRendererTempRoot() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path rendererRoot = Files.createDirectories(
+                    Path.of(systemTempDir, "carlos-eform-browser-pdf-temp"));
+            File rendererFile = Files.createTempFile(rendererRoot, "eform-browser-render-", ".pdf").toFile();
+            rendererFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(rendererFile)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not report a bare system temp file as an application temp file")
+        void shouldReturnFalse_whenFileIsInSharedTempButNotCarlosOwned() throws IOException {
+            File tempFile = Files.createTempFile("shared-not-carlos-", ".tmp").toFile();
+            tempFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInAllowedTempDirectory(tempFile)).isTrue();
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(tempFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not report a tmpdir 'carlos' subtree as application temp (that segment is work-only)")
+        void shouldReturnFalse_whenTmpdirFirstSegmentIsWorkOnly() throws IOException {
+            // 'carlos' is a CARLOS-owned first segment only under a Tomcat work/ root, never under
+            // java.io.tmpdir. A file under <java.io.tmpdir>/carlos must NOT pass the application temp
+            // boundary — the segment set is keyed per-root so it cannot be smuggled past fax
+            // promotion / eForm preview from the wrong root.
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path strayRoot = Files.createDirectories(Path.of(systemTempDir, "carlos", "app-temp-cross-root-"));
+            File strayFile = Files.createTempFile(strayRoot, "stray-", ".pdf").toFile();
+            strayFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(strayFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject a CARLOS temp symlink whose target escapes outside every CARLOS-owned temp subtree")
+        void shouldRejectSymlinkEscape_whenApplicationTempLinkTargetsOutside() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path appRoot = Files.createDirectories(
+                    Path.of(systemTempDir, PathValidationUtils.APPLICATION_TEMP_ROOT_NAME, "app-temp-symlink-escape-"));
+            // The link LIVES inside carlos-temp but its target is outside every CARLOS-owned temp
+            // subtree. validateApplicationTempPath canonicalizes (resolving the symlink) before the
+            // boundary check, so it must reject the escape rather than trust the in-boundary link path
+            // — closing the check-vs-use gap a local attacker could open by pre-seeding the link.
+            Path outsideDir = Files.createTempDirectory("outside-carlos-temp-");
+            Path outsideTarget = outsideDir.resolve("secret.pdf");
+            Files.write(outsideTarget, "outside bytes".getBytes());
+            Path escapingLink = appRoot.resolve("escape-link.pdf");
+            try {
+                Files.createSymbolicLink(escapingLink, outsideTarget);
+            } catch (IOException | UnsupportedOperationException symlinkUnsupported) {
+                Assumptions.assumeTrue(false, "Symlinks not supported on this system");
+                return;
+            }
+            try {
+                assertThatThrownBy(() -> PathValidationUtils.validateApplicationTempPath(escapingLink.toFile()))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessageContaining("outside every CARLOS-owned temp subtree");
+            } finally {
+                Files.deleteIfExists(escapingLink);
+                Files.deleteIfExists(outsideTarget);
+                Files.deleteIfExists(outsideDir);
+            }
         }
     }
 

@@ -80,24 +80,8 @@
 </security:oscarSec>
 
 <%
-    String errorMessage = "";
-//if delete request is made
-    if (request.getParameter("delDocumentNo") != null && request.getParameter("delDocumentNo").length() > 0) {
-        EDocUtil.deleteDocument(request.getParameter("delDocumentNo"));
-    }
-
-//if undelete request is made
-    if (request.getParameter("undelDocumentNo") != null && request.getParameter("undelDocumentNo").length() > 0) {
-        EDocUtil.undeleteDocument(request.getParameter("undelDocumentNo"));
-    }
-
-    if (request.getParameter("refileDocumentNo") != null && request.getParameter("refileDocumentNo").length() > 0) {
-        try {
-            EDocUtil.refileDocument(request.getParameter("refileDocumentNo"), request.getParameter("queueId"));
-        } catch (Exception e) {
-            errorMessage = e.getMessage();
-        }
-    }
+    String errorMessage = request.getParameter("errorMessage");
+    if (errorMessage == null) errorMessage = "";
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
@@ -169,18 +153,21 @@
         }
 
         function DeleteDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentDelete';
             document.DisplayDoc.delDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function UnDeleteDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentUndelete';
             document.DisplayDoc.undelDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
         }
 
         function RefileDoc() {
+            document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentRefile';
             document.DisplayDoc.refileDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.submit();
@@ -226,13 +213,13 @@
             if (curdocid != "0") {
                 var url2 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=display&doc_no='
                     + curdocid;
-                document.getElementById('docdisp').innerHTML = '<iframe	src="' + url2 + '"  width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '"></iframe>';
+                document.getElementById('docdisp').innerHTML = '<iframe src="' + url2 + '" width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '" title="Document preview"></iframe>';
 
                 var url4 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewDocumentDescription&doc_no=' + curdocid;
-                document.getElementById('docextrainfo').innerHTML = '<object data="' + url4 + '"  height=250px width="100%" type="text/html" ></object>';
+                document.getElementById('docextrainfo').innerHTML = '<iframe src="' + url4 + '" style="height:250px;width:100%;border:0;" title="Document details"></iframe>';
 
                 var url5 = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewAnnotationAcknowledgementTickler&doc_no=' + curdocid;
-                document.getElementById('docinfo').innerHTML = '<object data="' + url5 + '"  height=100px width="100%" type="text/html" ></object>';
+                document.getElementById('docinfo').innerHTML = '<iframe src="' + url5 + '" style="height:100px;width:100%;border:0;" title="Document annotations, acknowledgements and ticklers"></iframe>';
 
                 document.getElementById('printnotesbutton').style.visibility = 'hidden';
             } else {
@@ -245,7 +232,7 @@
         showPageCombineImg = function (doclist) {
 
             var url2 = '<%=request.getContextPath()%>' + '/documentManager/combinePDFs?ContentDisposition=inline' + doclist;
-            document.getElementById('docdisp').innerHTML = '<object	data="' + url2 + '" type="application/pdf" width="' + (getWidth() - 40) + '" height="' + (getHeight() - 50) + '"></object>';
+            document.getElementById('docdisp').innerHTML = '<iframe src="' + url2 + '" style="width:' + (getWidth() - 40) + 'px;height:' + (getHeight() - 50) + 'px;border:0;" title="Document preview"></iframe>';
             document.getElementById('docinfo').innerHTML = '';
             document.getElementById('docextrainfo').innerHTML = '';
             document.getElementById('printnotesbutton').style.visibility = 'hidden';
@@ -516,6 +503,7 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode va
                     <legend><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
                     <input type="hidden" name="view" value="<carlos:encode value='<%= view %>' context="htmlAttribute"/>">
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">

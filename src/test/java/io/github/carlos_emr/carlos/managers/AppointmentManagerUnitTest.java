@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -41,6 +42,7 @@ import org.mockito.quality.Strictness;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -111,6 +113,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         // Security manager returns true for all privilege checks by default
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
             .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
+            .thenReturn(true);
 
         // Create manager and inject dependencies
         appointmentManager = new AppointmentManagerImpl();
@@ -139,6 +143,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @BeforeEach
         void denyAllPrivileges() {
             when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
                 .thenReturn(false);
         }
 
@@ -187,8 +193,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldThrowException_whenGetHistoryWithoutDeletedWithoutReadPrivilege() {
             assertThatThrownBy(() ->
                 appointmentManager.getAppointmentHistoryWithoutDeleted(mockLoggedInInfo, TEST_DEMO_NO, 0, 10))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
         }
 
         @Test
@@ -519,6 +525,18 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
     class GetAppointmentHistoryWithoutDeleted {
 
         @Test
+        @DisplayName("should reject missing demographic before checking appointment privilege")
+        void shouldRejectMissingDemographic_beforeCheckingPrivilege() {
+            assertThatThrownBy(() -> appointmentManager.getAppointmentHistoryWithoutDeleted(
+                    mockLoggedInInfo, null, 0, 10))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_appointment)");
+
+            verifyNoInteractions(mockSecurityInfoManager);
+            verify(mockAppointmentDao, never()).getAppointmentHistory(any(), any(), any());
+        }
+
+        @Test
         @DisplayName("should return non-deleted appointments from DAO")
         void shouldReturnNonDeletedAppointments_whenHistoryRequested() {
             // Given
@@ -580,7 +598,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
                 mockLoggedInInfo, TEST_DEMO_NO, 0, 10);
 
             // Then
-            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_appointment", "r", null);
+            verify(mockSecurityInfoManager).hasPrivilege(
+                mockLoggedInInfo, "_appointment", "r", TEST_DEMO_NO);
         }
     }
 
@@ -1224,6 +1243,57 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
 
             // Then
             assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should query a half-open month window normalized to midnight boundaries")
+        void shouldQueryHalfOpenMonthWindow_whenSearchingMonth() {
+            // Given - January 2026 (month index 0), a 31-day month
+            when(mockAppointmentDao.findByDateRangeAndProvider(any(Date.class), any(Date.class), anyString()))
+                .thenReturn(Collections.emptyList());
+            ArgumentCaptor<Date> startCaptor = ArgumentCaptor.forClass(Date.class);
+            ArgumentCaptor<Date> endCaptor = ArgumentCaptor.forClass(Date.class);
+
+            // When
+            appointmentManager.findMonthlyAppointments(mockLoggedInInfo, TEST_PROVIDER, 2026, 0);
+
+            // Then - start is the first instant of the month, end is the first instant of the next month
+            verify(mockAppointmentDao).findByDateRangeAndProvider(
+                startCaptor.capture(), endCaptor.capture(), eq(TEST_PROVIDER));
+            assertThat(startCaptor.getValue()).isEqualTo(firstInstantOfMonth(2026, 0));
+            assertThat(endCaptor.getValue()).isEqualTo(firstInstantOfMonth(2026, 1));
+        }
+
+        @Test
+        @DisplayName("should cover an appointment on the last day of the month within the query window")
+        void shouldCoverLastDay_whenMonthEndsOnLeapDay() {
+            // Given - February 2024 (month index 1), a leap year ending on the 29th
+            when(mockAppointmentDao.findByDateRangeAndProvider(any(Date.class), any(Date.class), anyString()))
+                .thenReturn(Collections.emptyList());
+            ArgumentCaptor<Date> startCaptor = ArgumentCaptor.forClass(Date.class);
+            ArgumentCaptor<Date> endCaptor = ArgumentCaptor.forClass(Date.class);
+
+            // When
+            appointmentManager.findMonthlyAppointments(mockLoggedInInfo, TEST_PROVIDER, 2024, 1);
+
+            // Then - an appointment late on Feb 29 falls inside the half-open [start, end) window
+            verify(mockAppointmentDao).findByDateRangeAndProvider(
+                startCaptor.capture(), endCaptor.capture(), eq(TEST_PROVIDER));
+            assertThat(endCaptor.getValue()).isEqualTo(firstInstantOfMonth(2024, 2));
+
+            Calendar lastDay = Calendar.getInstance();
+            lastDay.set(2024, Calendar.FEBRUARY, 29, 23, 59, 59);
+            lastDay.set(Calendar.MILLISECOND, 0);
+            Date lastDayAppointment = lastDay.getTime();
+            assertThat(lastDayAppointment).isAfterOrEqualTo(startCaptor.getValue());
+            assertThat(lastDayAppointment).isBefore(endCaptor.getValue());
+        }
+
+        private Date firstInstantOfMonth(int year, int month) {
+            Calendar cal = Calendar.getInstance();
+            cal.set(year, month, 1, 0, 0, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            return cal.getTime();
         }
     }
 

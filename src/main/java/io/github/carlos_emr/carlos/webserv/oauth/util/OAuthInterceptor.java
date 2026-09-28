@@ -60,8 +60,10 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import jakarta.annotation.Resource;
@@ -86,9 +88,12 @@ import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
+import io.github.carlos_emr.CarlosProperties;
 
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
@@ -99,6 +104,13 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     private static final String OAUTH_LOGIN_SUCCESS = "OAUTH_LOGIN_SUCCESS";
     /** OscarLog action recorded on a rejected REST OAuth authentication (parity with SOAP WS_LOGIN_FAILURE). */
     private static final String OAUTH_LOGIN_FAILURE = "OAUTH_LOGIN_FAILURE";
+
+    /**
+     * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) preserves
+     * the historical behaviour where any valid token grants the provider's full API access; set to a
+     * truthy value to require the granted scope on piloted {@code /ws/services/*} endpoints.
+     */
+    private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
 
     @Autowired
     private OscarOAuthDataProvider oauthDataProvider;
@@ -117,9 +129,19 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         HttpServletRequest req =
             (HttpServletRequest) message.get(AbstractHTTPDestination.HTTP_REQUEST);
 
-        // 1) Skip non-OAuth1 requests
-        if (!OAuthRequestParser.isOAuth1Request(req)) {
-            return;
+        // 1) Fail closed: this interceptor guards the OAuth-only REST surface
+        // (/ws/services). A request that carries no OAuth credentials cannot be
+        // authenticated here, so reject it (401) instead of silently passing it
+        // through. Passing it through left every handler that omits its own
+        // privilege check reachable by an anonymous caller (unauthenticated PHI
+        // reads / IDOR / mutations) — see #2798. Session/browser clients use the
+        // separate session REST surface at /ws/rs (AuthenticationInInterceptor),
+        // so this does not affect them. A null request (non-HTTP transport) also
+        // cannot be authenticated, so it fails closed the same way.
+        if (req == null || !OAuthRequestParser.isOAuth1Request(req)) {
+            String remoteAddr = (req != null) ? req.getRemoteAddr() : null;
+            auditAuthFailure(remoteAddr, null);
+            throw toFault(new OAuth1Exception(401, "authentication_required"));
         }
 
         // Hoisted so the audit on both success and the auth-failure paths can record them.
@@ -162,12 +184,23 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
                 throw new OAuth1Exception(401, "invalid_signature");
             }
 
-            // 5) Resolve provider from ACCESS token and attach LoggedInInfo
-            String providerNo = oauthDataProvider.getProviderNoByAccessToken(token);
+            // 5) Resolve provider AND scopes from a single access-token load (the token's provider and its
+            //    granted scopes both come off the same ServiceAccessToken, so we avoid a second lookup that
+            //    could race token expiry/revocation between the two reads).
+            ServiceAccessToken accessToken = oauthDataProvider.findUnexpiredAccessToken(token);
+            if (accessToken == null) {
+                throw new OAuth1Exception(401, "unknown_provider");
+            }
+            String providerNo = accessToken.getProviderNo();
             Provider provider = providerDao.getProvider(providerNo);
             if (provider == null) {
                 throw new OAuth1Exception(401, "unknown_provider");
             }
+
+            // 5a) Enforce the granted OAuth scopes (issue #3083). No-op unless enforcement is enabled
+            //     AND the target endpoint is in the scope-enforcement pilot. Done before attaching
+            //     LoggedInInfo so an out-of-scope call never reaches the resource with a security context.
+            enforceScope(req, accessToken);
 
             LoggedInInfo info = new LoggedInInfo();
             info.setLoggedInProvider(provider);
@@ -237,6 +270,64 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         } catch (Exception e) {
             logger.error("Failed to write OAUTH_LOGIN_FAILURE audit entry", e);
         }
+    }
+
+    /**
+     * Enforces the granted OAuth 1.0a scopes for the current request (issue #3083).
+     *
+     * <p>Fast-exits when enforcement is disabled (the default) or when the target endpoint is outside
+     * the enforcement pilot ({@link OAuthScopes#requiredScope} returns {@link OAuthScopes#NO_SCOPE_REQUIRED}),
+     * so no extra token lookup happens on the un-piloted surface. When a scope is required and the token's
+     * granted scopes do not satisfy it, throws {@link OAuth1Exception} with HTTP 403 {@code insufficient_scope};
+     * the caller's catch block records the rejection in the audit trail.
+     */
+    private void enforceScope(HttpServletRequest req, ServiceAccessToken accessToken) {
+        if (!isScopeEnforcementEnabled()) {
+            return;
+        }
+        // Resolve the scope from getPathInfo(): the container-decoded, canonicalized path (dot-segments
+        // collapsed, matrix params stripped) that JAX-RS/CXF actually routes on. Using the raw request URI
+        // here would force us to re-implement that normalization and risk diverging from the real routing.
+        String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getPathInfo());
+        if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: endpoint outside the pilot
+            return;
+        }
+        if (!OAuthScopes.isSatisfiedBy(requiredScope, grantedScopes(accessToken))) {
+            throw new OAuth1Exception(403, "insufficient_scope");
+        }
+    }
+
+    /**
+     * Whether OAuth scope enforcement is switched on. Reads {@link #SCOPE_ENFORCEMENT_PROPERTY}; a config
+     * read failure leaves enforcement disabled so a transient configuration problem cannot turn into a
+     * blanket denial of all OAuth API traffic (consistent with the default-off rollout).
+     */
+    private boolean isScopeEnforcementEnabled() {
+        try {
+            return CarlosProperties.getInstance().isPropertyActive(SCOPE_ENFORCEMENT_PROPERTY);
+        } catch (Exception e) {
+            logger.warn("Could not read OAuth scope-enforcement flag; leaving enforcement disabled", e);
+            return false;
+        }
+    }
+
+    /**
+     * The scope strings granted on the access token, or an empty list when none are present. Persisted
+     * scopes are a space-delimited string that may be null/blank (e.g. tokens minted before scopes carried
+     * meaning); that is treated as no granted scopes so enforcement fails closed (403) rather than NPE-ing.
+     */
+    private static List<String> grantedScopes(ServiceAccessToken accessToken) {
+        String raw = accessToken == null ? null : accessToken.getScopes();
+        if (raw == null || raw.isBlank()) {
+            return Collections.emptyList();
+        }
+        List<String> scopes = new ArrayList<>();
+        for (String scope : raw.split(" ")) {
+            if (!scope.isEmpty()) {
+                scopes.add(scope);
+            }
+        }
+        return scopes;
     }
 
     /**

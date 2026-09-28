@@ -12,6 +12,13 @@
  * password, forcePasswordReset flag, and passwordUpdateDate in a finally block. Use a
  * disposable development database, not a production or PHI-bearing environment.
  *
+ * NOT for a migrated clinic database. This script needs TEST_PASSWORD_HASH to match the
+ * CARLOS dev seed and drives the seeded clinician `carlosdoc`, which an OSCAR 19 import
+ * deletes (its P0 pristine gate refuses a target holding extra logins, and the seed
+ * script removes the seeded clinician before the clinic's rows land). Point it at a dev
+ * database; for a migrated one use scripts/o19-migrated-smoke-playwright-checks.js,
+ * which discovers its own accounts and fixtures from the migrated schema.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/login-playwright-checks.js
  *
@@ -21,10 +28,10 @@
  *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
  *
  * Optional environment:
- *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   BASE_URL=https://127.0.0.1:8443/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -34,7 +41,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'https://127.0.0.1:8443/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
@@ -43,7 +50,7 @@ const testPin = requiredEnv('TEST_PIN');
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = requiredEnv('MYSQL_PASSWORD');
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const resetPasswordNoCsrf = ['Carlos', '2026', '!NoCsrf'].join('');
 const resetPasswordRetry = ['Carlos', '2026', '!Retry'].join('');
 const resetPasswordValid = ['Carlos', '2026', '!Valid'].join('');
@@ -66,12 +73,15 @@ function requiredEnv(name) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error('BASE_URL must use HTTPS because CARLOS session cookies are Secure (devcontainer: https://127.0.0.1:8443/carlos)');
   }
 
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
@@ -102,13 +112,28 @@ async function gotoApp(page, path, options = {}, query = null) {
   return page.goto(targetUrl, options); // nosemgrep
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied" —
+// verified live against a dev instance whose root password contained a
+// backslash. Double-quoting the value neutralizes '#' and surrounding
+// whitespace; '\' and '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-login-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(
+    file,
+    `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+    { mode: 0o600 }
+  );
   return { dir, file };
 }
 
@@ -204,7 +229,7 @@ async function assertResponseNotBlank(response, label, minBytes = 100) {
 }
 
 async function newBrowserContext(browser) {
-  return browser.newContext({ ignoreHTTPSErrors: true });
+  return browser.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
 }
 
 async function login(page, password = testPassword) {
@@ -286,7 +311,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('public login entry route rejects POST and allows GET', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
       const post = await api.post(appUrl('/index'), { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
@@ -312,7 +337,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('unauthenticated structured and download routes return 401', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
       const ajax = await api.get(appUrl('/billing/CA/ON/ViewSearchRefDocAjax'), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
@@ -485,7 +510,7 @@ async function expectSchedulePage(page, label) {
 
     await record('legacy /login forced-reset POST cannot change password without reset cache token', async () => {
       setForcedResetBaseline(1);
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
       const res = await api.post(appUrl('/login'), {
         form: {
           forcedpasswordchange: 'true',

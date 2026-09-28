@@ -156,7 +156,9 @@
                     if (data && data.errors && data.errors.length > 0) {
                         jQuery("#errorList").empty();
                         for (var x = 0; x < data.errors.length; x++) {
-                            jQuery("#errorList").append(data.errors[x]);
+                            var li = document.createElement('li');
+                            li.textContent = data.errors[x];
+                            document.getElementById('errorList').appendChild(li);
                         }
                         jQuery("#errorDiv").show();
                         return false;
@@ -164,7 +166,7 @@
                     }
 
                     if (opener != null && opener.opener != null) {
-                        opener.opener.postMessage(data, "*");
+                        opener.opener.postMessage(data, window.location.origin);
                     }
                     if (opener != null) {
                         opener.location.reload();
