@@ -89,6 +89,7 @@ public class PortalStaffContextResolver {
                     PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW);
 
     private static final String NO_PRIVILEGE = "missing required sec object (%s r)";
+    private static final String OR_READ = " r or ";
     private static final String NO_SCOPE = "a patient portal permission scope is required";
     private static final String UNSUPPORTED_OBJECT =
             "portal permission scope contains an unsupported security object";
@@ -152,8 +153,8 @@ public class PortalStaffContextResolver {
         }
         if (granted.isEmpty()) {
             // Sorted so the message does not depend on the caller's set iteration order.
-            throw new SecurityException(
-                    String.format(Locale.ROOT, NO_PRIVILEGE, String.join(" or ", new TreeSet<>(objects))));
+            throw new SecurityException(String.format(
+                    Locale.ROOT, NO_PRIVILEGE, String.join(OR_READ, new TreeSet<>(objects))));
         }
         return new PatientPortalStaffContext(providerNo, displayName(loggedInInfo), granted);
     }

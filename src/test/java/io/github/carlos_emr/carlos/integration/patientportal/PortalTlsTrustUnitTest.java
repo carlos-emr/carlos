@@ -247,9 +247,11 @@ class PortalTlsTrustUnitTest {
             String origin = startServer(otherHost);
             try (var transport = new PatientPortalHttpClientExchange(quick(), quick(),
                     Set.of(PortalCertificatePinning.pinFor(otherHost.certificate())))) {
-                // Both the handshake's endpoint check and HttpClient's verifier name the SANs.
+                // A CertificateException root cause means the handshake itself refused the name;
+                // HttpClient's later verifier would fail without one.
                 assertThatThrownBy(() -> transport.send(request(origin)))
                         .isInstanceOf(IOException.class)
+                        .hasRootCauseInstanceOf(CertificateException.class)
                         .hasStackTraceContaining("subject alternative names");
             }
             assertThat(requestsReceived.get()).isZero();

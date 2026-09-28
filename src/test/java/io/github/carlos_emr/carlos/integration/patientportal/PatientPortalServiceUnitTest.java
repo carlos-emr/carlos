@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException.Kind;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -320,9 +321,10 @@ class PatientPortalServiceUnitTest {
             assertThat(exception).isNotNull();
             assertThat(exception.kind()).isEqualTo(expected);
             assertThat(exception.statusCode()).isEqualTo(statusCode);
+            assertThat(exception.getCause()).isInstanceOf(PortalContractException.class);
         }
 
-        private java.io.IOException unreadable(String failure, int statusCode) {
+        private IOException unreadable(String failure, int statusCode) {
             return "too large".equals(failure)
                     ? new PortalResponseTooLargeException(statusCode)
                     : new PortalResponseDecodingException(statusCode);
@@ -349,7 +351,7 @@ class PatientPortalServiceUnitTest {
         void shouldReportZeroStatus_whenNoResponseArrived() {
             PatientPortalException exception =
                     PatientPortalException.ofTransportFailure(
-                            INVITE_PATH, new java.io.IOException("refused"));
+                            INVITE_PATH, new IOException("refused"));
 
             assertThat(exception.kind()).isEqualTo(Kind.TRANSPORT_FAILURE);
             assertThat(exception.statusCode()).isZero();

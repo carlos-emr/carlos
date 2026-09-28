@@ -54,11 +54,10 @@ import javax.net.ssl.X509TrustManager;
  *
  * <p><b>It is an {@link X509ExtendedTrustManager} so the handshake reaches the delegate.</b> JSSE
  * calls the socket- and engine-aware overloads, and those forward the handshake itself to the
- * platform trust manager: its endpoint-identity and algorithm-constraint checks, and any stapled
- * OCSP response it is configured to use. The endpoint-identity check runs because the transport
- * sets the HTTPS identification algorithm ({@code HostnameVerificationPolicy.BOTH}). A plain
- * {@link X509TrustManager} would instead be wrapped by JSSE, and the platform check would only
- * ever see the bare chain.
+ * platform trust manager, which checks the endpoint identity (the transport sets the HTTPS
+ * identification algorithm) and algorithm constraints against the live session. A plain {@link
+ * X509TrustManager} would get those two checks from a JSSE wrapper, but the platform validator
+ * would see only the bare chain, never the session's stapled OCSP responses.
  *
  * <p><b>Only the leaf is pinned.</b> The {@code chain} argument is supplied by the peer, not by the
  * validator, so a pin match anywhere in it proves nothing about the key that terminated the

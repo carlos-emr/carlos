@@ -55,6 +55,7 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.client5.http.ssl.HostnameVerificationPolicy;
+import org.apache.hc.client5.http.ssl.HttpsSupport;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
@@ -146,12 +147,14 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         logger.info(PINNING_ON, certificatePins.size());
         // Explicitly require modern TLS, and verify the hostname twice. BOTH sets the "HTTPS"
         // endpoint-identification algorithm, so the platform trust manager behind the pin checks
-        // the name during the handshake, and HttpClient's default verifier checks it again after.
+        // the name during the handshake; the verifier then checks it again after. BOTH runs only a
+        // verifier it is given, so the default one is passed explicitly.
         connectionManagerBuilder.setTlsSocketStrategy(
                 ClientTlsStrategyBuilder.create()
                         .setTlsVersions(TLS.V_1_2, TLS.V_1_3)
                         .setSslContext(sslContext)
                         .setHostVerificationPolicy(HostnameVerificationPolicy.BOTH)
+                        .setHostnameVerifier(HttpsSupport.getDefaultHostnameVerifier())
                         .buildClassic());
         PoolingHttpClientConnectionManager connectionManager = connectionManagerBuilder.build();
         RequestConfig requestConfig =

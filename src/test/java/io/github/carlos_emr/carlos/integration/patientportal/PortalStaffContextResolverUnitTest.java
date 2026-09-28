@@ -173,7 +173,7 @@ class PortalStaffContextResolverUnitTest {
                 .isInstanceOf(SecurityException.class);
         assertThatThrownBy(() -> resolver.resolve(loggedInInfo, Set.of(
                         PortalStaffContextResolver.OBJECT_INVITE, PortalStaffContextResolver.OBJECT_ACCOUNT)))
-                .hasMessage("missing required sec object (_portal.account or _portal.invite r)");
+                .hasMessage("missing required sec object (_portal.account r or _portal.invite r)");
     }
 
     @Test

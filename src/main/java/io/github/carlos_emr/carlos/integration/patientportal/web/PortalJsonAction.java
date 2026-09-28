@@ -241,9 +241,10 @@ public abstract class PortalJsonAction extends ActionSupport {
     String write(HttpServletResponse response, int status, ObjectNode payload) throws IOException {
         response.setStatus(status);
         response.setContentType(JSON);
-        // These routes are extensionless, so the global no-cache filter, which matches only the
-        // .jsp/.jsf/.json endings, never sees them. Set this explicitly so patient-linked portal
-        // state and mutation outcomes do not remain in a browser or intermediary cache.
+        // These routes are extensionless, so the global no-cache filter, which applies no-cache
+        // only to the .jsp/.jsf/.json endings, never applies it to them. Set it explicitly so
+        // patient-linked portal state and mutation outcomes do not remain in a browser or
+        // intermediary cache.
         response.setHeader("Cache-Control", NO_CACHE);
         PrintWriter writer = response.getWriter();
         writer.write(OBJECT_MAPPER.writeValueAsString(payload));

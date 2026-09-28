@@ -729,7 +729,12 @@ public class PatientPortalService implements Closeable {
     private static PatientPortalException unreadableBody(
             int statusCode, String template, PortalContractException cause) {
         if (!PatientPortalHttpResponse.isSuccess(statusCode)) {
-            return PatientPortalException.ofStatus(statusCode, template, null);
+            PatientPortalException failure =
+                    PatientPortalException.ofStatus(statusCode, template, null);
+            // Keep why the body was unreadable: an oversized or non-UTF-8 error page points at
+            // a proxy rather than at the portal.
+            failure.initCause(cause);
+            return failure;
         }
         return PatientPortalException.ofMalformedResponse(statusCode, template, cause);
     }
