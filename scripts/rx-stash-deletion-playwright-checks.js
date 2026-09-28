@@ -9,7 +9,49 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openRx, stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 
-async function resetAndWaitForAcknowledgement(page, card, clickReset, modal) {
+/** Hold a real CSS opening transition until reset is acknowledged, independent of VM speed. */
+async function holdPreviewOpeningTransition(page) {
+  // Bootstrap also installs a duration-based fallback. Keep it beyond all test deadlines;
+  // pause/finish below controls the actual browser transition without mocking Bootstrap.
+  const style = await page.addStyleTag({content: '#carlosModal.fade .modal-dialog { transition: opacity 300s linear !important; transform: none !important; opacity: .99; } #carlosModal.show .modal-dialog { opacity: 1; }'});
+  await page.evaluate(() => {
+    window.__rxPreviewShown = false;
+    document.getElementById('carlosModal').addEventListener('shown.bs.modal', () => {
+      window.__rxPreviewShown = true;
+    }, {once: true});
+  });
+  let released = false;
+  return {
+    async pause() {
+      const captured = await page.evaluate(() => {
+        const dialog = document.querySelector('#carlosModal .modal-dialog');
+        const transition = dialog.getAnimations().find(animation => animation.transitionProperty === 'opacity');
+        if (!transition || window.__rxPreviewShown) return false;
+        window.__rxPreviewOpeningTransition = transition;
+        transition.pause();
+        return true;
+      });
+      h.assert(captured, 'preview reset fixture did not capture the real opening CSS transition');
+    },
+    async release() {
+      if (released) return;
+      released = true;
+      await page.evaluate(() => {
+        const transition = window.__rxPreviewOpeningTransition;
+        if (transition) transition.finish(); // Emits native transitionend; Bootstrap owns shown/hidden.
+      });
+    },
+    async cleanup() {
+      try {
+        await this.release();
+      } finally {
+        await style.evaluate(element => element.remove());
+      }
+    },
+  };
+}
+
+async function resetAndWaitForAcknowledgement(page, card, clickReset, modal, openingTransition) {
   let release;
   let intercepted;
   const hold = new Promise(resolve => { release = resolve; });
@@ -42,6 +84,8 @@ async function resetAndWaitForAcknowledgement(page, card, clickReset, modal) {
       h.assert(modalState.instancePresent, 'preview reset had no modal instance owned by the parent page');
       h.assert(modalState.shown === false,
         'preview reset coverage did not acknowledge the reset during its opening transition');
+      await openingTransition.release();
+      await page.waitForFunction(() => window.__rxPreviewShown === true);
       await modal.waitFor({ state: 'hidden' });
     }
   } finally {
@@ -179,23 +223,21 @@ async function workflow(session) {
     const script = session.sql.value(`SELECT script_no FROM drugs WHERE demographic_no=${session.patient}
       AND customName=${h.sqlString(`${session.marker}-discontinued`)}`);
     h.assert(/^[1-9]\d*$/.test(script), 'preview reset requires the owned saved prescription');
-    // Keep the real Bootstrap opening transition active long enough to exercise a fast
-    // acknowledgement reliably. Opacity leaves the button's position stable for a real click.
-    await page.addStyleTag({ content: '#carlosModal.fade .modal-dialog { transition: opacity 3s linear !important; transform: none !important; opacity: .99; } #carlosModal.show .modal-dialog { opacity: 1; }' });
-    await page.evaluate(() => {
-      window.__rxPreviewShown = false;
-      document.getElementById('carlosModal').addEventListener('shown.bs.modal', () => {
-        window.__rxPreviewShown = true;
-      }, { once: true });
-    });
-    await page.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
-    await page.locator(`#reprint a[onclick*="reprint2('${script}')"]`).first().click();
-    const modal = page.locator('#carlosModal');
-    await modal.waitFor({ state: 'visible' });
-    const preview = page.frameLocator('#carlosModalBody iframe').first();
-    const reset = preview.locator('input[onclick="resetStash();"]');
-    await reset.waitFor({ state: 'visible' });
-    await resetAndWaitForAcknowledgement(page, page.locator(`#set_${key}`), () => reset.click(), modal);
+    const openingTransition = await holdPreviewOpeningTransition(page);
+    try {
+      await page.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
+      await page.locator(`#reprint a[onclick*="reprint2('${script}')"]`).first().click();
+      const modal = page.locator('#carlosModal');
+      await modal.waitFor({ state: 'visible' });
+      await openingTransition.pause();
+      const preview = page.frameLocator('#carlosModalBody iframe').first();
+      const reset = preview.locator('input[onclick="resetStash();"]');
+      await reset.waitFor({ state: 'visible' });
+      await resetAndWaitForAcknowledgement(page, page.locator(`#set_${key}`), () => reset.click(),
+        modal, openingTransition);
+    } finally {
+      await openingTransition.cleanup();
+    }
     await page.close();
     const reopened = await openRx(session, session.patient);
     h.assert(await reopened.locator(`#set_${key}`).count() === 0, 'preview-reset draft returned after reopening Rx');
@@ -204,4 +246,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-stash-deletion', workflow);
-module.exports = { workflow };
+module.exports = { workflow, holdPreviewOpeningTransition };
