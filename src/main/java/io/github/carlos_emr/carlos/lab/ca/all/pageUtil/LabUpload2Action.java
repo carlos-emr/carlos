@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.HHSEmrDownloadHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -89,9 +90,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     private static final String OUTCOME_EXCEPTION = "exception";
 
     /**
-     * Deliberately non-specific outcome for a message the receiver refuses before it can
-     * attribute it to a sender. It must not distinguish "no such service" from "key unusable"
-     * or "undecryptable", so a caller cannot probe which services are configured.
+     * Deliberately non-specific outcome for a message the receiver refuses as the sender's
+     * error: an unknown or missing service, or a message that does not decrypt. It must not
+     * distinguish those from each other. A receiver fault, including a stored sender key that
+     * cannot be parsed, is not a rejection: it is answered as an exception (500) so the sender
+     * retries.
      */
     private static final String OUTCOME_REJECTED = "rejected";
 
@@ -128,7 +131,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // receiver fault takes that path through respond().
             ArrayList<Object> clientInfo = getClientInfo(service);
             if (clientInfo.size() < 2) {
-                logger.warn("Rejected lab upload: no usable sender public key for the requested service");
+                logger.warn("Rejected lab upload: unknown or missing service={}", LogSafe.sanitize(service));
                 return respond(OUTCOME_REJECTED, "", HttpServletResponse.SC_BAD_REQUEST);
             }
             PublicKey clientKey = (PublicKey) clientInfo.get(0);
@@ -403,8 +406,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         try {
             Files.deleteIfExists(staged.toPath());
         } catch (IOException | RuntimeException e) {
-            logger.error("Could not delete the staged lab upload; remove it from the temp directory ({})",
-                    e.getClass().getSimpleName());
+            // The staged name is random and holds no patient data, so it is safe to log.
+            logger.error("Could not delete the staged lab upload {}; remove it by hand, it holds cleartext ({})",
+                    LogSafe.sanitize(staged.getAbsolutePath()), e.getClass().getSimpleName());
         }
     }
 

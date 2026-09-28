@@ -300,6 +300,14 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         executeUpload();
 
         assertRejected();
+
+        // The parameter absent altogether.
+        resetResponse();
+        request.removeParameter("service");
+
+        executeUpload();
+
+        assertRejected();
         verify(publicKeyDao, never()).find(any());
         utilities.verifyNoInteractions();
     }

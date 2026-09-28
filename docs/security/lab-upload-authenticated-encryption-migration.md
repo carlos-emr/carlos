@@ -8,8 +8,8 @@ RSA PKCS#1 v1.5. These algorithms cannot be changed in the receiver until every 
 sender has implemented and tested the same replacement protocol.
 
 This document is the coordination contract for that migration. It does not authorize a
-receiver-only cipher change. Code scanning alerts 6904 and 5637 remain valid until the
-legacy path is removed.
+receiver-only cipher change. The legacy ECB cipher it replaces stays in place, and flagged by
+code scanning (see the status notes below), until the legacy path is removed.
 
 ## Current protocol
 
@@ -58,40 +58,63 @@ receiver; see the verification note below.
   `GetPublicKey2Action` is `_admin`-gated and returns `publicKeys` rows, not the receiver
   key. The exposure is that the key is distributed to third parties by design.)
   **Fixed:** the receiver now stages the decrypted message in an owner-only temporary file,
-  verifies the signature, and only then persists it; the staged copy is always deleted. The
+  verifies the signature, and only then persists it; the staged copy is deleted on every path,
+  and a failed delete is logged for an operator. The
   stored copy is compared byte-for-byte with the verified staged copy before it is parsed,
   so what is parsed is exactly what was verified; a storage helper that returns no path is
   answered `500`. Version 2 keeps this ordering.
 - An unrecognized `service` produced an empty client-info list, and the subsequent element
-  access threw out of `execute()`. On older builds the `lab` package's `errorpage.jsp`
-  forward answered that with **HTTP 200 and an HTML error page**, so a sender read a
-  misconfigured or retired service as a successful delivery. Since the exception-mapping
-  interceptor (#3623) it is answered `500`, which tells the sender to retry a delivery
-  that can never succeed.
+  access threw out of `execute()`. On builds before #3401 the `lab` package's
+  `errorpage.jsp` forward answered that with **HTTP 200 and an HTML error page**, so a
+  sender read a misconfigured or retired service as a successful delivery. Since #3401
+  (every 2026.08.0 build) `errorpage.jsp` answers it `500`, which tells the sender to retry
+  a delivery that can never succeed.
   **Fixed:** an unknown or missing `service` and an undecryptable message — a failed key
   unwrap and a failed AES block alike — now share one non-specific `rejected` outcome with
-  status `400`, so a caller cannot probe which services are configured. A receiver-side
+  status `400`, so the status alone does not say which of those failed. (A caller holding the
+  receiver public key can still tell a configured service from an unknown one, because a
+  configured service with a bad signature answers `406`; version 2 removes that
+  distinction. The endpoint also needs an authenticated `_lab` write session.) A receiver-side
   fault is deliberately *not* folded into that outcome: the key lookup failing, a stored
   sender key that cannot be parsed, the receiver's own private key being unavailable, or
   the verified message failing to save all stay `500`, so a sender that treats `4xx` as
   permanent keeps retrying through a receiver fault. Version 2 keeps this behavior. A signature failure remains `406`, so the legacy path still separates
   "undecryptable" from "unverified"; version 2 collapses them (see below).
 
-These two fixes are receiver-local. They change no request field, no response body, and no
-algorithm, and the accepted (`200`), duplicate (`409`), and signature-rejected (`406`)
-statuses are unchanged, so conforming senders are unaffected and the fixes did not need the
-coordination gates below. The observable differences are on failure paths, with
+One receiver fault does land in the `rejected` outcome: if the receiver's own key pair
+changes (an `oscarKeys` row regenerated after a restore) while senders keep the old public
+key, every message fails to unwrap and is answered `400`. Senders that treat `4xx` as
+permanent would then stop retrying; confirm with sender owners that such a burst is
+investigated, not dropped.
+
+These two fixes are receiver-local. They change no request field and no algorithm, and the
+accepted (`200`), duplicate (`409`), and signature-rejected (`406`) statuses are unchanged,
+so the fixes did not need the coordination gates below. The response body's `<outcome>`
+element gains one token, `rejected`. The observable differences are on failure paths. With
 `use_http_response_code` set:
 
 | Case | Before | Now |
 |---|---|---|
-| Unknown or missing `service` | `500` (a `200` error page on builds before #3623) | `400` |
-| Failed key unwrap | `500` | `400` |
+| Unknown or missing `service` | `500` (a `200` error page on builds before #3401) | `400` |
+| Failed key unwrap | `500` (`406` on 2026.08.0-alpha12 and earlier for non-PDF types, with an empty file left in `DOCUMENT_DIR`) | `400` |
 | Failed AES block | `500` (`406` on builds whose storage helpers still returned a path after a failed write) | `400` |
 | Stored sender key cannot be parsed | `500` | `500` |
 | Signature does not verify | `406`, with the decrypted file left in `DOCUMENT_DIR` | `406`, with nothing stored |
 | Upload validation error, or no uploaded file | `200` | `400` |
 | Uploaded file outside the allowed temp directory | `200` | `403` |
+
+Without `use_http_response_code` the receiver answers the upload page with HTTP `200` and an
+`<outcome>` element, except where an unhandled error produced the HTML error page:
+
+| Case | Before | Now |
+|---|---|---|
+| Unknown or missing `service` | HTML error page, `500` | `200`, `<outcome>rejected</outcome>` |
+| Sender key lookup fails, or stored key cannot be parsed | HTML error page, `500` | `200`, `<outcome>exception</outcome>` |
+| Failed key unwrap or AES block | `200`, `<outcome>exception</outcome>` | `200`, `<outcome>rejected</outcome>` |
+
+A sender that does not set the flag and reads only the HTTP status therefore now sees an
+unknown service as `200`; it must read `<outcome>`. Sender owners should confirm which mode
+their implementation uses.
 
 These fixes do not remove the ECB cipher itself. SpotBugs' finding for it is suppressed on
 `decryptMessage` with a pointer to #3413 (alert 6904 is closed); SonarCloud's (alert 5637)
@@ -104,7 +127,7 @@ receiver, **before the fixes above were applied**, using an independently writte
 built only from this document. Observed pre-fix outcomes, with `use_http_response_code`
 set: valid signature `200`; invalid signature
 `406` with the decrypted file left in `DOCUMENT_DIR`; unknown service `200` with an error
-page; and re-delivery of identical lab content under a freshly generated message key
+page (that build predated #3401); and re-delivery of identical lab content under a freshly generated message key
 `409`, confirming that `FileUploadCheck` deduplicates decrypted content rather than the
 envelope. Reproduce with synthetic keys and synthetic lab content only.
 
