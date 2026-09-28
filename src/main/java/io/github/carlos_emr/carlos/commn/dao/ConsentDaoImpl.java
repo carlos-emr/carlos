@@ -122,10 +122,11 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
 
     /**
      * Returns all demographic ids that have consented (opt-in) to the given consent
-     * type id.
+     * type id. Each patient appears once, and a patient with a live opt-out on any record of the
+     * type is left out, as in {@link ConsentRecords#effective}.
      *
-     * @param consentTypeId
-     * @return
+     * @param consentTypeId the consent type id
+     * @return the ids of the consented patients; empty when there are none
      */
     @Override
     public List<Integer> findAllDemoIdsConsentedToType(int consentTypeId) {

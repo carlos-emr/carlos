@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.ListIterator;
@@ -44,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -52,9 +54,13 @@ import io.github.carlos_emr.carlos.log.LogAction;
  * Manages the various consents required from patients for participation in specific programs
  * or to share health information with other providers.
  */
-// Class-level so that every public entry point, including the overloads that call each other,
-// runs the consent edit and the retirement of duplicate records in one transaction. A method-level
-// annotation is bypassed when another method of this class calls in (SonarCloud S2229).
+// Class-level so that every write entry point, including the overloads that call each other,
+// runs the consent edit, the retirement of duplicate records and their audit rows in one
+// transaction: a change to a patient's consent does not commit without its audit row. A
+// method-level annotation is bypassed when another method of this class calls in (SonarCloud
+// S2229). Reads are SUPPORTS: as before, they run without a transaction of their own, so a search
+// does not dirty-check every record it has loaded before each query, and a failed audit insert
+// does not fail the read.
 @Service
 @Transactional
 public class PatientConsentManagerImpl implements PatientConsentManager {
@@ -144,7 +150,11 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Creates a new demographic consent record for the consent policy
      * identified by consentTypeId if one doesn't already exist, or updates
-     * the existing demographic consent record if a record already does exist
+     * the existing demographic consent record if a record already does exist.
+     * <p>
+     * When the patient has several live records of this type, the deciding one
+     * ({@link ConsentRecords#effective}) is updated and the others are soft-deleted, each
+     * audit-logged, so one live record remains.
      *
      * @param loggedinInfo   the user information for the current OSCAR user
      * @param demographic_no the demographic number of the patient
@@ -202,31 +212,27 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
                 consentDao.merge(consent);
                 addOrUpdateDbComplete = true;
             }
-            retireDuplicates(loggedinInfo, demographic_no, live, consent);
+            retireDuplicates(loggedinInfo, demographic_no, consentType.getId(), live, consent);
         }
 
         return addOrUpdateDbComplete;
     }
 
     /**
-     * Soft-deletes every live record other than {@code kept}. Nothing is destroyed: the rows stay
-     * for audit with {@code deleted} set, and each one retired is logged.
+     * Soft-deletes every live record other than {@code kept}. Only {@code deleted} is set: each
+     * row keeps its own author and edit date, since no one chose to change it, and the audit log
+     * records who retired it and when.
      */
-    private void retireDuplicates(LoggedInInfo loggedinInfo, int demographic_no, List<Consent> live, Consent kept) {
-        Date now = null;
+    private void retireDuplicates(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, List<Consent> live, Consent kept) {
         for (Consent duplicate : live) {
             if (duplicate == kept || duplicate.getId() == null || duplicate.getId().equals(kept.getId())) {
                 continue;
             }
-            if (now == null) {
-                now = new Date(System.currentTimeMillis());
-            }
             duplicate.setDeleted(Boolean.TRUE);
-            duplicate.setEditDate(now);
-            duplicate.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
             consentDao.merge(duplicate);
             LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.retireDuplicateConsent",
-                    " Demographic: " + demographic_no + " ConsentId: " + duplicate.getId() + " KeptConsentId: " + kept.getId());
+                    " Demographic: " + demographic_no + " ConsentTypeId: " + consentTypeId
+                            + " ConsentId: " + duplicate.getId() + " KeptConsentId: " + kept.getId());
         }
     }
 
@@ -299,6 +305,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Returns a list of all the patient consent types currently active.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<ConsentType> getConsentTypes() {
 
         List<ConsentType> consentTypeList = null;
@@ -313,6 +320,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * @return the list of consent types that are currently marked as active
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<ConsentType> getActiveConsentTypes() {
         return consentTypeDao.findAllActive();
     }
@@ -321,6 +329,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Returns a consent type by the consent type id.
      * This can be used to determine the consent program for a consent type id.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public ConsentType getConsentTypeByConsentTypeId(int consentTypeId) {
         return consentTypeDao.find(consentTypeId);
     }
@@ -329,6 +338,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Returns a ConsentType by the consent program type. Used to get the id of a ConsentType
      * by its program name.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public ConsentType getConsentType(String type) {
         return consentTypeDao.findConsentType(type);
     }
@@ -336,6 +346,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Returns a list of patient consents given by a specified patient for a specific ConsentType ID.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
         Consent consent = null;
         ConsentType consentType = getConsentTypeByConsentTypeId(consentTypeId);
@@ -349,6 +360,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Returns a list of patient consents given by a specified patient for a specific ConsentType program.
      * Find the ConsentType object first with getConsentType( String type )
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, ConsentType consentType) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
             throw new RuntimeException("Unauthorised Access. Object[_demographic]");
@@ -367,6 +379,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Returns the deciding record for each consent type the patient has a live record for.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
@@ -387,6 +400,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * A boolean determination for if the patient has consented to the given ConsentType/program.
      * A consent is when the consent object exists AND if the patient has not Opted out.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public boolean hasPatientConsented(int demographic_no, ConsentType consentType) {
 
         Consent consent = null;
@@ -406,6 +420,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Get all consents by the type indicated that were edited after the date given.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<Consent> getConsentsByTypeAndEditDate(LoggedInInfo loggedinInfo, ConsentType consentType, Date editedAfter) {
 
         List<Consent> consentList = consentDao.findLastEditedByConsentTypeId(consentType.getId(), editedAfter);
@@ -420,31 +435,36 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Update Consent status to "deleted".
      * Just in case someone clicks the "Clear" button in the demographic interface because they changed their mind or
      * entered the Opt-in or Opt-out consent by mistake.
-     * It is assumed that a record of this should be kept. So this method will delete the consent and update the edit date.
+     * It is assumed that a record of this should be kept. So this method soft-deletes every live record of the
+     * type, duplicates included, setting its edit date and author, and audit-logs the ids deleted.
      * A new entry will be inserted into the table should the user change their mind again.
+     * Requires write privilege on the patient. An unknown or inactive consent type changes nothing.
      */
     public void deleteConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
-        // Deleting a consent changes the chart, so it needs write, like every other consent mutation here.
+        // Clearing a consent changes the chart, so it needs write privilege on the patient, as saving one does.
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
             throw new RuntimeException("Unauthorised Access. Object[_demographic]");
         }
 
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()", " Demographic: " + demographic_no);
-
-        // Delete every live record: with duplicates, deleting only one left the others deciding.
         ConsentType consentType = getConsentTypeByConsentTypeId(consentTypeId);
         if (consentType == null || !consentType.isActive()) {
             return;
         }
+        // Delete every live record: with duplicates, deleting only one left the others deciding.
+        List<Integer> deletedIds = new ArrayList<>();
         Date now = new Date(System.currentTimeMillis());
         for (Consent consent : consentDao.findLiveByDemographicAndConsentTypeId(demographic_no, consentTypeId)) {
             consent.setDeleted(Boolean.TRUE);
             consent.setEditDate(now);
             consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
             consentDao.merge(consent);
+            deletedIds.add(consent.getId());
         }
+        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()",
+                " Demographic: " + demographic_no + " ConsentTypeId: " + consentTypeId + " ConsentIds: " + deletedIds);
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public boolean hasProviderSpecificConsent(LoggedInInfo loggedInInfo) {
         ConsentType conType = consentTypeDao.findConsentTypeForProvider(ConsentType.PROVIDER_CONSENT_FILTER, loggedInInfo.getLoggedInProviderNo());
         if (conType == null) {
@@ -453,11 +473,13 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return true;
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public ConsentType getProviderSpecificConsent(LoggedInInfo loggedInInfo) {
         ConsentType conType = consentTypeDao.findConsentTypeForProvider(ConsentType.PROVIDER_CONSENT_FILTER, loggedInInfo.getLoggedInProviderNo());
         return conType;
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<? extends DemographicData> filterProviderSpecificConsent(LoggedInInfo loggedInInfo, List<? extends DemographicData> demographicResults) {
         ConsentType consentType = getProviderSpecificConsent(loggedInInfo);
         if (consentType != null) {
@@ -473,6 +495,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return demographicResults;
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<Integer> getAllDemographicsWithOptinConsentByType(LoggedInInfo loggedinInfo, ConsentType consentTypeId) {
         return consentDao.findAllDemoIdsConsentedToType(consentTypeId.getId());
     }

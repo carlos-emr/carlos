@@ -24,6 +24,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -31,7 +32,12 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionAttribute;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -170,6 +176,28 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(newerOptIn.isDeleted()).isTrue();
             verify(mockConsentDao).merge(olderOptOut);
             verify(mockConsentDao).merge(newerOptIn);
+        }
+
+        @Test
+        @DisplayName("should retire a duplicate without rewriting its author or dates, and audit-log it")
+        void shouldKeepAuthorAndDates_whenRetiringDuplicate() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Date enteredAt = new Date(2_000L);
+            Consent newerOptIn = consent(11, false, enteredAt);
+            newerOptIn.setLastEnteredBy("clerk2");
+            Consent olderOptOut = consent(12, true, new Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(newerOptIn, olderOptOut));
+
+            // An unrelated chart save re-submits the shown opt-out; no one chose to change the opt-in.
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, true);
+
+            assertThat(newerOptIn.isDeleted()).isTrue();
+            assertThat(newerOptIn.getLastEnteredBy()).isEqualTo("clerk2");
+            assertThat(newerOptIn.getEditDate()).isSameAs(enteredAt);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.retireDuplicateConsent"),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 11 KeptConsentId: 12")));
         }
 
         @Test
@@ -404,15 +432,49 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             ConsentType ct = createActiveConsentType(1, "email");
             Consent first = consent(11, false, new java.util.Date(2_000L));
             Consent second = consent(12, true, new java.util.Date(1_000L));
+            first.setLastEnteredBy("clerk2");
+            second.setLastEnteredBy("clerk2");
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
             when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(first, second));
 
             manager.deleteConsent(loggedInInfo, 100, 1);
 
-            assertThat(first.isDeleted()).isTrue();
-            assertThat(second.isDeleted()).isTrue();
+            // A Clear is a staff action, so each deleted row records who cleared it and when.
+            for (Consent cleared : List.of(first, second)) {
+                assertThat(cleared.isDeleted()).isTrue();
+                assertThat(cleared.getLastEnteredBy()).isEqualTo("999998");
+                assertThat(cleared.getEditDate().getTime()).isGreaterThan(2_000L);
+            }
             verify(mockConsentDao).merge(first);
             verify(mockConsentDao).merge(second);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.deleteConsent()"),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentIds: [11, 12]")));
+        }
+
+        @Test
+        @DisplayName("should delete and log nothing when the consent type is inactive")
+        void shouldChangeNothing_whenConsentTypeInactive() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            ct.setActive(false);
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+
+            manager.deleteConsent(loggedInInfo, 100, 1);
+
+            verifyNoInteractions(mockConsentDao);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should delete and log nothing when the consent type does not exist")
+        void shouldChangeNothing_whenConsentTypeUnknown() {
+            when(mockConsentTypeDao.find(1)).thenReturn(null);
+
+            manager.deleteConsent(loggedInInfo, 100, 1);
+
+            verifyNoInteractions(mockConsentDao);
+            logActionMock.verifyNoInteractions();
         }
 
         @Test
@@ -447,6 +509,44 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             List<Consent> result = manager.getAllConsentsByDemographic(loggedInInfo, 100);
 
             assertThat(result).containsExactly(olderOptOut, otherType);
+        }
+
+        @Test
+        @DisplayName("should throw and read nothing when read privilege denied")
+        void shouldThrow_whenReadPrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 100))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Unauthorised Access");
+            verifyNoInteractions(mockConsentDao);
+        }
+    }
+
+    @Nested
+    @DisplayName("transaction attributes")
+    class TransactionAttributes {
+
+        @Test
+        @DisplayName("should run reads without a transaction of their own, and each write in one")
+        void shouldUseSupportsForReadsAndRequiredForWrites_forEveryPublicMethod() {
+            AnnotationTransactionAttributeSource source = new AnnotationTransactionAttributeSource();
+            for (Method method : PatientConsentManagerImpl.class.getDeclaredMethods()) {
+                if (!Modifier.isPublic(method.getModifiers()) || method.isSynthetic()) {
+                    continue;
+                }
+                String name = method.getName();
+                // Relies on the naming rule here: reads are get*, has* or filter*; anything else writes.
+                // Name a new read that way, or it is held to REQUIRED.
+                boolean read = name.startsWith("get") || name.startsWith("has") || name.startsWith("filter");
+                TransactionAttribute attribute = source.getTransactionAttribute(method, PatientConsentManagerImpl.class);
+
+                assertThat(attribute).as(name).isNotNull();
+                assertThat(attribute.getPropagationBehavior()).as(name).isEqualTo(read
+                        ? TransactionDefinition.PROPAGATION_SUPPORTS
+                        : TransactionDefinition.PROPAGATION_REQUIRED);
+            }
         }
     }
 }

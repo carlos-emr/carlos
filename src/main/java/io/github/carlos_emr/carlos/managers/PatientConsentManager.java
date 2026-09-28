@@ -99,7 +99,11 @@ public interface PatientConsentManager {
     /**
      * Creates a new demographic consent record for the consent policy
      * identified by consentTypeId if one doesn't already exist, or updates
-     * the existing demographic consent record if a record already does exist
+     * the existing demographic consent record if a record already does exist.
+     * <p>
+     * When the patient has several live records of this type, the deciding one
+     * ({@link io.github.carlos_emr.carlos.commn.dao.ConsentRecords#effective}) is updated and the
+     * others are soft-deleted, each audit-logged, so one live record remains.
      *
      * @param loggedinInfo   the user information for the current OSCAR user
      * @param demographic_no the demographic number of the patient
@@ -184,8 +188,10 @@ public interface PatientConsentManager {
      * Update Consent status to "deleted".
      * Just in case someone clicks the "Clear" button in the demographic interface because they changed their mind or
      * entered the Opt-in or Opt-out consent by mistake.
-     * It is assumed that a record of this should be kept. So this method will delete the consent and update the edit date.
+     * It is assumed that a record of this should be kept. So this method soft-deletes every live record of the
+     * type, duplicates included, setting its edit date and author, and audit-logs the ids deleted.
      * A new entry will be inserted into the table should the user change their mind again.
+     * Requires write privilege on the patient. An unknown or inactive consent type changes nothing.
      */
     void deleteConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 

@@ -47,7 +47,11 @@ public interface ConsentDao extends AbstractDao<Consent> {
     /** @return every live record for the patient and type, most recently edited first */
     public List<Consent> findLiveByDemographicAndConsentTypeId(int demographic_no, int consentTypeId);
 
-    /** As {@link #findByDemographicAndConsentTypeId}, selecting the type by its name. */
+    /**
+     * @return the deciding live record, per {@link ConsentRecords#effective}, among the patient's
+     *     records of every consent type with this name. Neither DAO lookup checks the type's active
+     *     flag; the manager's lookups by id do. {@code null} when there is none.
+     */
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType);
 
     public List<Consent> findByDemographic(int demographic_no);
