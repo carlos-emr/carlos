@@ -104,6 +104,17 @@ class CarlosPropertiesRuntimeDefaultsTest extends CarlosUnitTestBase {
         assertThat(properties.getProperty("view.appointmentdaysheetbutton")).isEqualTo("off");
     }
 
+    /**
+     * The status pull-down on add/edit appointment and the admin "Appointment Status
+     * Setting" link are both gated on this key; without it new appointments silently
+     * default to status {@code t} and the status codes cannot be edited.
+     */
+    @Test
+    @DisplayName("should enable appointment status editing by default in carlos properties")
+    void shouldEnableAppointmentStatusEditing_byDefault() throws IOException {
+        assertThat(loadCarlosProperties().getProperty("ENABLE_EDIT_APPT_STATUS")).isEqualTo("yes");
+    }
+
     private String readCarlosPropertiesContent() throws IOException {
         try (InputStream inputStream = openCarlosProperties()) {
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
